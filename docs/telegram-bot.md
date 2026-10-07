@@ -81,14 +81,14 @@ Tất cả tin nhắn gửi đến bot đều được kiểm soát bởi `AuthG
 
 ### 1. Trạng thái "Đang soạn tin..." liên tục (`withTyping`)
 
-zalo tự động tắt trạng thái `typing` sau 5 giây. Hàm `withTyping` tự động gửi action `typing` lặp lại mỗi **4 giây** bằng `setInterval` cho đến khi toàn bộ tác vụ của Gemini và Google hoàn tất.
+zalo tự động tắt trạng thái `typing` sau 5 giây. Hàm `withTyping` tự động gửi action `typing` lặp lại mỗi **4 giây** bằng `setInterval` cho đến khi tác vụ xử lý hoàn tất.
 
 ### 2. Gửi phản hồi an toàn & Chia nhỏ tin nhắn (`sendSafeReply`)
 
 - Tự động chia nhỏ tin nhắn dài vượt quá giới hạn 4000 ký tự của zalo.
-- Chuẩn hóa Markdown do AI tạo trước khi gửi: giải mã HTML entity và bỏ escape thừa trong URL, nên chuỗi như không hiển thị nguyên văn trong chat.
+- Chuẩn hóa Markdown trước khi gửi: giải mã HTML entity và bỏ escape thừa trong URL.
 - Tự động fallback về plain-text nếu cú pháp Markdown vẫn bị lỗi ký tự đặc biệt.
 
 ### 3. Voice-to-text cục bộ
 
-Voice zalo được chuyển thành text bởi `whisper.cpp` trong container, không dùng API key. Bot luôn hiển thị transcript với nút **Xác nhận**, **Sửa bằng text** và **Hủy** trước khi gửi nội dung sang Gemini. Xem cấu hình và cách xử lý sự cố tại [hướng dẫn voice](../.agents/docs/global/voice-transcription.md).
+Voice zalo được chuyển thành text bởi `whisper.cpp` trong container, không dùng API key. Bot luôn hiển thị transcript với nút **Xác nhận**, **Sửa bằng text** và **Hủy** trước khi xử lý nội dung. Xem cấu hình và cách xử lý sự cố tại [hướng dẫn voice](../.agents/docs/global/voice-transcription.md).

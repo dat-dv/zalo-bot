@@ -11,8 +11,8 @@ void test('ZaloService initializes and logs webhook configuration onModuleInit',
     },
   };
 
-  const service = new ZaloService(mockConfigService as any, {} as any, {} as any, {} as any);
-  await service.onModuleInit();
+  const service = new ZaloService(mockConfigService as any, {} as any);
+  service.onModuleInit();
   assert.ok(service);
 });
 
@@ -25,11 +25,11 @@ void test('ZaloService processUpdate processes /start, /help, /echo, /ping', asy
     },
   };
 
-  const service = new ZaloService(mockConfigService as any, {} as any, {} as any, {} as any);
+  const service = new ZaloService(mockConfigService as any, {} as any);
 
-  service.sendMessage = async (chatId: string | number, text: string) => {
+  service.sendMessage = (chatId: string | number, text: string) => {
     sentMessages.push({ chatId, text });
-    return true;
+    return Promise.resolve(true);
   };
 
   // 1. /start
@@ -88,9 +88,8 @@ void test('ZaloService processUpdate processes /start, /help, /echo, /ping', asy
   assert.match(sentMessages[4].text, /Pong!/);
 });
 
-void test('ZaloService handles incoming conversational message with Gemini AI', async () => {
+void test('ZaloService handles incoming conversational message', async () => {
   const sentMessages: Array<{ chatId: string | number; text: string }> = [];
-  const history: string[] = [];
 
   const mockConfigService = {
     get: (key: string) => {
@@ -103,29 +102,14 @@ void test('ZaloService handles incoming conversational message with Gemini AI', 
   const mockUsersService = {
     isAllowed: () => true,
     checkCooldown: () => ({ allowed: true }),
-    upsertUser: async () => ({}),
+    upsertUser: () => Promise.resolve({} as any),
   };
 
-  const mockGeminiService = {
-    chat: async (text: string) => ({ text: `Gemini: ${text}` }),
-  };
+  const service = new ZaloService(mockConfigService as any, mockUsersService as any);
 
-  const mockConversationHistoryService = {
-    getHistory: () => [],
-    appendUserMessage: (_id: string, text: string) => history.push(`user: ${text}`),
-    appendModelMessage: (_id: string, text: string) => history.push(`model: ${text}`),
-  };
-
-  const service = new ZaloService(
-    mockConfigService as any,
-    mockUsersService as any,
-    mockGeminiService as any,
-    mockConversationHistoryService as any,
-  );
-
-  service.sendMessage = async (chatId: string | number, text: string) => {
+  service.sendMessage = (chatId: string | number, text: string) => {
     sentMessages.push({ chatId, text });
-    return true;
+    return Promise.resolve(true);
   };
 
   await service.processInput({
@@ -138,12 +122,10 @@ void test('ZaloService handles incoming conversational message with Gemini AI', 
 
   assert.equal(sentMessages.length, 1);
   assert.equal(sentMessages[0].chatId, 'user_123');
-  assert.equal(sentMessages[0].text, 'Gemini: Cơm trưa 35k');
-  assert.deepEqual(history, ['user: Cơm trưa 35k', 'model: Gemini: Cơm trưa 35k']);
+  assert.match(sentMessages[0].text, /Cơm trưa 35k/);
 });
 
-void test('ZaloService handles /reset and clears history', async () => {
-  let clearedUserId = '';
+void test('ZaloService handles /reset and clears session', async () => {
   const sentMessages: Array<{ chatId: string | number; text: string }> = [];
 
   const mockConfigService = {
@@ -153,22 +135,11 @@ void test('ZaloService handles /reset and clears history', async () => {
     },
   };
 
-  const mockConversationHistoryService = {
-    clearHistory: (id: string) => {
-      clearedUserId = id;
-    },
-  };
+  const service = new ZaloService(mockConfigService as any, {} as any);
 
-  const service = new ZaloService(
-    mockConfigService as any,
-    {} as any,
-    {} as any,
-    mockConversationHistoryService as any,
-  );
-
-  service.sendMessage = async (chatId: string | number, text: string) => {
+  service.sendMessage = (chatId: string | number, text: string) => {
     sentMessages.push({ chatId, text });
-    return true;
+    return Promise.resolve(true);
   };
 
   await service.processInput({
@@ -178,7 +149,6 @@ void test('ZaloService handles /reset and clears history', async () => {
     },
   });
 
-  assert.equal(clearedUserId, 'user_reset');
   assert.equal(sentMessages.length, 1);
   assert.match(sentMessages[0].text, /Đã làm mới ngữ cảnh/);
 });

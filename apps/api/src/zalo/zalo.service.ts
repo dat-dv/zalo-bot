@@ -1,8 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
-import { GeminiService } from '../gemini/gemini.service';
-import { ConversationHistoryService } from '../gemini/services/conversation-history.service';
 import { ZALO_API_URLS, ZALO_EVENTS } from './zalo.constants';
 import {
   ZaloWebhookPayloadDto,
@@ -18,8 +16,6 @@ export class ZaloService implements OnModuleInit {
   constructor(
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
-    private readonly geminiService: GeminiService,
-    private readonly conversationHistoryService: ConversationHistoryService,
   ) {
     this.token = this.configService.get<string>('zalo.botToken') || null;
     if (!this.token) {
@@ -95,18 +91,12 @@ export class ZaloService implements OnModuleInit {
     const normalized = normalizeZaloWebhookPayload(payload);
 
     // Handle user unfollow or follow (Legacy OA events)
-    if (
-      normalized.eventName === ZALO_EVENTS.UNFOLLOW ||
-      normalized.eventName === ZaloWebhookEventName.UNFOLLOW
-    ) {
+    if (normalized.eventName === ZaloWebhookEventName.UNFOLLOW) {
       this.logger.log(`User ${normalized.senderId} unfollowed official account.`);
       return;
     }
 
-    if (
-      normalized.eventName === ZALO_EVENTS.FOLLOW ||
-      normalized.eventName === ZaloWebhookEventName.FOLLOW
-    ) {
+    if (normalized.eventName === ZaloWebhookEventName.FOLLOW) {
       if (normalized.senderId) {
         await this.handleStartCommand(normalized.senderId, normalized.displayName);
       }
@@ -148,15 +138,13 @@ export class ZaloService implements OnModuleInit {
 
     // Handle text message
     if (normalized.text) {
-      await this.handleTextMessage(
-        normalized.senderId,
-        normalized.text,
-        normalized.displayName,
-      );
+      await this.handleTextMessage(normalized.senderId, normalized.text, normalized.displayName);
       return;
     }
 
-    this.logger.debug(`Received non-text message (${normalized.eventName}) from ${normalized.senderId}`);
+    this.logger.debug(
+      `Received non-text message (${normalized.eventName}) from ${normalized.senderId}`,
+    );
   }
 
   public async processUpdate(update: unknown, secretToken?: string): Promise<void> {
@@ -183,8 +171,7 @@ export class ZaloService implements OnModuleInit {
           '• /help - Hướng dẫn sử dụng\n' +
           '• /echo <nội dung> - Bot phản hồi lại nội dung bạn vừa nhập\n' +
           '• /clear hoặc /reset - Xóa ngữ cảnh hội thoại hiện tại\n' +
-          '• /ping - Kiểm tra trạng thái hoạt động của bot\n\n' +
-          '💡 Hoặc bạn chỉ cần nhắn tin văn bản tự nhiên, AI sẽ tự động phân tích và ghi nhận thu chi/công nợ.',
+          '• /ping - Kiểm tra trạng thái hoạt động của bot',
       );
       return;
     }
@@ -208,7 +195,6 @@ export class ZaloService implements OnModuleInit {
 
     // 5. /reset or /clear command
     if (text === '/reset' || text === '/clear') {
-      this.conversationHistoryService.clearHistory(senderId);
       await this.sendMessage(
         senderId,
         '🧹 Đã làm mới ngữ cảnh hội thoại. Bạn có thể bắt đầu phiên trò chuyện mới!',
@@ -216,23 +202,19 @@ export class ZaloService implements OnModuleInit {
       return;
     }
 
-    // 6. Conversational input with Gemini AI
-    await this.handleAiConversation(senderId, text);
+    // 6. Conversational input
+    await this.handleConversationalMessage(senderId, text);
   }
 
   private async handleStartCommand(senderId: string, displayName: string): Promise<void> {
     await this.sendMessage(
       senderId,
-      `👋 Chào ${displayName}! Tôi là chatbot trợ lý tài chính thông minh trên Zalo.\n\n` +
-        'Bạn có thể gửi tin nhắn cho tôi bất kỳ lúc nào để:\n' +
-        '• Ghi thu chi: "ăn trưa 45k", "tiền lương 15tr"\n' +
-        '• Quản lý nợ: "cho Nam vay 500k", "Hùng trả 200k"\n' +
-        '• Tra cứu: "hôm nay chi bao nhiêu?", "ai đang nợ tôi?"\n\n' +
+      `👋 Chào ${displayName}! Tôi là chatbot trên Zalo.\n\n` +
         'Gõ /help để xem danh sách các lệnh hỗ trợ.',
     );
   }
 
-  private async handleAiConversation(senderId: string, text: string): Promise<void> {
+  private async handleConversationalMessage(senderId: string, text: string): Promise<void> {
     // Check allowed users if configured
     const allowedIds = this.configService.get<string[]>('zalo.allowedUserIds') || [];
     if (allowedIds.length > 0 && !this.usersService.isAllowed(senderId)) {
@@ -254,17 +236,10 @@ export class ZaloService implements OnModuleInit {
     // Ensure user record in database
     await this.usersService.upsertUser(senderId);
 
-    // Retrieve previous conversation context
-    const history = this.conversationHistoryService.getHistory(senderId);
-    this.conversationHistoryService.appendUserMessage(senderId, text);
-
-    // Generate response with Gemini AI
-    const response = await this.geminiService.chat(text, history, senderId);
-
-    // Preserve model reply in conversation session
-    this.conversationHistoryService.appendModelMessage(senderId, response.text);
-
     // Dispatch reply to Zalo user
-    await this.sendMessage(senderId, response.text);
+    await this.sendMessage(
+      senderId,
+      `Đã nhận tin nhắn: "${text}". Gõ /help để xem danh sách các lệnh hỗ trợ.`,
+    );
   }
 }

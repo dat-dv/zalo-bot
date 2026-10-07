@@ -6,7 +6,6 @@ import configuration from './config/configuration';
 import { DatabaseModule } from './database/database.module';
 import { UsersModule } from './users/users.module';
 import { GoogleModule } from './google/google.module';
-import { GeminiModule } from './gemini/gemini.module';
 import { ZaloModule } from './zalo/zalo.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { FinanceModule } from './finance/finance.module';
@@ -35,7 +34,6 @@ import { GlobalExceptionsFilter } from './common/filters/global-exceptions.filte
     FinanceModule,
     AuditModule,
     ReportsModule,
-    GeminiModule,
     ZaloModule,
   ],
   providers: [

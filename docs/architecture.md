@@ -8,21 +8,18 @@ Tài liệu này mô tả chi tiết kiến trúc tổng thể, luồng dữ li�
 
 Dự án được tổ chức dưới dạng **npm workspaces monorepo**. Backend là **Modular Monolith NestJS** tại `apps/api`, giao diện quản trị React + Vite tại `apps/web`, và các hợp đồng dùng chung tại `packages/contracts`. Backend hỗ trợ **Kiến trúc Đa Người Dùng (Multi-Tenant Isolation)** với **PostgreSQL (TypeORM)**.
 
-1. **Người dùng zalo**: Gửi yêu cầu qua ngôn ngữ tự nhiên tiếng Việt hoặc qua các lệnh tắt (Slash Commands).
-2. **Tầng Phân Quyền & Quản Lý Người Dùng (`UsersModule` + PostgreSQL)**: Quản lý người dùng, lời mời kích hoạt Deep Link (`/invite`), danh sách trắng động và chống spam qua cơ sở dữ liệu PostgreSQL.
-3. **Bộ não Google Gemini AI (`gemini-3.5-flash-lite`)**: Phân tích ngữ cảnh, neo thời gian thực tế, gọi Function Calling đa bước và tự động fallback model.
-4. **Google Workspace (Calendar & Tasks)**: Dịch vụ thực thi dữ liệu qua OAuth2 được cô lập độc lập cho từng người dùng (`user_tokens` table).
+1. **Người dùng Zalo**: Gửi yêu cầu qua ngôn ngữ tự nhiên tiếng Việt hoặc qua các lệnh tắt (Slash Commands).
+2. **Tầng Phân Quyền & Quản Lý Người Dùng (`UsersModule` + PostgreSQL)**: Quản lý người dùng, danh sách trắng động và chống spam qua cơ sở dữ liệu PostgreSQL.
+3. **Google Workspace (Calendar & Tasks)**: Dịch vụ thực thi dữ liệu qua OAuth2 được cô lập độc lập cho từng người dùng (`user_tokens` table).
 
 ```mermaid
 graph TD
-    User([Người dùng zalo]) <-->|Message / Slash Command| TG[zalo Bot Layer]
-    TG -->|AuthGuard| Guard{Được phép & Đã Login Google?}
-    Guard -- No --> Reject[Từ chối / Yêu cầu Invite / Bấm Login Google]
-    Guard -- Yes --> Handler[zalo Update Handler]
+    User([Người dùng Zalo]) <-->|Message / Slash Command| ZL[Zalo Bot Layer]
+    ZL -->|Auth & Cooldown| Guard{Được phép sử dụng?}
+    Guard -- No --> Reject[Từ chối / Giới hạn tần suất]
+    Guard -- Yes --> Handler[Zalo Service Handler]
 
-    Handler <-->|Prompt + User Context| Gemini[Gemini AI Service]
-    Gemini <-->|Function Declarations & Calls| Tools[Gemini Tools Layer]
-    Tools <-->|OAuth2 Per-User Token| Google[Google Workspace Layer]
+    Handler <--> Google[Google Workspace Layer]
 
     subgraph PostgreSQL Database Storage
         DB[(PostgreSQL)]
@@ -55,20 +52,10 @@ apps/api/src/
 │   ├── users.service.ts            # TypeORM Repositories, In-Memory Cache, Cooldown
 │   └── users.module.ts
 │
-├── zalo/                       # TẦNG GIAO TIẾP zalo
-│   ├── services/
-│   │   └── zalo-ui.service.ts  # Tách riêng: Typing Heartbeat, Safe Reply Chunking, Code Extraction
-│   ├── guards/
-│   │   └── auth.guard.ts           # Whitelist Check, Anti-spam & Google Auth Requirement
-│   ├── zalo.update.ts          # Điều phối Slash Commands & Text Message Dispatcher
+├── zalo/                           # TẦNG GIAO TIẾP ZALO
+│   ├── zalo.controller.ts          # Webhook endpoint nhận update từ Zalo Bot
+│   ├── zalo.service.ts             # Xử lý webhook events & gửi tin nhắn
 │   └── zalo.module.ts
-│
-├── gemini/                         # TẦNG TRÍ TUỆ NHÂN TẠO (AI CORE)
-│   ├── helpers/
-│   │   └── gemini-prompt.helper.ts # Tách riêng: System Instruction, Timestamp Anchor
-│   ├── gemini.service.ts           # Multi-turn Tool Loop & Model Fallback Chain
-│   ├── gemini.module.ts
-│   └── tools/                      # 8 Function Tools độc lập
 │
 └── google/                         # TẦNG TÍCH HỢP GOOGLE WORKSPACE
     ├── templates/

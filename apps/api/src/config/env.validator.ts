@@ -61,8 +61,6 @@ export function validateEnvironment(): EnvValidationResult {
   const errors: Array<{ key: string; reason: string; guide: string }> = [];
 
   const requiredKeys = [
-    'GEMINI_API_KEY',
-    'GEMINI_MODEL',
     'GOOGLE_CLIENT_ID',
     'GOOGLE_CLIENT_SECRET',
     'DASHBOARD_ACCESS_TOKEN_SECRET',

@@ -19,12 +19,11 @@ Dự án sử dụng **TypeScript** ở chế độ strict với kiến trúc ch
 
 | Loại Thành Phần                | Quy Tắc Đặt Tên                    | Ví Dụ                                             |
 | ------------------------------ | ---------------------------------- | ------------------------------------------------- |
-| **Module**                     | `*.module.ts`                      | `google.module.ts`, `zalo.module.ts`              |
-| **Service**                    | `*.service.ts`                     | `google-calendar.service.ts`, `gemini.service.ts` |
-| **Tool (AI Function Calling)** | `*.tool.ts`                        | `create-calendar.tool.ts`, `send-email.tool.ts`   |
-| **zalo Update / Controller**   | `*.update.ts`                      | `zalo.update.ts`                                  |
-| **Guard**                      | `*.guard.ts`                       | `auth.guard.ts`                                   |
-| **Interface / Type**           | `*.interface.ts` hoặc `*.types.ts` | `tool.interface.ts`                               |
+| **Module**                   | `*.module.ts`                      | `google.module.ts`, `zalo.module.ts`        |
+| **Service**                  | `*.service.ts`                     | `google-calendar.service.ts`, `users.service.ts` |
+| **Zalo Controller / Service**| `*.controller.ts` / `*.service.ts` | `zalo.controller.ts`, `zalo.service.ts`     |
+| **Guard**                    | `*.guard.ts`                       | `auth.guard.ts`                             |
+| **Interface / Type**         | `*.interface.ts` hoặc `*.types.ts` | `zalo-webhook.dto.ts`                       |
 
 ---
 
@@ -79,10 +78,10 @@ Hệ thống cấu hình **Husky (`.husky/pre-commit`)** và **lint-staged**:
 
 ### Các tiền tố (`type`) thông dụng:
 
-- `feat`: Tính năng mới (ví dụ: `feat(gemini): add send email tool`)
+- `feat`: Tính năng mới (ví dụ: `feat(zalo): add new slash command`)
 - `fix`: Sửa lỗi (ví dụ: `fix(calendar): fix timezone offset calculation`)
 - `docs`: Cập nhật tài liệu (ví dụ: `docs: add deployment guide`)
-- `refactor`: Tái cấu trúc mã nguồn mà không đổi logic (ví dụ: `refactor(zalo): optimize safe reply chunking`)
+- `refactor`: Tái cấu trúc mã nguồn mà không đổi logic (ví dụ: `refactor(zalo): optimize webhook payload handling`)
 - `chore`: Cập nhật cấu hình build, dependencies (ví dụ: `chore: update googleapis version`)
 - `test`: Thêm hoặc sửa test
 
@@ -92,9 +91,9 @@ Hệ thống cấu hình **Husky (`.husky/pre-commit`)** và **lint-staged**:
 
 ### 4.1 Kiểm thử đơn vị (Unit Tests)
 
-Khi viết unit test cho các Service hoặc Tool:
+Khi viết unit test cho các Service:
 
-- Mock các module bên thứ ba (`googleapis`, `@google/generative-ai`, `zalograf`).
+- Mock các module bên thứ ba (`googleapis`).
 - Đảm bảo logic tính toán ngày tháng và format chuỗi hoạt động đúng theo các trường hợp biên.
 
 Ví dụ mẫu mock `GoogleCalendarService`:
@@ -113,8 +112,6 @@ const mockCalendarService = {
 Trước khi tạo Pull Request hoặc push code lên `main`:
 
 - [ ] Code tuân thủ TypeScript strict types (không dùng `any` bừa bãi).
-- [ ] Tool mới đã triển khai interface `GeminiTool` và có `declaration` mô tả rõ ràng.
-- [ ] Tool đã được đăng ký trong `GeminiModule` và `GeminiService`.
 - [ ] Chạy `npm run lint` không có cảnh báo hoặc lỗi.
 - [ ] Chạy `npm run build` thành công, không có lỗi type.
 - [ ] Chạy `npm run test --workspace @zalobot/api` thành công; không thay bằng lệnh chỉ match test ở thư mục gốc.

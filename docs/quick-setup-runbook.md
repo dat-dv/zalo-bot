@@ -4,14 +4,13 @@
 
 ---
 
-## 📋 BẢNG CHECKLIST 5 BƯỚC TRIỂN KHAI
+## 📋 BẢNG CHECKLIST 4 BƯỚC TRIỂN KHAI
 
 ```
 [ ] Bước 1: Tạo Bot zalo & Lấy zalo Admin ID (30 giây)
-[ ] Bước 2: Lấy Gemini API Key Miễn Phí (30 giây)
-[ ] Bước 3: Lấy Google Client ID & Client Secret (1 phút)
-[ ] Bước 4: Deploy lên Coolify (1 phút)
-[ ] Bước 5: Thêm Redirect URL vào Google Cloud (30 giây)
+[ ] Bước 2: Lấy Google Client ID & Client Secret (1 phút)
+[ ] Bước 3: Deploy lên Coolify (1 phút)
+[ ] Bước 4: Thêm Redirect URL vào Google Cloud (30 giây)
 ```
 
 ---
@@ -20,19 +19,11 @@
 
 ### Bước 1: Lấy Token Bot & ID zalo Cá Nhân (30 giây)
 
-1. Mở zalo, tìm bot [**@BotFather**](https://t.me/BotFather) ➔ Gõ `/newbot` ➔ Đặt tên ➔ Copy đoạn **HTTP API Token** (Ví dụ: `8896966650:AA...`).
-2. Mở bot [**@userinfobot**](https://t.me/userinfobot) ➔ Copy dãy số **Id** của bạn (Ví dụ: `1975126817`).
+1. Thiết lập bot Zalo và lấy token / user ID.
 
 ---
 
-### Bước 2: Lấy Gemini API Key Miễn Phí (30 giây)
-
-1. Truy cập [**Google AI Studio API Keys**](https://aistudio.google.com/apikey).
-2. Bấm **Create API key** ➔ Copy đoạn key vừa tạo (Bắt đầu bằng `AIzaSy...` hoặc `AQ...`).
-
----
-
-### Bước 3: Lấy Google Client ID & Client Secret (1 phút)
+### Bước 2: Lấy Google Client ID & Client Secret (1 phút)
 
 1. Truy cập [**Google Cloud Console Credentials**](https://console.cloud.google.com/apis/credentials).
 2. Bấm **+ CREATE CREDENTIALS** ➔ Chọn **OAuth client ID**.
@@ -43,16 +34,15 @@
 
 ---
 
-### Bước 4: Deploy Lên Coolify (1 phút)
+### Bước 3: Deploy Lên Coolify (1 phút)
 
 1. Vào Dashboard Coolify ➔ Bấm **+ New** ➔ **Application** ➔ Chọn **GitHub Repository** của bạn.
 2. **Build Pack**: Chọn **Dockerfile**.
-3. **Tab Environment Variables**: Dán 5 dòng này vào:
+3. **Tab Environment Variables**: Dán các dòng này vào:
 
    ```env
-   zalo_BOT_TOKEN=8896966650:AAGOYm_...
-   zalo_ADMIN_ID=1975126817
-   GEMINI_API_KEY=AQ.Ab8RN6...
+   ZALO_BOT_TOKEN=...
+   ZALO_ADMIN_ID=...
    GOOGLE_CLIENT_ID=242273656915-...apps.googleusercontent.com
    GOOGLE_CLIENT_SECRET=GOCSPX-...
    ```
@@ -70,7 +60,7 @@
 
 1. Copy đường link Domain của bot trên Coolify (Ví dụ: `https://zalobot.xxx.sslip.io` hoặc domain riêng).
 2. Quay lại trang [**Google Cloud Console Credentials**](https://console.cloud.google.com/apis/credentials).
-3. Bấm vào tên OAuth Client ID vừa tạo ở Bước 3.
+3. Bấm vào tên OAuth Client ID vừa tạo ở Bước 2.
 4. Trong mục **Authorized redirect URIs**, bấm **+ ADD URI** và dán link có đuôi `/oauth2callback`:
    ```
    https://zalobot.xxx.sslip.io/oauth2callback

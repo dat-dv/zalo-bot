@@ -29,9 +29,8 @@ APP_URL=https://zalobot.example.com
 WEB_ORIGIN=https://zalobot.example.com
 NEXT_PUBLIC_API_URL=https://zalobot.example.com
 
-zalo_BOT_TOKEN=replace-with-bot-token
-zalo_ADMIN_ID=123456789
-GEMINI_API_KEY=replace-with-gemini-key
+ZALO_BOT_TOKEN=replace-with-bot-token
+ZALO_ADMIN_ID=123456789
 DATA_ENCRYPTION_KEY=64-hex-characters
 GOOGLE_CLIENT_ID=replace-with-google-client-id
 GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
@@ -168,7 +167,6 @@ pm2 monit
 | Bot báo `Yêu cầu kết nối tài khoản Google`                 | Chưa đăng nhập Google OAuth.                          | Bấm nút **"🔗 Đăng nhập Google"** hoặc gõ `/login` rồi gửi `/code <mã>`. |
 | Người lạ nhắn tin báo `Truy cập bị từ chối`                | Chưa được Admin mời qua link `/invite`.               | Admin gõ `/invite` lấy link gửi cho bạn, hoặc gõ `/allow <id>`.          |
 | Lỗi `Google OAuth credentials chưa được cấu hình`          | Thiếu `GOOGLE_CLIENT_ID` hoặc `GOOGLE_CLIENT_SECRET`. | Kiểm tra lại các biến môi trường trên Coolify hoặc file `.env`.          |
-| AI báo lỗi `Rate limit` hoặc `All model candidates failed` | Quota Gemini API Key bị hết hoặc sai Key.             | Kiểm tra biến `GEMINI_API_KEY` trên Google AI Studio.                    |
 
 ## 9. Khởi tạo PostgreSQL trống
 

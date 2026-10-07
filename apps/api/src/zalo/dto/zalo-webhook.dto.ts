@@ -99,7 +99,8 @@ export class ZaloMessageDto {
 
   @ApiPropertyOptional({
     description: 'URL ảnh (theo payload thực tế Zalo Bot gửi)',
-    example: 'https://photo-stal-13.zdn.vn/no/jpg/040038402864f93aa075/2aOboR3n9WpBNOQxgdAXjZ0qJFsMgZsjIAeeMlay.jpg',
+    example:
+      'https://photo-stal-13.zdn.vn/no/jpg/040038402864f93aa075/2aOboR3n9WpBNOQxgdAXjZ0qJFsMgZsjIAeeMlay.jpg',
   })
   photo_url?: string;
 
@@ -234,22 +235,14 @@ export interface NormalizedZaloEvent {
  * Helper chuẩn hoá payload Webhook: Tự động trích xuất đúng data bất kể Zalo gửi dạng trực tiếp hay bọc trong result
  */
 export function normalizeZaloWebhookPayload(payload: ZaloWebhookPayloadDto): NormalizedZaloEvent {
-  const eventName = (payload.event_name ?? payload.result?.event_name ?? '') as string;
+  const eventName = payload.event_name ?? payload.result?.event_name ?? '';
   const message = payload.message ?? payload.result?.message;
 
   const senderId = String(
-    message?.from?.id ??
-      message?.chat?.id ??
-      payload.sender?.id ??
-      payload.user_id_by_app ??
-      '',
+    message?.from?.id ?? message?.chat?.id ?? payload.sender?.id ?? payload.user_id_by_app ?? '',
   ).trim();
 
-  const chatId = String(
-    message?.chat?.id ??
-      message?.from?.id ??
-      senderId,
-  ).trim();
+  const chatId = String(message?.chat?.id ?? message?.from?.id ?? senderId).trim();
 
   const displayName = message?.from?.display_name || 'bạn';
   const text = message?.text?.trim();

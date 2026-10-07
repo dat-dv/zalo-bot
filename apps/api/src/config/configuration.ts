@@ -18,10 +18,6 @@ export interface AppConfig {
     allowedUserIds: string[];
     secretToken?: string;
   };
-  gemini: {
-    apiKey: string;
-    model: string;
-  };
   receiptStorage: {
     dir: string;
   };
@@ -96,10 +92,6 @@ export default (): AppConfig => {
       adminId,
       allowedUserIds,
       secretToken: readOptionalEnv('ZALO_WEBHOOK_SECRET_TOKEN'),
-    },
-    gemini: {
-      apiKey: readEnv('GEMINI_API_KEY'),
-      model: readEnv('GEMINI_MODEL', 'gemini-2.5-flash'),
     },
     receiptStorage: {
       dir: readEnv('RECEIPT_STORAGE_DIR', './data/receipts'),
