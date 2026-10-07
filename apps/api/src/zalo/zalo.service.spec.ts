@@ -33,7 +33,7 @@ void test('ZaloService processUpdate processes /start, /help, /echo, /ping', asy
   };
 
   // 1. /start
-  await service.processUpdate({
+  await service.processInput({
     message: {
       chat: { id: 'c1' },
       from: { id: 'u1', display_name: 'Đạt' },
@@ -44,7 +44,7 @@ void test('ZaloService processUpdate processes /start, /help, /echo, /ping', asy
   assert.match(sentMessages[0].text, /Chào Đạt!/);
 
   // 2. /help
-  await service.processUpdate({
+  await service.processInput({
     message: {
       chat: { id: 'c1' },
       from: { id: 'u1' },
@@ -55,7 +55,7 @@ void test('ZaloService processUpdate processes /start, /help, /echo, /ping', asy
   assert.match(sentMessages[1].text, /Danh sách lệnh hỗ trợ/);
 
   // 3. /echo with text
-  await service.processUpdate({
+  await service.processInput({
     message: {
       chat: { id: 'c1' },
       from: { id: 'u1' },
@@ -66,7 +66,7 @@ void test('ZaloService processUpdate processes /start, /help, /echo, /ping', asy
   assert.equal(sentMessages[2].text, 'Bạn vừa nói: Xin chào');
 
   // 4. /echo without text
-  await service.processUpdate({
+  await service.processInput({
     message: {
       chat: { id: 'c1' },
       from: { id: 'u1' },
@@ -77,7 +77,7 @@ void test('ZaloService processUpdate processes /start, /help, /echo, /ping', asy
   assert.match(sentMessages[3].text, /Hãy nhập gì đó sau lệnh \/echo/);
 
   // 5. /ping
-  await service.processUpdate({
+  await service.processInput({
     message: {
       chat: { id: 'c1' },
       from: { id: 'u1' },
@@ -128,7 +128,7 @@ void test('ZaloService handles incoming conversational message with Gemini AI', 
     return true;
   };
 
-  await service.processUpdate({
+  await service.processInput({
     sender: { id: 'user_123' },
     message: {
       text: 'Cơm trưa 35k',
@@ -171,7 +171,7 @@ void test('ZaloService handles /reset and clears history', async () => {
     return true;
   };
 
-  await service.processUpdate({
+  await service.processInput({
     sender: { id: 'user_reset' },
     message: {
       text: '/reset',

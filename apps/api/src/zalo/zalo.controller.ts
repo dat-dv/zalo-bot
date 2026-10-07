@@ -1,6 +1,17 @@
-import { Controller, Get, Post, Body, Query, HttpCode, HttpStatus, Logger } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Headers,
+  Query,
+  HttpCode,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags, ApiHeader, ApiBody } from '@nestjs/swagger';
 import { ZaloService } from './zalo.service';
+import { ZaloWebhookPayloadDto } from './dto/zalo-webhook.dto';
 
 @ApiTags('Zalo Bot Webhook')
 @Controller()
@@ -31,12 +42,28 @@ export class ZaloController {
 
   @Post(['webhook', 'zalo/webhook', 'api/webhook', 'api/zalo/webhook'])
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Nhận sự kiện Webhook từ Zalo Bot' })
-  @ApiResponse({ status: 200, description: 'Đã xử lý sự kiện webhook' })
-  public handleWebhook(@Body() update: unknown): { ok: boolean } {
+  @ApiOperation({ summary: 'Nhận sự kiện Webhook từ Zalo Bot Platform' })
+  @ApiHeader({
+    name: 'X-Bot-Api-Secret-Token',
+    required: false,
+    description: 'Secret token xác thực từ Zalo Bot Platform (nếu đã cấu hình)',
+  })
+  @ApiBody({
+    type: ZaloWebhookPayloadDto,
+    description: 'Dữ liệu sự kiện tương tác từ Zalo Bot',
+  })
+  @ApiResponse({ status: 200, description: 'Đã nhận và xử lý sự kiện webhook' })
+  public handleWebhook(
+    @Body() update: ZaloWebhookPayloadDto,
+    @Headers('x-bot-api-secret-token') secretToken?: string,
+  ): { ok: boolean } {
     this.logger.debug('Received webhook payload from Zalo Bot');
     this.logger.log('update', JSON.stringify(update));
-    void this.zaloService.processUpdate(update);
+    if (typeof this.zaloService.processInput === 'function') {
+      void this.zaloService.processInput(update, secretToken);
+    } else if (typeof (this.zaloService as any).processUpdate === 'function') {
+      void (this.zaloService as any).processUpdate(update, secretToken);
+    }
     return { ok: true };
   }
 }

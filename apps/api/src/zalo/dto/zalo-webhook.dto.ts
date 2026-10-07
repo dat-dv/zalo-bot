@@ -1,45 +1,278 @@
-export interface ZaloChat {
-  id: string | number;
-  [key: string]: unknown;
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+/**
+ * Các loại sự kiện từ Zalo Bot Platform theo tài liệu chính thức
+ */
+export enum ZaloWebhookEventName {
+  MESSAGE_TEXT_RECEIVED = 'message.text.received',
+  MESSAGE_IMAGE_RECEIVED = 'message.image.received',
+  MESSAGE_STICKER_RECEIVED = 'message.sticker.received',
+  MESSAGE_VOICE_RECEIVED = 'message.voice.received',
+  MESSAGE_UNSUPPORTED_RECEIVED = 'message.unsupported.received',
+  // Tương thích ngược với Zalo Official Account v3 OA (nếu có)
+  FOLLOW = 'follow',
+  UNFOLLOW = 'unfollow',
+  USER_SEND_TEXT = 'user_send_text',
+  USER_SEND_IMAGE = 'user_send_image',
 }
 
-export interface ZaloFrom {
-  id: string | number;
+/**
+ * Thông tin cuộc trò chuyện (Chat)
+ */
+export class ZaloChatDto {
+  @ApiProperty({
+    description: 'ID cuộc trò chuyện (Chat ID / User ID)',
+    example: 'effcda102859c1079848',
+  })
+  id: string;
+
+  @ApiPropertyOptional({
+    description: 'Loại cuộc trò chuyện: PRIVATE (cá nhân) hoặc GROUP (nhóm)',
+    example: 'PRIVATE',
+    enum: ['PRIVATE', 'GROUP'],
+  })
+  chat_type?: 'PRIVATE' | 'GROUP' | string;
+}
+
+/**
+ * Thông tin người gửi tin nhắn (From)
+ */
+export class ZaloFromDto {
+  @ApiProperty({
+    description: 'ID người gửi tin nhắn',
+    example: 'effcda102859c1079848',
+  })
+  id: string;
+
+  @ApiPropertyOptional({
+    description: 'Tên hiển thị của người gửi',
+    example: 'Văn Đạt',
+  })
   display_name?: string;
-  [key: string]: unknown;
+
+  @ApiPropertyOptional({
+    description: 'Có phải bot hay không',
+    example: false,
+  })
+  is_bot?: boolean;
 }
 
-export interface ZaloSender {
-  id: string | number;
-  [key: string]: unknown;
-}
+/**
+ * Chi tiết tin nhắn gửi tới Zalo Bot
+ */
+export class ZaloMessageDto {
+  @ApiProperty({
+    description: 'ID duy nhất của tin nhắn',
+    example: '1b0890ddc3cabd93e4dc',
+  })
+  message_id: string;
 
-export interface ZaloRecipient {
-  id: string | number;
-  [key: string]: unknown;
-}
+  @ApiProperty({
+    description: 'Thời gian gửi tin nhắn (Unix timestamp in milliseconds)',
+    example: 1791346364971,
+  })
+  date: number;
 
-export interface ZaloMessagePayload {
-  msg_id?: string | number;
-  message_id?: string | number;
+  @ApiProperty({
+    description: 'Thông tin người gửi',
+    type: () => ZaloFromDto,
+  })
+  from: ZaloFromDto;
+
+  @ApiProperty({
+    description: 'Thông tin cuộc trò chuyện',
+    type: () => ZaloChatDto,
+  })
+  chat: ZaloChatDto;
+
+  @ApiPropertyOptional({
+    description: 'Loại tin nhắn (VD: CHAT_PHOTO, ...)',
+    example: 'CHAT_PHOTO',
+  })
+  message_type?: string;
+
+  @ApiPropertyOptional({
+    description: 'Nội dung tin nhắn văn bản (cho message.text.received)',
+    example: 'hello this is',
+  })
   text?: string;
-  chat?: ZaloChat;
-  from?: ZaloFrom;
-  attachments?: Array<{
-    type?: string;
-    payload?: Record<string, unknown>;
-  }>;
+
+  @ApiPropertyOptional({
+    description: 'URL ảnh (theo payload thực tế Zalo Bot gửi)',
+    example: 'https://photo-stal-13.zdn.vn/no/jpg/040038402864f93aa075/2aOboR3n9WpBNOQxgdAXjZ0qJFsMgZsjIAeeMlay.jpg',
+  })
+  photo_url?: string;
+
+  @ApiPropertyOptional({
+    description: 'Đường dẫn ảnh (theo tài liệu đặc tả Zalo)',
+    example: 'https://photo.zalo.me/...',
+  })
+  photo?: string;
+
+  @ApiPropertyOptional({
+    description: 'Văn bản chú thích gửi kèm hình ảnh',
+    example: '',
+  })
+  caption?: string;
+
+  @ApiPropertyOptional({
+    description: 'ID hoặc nguồn sticker',
+    example: 'sticker_id_123',
+  })
+  sticker?: string;
+
+  @ApiPropertyOptional({
+    description: 'Đường dẫn ảnh/file sticker',
+    example: 'https://stickers.zaloapp.com/...',
+  })
+  url?: string;
+
+  @ApiPropertyOptional({
+    description: 'Đường dẫn tệp âm thanh của tin nhắn thoại (voice)',
+    example: 'https://voice.zalo.me/...',
+  })
+  voice_url?: string;
+
   [key: string]: unknown;
 }
 
-export interface ZaloWebhookPayload {
+/**
+ * Khối dữ liệu sự kiện khi bọc trong `result`
+ */
+export class ZaloWebhookResultDto {
+  @ApiPropertyOptional({
+    description: 'Tên sự kiện',
+    enum: ZaloWebhookEventName,
+    example: ZaloWebhookEventName.MESSAGE_TEXT_RECEIVED,
+  })
+  event_name?: ZaloWebhookEventName | string;
+
+  @ApiPropertyOptional({
+    description: 'Dữ liệu tin nhắn',
+    type: () => ZaloMessageDto,
+  })
+  message?: ZaloMessageDto;
+}
+
+/**
+ * Payload Webhook chính nhận từ Zalo Bot
+ * Hỗ trợ cả 2 dạng: gửi trực tiếp hoặc bọc trong { ok: true, result: ... }
+ */
+export class ZaloWebhookPayloadDto {
+  @ApiPropertyOptional({
+    description: 'Tên sự kiện (dạng gửi trực tiếp tại root)',
+    enum: ZaloWebhookEventName,
+    example: ZaloWebhookEventName.MESSAGE_TEXT_RECEIVED,
+  })
+  event_name?: ZaloWebhookEventName | string;
+
+  @ApiPropertyOptional({
+    description: 'Dữ liệu tin nhắn (dạng gửi trực tiếp tại root)',
+    type: () => ZaloMessageDto,
+  })
+  message?: ZaloMessageDto;
+
+  @ApiPropertyOptional({
+    description: 'Cờ trạng thái nếu Zalo gửi dạng bọc wrapper',
+    example: true,
+  })
+  ok?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Dữ liệu sự kiện nếu được bọc trong field result',
+    type: () => ZaloWebhookResultDto,
+  })
+  result?: ZaloWebhookResultDto;
+
+  // Khả năng tương thích ngược
+  @ApiPropertyOptional({ description: 'ID ứng dụng Zalo (legacy)' })
   app_id?: string;
+
+  @ApiPropertyOptional({ description: 'User ID phân bổ theo app (legacy)' })
   user_id_by_app?: string;
-  event_name?: string;
+
+  @ApiPropertyOptional({ description: 'Timestamp sự kiện (legacy)' })
   timestamp?: string | number;
-  sender?: ZaloSender;
-  recipient?: ZaloRecipient;
-  message?: ZaloMessagePayload;
-  update_id?: number | string;
+
+  @ApiPropertyOptional({ description: 'Người gửi (legacy OA)' })
+  sender?: { id?: string | number; [key: string]: unknown };
+
+  @ApiPropertyOptional({ description: 'Người nhận (legacy OA)' })
+  recipient?: { id?: string | number; [key: string]: unknown };
+
   [key: string]: unknown;
+}
+
+/**
+ * Alias tương thích ngược cho interface cũ
+ */
+export type ZaloWebhookPayload = ZaloWebhookPayloadDto;
+export type ZaloChat = ZaloChatDto;
+export type ZaloFrom = ZaloFromDto;
+export type ZaloMessagePayload = ZaloMessageDto;
+
+/**
+ * Dữ liệu sự kiện đã chuẩn hoá giúp code xử lý đơn giản, an toàn
+ */
+export interface NormalizedZaloEvent {
+  eventName: ZaloWebhookEventName | string;
+  message?: ZaloMessageDto;
+  senderId: string;
+  chatId: string;
+  displayName: string;
+  text?: string;
+  imageUrl?: string;
+  voiceUrl?: string;
+  stickerUrl?: string;
+  caption?: string;
+  isBot: boolean;
+  isUnsupported: boolean;
+  rawPayload: ZaloWebhookPayloadDto;
+}
+
+/**
+ * Helper chuẩn hoá payload Webhook: Tự động trích xuất đúng data bất kể Zalo gửi dạng trực tiếp hay bọc trong result
+ */
+export function normalizeZaloWebhookPayload(payload: ZaloWebhookPayloadDto): NormalizedZaloEvent {
+  const eventName = (payload.event_name ?? payload.result?.event_name ?? '') as string;
+  const message = payload.message ?? payload.result?.message;
+
+  const senderId = String(
+    message?.from?.id ??
+      message?.chat?.id ??
+      payload.sender?.id ??
+      payload.user_id_by_app ??
+      '',
+  ).trim();
+
+  const chatId = String(
+    message?.chat?.id ??
+      message?.from?.id ??
+      senderId,
+  ).trim();
+
+  const displayName = message?.from?.display_name || 'bạn';
+  const text = message?.text?.trim();
+  const imageUrl = message?.photo_url || message?.photo;
+  const voiceUrl = message?.voice_url;
+  const stickerUrl = message?.url || message?.sticker;
+  const caption = message?.caption;
+  const isBot = Boolean(message?.from?.is_bot);
+  const isUnsupported = eventName === ZaloWebhookEventName.MESSAGE_UNSUPPORTED_RECEIVED;
+
+  return {
+    eventName,
+    message,
+    senderId,
+    chatId,
+    displayName,
+    text,
+    imageUrl,
+    voiceUrl,
+    stickerUrl,
+    caption,
+    isBot,
+    isUnsupported,
+    rawPayload: payload,
+  };
 }

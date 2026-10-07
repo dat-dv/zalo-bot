@@ -4,7 +4,11 @@ import { UsersService } from '../users/users.service';
 import { GeminiService } from '../gemini/gemini.service';
 import { ConversationHistoryService } from '../gemini/services/conversation-history.service';
 import { ZALO_API_URLS, ZALO_EVENTS } from './zalo.constants';
-import { ZaloWebhookPayload } from './dto/zalo-webhook.dto';
+import {
+  ZaloWebhookPayloadDto,
+  ZaloWebhookEventName,
+  normalizeZaloWebhookPayload,
+} from './dto/zalo-webhook.dto';
 
 @Injectable()
 export class ZaloService implements OnModuleInit {
@@ -74,56 +78,89 @@ export class ZaloService implements OnModuleInit {
     }
   }
 
-  public async processUpdate(update: unknown): Promise<void> {
+  public async processInput(update: unknown, secretToken?: string): Promise<void> {
     if (!update || typeof update !== 'object') {
       this.logger.warn('Received invalid or empty Zalo update.');
       return;
     }
 
-    const payload = update as ZaloWebhookPayload;
-
-    // Handle user unfollow or follow
-    if (payload.event_name === ZALO_EVENTS.UNFOLLOW) {
-      this.logger.log(`User ${payload.sender?.id} unfollowed official account.`);
+    // Verify secret token if configured
+    const configuredSecretToken = this.configService.get<string>('zalo.secretToken');
+    if (configuredSecretToken && secretToken !== configuredSecretToken) {
+      this.logger.warn('Unauthorized Zalo webhook request: invalid X-Bot-Api-Secret-Token.');
       return;
     }
 
-    if (payload.event_name === ZALO_EVENTS.FOLLOW) {
-      const followerId = String(payload.sender?.id ?? payload.user_id_by_app ?? '');
-      if (followerId) {
-        await this.handleStartCommand(followerId, 'bạn');
+    const payload = update as ZaloWebhookPayloadDto;
+    const normalized = normalizeZaloWebhookPayload(payload);
+
+    // Handle user unfollow or follow (Legacy OA events)
+    if (
+      normalized.eventName === ZALO_EVENTS.UNFOLLOW ||
+      normalized.eventName === ZaloWebhookEventName.UNFOLLOW
+    ) {
+      this.logger.log(`User ${normalized.senderId} unfollowed official account.`);
+      return;
+    }
+
+    if (
+      normalized.eventName === ZALO_EVENTS.FOLLOW ||
+      normalized.eventName === ZaloWebhookEventName.FOLLOW
+    ) {
+      if (normalized.senderId) {
+        await this.handleStartCommand(normalized.senderId, normalized.displayName);
       }
       return;
     }
 
-    // Resolve chatId / senderId
-    const senderId = String(
-      payload.sender?.id ??
-        payload.message?.chat?.id ??
-        payload.message?.from?.id ??
-        payload.user_id_by_app ??
-        '',
-    ).trim();
-
-    const text = (
-      payload.message?.text ?? (typeof payload.message === 'string' ? payload.message : '')
-    )?.trim();
-
-    const displayName =
-      payload.message?.from?.display_name ||
-      (payload.sender?.id ? String(payload.sender.id) : 'bạn');
-
-    if (!senderId) {
+    if (!normalized.senderId) {
       this.logger.debug('Received webhook without identifiable sender ID.');
       return;
     }
 
-    if (!text) {
-      this.logger.debug(`Received non-text message from ${senderId}`);
+    // Handle unsupported message event (special user groups or unsupported types)
+    if (normalized.isUnsupported) {
+      this.logger.debug(`Received unsupported message event from ${normalized.senderId}`);
+      await this.sendMessage(
+        normalized.senderId,
+        'Tin nhắn của bạn hiện chưa được hỗ trợ xử lý trên hệ thống trợ lý.',
+      );
       return;
     }
 
-    await this.handleTextMessage(senderId, text, displayName);
+    // Handle image message event
+    if (normalized.imageUrl) {
+      this.logger.log(`Received image from ${normalized.senderId}: ${normalized.imageUrl}`);
+      if (normalized.caption) {
+        await this.handleTextMessage(
+          normalized.senderId,
+          normalized.caption,
+          normalized.displayName,
+        );
+      } else {
+        await this.sendMessage(
+          normalized.senderId,
+          '📸 Đã nhận ảnh từ bạn. Hệ thống đang sẵn sàng xử lý nội dung hóa đơn!',
+        );
+      }
+      return;
+    }
+
+    // Handle text message
+    if (normalized.text) {
+      await this.handleTextMessage(
+        normalized.senderId,
+        normalized.text,
+        normalized.displayName,
+      );
+      return;
+    }
+
+    this.logger.debug(`Received non-text message (${normalized.eventName}) from ${normalized.senderId}`);
+  }
+
+  public async processUpdate(update: unknown, secretToken?: string): Promise<void> {
+    return this.processInput(update, secretToken);
   }
 
   private async handleTextMessage(

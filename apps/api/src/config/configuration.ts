@@ -16,6 +16,7 @@ export interface AppConfig {
     webhookUrl: string;
     adminId?: string;
     allowedUserIds: string[];
+    secretToken?: string;
   };
   gemini: {
     apiKey: string;
@@ -94,6 +95,7 @@ export default (): AppConfig => {
       webhookUrl: readEnv('ZALO_WEBHOOK_URL', readEnv('WEBHOOK_URL')),
       adminId,
       allowedUserIds,
+      secretToken: readOptionalEnv('ZALO_WEBHOOK_SECRET_TOKEN'),
     },
     gemini: {
       apiKey: readEnv('GEMINI_API_KEY'),
