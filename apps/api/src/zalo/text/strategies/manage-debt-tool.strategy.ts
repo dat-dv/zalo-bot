@@ -15,14 +15,18 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
-    const args = context.toolArgs || {};
+    const args = (context.toolArgs ?? {}) as {
+      direction?: string;
+      counterparty?: string;
+      amount?: number | string;
+      note?: string;
+    };
     const direction = args.direction === 'receivable' ? 'receivable' : 'payable';
-    const counterparty =
-      typeof args.counterparty === 'string' && args.counterparty.trim()
-        ? args.counterparty.trim()
-        : 'Người quen';
+    const rawCounterparty = typeof args.counterparty === 'string' ? args.counterparty.trim() : '';
+    const counterparty = rawCounterparty || 'Người quen';
     const amount = Math.abs(Number(args.amount) || 0);
-    const note = typeof args.note === 'string' && args.note.trim() ? args.note.trim() : undefined;
+    const rawNote = typeof args.note === 'string' ? args.note.trim() : '';
+    const note = rawNote || undefined;
 
     if (amount <= 0) {
       await this.zaloService.sendMessage(

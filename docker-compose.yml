@@ -51,6 +51,9 @@ services:
       DATABASE_SSL: 'false'
       REDIS_URL: redis://redis:6379
       TYPEORM_SYNCHRONIZE: ${TYPEORM_SYNCHRONIZE:-false}
+      QWEN_BASE_URL: ${DOCKER_QWEN_BASE_URL:-http://ollama:11434}
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     depends_on:
       postgres:
         condition: service_healthy
@@ -58,6 +61,15 @@ services:
         condition: service_healthy
     volumes:
       - zalobot-receipts:/app/data
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - '${OLLAMA_PORT:-11434}:11434'
+    volumes:
+      - zalobot-ollama:/root/.ollama
+
   web:
     build:
       context: .
@@ -74,3 +86,4 @@ volumes:
   zalobot-postgres:
   zalobot-redis:
   zalobot-receipts:
+  zalobot-ollama:

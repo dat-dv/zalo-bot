@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { ILlmProvider, LlmResponse, LlmToolDefinition } from './types/llm.types';
 import { GeminiProvider } from './providers/gemini.provider';
 import { OpenAiProvider } from './providers/openai.provider';
+import { QwenProvider } from './providers/qwen.provider';
 
 @Injectable()
 export class LlmService {
@@ -13,9 +14,14 @@ export class LlmService {
     private readonly configService: ConfigService,
     private readonly geminiProvider: GeminiProvider,
     private readonly openAiProvider: OpenAiProvider,
+    private readonly qwenProvider: QwenProvider,
   ) {
     this.providerMap.set(geminiProvider.name, geminiProvider);
     this.providerMap.set(openAiProvider.name, openAiProvider);
+    this.providerMap.set(qwenProvider.name, qwenProvider);
+    this.providerMap.set('ollama', qwenProvider);
+    this.providerMap.set('qwen2.5:14b', qwenProvider);
+    this.providerMap.set('qwen-14b', qwenProvider);
   }
 
   public async generate(

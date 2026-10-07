@@ -3,6 +3,7 @@ import test from 'node:test';
 import { ConfigService } from '@nestjs/config';
 import { GeminiProvider } from './providers/gemini.provider';
 import { OpenAiProvider } from './providers/openai.provider';
+import { QwenProvider } from './providers/qwen.provider';
 import { LlmService } from './llm.service';
 
 void test('GeminiProvider returns fallback message when API key is missing', async () => {
@@ -147,8 +148,112 @@ void test('LlmService routes to active provider dynamically', async () => {
     generate: () => Promise.resolve({ text: 'openai reply' }),
   } as unknown as OpenAiProvider;
 
-  const llmService = new LlmService(mockConfigService, geminiProvider, openAiProvider);
+  const qwenProvider = {
+    name: 'qwen',
+    generate: () => Promise.resolve({ text: 'qwen reply' }),
+  } as unknown as QwenProvider;
+
+  const llmService = new LlmService(
+    mockConfigService,
+    geminiProvider,
+    openAiProvider,
+    qwenProvider,
+  );
 
   const res = await llmService.generate('test');
   assert.equal(res.text, 'openai reply');
+
+  // Test routing to qwen / ollama
+  const mockConfigQwen = {
+    get: (key: string) => {
+      if (key === 'llm.provider') return 'ollama';
+      return undefined;
+    },
+  } as unknown as ConfigService;
+  const llmServiceQwen = new LlmService(
+    mockConfigQwen,
+    geminiProvider,
+    openAiProvider,
+    qwenProvider,
+  );
+  const resQwen = await llmServiceQwen.generate('test');
+  assert.equal(resQwen.text, 'qwen reply');
+});
+
+void test('QwenProvider calls Ollama native /api/chat and parses tool_calls', async () => {
+  const mockConfigService = {
+    get: (key: string) => {
+      if (key === 'llm.qwen.baseUrl') return 'http://localhost:11434';
+      if (key === 'llm.qwen.model') return 'qwen2.5:14b';
+      return undefined;
+    },
+  } as unknown as ConfigService;
+
+  let requestedUrl = '';
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (input: string | URL | Request) => {
+    requestedUrl =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    return Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          message: {
+            content: '',
+            tool_calls: [
+              {
+                function: {
+                  name: 'MANAGE_DEBT',
+                  arguments: {
+                    direction: 'payable',
+                    counterparty: 'a',
+                    amount: 100000,
+                  },
+                },
+              },
+            ],
+          },
+        }),
+    } as Response);
+  };
+
+  try {
+    const provider = new QwenProvider(mockConfigService);
+    const res = await provider.generate('nợ a 100k', [
+      {
+        name: 'MANAGE_DEBT',
+        description: 'Quản lý nợ',
+      },
+    ]);
+
+    assert.equal(requestedUrl, 'http://localhost:11434/api/chat');
+    assert.ok(res.toolCall);
+    assert.equal(res.toolCall.name, 'MANAGE_DEBT');
+    assert.equal(res.toolCall.args.counterparty, 'a');
+    assert.equal(res.toolCall.args.amount, 100000);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('QwenProvider handles connection errors gracefully', async () => {
+  const mockConfigService = {
+    get: (key: string) => {
+      if (key === 'llm.qwen.baseUrl') return 'http://localhost:11434';
+      return undefined;
+    },
+  } as unknown as ConfigService;
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => {
+    return Promise.reject(new Error('connect ECONNREFUSED 127.0.0.1:11434'));
+  };
+
+  try {
+    const provider = new QwenProvider(mockConfigService);
+    const res = await provider.generate('test');
+    assert.match(res.text || '', /Không thể kết nối tới mô hình Qwen 14B/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

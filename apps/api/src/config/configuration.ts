@@ -42,6 +42,11 @@ export interface AppConfig {
       model: string;
       baseUrl: string;
     };
+    qwen: {
+      baseUrl: string;
+      model: string;
+      apiKey?: string;
+    };
   };
 }
 
@@ -128,6 +133,11 @@ export default (): AppConfig => {
         apiKey: readOptionalEnv('OPENAI_API_KEY') || '',
         model: readEnv('OPENAI_MODEL', 'gpt-4o-mini'),
         baseUrl: readEnv('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+      },
+      qwen: {
+        baseUrl: readEnv('QWEN_BASE_URL', readEnv('OLLAMA_BASE_URL', 'http://localhost:11434')),
+        model: readEnv('QWEN_MODEL', readEnv('OLLAMA_MODEL', 'qwen2.5:14b')),
+        apiKey: readOptionalEnv('QWEN_API_KEY') || readOptionalEnv('OLLAMA_API_KEY') || '',
       },
     },
   };
