@@ -4,7 +4,7 @@ RequestFeedback: true
 
 ## Mục tiêu
 
-Thay `apps/web` (Vite React SPA) bằng Next.js App Router với `output: 'export'`, đồng thời tổ chức lại dashboard theo các bounded context DDD. Frontend vẫn gọi Nest API trực tiếp và giữ nguyên contract, token, refresh cookie và luồng mở dashboard từ Telegram.
+Thay `apps/web` (Vite React SPA) bằng Next.js App Router với `output: 'export'`, đồng thời tổ chức lại dashboard theo các bounded context DDD. Frontend vẫn gọi Nest API trực tiếp và giữ nguyên contract, token, refresh cookie và luồng mở dashboard từ zalo.
 
 ## Kiến trúc đích
 

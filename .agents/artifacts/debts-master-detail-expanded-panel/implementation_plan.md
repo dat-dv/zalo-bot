@@ -3,6 +3,7 @@
 ## 1. Mục Tiêu & Bối Cảnh
 
 Người dùng yêu cầu tái cấu trúc cơ chế hiển thị dòng con:
+
 - **Chỉ có đúng 1 nút dropdown toggle `▶ / ▼` trên mỗi dòng**: Loại bỏ hoàn toàn tình trạng có 2 nút bấm chevron nằm cạnh nhau.
 - **Chỉ 1 level phân cấp duy nhất**: Không lồng ghép 2-3 cấp dropdown vô tận gây phức tạp.
 - **Thụt lề vào trong dạng Sub-panel (`colSpan`)**: Không chèn (append) các dòng con trực tiếp vào mảng dữ liệu chính của bảng. Điều này giữ cho số thứ tự STT `1, 2, 3...` của bảng chính luôn liên tục và không làm sai lệch checkbox chọn nợ.
@@ -13,6 +14,7 @@ Người dùng yêu cầu tái cấu trúc cơ chế hiển thị dòng con:
 
 > [!IMPORTANT]
 > **Thiết Kế Master-Detail Sub-panel**:
+>
 > 1. **Bảng dữ liệu dùng chung (`DataTable`)**: Hỗ trợ 2 props mới:
 >    - `renderExpandedRow?: (row: T, index: number) => React.ReactNode`: Render nội dung chi tiết dạng ô `colSpan={visibleColumns.length}` có viền bo và thụt lề `pl-10`.
 >    - `isRowExpanded?: (row: T, index: number) => boolean`: Kiểm tra dòng đang mở rộng.
@@ -31,7 +33,8 @@ Người dùng yêu cầu tái cấu trúc cơ chế hiển thị dòng con:
 
 ### A. Thành Phần Bảng Dùng Chung (`apps/web/src/shared/ui/data-table.tsx`)
 
-#### [MODIFY] [data-table.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/data-table.tsx)
+#### [MODIFY] [data-table.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/data-table.tsx)
+
 - Bổ sung vào `DataTableProps<T>`:
   - `renderExpandedRow?: (row: T, index: number) => React.ReactNode`
   - `isRowExpanded?: (row: T, index: number) => boolean`
@@ -41,7 +44,8 @@ Người dùng yêu cầu tái cấu trúc cơ chế hiển thị dòng con:
 
 ### B. Module Công Nợ (`apps/web/src/modules/debts`)
 
-#### [MODIFY] [debts-table.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/debts/presentation/components/debts-table.tsx)
+#### [MODIFY] [debts-table.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/debts/presentation/components/debts-table.tsx)
+
 - Bỏ cơ chế `flattenedRows` chèn dòng phẳng vào mảng chính.
 - Sử dụng mảng danh sách các khoản nợ gốc `debts.filter(d => !d.parentDebtId)`.
 - Sử dụng 1 state duy nhất: `expandedDebtIds: Set<string>`.
@@ -54,7 +58,8 @@ Người dùng yêu cầu tái cấu trúc cơ chế hiển thị dòng con:
 
 ### C. Module Thu–Chi (`apps/web/src/modules/dashboard`)
 
-#### [MODIFY] [transactions-table.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/presentation/components/transactions-table.tsx)
+#### [MODIFY] [transactions-table.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/presentation/components/transactions-table.tsx)
+
 - Bỏ cơ chế `flattenedTransactions` chèn dòng con phân bổ vào mảng chính.
 - Sử dụng `renderExpandedRow` của `DataTable` để hiển thị Sub-panel mini các khoản phân bổ công nợ thụt lề bên dưới giao dịch cha.
 
@@ -62,10 +67,12 @@ Người dùng yêu cầu tái cấu trúc cơ chế hiển thị dòng con:
 
 ### D. Tài Liệu Hệ Thống & Knowledge Sync
 
-#### [MODIFY] [debts knowledge](file:///Users/datdoan/Documents/projects/telebot/.agents/knowledge/modules/debts/README.md) & [debts docs](file:///Users/datdoan/Documents/projects/telebot/.agents/docs/modules/debts/README.md)
+#### [MODIFY] [debts knowledge](file:///Users/datdoan/Documents/projects/zalobot/.agents/knowledge/modules/debts/README.md) & [debts docs](file:///Users/datdoan/Documents/projects/zalobot/.agents/docs/modules/debts/README.md)
+
 - Cập nhật quy chuẩn UX Master-Detail Expanded Sub-panel (1 dropdown, 1 level, colSpan sub-grid).
 
-#### [MODIFY] [dashboard knowledge](file:///Users/datdoan/Documents/projects/telebot/.agents/knowledge/modules/dashboard/README.md) & [dashboard docs](file:///Users/datdoan/Documents/projects/telebot/.agents/docs/modules/dashboard/README.md)
+#### [MODIFY] [dashboard knowledge](file:///Users/datdoan/Documents/projects/zalobot/.agents/knowledge/modules/dashboard/README.md) & [dashboard docs](file:///Users/datdoan/Documents/projects/zalobot/.agents/docs/modules/dashboard/README.md)
+
 - Cập nhật quy chuẩn Sub-panel cho phân bổ thu chi.
 
 ---
@@ -73,12 +80,14 @@ Người dùng yêu cầu tái cấu trúc cơ chế hiển thị dòng con:
 ## 4. Kế Hoạch Kiểm Thử & Xác Minh (Verification Plan)
 
 ### Automated Tests & Quality Gates
+
 - `npm run typecheck`: Kiểm tra 100% type safety trên cả 3 workspaces.
 - `npm run lint`: Kiểm tra không có vi phạm ESLint.
-- `npm run test --workspace=@telebot/api`: Chạy 74 unit tests backend.
+- `npm run test --workspace=@zalobot/api`: Chạy 74 unit tests backend.
 - `npm run agent-system:validate`: Kiểm tra tính toàn vẹn hệ thống tài liệu.
 
 ### Manual Verification
+
 1. Mở trang Quản lý Công nợ (`/debts`):
    - Kiểm tra STT bảng chính luôn liên tục `1, 2, 3...` không bị nhảy số.
    - Kiểm tra mỗi dòng nợ chỉ có đúng 1 nút mũi tên `▶ / ▼`.

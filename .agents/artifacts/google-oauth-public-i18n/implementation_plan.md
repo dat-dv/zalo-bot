@@ -4,7 +4,7 @@ RequestFeedback: true
 
 ## Nguyên nhân
 
-Pre-commit chặn commit với 57 lỗi vì `apps/web/app/about/page.tsx`, `privacy/page.tsx` và `terms/page.tsx` có chuỗi hiển thị trực tiếp trong JSX. Dự án yêu cầu toàn bộ chuỗi đó sử dụng `t('key')` từ catalog `@telebot/contracts`; các liên kết route cũng phải dùng `APP_ROUTES`.
+Pre-commit chặn commit với 57 lỗi vì `apps/web/app/about/page.tsx`, `privacy/page.tsx` và `terms/page.tsx` có chuỗi hiển thị trực tiếp trong JSX. Dự án yêu cầu toàn bộ chuỗi đó sử dụng `t('key')` từ catalog `@zalobot/contracts`; các liên kết route cũng phải dùng `APP_ROUTES`.
 
 ## Thay đổi dự kiến
 

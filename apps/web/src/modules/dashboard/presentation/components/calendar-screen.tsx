@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { localeTag, type ICalendarEventItem } from '@telebot/contracts';
+import { localeTag, type ICalendarEventItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataPanel } from '@/shared/ui/data-table';
 import { CalendarTable, type CalendarEditDraft } from './calendar-table';

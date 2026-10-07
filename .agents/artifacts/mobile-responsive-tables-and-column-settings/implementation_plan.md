@@ -2,7 +2,7 @@
 
 ## Tổng quan & Mục tiêu
 
-Cải tiến toàn diện thành phần bảng dữ liệu (`DataTable` và `DataPanel`) trên toàn bộ ứng dụng web (@telebot/web) nhằm:
+Cải tiến toàn diện thành phần bảng dữ liệu (`DataTable` và `DataPanel`) trên toàn bộ ứng dụng web (@zalobot/web) nhằm:
 
 1. **Tối ưu hiển thị trên di động (Mobile Responsive)**: Đảm bảo các cột quan trọng (như Số tiền, Danh mục/Tiêu đề, Trạng thái/Badge, Thời gian) luôn hiển thị đầy đủ và rõ ràng, không bị co ép chữ hay cắt cụt mất thông tin trên màn hình nhỏ.
 2. **Hỗ trợ cuộn ngang mượt mà (Horizontal Scrolling)**: Cho phép bảng cuộn ngang tự nhiên với độ rộng tối thiểu hợp lý cho từng cột, kết hợp chỉ báo trực quan khi bảng có thể cuộn.
@@ -14,7 +14,7 @@ Cải tiến toàn diện thành phần bảng dữ liệu (`DataTable` và `Dat
 
 > [!IMPORTANT]
 >
-> - **Cơ chế lưu trữ trạng thái cột**: Trạng thái ẩn/hiện cột của mỗi bảng sẽ được lưu trữ cục bộ trên trình duyệt qua `localStorage` (theo tiền tố `telebot:table-columns:<table-id>`). Khi người dùng mở lại bảng trên cùng thiết bị, cấu hình cột đã chọn sẽ được giữ nguyên.
+> - **Cơ chế lưu trữ trạng thái cột**: Trạng thái ẩn/hiện cột của mỗi bảng sẽ được lưu trữ cục bộ trên trình duyệt qua `localStorage` (theo tiền tố `zalobot:table-columns:<table-id>`). Khi người dùng mở lại bảng trên cùng thiết bị, cấu hình cột đã chọn sẽ được giữ nguyên.
 > - **Bảo vệ cột cốt lõi**: Các cột nhận diện chính (như Tên danh mục ở Thu chi, Tên người ở Vay nợ, Tiêu đề ở Công việc) được đánh dấu `hideable: false` để tránh trường hợp người dùng vô tình ẩn hết tất cả các cột nhận diện chính.
 
 ---

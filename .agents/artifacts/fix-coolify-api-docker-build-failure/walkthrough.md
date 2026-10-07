@@ -11,7 +11,7 @@
 
 ### 1. `apps/api/Dockerfile`
 
-- **Xóa lượt `npm ci` độc lập ở runner**: Loại bỏ `RUN npm ci --omit=dev --workspace @telebot/api` và `COPY apps/web/package.json`.
+- **Xóa lượt `npm ci` độc lập ở runner**: Loại bỏ `RUN npm ci --omit=dev --workspace @zalobot/api` và `COPY apps/web/package.json`.
 - **Tái sử dụng dependencies**: Thêm `COPY --from=builder /app/node_modules ./node_modules`.
 - **Bổ sung dist nội bộ monorepo**: Thêm `COPY --from=builder /app/packages/contracts/dist packages/contracts/dist`.
 - **Tối ưu gói hệ thống runner**: Loại bỏ các package build native C++ không cần thiết (`python3 make g++`) khỏi `RUN apk add`.

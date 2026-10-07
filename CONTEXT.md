@@ -2,7 +2,7 @@
 
 ## Thu–chi
 
-- **Giao dịch**: Một khoản tiền đã phát sinh, thuộc đúng một người dùng Telegram.
+- **Giao dịch**: Một khoản tiền đã phát sinh, thuộc đúng một người dùng zalo.
 - **Khoản thu**: Giao dịch làm tăng tiền nhận được, ví dụ lương, hoàn tiền hoặc bán hàng.
 - **Khoản chi**: Giao dịch làm giảm tiền đã dùng, ví dụ ăn uống, đi lại hoặc mua sắm.
 - **Số tiền**: Giá trị dương, lưu bằng đồng Việt Nam (VND), không lưu đơn vị nghìn hoặc triệu.

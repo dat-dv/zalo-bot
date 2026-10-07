@@ -27,7 +27,7 @@ export function CategoryAutocomplete({
   const inputId = useId();
   const listboxId = `${inputId}-listbox`;
   const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInpuzaloment>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -76,7 +76,7 @@ export function CategoryAutocomplete({
     inputRef.current?.focus();
   };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (event: KeyboardEvent<HTMLInpuzaloment>) => {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       setIsOpen(true);

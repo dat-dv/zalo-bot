@@ -27,7 +27,7 @@ Vì vậy, danh sách không thể được tạo đủ, kể cả khi AI đã n
 - `apps/api/src/gemini/gemini.service.ts`
 - `apps/api/src/gemini/tools/create-task.tool.ts`
 - `apps/api/src/gemini/helpers/gemini-prompt.helper.ts`
-- `apps/api/src/telegram/telegram.update.ts`
+- `apps/api/src/zalo/zalo.update.ts`
 
 ## Hướng sửa an toàn
 

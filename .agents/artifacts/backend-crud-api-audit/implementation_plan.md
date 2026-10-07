@@ -10,18 +10,18 @@ title: Bổ sung REST CRUD cho các tài nguyên nghiệp vụ backend
 
 ## Kết luận rà soát
 
-API HTTP hiện chỉ có OAuth và dashboard/báo cáo (`/api/dashboard`, `/api/contacts`, `/api/debts`, `/api/expenses`). Các thao tác tạo/sửa/xóa đang nằm trong Telegram/Gemini service, vì vậy web hoặc khách hàng REST không thể quản trị dữ liệu trực tiếp.
+API HTTP hiện chỉ có OAuth và dashboard/báo cáo (`/api/dashboard`, `/api/contacts`, `/api/debts`, `/api/expenses`). Các thao tác tạo/sửa/xóa đang nằm trong zalo/Gemini service, vì vậy web hoặc khách hàng REST không thể quản trị dữ liệu trực tiếp.
 
-| Tài nguyên | Hiện có qua HTTP | Còn thiếu |
-| --- | --- | --- |
-| Giao dịch tài chính | Chỉ đọc chi phí | Danh sách giao dịch, chi tiết, tạo, sửa, xóa |
-| Danh bạ công nợ | Chỉ danh sách | Chi tiết, tạo, sửa, xóa |
-| Công nợ | Chỉ danh sách active | Chi tiết, tạo, sửa, xóa; ghi nhận thanh toán giữ là thao tác nghiệp vụ riêng |
-| Nhắc việc | Không có | CRUD đầy đủ |
-| Người dùng / lời mời | Không có | API quản trị: danh sách/chi tiết/cấp quyền-sửa vai trò/xóa và tạo-danh sách-hủy lời mời |
-| Google Calendar / Tasks | Không có HTTP | CRUD qua API Google, giới hạn trong tài khoản Google đã liên kết của người gọi |
+| Tài nguyên              | Hiện có qua HTTP     | Còn thiếu                                                                               |
+| ----------------------- | -------------------- | --------------------------------------------------------------------------------------- |
+| Giao dịch tài chính     | Chỉ đọc chi phí      | Danh sách giao dịch, chi tiết, tạo, sửa, xóa                                            |
+| Danh bạ công nợ         | Chỉ danh sách        | Chi tiết, tạo, sửa, xóa                                                                 |
+| Công nợ                 | Chỉ danh sách active | Chi tiết, tạo, sửa, xóa; ghi nhận thanh toán giữ là thao tác nghiệp vụ riêng            |
+| Nhắc việc               | Không có             | CRUD đầy đủ                                                                             |
+| Người dùng / lời mời    | Không có             | API quản trị: danh sách/chi tiết/cấp quyền-sửa vai trò/xóa và tạo-danh sách-hủy lời mời |
+| Google Calendar / Tasks | Không có HTTP        | CRUD qua API Google, giới hạn trong tài khoản Google đã liên kết của người gọi          |
 
-`reports`, `audit`, `telegram`, `gemini`, `database`, `reports-token` không nhận CRUD công khai: báo cáo là dữ liệu tổng hợp chỉ đọc; audit log phải bất biến; Telegram/Gemini là kênh điều phối; token là thông tin bảo mật; database là hạ tầng.
+`reports`, `audit`, `zalo`, `gemini`, `database`, `reports-token` không nhận CRUD công khai: báo cáo là dữ liệu tổng hợp chỉ đọc; audit log phải bất biến; zalo/Gemini là kênh điều phối; token là thông tin bảo mật; database là hạ tầng.
 
 ## Phạm vi thực hiện được đề xuất
 
@@ -31,7 +31,7 @@ API HTTP hiện chỉ có OAuth và dashboard/báo cáo (`/api/dashboard`, `/api
    - `/api/transactions`: list, get, create, update, delete;
    - `/api/contacts`: list, get, create, update, delete;
    - `/api/debts`: list (lọc active/settled), get, create, update, delete và `POST /:id/payments` cho chuyển trạng thái thanh toán có kiểm tra số dư.
-   Các service hiện có sẽ được mở rộng theo user ownership; mọi cập nhật công nợ phải giữ bất biến `remainingAmount <= originalAmount` và không cho xóa/sửa sai chủ sở hữu.
+     Các service hiện có sẽ được mở rộng theo user ownership; mọi cập nhật công nợ phải giữ bất biến `remainingAmount <= originalAmount` và không cho xóa/sửa sai chủ sở hữu.
 4. Bổ sung controller REST cho `/api/reminders`: list, get, create, update, delete; tái sử dụng scheduling hiện tại và không cho HTTP sửa trạng thái nội bộ `isTriggered` trái vòng đời scheduler.
 5. Bổ sung `/api/users` và `/api/invites` chỉ cho admin. API user không được cho phép tự nâng quyền hoặc xóa tài khoản admin; lời mời có thể được tạo, liệt kê và hủy khi chưa dùng.
 6. Bổ sung `/api/calendar/events` và `/api/tasks` cho CRUD của dữ liệu trên Google. Với Google Tasks, thao tác “hoàn thành” là cập nhật trạng thái; bổ sung phương thức update/get còn thiếu vào service. Các endpoint trả lỗi rõ ràng khi tài khoản chưa kết nối Google và tuyệt đối không trả OAuth token.

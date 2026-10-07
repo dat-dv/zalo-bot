@@ -3,6 +3,7 @@
 ## Tổng quan & Bối cảnh
 
 Người dùng yêu cầu bổ sung bộ lọc theo trạng thái (**Status Filter**) cho màn hình "Vay & cho vay" (`DebtsScreen`). Hiện tại màn hình chỉ có bộ lọc theo chiều luồng tiền (`DirectionFilter`: Phải thu / Cho vay, Phải trả / Vay nợ, Tất cả) mà chưa hỗ trợ lọc theo trạng thái công nợ:
+
 - **Đang mở** (`active`): Các khoản nợ còn tiền (`remainingAmount > 0`, chưa tất toán).
 - **Đã tất toán** (`settled`): Các khoản nợ đã được thanh toán hết (`remainingAmount === 0` hoặc đã có `settledAt`).
 - **Tất cả trạng thái** (`all`): Hiển thị toàn bộ công nợ.
@@ -19,7 +20,7 @@ Người dùng yêu cầu bổ sung bộ lọc theo trạng thái (**Status Filt
 
 3. **Frontend Web (`apps/web`)**:
    - `DebtsScreen` chưa có state `statusFilter` và nhóm nút lọc trạng thái.
-   - Bảng dữ liệu chưa hiển thị cột hoặc badge trạng thái (*Đang mở* vs *Đã tất toán*).
+   - Bảng dữ liệu chưa hiển thị cột hoặc badge trạng thái (_Đang mở_ vs _Đã tất toán_).
 
 ---
 
@@ -34,7 +35,8 @@ Người dùng yêu cầu bổ sung bộ lọc theo trạng thái (**Status Filt
 
 ### 1. Packages / Shared Contracts (`packages/contracts`)
 
-#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/telebot/packages/contracts/src/index.ts)
+#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/zalobot/packages/contracts/src/index.ts)
+
 - Bổ sung trường `status?: 'active' | 'settled'` vào interface `IDebtListItem`.
 - Thêm translation keys vào `messages.vi` và `messages.en`:
   - `debts.columns.status`: `'Trạng thái'` / `'Status'`
@@ -48,7 +50,8 @@ Người dùng yêu cầu bổ sung bộ lọc theo trạng thái (**Status Filt
 
 ### 2. Backend Module (`apps/api`)
 
-#### [MODIFY] [reports.controller.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/reports/reports.controller.ts)
+#### [MODIFY] [reports.controller.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/reports/reports.controller.ts)
+
 - Cập nhật endpoint `GET /api/debts`: Gọi `this.finance.listDebts(userId)` để trả về đầy đủ cả khoản nợ đang mở và đã tất toán.
 - Ánh xạ đầy đủ `status`, `currency`, `settledAt`, `updatedAt` vào đối tượng `IDebtListItem` trả về client.
 
@@ -56,10 +59,11 @@ Người dùng yêu cầu bổ sung bộ lọc theo trạng thái (**Status Filt
 
 ### 3. Frontend Debts Module (`apps/web/src/modules/debts`)
 
-#### [MODIFY] [debts-screen.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/debts/view/debts-screen.tsx)
+#### [MODIFY] [debts-screen.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/debts/view/debts-screen.tsx)
+
 - Bổ sung state `statusFilter`: `'all' | 'active' | 'settled'`.
 - Thêm cột `status` trong `debtColumns`:
-  - Hiển thị badge trực quan: `badge--pending` (*Đang mở*) và `badge--completed` (*Đã tất toán*).
+  - Hiển thị badge trực quan: `badge--pending` (_Đang mở_) và `badge--completed` (_Đã tất toán_).
 - Tính toán số đếm badge cho các nút lọc trạng thái (`all`, `active`, `settled`).
 - Cập nhật logic lọc 3 chiều:
   1. Lọc theo luồng tiền (`direction`: Tất cả, Phải thu, Phải trả).
@@ -72,13 +76,14 @@ Người dùng yêu cầu bổ sung bộ lọc theo trạng thái (**Status Filt
 ## Kế hoạch kiểm thử & Xác thực (Verification Plan)
 
 ### Automated Tests
+
 1. **Kiểm tra kiểu dữ liệu toàn monorepo**:
    ```bash
    npm run typecheck
    ```
 2. **Kiểm tra unit tests backend**:
    ```bash
-   npm run test --workspace @telebot/api
+   npm run test --workspace @zalobot/api
    ```
 3. **Kiểm tra tính toàn vẹn hệ thống Agent**:
    ```bash
@@ -90,6 +95,7 @@ Người dùng yêu cầu bổ sung bộ lọc theo trạng thái (**Status Filt
    ```
 
 ### Manual Verification
+
 1. Mở trang `/debts`:
    - Kiểm tra nhóm nút lọc trạng thái: `[Tất cả] [Đang mở] [Đã tất toán]` kèm số lượng.
    - Bấm vào tab "Đang mở" -> Chỉ hiển thị các khoản nợ còn tiền (`remainingAmount > 0`).

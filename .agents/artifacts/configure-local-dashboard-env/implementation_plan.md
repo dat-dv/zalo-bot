@@ -4,7 +4,7 @@ RequestFeedback: true
 
 ## Mục tiêu
 
-Đảm bảo dịch vụ Docker nhận public origin `https://telebot.datintech.site` từ file môi trường local, để API không fallback về `http://localhost:3000` khi tạo link Dashboard.
+Đảm bảo dịch vụ Docker nhận public origin `https://zalobot.datintech.site` từ file môi trường local, để API không fallback về `http://localhost:3000` khi tạo link Dashboard.
 
 ## Phạm vi
 
@@ -14,14 +14,14 @@ RequestFeedback: true
 
 ## Thay đổi dự kiến
 
-1. Xác nhận/giữ `SERVICE_URL_TELEBOT=https://telebot.datintech.site`.
-2. Xác nhận/giữ `NEXT_PUBLIC_API_URL=https://telebot.datintech.site` để web build cùng public origin.
+1. Xác nhận/giữ `SERVICE_URL_zaloBOT=https://zalobot.datintech.site`.
+2. Xác nhận/giữ `NEXT_PUBLIC_API_URL=https://zalobot.datintech.site` để web build cùng public origin.
 3. Không thêm `WEB_ORIGIN` vì Web và API dùng chung domain.
 4. Sau khi cập nhật, chạy Compose với `ENV_FILE=.env` để container thực sự nạp file này; đây là bắt buộc vì Compose mặc định tham chiếu `.env.local`.
 
 ## Xác minh sau khi thực hiện
 
-1. API log hiển thị callback `https://telebot.datintech.site/oauth2callback`.
+1. API log hiển thị callback `https://zalobot.datintech.site/oauth2callback`.
 2. `curl -I http://localhost:3001` trả phản hồi từ Web/Nginx.
 3. `/dashboard` trả nút mở Dashboard thay vì cảnh báo localhost/domain.
 

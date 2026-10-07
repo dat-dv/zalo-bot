@@ -62,7 +62,7 @@ export class UsersController {
   @Delete('users/:id')
   async deleteUser(@Req() req: Request, @Param('id') id: string) {
     this.admin(req);
-    if (!(await this.users.banUser(Number(id))))
+    if (!(await this.users.banUser(id)))
       throw new NotFoundException('User not found or is an admin.');
     return { data: { deleted: true } };
   }
@@ -90,9 +90,9 @@ export class UsersController {
     if (!this.users.isAdmin(userId)) throw new ForbiddenException();
     return userId;
   }
-  private id(value: unknown): number {
-    const id = Number(value);
-    if (!Number.isSafeInteger(id) || id <= 0) throw new BadRequestException('id is invalid.');
+  private id(value: unknown): string {
+    const id = String(value ?? '').trim();
+    if (!id) throw new BadRequestException('id is invalid.');
     return id;
   }
   private role(value: unknown): 'admin' | 'user' {

@@ -1,11 +1,14 @@
 # Tổng Kết Triển Khai Tính Năng Gộp Công Nợ Cha–Con (Debt Consolidation & Parent–Child Hierarchy)
 
 ## 1. Tóm Tắt Mục Tiêu Nghiệp Vụ
+
 Đáp ứng yêu cầu của người dùng:
-> *"à mà có thể gom tất cả thành 1 khoản . ví dụ có 2 khoản nợ a và b , chúng ta combine lại thành 1 cái cha là c trong đó có a và b lúc mà thực hiện tính năng combine nhá . các khoản cho vay cũng thế..."*
-> *"có chặn validation nó merge sai làm crash app k đó. nhớ có chặn nha"*
+
+> _"à mà có thể gom tất cả thành 1 khoản . ví dụ có 2 khoản nợ a và b , chúng ta combine lại thành 1 cái cha là c trong đó có a và b lúc mà thực hiện tính năng combine nhá . các khoản cho vay cũng thế..."_
+> _"có chặn validation nó merge sai làm crash app k đó. nhớ có chặn nha"_
 
 Hệ thống cho phép gộp $N \ge 2$ khoản nợ (hoặc cho vay) có cùng chiều (`receivable` với `receivable`, `payable` với `payable`) thành một khoản nợ cha $C$, trong đó:
+
 - Khoản nợ cha $C$ có:
   - `originalAmount = sum(children.originalAmount)`
   - `remainingAmount = sum(children.remainingAmount)`
@@ -39,15 +42,18 @@ Hệ thống cho phép gộp $N \ge 2$ khoản nợ (hoặc cho vay) có cùng c
 ## 3. Các Thay Đổi Đã Thực Hiện
 
 ### 3.1. Shared Contracts (`packages/contracts`)
+
 - Thêm endpoint `API_ROUTES.debtsCombine = '/api/debts/combine'`.
 - Thêm DTOs: `ICombineDebtsRequest`, `ICombineDebtsResponse`, mở rộng `ICombineContactsRequest` (`consolidateDebts?: boolean`), mở rộng `IDebtListItem` (`parentDebtId?: string | null`, `children?: IDebtListItem[]`, `childCount?: number`).
 - Bổ sung bộ từ điển song ngữ (`vi` và `en`): `debts.actions.combine`, `debts.combineModal.*` (kèm `mismatchedDirection`, `mismatchedCurrency`), `debts.badge.parent`, `debts.badge.child`, `debts.expandChildren`, `debts.collapseChildren`, `debts.selectedCount`, `contacts.combineModal.consolidateDebts`.
 
 ### 3.2. Database & Migration
+
 - **Entity**: `DebtEntity` (`apps/api/src/database/entities/debt.entity.ts`) bổ sung trường `parentDebtId` với quan hệ tự tham chiếu `@ManyToOne` và `@OneToMany` (`children`).
 - **Migration**: `1724680000000-AddParentDebtHierarchy.ts` bổ sung cột `parent_debt_id`, ràng buộc khóa ngoại `FK_debts_parent_debt_id` (với `ON DELETE SET NULL`) và chỉ mục `IDX_debts_parent_debt_id`. Đã đăng ký vào `DatabaseModule` và `data-source.ts`.
 
 ### 3.3. Backend NestJS
+
 - **`FinanceService`**:
   - Thêm phương thức `combineDebts(userId, input: CombineDebtsDto)` chạy trong transaction nguyên tử (`manager.transaction`), kiểm tra tính đồng nhất về chiều (`direction`) và loại tiền tệ (`currency`), tính tổng số tiền gốc và số tiền còn lại, tạo bản ghi nợ cha và cập nhật `parentDebtId` cho các khoản con.
   - Cập nhật `combineContacts` hỗ trợ cờ `consolidateDebts: true` tự động gom nợ an toàn theo chiều và tiền tệ.
@@ -57,6 +63,7 @@ Hệ thống cho phép gộp $N \ge 2$ khoản nợ (hoặc cho vay) có cùng c
 - **Unit Tests**: 70 unit tests backend vượt qua 100%, bao gồm các test case kiểm tra từ chối khi lệch chiều, lệch tiền tệ, và ít hơn 2 khoản nợ.
 
 ### 3.4. Frontend Web (Next.js & Tailwind CSS)
+
 - **API & TanStack Query**: Thêm `combineDebts` trong `debts-api.ts` và hook `useCombineDebtsMutation` trong `debts-query.ts`.
 - **`CombineDebtsDialog`**: Modal chọn ghi chú nợ cha, ngày đến hạn nợ cha, hiển thị bảng tóm tắt các khoản nợ được chọn, tổng tiền gốc & còn lại, cảnh báo nếu lệch chiều nợ hoặc lệch loại tiền tệ.
 - **`DebtsTable`**: Bổ sung cột checkbox chọn nhiều dòng, nút mở rộng/thu gọn cây nợ con (`▶ / ▼`), render thụt lề cho các khoản con kèm huy hiệu `[Khoản con]` và `[Gộp: N khoản con]`.
@@ -67,10 +74,10 @@ Hệ thống cho phép gộp $N \ge 2$ khoản nợ (hoặc cho vay) có cùng c
 
 ## 4. Kết Quả Kiểm Thử & Đảm Bảo Chất Lượng (Quality Gates)
 
-| Lệnh kiểm thử | Kết quả | Chi tiết |
-| :--- | :--- | :--- |
-| `npm run typecheck` | ✅ PASSED | 0 lỗi TypeScript trên toàn bộ monorepo (`@telebot/contracts`, `@telebot/api`, `@telebot/web`) |
-| `npm run test --workspace=@telebot/api` | ✅ PASSED | 70/70 backend unit tests pass 100% |
-| `npm run build --workspace=@telebot/web` | ✅ PASSED | Build thành công 19 static routes Next.js |
-| `npm run lint` | ✅ PASSED | Tuân thủ 100% quy chuẩn ESLint và Prettier |
-| `npm run agent-system:validate -- --check-changes --check-i18n` | ✅ PASSED | 91 artifacts, 157 dependencies, 0 drift, 0 lỗi i18n |
+| Lệnh kiểm thử                                                   | Kết quả   | Chi tiết                                                                                      |
+| :-------------------------------------------------------------- | :-------- | :-------------------------------------------------------------------------------------------- |
+| `npm run typecheck`                                             | ✅ PASSED | 0 lỗi TypeScript trên toàn bộ monorepo (`@zalobot/contracts`, `@zalobot/api`, `@zalobot/web`) |
+| `npm run test --workspace=@zalobot/api`                         | ✅ PASSED | 70/70 backend unit tests pass 100%                                                            |
+| `npm run build --workspace=@zalobot/web`                        | ✅ PASSED | Build thành công 19 static routes Next.js                                                     |
+| `npm run lint`                                                  | ✅ PASSED | Tuân thủ 100% quy chuẩn ESLint và Prettier                                                    |
+| `npm run agent-system:validate -- --check-changes --check-i18n` | ✅ PASSED | 91 artifacts, 157 dependencies, 0 drift, 0 lỗi i18n                                           |

@@ -1,8 +1,8 @@
 # Dashboard Session and Pages
 
-The Telegram dashboard link uses a random one-time exchange token. Only its SHA-256 hash is persisted in `dashboard_exchange_tokens`; the raw token appears only in the short-lived URL.
+The zalo dashboard link uses a random one-time exchange token. Only its SHA-256 hash is persisted in `dashboard_exchange_tokens`; the raw token appears only in the short-lived URL.
 
-The shared Telegram menu catalog drives command suggestions plus the `/start` and `/help` inline menu. It exposes **Dashboard** as a direct URL, placed in compact two-control rows with the remaining quick actions. `/dashboard` and exact short Dashboard requests are routed directly to the same URL instead of the generative model. Dashboard-link generation is optional: if exchange-token creation fails, the command still replies and omits only this button. The legacy callback remains only for already-sent menus and issues a new URL before replying.
+The shared zalo menu catalog drives command suggestions plus the `/start` and `/help` inline menu. It exposes **Dashboard** as a direct URL, placed in compact two-control rows with the remaining quick actions. `/dashboard` and exact short Dashboard requests are routed directly to the same URL instead of the generative model. Dashboard-link generation is optional: if exchange-token creation fails, the command still replies and omits only this button. The legacy callback remains only for already-sent menus and issues a new URL before replying.
 
 - `GET /api/access?token=...` atomically consumes a valid, unused exchange token and redirects to root `/` with an access token in the URL fragment (`/#dashboard_token=...`).
 - Access tokens expire after 24 hours. Refresh tokens expire after 7 days, rotate on refresh, and are stored only in an HTTP-only cookie.

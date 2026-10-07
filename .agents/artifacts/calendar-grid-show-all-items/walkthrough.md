@@ -6,7 +6,7 @@ Chúng tôi đã cập nhật giao diện Lưới lịch tháng (`CalendarGrid`)
 
 ### 1. Frontend Web (`apps/web`)
 
-- [calendar-grid.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/calendar/presentation/components/calendar-grid.tsx):
+- [calendar-grid.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/calendar/presentation/components/calendar-grid.tsx):
   - Loại bỏ logic giới hạn số sự kiện `maxVisibleEvents = 2` và `visibleEvents = cell.events.slice(0, maxVisibleEvents)`.
   - Hiển thị trực tiếp toàn bộ mảng `cell.events.map(...)`.
   - Bỏ hiển thị dòng phụ `hiddenCount` (`+{count} sự kiện`).
@@ -14,16 +14,16 @@ Chúng tôi đã cập nhật giao diện Lưới lịch tháng (`CalendarGrid`)
 
 ### 2. Đồng bộ Tài liệu Kỹ thuật & Tri thức Hệ thống
 
-- [.agents/knowledge/modules/calendar/README.md](file:///Users/datdoan/Documents/projects/telebot/.agents/knowledge/modules/calendar/README.md): Cập nhật mô tả `CalendarGrid` phản ánh việc hiển thị toàn bộ các event chips mà không bị truncate.
-- [.agents/docs/modules/calendar/README.md](file:///Users/datdoan/Documents/projects/telebot/.agents/docs/modules/calendar/README.md): Cập nhật hướng dẫn tiếng Việt xác nhận tính năng hiển thị đầy đủ toàn bộ thẻ sự kiện kèm giờ trong lưới tháng.
+- [.agents/knowledge/modules/calendar/README.md](file:///Users/datdoan/Documents/projects/zalobot/.agents/knowledge/modules/calendar/README.md): Cập nhật mô tả `CalendarGrid` phản ánh việc hiển thị toàn bộ các event chips mà không bị truncate.
+- [.agents/docs/modules/calendar/README.md](file:///Users/datdoan/Documents/projects/zalobot/.agents/docs/modules/calendar/README.md): Cập nhật hướng dẫn tiếng Việt xác nhận tính năng hiển thị đầy đủ toàn bộ thẻ sự kiện kèm giờ trong lưới tháng.
 
 ---
 
 ## Kết quả Kiểm thử & Xác minh
 
-| Kiểm thử | Kết quả | Chi tiết |
-| :--- | :--- | :--- |
-| **Typecheck** (`npm run typecheck`) | ✅ Thành công | 0 lỗi TypeScript trên toàn bộ monorepo (`@telebot/api`, `@telebot/web`, `@telebot/contracts`) |
-| **Lint** (`npm run lint`) | ✅ Thành công | Không có vi phạm eslint |
-| **Unit Tests** (`npx tsx --test`) | ✅ Thành công | 3/3 tests kiểm thử logic phạm vi ngày sự kiện (`calendar-date-utils.spec.ts`) đều pass |
-| **Agent System Validate** (`npm run agent-system:validate`) | ✅ Thành công | 91 artifacts, 157 dependencies, 0 cyclic groups |
+| Kiểm thử                                                    | Kết quả       | Chi tiết                                                                                      |
+| :---------------------------------------------------------- | :------------ | :-------------------------------------------------------------------------------------------- |
+| **Typecheck** (`npm run typecheck`)                         | ✅ Thành công | 0 lỗi TypeScript trên toàn bộ monorepo (`@zalobot/api`, `@zalobot/web`, `@zalobot/contracts`) |
+| **Lint** (`npm run lint`)                                   | ✅ Thành công | Không có vi phạm eslint                                                                       |
+| **Unit Tests** (`npx tsx --test`)                           | ✅ Thành công | 3/3 tests kiểm thử logic phạm vi ngày sự kiện (`calendar-date-utils.spec.ts`) đều pass        |
+| **Agent System Validate** (`npm run agent-system:validate`) | ✅ Thành công | 91 artifacts, 157 dependencies, 0 cyclic groups                                               |

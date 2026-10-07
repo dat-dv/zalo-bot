@@ -2,13 +2,14 @@
 
 ## 1. Tổng quan & Mục tiêu
 
-Hiện tại, cột `ID` trong thành phần `DataTable` dùng chung (`apps/web/src/shared/ui/data-table.tsx`) chỉ hiển thị chuỗi text đơn thuần (`<code>{row.id}</code>`). 
+Hiện tại, cột `ID` trong thành phần `DataTable` dùng chung (`apps/web/src/shared/ui/data-table.tsx`) chỉ hiển thị chuỗi text đơn thuần (`<code>{row.id}</code>`).
 
 Theo yêu cầu của bạn:
+
 - Khi click vào bất kỳ ô `ID` nào trên bảng dữ liệu, hệ thống sẽ mở một hộp thoại / popup giải thích chi tiết:
   1. Đây là ID của bảng / thực thể cơ sở dữ liệu nào (ví dụ: `finance_transactions` - Giao dịch thu–chi, `debts` - Khoản vay nợ, `tasks` - Việc cần làm, `reminders` - Lời nhắc, `calendar_events` - Sự kiện lịch, `debt_contacts` - Danh bạ / Người liên quan, `finance_places` - Địa điểm, `categories` - Danh mục, v.v.).
   2. Hiển thị đầy đủ mã ID với nút **Sao chép ID (1-Click Copy)**.
-  3. Cung cấp **Bộ câu lệnh mẫu (AI Agent Prompt Templates)** để người dùng sao chép nhanh và gửi cho Telegram Bot / AI Agent (ví dụ: *"Sửa bản ghi [thực thể] có ID: [id] thành..."*, *"Xóa bản ghi [thực thể] có ID: [id]"*, *"Xem chi tiết bản ghi [thực thể] có ID: [id]"*).
+  3. Cung cấp **Bộ câu lệnh mẫu (AI Agent Prompt Templates)** để người dùng sao chép nhanh và gửi cho zalo Bot / AI Agent (ví dụ: _"Sửa bản ghi [thực thể] có ID: [id] thành..."_, _"Xóa bản ghi [thực thể] có ID: [id]"_, _"Xem chi tiết bản ghi [thực thể] có ID: [id]"_).
 
 ---
 
@@ -16,6 +17,7 @@ Theo yêu cầu của bạn:
 
 > [!NOTE]
 > **Thiết kế UI / UX**:
+>
 > - Ô ID trên bảng sẽ được đổi thành nút bấm tương tác (clickable badge) với font mono, hiệu ứng hover nhẹ và icon sao chép / thông tin nhỏ.
 > - Khi click, mở một Modal / Dialog (`IdExplainerDialog`) hiển thị thông tin bảng CSDL, giải thích ý nghĩa ID và 3 mẫu prompt thông dụng nhất cho AI Agent (Sửa, Xóa, Tra cứu) kèm nút 1-click copy cho từng prompt.
 > - Hỗ trợ đầy đủ phím tắt (`Escape` để đóng), click backdrop để đóng, và dark mode 100%.
@@ -24,9 +26,10 @@ Theo yêu cầu của bạn:
 
 ## 3. Chi tiết các thay đổi dự kiến (Proposed Changes)
 
-### Package: `@telebot/contracts`
+### Package: `@zalobot/contracts`
 
-#### [MODIFY] [`packages/contracts/src/index.ts`](file:///Users/datdoan/Documents/projects/telebot/packages/contracts/src/index.ts)
+#### [MODIFY] [`packages/contracts/src/index.ts`](file:///Users/datdoan/Documents/projects/zalobot/packages/contracts/src/index.ts)
+
 - Bổ sung translation keys cho cả `vi` (Tiếng Việt) và `en` (English):
   - `table.idClickToInspect`: Gợi ý tooltip khi hover ô ID.
   - `table.idModal.title`: Tiêu đề modal định danh bản ghi.
@@ -50,9 +53,10 @@ Theo yêu cầu của bạn:
 
 ---
 
-### Package: `@telebot/web`
+### Package: `@zalobot/web`
 
-#### [MODIFY] [`apps/web/src/shared/ui/data-table.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/data-table.tsx)
+#### [MODIFY] [`apps/web/src/shared/ui/data-table.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/data-table.tsx)
+
 - Mở rộng `DataTableProps<T>`:
   - Thêm thuộc tính tùy chọn `tableName?: string`, `entityName?: string`, `entityLabel?: string`.
   - Tự động nhận diện mapping từ `id` của bảng sang tên bảng CSDL & thực thể mặc định (ví dụ: `transactions-table` -> `finance_transactions`).
@@ -67,6 +71,7 @@ Theo yêu cầu của bạn:
   - Nút đóng (`✕` và nút Đóng), phím tắt `Escape` và click outside.
 
 #### [MODIFY] Các màn hình / bảng gọi `DataTable` (nếu cần truyền custom `tableName`/`entityName`):
+
 - `apps/web/src/modules/dashboard/view/transactions-table.tsx`
 - `apps/web/src/modules/debts/view/debts-table.tsx`
 - `apps/web/src/modules/dashboard/view/tasks-table.tsx`
@@ -83,11 +88,13 @@ Theo yêu cầu của bạn:
 ## 4. Kế hoạch kiểm thử & Đảm bảo chất lượng (Verification Plan)
 
 ### Automated Verification
-- `npm run typecheck`: Kiểm tra tính toàn vẹn kiểu TypeScript trên toàn monorepo (`@telebot/contracts`, `@telebot/web`, `@telebot/api`).
+
+- `npm run typecheck`: Kiểm tra tính toàn vẹn kiểu TypeScript trên toàn monorepo (`@zalobot/contracts`, `@zalobot/web`, `@zalobot/api`).
 - `npm run lint`: Chạy ESLint để đảm bảo không vi phạm linter rules.
 - `npm run agent-system:validate`: Đảm bảo quy chuẩn Agent System & tính toàn vẹn hệ thống.
 
 ### Manual Verification
+
 - Mở Web Dashboard trên trình duyệt.
 - Click vào ô ID của từng bảng dữ liệu (Thu chi, Công nợ, Công việc, Lời nhắc, Sự kiện lịch, Danh bạ, Nơi chốn, Danh mục).
 - Kiểm tra:

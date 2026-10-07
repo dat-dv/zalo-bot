@@ -3,7 +3,7 @@ import {
   type IApiResponse,
   type IExpenseListItem,
   type IUpdateExpenseRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
 export async function getExpenses(signal?: AbortSignal): Promise<IExpenseListItem[]> {

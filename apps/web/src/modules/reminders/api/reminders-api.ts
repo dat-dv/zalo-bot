@@ -3,7 +3,7 @@ import {
   type IApiResponse,
   type IReminderListItem,
   type IUpdateReminderRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
 export async function getReminders(signal?: AbortSignal): Promise<IReminderListItem[]> {

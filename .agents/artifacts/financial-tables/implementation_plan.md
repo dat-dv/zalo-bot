@@ -30,7 +30,7 @@ Mở rộng khu vực báo cáo để có ba màn hình bảng riêng, dùng d�
 - Thêm hai endpoint báo cáo đã xác thực:
   - `GET /debts`: trả toàn bộ khoản nợ đang mở của người dùng, gồm chiều công nợ, người liên quan, số tiền gốc/còn lại, ghi chú, hạn trả và ngày tạo.
   - `GET /expenses`: trả các giao dịch loại `expense` của người dùng, mới nhất trước, gồm danh mục, ghi chú, số tiền và ngày phát sinh.
-- Mở rộng `FinanceService` bằng các hàm truy vấn riêng có kiểm soát theo `userId`; giữ nguyên dữ liệu và hành vi Telegram hiện tại.
+- Mở rộng `FinanceService` bằng các hàm truy vấn riêng có kiểm soát theo `userId`; giữ nguyên dữ liệu và hành vi zalo hiện tại.
 
 ### Giao diện
 

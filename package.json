@@ -1,5 +1,5 @@
 {
-  "name": "telebot-monorepo",
+  "name": "zalobot-monorepo",
   "version": "1.0.0",
   "private": true,
   "workspaces": [
@@ -8,17 +8,17 @@
   ],
   "scripts": {
     "dev": "concurrently --names api,web --prefix-colors blue,green \"npm run dev:api\" \"npm run dev:web\"",
-    "dev:api": "npm run start:dev --workspace @telebot/api",
-    "dev:web": "npm run dev --workspace @telebot/web",
-    "build": "npm run build --workspace @telebot/contracts && npm run build --workspace @telebot/api && npm run build --workspace @telebot/web",
-    "build:api": "npm run build --workspace @telebot/api",
-    "build:web": "npm run build --workspace @telebot/web",
+    "dev:api": "npm run start:dev --workspace @zalobot/api",
+    "dev:web": "npm run dev --workspace @zalobot/web",
+    "build": "npm run build --workspace @zalobot/contracts && npm run build --workspace @zalobot/api && npm run build --workspace @zalobot/web",
+    "build:api": "npm run build --workspace @zalobot/api",
+    "build:web": "npm run build --workspace @zalobot/web",
     "format": "npm run format --workspaces --if-present",
     "format:check": "npm run format:check --workspaces --if-present",
     "lint": "npm run lint:check --workspaces --if-present",
     "lint:fix": "npm run lint:fix --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "start:api": "npm run start:prod --workspace @telebot/api",
+    "start:api": "npm run start:prod --workspace @zalobot/api",
     "agent-system:precommit": "node scripts/agent-system/precommit/run.mjs",
     "agent-system:validate": "tsx scripts/agent-system/validate.ts"
   },

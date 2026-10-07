@@ -5,7 +5,7 @@ import type {
   ICreateTransactionRequest,
   ITransactionItem,
   IUpdateTransactionRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { dashboardQueryKeys } from './dashboard-query';
 import { placesQueryKeys } from './places-query';
 import { createTransaction, deleteTransaction, updateTransaction } from './transactions-api';

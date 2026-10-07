@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
-import type { IAnalyticsCategoryBreakdown } from '@telebot/contracts';
+import type { IAnalyticsCategoryBreakdown } from '@zalobot/contracts';
 
 interface CategoryDonutChartProps {
   categories: IAnalyticsCategoryBreakdown[];

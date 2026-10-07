@@ -1,4 +1,4 @@
-import { API_ROUTES, type IApiResponse, type IDashboardData } from '@telebot/contracts';
+import { API_ROUTES, type IApiResponse, type IDashboardData } from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
 export async function getDashboard(signal?: AbortSignal): Promise<IDashboardData> {

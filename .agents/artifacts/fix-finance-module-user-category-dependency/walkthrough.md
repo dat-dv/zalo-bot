@@ -14,7 +14,7 @@
 
 ## Kết quả kiểm thử & xác minh
 
-- **Typecheck**: `npm run typecheck --workspace @telebot/api` thành công (0 lỗi).
+- **Typecheck**: `npm run typecheck --workspace @zalobot/api` thành công (0 lỗi).
 - **Nest Build**: `npm run build:api` biên dịch thành công mà không có lỗi metadata/dependency.
-- **Unit/Integration Tests**: `npm run test --workspace @telebot/api` pass toàn bộ (5/5 tests passed).
+- **Unit/Integration Tests**: `npm run test --workspace @zalobot/api` pass toàn bộ (5/5 tests passed).
 - **System Validation**: `npm run agent-system:validate` pass (86 artifacts, 0 cyclic dependency groups).

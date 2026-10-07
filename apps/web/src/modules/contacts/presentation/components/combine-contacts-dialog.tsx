@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useId } from 'react';
-import type { IContactListItem } from '@telebot/contracts';
+import type { IContactListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useCombineContactsMutation } from '../../api/contacts-query';
 

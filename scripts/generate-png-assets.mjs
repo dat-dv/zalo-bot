@@ -168,7 +168,7 @@ function generateIconBuffer(size) {
     }
   }
 
-  // Top-right indicator dot (Telegram Cyan Accent)
+  // Top-right indicator dot (zalo Cyan Accent)
   const dotX = tLeft + tWidth + size * 0.02;
   const dotY = tTop - size * 0.02;
   const dotRadius = size * 0.055;

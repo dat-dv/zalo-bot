@@ -1,4 +1,4 @@
-import type { ICalendarEventItem } from '@telebot/contracts';
+import type { ICalendarEventItem } from '@zalobot/contracts';
 
 export interface CalendarGridRange {
   timeMin: string;

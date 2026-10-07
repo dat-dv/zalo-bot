@@ -5,7 +5,7 @@ import { IsNull, Repository } from 'typeorm';
 import * as crypto from 'crypto';
 import { UserEntity } from '../database/entities/user.entity';
 import { InviteEntity } from '../database/entities/invite.entity';
-import { normalizeLocale, type SupportedLocale } from '@telebot/contracts';
+import { normalizeLocale, type SupportedLocale } from '@zalobot/contracts';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -45,12 +45,14 @@ export class UsersService implements OnModuleInit {
         }
       }
 
-      // Also include env admin & allowed IDs
-      const adminId = this.configService.getOrThrow<number>('telegram.adminId');
-      this.adminUserIdsCache.add(adminId.toString());
-      this.allowedUserIdsCache.add(adminId.toString());
+      // Also include env admin & allowed IDs from Zalo configuration
+      const adminId = this.configService.get<string>('zalo.adminId');
+      if (adminId) {
+        this.adminUserIdsCache.add(adminId.toString());
+        this.allowedUserIdsCache.add(adminId.toString());
+      }
 
-      const allowedIds = this.configService.getOrThrow<number[]>('telegram.allowedUserIds');
+      const allowedIds = this.configService.get<string[]>('zalo.allowedUserIds') || [];
       for (const id of allowedIds) {
         this.allowedUserIdsCache.add(id.toString());
       }
@@ -65,27 +67,30 @@ export class UsersService implements OnModuleInit {
   }
 
   private async seedInitialUsers(): Promise<void> {
-    const adminIdEnv = this.configService.getOrThrow<number>('telegram.adminId').toString();
-    const allowedIds = this.configService.getOrThrow<number[]>('telegram.allowedUserIds');
+    const adminIdEnv = this.configService.get<string>('zalo.adminId');
+    const allowedIds = this.configService.get<string[]>('zalo.allowedUserIds') || [];
 
-    const existing = await this.userRepo.findOne({ where: { id: adminIdEnv } });
-    if (!existing) {
-      const adminUser = this.userRepo.create({
-        id: adminIdEnv,
-        role: 'admin',
-        createdAt: new Date(),
-      });
-      await this.userRepo.save(adminUser);
+    if (adminIdEnv) {
+      const adminStr = adminIdEnv.toString();
+      const existing = await this.userRepo.findOne({ where: { id: adminStr } });
+      if (!existing) {
+        const adminUser = this.userRepo.create({
+          id: adminStr,
+          role: 'admin',
+          createdAt: new Date(),
+        });
+        await this.userRepo.save(adminUser);
+      }
     }
 
     if (allowedIds && allowedIds.length > 0) {
-      for (const [index, idNum] of allowedIds.entries()) {
-        const idStr = idNum.toString();
-        const existing = await this.userRepo.findOne({ where: { id: idStr } });
+      for (const [index, idStr] of allowedIds.entries()) {
+        const strId = idStr.toString();
+        const existing = await this.userRepo.findOne({ where: { id: strId } });
         if (!existing) {
-          const isFirstOrAdmin = idStr === adminIdEnv || index === 0;
+          const isFirstOrAdmin = adminIdEnv ? strId === adminIdEnv : index === 0;
           const user = this.userRepo.create({
-            id: idStr,
+            id: strId,
             role: isFirstOrAdmin ? 'admin' : 'user',
             createdAt: new Date(),
           });
@@ -99,22 +104,22 @@ export class UsersService implements OnModuleInit {
     return this.adminUserIdsCache.size > 0;
   }
 
-  public isAdmin(userId: number): boolean {
+  public isAdmin(userId: string | number): boolean {
     return this.adminUserIdsCache.has(userId.toString());
   }
 
-  public isAllowed(userId: number): boolean {
+  public isAllowed(userId: string | number): boolean {
     const strId = userId.toString();
     return this.allowedUserIdsCache.has(strId);
   }
 
-  public async getPreferredLocale(userId: number): Promise<SupportedLocale> {
+  public async getPreferredLocale(userId: string | number): Promise<SupportedLocale> {
     const user = await this.userRepo.findOne({ where: { id: userId.toString() } });
     return normalizeLocale(user?.preferredLocale);
   }
 
   public async setPreferredLocale(
-    userId: number,
+    userId: string | number,
     locale: SupportedLocale,
   ): Promise<SupportedLocale> {
     const user = await this.upsertUser(userId);
@@ -123,7 +128,7 @@ export class UsersService implements OnModuleInit {
     return user.preferredLocale;
   }
 
-  public async createInvite(adminId: number): Promise<InviteEntity> {
+  public async createInvite(adminId: string | number): Promise<InviteEntity> {
     const code = 'invite_' + crypto.randomBytes(6).toString('hex');
     const now = new Date();
     const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
@@ -141,7 +146,7 @@ export class UsersService implements OnModuleInit {
 
   public async consumeInvite(
     code: string,
-    user: { id: number; username?: string; firstName?: string },
+    user: { id: string | number; username?: string; firstName?: string },
   ): Promise<{ success: boolean; message: string }> {
     const invite = await this.inviteRepo.findOne({ where: { code } });
     if (!invite) {
@@ -188,7 +193,7 @@ export class UsersService implements OnModuleInit {
     };
   }
 
-  public checkCooldown(userId: number): {
+  public checkCooldown(userId: string | number): {
     allowed: boolean;
     reason?: string;
     waitSeconds?: number;
@@ -213,21 +218,31 @@ export class UsersService implements OnModuleInit {
     return { allowed: true };
   }
 
-  public async allowUser(userId: number, role: 'admin' | 'user' = 'user'): Promise<void> {
+  public async allowUser(userId: string | number, role: 'admin' | 'user' = 'user'): Promise<void> {
     await this.upsertUser(userId, role);
   }
 
-  public async upsertUser(userId: number, role: 'admin' | 'user' = 'user'): Promise<UserEntity> {
+  public async upsertUser(
+    userId: string | number,
+    role: 'admin' | 'user' = 'user',
+    extra?: { username?: string; firstName?: string; avatarUrl?: string },
+  ): Promise<UserEntity> {
     const strId = userId.toString();
     let existing = await this.userRepo.findOne({ where: { id: strId } });
     if (!existing) {
       existing = this.userRepo.create({
         id: strId,
         role,
+        username: extra?.username,
+        firstName: extra?.firstName,
+        avatarUrl: extra?.avatarUrl,
         createdAt: new Date(),
       });
     } else {
-      existing.role = role;
+      if (role) existing.role = role;
+      if (extra?.username) existing.username = extra.username;
+      if (extra?.firstName) existing.firstName = extra.firstName;
+      if (extra?.avatarUrl) existing.avatarUrl = extra.avatarUrl;
     }
     await this.userRepo.save(existing);
     this.allowedUserIdsCache.add(strId);
@@ -236,7 +251,7 @@ export class UsersService implements OnModuleInit {
     return existing;
   }
 
-  public async banUser(userId: number): Promise<boolean> {
+  public async banUser(userId: string | number): Promise<boolean> {
     if (this.isAdmin(userId)) {
       this.logger.warn(`Attempted to ban admin user ${userId}. Operation aborted.`);
       return false;
@@ -263,7 +278,7 @@ export class UsersService implements OnModuleInit {
   public async updateRole(id: string, role: 'admin' | 'user'): Promise<UserEntity | null> {
     const user = await this.getUser(id);
     if (!user) return null;
-    return this.upsertUser(Number(id), role);
+    return this.upsertUser(id, role);
   }
 
   public listInvites(): Promise<InviteEntity[]> {

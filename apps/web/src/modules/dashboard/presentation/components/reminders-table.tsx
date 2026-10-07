@@ -6,7 +6,7 @@ import {
   type IReminderListItem,
   type ReminderNotifyType,
   type ReminderRepeatType,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 

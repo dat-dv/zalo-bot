@@ -52,7 +52,7 @@ export class ReportsController {
   ) {}
 
   @Get('access')
-  @ApiOperation({ summary: 'Đổi One-Time Token từ Telegram lấy Dashboard Session Token' })
+  @ApiOperation({ summary: 'Đổi One-Time Token lấy Dashboard Session Token' })
   public async access(@Query('token') token: string, @Res() res: Response): Promise<void> {
     let userId: number;
     try {
@@ -83,7 +83,7 @@ export class ReportsController {
     <main>
       <h1>Không thể mở Dashboard</h1>
       <p>Liên kết này đã hết hạn hoặc đã được sử dụng.</p>
-      <p>Vui lòng quay lại Telegram và bấm nút Dashboard để nhận liên kết mới.</p>
+      <p>Vui lòng quay lại Zalo và yêu cầu liên kết mới.</p>
     </main>
   </body>
 </html>`);

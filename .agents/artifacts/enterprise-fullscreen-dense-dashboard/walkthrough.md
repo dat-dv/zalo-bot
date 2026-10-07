@@ -15,23 +15,23 @@
    - **Khoản chi (Expenses):** Dropdown lọc theo Danh mục + Ô tìm kiếm + Tổng tiền chi realtime theo bộ lọc.
    - **Tổng quan (Dashboard):** Ô tìm kiếm nhanh cho Công việc, Lời nhắc, Hoạt động và Giao dịch gần đây.
 4. **Tuân thủ quy chuẩn Zero Hardcoded Text & Type Safety:**
-   - 100% văn bản hiển thị được chuyển qua `useLocale().t` và định nghĩa song ngữ (`vi` & `en`) trong `@telebot/contracts`.
+   - 100% văn bản hiển thị được chuyển qua `useLocale().t` và định nghĩa song ngữ (`vi` & `en`) trong `@zalobot/contracts`.
 
 ---
 
 ## Danh sách các tệp đã thay đổi
 
-| Thành phần | Đường dẫn tệp | Mô tả thay đổi |
-| :--- | :--- | :--- |
-| **Contracts** | [`packages/contracts/src/index.ts`](file:///Users/datdoan/Documents/projects/telebot/packages/contracts/src/index.ts) | Bổ sung translation keys cho toolbar, search placeholder, filter pills và table headers |
-| **CSS Styles** | [`apps/web/src/styles.css`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/styles.css) | Tái cấu trúc Fullscreen Enterprise layout, Excel-lite tables, compact controls, Dark mode |
-| **Data Table UI** | [`apps/web/src/shared/ui/data-table.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/data-table.tsx) | Hỗ trợ slot toolbar (search/filters) và row counter trong DataPanel |
-| **Sidebar Nav** | [`apps/web/src/shared/ui/reports-navigation.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/reports-navigation.tsx) | Cập nhật Sidebar Navigation chuẩn Enterprise phẳng |
-| **Locale Provider** | [`apps/web/src/shared/providers/locale-provider.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/providers/locale-provider.tsx) | Hỗ trợ tham số nội suy (values) trong hook `useLocale().t` |
-| **Dashboard** | [`apps/web/src/modules/dashboard/view/dashboard-screen.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/view/dashboard-screen.tsx) | Chuyển sang Fullscreen đa cột, tích hợp search toolbar và i18n |
-| **Contacts** | [`apps/web/src/modules/contacts/view/contacts-screen.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/contacts/view/contacts-screen.tsx) | Tích hợp search filter theo tên/biệt danh/mô tả + row counter |
-| **Debts** | [`apps/web/src/modules/debts/view/debts-screen.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/debts/view/debts-screen.tsx) | Tích hợp direction filter pills, search input và KPI summary |
-| **Expenses** | [`apps/web/src/modules/expenses/view/expenses-screen.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/expenses/view/expenses-screen.tsx) | Tích hợp category filter dropdown, search input và KPI summary |
+| Thành phần          | Đường dẫn tệp                                                                                                                                                           | Mô tả thay đổi                                                                            |
+| :------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------- |
+| **Contracts**       | [`packages/contracts/src/index.ts`](file:///Users/datdoan/Documents/projects/zalobot/packages/contracts/src/index.ts)                                                   | Bổ sung translation keys cho toolbar, search placeholder, filter pills và table headers   |
+| **CSS Styles**      | [`apps/web/src/styles.css`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/styles.css)                                                                   | Tái cấu trúc Fullscreen Enterprise layout, Excel-lite tables, compact controls, Dark mode |
+| **Data Table UI**   | [`apps/web/src/shared/ui/data-table.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/data-table.tsx)                                       | Hỗ trợ slot toolbar (search/filters) và row counter trong DataPanel                       |
+| **Sidebar Nav**     | [`apps/web/src/shared/ui/reports-navigation.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/reports-navigation.tsx)                       | Cập nhật Sidebar Navigation chuẩn Enterprise phẳng                                        |
+| **Locale Provider** | [`apps/web/src/shared/providers/locale-provider.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/providers/locale-provider.tsx)               | Hỗ trợ tham số nội suy (values) trong hook `useLocale().t`                                |
+| **Dashboard**       | [`apps/web/src/modules/dashboard/view/dashboard-screen.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/view/dashboard-screen.tsx) | Chuyển sang Fullscreen đa cột, tích hợp search toolbar và i18n                            |
+| **Contacts**        | [`apps/web/src/modules/contacts/view/contacts-screen.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/contacts/view/contacts-screen.tsx)     | Tích hợp search filter theo tên/biệt danh/mô tả + row counter                             |
+| **Debts**           | [`apps/web/src/modules/debts/view/debts-screen.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/debts/view/debts-screen.tsx)                 | Tích hợp direction filter pills, search input và KPI summary                              |
+| **Expenses**        | [`apps/web/src/modules/expenses/view/expenses-screen.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/expenses/view/expenses-screen.tsx)     | Tích hợp category filter dropdown, search input và KPI summary                            |
 
 ---
 

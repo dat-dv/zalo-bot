@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useId, useMemo } from 'react';
-import { localeTag, type ICandidateDebtItem, type IDebtAllocationItem } from '@telebot/contracts';
+import { localeTag, type ICandidateDebtItem, type IDebtAllocationItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
 import {

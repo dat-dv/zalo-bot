@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useId } from 'react';
-import type { IDebtListItem } from '@telebot/contracts';
+import type { IDebtListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
 import { useCombineDebtsMutation } from '../../api/debts-query';

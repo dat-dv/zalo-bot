@@ -6,8 +6,8 @@
 - Khi khởi chạy API ở local, hệ thống ưu tiên nạp `.env.local` nên bot đã sinh ra link OAuth callback trỏ về `http://localhost:3000`.
 - Trên Google Cloud Console, anh đã khai báo cả 2 địa chỉ:
   - `http://localhost:3000/api/oauth2callback`
-  - `https://telebot.datintech.site/api/oauth2callback`
-- Tùy theo nhu cầu kiểm thử (dùng trực tiếp domain `https://telebot.datintech.site` hoặc giữ `http://localhost:3000`), cập nhật `.env.local` đồng bộ và chuẩn hóa.
+  - `https://zalobot.datintech.site/api/oauth2callback`
+- Tùy theo nhu cầu kiểm thử (dùng trực tiếp domain `https://zalobot.datintech.site` hoặc giữ `http://localhost:3000`), cập nhật `.env.local` đồng bộ và chuẩn hóa.
 
 ---
 
@@ -17,12 +17,12 @@
 
 #### [MODIFY] .env.local
 
-Cập nhật các biến URL trong `.env.local` sang domain chuẩn `https://telebot.datintech.site`:
+Cập nhật các biến URL trong `.env.local` sang domain chuẩn `https://zalobot.datintech.site`:
 
 ```env
-APP_URL=https://telebot.datintech.site
-WEB_ORIGIN=https://telebot.datintech.site
-NEXT_PUBLIC_API_URL=https://telebot.datintech.site
+APP_URL=https://zalobot.datintech.site
+WEB_ORIGIN=https://zalobot.datintech.site
+NEXT_PUBLIC_API_URL=https://zalobot.datintech.site
 CORS_ALLOW_ALL=true
 ```
 
@@ -44,5 +44,5 @@ _(Lưu ý: Nếu cần quay lại kiểm thử thuần localhost không qua doma
 
 - Khởi động backend API (`npm run dev:api`).
 - Quan sát log khởi động xác nhận:
-  - `🌐 Public OAuth Callback URL: https://telebot.datintech.site/api/oauth2callback`
-  - `📚 Swagger OpenAPI Docs: https://telebot.datintech.site/api/docs`
+  - `🌐 Public OAuth Callback URL: https://zalobot.datintech.site/api/oauth2callback`
+  - `📚 Swagger OpenAPI Docs: https://zalobot.datintech.site/api/docs`

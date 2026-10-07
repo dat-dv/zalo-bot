@@ -41,4 +41,4 @@ Mọi bảng dùng `DataTable` trên giao diện web sẽ hiển thị hai cột
 - `DataTable` đã yêu cầu mỗi dòng có `id`, tự thêm cột `STT` và `ID` trước các cột nghiệp vụ, đồng thời bảo vệ hai cột này khỏi thao tác ẩn.
 - Cấu hình cột và độ rộng đã lưu vẫn được đọc an toàn; các cột bắt buộc mới luôn được đưa lại vào danh sách hiển thị.
 - Đã thêm bản dịch Việt/Anh và cập nhật tài liệu UI dùng chung.
-- Xác minh: `npm run lint` và `npm run typecheck` đều thành công sau khi build `@telebot/contracts`.
+- Xác minh: `npm run lint` và `npm run typecheck` đều thành công sau khi build `@zalobot/contracts`.

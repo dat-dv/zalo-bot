@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, type ReactNode } from 'react';
-import { APP_ROUTES, type TranslationKey } from '@telebot/contracts';
+import { APP_ROUTES, type TranslationKey } from '@zalobot/contracts';
 import { useTheme } from '@/shared/providers/theme-provider';
 import { useLocale } from '@/shared/providers/locale-provider';
 
@@ -163,7 +163,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           >
             T
           </span>
-          <strong>Telebot</strong>
+          <strong>zalobot</strong>
         </Link>
         <button
           aria-controls="app-navigation-drawer"
@@ -200,7 +200,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
             </span>
             <span>
               <strong className="block text-[13px] leading-[1.1] font-bold tracking-[-.01em]">
-                Telebot
+                zalobot
               </strong>
               <small className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
                 {t('nav.personalSpace')}

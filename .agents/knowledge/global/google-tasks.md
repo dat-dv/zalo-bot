@@ -8,4 +8,4 @@ Before confirmation, creation checks up to 50 active tasks for a normalized titl
 
 Batch creation is sequential because the Google Tasks API has no multi-item transaction. The result retains per-item successes and failures, so a partial failure never hides already-created tasks.
 
-Telegram routes `/tasks` and `/task` list pending Tasks. Task-list language is routed to `create_tasks` when two or more independent items are named.
+zalo routes `/tasks` and `/task` list pending Tasks. Task-list language is routed to `create_tasks` when two or more independent items are named.

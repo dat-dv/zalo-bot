@@ -3,7 +3,7 @@ import test from 'node:test';
 import { ArgumentsHost, BadRequestException, NotFoundException } from '@nestjs/common';
 import { EntityNotFoundError, QueryFailedError } from 'typeorm';
 import { GlobalExceptionsFilter } from './global-exceptions.filter';
-import { IApiErrorResponse } from '@telebot/contracts';
+import { IApiErrorResponse } from '@zalobot/contracts';
 
 interface MockResponseState {
   statusCode: number;
@@ -125,7 +125,7 @@ void test('GlobalExceptionsFilter handles unhandled Error as 500', () => {
 void test('GlobalExceptionsFilter ignores non-http context safely', () => {
   const filter = new GlobalExceptionsFilter();
   const state: MockResponseState = { statusCode: 0, body: null };
-  const host = createMockHost({ method: 'BOT', url: '/bot' }, state, 'telegraf');
+  const host = createMockHost({ method: 'BOT', url: '/bot' }, state, 'zalograf');
 
   filter.catch(new Error('Bot message handler failed'), host);
 

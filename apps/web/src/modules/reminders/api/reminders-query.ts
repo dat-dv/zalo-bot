@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IReminderListItem, IUpdateReminderRequest } from '@telebot/contracts';
+import type { IReminderListItem, IUpdateReminderRequest } from '@zalobot/contracts';
 import { deleteReminder, getReminders, updateReminder } from './reminders-api';
 
 export const remindersQueryKeys = { list: () => ['reminders'] as const };

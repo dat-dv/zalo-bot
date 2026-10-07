@@ -6,7 +6,7 @@ RequestFeedback: true
 
 - Đã gỡ nhãn trạng thái Google tại sidebar và tiêu đề dashboard.
 - Đã gỡ CSS chỉ phục vụ các nhãn này, gồm quy tắc responsive.
-- Đã xác minh bằng `npm run lint --workspace @telebot/web`, `npm run typecheck --workspace @telebot/web`, và `git diff --check`.
+- Đã xác minh bằng `npm run lint --workspace @zalobot/web`, `npm run typecheck --workspace @zalobot/web`, và `git diff --check`.
 
 ## Mục tiêu
 
@@ -24,7 +24,7 @@ Loại bỏ các nhãn trạng thái kết nối Google khỏi dashboard web, g�
 
 - Trạng thái `googleConnected` vẫn được dùng cho thông điệp rỗng của lịch và công việc.
 - Số liệu quản trị `đã kết nối Google` vẫn giữ nguyên.
-- API, xác thực Google, và các màn hình Telegram không bị tác động.
+- API, xác thực Google, và các màn hình zalo không bị tác động.
 
 ## Xác minh sau khi thực hiện
 

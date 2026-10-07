@@ -4,7 +4,7 @@ import { createContext, type ReactNode, useContext, useEffect, useState } from '
 
 type Theme = 'light' | 'dark';
 
-const THEME_STORAGE_KEY = 'telebot-theme';
+const THEME_STORAGE_KEY = 'zalobot-theme';
 const ThemeContext = createContext<{ theme: Theme; toggleTheme: () => void } | null>(null);
 
 function getPreferredTheme(): Theme {
@@ -22,7 +22,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const preferredTheme = getPreferredTheme();
-    document.documentElement.dataset.theme = preferredTheme;
+    document.documenzaloment.dataset.theme = preferredTheme;
     setTheme(preferredTheme);
   }, []);
 
@@ -34,7 +34,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       } catch {
         // Keep the in-memory preference when storage is unavailable.
       }
-      document.documentElement.dataset.theme = nextTheme;
+      document.documenzaloment.dataset.theme = nextTheme;
       return nextTheme;
     });
   };

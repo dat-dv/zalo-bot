@@ -5,7 +5,7 @@ import type {
   ICategoryItem,
   ICreateCategoryRequest,
   IUpdateCategoryRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { createCategory, deleteCategory, getCategories, updateCategory } from './categories-api';
 
 export const categoriesQueryKeys = {

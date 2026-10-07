@@ -14,7 +14,7 @@ Lưới Calendar phải yêu cầu đúng toàn bộ khoảng ngày đang hiển
 ## Phạm vi thay đổi
 
 1. **Hợp đồng và web query**
-   - Bổ sung kiểu tham số đọc Calendar gồm `timeMin`, `timeMax` và tùy chọn `query` vào `@telebot/contracts` nếu cần để thống nhất API–web.
+   - Bổ sung kiểu tham số đọc Calendar gồm `timeMin`, `timeMax` và tùy chọn `query` vào `@zalobot/contracts` nếu cần để thống nhất API–web.
    - Tạo hàm xác định biên thời gian cho lưới tháng: từ đầu ô đầu tiên đến đầu ngày ngay sau ô cuối cùng, theo múi giờ trình duyệt.
    - Truyền hai biên này đến `GET /calendar/events`; đưa chúng vào TanStack Query key để mỗi tháng có cache riêng.
    - Khi chuyển tháng hoặc về hôm nay, query tự tải đúng khoảng mới.

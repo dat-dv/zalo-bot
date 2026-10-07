@@ -14,7 +14,7 @@ COPY apps/web apps/web
 COPY packages/contracts packages/contracts
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-RUN npm run build --workspace @telebot/contracts && npm run build --workspace @telebot/web
+RUN npm run build --workspace @zalobot/contracts && npm run build --workspace @zalobot/web
 
 # Stage 2: Nginx Web Runner
 FROM nginx:1.27-alpine AS runner

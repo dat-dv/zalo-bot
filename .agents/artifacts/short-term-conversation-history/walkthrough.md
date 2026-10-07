@@ -29,12 +29,12 @@
 - gemini-prompt.helper.ts:
   - Bổ sung quy tắc nhận diện câu nói bổ sung/đính chính giờ (như _"Mua lúc 9h sáng"_): Hướng dẫn AI tự động gọi `update_finance_transaction` để cập nhật `occurredAt` của giao dịch vừa tạo, tuyệt đối không hiểu nhầm thành lệnh tạo nhắc nhở hay lịch hẹn mới.
   - Bổ sung Thẻ xác nhận cập nhật thu–chi (`🔄 ĐÃ CẬP NHẬT GIAO DỊCH THU–CHI!`).
-- telegram-ui.service.ts:
+- zalo-ui.service.ts:
   - Bổ sung định dạng hộp xác nhận (`formatConfirmationBox`) và hộp kết quả (`formatResultBox`) cho `update_finance_transaction`.
 
-### D. Tích hợp Luồng Telegram (`telegram.update.ts`)
+### D. Tích hợp Luồng zalo (`zalo.update.ts`)
 
-- telegram.update.ts:
+- zalo.update.ts:
   - Lấy lịch sử ngữ cảnh ngắn hạn từ `ConversationHistoryService` và truyền trực tiếp vào `geminiService.chat(text, history, userId, botUsername)`.
   - Tự động ghi nhận tin nhắn người dùng và phản hồi của bot vào bộ nhớ đệm.
 
@@ -42,7 +42,7 @@
 
 ## 3. Kết quả xác minh (Verification Results)
 
-- **Unit Tests**: `npm --workspace=@telebot/api test` -> **PASS (100% 5/5 test suites passed)**.
+- **Unit Tests**: `npm --workspace=@zalobot/api test` -> **PASS (100% 5/5 test suites passed)**.
 - **Typecheck**: `npm run typecheck` -> **PASS (All workspaces: api, web, contracts)**.
 - **Lint**: `npm run lint` -> **PASS (All workspaces)**.
 - **System Validation**: `npm run agent-system:validate -- --check-changes --check-i18n` -> **PASS (0 errors)**.

@@ -5,7 +5,7 @@ import type {
   ICalendarEventItem,
   ICalendarEventsQuery,
   IUpdateCalendarEventRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { deleteCalendarEvent, getCalendarEvents, updateCalendarEvent } from './calendar-api';
 
 export const calendarQueryKeys = {

@@ -46,7 +46,7 @@ Tạo bảng dữ liệu riêng cho nơi chốn/cửa hàng, rồi liên kết t
 
 ### Hợp đồng, kiểm thử, tài liệu
 
-1. Cập nhật `@telebot/contracts` cho `ITransactionItem`, request tạo/sửa giao dịch, kiểu `IFinancePlace` và `API_ROUTES.places`.
+1. Cập nhật `@zalobot/contracts` cho `ITransactionItem`, request tạo/sửa giao dịch, kiểu `IFinancePlace` và `API_ROUTES.places`.
 2. Bổ sung/cập nhật kiểm thử dịch vụ tài chính và Gemini cho: tái sử dụng nơi chốn trùng tên, kiểm tra quyền sở hữu `placeId`, gỡ liên kết, và xoá nơi chốn.
 3. Đồng bộ tài liệu kiến thức tiếng Anh và hướng dẫn tiếng Việt của đúng các module bị ảnh hưởng, cùng chỉ mục `.agents/docs/README.md`.
 

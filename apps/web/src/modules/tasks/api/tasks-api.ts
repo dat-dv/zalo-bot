@@ -3,7 +3,7 @@ import {
   type IApiResponse,
   type ITaskListItem,
   type IUpdateTaskRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
 export async function getTasks(signal?: AbortSignal): Promise<ITaskListItem[]> {

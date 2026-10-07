@@ -19,10 +19,10 @@
 
 ## 2. Chi tiết các tệp đã cập nhật
 
-| Tệp | Vị trí | Nội dung thay đổi |
-| :--- | :--- | :--- |
-| [`app-navigation.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/app-navigation.tsx) | Dòng 188–196 | Bổ sung `!hidden max-[960px]:!inline-flex app-nav__close-btn` cho nút đóng menu |
-| [`period-filter-toolbar.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/period-filter-toolbar.tsx) | Dòng 37–45 | Đổi style active sang `!bg-white !text-slate-900 shadow-xs border border-slate-200/80` |
+| Tệp                                                                                                                              | Vị trí       | Nội dung thay đổi                                                                      |
+| :------------------------------------------------------------------------------------------------------------------------------- | :----------- | :------------------------------------------------------------------------------------- |
+| [`app-navigation.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/app-navigation.tsx)               | Dòng 188–196 | Bổ sung `!hidden max-[960px]:!inline-flex app-nav__close-btn` cho nút đóng menu        |
+| [`period-filter-toolbar.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/period-filter-toolbar.tsx) | Dòng 37–45   | Đổi style active sang `!bg-white !text-slate-900 shadow-xs border border-slate-200/80` |
 
 ---
 

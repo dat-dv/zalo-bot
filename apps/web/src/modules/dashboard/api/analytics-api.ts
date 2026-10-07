@@ -3,7 +3,7 @@ import {
   type IApiResponse,
   type IFinanceAnalyticsResponse,
   type AnalyticsGrain,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
 export interface GetFinanceAnalyticsParams {

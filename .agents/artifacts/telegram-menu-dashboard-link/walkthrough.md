@@ -1,4 +1,4 @@
-# Bàn giao: menu Telegram và liên kết Dashboard
+# Bàn giao: menu zalo và liên kết Dashboard
 
 ## Đã thay đổi
 
@@ -9,7 +9,7 @@
 
 ## Xác minh
 
-- `./node_modules/.bin/tsx --test apps/api/src/telegram/services/telegram-ui.service.spec.ts`: 2/2 đạt.
+- `./node_modules/.bin/tsx --test apps/api/src/zalo/services/zalo-ui.service.spec.ts`: 2/2 đạt.
 - `npm run lint`: đạt.
 - `npm run typecheck`: đạt.
 - `npm run build`: đạt.
@@ -17,4 +17,4 @@
 
 ## Lưu ý triển khai
 
-Các tin nhắn menu cũ của Telegram vẫn mang callback cũ; khi bấm, bot trả về một URL mới. Gọi lại `/start` hoặc `/help` sẽ nhận menu mới với nút mở trực tiếp.
+Các tin nhắn menu cũ của zalo vẫn mang callback cũ; khi bấm, bot trả về một URL mới. Gọi lại `/start` hoặc `/help` sẽ nhận menu mới với nút mở trực tiếp.

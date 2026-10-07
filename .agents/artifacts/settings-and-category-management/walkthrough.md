@@ -6,12 +6,14 @@
 
 ## 1. Các thay đổi đã thực hiện
 
-### 1.1. Packages / Shared Contracts (`@telebot/contracts`)
+### 1.1. Packages / Shared Contracts (`@zalobot/contracts`)
+
 - Thêm route điều hướng `APP_ROUTES.settings = '/settings'` và API endpoint `API_ROUTES.categories = '/api/categories'`.
 - Khai báo các interface: `ICategoryItem`, `ICreateCategoryRequest`, `IUpdateCategoryRequest`, `ICategoryListResponse`.
 - Bổ sung translation keys đa ngôn ngữ (`vi` & `en`) cho thanh điều hướng và màn hình Cài đặt.
 
 ### 1.2. Database & Backend API (`apps/api`)
+
 - **TypeORM Entity**: Tạo `UserCategoryEntity` (`user_categories` table) liên kết theo `userId`, quản lý `type` (`income` | `expense`), `name`, `color`, `icon`, `isDefault`.
 - **`FinanceService`**:
   - `listCategories(userId, type?)`: Tự động nạp (auto-seed) danh mục chuẩn mặc định từ `DEFAULT_EXPENSE_CATEGORIES` và `DEFAULT_INCOME_CATEGORIES` cho người dùng mới.
@@ -25,6 +27,7 @@
   - `DELETE /api/categories/:id`
 
 ### 1.3. Frontend Web Dashboard (`apps/web`)
+
 - **Navigation (`AppNavigation`)**: Thêm mục **Cài đặt** (`Settings`) trong nhóm **Hệ thống** với icon bánh răng.
 - **React Query API Layer (`categories-query.ts`)**: Cung cấp các hooks `useCategoriesQuery`, `useCreateCategoryMutation`, `useUpdateCategoryMutation`, `useDeleteCategoryMutation`.
 - **Màn hình Cài đặt (`SettingsScreen`)**:
@@ -39,8 +42,9 @@
 ## 2. Kết quả xác thực (Verification Results)
 
 ### Kiểm tra tự động
+
 - **Typecheck**: `npm run typecheck` ➜ Passed (0 lỗi toàn bộ monorepo).
-- **Unit Tests**: `npm run test --workspace @telebot/api` ➜ 5/5 tests passed.
+- **Unit Tests**: `npm run test --workspace @zalobot/api` ➜ 5/5 tests passed.
 - **API Build**: `npm run build:api` ➜ Compiled successfully.
 - **Web Build**: `npm run build:web` ➜ Compiled & Generated static route `/settings` successfully.
 - **Agent System Validation**: `npm run agent-system:validate` ➜ 86 artifacts, 150 dependencies, 54 pairs, 0 cyclic groups passed.

@@ -1,9 +1,9 @@
-# 🤖 Telebot Monorepo (NestJS, React, PostgreSQL & Google Workspace)
+# 🤖 zalobot Monorepo (NestJS, React, PostgreSQL & Google Workspace)
 
 ## Cấu trúc Monorepo
 
 ```text
-apps/api/          NestJS Telegram bot và OAuth backend
+apps/api/          NestJS zalo bot và OAuth backend
 apps/web/          Next.js Static Export dashboard
 packages/contracts/ Kiểu và route constants dùng chung
 PostgreSQL          Persistent runtime data
@@ -11,9 +11,9 @@ PostgreSQL          Persistent runtime data
 
 Chạy cả API và React: `npm run dev` · Chạy riêng API: `npm run dev:api` · Chạy riêng React: `npm run dev:web` · Build toàn bộ: `npm run build`.
 
-Dashboard mở từ bot cần `APP_URL`, `NEXT_PUBLIC_API_URL`, `DASHBOARD_ACCESS_TOKEN_SECRET` và `DASHBOARD_REFRESH_TOKEN_SECRET`. Khi dùng một domain, đặt cả ba URL public thành `https://telebot.datintech.site` (không thêm `/api` vào `NEXT_PUBLIC_API_URL`): static Next.js phục vụ các route giao diện, còn Nginx chuyển mọi `/api/*` sang NestJS. `NEXT_PUBLIC_API_URL` được đóng gói vào static output khi build. Không dùng tên `SERVICE_URL_*` vì Coolify dành tiền tố này cho URL được quản lý. Bot tạo link exchange dùng một lần cho từng người dùng; access token có hạn 1 ngày và refresh token có hạn 7 ngày.
+Dashboard mở từ bot cần `APP_URL`, `NEXT_PUBLIC_API_URL`, `DASHBOARD_ACCESS_TOKEN_SECRET` và `DASHBOARD_REFRESH_TOKEN_SECRET`. Khi dùng một domain, đặt cả ba URL public thành `https://zalobot.datintech.site` (không thêm `/api` vào `NEXT_PUBLIC_API_URL`): static Next.js phục vụ các route giao diện, còn Nginx chuyển mọi `/api/*` sang NestJS. `NEXT_PUBLIC_API_URL` được đóng gói vào static output khi build. Không dùng tên `SERVICE_URL_*` vì Coolify dành tiền tố này cho URL được quản lý. Bot tạo link exchange dùng một lần cho từng người dùng; access token có hạn 1 ngày và refresh token có hạn 7 ngày.
 
-Trợ lý ảo cá nhân thông minh hoạt động 24/7 trên Telegram, được xây dựng bằng **NestJS**, tích hợp **Google Gemini AI (`gemini-3.5-flash-lite`)** với cơ chế Function Calling tự động 8 công cụ, lưu trữ **PostgreSQL (TypeORM)** và hỗ trợ **Đa Người Dùng (Multi-User Isolation)** kết nối độc lập với toàn bộ hệ sinh thái **Google Workspace**.
+Trợ lý ảo cá nhân thông minh hoạt động 24/7 trên zalo, được xây dựng bằng **NestJS**, tích hợp **Google Gemini AI (`gemini-3.5-flash-lite`)** với cơ chế Function Calling tự động 8 công cụ, lưu trữ **PostgreSQL (TypeORM)** và hỗ trợ **Đa Người Dùng (Multi-User Isolation)** kết nối độc lập với toàn bộ hệ sinh thái **Google Workspace**.
 
 ---
 
@@ -50,7 +50,7 @@ Trợ lý ảo cá nhân thông minh hoạt động 24/7 trên Telegram, đượ
 
 ```text
 src/
-├── app.module.ts                   # Root module kết nối Config, Schedule, Database, Users, Telegram, Gemini, Google
+├── app.module.ts                   # Root module kết nối Config, Schedule, Database, Users, zalo, Gemini, Google
 ├── main.ts                         # Entrypoint khởi động NestJS Application Context
 ├── config/
 │   └── configuration.ts            # Load & validate biến môi trường .env
@@ -63,9 +63,9 @@ src/
 │   ├── users.service.ts            # TypeORM Repositories, In-Memory Cache, Cooldown
 │   └── users.module.ts
 │
-├── telegram/                       # GIAO DIỆN TELEGRAM BOT
-│   ├── telegram.module.ts          # TelegrafModule.forRootAsync()
-│   ├── telegram.update.ts          # Xử lý Slash commands (/start, /invite, /login, /code, /status...)
+├── zalo/                       # GIAO DIỆN zalo BOT
+│   ├── zalo.module.ts          # zalografModule.forRootAsync()
+│   ├── zalo.update.ts          # Xử lý Slash commands (/start, /invite, /login, /code, /status...)
 │   └── guards/
 │       └── auth.guard.ts           # Kiểm tra Whitelist động, Deep-link & Yêu cầu Google Login
 │
@@ -105,9 +105,9 @@ npm install
 Tạo file `.env` tại thư mục gốc của dự án:
 
 ```env
-# 1. TELEGRAM BOT
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-TELEGRAM_ADMIN_ID=your_telegram_user_id_here
+# 1. zalo BOT
+zalo_BOT_TOKEN=your_zalo_bot_token_here
+zalo_ADMIN_ID=your_zalo_user_id_here
 
 # 2. GEMINI AI
 GEMINI_API_KEY=your_gemini_api_key_here
@@ -122,16 +122,16 @@ DASHBOARD_ACCESS_TOKEN_SECRET=64_random_characters
 DASHBOARD_REFRESH_TOKEN_SECRET=another_64_random_characters
 
 # 5. URL PUBLIC
-APP_URL=https://telebot.example.com
+APP_URL=https://zalobot.example.com
 # WEB_ORIGIN chỉ cần khi dashboard dùng domain khác APP_URL
-WEB_ORIGIN=https://telebot.example.com
+WEB_ORIGIN=https://zalobot.example.com
 # NEXT_PUBLIC_API_URL được dùng khi build dashboard
-NEXT_PUBLIC_API_URL=https://telebot.example.com
+NEXT_PUBLIC_API_URL=https://zalobot.example.com
 
 # 6. CALLME
-TELEGRAM_API_ID=your_telegram_api_id
-TELEGRAM_API_HASH=your_telegram_api_hash
-TELEGRAM_SESSION=your_telegram_session
+zalo_API_ID=your_zalo_api_id
+zalo_API_HASH=your_zalo_api_hash
+zalo_SESSION=your_zalo_session
 ```
 
 ---
@@ -139,16 +139,19 @@ TELEGRAM_SESSION=your_telegram_session
 ## 🚀 Khởi Động Ứng Dụng
 
 ### Chế độ Development (Hot-Reload):
+
 ```bash
 npm run start:dev
 ```
 
 ### Chạy nền 24/7 với Docker Compose:
+
 ```bash
 docker-compose up -d --build
 ```
 
 ### Chạy nền 24/7 với PM2:
+
 ```bash
 npm run build
 pm2 start ecosystem.config.cjs
@@ -162,10 +165,10 @@ pm2 startup
 
 Dự án có bộ tài liệu module độc lập tại thư mục [`docs/`](/docs/README.md):
 
-- 🗺️ **[Documentation Hub](file:///Users/datdoan/Documents/projects/telebot/docs/README.md)**: Bản đồ & lộ trình tra cứu toàn bộ tài liệu dự án.
-- 🏛️ **[Kiến trúc hệ thống](file:///Users/datdoan/Documents/projects/telebot/docs/architecture.md)**: Sơ đồ luồng dữ liệu, PostgreSQL và nguyên lý thiết kế đa người dùng.
-- 🤖 **[Gemini AI & 8 Function Tools](file:///Users/datdoan/Documents/projects/telebot/docs/gemini-tools.md)**: Hướng dẫn chi tiết 8 công cụ và cách đăng ký Tool mới cho Gemini.
-- 📅 **[Tích hợp Google Workspace](file:///Users/datdoan/Documents/projects/telebot/docs/google-integration.md)**: Full Scopes, quản lý Token trong PostgreSQL & mở rộng Gmail/Drive/Sheets.
-- 💬 **[Giao diện Telegram Bot](file:///Users/datdoan/Documents/projects/telebot/docs/telegram-bot.md)**: Deep Link Invite, Slash Commands, Private Guard & tối ưu UX.
-- 🚀 **[Triển khai & Vận hành](file:///Users/datdoan/Documents/projects/telebot/docs/deployment.md)**: Cấu hình Zero-File-Mount trên Coolify, Docker, PM2 & Persistent Storage.
-- 🛠️ **[Quy chuẩn phát triển](file:///Users/datdoan/Documents/projects/telebot/docs/development-workflow.md)**: Coding conventions, ESLint/Prettier, Husky hooks & kiểm thử.
+- 🗺️ **[Documentation Hub](file:///Users/datdoan/Documents/projects/zalobot/docs/README.md)**: Bản đồ & lộ trình tra cứu toàn bộ tài liệu dự án.
+- 🏛️ **[Kiến trúc hệ thống](file:///Users/datdoan/Documents/projects/zalobot/docs/architecture.md)**: Sơ đồ luồng dữ liệu, PostgreSQL và nguyên lý thiết kế đa người dùng.
+- 🤖 **[Gemini AI & 8 Function Tools](file:///Users/datdoan/Documents/projects/zalobot/docs/gemini-tools.md)**: Hướng dẫn chi tiết 8 công cụ và cách đăng ký Tool mới cho Gemini.
+- 📅 **[Tích hợp Google Workspace](file:///Users/datdoan/Documents/projects/zalobot/docs/google-integration.md)**: Full Scopes, quản lý Token trong PostgreSQL & mở rộng Gmail/Drive/Sheets.
+- 💬 **[Giao diện zalo Bot](file:///Users/datdoan/Documents/projects/zalobot/docs/zalo-bot.md)**: Deep Link Invite, Slash Commands, Private Guard & tối ưu UX.
+- 🚀 **[Triển khai & Vận hành](file:///Users/datdoan/Documents/projects/zalobot/docs/deployment.md)**: Cấu hình Zero-File-Mount trên Coolify, Docker, PM2 & Persistent Storage.
+- 🛠️ **[Quy chuẩn phát triển](file:///Users/datdoan/Documents/projects/zalobot/docs/development-workflow.md)**: Coding conventions, ESLint/Prettier, Husky hooks & kiểm thử.

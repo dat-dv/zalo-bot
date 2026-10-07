@@ -3,6 +3,7 @@
 ## Tổng quan & Bối cảnh
 
 Người dùng mong muốn có một trang **Cài đặt chung (`/settings`)** trên Web Dashboard để chủ động cấu hình hệ thống, trọng tâm là phân hệ **Quản lý Danh mục Thu & Chi (Category Management)**:
+
 - Cho phép người dùng xem danh sách, thêm danh mục mới, chỉnh sửa tên danh mục, và xóa danh mục tùy ý.
 - Đồng bộ danh mục người dùng cấu hình vào cơ sở dữ liệu SQLite và tích hợp tự động vào menu gợi ý (autocomplete) của toàn bộ các bảng Thu chi (`Transactions`), Chi tiêu (`Expenses`), và Khoản thu (`Income`).
 - Định hình sẵn nền tảng cho trang Cài đặt để dễ dàng mở rộng thêm các tab cấu hình tiếp theo (Ngân sách & Tài chính, Tùy chọn thông báo, Liên kết tài khoản).
@@ -13,6 +14,7 @@ Người dùng mong muốn có một trang **Cài đặt chung (`/settings`)** t
 
 > [!IMPORTANT]
 > **Quy tắc khởi tạo danh mục ban đầu (Seeding Defaults)**:
+>
 > - Khi người dùng mới truy cập hoặc chưa từng cấu hình danh mục riêng trong DB, hệ thống sẽ tự động nạp (seed) danh sách danh mục chuẩn mặc định (`DEFAULT_INCOME_CATEGORIES` và `DEFAULT_EXPENSE_CATEGORIES`) để người dùng có sẵn dữ liệu và có thể chỉnh sửa/xóa/thêm mới ngay lập tức.
 > - Bảng `user_categories` sẽ lưu trữ độc lập theo từng `userId`.
 
@@ -22,7 +24,8 @@ Người dùng mong muốn có một trang **Cài đặt chung (`/settings`)** t
 
 ### 1. Packages / Shared Contracts (`packages/contracts`)
 
-#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/telebot/packages/contracts/src/index.ts)
+#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/zalobot/packages/contracts/src/index.ts)
+
 - Bổ sung `APP_ROUTES.settings = '/settings'`.
 - Bổ sung `API_ROUTES.categories = '/api/categories'`.
 - Thêm interfaces:
@@ -74,13 +77,16 @@ Người dùng mong muốn có một trang **Cài đặt chung (`/settings`)** t
 
 ### 2. Backend Module (`apps/api`)
 
-#### [NEW] [user-category.entity.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/database/entities/user-category.entity.ts)
+#### [NEW] [user-category.entity.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/database/entities/user-category.entity.ts)
+
 - Định nghĩa TypeORM Entity `UserCategoryEntity` (`user_categories` table) gồm: `id` (uuid), `userId`, `type` (`income` | `expense`), `name`, `color`, `icon`, `isDefault`, `createdAt`, `updatedAt`.
 
-#### [MODIFY] [database.module.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/database/database.module.ts)
+#### [MODIFY] [database.module.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/database/database.module.ts)
+
 - Đăng ký `UserCategoryEntity` trong `TypeOrmModule.forRootAsync` và `TypeOrmModule.forFeature`.
 
-#### [MODIFY] [finance.service.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/finance/finance.service.ts)
+#### [MODIFY] [finance.service.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/finance/finance.service.ts)
+
 - Inject `UserCategoryEntity` repository.
 - Bổ sung các phương thức:
   - `listCategories(userId: number, type?: 'income' | 'expense')`: Lấy danh mục của user. Nếu user chưa có danh mục nào, tự động seed danh mục mặc định từ `DEFAULT_INCOME_CATEGORIES` và `DEFAULT_EXPENSE_CATEGORIES` rồi trả về.
@@ -88,7 +94,8 @@ Người dùng mong muốn có một trang **Cài đặt chung (`/settings`)** t
   - `updateCategory(userId: number, id: string, dto: IUpdateCategoryRequest)`: Cập nhật tên / màu sắc / icon.
   - `deleteCategory(userId: number, id: string)`: Xóa danh mục của user.
 
-#### [MODIFY] [finance.controller.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/finance/finance.controller.ts)
+#### [MODIFY] [finance.controller.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/finance/finance.controller.ts)
+
 - Bổ sung các endpoints RESTful có bảo vệ Bearer JWT:
   - `GET /api/categories`: Lấy danh sách danh mục (hỗ trợ lọc `?type=income|expense`).
   - `POST /api/categories`: Tạo danh mục mới.
@@ -99,14 +106,16 @@ Người dùng mong muốn có một trang **Cài đặt chung (`/settings`)** t
 
 ### 3. Frontend Module (`apps/web`)
 
-#### [NEW] [categories-query.ts](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/settings/api/categories-query.ts)
+#### [NEW] [categories-query.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/settings/api/categories-query.ts)
+
 - Định nghĩa React Query hooks:
   - `useCategoriesQuery(type?: 'income' | 'expense')`
   - `useCreateCategoryMutation()`
   - `useUpdateCategoryMutation()`
   - `useDeleteCategoryMutation()`
 
-#### [NEW] [settings-screen.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/settings/view/settings-screen.tsx)
+#### [NEW] [settings-screen.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/settings/view/settings-screen.tsx)
+
 - Xây dựng giao diện trang Cài đặt chuẩn Enterprise:
   - Header với tiêu đề `Cài đặt chung` & mô tả.
   - Bố cục 2 Panel song song / Tab linh hoạt:
@@ -114,13 +123,16 @@ Người dùng mong muốn có một trang **Cài đặt chung (`/settings`)** t
     - **Panel Danh mục Thu nhập**: Bảng quản lý danh mục thu với tính năng tương tự.
   - Form thêm nhanh danh mục trực tiếp ngay trên header panel hoặc inline row.
 
-#### [NEW] [page.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/app/(private)/settings/page.tsx)
+#### [NEW] [page.tsx](<file:///Users/datdoan/Documents/projects/zalobot/apps/web/app/(private)/settings/page.tsx>)
+
 - Khai báo Next.js App Router Page cho `/settings`.
 
-#### [MODIFY] [app-navigation.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/app-navigation.tsx)
+#### [MODIFY] [app-navigation.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/app-navigation.tsx)
+
 - Bổ sung mục `Cài đặt` (`APP_ROUTES.settings`) vào menu điều hướng kèm icon Settings (bánh răng).
 
-#### [MODIFY] [transactions-screen.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/view/transactions-screen.tsx) & [expenses-screen.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/expenses/view/expenses-screen.tsx)
+#### [MODIFY] [transactions-screen.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/view/transactions-screen.tsx) & [expenses-screen.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/expenses/view/expenses-screen.tsx)
+
 - Sử dụng `useCategoriesQuery` để nạp danh mục tùy chỉnh của người dùng vào menu Autocomplete, kết hợp mượt mà với danh mục thực tế trong lịch sử giao dịch.
 
 ---
@@ -128,13 +140,14 @@ Người dùng mong muốn có một trang **Cài đặt chung (`/settings`)** t
 ## Kế hoạch kiểm thử & Xác thực (Verification Plan)
 
 ### Automated Tests
+
 1. **Kiểm tra kiểu dữ liệu toàn monorepo**:
    ```bash
    npm run typecheck
    ```
 2. **Kiểm tra unit tests backend**:
    ```bash
-   npm run test --workspace @telebot/api
+   npm run test --workspace @zalobot/api
    ```
 3. **Kiểm tra tính toàn vẹn hệ thống Agent**:
    ```bash
@@ -146,6 +159,7 @@ Người dùng mong muốn có một trang **Cài đặt chung (`/settings`)** t
    ```
 
 ### Manual Verification
+
 1. Mở trang `/settings` qua thanh Sidebar:
    - Kiểm tra hiển thị đầy đủ 2 nhóm danh mục: Chi tiêu và Thu nhập.
    - Thử thêm một danh mục mới (ví dụ: "Tiền cà phê sáng") -> Danh mục xuất hiện ngay lập tức trong bảng.

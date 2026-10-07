@@ -16,7 +16,7 @@ Pre-commit fail đúng như log: `.agents/docs/global/i18n.md` không có YAML `
    - Cập nhật metadata `depends_on` của các chỉ mục global nếu validator yêu cầu.
    - Đồng bộ sidecar mapping để artifact graph nhận cả hai tài liệu.
 1. Thêm rule `i18n-no-hardcoded-user-text` dưới `.agents/rules/`:
-   - Áp dụng luôn cho frontend, Telegram, email/notification, HTML template, Gemini output/prompt và API error hiển thị cho người dùng.
+   - Áp dụng luôn cho frontend, zalo, email/notification, HTML template, Gemini output/prompt và API error hiển thị cho người dùng.
    - Bắt buộc dùng key qua adapter i18n; key có mặt ở mọi supported locale; mọi giá trị dynamic chỉ truyền interpolation.
    - Cấm literal user-facing trong JSX, `ctx.reply`, `sendMessage`, `Markup.button`, toast/alert, metadata, template HTML và result/error/instruction của tool.
    - Ngoại lệ tường minh: log kỹ thuật, error nội bộ không render ra user, route/enum/callback/tool name/protocol, test fixture và dữ liệu user/external provider. Ngoại lệ phải được ghi nhận ở guard, không dùng `eslint-disable` ad hoc.
@@ -25,7 +25,7 @@ Pre-commit fail đúng như log: `.agents/docs/global/i18n.md` không có YAML `
    - Viết validator quét **staged TypeScript/TSX và HTML template** với rule ngữ cảnh, chỉ báo literal ở các API/bề mặt user-facing nêu trên.
    - Cho phép literal emoji, callback data và allow-list kỹ thuật đã xác định; lỗi báo file/dòng và key i18n cần dùng.
    - Gắn validator vào `scripts/agent-system/precommit` để commit mới bị chặn trước khi vào nhánh.
-   - Thêm regression tests cho: literal trong JSX/Telegram bị chặn, `translate(...)` được cho phép, log/callback/test fixture không bị false positive.
+   - Thêm regression tests cho: literal trong JSX/zalo bị chặn, `translate(...)` được cho phép, log/callback/test fixture không bị false positive.
 1. Xác minh:
    - `npm run agent-system:validate` xanh.
    - Chạy test validator/precommit mới với fixture pass/fail.
@@ -34,7 +34,7 @@ Pre-commit fail đúng như log: `.agents/docs/global/i18n.md` không có YAML `
 ## Không thay đổi trong đợt này
 
 - Không chuyển toàn bộ 721 chuỗi còn lại sang catalog; đó là migration riêng đã được audit.
-- Không đổi API, data schema hoặc hành vi Telegram/dashboard.
+- Không đổi API, data schema hoặc hành vi zalo/dashboard.
 
 ## Rủi ro
 

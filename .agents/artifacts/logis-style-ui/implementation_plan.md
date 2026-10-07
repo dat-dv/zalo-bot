@@ -10,7 +10,7 @@ Risk: medium
 
 ## Mục tiêu
 
-Đưa dashboard web của telebot về cùng ngôn ngữ giao diện với `~/Documents/projects/logis-project`: Flat Enterprise, data-dense, nền trung tính, border mảnh và thao tác theo kiểu Excel-lite. Trọng tâm là tạo table dùng chung có cấu trúc nhất quán thay cho các dòng `div` hiện tại.
+Đưa dashboard web của zalobot về cùng ngôn ngữ giao diện với `~/Documents/projects/logis-project`: Flat Enterprise, data-dense, nền trung tính, border mảnh và thao tác theo kiểu Excel-lite. Trọng tâm là tạo table dùng chung có cấu trúc nhất quán thay cho các dòng `div` hiện tại.
 
 ## Hiện trạng đã xác nhận
 
@@ -47,7 +47,7 @@ Risk: medium
 - Header table 36–40px, row mặc định 40–48px; không shadow nặng, không nested cards, không emoji trong header.
 - Màn hẹp cuộn ngang bảng mượt, toolbar/header không vỡ bố cục; bảng không bị biến thành card list.
 - Đủ 4 trạng thái loading, error, empty và success với `aria-busy`/`role=alert` phù hợp.
-- `npm run lint --workspace @telebot/web`, `npm run typecheck --workspace @telebot/web`, và `npm run build --workspace @telebot/web` chạy sau khi triển khai.
+- `npm run lint --workspace @zalobot/web`, `npm run typecheck --workspace @zalobot/web`, và `npm run build --workspace @zalobot/web` chạy sau khi triển khai.
 
 ## Rủi ro và cách kiểm soát
 
@@ -60,5 +60,5 @@ Risk: medium
 - Đã chuyển sáu danh sách dashboard sang table semantic, compact và responsive, không đổi API hay business logic.
 - Đã thêm loading skeleton, empty state, table hover/focus và style Flat Enterprise trong `apps/web/src/styles.css`.
 - Đã cập nhật tài liệu tri thức và hướng dẫn UI tương ứng.
-- Đã chạy thành công `npm run lint --workspace @telebot/web`, `npm run typecheck --workspace @telebot/web` và `npm run build --workspace @telebot/web`.
+- Đã chạy thành công `npm run lint --workspace @zalobot/web`, `npm run typecheck --workspace @zalobot/web` và `npm run build --workspace @zalobot/web`.
 - Kiểm tra trực quan bằng browser tích hợp không thực hiện được vì browser không kết nối được localhost trong môi trường hiện tại.

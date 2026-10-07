@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { localeTag, type TransactionType, type ITransactionItem } from '@telebot/contracts';
+import { localeTag, type TransactionType, type ITransactionItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';

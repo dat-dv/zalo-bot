@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { google } from 'googleapis';
 import { OAuth2Client, Credentials } from 'google-auth-library';
-import { API_ROUTES } from '@telebot/contracts';
+import { API_ROUTES } from '@zalobot/contracts';
 import { UserTokenEntity } from '../database/entities/user-token.entity';
 import { TokenEncryptionService } from './token-encryption.service';
 
@@ -90,16 +90,16 @@ export class GoogleAuthService implements OnModuleInit {
     return new google.auth.OAuth2(keys.clientId, keys.clientSecret, keys.redirectUri);
   }
 
-  public getOAuth2Client(userId?: number): OAuth2Client | null {
+  public getOAuth2Client(userId?: string | number): OAuth2Client | null {
     // If no userId passed, resolve to Admin's userId
-    let targetUserId = userId;
+    let targetUserId = userId !== undefined ? String(userId) : undefined;
     if (!targetUserId) {
-      targetUserId = this.configService.get<number>('telegram.adminId');
+      targetUserId = this.configService.get<string>('zalo.adminId');
     }
 
     if (!targetUserId) {
-      const allowedIds = this.configService.getOrThrow<number[]>('telegram.allowedUserIds');
-      if (allowedIds.length > 0) targetUserId = allowedIds[0];
+      const allowedIds = this.configService.get<string[]>('zalo.allowedUserIds');
+      if (allowedIds && allowedIds.length > 0) targetUserId = allowedIds[0];
     }
 
     if (!targetUserId) return null;
@@ -108,14 +108,14 @@ export class GoogleAuthService implements OnModuleInit {
     return this.userClients.get(strId) || null;
   }
 
-  public isAuthorized(userId?: number): boolean {
+  public isAuthorized(userId?: string | number): boolean {
     const client = this.getOAuth2Client(userId);
     if (!client) return false;
     const creds = client.credentials;
     return !!(creds && (creds.access_token || creds.refresh_token));
   }
 
-  public generateAuthUrl(userId: number): string {
+  public generateAuthUrl(userId: string | number): string {
     const client = this.createOAuth2Instance();
     if (!client) {
       throw new Error(
@@ -131,7 +131,7 @@ export class GoogleAuthService implements OnModuleInit {
     });
   }
 
-  public async exchangeCodeForTokens(userId: number, code: string): Promise<boolean> {
+  public async exchangeCodeForTokens(userId: string | number, code: string): Promise<boolean> {
     const client = this.createOAuth2Instance();
     if (!client) {
       throw new Error(

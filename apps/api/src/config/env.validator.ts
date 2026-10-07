@@ -59,7 +59,6 @@ export function validateEnvironment(): EnvValidationResult {
   const errors: Array<{ key: string; reason: string; guide: string }> = [];
 
   const requiredKeys = [
-    'TELEGRAM_BOT_TOKEN',
     'GEMINI_API_KEY',
     'GEMINI_MODEL',
     'GOOGLE_CLIENT_ID',
@@ -77,16 +76,6 @@ export function validateEnvironment(): EnvValidationResult {
         'Biến môi trường bắt buộc đang trống.',
         'Khai báo giá trị trong file .env.local hoặc môi trường triển khai.',
       );
-  }
-
-  const adminId = readEnv('TELEGRAM_ADMIN_ID');
-  if (!isPositiveInteger(adminId)) {
-    addError(
-      errors,
-      'TELEGRAM_ADMIN_ID',
-      'Phải là Telegram ID nguyên dương.',
-      'Lấy ID từ @userinfobot và khai báo vào .env.local.',
-    );
   }
 
   for (const key of [
@@ -133,14 +122,6 @@ export function validateEnvironment(): EnvValidationResult {
       'Khai báo rõ true hoặc false trong .env.local.',
     );
   }
-  if (!isBoolean(readEnv('TELEGRAM_LONG_POLLING_ENABLED'))) {
-    addError(
-      errors,
-      'TELEGRAM_LONG_POLLING_ENABLED',
-      'Chỉ nhận true hoặc false.',
-      'Khai báo rõ true hoặc false trong .env.local.',
-    );
-  }
 
   if (!/^[0-9a-f]{64}$/i.test(readEnv('DATA_ENCRYPTION_KEY'))) {
     addError(
@@ -148,38 +129,6 @@ export function validateEnvironment(): EnvValidationResult {
       'DATA_ENCRYPTION_KEY',
       'Phải là khóa hexadecimal 64 ký tự.',
       'Tạo bằng openssl rand -hex 32 rồi lưu vào .env.local.',
-    );
-  }
-
-  const allowedIds = readEnv('TELEGRAM_ALLOWED_USER_IDS');
-  if (allowedIds && allowedIds.split(',').some((id) => !isPositiveInteger(id.trim()))) {
-    addError(
-      errors,
-      'TELEGRAM_ALLOWED_USER_IDS',
-      'Mỗi ID phải là số nguyên dương, ngăn cách bằng dấu phẩy.',
-      'Xóa key này hoặc khai báo theo dạng 123,456.',
-    );
-  }
-
-  const gramJsKeys = ['TELEGRAM_API_ID', 'TELEGRAM_API_HASH', 'TELEGRAM_SESSION'];
-  const configuredGramJsKeys = gramJsKeys.filter((key) => Boolean(readEnv(key)));
-  if (configuredGramJsKeys.length > 0 && configuredGramJsKeys.length !== gramJsKeys.length) {
-    addError(
-      errors,
-      gramJsKeys.join(', '),
-      'GramJS phải được cấu hình đủ cả ba biến hoặc tắt hoàn toàn.',
-      'Khai báo đủ TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION; hoặc xóa cả ba để tắt flash-call.',
-    );
-  }
-  if (
-    configuredGramJsKeys.length === gramJsKeys.length &&
-    !isPositiveInteger(readEnv('TELEGRAM_API_ID'))
-  ) {
-    addError(
-      errors,
-      'TELEGRAM_API_ID',
-      'Phải là số nguyên dương.',
-      'Dùng App API ID do my.telegram.org cấp.',
     );
   }
 

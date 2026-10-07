@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { type IAnalyticsTrendBucket } from '@telebot/contracts';
+import { type IAnalyticsTrendBucket } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';

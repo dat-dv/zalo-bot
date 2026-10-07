@@ -26,7 +26,7 @@
   <!-- Background glow orb -->
   <circle cx="256" cy="180" r="140" fill="url(#glowGrad)" />
 
-  <!-- Logo Mark: Modern T & Telegram / Assistant motif -->
+  <!-- Logo Mark: Modern T & zalo / Assistant motif -->
   <g filter="url(#subtleGlow)">
     <!-- Top Horizontal Bar of T -->
     <path d="M 136 156 C 136 142.7 146.7 132 160 132 L 352 132 C 365.3 132 376 142.7 376 156 L 376 188 C 376 201.3 365.3 212 352 212 L 160 212 C 146.7 212 136 201.3 136 188 Z" fill="url(#accentGrad)" />
@@ -34,7 +34,7 @@
     <!-- Vertical Stem of T with subtle taper -->
     <path d="M 220 200 L 292 200 C 298.6 200 304 205.4 304 212 L 304 356 C 304 369.3 293.3 380 280 380 L 232 380 C 218.7 380 208 369.3 208 356 L 208 212 C 208 205.4 213.4 200 220 200 Z" fill="url(#accentGrad)" />
 
-    <!-- Telegram Paper Plane / AI Node Accent floating top-right -->
+    <!-- zalo Paper Plane / AI Node Accent floating top-right -->
     <circle cx="376" cy="136" r="20" fill="#38bdf8" />
     <circle cx="376" cy="136" r="12" fill="#ffffff" />
 

@@ -3,8 +3,8 @@ services:
     environment:
       APP_URL: http://localhost:3001
       WEB_ORIGIN: http://localhost:3001
-      CORS_ALLOW_ALL: "false"
-      TELEGRAM_LONG_POLLING_ENABLED: "false"
+      CORS_ALLOW_ALL: 'false'
+      zalo_LONG_POLLING_ENABLED: 'false'
       RECEIPT_STORAGE_DIR: /app/data
 
   web:

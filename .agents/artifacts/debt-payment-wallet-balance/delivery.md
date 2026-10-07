@@ -9,7 +9,7 @@
 
 ## Kiểm chứng
 
-- `npm run test --workspace @telebot/api -- src/finance/finance.service.spec.ts` — đạt 51/51 kiểm thử.
+- `npm run test --workspace @zalobot/api -- src/finance/finance.service.spec.ts` — đạt 51/51 kiểm thử.
 - `npm run typecheck` — đạt.
 - `npm run lint` — đạt.
 - `git diff --check` — đạt.

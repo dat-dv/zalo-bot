@@ -25,7 +25,8 @@ Tái cấu trúc toàn bộ hệ thống routing của Web Dashboard: loại b�
 
 ### 2.1. Hợp đồng dùng chung & Từ điển i18n (`packages/contracts`)
 
-#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/telebot/packages/contracts/src/index.ts)
+#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/zalobot/packages/contracts/src/index.ts)
+
 - Cập nhật `APP_ROUTES`:
   ```ts
   export const APP_ROUTES = {
@@ -59,6 +60,7 @@ Tái cấu trúc toàn bộ hệ thống routing của Web Dashboard: loại b�
 ### 2.2. Tái cấu trúc App Router (`apps/web/app/`)
 
 #### [DELETE] Thư mục cũ `apps/web/app/reports/`
+
 - Xóa `apps/web/app/reports/page.tsx`
 - Xóa `apps/web/app/reports/statistics/page.tsx`
 - Xóa `apps/web/app/reports/contacts/page.tsx`
@@ -66,56 +68,67 @@ Tái cấu trúc toàn bộ hệ thống routing của Web Dashboard: loại b�
 - Xóa `apps/web/app/reports/expenses/page.tsx`
 
 #### [NEW] `apps/web/app/(private)/layout.tsx`
+
 - Layout chung cho toàn bộ không gian cá nhân Dashboard.
 - Nhúng `AppSidebarNavigation` và khung shell `app-shell`, tích hợp header toàn cục (hoặc sub-header theo trang), `usePathname()` để highlight active menu.
 
 #### [NEW] `apps/web/app/(private)/page.tsx` (Route `/`)
+
 - Màn hình **Tổng quan (Home)**:
   - Chỉ số nhanh: Thu tháng này, Chi tháng này, Thu - Chi (Số dư), Đang cho vay, Đang đi vay, Net debt.
   - Các widget tóm lược: Việc hôm nay, Lời nhắc sắp tới, Lịch 7 ngày tới, Khoản vay cần chú ý, Giao dịch gần đây, Hoạt động hệ thống.
 
 #### [NEW] `apps/web/app/(private)/transactions/page.tsx` (Route `/transactions`)
+
 - Màn hình **Thu chi**:
   - Bộ lọc linh hoạt: `[Tất cả] [Thu] [Chi]` (hỗ trợ query param `?type=income` hoặc `?type=expense`).
   - Tìm kiếm nhanh theo nội dung/danh mục.
   - Bảng giao dịch: Ngày | Nội dung / Ghi chú | Danh mục | Loại (Thu/Chi badge) | Số tiền.
 
 #### [NEW] `apps/web/app/(private)/debts/page.tsx` (Route `/debts`)
+
 - Màn hình **Vay & cho vay**:
   - Chỉ số: Tổng cho vay, Tổng đi vay, Công nợ ròng.
   - Bộ lọc: `[Tất cả] [Cần thu] [Cần trả]`.
   - Bảng danh sách: Đối tác | Số tiền ban đầu | Còn lại | Hạn thanh toán | Ghi chú.
 
 #### [NEW] `apps/web/app/(private)/analytics/page.tsx` (Route `/analytics`)
+
 - Màn hình **Phân tích**:
   - Tổng thu, Tổng chi, Số dư dòng tiền, Công nợ ròng.
   - Thống kê chi tiết giao dịch thu/chi theo danh mục, phân bổ cơ cấu dòng tiền.
 
 #### [NEW] `apps/web/app/(private)/calendar/page.tsx` (Route `/calendar`)
+
 - Màn hình **Lịch**:
   - Hiển thị danh sách sự kiện Google Calendar trong 7 ngày tới.
-  - Cảnh báo kết nối tài khoản Google nếu chưa cấp quyền từ Telegram.
+  - Cảnh báo kết nối tài khoản Google nếu chưa cấp quyền từ zalo.
 
 #### [NEW] `apps/web/app/(private)/tasks/page.tsx` (Route `/tasks`)
+
 - Màn hình **Việc cần làm**:
   - Danh sách Google Tasks với hạn hoàn thành và bộ lọc tìm kiếm.
 
 #### [NEW] `apps/web/app/(private)/reminders/page.tsx` (Route `/reminders`)
+
 - Màn hình **Nhắc nhở**:
   - Lời nhắc hẹn giờ (nhắc tin nhắn 💬 hoặc cuộc gọi tự động 📞).
 
 #### [NEW] `apps/web/app/(private)/contacts/page.tsx` (Route `/contacts`)
+
 - Màn hình **Người liên quan**:
   - Danh bạ đối tác / liên hệ công nợ (Tên, Biệt danh, Mô tả, Ngày tạo).
 
-#### [MODIFY] [page.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/app/page.tsx)
+#### [MODIFY] [page.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/app/page.tsx)
+
 - Đảm bảo root route `/` được render trực tiếp qua `(private)/page.tsx` (không cần redirect `/reports`).
 
 ---
 
 ### 2.3. Cập nhật Shared Navigation Component (`apps/web/src/shared/ui/`)
 
-#### [MODIFY] [reports-navigation.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/reports-navigation.tsx) -> `app-navigation.tsx`
+#### [MODIFY] [reports-navigation.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/reports-navigation.tsx) -> `app-navigation.tsx`
+
 - Tái cấu trúc thành `AppNavigation` hỗ trợ 4 nhóm:
   - `nav.section.overview`: Trang chủ (`APP_ROUTES.home`)
   - `nav.section.finance`: Thu chi (`APP_ROUTES.transactions`), Vay & cho vay (`APP_ROUTES.debts`), Phân tích (`APP_ROUTES.analytics`)
@@ -128,14 +141,16 @@ Tái cấu trúc toàn bộ hệ thống routing của Web Dashboard: loại b�
 
 ### 2.4. Cập nhật Backend Xác thực & Redirect (`apps/api/`)
 
-#### [MODIFY] [reports.controller.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/reports/reports.controller.ts)
+#### [MODIFY] [reports.controller.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/reports/reports.controller.ts)
+
 - Thay đổi redirect URL tại endpoint `GET /access` từ `${webOrigin}/reports#dashboard_token=...` thành `${webOrigin}/#dashboard_token=...`.
 
 ---
 
 ### 2.5. Cập nhật Tài liệu & Canonical Knowledge
 
-#### [MODIFY] [route-constants.md](file:///Users/datdoan/Documents/projects/telebot/.agents/knowledge/global/route-constants.md) & [route-constants.md](file:///Users/datdoan/Documents/projects/telebot/.agents/docs/global/route-constants.md)
+#### [MODIFY] [route-constants.md](file:///Users/datdoan/Documents/projects/zalobot/.agents/knowledge/global/route-constants.md) & [route-constants.md](file:///Users/datdoan/Documents/projects/zalobot/.agents/docs/global/route-constants.md)
+
 - Cập nhật định nghĩa `APP_ROUTES` mới và cấu trúc điều hướng.
 - Cập nhật `dashboard-session.md` và `README.md` nếu có đề cập `/reports`.
 
@@ -144,12 +159,14 @@ Tái cấu trúc toàn bộ hệ thống routing của Web Dashboard: loại b�
 ## 3. Kế hoạch Kiểm thử & Xác minh
 
 ### Tự động hóa
-1. `npm run typecheck`: Kiểm tra tính toàn vẹn type trên toàn bộ workspace (`@telebot/contracts`, `@telebot/api`, `@telebot/web`).
+
+1. `npm run typecheck`: Kiểm tra tính toàn vẹn type trên toàn bộ workspace (`@zalobot/contracts`, `@zalobot/api`, `@zalobot/web`).
 2. `npm run lint`: Chạy ESLint kiểm tra lỗi cú pháp và quy tắc mã nguồn.
 3. `npm run build`: Build toàn bộ project để kiểm tra Next.js Static Export và NestJS compile.
 4. `npm run agent-system:validate`: Kiểm tra tính toàn vẹn của artifacts và agent contracts.
 
 ### Xác minh Giao diện & Chức năng
+
 1. Truy cập root `/`: Hiển thị Tổng quan với các khối chỉ số và widget tóm tắt.
 2. Truy cập `/transactions`: Xem danh sách giao dịch, lọc Thu/Chi hoạt động mượt mà.
 3. Truy cập `/debts`: Xem danh sách công nợ với filter Cần thu/Cần trả.

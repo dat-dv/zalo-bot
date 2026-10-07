@@ -1,4 +1,4 @@
-const ACCESS_TOKEN_KEY = 'telebot.dashboard.access-token';
+const ACCESS_TOKEN_KEY = 'zalobot.dashboard.access-token';
 
 export function getAccessToken(): string | null {
   return window.localStorage.getItem(ACCESS_TOKEN_KEY);

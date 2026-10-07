@@ -14,10 +14,10 @@ Ví dụ: chọn giao dịch thu `Trí trả 5.000.000đ`; giao diện chỉ m�
 
 Agent cần gán category chuẩn để định hướng luồng:
 
-| Chiều giao dịch | Loại công nợ | Category đề xuất |
-| --- | --- | --- |
-| Thu tiền | Khoản phải thu được hoàn | `Thu hồi công nợ` |
-| Chi tiền | Khoản phải trả được thanh toán | `Trả công nợ` |
+| Chiều giao dịch | Loại công nợ                   | Category đề xuất  |
+| --------------- | ------------------------------ | ----------------- |
+| Thu tiền        | Khoản phải thu được hoàn       | `Thu hồi công nợ` |
+| Chi tiền        | Khoản phải trả được thanh toán | `Trả công nợ`     |
 
 Tuy nhiên, **không dùng category để quyết định khoản nợ nào**: một người có thể có nhiều khoản cùng category. Liên kết chính xác phải nằm ở dữ liệu phân bổ bằng ID.
 
@@ -71,7 +71,7 @@ Nguồn sự thật vẫn là `remainingAmount` và lịch sử allocation/payme
    - Tổng hợp cố định: `Số giao dịch`, `Đã phân bổ`, `Còn chưa phân bổ`; vô hiệu hóa xác nhận khi tổng vượt giao dịch hoặc một hàng vượt số dư.
    - Khi xác nhận thành công, làm mới danh sách giao dịch, chi tiết khoản công nợ và các số liệu dashboard/analytics.
 
-4. **Agent Telegram/Gemini**
+4. **Agent zalo/Gemini**
    - Bổ sung tool tìm khoản công nợ ứng viên theo `contact + direction + trạng thái mở` và tool phân bổ vào giao dịch/khoản nợ.
    - Với một ứng viên duy nhất: agent có thể đề xuất hoặc ghi nhận theo xác nhận hiện hành.
    - Với nhiều ứng viên: agent phải trả danh sách gồm ngày, ghi chú, số còn lại và hỏi người dùng chọn; không suy đoán chỉ từ category.

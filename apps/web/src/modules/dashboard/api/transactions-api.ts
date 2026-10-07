@@ -4,7 +4,7 @@ import {
   type ICreateTransactionRequest,
   type ITransactionItem,
   type IUpdateTransactionRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
 export async function createTransaction(

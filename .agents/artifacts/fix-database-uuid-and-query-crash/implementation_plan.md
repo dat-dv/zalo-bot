@@ -21,6 +21,7 @@ Tài liệu thiết kế và kế hoạch chi tiết khắc phục lỗi `400 - 
 ## User Review Required
 
 > [!IMPORTANT]
+>
 > - Cần chạy migration mới để đồng bộ toàn bộ kiểu dữ liệu `id` của `finance_places`, `debt_contacts`, `finance_transactions` sang `UUID` trên PostgreSQL database.
 > - Refactor toàn bộ truy vấn trong `FinanceService` sang `find()` methods để loại bỏ hoàn toàn các chuỗi raw column name trong `createQueryBuilder`.
 
@@ -30,7 +31,8 @@ Tài liệu thiết kế và kế hoạch chi tiết khắc phục lỗi `400 - 
 
 ### 1. Database Migrations
 
-#### [NEW] [1724700000000-FixPostgresPlaceAndContactUuidTypes.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/database/migrations/1724700000000-FixPostgresPlaceAndContactUuidTypes.ts)
+#### [NEW] [1724700000000-FixPostgresPlaceAndContactUuidTypes.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/database/migrations/1724700000000-FixPostgresPlaceAndContactUuidTypes.ts)
+
 - Bổ sung migration chuyển đổi toàn bộ các cột ID và Foreign Key còn lại sang kiểu `UUID` trong PostgreSQL một cách an toàn và nhất quán:
   - `finance_places.id` -> `uuid`
   - `debt_contacts.id` -> `uuid`
@@ -39,14 +41,16 @@ Tài liệu thiết kế và kế hoạch chi tiết khắc phục lỗi `400 - 
   - `debt_payments.id` -> `uuid`
   - Đồng bộ `place_id`, `contact_id`, `parent_debt_id`, `finance_transaction_id`, `debt_id` sang kiểu `uuid`.
 
-#### [MODIFY] [data-source.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/database/data-source.ts)
+#### [MODIFY] [data-source.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/database/data-source.ts)
+
 - Đăng ký migration mới `FixPostgresPlaceAndContactUuidTypes1724700000000` vào mảng `migrations` của DataSource.
 
 ---
 
 ### 2. Backend Finance Service Refactoring
 
-#### [MODIFY] [finance.service.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/finance/finance.service.ts)
+#### [MODIFY] [finance.service.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/finance/finance.service.ts)
+
 - Thay thế `createQueryBuilder` bằng `transactionRepo.find()` với các toán tử TypeORM chuẩn (`Between`, `MoreThanOrEqual`, `LessThanOrEqual`, `LessThan`) cho:
   - `getSummary(userId, startAt, endAt)`: Truy vấn danh sách giao dịch kèm quan hệ `place` với `FindOptionsWhere`.
   - `getAnalyticsReport(userId, startAt, endAt, grain)`: Lấy `priorTransactions` trước mốc `startAt` dùng `LessThan(startDate)`.
@@ -56,7 +60,8 @@ Tài liệu thiết kế và kế hoạch chi tiết khắc phục lỗi `400 - 
 
 ### 3. Global Exceptions Filter Logging Enhancement
 
-#### [MODIFY] [global-exceptions.filter.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/common/filters/global-exceptions.filter.ts)
+#### [MODIFY] [global-exceptions.filter.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/common/filters/global-exceptions.filter.ts)
+
 - Cập nhật xử lý `QueryFailedError`:
   - Trả về status 500 (Internal Server Error) nếu không phải lỗi duplicate/constraint key.
   - Ghi log chi tiết `this.logger.error(\`Database query failed: ${exception.message}\`, exception.stack)` để luôn hiển thị chi tiết câu SQL lỗi trong hệ thống logging.
@@ -65,7 +70,8 @@ Tài liệu thiết kế và kế hoạch chi tiết khắc phục lỗi `400 - 
 
 ### 4. Unit Test Updates
 
-#### [MODIFY] [finance.service.spec.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/finance/finance.service.spec.ts)
+#### [MODIFY] [finance.service.spec.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/finance/finance.service.spec.ts)
+
 - Cập nhật mock `transactionRepository.find` để hỗ trợ các bài test `getAnalyticsReport`, `createTransaction`, và `getSummary`.
 
 ---
@@ -73,9 +79,10 @@ Tài liệu thiết kế và kế hoạch chi tiết khắc phục lỗi `400 - 
 ## Verification Plan
 
 ### Automated Tests
+
 - Chạy toàn bộ test suite:
   ```bash
-  npm run test --workspace @telebot/api
+  npm run test --workspace @zalobot/api
   ```
 - Kiểm tra typecheck và linter:
   ```bash
@@ -88,4 +95,5 @@ Tài liệu thiết kế và kế hoạch chi tiết khắc phục lỗi `400 - 
   ```
 
 ### Manual Verification
+
 - Kiểm tra trực tiếp các API `/api/dashboard`, `/api/finance/analytics`, `/api/transactions` đảm bảo HTTP 200 OK với đầy đủ dữ liệu.

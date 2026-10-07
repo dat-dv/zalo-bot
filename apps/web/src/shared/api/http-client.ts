@@ -3,7 +3,7 @@ import {
   API_ROUTES,
   type IApiResponse,
   type IDashboardAccessTokenResponse,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import {
   clearAccessToken,
   getAccessToken,

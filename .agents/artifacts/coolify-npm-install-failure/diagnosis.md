@@ -5,7 +5,7 @@
 Deploy commit `0e079053484b4e6b5cb12f51318d2f5a243e9725` dừng tại Docker build API:
 
 ```text
-RUN npm ci --omit=dev --workspace @telebot/api
+RUN npm ci --omit=dev --workspace @zalobot/api
 npm error code ECONNRESET
 npm error network aborted
 ```

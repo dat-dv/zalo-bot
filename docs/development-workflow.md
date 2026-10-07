@@ -1,6 +1,6 @@
 # 🛠️ Quy Chuẩn Phát Triển & Kiểm Thử (Development Workflow)
 
-Tài liệu này quy định các tiêu chuẩn về mã nguồn (Coding Standards), quy tắc đặt tên, cấu hình công cụ kiểm tra tự động (ESLint, Prettier, Husky) và chiến lược kiểm thử cho dự án **NestJS Telegram AI Assistant**.
+Tài liệu này quy định các tiêu chuẩn về mã nguồn (Coding Standards), quy tắc đặt tên, cấu hình công cụ kiểm tra tự động (ESLint, Prettier, Husky) và chiến lược kiểm thử cho dự án **NestJS zalo AI Assistant**.
 
 ---
 
@@ -17,14 +17,14 @@ Dự án sử dụng **TypeScript** ở chế độ strict với kiến trúc ch
 
 ### 1.2 Quy tắc đặt tên file & thư mục
 
-| Loại Thành Phần                  | Quy Tắc Đặt Tên                    | Ví Dụ                                             |
-| -------------------------------- | ---------------------------------- | ------------------------------------------------- |
-| **Module**                       | `*.module.ts`                      | `google.module.ts`, `telegram.module.ts`          |
-| **Service**                      | `*.service.ts`                     | `google-calendar.service.ts`, `gemini.service.ts` |
-| **Tool (AI Function Calling)**   | `*.tool.ts`                        | `create-calendar.tool.ts`, `send-email.tool.ts`   |
-| **Telegram Update / Controller** | `*.update.ts`                      | `telegram.update.ts`                              |
-| **Guard**                        | `*.guard.ts`                       | `auth.guard.ts`                                   |
-| **Interface / Type**             | `*.interface.ts` hoặc `*.types.ts` | `tool.interface.ts`                               |
+| Loại Thành Phần                | Quy Tắc Đặt Tên                    | Ví Dụ                                             |
+| ------------------------------ | ---------------------------------- | ------------------------------------------------- |
+| **Module**                     | `*.module.ts`                      | `google.module.ts`, `zalo.module.ts`              |
+| **Service**                    | `*.service.ts`                     | `google-calendar.service.ts`, `gemini.service.ts` |
+| **Tool (AI Function Calling)** | `*.tool.ts`                        | `create-calendar.tool.ts`, `send-email.tool.ts`   |
+| **zalo Update / Controller**   | `*.update.ts`                      | `zalo.update.ts`                                  |
+| **Guard**                      | `*.guard.ts`                       | `auth.guard.ts`                                   |
+| **Interface / Type**           | `*.interface.ts` hoặc `*.types.ts` | `tool.interface.ts`                               |
 
 ---
 
@@ -52,7 +52,7 @@ npm run typecheck
 npm run build
 
 # 6. Chạy toàn bộ unit test của API, bao gồm test trong các thư mục con
-npm run test --workspace @telebot/api
+npm run test --workspace @zalobot/api
 
 # Chạy riêng từng ứng dụng
 npm run dev:api
@@ -82,7 +82,7 @@ Hệ thống cấu hình **Husky (`.husky/pre-commit`)** và **lint-staged**:
 - `feat`: Tính năng mới (ví dụ: `feat(gemini): add send email tool`)
 - `fix`: Sửa lỗi (ví dụ: `fix(calendar): fix timezone offset calculation`)
 - `docs`: Cập nhật tài liệu (ví dụ: `docs: add deployment guide`)
-- `refactor`: Tái cấu trúc mã nguồn mà không đổi logic (ví dụ: `refactor(telegram): optimize safe reply chunking`)
+- `refactor`: Tái cấu trúc mã nguồn mà không đổi logic (ví dụ: `refactor(zalo): optimize safe reply chunking`)
 - `chore`: Cập nhật cấu hình build, dependencies (ví dụ: `chore: update googleapis version`)
 - `test`: Thêm hoặc sửa test
 
@@ -94,7 +94,7 @@ Hệ thống cấu hình **Husky (`.husky/pre-commit`)** và **lint-staged**:
 
 Khi viết unit test cho các Service hoặc Tool:
 
-- Mock các module bên thứ ba (`googleapis`, `@google/generative-ai`, `telegraf`).
+- Mock các module bên thứ ba (`googleapis`, `@google/generative-ai`, `zalograf`).
 - Đảm bảo logic tính toán ngày tháng và format chuỗi hoạt động đúng theo các trường hợp biên.
 
 Ví dụ mẫu mock `GoogleCalendarService`:
@@ -117,5 +117,5 @@ Trước khi tạo Pull Request hoặc push code lên `main`:
 - [ ] Tool đã được đăng ký trong `GeminiModule` và `GeminiService`.
 - [ ] Chạy `npm run lint` không có cảnh báo hoặc lỗi.
 - [ ] Chạy `npm run build` thành công, không có lỗi type.
-- [ ] Chạy `npm run test --workspace @telebot/api` thành công; không thay bằng lệnh chỉ match test ở thư mục gốc.
+- [ ] Chạy `npm run test --workspace @zalobot/api` thành công; không thay bằng lệnh chỉ match test ở thư mục gốc.
 - [ ] Cập nhật tài liệu tương ứng trong thư mục `docs/` nếu có thay đổi kiến trúc hoặc biến môi trường.

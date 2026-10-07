@@ -32,7 +32,7 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 
 COPY apps/api apps/api
 COPY packages/contracts packages/contracts
-RUN npm run build --workspace @telebot/contracts && npm run build --workspace @telebot/api
+RUN npm run build --workspace @zalobot/contracts && npm run build --workspace @zalobot/api
 
 # Stage 4: Production runner
 FROM node:22-alpine AS runner

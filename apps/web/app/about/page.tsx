@@ -1,6 +1,6 @@
 'use client';
 
-import { APP_ROUTES } from '@telebot/contracts';
+import { APP_ROUTES } from '@zalobot/contracts';
 import Link from 'next/link';
 import { useLocale } from '@/shared/providers/locale-provider';
 
@@ -49,7 +49,7 @@ export default function AboutPage() {
           target="_blank"
           rel="noreferrer"
         >
-          {t('public.about.telegram')}
+          {t('public.about.zalo')}
         </a>
       </section>
 

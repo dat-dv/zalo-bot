@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ICreatePlaceRequest, IFinancePlace, IUpdatePlaceRequest } from '@telebot/contracts';
+import type { ICreatePlaceRequest, IFinancePlace, IUpdatePlaceRequest } from '@zalobot/contracts';
 import { createPlace, deletePlace, getPlaces, updatePlace } from './places-api';
 import { dashboardQueryKeys } from './dashboard-query';
 

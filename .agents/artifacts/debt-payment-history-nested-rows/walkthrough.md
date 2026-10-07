@@ -6,7 +6,8 @@
 
 ## 1. Những Điểm Thay Đổi Chính
 
-### A. Gói Hợp Đồng Dùng Chung (`@telebot/contracts`)
+### A. Gói Hợp Đồng Dùng Chung (`@zalobot/contracts`)
+
 - Bổ sung các translation keys song ngữ (`vi` & `en`):
   - `debts.badge.paymentChild`: `'Đợt trả nợ'` / `'Debt payment'`
   - `debts.badge.paymentInstallment`: `'{count} đợt trả'` / `'{count} payments'`
@@ -18,6 +19,7 @@
   - `debts.deletePayment.success`: Thông báo xóa thành công
 
 ### B. Backend API (`apps/api`)
+
 - **`ReportsController.mapDebt`**: Map đầy đủ mảng `payments` cho từng khoản nợ (khoản gốc, khoản đơn và các khoản con), gồm: `id`, `amount`, `paymentDate`, `note`, `financeTransactionId`, `createdAt`.
 - **`FinanceService` & `FinanceController`**:
   - Tối ưu `listDebts` để tải `payments: { financeTransaction: true }`.
@@ -25,6 +27,7 @@
   - Bổ sung API endpoint `DELETE /api/debts/:id/payments/:paymentId`.
 
 ### C. Frontend Web (`apps/web`)
+
 - **API & Hooks**:
   - `deleteDebtPayment` trong `debts-api.ts`.
   - `useDeleteDebtPaymentMutation` trong `debts-query.ts`.
@@ -44,8 +47,8 @@
 
 ## 2. Kết Quả Kiểm Thử & Quality Gates
 
-1. `npm run build --workspace=@telebot/contracts`: **PASS** (100% build thành công).
-2. `npm run typecheck`: **PASS** (0 errors trên `@telebot/api`, `@telebot/web`, `@telebot/contracts`).
+1. `npm run build --workspace=@zalobot/contracts`: **PASS** (100% build thành công).
+2. `npm run typecheck`: **PASS** (0 errors trên `@zalobot/api`, `@zalobot/web`, `@zalobot/contracts`).
 3. `npm run lint`: **PASS** (0 linter errors, tuân thủ Zero-Any và i18n rules).
-4. `npm run test --workspace=@telebot/api`: **PASS** (74/74 unit tests passed).
+4. `npm run test --workspace=@zalobot/api`: **PASS** (74/74 unit tests passed).
 5. `npm run agent-system:validate`: **PASS** (91 artifacts, 157 dependencies, 56 pairs).

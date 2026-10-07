@@ -26,5 +26,5 @@
 
 - **API & Hooks**: `tasks-api.ts` (`getTasks`, `updateTask`, `deleteTask`) and `tasks-query.ts` (`useTasksQuery`, `useUpdateTaskMutation`, `useDeleteTaskMutation`).
 - **Backend Service & Controller**: `GoogleResourcesController` (`GET /api/tasks`, `POST /api/tasks`, `PATCH /api/tasks/:id`, `DELETE /api/tasks/:id`) and `GoogleTasksService`. Mappings ensure raw Google Tasks fields (`due`, `updated`, `completed`) are normalized to `ITaskListItem` (`dueAt`, `updatedAt`, `completedAt`), and both active and completed tasks are fetched (`showCompleted: true`, `showHidden: true`).
-- **Contracts**: Shared DTOs `ITaskListItem` and `IUpdateTaskRequest` from `@telebot/contracts`.
+- **Contracts**: Shared DTOs `ITaskListItem` and `IUpdateTaskRequest` from `@zalobot/contracts`.
 - **Cache Invalidation**: Mutations automatically invalidate `['tasks']` and `['dashboard']` TanStack query caches.

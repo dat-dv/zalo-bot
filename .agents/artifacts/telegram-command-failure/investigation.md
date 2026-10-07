@@ -1,4 +1,4 @@
-# Điều tra lỗi lệnh Telegram
+# Điều tra lỗi lệnh zalo
 
 ## Hiện tượng
 
@@ -9,7 +9,7 @@ Bot vẫn phản hồi tin nhắn tự nhiên, nhưng `/start` và `/help` khôn
 - Hai handler đã được đăng ký: `@Start()` cho `onStart` và `@Help()`/`@Command('help')` cho `onHelp`.
 - Metadata đã biên dịch vẫn giữ đúng các listener trên.
 - Cả hai handler đều gọi `getReportsUrl()` trước khi gửi bất kỳ phản hồi nào.
-- `getReportsUrl()` luôn ghi một bản ghi token dùng một lần vào SQLite khi có `APP_URL`/`SERVICE_URL_TELEBOT`.
+- `getReportsUrl()` luôn ghi một bản ghi token dùng một lần vào SQLite khi có `APP_URL`/`SERVICE_URL_zaloBOT`.
 - Harness tái hiện từ mã biên dịch: khi thao tác ghi token ném lỗi, `/start` ném lỗi và số lần trả lời là `0`; khi ghi thành công, số lần trả lời là `1`.
 - Cơ sở dữ liệu cục bộ có bảng `dashboard_exchange_tokens`; `typecheck` API đang đạt. Điều này không xác minh được quyền ghi hoặc log của môi trường đang chạy.
 
@@ -21,7 +21,7 @@ Chưa đủ dữ liệu để khẳng định nguyên nhân sâu trong môi trư
 
 ## Phạm vi ảnh hưởng
 
-- `apps/api/src/telegram/telegram.update.ts`: `/start`, `/help`, luồng hoàn tất Google OAuth và nút báo cáo đều đi qua `getReportsUrl()`.
+- `apps/api/src/zalo/zalo.update.ts`: `/start`, `/help`, luồng hoàn tất Google OAuth và nút báo cáo đều đi qua `getReportsUrl()`.
 - `apps/api/src/reports/reports-token.service.ts`: ghi token trao đổi vào SQLite.
 
 ## Hướng khắc phục đề xuất
@@ -32,5 +32,5 @@ Chưa đủ dữ liệu để khẳng định nguyên nhân sâu trong môi trư
 
 ## Xác minh đã chạy
 
-- `npm run typecheck --workspace @telebot/api` — đạt.
+- `npm run typecheck --workspace @zalobot/api` — đạt.
 - Harness mô phỏng thành công/thất bại của `issueExchangeToken` — tái hiện việc handler không gửi phản hồi khi nhánh token lỗi.

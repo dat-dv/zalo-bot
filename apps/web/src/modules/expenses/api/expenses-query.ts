@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IExpenseListItem, IUpdateExpenseRequest } from '@telebot/contracts';
+import type { IExpenseListItem, IUpdateExpenseRequest } from '@zalobot/contracts';
 import { deleteExpense, getExpenses, updateExpense } from './expenses-api';
 
 export const expensesQueryKeys = { list: () => ['expenses'] as const };

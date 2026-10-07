@@ -15,11 +15,11 @@
 
 - `WEB_ORIGIN`: URL public của static dashboard.
 - `NEXT_PUBLIC_API_URL`: URL public của Nest API; giá trị này được đóng gói vào web build.
-- `SERVICE_URL_TELEBOT`: URL public API, dùng cho OAuth callback.
+- `SERVICE_URL_zaloBOT`: URL public API, dùng cho OAuth callback.
 
 ## Xác minh
 
-- `npm run format:check --workspace @telebot/web`: đạt.
+- `npm run format:check --workspace @zalobot/web`: đạt.
 - `npm run typecheck`: đạt.
 - `npm run lint`: đạt.
 - `npm run build`: đạt; xác nhận static output có đủ ba route dashboard.

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { localeTag, type ICalendarEventItem } from '@telebot/contracts';
+import { localeTag, type ICalendarEventItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { getEventDateKeys } from '../../model/calendar-date-utils';
 

@@ -19,7 +19,7 @@ Tách rõ route frontend và backend: React dashboard dùng `/reports`, endpoint
    - `/api/refresh`
    - `/api/logout`
    - Google OAuth callback được loại trừ khỏi prefix để giữ redirect URI hiện tại.
-2. Cập nhật URL nút Telegram để gọi `/api/access`.
+2. Cập nhật URL nút zalo để gọi `/api/access`.
 3. Cập nhật `API_ROUTES` shared contracts và Axios client.
 4. Đổi Vite proxy từ từng route `/reports/*` sang một rule `/api`, trỏ tới backend `localhost:3000` trong môi trường tunnel.
 5. Cập nhật docs và `.env.example` theo route mới.

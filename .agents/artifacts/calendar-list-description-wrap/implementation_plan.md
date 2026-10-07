@@ -5,7 +5,7 @@ RequestFeedback: false
 ## Kết quả triển khai
 
 - Đã triển khai sau khi được duyệt: cột Mô tả mặc định 160px, có thể thu hẹp đến 120px và tự xuống hàng.
-- Đã thêm resize kéo bằng Pointer Events trên mép phải các header của bảng Calendar; độ rộng được lưu cục bộ theo `telebot:table-widths:calendar`.
+- Đã thêm resize kéo bằng Pointer Events trên mép phải các header của bảng Calendar; độ rộng được lưu cục bộ theo `zalobot:table-widths:calendar`.
 - Đã chạy thành công `npm run typecheck`, `npm run lint` và `git diff --check`.
 
 ## Mục tiêu

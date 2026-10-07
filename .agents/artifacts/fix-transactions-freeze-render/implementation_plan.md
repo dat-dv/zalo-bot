@@ -5,11 +5,11 @@ Tài liệu thiết kế và kế hoạch chi tiết sửa lỗi đóng băng gi
 ## Bối cảnh & Nguyên nhân gốc rễ (Root Cause)
 
 1. **Vòng lặp re-render vô tận trong `DataTable`:**
-   - Trong [`DataTable`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/data-table.tsx#L727-L750), có 2 `useEffect` đồng bộ cấu hình cột (`telebot:table-columns:${id}`) và độ rộng cột (`telebot:table-widths:${id}`) từ `localStorage`.
+   - Trong [`DataTable`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/data-table.tsx#L727-L750), có 2 `useEffect` đồng bộ cấu hình cột (`zalobot:table-columns:${id}`) và độ rộng cột (`zalobot:table-widths:${id}`) từ `localStorage`.
    - Dependency array của 2 effect này là `[allColumns, id]`.
    - Mảng `allColumns` được tính từ `[...systemColumns, ...columns]`.
 2. **Handlers chưa memoize trong `TransactionsScreen`:**
-   - Trong [`TransactionsScreen`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/presentation/components/transactions-screen.tsx), các hàm thao tác (`handleStartEdit`, `handleCancelEdit`, `handleSaveEdit`, `handleDelete`) không được bọc trong `useCallback`.
+   - Trong [`TransactionsScreen`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/presentation/components/transactions-screen.tsx), các hàm thao tác (`handleStartEdit`, `handleCancelEdit`, `handleSaveEdit`, `handleDelete`) không được bọc trong `useCallback`.
    - Trên mỗi lượt render, các hàm này tạo ra tham chiếu hàm mới -> `TransactionsTable` re-compute `columns` mới -> `DataTable` nhận `allColumns` mới -> 2 `useEffect` trong `DataTable` chạy lại sau mỗi render -> gọi `setVisibleColumnIds(merged)` và `setColumnWidths(newWidths)` với mảng/object mới -> kích hoạt lượt render tiếp theo.
    - **Kết quả:** Trình duyệt rơi vào vòng lặp re-render 100% CPU liên tục không dừng, làm tê liệt Event Loop của JavaScript trên trình duyệt. Mọi thao tác click chuột trên Sidebar/Navigation bị đóng băng hoàn toàn.
 
@@ -18,6 +18,7 @@ Tài liệu thiết kế và kế hoạch chi tiết sửa lỗi đóng băng gi
 ## User Review Required
 
 > [!IMPORTANT]
+>
 > - Cần chuẩn hóa cơ chế so sánh trạng thái trước khi `setState` trong `DataTable` để chặn đứng mọi vòng lặp re-render vô tận.
 > - Bọc toàn bộ các action handlers trong `TransactionsScreen` và trả về `useMemo` trong `usePeriodFilter` để đảm bảo hiệu năng và tính ổn định.
 
@@ -27,7 +28,8 @@ Tài liệu thiết kế và kế hoạch chi tiết sửa lỗi đóng băng gi
 
 ### 1. Data Table Core Component
 
-#### [MODIFY] [data-table.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/data-table.tsx)
+#### [MODIFY] [data-table.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/data-table.tsx)
+
 - Sử dụng `allColumnsKey = allColumns.map((c) => c.id).join(',')` làm dependency thay vì tham chiếu mảng `allColumns`.
 - Bổ sung kiểm tra tính đồng nhất (equality guard) trước khi gọi `setVisibleColumnIds` và `setColumnWidths`:
   - Nếu danh sách ID cột hoặc độ rộng cột từ `localStorage` trùng khớp với `prev state`, giữ nguyên tham chiếu `prev` và không trigger re-render.
@@ -36,7 +38,8 @@ Tài liệu thiết kế và kế hoạch chi tiết sửa lỗi đóng băng gi
 
 ### 2. Transactions Screen Component
 
-#### [MODIFY] [transactions-screen.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/presentation/components/transactions-screen.tsx)
+#### [MODIFY] [transactions-screen.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/presentation/components/transactions-screen.tsx)
+
 - Bọc toàn bộ action handlers trong `useCallback`:
   - `setFilter = useCallback(...)`
   - `showToast = useCallback(...)`
@@ -50,7 +53,8 @@ Tài liệu thiết kế và kế hoạch chi tiết sửa lỗi đóng băng gi
 
 ### 3. Period Filter Hook
 
-#### [MODIFY] [use-period-filter.ts](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/hooks/use-period-filter.ts)
+#### [MODIFY] [use-period-filter.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/hooks/use-period-filter.ts)
+
 - Bọc object trả về của `usePeriodFilter` trong `useMemo` để tránh tạo object reference mới liên tục khi state thời gian không thay đổi.
 
 ---
@@ -58,6 +62,7 @@ Tài liệu thiết kế và kế hoạch chi tiết sửa lỗi đóng băng gi
 ## Verification Plan
 
 ### Automated Tests
+
 - Chạy kiểm tra TypeScript và Linter:
   ```bash
   npm run typecheck
@@ -65,7 +70,7 @@ Tài liệu thiết kế và kế hoạch chi tiết sửa lỗi đóng băng gi
   ```
 - Chạy toàn bộ test suite:
   ```bash
-  npm run test --workspace @telebot/api
+  npm run test --workspace @zalobot/api
   ```
 - Chạy validator hệ thống:
   ```bash
@@ -73,6 +78,7 @@ Tài liệu thiết kế và kế hoạch chi tiết sửa lỗi đóng băng gi
   ```
 
 ### Manual Verification
+
 - Truy cập vào trang `/transactions`, mở DevTools Console kiểm tra:
   - Component không bị re-render liên tục.
   - CPU trình duyệt ở mức 0–1%.

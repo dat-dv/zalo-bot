@@ -4,12 +4,12 @@ RequestFeedback: true
 
 ## Mục tiêu
 
-Chuẩn bị Telebot thành một ứng dụng OAuth công khai, có đầy đủ thông tin và trang pháp lý để nộp Google OAuth verification cho các quyền Google Workspace hiện đang yêu cầu.
+Chuẩn bị zalobot thành một ứng dụng OAuth công khai, có đầy đủ thông tin và trang pháp lý để nộp Google OAuth verification cho các quyền Google Workspace hiện đang yêu cầu.
 
 ## Phát hiện hiện tại
 
 - Web hiện tại là Next.js dashboard và chưa có route công khai: toàn bộ page nằm trong nhóm `(private)`.
-- Metadata đang dùng URL mặc định `https://telebot.app`; chưa xác nhận đây là domain thực tế đã sở hữu/có thể triển khai.
+- Metadata đang dùng URL mặc định `https://zalobot.app`; chưa xác nhận đây là domain thực tế đã sở hữu/có thể triển khai.
 - OAuth đang xin nhiều quyền nhạy cảm/restricted: Calendar, Tasks, Gmail modify/send, Drive, Sheets, Docs và Contacts.
 - API callback đang dùng `APP_URL + /oauth2callback`; do đó URL public của API cần là HTTPS và phải được khai báo nguyên văn trong Google Cloud Console.
 - Worktree đã có các chỉnh sửa chưa liên quan; sẽ giữ nguyên và không ghi đè.
@@ -17,7 +17,7 @@ Chuẩn bị Telebot thành một ứng dụng OAuth công khai, có đầy đ�
 ## Phạm vi triển khai đề xuất
 
 1. Thêm các trang public trên web:
-   - Landing page mô tả Telebot, các tính năng thực tế, liên hệ hỗ trợ.
+   - Landing page mô tả zalobot, các tính năng thực tế, liên hệ hỗ trợ.
    - Privacy Policy tiếng Việt: dữ liệu Google nào được truy cập, mục đích từng nhóm dữ liệu, lưu trữ/mã hóa token, thời hạn lưu, quyền xoá dữ liệu và kênh liên hệ.
    - Terms of Service tiếng Việt.
    - Trang Google API Limited Use / hướng dẫn xóa dữ liệu, nếu cần tách riêng để URL dễ khai báo khi xác minh.
@@ -35,7 +35,7 @@ Chuẩn bị Telebot thành một ứng dụng OAuth công khai, có đầy đ�
 
 - Đây là thay đổi mức cao vì công khai ứng dụng và tác động xác thực OAuth.
 - Gmail/Drive/Docs/Sheets/Contacts có thể làm quy trình review nghiêm ngặt hơn đáng kể; không nên xin trước cho “tính năng có thể làm sau”.
-- Cần xác nhận domain production chính thức và email hỗ trợ/công khai để đặt trong Privacy Policy. Hiện có dấu hiệu `telebot.app`, nhưng chưa thể coi là đã được sở hữu hoặc cấu hình.
+- Cần xác nhận domain production chính thức và email hỗ trợ/công khai để đặt trong Privacy Policy. Hiện có dấu hiệu `zalobot.app`, nhưng chưa thể coi là đã được sở hữu hoặc cấu hình.
 - Việc bấm Submit for verification, xác minh quyền sở hữu domain, và cấp quyền triển khai là thao tác trên tài khoản Google/hosting; chỉ thực hiện khi có quyền truy cập và sự đồng ý rõ ràng của chủ tài khoản.
 
 ## Kết quả bàn giao
@@ -47,11 +47,11 @@ Chuẩn bị Telebot thành một ứng dụng OAuth công khai, có đầy đ�
 
 ## Cần bạn duyệt
 
-Vui lòng xác nhận kế hoạch này và cho biết domain production muốn dùng (ví dụ `telebot.app`) cùng email hỗ trợ hiển thị công khai. Sau đó mình sẽ bắt đầu triển khai.
+Vui lòng xác nhận kế hoạch này và cho biết domain production muốn dùng (ví dụ `zalobot.app`) cùng email hỗ trợ hiển thị công khai. Sau đó mình sẽ bắt đầu triển khai.
 
 ## Kết quả triển khai (24/08/2026)
 
-- Đã dùng domain production đã ghi nhận của dự án: `https://telebot.datintech.site` và email hỗ trợ `datdoan.dev@gmail.com`.
+- Đã dùng domain production đã ghi nhận của dự án: `https://zalobot.datintech.site` và email hỗ trợ `datdoan.dev@gmail.com`.
 - Đã tạo các trang public `/about`, `/privacy`, `/terms`, cùng `robots.txt` và `sitemap.xml`.
 - Đã giới hạn scope OAuth còn profile/email, Calendar và Google Tasks; các scope chưa có tính năng phát hành đã bị loại bỏ.
 - Đã đồng bộ README, hướng dẫn vận hành và canonical knowledge.

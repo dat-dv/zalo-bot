@@ -35,7 +35,8 @@ Hiện tại, đường biểu diễn trong biểu đồ "Xu hướng dòng ti�
 
 ### Shared Contracts & i18n
 
-#### [MODIFY] [`packages/contracts/src/index.ts`](file:///Users/datdoan/Documents/projects/telebot/packages/contracts/src/index.ts)
+#### [MODIFY] [`packages/contracts/src/index.ts`](file:///Users/datdoan/Documents/projects/zalobot/packages/contracts/src/index.ts)
+
 - Bổ sung trường `netCashflow: number` vào interface `IAnalyticsTrendBucket`.
 - Bổ sung translation keys cho `vi` và `en`:
   - `analytics.chart.walletBalance`: "Biến động số dư ví" / "Wallet Balance Trend"
@@ -47,7 +48,8 @@ Hiện tại, đường biểu diễn trong biểu đồ "Xu hướng dòng ti�
 
 ### Backend API (`apps/api`)
 
-#### [MODIFY] [`apps/api/src/finance/finance.service.ts`](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/finance/finance.service.ts)
+#### [MODIFY] [`apps/api/src/finance/finance.service.ts`](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/finance/finance.service.ts)
+
 - Trong `getAnalyticsReport`:
   - Tính `openingBalance` (tổng thu trừ tổng chi của tất cả giao dịch trước `startAt`).
   - Truyền `openingBalance` vào `generateTrendBuckets`.
@@ -56,19 +58,22 @@ Hiện tại, đường biểu diễn trong biểu đồ "Xu hướng dòng ti�
   - Lũy kế `runningBalance = runningBalance + netCashflow`.
   - Gán `bucket.netCashflow = netCashflow` và `bucket.balance = runningBalance`.
 
-#### [MODIFY] [`apps/api/src/finance/finance.service.spec.ts`](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/finance/finance.service.spec.ts)
+#### [MODIFY] [`apps/api/src/finance/finance.service.spec.ts`](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/finance/finance.service.spec.ts)
+
 - Cập nhật unit test kiểm thử tính toán `openingBalance` và `cumulative balance` của trend buckets.
 
 ---
 
 ### Frontend Web (`apps/web`)
 
-#### [MODIFY] [`apps/web/src/shared/ui/charts/cashflow-trend-chart.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/charts/cashflow-trend-chart.tsx)
+#### [MODIFY] [`apps/web/src/shared/ui/charts/cashflow-trend-chart.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/charts/cashflow-trend-chart.tsx)
+
 - Cập nhật Legend header: Sử dụng `analytics.chart.walletBalance`.
 - Cập nhật `CustomTooltip`: Hiển thị chi tiết cả Thu, Chi, Dòng tiền kỳ và Số dư ví tại mốc.
 - Cập nhật đường `Line`: stroke màu tím violet, hiển thị giá trị `balance` (số dư tích lũy).
 
-#### [MODIFY] [`apps/web/src/modules/dashboard/view/analytics-screen.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/view/analytics-screen.tsx)
+#### [MODIFY] [`apps/web/src/modules/dashboard/view/analytics-screen.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/view/analytics-screen.tsx)
+
 - Cập nhật `fallbackTrendBuckets` hỗ trợ tính toán lũy kế `runningBalance`.
 - Cập nhật cột bảng `cashflowColumns`: Hiển thị cả Dòng tiền thuần của kỳ và Số dư tích lũy.
 
@@ -77,6 +82,7 @@ Hiện tại, đường biểu diễn trong biểu đồ "Xu hướng dòng ti�
 ## 4. Verification Plan
 
 ### Automated Tests
+
 - Chạy unit test backend:
   ```bash
   npm run test
@@ -89,6 +95,7 @@ Hiện tại, đường biểu diễn trong biểu đồ "Xu hướng dòng ti�
   ```
 
 ### Manual Verification
+
 1. Truy cập trang Phân tích báo cáo (`/dashboard/analytics` hoặc `/analytics`).
 2. Chọn các kỳ lọc khác nhau (Tuần này, Tháng này, Quý này, Năm nay).
 3. Kiểm tra đường biểu diễn màu tím trên biểu đồ:

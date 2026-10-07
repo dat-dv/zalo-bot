@@ -8,13 +8,13 @@ This directory contains system-wide business policies, cross-cutting architectur
 - [Environment Guard](environment-guard.md): fail-fast configuration contract for API startup and dashboard builds.
 - [Type Safety & Zero-Any Invariant](type-safety.md): System-wide zero-any policy and type safety requirements.
 - [Route & Path Constants Architecture](route-constants.md): Centralized route and endpoint registry invariants and zero-hardcoding enforcement.
-- [Local Voice Transcription](voice-transcription.md): Offline Whisper runtime, transcript review state, and Telegram integration.
+- [Local Voice Transcription](voice-transcription.md): Offline Whisper runtime, transcript review state, and zalo integration.
 - [Local-First AI Usage](local-first-ai-usage.md): Token-conserving local extraction and minimal AI interpretation policy.
-- [Dashboard Session and Pages](dashboard-session.md): One-time Telegram exchange, access/refresh policy, contacts isolation, and web views.
+- [Dashboard Session and Pages](dashboard-session.md): One-time zalo exchange, access/refresh policy, contacts isolation, and web views.
 - [Google Tasks Commands](google-tasks.md): Single and batch task creation, confirmation, and partial-failure behavior.
 - [Public Google OAuth Verification](google-oauth-public-verification.md): Minimal scope contract, public policy pages, and production review requirements.
-- [Telegram Response Layout](telegram-response-layout.md): Compact response hierarchy and mobile-safe inline action rows.
-- [Telegram Command Intake](telegram-command-intake.md): Long-polling ownership and command-response fallback checks.
+- [zalo Response Layout](zalo-response-layout.md): Compact response hierarchy and mobile-safe inline action rows.
+- [zalo Command Intake](zalo-command-intake.md): Long-polling ownership and command-response fallback checks.
 - [Receipt Image Analysis](receipt-image-analysis.md): In-memory image analysis and confirmation-gated finance proposals.
 - [Web UI Direction](web-ui-direction.md): Shared data-dense dashboard and accessibility requirements.
 - [Backend CRUD API](backend-crud-api.md): Ownership-safe REST operations for finance, reminders, users, invites, Calendar, and Tasks.

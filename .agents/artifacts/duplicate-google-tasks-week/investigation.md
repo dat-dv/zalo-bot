@@ -13,7 +13,7 @@ Khả năng cao (cao) đây là hai bản ghi Google Tasks khác nhau được t
 
 - `apps/api/src/google/google-tasks.service.ts` gọi Google Tasks API với `tasks.list`, lấy nguyên các mục chưa hoàn thành trong danh sách mặc định.
 - `apps/api/src/gemini/tools/list-tasks.tool.ts` chuyển nguyên từng mục API thành kết quả cho Gemini; không gộp hoặc sao chép mục.
-- `apps/api/src/telegram/telegram.update.ts` với lệnh `/tasks` cũng liệt kê mọi mục trả về và tạo nút hoàn thành theo `taskId`. Đây là lý do `/tasks` và `/week` cùng thể hiện ba mục.
+- `apps/api/src/zalo/zalo.update.ts` với lệnh `/tasks` cũng liệt kê mọi mục trả về và tạo nút hoàn thành theo `taskId`. Đây là lý do `/tasks` và `/week` cùng thể hiện ba mục.
 - Hai mục C# khác nhau cả tiêu đề lẫn ghi chú, nên hiện không có quy tắc kỹ thuật nào để coi chúng là một.
 
 ## Phạm vi ảnh hưởng
@@ -27,6 +27,6 @@ Khả năng cao (cao) đây là hai bản ghi Google Tasks khác nhau được t
 
 ## Hướng khắc phục đề xuất
 
-1. Hoàn tất một trong hai task C# qua nút Telegram hoặc Google Tasks nếu đó là việc bị tạo thừa; thao tác này sẽ làm cả `/tasks` và `/week` chỉ còn hai việc.
+1. Hoàn tất một trong hai task C# qua nút zalo hoặc Google Tasks nếu đó là việc bị tạo thừa; thao tác này sẽ làm cả `/tasks` và `/week` chỉ còn hai việc.
 2. Nếu muốn ngăn lặp lại, trước lúc xếp thao tác tạo task hãy so sánh tiêu đề đã chuẩn hoá với task chưa hoàn thành, rồi cảnh báo/xin xác nhận rõ khi có mục giống hoặc gần giống. Cần giữ quyền cho người dùng tạo hai việc cùng chủ đề khi họ chủ ý.
 3. Bổ sung test cho luồng cảnh báo trùng và test xác nhận rằng mỗi `taskId` được render đúng một lần.

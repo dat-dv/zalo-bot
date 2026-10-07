@@ -28,7 +28,7 @@ Dùng Tailwind CSS v4 cho Next.js:
    - Shared primitives: data table, filters, autocomplete, charts và summary strip.
    - Feature screens: dashboard, expenses, debts, contacts, calendar, tasks, reminders, settings.
    - Public/legal pages và dark-mode compatibility.
-1. Xóa các CSS selector đã được thay thế từng phần. Sau khi mọi JSX đã chuyển sang utility classes, thu gọn `styles.css` chỉ còn base layer cần thiết.
+5. Xóa các CSS selector đã được thay thế từng phần. Sau khi mọi JSX đã chuyển sang utility classes, thu gọn `styles.css` chỉ còn base layer cần thiết.
 
 ## Tài liệu cần đồng bộ
 
@@ -60,14 +60,14 @@ Dùng Tailwind CSS v4 cho Next.js:
 
 ## Kết quả thực hiện (đợt 1)
 
-- Đã cài Tailwind CSS v4 và `@tailwindcss/postcss` cho `@telebot/web`, thêm `apps/web/postcss.config.mjs` và kích hoạt Tailwind trong stylesheet chính.
+- Đã cài Tailwind CSS v4 và `@tailwindcss/postcss` cho `@zalobot/web`, thêm `apps/web/postcss.config.mjs` và kích hoạt Tailwind trong stylesheet chính.
 - Đã chuyển sang utility classes: private app shell (gồm scroll container desktop), desktop sidebar/mobile drawer, workspace header, period toolbar, và toàn bộ public/legal pages.
 - Đã giữ nguyên stylesheet legacy cho shared data table và các feature screen chưa được chuyển đổi để không làm thay đổi UI nghiệp vụ trong cùng đợt.
 - Đã cập nhật knowledge và developer documentation để Tailwind là chuẩn cho UI mới/migrated, không thêm selector legacy mới.
 
 ## Xác minh (đợt 1)
 
-- `npm run lint --workspace @telebot/web`: thành công.
-- `npm run typecheck --workspace @telebot/web`: thành công.
-- `npm run build --workspace @telebot/web -- --webpack`: thành công.
+- `npm run lint --workspace @zalobot/web`: thành công.
+- `npm run typecheck --workspace @zalobot/web`: thành công.
+- `npm run build --workspace @zalobot/web -- --webpack`: thành công.
 - `next build` mặc định với Turbopack bị giới hạn bởi môi trường thực thi khi PostCSS/Tailwind tạo tiến trình nội bộ (`Operation not permitted`); Webpack build đã xác minh quá trình biên dịch đầy đủ.

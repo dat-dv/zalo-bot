@@ -15,7 +15,7 @@ Tạo/cập nhật `.env` và `.env.local` ở root monorepo để có toàn b�
 ## Thực hiện
 
 1. Kiểm tra sự tồn tại của hai tệp theo cách không hiển thị secret; nếu đã có, chỉ thêm các key còn thiếu, không ghi đè token/khóa đang dùng.
-2. Dùng các giá trị mặc định an toàn từ `.env.example` cho các key không bí mật: `GEMINI_MODEL=gemini-3.5-flash-lite`, `PORT=3000`, URL/timeout/limit cho Whisper và receipt, `TELEGRAM_LONG_POLLING_ENABLED=true`, `DEFAULT_TIMEZONE=Asia/Ho_Chi_Minh`, `TESSERACT_LANG_PATH=/app/assets/tessdata`.
+2. Dùng các giá trị mặc định an toàn từ `.env.example` cho các key không bí mật: `GEMINI_MODEL=gemini-3.5-flash-lite`, `PORT=3000`, URL/timeout/limit cho Whisper và receipt, `zalo_LONG_POLLING_ENABLED=true`, `DEFAULT_TIMEZONE=Asia/Ho_Chi_Minh`, `TESSERACT_LANG_PATH=/app/assets/tessdata`.
 3. Nếu một tệp chưa tồn tại, tạo nó với các key bắt buộc còn lại ở dạng placeholder, không tạo hay bịa token/secret thật.
 4. Chạy validator cấu hình; báo riêng mọi secret thật sự còn thiếu để anh điền.
 

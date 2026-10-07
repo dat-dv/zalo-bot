@@ -1,7 +1,7 @@
 {
-  "name": "Telebot — Trợ lý Cá nhân & Quản lý Tài chính",
-  "short_name": "Telebot",
-  "description": "Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp Telegram Bot.",
+  "name": "zalobot — Trợ lý Cá nhân & Quản lý Tài chính",
+  "short_name": "zalobot",
+  "description": "Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp zalo Bot.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#090d16",

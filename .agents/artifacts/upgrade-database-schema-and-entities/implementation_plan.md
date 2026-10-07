@@ -1,10 +1,10 @@
 # Kế Hoạch Nâng Cấp Hệ Thống Bảng CSDL & Entity Toàn Diện (Database Schema & Entities Upgrade)
 
-Tài liệu này mô tả chi tiết phương án nâng cấp toàn bộ hệ thống bảng cơ sở dữ liệu SQLite (thông qua TypeORM Entities), cập nhật DTO contracts dùng chung (`@telebot/contracts`), bổ sung logic xử lý backend và đồng bộ giao diện Web Dashboard.
+Tài liệu này mô tả chi tiết phương án nâng cấp toàn bộ hệ thống bảng cơ sở dữ liệu SQLite (thông qua TypeORM Entities), cập nhật DTO contracts dùng chung (`@zalobot/contracts`), bổ sung logic xử lý backend và đồng bộ giao diện Web Dashboard.
 
 ## User Review Required
 
-> [!IMPORTANT] **Tự động migrate SQLite**: TypeORM đang bật `synchronize: true` trong môi trường local, do đó việc thêm cột mới có giá trị mặc định (`nullable: true` hoặc `default: ...`) sẽ **không làm mất dữ liệu hiện có** trong `data/telebot.sqlite`.
+> [!IMPORTANT] **Tự động migrate SQLite**: TypeORM đang bật `synchronize: true` trong môi trường local, do đó việc thêm cột mới có giá trị mặc định (`nullable: true` hoặc `default: ...`) sẽ **không làm mất dữ liệu hiện có** trong `data/zalobot.sqlite`.
 >
 > Bảng mới `debt_payments` sẽ được tự động khởi tạo để hỗ trợ theo dõi lịch sử từng lần trả nợ lẻ (thay vì chỉ ghi đè `remainingAmount`).
 
@@ -137,7 +137,7 @@ Tài liệu này mô tả chi tiết phương án nâng cấp toàn bộ hệ th
   ```
 - Kiểm tra tính toàn vẹn dữ liệu SQLite sau khi khởi động TypeORM:
   ```bash
-  node -e "const Database = require('better-sqlite3'); const db = new Database('data/telebot.sqlite'); console.log(db.prepare(\"SELECT name FROM sqlite_master WHERE type='table'\").all());"
+  node -e "const Database = require('better-sqlite3'); const db = new Database('data/zalobot.sqlite'); console.log(db.prepare(\"SELECT name FROM sqlite_master WHERE type='table'\").all());"
   ```
 
 ### Manual Verification

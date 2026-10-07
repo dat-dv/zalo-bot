@@ -1,10 +1,10 @@
 import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import type { SupportedLocale } from '@telebot/contracts';
+import type { SupportedLocale } from '@zalobot/contracts';
 
 @Entity('users')
 export class UserEntity {
   @PrimaryColumn('varchar')
-  id: string; // Store numeric Telegram ID as string for precision
+  id: string; // Store user ID as string for precision
 
   @Column({ type: 'varchar', nullable: true })
   username?: string;

@@ -5,7 +5,7 @@ import {
   type IApiResponse,
   type ICandidateDebtItem,
   type IDebtAllocationItem,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
 export async function getCandidateDebts(

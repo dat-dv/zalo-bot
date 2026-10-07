@@ -10,8 +10,8 @@ metadata:
       - .agents/knowledge/global/monorepo-architecture.md
       - .agents/knowledge/global/dashboard-session.md
       - .agents/knowledge/global/google-tasks.md
-      - .agents/knowledge/global/telegram-command-intake.md
-      - .agents/knowledge/global/telegram-response-layout.md
+      - .agents/knowledge/global/zalo-command-intake.md
+      - .agents/knowledge/global/zalo-response-layout.md
       - .agents/knowledge/global/receipt-image-analysis.md
       - .agents/knowledge/global/voice-transcription.md
       - .agents/knowledge/global/local-first-ai-usage.md
@@ -35,13 +35,13 @@ This directory contains human-facing operational guides for system-wide architec
 - [Phiên Dashboard và các trang web](dashboard-session.md): One-time exchange token, thời hạn phiên, phân quyền danh bạ và kiểm tra UI.
 - [Google Tasks: tạo một hoặc nhiều việc](google-tasks.md): Cảnh báo task có khả năng trùng, xác nhận batch, kết quả thành công một phần và aliases `/task`/`/tasks`.
 - [Công khai web và xác minh Google OAuth](google-oauth-public-verification.md): Scope tối thiểu, trang pháp lý public và checklist nộp Google.
-- [Bố cục phản hồi Telegram](telegram-response-layout.md): Quy tắc response gọn và các nút inline thân thiện màn hình điện thoại.
-- [Nhận lệnh Telegram](telegram-command-intake.md): Quy tắc long polling, webhook thay thế và kiểm tra `/help`.
+- [Bố cục phản hồi zalo](zalo-response-layout.md): Quy tắc response gọn và các nút inline thân thiện màn hình điện thoại.
+- [Nhận lệnh zalo](zalo-command-intake.md): Quy tắc long polling, webhook thay thế và kiểm tra `/help`.
 - [Phân tích ảnh hoá đơn và thu-chi](receipt-image-analysis.md): Đọc ảnh trong bộ nhớ, đề xuất giao dịch và bắt buộc xác nhận.
 - [Định hướng UI web](web-ui-direction.md): Quy chuẩn giao diện dashboard dùng chung, bảng dữ liệu và khả năng truy cập.
 - [REST CRUD Backend](backend-crud-api.md): API nghiệp vụ có kiểm tra ownership, admin và tích hợp Google.
 - [Global Exception Filter Backend](backend-exception-filter.md): Bộ lọc ngoại lệ toàn cục chuẩn hóa response lỗi và phân loại lỗi TypeORM / HttpException (Ánh xạ: [`backend-exception-filter.md`](../../knowledge/global/backend-exception-filter.md)).
-- [Đa Ngôn Ngữ](i18n.md): Chuẩn locale dùng chung, cách đổi ngôn ngữ Telegram và cookie dashboard (Ánh xạ: [`i18n.md`](../../knowledge/global/i18n.md)).
+- [Đa Ngôn Ngữ](i18n.md): Chuẩn locale dùng chung, cách đổi ngôn ngữ zalo và cookie dashboard (Ánh xạ: [`i18n.md`](../../knowledge/global/i18n.md)).
 
 ## Checklist áp dụng Base Agents cho dự án mới
 

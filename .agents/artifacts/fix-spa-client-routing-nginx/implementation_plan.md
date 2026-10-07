@@ -3,6 +3,7 @@
 Khắc phục tình trạng người dùng bấm vào các liên kết (`<Link>`) trên Web Dashboard nhưng giao diện không chuyển trang do xung đột Trailing Slash và Nginx 301 Redirect sai cổng.
 
 ## Nguyên nhân
+
 1. `apps/web/next.config.ts` đang cấu hình `trailingSlash: true` khiến Next.js tạo cấu trúc thư mục dạng `/reports/debts/index.html`.
 2. Mã nguồn sử dụng `APP_ROUTES` không có trailing slash (ví dụ `/reports/debts`).
 3. Khi Next.js Client Router thực hiện fetch ngầm tới `/reports/debts`, Nginx phát hiện đây là thư mục và tự động gửi mã HTTP `301 Moved Permanently` về port `80` (thay vì port `3001` đang map ngoài host), khiến trình duyệt huỷ quá trình chuyển trang.
@@ -13,10 +14,12 @@ Khắc phục tình trạng người dùng bấm vào các liên kết (`<Link>`
 
 ### Frontend: `apps/web`
 
-#### [MODIFY] [apps/web/next.config.ts](file:///Users/datdoan/Documents/projects/telebot/apps/web/next.config.ts)
+#### [MODIFY] [apps/web/next.config.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/web/next.config.ts)
+
 - Đổi `trailingSlash: false` để Next.js xuất file tĩnh dạng `/reports/debts.html` (thay vì thư mục).
 
-#### [MODIFY] [apps/web/nginx.conf](file:///Users/datdoan/Documents/projects/telebot/apps/web/nginx.conf)
+#### [MODIFY] [apps/web/nginx.conf](file:///Users/datdoan/Documents/projects/zalobot/apps/web/nginx.conf)
+
 - Thêm `absolute_redirect off;` và `port_in_redirect off;` để Nginx không tự ý sinh redirect sai port.
 - Cập nhật thứ tự `try_files` ưu tiên file `.html` trước thư mục:
   ```nginx
@@ -33,11 +36,12 @@ Khắc phục tình trạng người dùng bấm vào các liên kết (`<Link>`
 ## Kế hoạch kiểm thử & Xác thực (Verification Plan)
 
 ### Automated Verification
+
 1. **Kiểm tra build web static export:**
    ```bash
-   npm run build --workspace @telebot/web
+   npm run build --workspace @zalobot/web
    ```
-   *(Xác nhận Next.js xuất ra các file `reports.html`, `contacts.html`, `debts.html`... trong `apps/web/out`)*
+   _(Xác nhận Next.js xuất ra các file `reports.html`, `contacts.html`, `debts.html`... trong `apps/web/out`)_
 2. **Kiểm tra typecheck & validate:**
    ```bash
    npm run typecheck
@@ -45,5 +49,6 @@ Khắc phục tình trạng người dùng bấm vào các liên kết (`<Link>`
    ```
 
 ### Manual Verification
+
 - Deploy lên máy chủ, mở trình duyệt vào `http://<ip_server>:3001/reports` và click chuyển đổi giữa các tab: Thống kê, Danh bạ, Công nợ, Khoản chi.
 - Xác nhận URL thay đổi tức thì và nội dung chuyển mượt mà dạng SPA (không reload lại trang).

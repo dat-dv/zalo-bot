@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'nestjs-telegram-assistant',
+      name: 'nestjs-zalo-assistant',
       script: 'dist/main.js',
       instances: 1,
       autorestart: true,

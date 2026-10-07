@@ -1,16 +1,16 @@
-# 💬 Giao Diện Telegram Bot & Hệ Thống Đa Người Dùng (Multi-User & UX)
+# 💬 Giao Diện zalo Bot & Hệ Thống Đa Người Dùng (Multi-User & UX)
 
-Tài liệu này giải thích chi tiết tầng giao tiếp Telegram (`TelegramModule`, `TelegramUpdate`), hệ thống xác thực mời người dùng qua Deep Link, các Slash Commands tiện ích, chống spam và tối ưu trải nghiệm (UX).
+Tài liệu này giải thích chi tiết tầng giao tiếp zalo (`zaloModule`, `zaloUpdate`), hệ thống xác thực mời người dùng qua Deep Link, các Slash Commands tiện ích, chống spam và tối ưu trải nghiệm (UX).
 
 ---
 
-## 1. Tầng Telegram Bot (`TelegramModule`)
+## 1. Tầng zalo Bot (`zaloModule`)
 
-Dự án sử dụng thư viện `nestjs-telegraf` kết hợp với `UsersModule` (PostgreSQL) và `GoogleModule` để cung cấp môi trường trợ lý đa người dùng độc lập:
+Dự án sử dụng thư viện `nestjs-zalograf` kết hợp với `UsersModule` (PostgreSQL) và `GoogleModule` để cung cấp môi trường trợ lý đa người dùng độc lập:
 
-- Module: `src/telegram/telegram.module.ts`
-- Handler & Controller: `src/telegram/telegram.update.ts`
-- Guard: `src/telegram/guards/auth.guard.ts`
+- Module: `src/zalo/zalo.module.ts`
+- Handler & Controller: `src/zalo/zalo.update.ts`
+- Guard: `src/zalo/guards/auth.guard.ts`
 
 ---
 
@@ -23,14 +23,14 @@ sequenceDiagram
     autonumber
     actor Admin as Quản trị viên (Admin)
     actor User as Bạn bè (Khách mời)
-    participant Bot as Telegram Bot
+    participant Bot as zalo Bot
     participant Store as UsersService (PostgreSQL)
     participant Auth as GoogleAuthService
 
     Admin->>Bot: /invite
     Bot->>Store: createInvite(adminId)
     Bot-->>Admin: Link mời: t.me/Bot?start=invite_xyz123 (Hạn 24h)
-    Admin->>User: Gửi link qua Zalo/Telegram
+    Admin->>User: Gửi link qua Zalo/zalo
     User->>Bot: Bấm link và nhấn START
     Bot->>Store: consumeInvite(code, user)
     Bot->>Auth: generateAuthUrl(userId)
@@ -59,11 +59,11 @@ sequenceDiagram
 
 ### 👑 Dành Riêng Cho Quản Trị Viên (Admin):
 
-| Lệnh                 | Handler              | Chức Năng                                                                              |
-| -------------------- | -------------------- | -------------------------------------------------------------------------------------- |
-| `/invite`            | `@Command('invite')` | Sinh link mời 1 lần (dùng trong 24h) để gửi cho bạn bè/đồng nghiệp (hoặc nhắn cho AI). |
-| `/users`             | `@Command('users')`  | Xem danh sách toàn bộ người dùng trong hệ thống và trạng thái kết nối Google.          |
-| `/ban <telegram_id>` | `@Command('ban')`    | Thu hồi quyền sử dụng ngay lập tức và hủy toàn bộ Token Google của một Telegram ID.    |
+| Lệnh             | Handler              | Chức Năng                                                                              |
+| ---------------- | -------------------- | -------------------------------------------------------------------------------------- |
+| `/invite`        | `@Command('invite')` | Sinh link mời 1 lần (dùng trong 24h) để gửi cho bạn bè/đồng nghiệp (hoặc nhắn cho AI). |
+| `/users`         | `@Command('users')`  | Xem danh sách toàn bộ người dùng trong hệ thống và trạng thái kết nối Google.          |
+| `/ban <zalo_id>` | `@Command('ban')`    | Thu hồi quyền sử dụng ngay lập tức và hủy toàn bộ Token Google của một zalo ID.        |
 
 ---
 
@@ -81,14 +81,14 @@ Tất cả tin nhắn gửi đến bot đều được kiểm soát bởi `AuthG
 
 ### 1. Trạng thái "Đang soạn tin..." liên tục (`withTyping`)
 
-Telegram tự động tắt trạng thái `typing` sau 5 giây. Hàm `withTyping` tự động gửi action `typing` lặp lại mỗi **4 giây** bằng `setInterval` cho đến khi toàn bộ tác vụ của Gemini và Google hoàn tất.
+zalo tự động tắt trạng thái `typing` sau 5 giây. Hàm `withTyping` tự động gửi action `typing` lặp lại mỗi **4 giây** bằng `setInterval` cho đến khi toàn bộ tác vụ của Gemini và Google hoàn tất.
 
 ### 2. Gửi phản hồi an toàn & Chia nhỏ tin nhắn (`sendSafeReply`)
 
-- Tự động chia nhỏ tin nhắn dài vượt quá giới hạn 4000 ký tự của Telegram.
+- Tự động chia nhỏ tin nhắn dài vượt quá giới hạn 4000 ký tự của zalo.
 - Chuẩn hóa Markdown do AI tạo trước khi gửi: giải mã HTML entity và bỏ escape thừa trong URL, nên chuỗi như không hiển thị nguyên văn trong chat.
 - Tự động fallback về plain-text nếu cú pháp Markdown vẫn bị lỗi ký tự đặc biệt.
 
 ### 3. Voice-to-text cục bộ
 
-Voice Telegram được chuyển thành text bởi `whisper.cpp` trong container, không dùng API key. Bot luôn hiển thị transcript với nút **Xác nhận**, **Sửa bằng text** và **Hủy** trước khi gửi nội dung sang Gemini. Xem cấu hình và cách xử lý sự cố tại [hướng dẫn voice](../.agents/docs/global/voice-transcription.md).
+Voice zalo được chuyển thành text bởi `whisper.cpp` trong container, không dùng API key. Bot luôn hiển thị transcript với nút **Xác nhận**, **Sửa bằng text** và **Hủy** trước khi gửi nội dung sang Gemini. Xem cấu hình và cách xử lý sự cố tại [hướng dẫn voice](../.agents/docs/global/voice-transcription.md).

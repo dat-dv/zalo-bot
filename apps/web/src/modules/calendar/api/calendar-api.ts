@@ -4,7 +4,7 @@ import {
   type ICalendarEventItem,
   type ICalendarEventsQuery,
   type IUpdateCalendarEventRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
 export async function getCalendarEvents(

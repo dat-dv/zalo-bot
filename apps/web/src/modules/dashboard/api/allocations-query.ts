@@ -6,7 +6,7 @@ import type {
   IAllocateTransactionResponse,
   ICandidateDebtItem,
   IDebtAllocationItem,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { dashboardQueryKeys } from './dashboard-query';
 import {
   allocateTransaction,

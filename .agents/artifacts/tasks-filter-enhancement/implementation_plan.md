@@ -3,6 +3,7 @@
 ## Tổng quan & Bối cảnh
 
 Người dùng phản ánh 2 vấn đề lớn trên màn hình quản lý công việc (Tasks):
+
 1. **Lỗi bộ lọc trạng thái**: Filter "Đã xong" không hiển thị dữ liệu và filter "Tất cả" không thấy các task đã hoàn thành.
 2. **Thiếu bộ lọc thời gian**: Chưa có khả năng lọc công việc theo Ngày, Tuần, Tháng, Quý như các màn hình giao dịch và chi tiêu.
 
@@ -34,7 +35,8 @@ Người dùng phản ánh 2 vấn đề lớn trên màn hình quản lý công
 
 ### 1. Packages / Shared Contracts (`packages/contracts`)
 
-#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/telebot/packages/contracts/src/index.ts)
+#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/zalobot/packages/contracts/src/index.ts)
+
 - Bổ sung translation keys cho `period.day`, `period.all`, `period.label.day`, `period.label.all` cho cả hai ngôn ngữ `vi` và `en`.
 - Bổ sung translation keys cho thống kê tasks: `tasks.stats.total`, `tasks.stats.pending`, `tasks.stats.completed`, `tasks.stats.overdue`.
 
@@ -42,28 +44,33 @@ Người dùng phản ánh 2 vấn đề lớn trên màn hình quản lý công
 
 ### 2. Backend Module (`apps/api`)
 
-#### [MODIFY] [google-tasks.service.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/google/google-tasks.service.ts)
+#### [MODIFY] [google-tasks.service.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/google/google-tasks.service.ts)
+
 - Điều chỉnh `listTasks` để mặc định lấy đầy đủ task (`showCompleted: true` và `showHidden: true`) khi không có yêu cầu lọc ngược lại.
 
-#### [MODIFY] [google-resources.controller.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/google/google-resources.controller.ts)
+#### [MODIFY] [google-resources.controller.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/google/google-resources.controller.ts)
+
 - Chuẩn hoá `listTasks`, `createTask`, `updateTask` để ánh xạ chính xác schema Google Task sang contract `ITaskListItem` (`due -> dueAt`, `updated -> updatedAt`, `completed -> completedAt`).
 - Cho phép nhận `showCompleted` và `showHidden` linh hoạt từ query params với giá trị mặc định là `true`.
 
-#### [MODIFY] [reports.controller.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/reports/reports.controller.ts)
+#### [MODIFY] [reports.controller.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/reports/reports.controller.ts)
+
 - Đảm bảo hàm `getTasks` khi nạp dữ liệu cho Dashboard Overview cũng lấy đủ cả task đã hoàn thành và chưa hoàn thành.
 
 ---
 
 ### 3. Frontend Shared (`apps/web/src/shared`)
 
-#### [MODIFY] [use-period-filter.ts](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/hooks/use-period-filter.ts)
+#### [MODIFY] [use-period-filter.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/hooks/use-period-filter.ts)
+
 - Cập nhật kiểu `PeriodGrain = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'all'`.
 - Thêm logic tính toán mốc thời gian cho `'day'` (00:00:00 đến 23:59:59 của ngày tham chiếu) và `'all'` (toàn bộ khoảng thời gian).
 - Cập nhật hàm `isItemInPeriod`:
   - Khi grain là `'all'`: trả về `true` cho mọi item.
   - Khi grain khác: kiểm tra `itemDate >= startDate && itemDate <= endDate`.
 
-#### [MODIFY] [period-filter-toolbar.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/period-filter-toolbar.tsx)
+#### [MODIFY] [period-filter-toolbar.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/period-filter-toolbar.tsx)
+
 - Bổ sung prop `grains?: PeriodGrain[]` để tuỳ chỉnh danh sách nút bấm theo nhu cầu từng màn hình (mặc định vẫn giữ nguyên tương thích ngược với các trang khác).
 - Render các nút Ngày (`day`), Tuần (`week`), Tháng (`month`), Quý (`quarter`), Năm (`year`), Tất cả (`all`).
 - Ẩn/vô hiệu hoá nút chuyển tiến/lùi khi đang ở chế độ `'all'`.
@@ -72,7 +79,8 @@ Người dùng phản ánh 2 vấn đề lớn trên màn hình quản lý công
 
 ### 4. Frontend Tasks Module (`apps/web/src/modules/dashboard/view/tasks-screen.tsx`)
 
-#### [MODIFY] [tasks-screen.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/view/tasks-screen.tsx)
+#### [MODIFY] [tasks-screen.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/view/tasks-screen.tsx)
+
 - Tích hợp `usePeriodFilter('month')` và `PeriodFilterToolbar` vào giao diện.
 - Bổ sung dải thống kê tóm tắt nhanh (Strip metrics): Tổng việc, Cần làm, Đã xong, Quá hạn.
 - Cập nhật logic lọc 3 chiều:
@@ -86,13 +94,14 @@ Người dùng phản ánh 2 vấn đề lớn trên màn hình quản lý công
 ## Kế hoạch kiểm thử & Xác thực (Verification Plan)
 
 ### Automated Tests
+
 1. **Kiểm tra kiểu dữ liệu toàn hệ thống**:
    ```bash
    npm run typecheck
    ```
 2. **Kiểm tra unit tests backend**:
    ```bash
-   npm run test --workspace @telebot/api
+   npm run test --workspace @zalobot/api
    ```
 3. **Kiểm tra tính toàn vẹn hệ thống Agent**:
    ```bash
@@ -100,6 +109,7 @@ Người dùng phản ánh 2 vấn đề lớn trên màn hình quản lý công
    ```
 
 ### Manual Verification
+
 1. Mở trang `/tasks`:
    - Kiểm tra tab "Tất cả" hiển thị đầy đủ cả việc cần làm và việc đã hoàn thành.
    - Bấm vào tab "Đã xong" -> Kiểm tra danh sách hiển thị chính xác các việc có trạng thái Completed kèm gạch ngang tiêu đề.

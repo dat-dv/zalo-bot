@@ -30,5 +30,5 @@ RequestFeedback: true
 
 - Mở dashboard tại `/` và mọi navigation không tạo URL chứa `/reports`.
 - Các trang con hoạt động với URL trực tiếp.
-- Luồng mở dashboard từ Telegram/API chuyển về `/`.
+- Luồng mở dashboard từ zalo/API chuyển về `/`.
 - Lint, typecheck và build web thành công.

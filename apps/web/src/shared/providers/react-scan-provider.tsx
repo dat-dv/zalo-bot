@@ -10,7 +10,7 @@ import {
   useState,
 } from 'react';
 
-const REACT_SCAN_STORAGE_KEY = 'telebot-react-scan-enabled';
+const REACT_SCAN_STORAGE_KEY = 'zalobot-react-scan-enabled';
 
 interface ReactScanContextValue {
   isReactScanEnabled: boolean;

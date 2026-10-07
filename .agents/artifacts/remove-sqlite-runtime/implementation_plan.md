@@ -33,20 +33,20 @@ Chuyển hệ thống sang PostgreSQL là cơ sở dữ liệu runtime duy nhấ
    - Đổi các log/comment còn ghi SQLite thành PostgreSQL; cập nhật test của exception filter để xác nhận lỗi unique kiểu PostgreSQL vẫn được trả đúng HTTP response.
 
 3. Loại SQLite khỏi hạ tầng và cấu hình
-   - Bỏ volume `telebot-data` và API mount `/app/data` trong `docker-compose.yml`.
+   - Bỏ volume `zalobot-data` và API mount `/app/data` trong `docker-compose.yml`.
    - Xóa biến mẫu `SQLITE_SOURCE_PATH` và thư mục/file placeholder dữ liệu cũ nếu không còn người dùng nào trong repository.
    - Giữ volumes PostgreSQL và Redis; không động đến dữ liệu của chúng trong source code.
 
 4. Đồng bộ tài liệu vận hành và kiến trúc
-   - Viết lại `docs/deployment.md`, `docs/architecture.md`, `docs/google-integration.md`, `docs/telegram-bot.md`, `docs/README.md` sang PostgreSQL.
+   - Viết lại `docs/deployment.md`, `docs/architecture.md`, `docs/google-integration.md`, `docs/zalo-bot.md`, `docs/README.md` sang PostgreSQL.
    - Cập nhật canonical knowledge bằng tiếng Anh tại `.agents/knowledge/global/` và tài liệu developer tiếng Việt tại `.agents/docs/global/`, bao gồm exception filter và kiến trúc monorepo; cập nhật index `.agents/docs/README.md` nếu mục lục bị ảnh hưởng.
    - Nêu rõ quy trình Coolify: dùng các volume PostgreSQL/Redis, không còn volume SQLite, và bootstrap schema an toàn cho database trống.
 
 ## Kiểm chứng sau khi thực hiện
 
 1. Cài dependency lockfile sạch và chạy toàn bộ API tests, typecheck, lint check, build.
-2. Kiểm tra `docker compose config` để bảo đảm không còn `telebot-data`, `/app/data`, hoặc biến SQLite.
-3. Tìm toàn repository các chuỗi `sqlite`, `better-sqlite`, `telebot.sqlite`, `users.json`; chỉ chấp nhận các ghi chú lịch sử tối thiểu nếu thực sự cần, còn lại phải bằng 0.
+2. Kiểm tra `docker compose config` để bảo đảm không còn `zalobot-data`, `/app/data`, hoặc biến SQLite.
+3. Tìm toàn repository các chuỗi `sqlite`, `better-sqlite`, `zalobot.sqlite`, `users.json`; chỉ chấp nhận các ghi chú lịch sử tối thiểu nếu thực sự cần, còn lại phải bằng 0.
 4. Khởi động stack với PostgreSQL trống và `TYPEORM_SYNCHRONIZE=true`; xác minh API tạo schema và seed admin, rồi chuyển về `false` để kiểm tra khởi động lại ổn định.
 
 ## Rủi ro và phương án quay lại

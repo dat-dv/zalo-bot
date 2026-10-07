@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { localeTag, type IContactListItem } from '@telebot/contracts';
+import { localeTag, type IContactListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 

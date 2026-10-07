@@ -15,15 +15,18 @@ Group files by component:
 
 Cập nhật tài liệu kỹ thuật mô tả tối ưu hóa tham chiếu mảng rỗng (`EMPTY_CANDIDATE_DEBTS`, `EMPTY_ALLOCATIONS`) trong `DebtAllocationModal` nhằm ngăn ngừa vòng lặp render và reference churn khi dữ liệu query chưa sẵn sàng.
 
-#### [MODIFY] [README.md (Knowledge)](file:///Users/datdoan/Documents/projects/telebot/.agents/knowledge/modules/dashboard/README.md)
-- Bổ sung ghi chú về việc sử dụng hằng số tĩnh `EMPTY_CANDIDATE_DEBTS` và `EMPTY_ALLOCATIONS` làm fallback cho `useCandidateDebtsQuery` và `useTransactionAllocationsQuery` trong phần *High-performance Data Tables & Render Loop Prevention*.
+#### [MODIFY] [README.md (Knowledge)](file:///Users/datdoan/Documents/projects/zalobot/.agents/knowledge/modules/dashboard/README.md)
 
-#### [MODIFY] [README.md (Docs)](file:///Users/datdoan/Documents/projects/telebot/.agents/docs/modules/dashboard/README.md)
-- Bổ sung nội dung tiếng Việt vào mục *Cơ chế chống treo render & Tối ưu hiệu năng* giải thích việc cố định tham chiếu mảng mặc định trong `DebtAllocationModal`.
+- Bổ sung ghi chú về việc sử dụng hằng số tĩnh `EMPTY_CANDIDATE_DEBTS` và `EMPTY_ALLOCATIONS` làm fallback cho `useCandidateDebtsQuery` và `useTransactionAllocationsQuery` trong phần _High-performance Data Tables & Render Loop Prevention_.
+
+#### [MODIFY] [README.md (Docs)](file:///Users/datdoan/Documents/projects/zalobot/.agents/docs/modules/dashboard/README.md)
+
+- Bổ sung nội dung tiếng Việt vào mục _Cơ chế chống treo render & Tối ưu hiệu năng_ giải thích việc cố định tham chiếu mảng mặc định trong `DebtAllocationModal`.
 
 ## Verification Plan
 
 ### Automated Tests
+
 - Chạy kiểm tra tính toàn vẹn hệ thống và đồng bộ tài liệu:
   ```bash
   npm run agent-system:validate -- --check-changes --check-i18n

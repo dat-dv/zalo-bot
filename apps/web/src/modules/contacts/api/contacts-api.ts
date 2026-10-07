@@ -5,7 +5,7 @@ import {
   type ICombineContactsResponse,
   type IContactListItem,
   type IUpdateContactRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
 export async function getContacts(signal?: AbortSignal): Promise<IContactListItem[]> {

@@ -3,7 +3,7 @@ import { RemindersScreen } from '@/modules/dashboard/view/reminders-screen';
 
 export const metadata: Metadata = {
   title: 'Nhắc nhở',
-  description: 'Danh sách lời nhắc tự động qua tin nhắn Telegram & cuộc gọi báo động.',
+  description: 'Danh sách lời nhắc tự động qua tin nhắn zalo & cuộc gọi báo động.',
 };
 
 export default function RemindersPage() {

@@ -15,18 +15,18 @@ API và dashboard không tự đoán giá trị cấu hình. Nếu thiếu hoặ
 
 1. Sao chép `.env.example` thành `.env.local` ở root monorepo.
 2. Điền toàn bộ key bắt buộc; không để placeholder `replace-me` trong môi trường triển khai.
-3. Giữ `TELEGRAM_ALLOWED_USER_IDS` trống nếu chỉ dùng `TELEGRAM_ADMIN_ID`.
-4. Chỉ bật flash-call khi có đủ `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` và `TELEGRAM_SESSION`; nếu không dùng, xóa cả ba key.
+3. Giữ `zalo_ALLOWED_USER_IDS` trống nếu chỉ dùng `zalo_ADMIN_ID`.
+4. Chỉ bật flash-call khi có đủ `zalo_API_ID`, `zalo_API_HASH` và `zalo_SESSION`; nếu không dùng, xóa cả ba key.
 5. Đặt `NEXT_PUBLIC_API_URL` là URL HTTP(S) đầy đủ của API trước khi chạy hoặc build dashboard.
 
 ## Docker local
 
-Chạy stack local bằng `docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build`. File override giữ secret trong `.env`, dùng `.env.local` cho local overrides, trỏ dashboard về `http://localhost:3000` và tắt Telegram long polling để không tranh consumer với production.
+Chạy stack local bằng `docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build`. File override giữ secret trong `.env`, dùng `.env.local` cho local overrides, trỏ dashboard về `http://localhost:3000` và tắt zalo long polling để không tranh consumer với production.
 
 ## Lỗi thường gặp
 
 - Số port/timeout/giới hạn ảnh-voice phải là số nguyên dương.
-- `CORS_ALLOW_ALL` và `TELEGRAM_LONG_POLLING_ENABLED` chỉ nhận `true` hoặc `false`.
+- `CORS_ALLOW_ALL` và `zalo_LONG_POLLING_ENABLED` chỉ nhận `true` hoặc `false`.
 - `DATA_ENCRYPTION_KEY` phải có đúng 64 ký tự hexadecimal.
 - `APP_URL`, `WEB_ORIGIN`, `WHISPER_URL` và `NEXT_PUBLIC_API_URL` phải là URL HTTP(S) hợp lệ.
 - `DEFAULT_TIMEZONE` phải là IANA timezone, ví dụ `Asia/Ho_Chi_Minh`.

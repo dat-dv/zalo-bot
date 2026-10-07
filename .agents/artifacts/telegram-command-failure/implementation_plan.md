@@ -8,12 +8,12 @@ RequestFeedback: true
 
 ## Phạm vi thay đổi
 
-1. Cập nhật `apps/api/src/telegram/telegram.update.ts`.
+1. Cập nhật `apps/api/src/zalo/zalo.update.ts`.
    - Bọc thao tác tạo URL dashboard trong xử lý lỗi cục bộ.
    - Ghi log có ngữ cảnh khi không thể tạo link.
    - Trả về chuỗi rỗng để menu tiếp tục hiển thị, chỉ không có nút báo cáo.
    - Không thay đổi cơ chế token, schema SQLite, quyền truy cập, hay định dạng lệnh.
-1. Bổ sung kiểm thử hồi quy tại vị trí phù hợp cho `TelegramUpdate`.
+1. Bổ sung kiểm thử hồi quy tại vị trí phù hợp cho `zaloUpdate`.
    - Mô phỏng lỗi từ `issueExchangeToken`.
    - Xác nhận `onStart` và `onHelp` vẫn gọi gửi phản hồi, không ném lỗi.
    - Xác nhận không có link/nút báo cáo khi phần tạo token lỗi.
@@ -40,7 +40,7 @@ RequestFeedback: true
 ## Kết quả triển khai
 
 - Đã bọc lỗi tạo exchange token trong `getReportsUrl()`. Lỗi được ghi kèm `userId`; hàm trả về chuỗi rỗng để menu không có nút báo cáo nhưng lệnh cốt lõi vẫn phản hồi.
-- Đã thêm `apps/api/scripts/check-telegram-command-fallback.cjs`, mô phỏng lỗi ghi token cho cả `/start` và `/help`.
+- Đã thêm `apps/api/scripts/check-zalo-command-fallback.cjs`, mô phỏng lỗi ghi token cho cả `/start` và `/help`.
 - Đã cập nhật tài liệu canonical và hướng dẫn vận hành dashboard.
 - Đã xác minh: build API, regression check, typecheck workspace, lint workspace và agent-system validation đều đạt.
 - `git diff --check` vẫn báo whitespace trong `.gitignore`; đây là thay đổi có sẵn, ngoài phạm vi nhiệm vụ, nên không sửa.

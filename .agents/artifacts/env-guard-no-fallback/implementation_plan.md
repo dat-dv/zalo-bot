@@ -20,9 +20,9 @@ Buộc ứng dụng dừng sớm với lỗi rõ ràng khi thiếu hoặc sai bi
 
 ## Hiện trạng
 
-1. `env.validator.ts` mới kiểm tra Telegram bot, admin, Gemini, mã hóa và Google OAuth; nhiều cấu hình còn lại vẫn có giá trị mặc định.
+1. `env.validator.ts` mới kiểm tra zalo bot, admin, Gemini, mã hóa và Google OAuth; nhiều cấu hình còn lại vẫn có giá trị mặc định.
 2. `configuration.ts` gán fallback cho URL, port, CORS, model Gemini, Whisper, OCR, timezone, Google credential path và các giới hạn xử lý.
-3. `main.ts`, Telegram/voice/OCR/Google services tiếp tục gán default tại điểm tiêu thụ; `TelegramCallerService` và `UsersService` bỏ qua cấu hình tập trung để đọc lại `process.env`.
+3. `main.ts`, zalo/voice/OCR/Google services tiếp tục gán default tại điểm tiêu thụ; `zaloCallerService` và `UsersService` bỏ qua cấu hình tập trung để đọc lại `process.env`.
 4. Dashboard tự đổi sang `http://localhost:3000` hoặc base URL rỗng khi thiếu `NEXT_PUBLIC_API_URL`, có thể làm build/deploy sai mà không báo lỗi.
 
 ## Cách thực hiện đề xuất

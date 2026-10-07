@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { APP_ROUTES, localeTag } from '@telebot/contracts';
+import { APP_ROUTES, localeTag } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
 import { SessionStateScreen } from '@/modules/auth/view/session-state-screen';

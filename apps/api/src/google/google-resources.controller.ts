@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { type ICalendarEventItem, type ITaskListItem } from '@telebot/contracts';
+import { type ICalendarEventItem, type ITaskListItem } from '@zalobot/contracts';
 import { type calendar_v3, type tasks_v1 } from 'googleapis';
 import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';

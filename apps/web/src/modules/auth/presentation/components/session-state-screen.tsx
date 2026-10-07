@@ -3,7 +3,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { APP_ROUTES } from '@telebot/contracts';
+import { APP_ROUTES } from '@zalobot/contracts';
 import { clearAccessToken } from '@/modules/auth/client/auth-storage';
 import { useLocale } from '@/shared/providers/locale-provider';
 
@@ -14,21 +14,21 @@ interface SessionStateScreenProps {
   onRetry?: () => void;
 }
 
-interface TelegramWebApp {
+interface zaloWebApp {
   close?: () => void;
-  openTelegramLink?: (url: string) => void;
+  openzaloLink?: (url: string) => void;
 }
 
-function getTelegramWebApp(): TelegramWebApp | undefined {
+function getzaloWebApp(): zaloWebApp | undefined {
   if (typeof window === 'undefined') return undefined;
-  const tg = (window as unknown as { Telegram?: { WebApp?: TelegramWebApp } }).Telegram;
+  const tg = (window as unknown as { zalo?: { WebApp?: zaloWebApp } }).zalo;
   return tg?.WebApp;
 }
 
-function getTelegramBotUrl(): string {
-  const customUrl = process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL?.trim();
+function getzaloBotUrl(): string {
+  const customUrl = process.env.NEXT_PUBLIC_zalo_BOT_URL?.trim();
   if (customUrl) return customUrl;
-  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.trim();
+  const botUsername = process.env.NEXT_PUBLIC_zalo_BOT_USERNAME?.trim();
   if (botUsername) return `https://t.me/${botUsername}`;
   return 'https://t.me';
 }
@@ -36,12 +36,12 @@ function getTelegramBotUrl(): string {
 export function SessionStateScreen({ reason = 'expired', onRetry }: SessionStateScreenProps) {
   const { t } = useLocale();
   const queryClient = useQueryClient();
-  const [isInsideTelegram, setIsInsideTelegram] = useState(false);
+  const [isInsidezalo, setIsInsidezalo] = useState(false);
 
   useEffect(() => {
-    const webApp = getTelegramWebApp();
+    const webApp = getzaloWebApp();
     if (webApp && typeof webApp.close === 'function') {
-      setIsInsideTelegram(true);
+      setIsInsidezalo(true);
     }
   }, []);
 
@@ -63,7 +63,7 @@ export function SessionStateScreen({ reason = 'expired', onRetry }: SessionState
   };
 
   const handleCloseMiniApp = () => {
-    const webApp = getTelegramWebApp();
+    const webApp = getzaloWebApp();
     if (webApp?.close) {
       webApp.close();
     }
@@ -72,7 +72,7 @@ export function SessionStateScreen({ reason = 'expired', onRetry }: SessionState
   const isLoggedOut = reason === 'logged_out';
   const title = isLoggedOut ? t('auth.loggedOut.title') : t('auth.sessionExpired.title');
   const description = isLoggedOut ? t('auth.loggedOut.desc') : t('auth.sessionExpired.desc');
-  const botUrl = getTelegramBotUrl();
+  const botUrl = getzaloBotUrl();
 
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
@@ -106,10 +106,10 @@ export function SessionStateScreen({ reason = 'expired', onRetry }: SessionState
               className="inline-flex w-full min-h-[42px] items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500"
             >
               <span>🤖</span>
-              <span>{t('auth.openTelegramBot')}</span>
+              <span>{t('auth.openzaloBot')}</span>
             </a>
 
-            {isInsideTelegram && (
+            {isInsidezalo && (
               <button
                 type="button"
                 onClick={handleCloseMiniApp}

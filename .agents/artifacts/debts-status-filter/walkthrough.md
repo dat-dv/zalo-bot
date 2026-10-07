@@ -6,7 +6,8 @@
 
 ## 1. Các thay đổi đã thực hiện
 
-### 1.1. Packages / Shared Contracts (`@telebot/contracts`)
+### 1.1. Packages / Shared Contracts (`@zalobot/contracts`)
+
 - Mở rộng interface `IDebtListItem`: Bổ sung thuộc tính `status?: 'active' | 'settled'`.
 - Bổ sung translation keys đa ngôn ngữ (`vi` và `en`):
   - `debts.columns.status`: `'Trạng thái'` / `'Status'`
@@ -18,15 +19,17 @@
   - `debts.filter.directionAll`: `'Tất cả luồng'` / `'All directions'`
 
 ### 1.2. Backend API (`apps/api`)
+
 - **`ReportsController` (`GET /api/debts`)**:
   - Chuyển sang sử dụng `this.finance.listDebts(userId, status)` để lấy đầy đủ cả công nợ đang mở (`active`) và công nợ đã hoàn thành (`settled`).
   - Ánh xạ đầy đủ các trường `status`, `currency`, `settledAt`, `updatedAt` vào đối tượng `IDebtListItem`.
 
 ### 1.3. Frontend Debts Screen (`apps/web/src/modules/debts/view/debts-screen.tsx`)
+
 - Thêm state `statusFilter`: `'all' | 'active' | 'settled'`.
 - Thêm cột `status` trong `debtColumns` hiển thị badge trực quan:
-  - `badge badge--pending` cho *Đang mở* (`active`).
-  - `badge badge--completed` cho *Đã tất toán* (`settled`).
+  - `badge badge--pending` cho _Đang mở_ (`active`).
+  - `badge badge--completed` cho _Đã tất toán_ (`settled`).
 - Tính toán số lượng thời gian thực (real-time count badges) trên các nút lọc:
   - `Tất cả trạng thái (count)`
   - `Đang mở (count)`
@@ -39,8 +42,9 @@
 ## 2. Kết quả xác thực (Verification Results)
 
 ### Kiểm tra tự động
+
 - **Typecheck**: `npm run typecheck` ➜ Passed (0 lỗi).
-- **Unit Tests**: `npm run test --workspace @telebot/api` ➜ 5/5 tests passed.
+- **Unit Tests**: `npm run test --workspace @zalobot/api` ➜ 5/5 tests passed.
 - **Web Build**: `npm run build:web` ➜ Compiled & Generated static pages successfully.
 - **Agent System Validation**: `npm run agent-system:validate` ➜ 85 artifacts, 149 dependencies, 0 cyclic groups passed.
 
@@ -56,4 +60,4 @@
    - Bấm vào tab **Đã tất toán** ➜ Hiển thị các khoản nợ đã trả hết (`remainingAmount === 0`) với badge xanh lá.
    - Bấm vào tab **Tất cả trạng thái** ➜ Hiển thị toàn bộ công nợ.
 2. Thao tác trả nợ / tất toán:
-   - Bấm `+ Trả nợ` trên một hàng đang mở ➜ Sau khi thanh toán xong, khoản nợ tự động đổi sang badge *Đã tất toán* và chuyển danh mục tương ứng ngay lập tức.
+   - Bấm `+ Trả nợ` trên một hàng đang mở ➜ Sau khi thanh toán xong, khoản nợ tự động đổi sang badge _Đã tất toán_ và chuyển danh mục tương ứng ngay lập tức.

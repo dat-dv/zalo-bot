@@ -8,7 +8,7 @@ import {
   type IDebtListItem,
   type IDebtPaymentItem,
   type IUpdateDebtRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import {
   combineDebts,
   createDebtPayment,

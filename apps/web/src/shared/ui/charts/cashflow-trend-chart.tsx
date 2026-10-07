@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
-import type { IAnalyticsTrendBucket } from '@telebot/contracts';
+import type { IAnalyticsTrendBucket } from '@zalobot/contracts';
 
 interface CashflowTrendChartProps {
   buckets: IAnalyticsTrendBucket[];

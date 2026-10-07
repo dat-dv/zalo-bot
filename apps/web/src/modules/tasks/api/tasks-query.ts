@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ITaskListItem, IUpdateTaskRequest } from '@telebot/contracts';
+import type { ITaskListItem, IUpdateTaskRequest } from '@zalobot/contracts';
 import { deleteTask, getTasks, updateTask } from './tasks-api';
 
 export const tasksQueryKeys = { list: () => ['tasks'] as const };

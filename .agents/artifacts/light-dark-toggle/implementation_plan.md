@@ -6,7 +6,7 @@ RequestFeedback: true
 
 ## Mục tiêu
 
-Thêm một nút chuyển Light/Dark dùng được trên toàn bộ dashboard Telebot, có nhãn và trạng thái rõ ràng, phù hợp với sidebar desktop và thanh điều hướng ngang trên mobile.
+Thêm một nút chuyển Light/Dark dùng được trên toàn bộ dashboard zalobot, có nhãn và trạng thái rõ ràng, phù hợp với sidebar desktop và thanh điều hướng ngang trên mobile.
 
 ## Hiện trạng đã xác nhận
 

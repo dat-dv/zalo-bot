@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useRef, useMemo, Fragment, type ReactNode } from 'react';
-import type { TranslationKey } from '@telebot/contracts';
+import type { TranslationKey } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 
 type DataTableRow = { id: string };
@@ -693,7 +693,7 @@ export function DataTable<T extends DataTableRow>({
     }
 
     try {
-      const stored = localStorage.getItem(`telebot:table-widths:${id}`);
+      const stored = localStorage.getItem(`zalobot:table-widths:${id}`);
       if (stored) {
         const parsed = JSON.parse(stored) as Record<string, number>;
         if (parsed && typeof parsed === 'object') {
@@ -738,7 +738,7 @@ export function DataTable<T extends DataTableRow>({
     }
 
     try {
-      localStorage.setItem(`telebot:table-widths:${id}`, JSON.stringify(columnWidths));
+      localStorage.setItem(`zalobot:table-widths:${id}`, JSON.stringify(columnWidths));
     } catch {
       // Gracefully ignore storage access errors
     }
@@ -748,7 +748,7 @@ export function DataTable<T extends DataTableRow>({
   useEffect(() => {
     if (!id || typeof window === 'undefined') return;
     try {
-      const stored = localStorage.getItem(`telebot:table-columns:${id}`);
+      const stored = localStorage.getItem(`zalobot:table-columns:${id}`);
       if (stored) {
         const parsed = JSON.parse(stored) as string[];
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -778,7 +778,7 @@ export function DataTable<T extends DataTableRow>({
     setVisibleColumnIds(newIds);
     if (id && typeof window !== 'undefined') {
       try {
-        localStorage.setItem(`telebot:table-columns:${id}`, JSON.stringify(newIds));
+        localStorage.setItem(`zalobot:table-columns:${id}`, JSON.stringify(newIds));
       } catch {
         // Gracefully ignore storage write errors
       }
@@ -846,7 +846,7 @@ export function DataTable<T extends DataTableRow>({
     event.preventDefault();
     event.stopPropagation();
 
-    const header = event.currentTarget.parentElement;
+    const header = event.currentTarget.parenzaloment;
     if (!header) return;
 
     const startX = event.clientX;

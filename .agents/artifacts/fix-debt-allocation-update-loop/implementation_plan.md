@@ -23,7 +23,7 @@ RequestFeedback: true
 ## Xác minh sau khi thực hiện
 
 1. Chạy kiểm thử hồi quy mới (hoặc harness component tương đương) để xác nhận trạng thái đóng không lặp render.
-2. Chạy `npm run lint --workspace @telebot/web` và `npm run typecheck --workspace @telebot/web`.
+2. Chạy `npm run lint --workspace @zalobot/web` và `npm run typecheck --workspace @zalobot/web`.
 3. Kiểm tra thủ công: mở modal từ một giao dịch, đóng bằng nút/Escape, rồi mở lại; không có console error và dữ liệu allocation cũ vẫn hiển thị đúng.
 
 ## Rủi ro và rollback

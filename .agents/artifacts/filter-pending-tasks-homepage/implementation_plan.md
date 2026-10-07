@@ -6,7 +6,7 @@ Lọc bỏ những công việc đã hoàn thành (`status === 'completed'`) kh�
 
 ### Dashboard Module
 
-#### [MODIFY] [dashboard-home-screen.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/view/dashboard-home-screen.tsx)
+#### [MODIFY] [dashboard-home-screen.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/view/dashboard-home-screen.tsx)
 
 - Cập nhật logic `filteredTasks` trong `dashboard-home-screen.tsx`:
   - Thay vì sử dụng danh sách toàn bộ công việc `data.tasks` làm dữ liệu đầu vào cho `filteredTasks`, chuyển sang sử dụng `pendingTasks` (danh sách đã lọc `item.status !== 'completed'`).
@@ -31,8 +31,10 @@ const filteredTasks = useMemo(() => {
 ## Verification Plan
 
 ### Automated Verification
+
 - Chạy `npm run typecheck` để đảm bảo không có lỗi kiểu dữ liệu TypeScript.
 - Chạy `npm run lint` để đảm bảo tuân thủ linter.
 
 ### Manual Verification
+
 - Kiểm tra giao diện Trang chủ: Khối "Việc cần làm" chỉ hiển thị công việc có trạng thái chưa hoàn thành (`needsAction`), không còn hiển thị các việc đã làm xong (`completed`).

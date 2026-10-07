@@ -21,7 +21,7 @@ RequestFeedback: true
 3. Cập nhật system prompt.
    - Phân biệt rõ một việc với danh sách/checklist nhiều việc.
    - Yêu cầu Gemini dùng `create_tasks` khi người dùng nêu từ hai việc độc lập trở lên.
-4. Cập nhật `TelegramUpdate`.
+4. Cập nhật `zaloUpdate`.
    - Thêm `/dashboard`, tạo link báo cáo an toàn rồi gửi nút URL thật.
    - Nhận diện văn bản ngắn “dashboard”, “cho anh xem dashboard”, “mở dashboard” trước khi chuyển sang Gemini để không còn câu trả lời bịa.
    - Thêm decorator `/task` vào handler `/tasks`.
@@ -37,7 +37,7 @@ RequestFeedback: true
 
 - Dùng tool batch riêng thay vì cố gọi nhiều `create_task`: cơ chế hiện tại chỉ giữ một pending confirmation, nên tool riêng đảm bảo người dùng chỉ cần xác nhận một lần cho toàn bộ danh sách.
 - Batch thực hiện tuần tự. Google Tasks không có transaction đa mục; vì vậy nếu có lỗi giữa chừng, bot sẽ báo chính xác mục nào thành công/mục nào thất bại, không tự xóa các mục đã tạo.
-- Dashboard được xử lý cố định trong Telegram handler, không qua Gemini, vì đây là khả năng đã có và phải có câu trả lời xác định.
+- Dashboard được xử lý cố định trong zalo handler, không qua Gemini, vì đây là khả năng đã có và phải có câu trả lời xác định.
 
 ## Rủi ro và giảm thiểu
 

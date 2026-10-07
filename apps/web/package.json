@@ -1,5 +1,5 @@
 {
-  "name": "@telebot/web",
+  "name": "@zalobot/web",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.66.0",
-    "@telebot/contracts": "file:../../packages/contracts",
+    "@zalobot/contracts": "file:../../packages/contracts",
     "axios": "^1.8.4",
     "next": "^16.3.2",
     "next-intl": "^4.13.7",

@@ -30,7 +30,8 @@ Tài liệu này xác định kế hoạch chuẩn hóa tên gọi các cột d�
 
 ### Shared Contracts & i18n
 
-#### [MODIFY] [`packages/contracts/src/index.ts`](file:///Users/datdoan/Documents/projects/telebot/packages/contracts/src/index.ts)
+#### [MODIFY] [`packages/contracts/src/index.ts`](file:///Users/datdoan/Documents/projects/zalobot/packages/contracts/src/index.ts)
+
 - Bổ sung translation key cho `transactions.columns.runningBalance`:
   - `vi`: `"Số dư sau GD"`
   - `en`: `"Balance after transaction"`
@@ -44,22 +45,26 @@ Tài liệu này xác định kế hoạch chuẩn hóa tên gọi các cột d�
 
 ### Frontend Web UI (`apps/web`)
 
-#### [MODIFY] [`apps/web/src/modules/dashboard/view/transactions-table.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/view/transactions-table.tsx)
+#### [MODIFY] [`apps/web/src/modules/dashboard/view/transactions-table.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/view/transactions-table.tsx)
+
 - Mở rộng kiểu dữ liệu `TransactionTableItem`: thêm trường `runningBalance?: number`.
 - Khai báo thêm cột `runningBalance` vào bảng `TransactionsTable`:
   - `header: t('transactions.columns.runningBalance')`
   - `align: 'right'`
   - Hiển thị số tiền với font số `tabular-nums font-semibold` và định dạng `money(item.runningBalance)`.
 
-#### [MODIFY] [`apps/web/src/modules/dashboard/view/transactions-screen.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/view/transactions-screen.tsx)
+#### [MODIFY] [`apps/web/src/modules/dashboard/view/transactions-screen.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/view/transactions-screen.tsx)
+
 - Bổ sung logic tính toán `runningBalance` cho từng giao dịch:
   - Sắp xếp giao dịch theo thứ tự thời gian tăng dần $\rightarrow$ tính cộng dồn lũy kế số dư.
   - Gán giá trị `runningBalance` vào từng item trước khi lọc và hiển thị lên bảng.
 
-#### [MODIFY] [`apps/web/src/modules/dashboard/view/dashboard-home-screen.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/view/dashboard-home-screen.tsx)
+#### [MODIFY] [`apps/web/src/modules/dashboard/view/dashboard-home-screen.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/view/dashboard-home-screen.tsx)
+
 - Cập nhật danh sách giao dịch hiển thị tại Dashboard Overview kèm `runningBalance`.
 
-#### [MODIFY] [`apps/web/src/modules/dashboard/view/analytics-screen.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/view/analytics-screen.tsx)
+#### [MODIFY] [`apps/web/src/modules/dashboard/view/analytics-screen.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/view/analytics-screen.tsx)
+
 - Đảm bảo bảng phân rã dòng tiền sử dụng đầy đủ các nhãn cột mới đã chuẩn hóa.
 
 ---
@@ -67,6 +72,7 @@ Tài liệu này xác định kế hoạch chuẩn hóa tên gọi các cột d�
 ## 4. Verification Plan
 
 ### Automated Tests
+
 - Chạy kiểm tra Type Safety toàn dự án:
   ```bash
   npm run typecheck
@@ -78,10 +84,11 @@ Tài liệu này xác định kế hoạch chuẩn hóa tên gọi các cột d�
   ```
 - Chạy Backend Unit Tests:
   ```bash
-  npm run test --workspace @telebot/api
+  npm run test --workspace @zalobot/api
   ```
 
 ### Manual Verification
+
 1. Truy cập trang Giao dịch (`/transactions`):
    - Kiểm tra cột **Số dư sau GD** hiển thị đầy đủ trên từng dòng giao dịch.
    - Xác nhận dòng giao dịch trên cùng có số dư bằng đúng số dư ví hiện tại.

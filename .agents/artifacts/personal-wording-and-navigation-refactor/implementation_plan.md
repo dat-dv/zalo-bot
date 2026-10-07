@@ -8,6 +8,7 @@ Chuyển đổi toàn bộ hệ thống từ ngữ (wording) từ phong cách **
 
 > [!IMPORTANT]
 > **Các thay đổi cốt lõi về trải nghiệm người dùng (UX Copywriting)**:
+>
 > 1. **Dòng tiền (`dashboard.balance`)**: Đổi từ `"Số dư"` sang `"Thu − Chi"`. Tránh hiểu nhầm đây là số dư tài khoản ngân hàng thực tế, phản ánh chính xác công thức $Income - Expense$.
 > 2. **Vay nợ (`debts`)**: Chuyển `"Công nợ"` $\rightarrow$ `"Vay & cho vay"`, `"Cần thu"` $\rightarrow$ `"Người khác nợ bạn"` (filter: `"Cho vay"`), `"Cần trả"` $\rightarrow$ `"Bạn đang nợ"` (filter: `"Đi vay"`).
 > 3. **Người liên quan (`contacts`)**: Chuyển `"Liên lạc"` / `"Đối tác"` $\rightarrow$ `"Người liên quan"`.
@@ -20,7 +21,8 @@ Chuyển đổi toàn bộ hệ thống từ ngữ (wording) từ phong cách **
 
 ### 1. Shared Contracts & i18n Dictionary (`packages/contracts`)
 
-#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/telebot/packages/contracts/src/index.ts)
+#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/zalobot/packages/contracts/src/index.ts)
+
 - Cập nhật từ điển `vi`:
   - `nav.home`: `'Tổng quan'`
   - `nav.statistics`: `'Phân tích'`
@@ -67,30 +69,36 @@ Chuyển đổi toàn bộ hệ thống từ ngữ (wording) từ phong cách **
 
 ### 2. Web Frontend (`apps/web`)
 
-#### [MODIFY] [reports-navigation.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/reports-navigation.tsx)
+#### [MODIFY] [reports-navigation.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/reports-navigation.tsx)
+
 - Tái cấu trúc menu sang dạng danh mục có tiêu đề nhóm (Section Groups):
   - **TỔNG QUAN**: Tổng quan (`APP_ROUTES.reports`)
   - **TÀI CHÍNH**: Chi tiêu (`APP_ROUTES.expenses`), Vay & cho vay (`APP_ROUTES.debts`), Phân tích (`APP_ROUTES.statistics`)
   - **KHÁC**: Người liên quan (`APP_ROUTES.contacts`)
 - Giữ nguyên cơ chế chuyển đổi Theme (Sáng/Tối) và Language (Tiếng Việt/English).
 
-#### [MODIFY] [dashboard-screen.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/view/dashboard-screen.tsx)
+#### [MODIFY] [dashboard-screen.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/view/dashboard-screen.tsx)
+
 - Kiểm tra và đảm bảo các metric cards, table headers và action buttons sử dụng đúng các key mới cập nhật.
 
-#### [MODIFY] [debts-screen.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/debts/view/debts-screen.tsx)
+#### [MODIFY] [debts-screen.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/debts/view/debts-screen.tsx)
+
 - Kiểm tra và cập nhật filter buttons (`Cho vay` / `Đi vay`) cùng các metric cards hiển thị `Người khác nợ bạn` / `Bạn đang nợ`.
 
-#### [MODIFY] [expenses-screen.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/expenses/view/expenses-screen.tsx)
+#### [MODIFY] [expenses-screen.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/expenses/view/expenses-screen.tsx)
+
 - Đồng bộ tiêu đề màn hình và các metric tổng chi.
 
-#### [MODIFY] [contacts-screen.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/contacts/view/contacts-screen.tsx)
+#### [MODIFY] [contacts-screen.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/contacts/view/contacts-screen.tsx)
+
 - Đồng bộ tiêu đề "Người liên quan" và bảng dữ liệu.
 
 ---
 
-### 3. Telegram Bot (`apps/api`)
+### 3. zalo Bot (`apps/api`)
 
-#### [MODIFY] [telegram-menu.catalog.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/telegram/telegram-menu.catalog.ts)
+#### [MODIFY] [zalo-menu.catalog.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/zalo/zalo-menu.catalog.ts)
+
 - Cập nhật menu items trên bot:
   - `debts`: `label: '💳 Vay & cho vay'`, `commandDescription: 'Các khoản cho vay và đi vay đang mở'`
   - `finance`: `label: '💰 Thu chi'`, `commandDescription: 'Thu chi trong hôm nay'`
@@ -100,10 +108,12 @@ Chuyển đổi toàn bộ hệ thống từ ngữ (wording) từ phong cách **
 
 ### 4. Canonical Knowledge & Documentation Sync
 
-#### [MODIFY] [knowledge/global/i18n.md](file:///Users/datdoan/Documents/projects/telebot/.agents/knowledge/global/i18n.md)
+#### [MODIFY] [knowledge/global/i18n.md](file:///Users/datdoan/Documents/projects/zalobot/.agents/knowledge/global/i18n.md)
+
 - Cập nhật tài liệu canonical knowledge i18n theo quy chuẩn tiếng Anh ngắn gọn.
 
-#### [MODIFY] [docs/global/i18n.md](file:///Users/datdoan/Documents/projects/telebot/.agents/docs/global/i18n.md)
+#### [MODIFY] [docs/global/i18n.md](file:///Users/datdoan/Documents/projects/zalobot/.agents/docs/global/i18n.md)
+
 - Cập nhật tài liệu developer i18n theo quy chuẩn tiếng Việt.
 
 ---
@@ -111,6 +121,7 @@ Chuyển đổi toàn bộ hệ thống từ ngữ (wording) từ phong cách **
 ## Verification Plan
 
 ### Automated Verification
+
 1. **Linter & Typecheck**:
    ```bash
    npm run lint
@@ -126,6 +137,7 @@ Chuyển đổi toàn bộ hệ thống từ ngữ (wording) từ phong cách **
    ```
 
 ### Manual Verification
+
 - Chuyển đổi ngôn ngữ Tiếng Việt $\leftrightarrow$ English trên Web UI để kiểm tra không bị sót key hoặc vỡ layout.
 - Kiểm tra giao diện Sidebar Navigation hiển thị đúng 3 nhóm: Tổng quan, Tài chính, Khác.
 - Kiểm tra các màn hình: Dashboard, Chi tiêu, Vay & cho vay, Người liên quan.

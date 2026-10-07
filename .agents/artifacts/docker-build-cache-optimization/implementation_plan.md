@@ -4,7 +4,7 @@ RequestFeedback: true
 
 ## Mục tiêu
 
-Giảm đáng kể thời gian deploy lặp lại của API mà không thay đổi chức năng Telegram bot, OCR, Whisper, hay phạm vi biến môi trường. Giữ nguyên cách Coolify truyền secrets khi chạy container; tuyệt đối không đưa secrets vào image hoặc frontend bundle.
+Giảm đáng kể thời gian deploy lặp lại của API mà không thay đổi chức năng zalo bot, OCR, Whisper, hay phạm vi biến môi trường. Giữ nguyên cách Coolify truyền secrets khi chạy container; tuyệt đối không đưa secrets vào image hoặc frontend bundle.
 
 ## Phát hiện đã xác nhận
 

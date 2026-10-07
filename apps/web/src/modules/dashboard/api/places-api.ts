@@ -4,7 +4,7 @@ import {
   type ICreatePlaceRequest,
   type IFinancePlace,
   type IUpdatePlaceRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
 export async function getPlaces(signal?: AbortSignal): Promise<IFinancePlace[]> {

@@ -8,9 +8,9 @@ import {
   translate,
   type SupportedLocale,
   type TranslationKey,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 
-const LOCALE_COOKIE = 'telebot-locale';
+const LOCALE_COOKIE = 'zalobot-locale';
 type LocaleContextValue = {
   locale: SupportedLocale;
   setLocale: (locale: SupportedLocale) => void;
@@ -22,12 +22,12 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<SupportedLocale>(DEFAULT_LOCALE);
   useEffect(
     () =>
-      setLocaleState(normalizeLocale(document.cookie.match(/(?:^|; )telebot-locale=([^;]+)/)?.[1])),
+      setLocaleState(normalizeLocale(document.cookie.match(/(?:^|; )zalobot-locale=([^;]+)/)?.[1])),
     [],
   );
   const setLocale = (next: SupportedLocale) => {
     document.cookie = `${LOCALE_COOKIE}=${next};path=/;max-age=31536000;SameSite=Lax`;
-    document.documentElement.lang = localeTag(next);
+    document.documenzaloment.lang = localeTag(next);
     setLocaleState(next);
   };
   const value = useMemo(

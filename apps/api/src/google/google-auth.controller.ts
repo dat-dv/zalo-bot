@@ -1,8 +1,6 @@
 import { Controller, Get, Query, Logger, Res } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
-import { InjectBot } from 'nestjs-telegraf';
-import { Telegraf, Context } from 'telegraf';
 import { GoogleAuthService } from './google-auth.service';
 import { renderSuccessHtml, renderErrorHtml } from './templates/oauth-html.template';
 
@@ -11,16 +9,13 @@ import { renderSuccessHtml, renderErrorHtml } from './templates/oauth-html.templ
 export class GoogleAuthController {
   private readonly logger = new Logger(GoogleAuthController.name);
 
-  constructor(
-    private readonly googleAuthService: GoogleAuthService,
-    @InjectBot() private readonly bot: Telegraf<Context>,
-  ) {}
+  constructor(private readonly googleAuthService: GoogleAuthService) {}
 
   @Get(['', 'health'])
   @ApiOperation({ summary: 'Kiểm tra trạng thái hoạt động của hệ thống (Health check)' })
   @ApiResponse({ status: 200, description: 'Hệ thống đang hoạt động bình thường' })
   public getHealth(): string {
-    return '🟢 Telebot Assistant is up and running!';
+    return '🟢 Zalo Bot Assistant is up and running!';
   }
 
   @Get(['oauth2callback', 'auth/google/callback', 'callback'])
@@ -46,7 +41,7 @@ export class GoogleAuthController {
       res
         .status(400)
         .send(
-          renderErrorHtml('Không tìm thấy thông tin định danh người dùng Telegram (State ID).'),
+          renderErrorHtml('Không tìm thấy thông tin định danh người dùng (State ID).'),
         );
       return;
     }
@@ -55,30 +50,7 @@ export class GoogleAuthController {
       await this.googleAuthService.exchangeCodeForTokens(userId, code);
       this.logger.log(`Google OAuth callback completed successfully for user ${userId}`);
 
-      // Notify the user on Telegram
-      try {
-        await this.bot.telegram.sendMessage(
-          userId,
-          '🎉 *KẾT NỐI GOOGLE THÀNH CÔNG!*\n\nTài khoản Google Calendar & Google Tasks của bạn đã được liên kết hoàn tất. Bây giờ bạn có thể bắt đầu sử dụng trợ lý rồi nhé! 🚀',
-          { parse_mode: 'Markdown' },
-        );
-      } catch (tgErr) {
-        const sendError = tgErr as Error;
-        this.logger.warn(
-          `Could not send confirmation message to user ${userId}: ${sendError.message}`,
-        );
-      }
-
-      // Get bot username for the redirect button
-      let botUsername = '';
-      try {
-        const me = await this.bot.telegram.getMe();
-        botUsername = me.username;
-      } catch {
-        // ignore
-      }
-
-      res.status(200).send(renderSuccessHtml(botUsername));
+      res.status(200).send(renderSuccessHtml());
     } catch (err) {
       const exchangeError = err as Error;
       this.logger.error(

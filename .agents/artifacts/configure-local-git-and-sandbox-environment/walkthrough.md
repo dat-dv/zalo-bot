@@ -6,7 +6,7 @@
    - Đã thêm mục `[user]` với thông tin:
      - `name = datdoan`
      - `email = datdoan.dev@gmail.com`
-   - File cấu hình: [`.git/config`](file:///Users/datdoan/Documents/projects/telebot/.git/config)
+   - File cấu hình: [`.git/config`](file:///Users/datdoan/Documents/projects/zalobot/.git/config)
 
 2. **Xác minh thực tế**:
    - `git config --local -l`: Đã nhận đầy đủ `user.name` và `user.email`.

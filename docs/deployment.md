@@ -10,7 +10,7 @@ Tài liệu này hướng dẫn toàn bộ quy trình thiết lập môi trườ
 - **NPM**: Phiên bản 10.x trở lên.
 - **Docker & Docker Compose** (nếu chạy dạng container).
 - **Tài khoản Google Cloud** đã kích hoạt Calendar API & Tasks API (và đã add Gmail của bạn bè vào mục _Test Users_).
-- **Telegram Bot Token** tạo từ `@BotFather`.
+- **zalo Bot Token** tạo từ `@BotFather`.
 
 ---
 
@@ -25,12 +25,12 @@ cp .env.example .env
 Nội dung chi tiết các biến:
 
 ```env
-APP_URL=https://telebot.example.com
-WEB_ORIGIN=https://telebot.example.com
-NEXT_PUBLIC_API_URL=https://telebot.example.com
+APP_URL=https://zalobot.example.com
+WEB_ORIGIN=https://zalobot.example.com
+NEXT_PUBLIC_API_URL=https://zalobot.example.com
 
-TELEGRAM_BOT_TOKEN=replace-with-bot-token
-TELEGRAM_ADMIN_ID=123456789
+zalo_BOT_TOKEN=replace-with-bot-token
+zalo_ADMIN_ID=123456789
 GEMINI_API_KEY=replace-with-gemini-key
 DATA_ENCRYPTION_KEY=64-hex-characters
 GOOGLE_CLIENT_ID=replace-with-google-client-id
@@ -39,20 +39,20 @@ DASHBOARD_ACCESS_TOKEN_SECRET=64-random-characters
 DASHBOARD_REFRESH_TOKEN_SECRET=another-64-random-characters
 
 # CallMe
-TELEGRAM_API_ID=replace-with-telegram-api-id
-TELEGRAM_API_HASH=replace-with-telegram-api-hash
-TELEGRAM_SESSION=replace-with-telegram-session
+zalo_API_ID=replace-with-zalo-api-id
+zalo_API_HASH=replace-with-zalo-api-hash
+zalo_SESSION=replace-with-zalo-session
 ```
 
-> Bot mặc định nhận lệnh như `/help` bằng long polling. Chỉ thêm `TELEGRAM_LONG_POLLING_ENABLED=false` khi đã cấu hình webhook hoặc một worker polling riêng nhận update thay cho API này.
+> Bot mặc định nhận lệnh như `/help` bằng long polling. Chỉ thêm `zalo_LONG_POLLING_ENABLED=false` khi đã cấu hình webhook hoặc một worker polling riêng nhận update thay cho API này.
 
 ---
 
-## 3. Quy Trình Đăng Nhập Google 100% Qua Telegram
+## 3. Quy Trình Đăng Nhập Google 100% Qua zalo
 
 Không cần chạy lệnh terminal `npm run auth` hay sinh file token thủ công:
 
-1. Mở bot trên Telegram và gõ: `/login` (hoặc bấm nút **"🔗 Đăng nhập Google"**).
+1. Mở bot trên zalo và gõ: `/login` (hoặc bấm nút **"🔗 Đăng nhập Google"**).
 2. Đăng nhập Gmail trên trình duyệt và bấm **Cho phép (Allow)**.
 3. Copy mã xác thực trả về và gửi lại cho bot:
    ```
@@ -100,19 +100,19 @@ docker-compose up -d --build
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
 
-Mở dashboard tại `http://localhost:3001`. Override local dùng các secret sẵn có trong `.env`, lấy các lựa chọn local trong `.env.local`, trỏ web tới API local và luôn đặt `TELEGRAM_LONG_POLLING_ENABLED=false`.
+Mở dashboard tại `http://localhost:3001`. Override local dùng các secret sẵn có trong `.env`, lấy các lựa chọn local trong `.env.local`, trỏ web tới API local và luôn đặt `zalo_LONG_POLLING_ENABLED=false`.
 
 ### 2. Xem logs & trạng thái
 
 ```bash
 # Xem log realtime của bot
-docker logs -f telegram-assistant-bot
+docker logs -f zalo-assistant-bot
 
 # Dừng container
 docker-compose down
 ```
 
-> [!NOTE] Compose dùng Docker volumes `telebot-postgres`, `telebot-redis` và `telebot-receipts`. `telebot-receipts` được mount vào `/app/data` để giữ ảnh bill đã nén qua các lần redeploy. Khi deploy bằng Coolify, cũng cần cấu hình persistent storage mount vào `/app/data`.
+> [!NOTE] Compose dùng Docker volumes `zalobot-postgres`, `zalobot-redis` và `zalobot-receipts`. `zalobot-receipts` được mount vào `/app/data` để giữ ảnh bill đã nén qua các lần redeploy. Khi deploy bằng Coolify, cũng cần cấu hình persistent storage mount vào `/app/data`.
 
 ---
 
@@ -126,7 +126,7 @@ Coolify cho phép triển khai dự án tự động thông qua GitHub App Webho
 2. **Chọn Build Pack**: Chọn **Dockerfile**.
 3. **Cấu hình Environment Variables**:
    - Dán các biến từ `.env` vào mục **Environment Variables**. Đặt `APP_URL` và `WEB_ORIGIN` là runtime variables; đặt `NEXT_PUBLIC_API_URL` là build variable trước lần build Dashboard.
-   - Không dùng `SERVICE_URL_TELEBOT`: Coolify dành tiền tố `SERVICE_URL_*` cho URL do nền tảng quản lý.
+   - Không dùng `SERVICE_URL_zaloBOT`: Coolify dành tiền tố `SERVICE_URL_*` cho URL do nền tảng quản lý.
 4. **Cấu hình database**:
    - Dùng PostgreSQL và Redis services trong `docker-compose.yml`.
    - Khai báo `POSTGRES_PASSWORD` trong Environment Variables; Compose tự tạo `DATABASE_URL` nội bộ cho API.
@@ -155,7 +155,7 @@ pm2 save
 pm2 startup
 
 # 5. Xem logs & giám sát
-pm2 logs nestjs-telegram-assistant
+pm2 logs nestjs-zalo-assistant
 pm2 monit
 ```
 

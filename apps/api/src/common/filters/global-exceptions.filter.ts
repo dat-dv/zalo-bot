@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { QueryFailedError, EntityNotFoundError } from 'typeorm';
-import { IApiErrorResponse } from '@telebot/contracts';
+import { IApiErrorResponse } from '@zalobot/contracts';
 
 @Catch()
 export class GlobalExceptionsFilter implements ExceptionFilter {

@@ -7,15 +7,15 @@
 
 ## Bằng chứng
 
-- `apps/api/src/telegram/telegram.update.ts:471` gọi `buildTodayActionsMarkup()` sau khi lấy tổng hợp tuần.
-- `apps/api/src/telegram/services/telegram-ui.service.ts:94-100` tạo nút `🔄 Cập nhật` với callback `action:refresh_today`.
-- `apps/api/src/telegram/telegram.update.ts:794-798` xác nhận callback này luôn gọi `onToday()`.
-- Kiểm thử cô lập đã chạy: gọi `TelegramUpdate.onWeek()` với UI giả lập và kiểm tra bộ hành động theo tuần. Kết quả hiện tại: `Expected /week to attach week-scoped actions, but got: today`.
-- `apps/api/src/telegram/telegram-menu.catalog.ts:50-55` đặt nhãn `💳 Công nợ`, trong khi lệnh thực tế chỉ liệt kê các khoản chưa tất toán và tách `Cần thu`/`Cần trả`.
+- `apps/api/src/zalo/zalo.update.ts:471` gọi `buildTodayActionsMarkup()` sau khi lấy tổng hợp tuần.
+- `apps/api/src/zalo/services/zalo-ui.service.ts:94-100` tạo nút `🔄 Cập nhật` với callback `action:refresh_today`.
+- `apps/api/src/zalo/zalo.update.ts:794-798` xác nhận callback này luôn gọi `onToday()`.
+- Kiểm thử cô lập đã chạy: gọi `zaloUpdate.onWeek()` với UI giả lập và kiểm tra bộ hành động theo tuần. Kết quả hiện tại: `Expected /week to attach week-scoped actions, but got: today`.
+- `apps/api/src/zalo/zalo-menu.catalog.ts:50-55` đặt nhãn `💳 Công nợ`, trong khi lệnh thực tế chỉ liệt kê các khoản chưa tất toán và tách `Cần thu`/`Cần trả`.
 
 ## Nguyên nhân gốc
 
-Lớp điều phối Telegram tái sử dụng bộ nút của báo cáo hôm nay cho báo cáo 7 ngày. Callback và nhãn của nút vì vậy không đồng nhất với nội dung tin nhắn. Đồng thời các nhãn menu ưu tiên ngắn gọn nhưng chưa bổ sung đủ ý nghĩa nghiệp vụ.
+Lớp điều phối zalo tái sử dụng bộ nút của báo cáo hôm nay cho báo cáo 7 ngày. Callback và nhãn của nút vì vậy không đồng nhất với nội dung tin nhắn. Đồng thời các nhãn menu ưu tiên ngắn gọn nhưng chưa bổ sung đủ ý nghĩa nghiệp vụ.
 
 ## Phạm vi ảnh hưởng
 
@@ -32,4 +32,4 @@ Lớp điều phối Telegram tái sử dụng bộ nút của báo cáo hôm na
 ## Rủi ro và xác minh sau khi sửa
 
 - Rủi ro thấp: chỉ thay nhãn và điều phối callback, không thay đổi dữ liệu công nợ, lịch hoặc Google API.
-- Xác minh: chạy kiểm thử cô lập hiện tại, kiểm tra `/today`, `/week`, `/start`, `/help` trên Telegram; bảo đảm nút theo tuần không gọi báo cáo hôm nay.
+- Xác minh: chạy kiểm thử cô lập hiện tại, kiểm tra `/today`, `/week`, `/start`, `/help` trên zalo; bảo đảm nút theo tuần không gọi báo cáo hôm nay.

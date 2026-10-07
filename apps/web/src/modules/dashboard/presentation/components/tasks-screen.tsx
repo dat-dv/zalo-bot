@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { type ITaskListItem } from '@telebot/contracts';
+import { type ITaskListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataPanel } from '@/shared/ui/data-table';
 import { TasksTable, type TaskEditDraft } from './tasks-table';

@@ -9,7 +9,7 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { localeTag } from '@telebot/contracts';
+import { localeTag } from '@zalobot/contracts';
 import { useLocale } from './locale-provider';
 
 export interface MoneyVisibilityContextValue {
@@ -19,7 +19,7 @@ export interface MoneyVisibilityContextValue {
   money: (value: number) => string;
 }
 
-const MONEY_VISIBILITY_STORAGE_KEY = 'telebot-money-visibility';
+const MONEY_VISIBILITY_STORAGE_KEY = 'zalobot-money-visibility';
 const MoneyVisibilityContext = createContext<MoneyVisibilityContextValue | null>(null);
 
 function getInitialMoneyVisibility(): boolean {

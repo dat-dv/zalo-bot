@@ -4,7 +4,7 @@ import type {
   ICombineContactsResponse,
   IContactListItem,
   IUpdateContactRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { combineContacts, deleteContact, getContacts, updateContact } from './contacts-api';
 
 export const contactsQueryKeys = { list: () => ['contacts'] as const };

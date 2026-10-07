@@ -25,7 +25,7 @@ Thiết kế lại toàn bộ giao diện Web Dashboard theo chuẩn **Flat Ente
 
 ## 2. Thay đổi dự kiến (Proposed Changes)
 
-### Package: `@telebot/contracts`
+### Package: `@zalobot/contracts`
 
 #### [MODIFY] packages/contracts/src/index.ts
 

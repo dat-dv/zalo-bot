@@ -1,6 +1,6 @@
 # 🏛️ Kiến Trúc Hệ Thống (System Architecture)
 
-Tài liệu này mô tả chi tiết kiến trúc tổng thể, luồng dữ liệu và các nguyên lý thiết kế cốt lõi của **NestJS Telegram AI Assistant**.
+Tài liệu này mô tả chi tiết kiến trúc tổng thể, luồng dữ liệu và các nguyên lý thiết kế cốt lõi của **NestJS zalo AI Assistant**.
 
 ---
 
@@ -8,22 +8,22 @@ Tài liệu này mô tả chi tiết kiến trúc tổng thể, luồng dữ li�
 
 Dự án được tổ chức dưới dạng **npm workspaces monorepo**. Backend là **Modular Monolith NestJS** tại `apps/api`, giao diện quản trị React + Vite tại `apps/web`, và các hợp đồng dùng chung tại `packages/contracts`. Backend hỗ trợ **Kiến trúc Đa Người Dùng (Multi-Tenant Isolation)** với **PostgreSQL (TypeORM)**.
 
-1. **Người dùng Telegram**: Gửi yêu cầu qua ngôn ngữ tự nhiên tiếng Việt hoặc qua các lệnh tắt (Slash Commands).
+1. **Người dùng zalo**: Gửi yêu cầu qua ngôn ngữ tự nhiên tiếng Việt hoặc qua các lệnh tắt (Slash Commands).
 2. **Tầng Phân Quyền & Quản Lý Người Dùng (`UsersModule` + PostgreSQL)**: Quản lý người dùng, lời mời kích hoạt Deep Link (`/invite`), danh sách trắng động và chống spam qua cơ sở dữ liệu PostgreSQL.
 3. **Bộ não Google Gemini AI (`gemini-3.5-flash-lite`)**: Phân tích ngữ cảnh, neo thời gian thực tế, gọi Function Calling đa bước và tự động fallback model.
 4. **Google Workspace (Calendar & Tasks)**: Dịch vụ thực thi dữ liệu qua OAuth2 được cô lập độc lập cho từng người dùng (`user_tokens` table).
 
 ```mermaid
 graph TD
-    User([Người dùng Telegram]) <-->|Message / Slash Command| TG[Telegram Bot Layer]
+    User([Người dùng zalo]) <-->|Message / Slash Command| TG[zalo Bot Layer]
     TG -->|AuthGuard| Guard{Được phép & Đã Login Google?}
     Guard -- No --> Reject[Từ chối / Yêu cầu Invite / Bấm Login Google]
-    Guard -- Yes --> Handler[Telegram Update Handler]
-    
+    Guard -- Yes --> Handler[zalo Update Handler]
+
     Handler <-->|Prompt + User Context| Gemini[Gemini AI Service]
     Gemini <-->|Function Declarations & Calls| Tools[Gemini Tools Layer]
     Tools <-->|OAuth2 Per-User Token| Google[Google Workspace Layer]
-    
+
     subgraph PostgreSQL Database Storage
         DB[(PostgreSQL)]
         DB --> UsersTable[users: Thông tin & vai trò Admin/Member]
@@ -55,13 +55,13 @@ apps/api/src/
 │   ├── users.service.ts            # TypeORM Repositories, In-Memory Cache, Cooldown
 │   └── users.module.ts
 │
-├── telegram/                       # TẦNG GIAO TIẾP TELEGRAM
+├── zalo/                       # TẦNG GIAO TIẾP zalo
 │   ├── services/
-│   │   └── telegram-ui.service.ts  # Tách riêng: Typing Heartbeat, Safe Reply Chunking, Code Extraction
+│   │   └── zalo-ui.service.ts  # Tách riêng: Typing Heartbeat, Safe Reply Chunking, Code Extraction
 │   ├── guards/
 │   │   └── auth.guard.ts           # Whitelist Check, Anti-spam & Google Auth Requirement
-│   ├── telegram.update.ts          # Điều phối Slash Commands & Text Message Dispatcher
-│   └── telegram.module.ts
+│   ├── zalo.update.ts          # Điều phối Slash Commands & Text Message Dispatcher
+│   └── zalo.module.ts
 │
 ├── gemini/                         # TẦNG TRÍ TUỆ NHÂN TẠO (AI CORE)
 │   ├── helpers/
@@ -85,10 +85,13 @@ apps/api/src/
 ## 3. Các Nguyên Lý Thiết Kế Trọng Yếu
 
 ### 1. Zero-File-Mount & Portable Secrets
+
 Toàn bộ thông tin Client ID/Secret được truyền trực tiếp qua biến môi trường; token OAuth được mã hóa và lưu trong PostgreSQL. Không có file token rời rạc giúp triển khai nhanh chóng trên Docker/Coolify.
 
 ### 2. Multi-Tenant Token Isolation
+
 Mọi yêu cầu tương tác Google Workspace đều nhận kèm `userId`. `GoogleAuthService` tự động lấy đúng OAuth2Client của người đó từ PostgreSQL, ngăn chặn 100% rủi ro lẫn lộn dữ liệu giữa người dùng.
 
 ### 3. Dual-Mode Fallback
-Hệ thống vừa hỗ trợ Web Callback tự động 1-click qua HTTP Server, vừa hỗ trợ sao chép đường link dán trực tiếp vào chat Telegram để đảm bảo không bao giờ bị gián đoạn.
+
+Hệ thống vừa hỗ trợ Web Callback tự động 1-click qua HTTP Server, vừa hỗ trợ sao chép đường link dán trực tiếp vào chat zalo để đảm bảo không bao giờ bị gián đoạn.

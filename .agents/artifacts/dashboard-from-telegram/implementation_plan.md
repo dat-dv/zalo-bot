@@ -1,15 +1,15 @@
 ---
 RequestFeedback: true
-Task: dashboard-from-telegram
+Task: dashboard-from-zalo
 Risk: high
 Status: awaiting-approval
 ---
 
-# Kế hoạch dashboard mở từ Telegram bot
+# Kế hoạch dashboard mở từ zalo bot
 
 ## Mục tiêu
 
-Thay trang HTML báo cáo tài chính hiện tại bằng dashboard React, mở an toàn từ nút Telegram, để mỗi người dùng xem dữ liệu cá nhân của mình trên web.
+Thay trang HTML báo cáo tài chính hiện tại bằng dashboard React, mở an toàn từ nút zalo, để mỗi người dùng xem dữ liệu cá nhân của mình trên web.
 
 ## Hiện trạng
 
@@ -28,7 +28,7 @@ Thay trang HTML báo cáo tài chính hiện tại bằng dashboard React, mở 
    - Hoạt động gần đây từ audit log.
 3. **Giao diện React**: trang `/reports` theo kiểu dashboard vận hành gọn, responsive, có bốn trạng thái loading/error/empty/success; hiển thị thông điệp rõ khi chưa kết nối Google hoặc chưa có dữ liệu.
 4. **Admin-only**: thêm khối thông tin người dùng/tình trạng kết nối Google khi người mở dashboard là admin. Không trả dữ liệu của người dùng khác cho member.
-5. **Contracts & docs**: khai báo API response/route constants trong `@telebot/contracts`; cập nhật hướng dẫn cấu hình `VITE_API_URL`, CORS/cookie và tài liệu kiến trúc.
+5. **Contracts & docs**: khai báo API response/route constants trong `@zalobot/contracts`; cập nhật hướng dẫn cấu hình `VITE_API_URL`, CORS/cookie và tài liệu kiến trúc.
 
 ## Quyết định kỹ thuật
 

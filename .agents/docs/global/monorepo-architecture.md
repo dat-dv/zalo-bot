@@ -13,7 +13,7 @@ Tài liệu này hướng dẫn cấu trúc tổ chức dự án monorepo và qu
 
 ## Cấu trúc
 
-- `apps/api`: NestJS backend, Telegram bot và OAuth Google.
+- `apps/api`: NestJS backend, zalo bot và OAuth Google.
 - `apps/web`: Next.js App Router xuất static files; không dùng Next API Route hay Server Action.
 - `packages/contracts`: Kiểu dữ liệu và hằng số route dùng chung.
 - PostgreSQL là nơi lưu dữ liệu bền vững; container API không dùng file database cục bộ.
@@ -31,26 +31,26 @@ Tài liệu này hướng dẫn cấu trúc tổ chức dự án monorepo và qu
 
 ## Bảo mật biến môi trường
 
-Chỉ `NEXT_PUBLIC_API_URL` được phép đi vào bundle trình duyệt. Token Telegram, Gemini, Google OAuth và `DATA_ENCRYPTION_KEY` chỉ dùng cho `apps/api`.
+Chỉ `NEXT_PUBLIC_API_URL` được phép đi vào bundle trình duyệt. Token zalo, Gemini, Google OAuth và `DATA_ENCRYPTION_KEY` chỉ dùng cho `apps/api`.
 
 Dashboard tổ chức theo DDD: `modules/auth` sở hữu token/session phía trình duyệt, `modules/dashboard` sở hữu tổng quan và thống kê, `modules/contacts` sở hữu danh bạ. Component tái sử dụng như `DataTable` và `DataPanel` nằm ở `shared/ui`; client HTTP và TanStack Query provider nằm ở `shared/api`/`shared/providers`. `packages/contracts` chỉ chứa route constants và DTO types, không chứa React component.
 
-## Tránh xung đột bot Telegram
+## Tránh xung đột bot zalo
 
-Telegram chỉ cho phép một tiến trình gọi long polling (`getUpdates`) với cùng một bot token. Phải khai báo rõ `TELEGRAM_LONG_POLLING_ENABLED`; chỉ đặt `true` tại đúng một bot worker. Khi chạy local chỉ để dùng dashboard/API trong lúc production đang chạy bot, đặt `TELEGRAM_LONG_POLLING_ENABLED=false` trong `.env.local`. Instance này vẫn gửi được tin nhắn chủ động (ví dụ lời nhắc và thông báo OAuth) nhưng không nhận command hoặc update từ Telegram.
+zalo chỉ cho phép một tiến trình gọi long polling (`getUpdates`) với cùng một bot token. Phải khai báo rõ `zalo_LONG_POLLING_ENABLED`; chỉ đặt `true` tại đúng một bot worker. Khi chạy local chỉ để dùng dashboard/API trong lúc production đang chạy bot, đặt `zalo_LONG_POLLING_ENABLED=false` trong `.env.local`. Instance này vẫn gửi được tin nhắn chủ động (ví dụ lời nhắc và thông báo OAuth) nhưng không nhận command hoặc update từ zalo.
 
 ## Dashboard mở từ bot
 
 1. Cấu hình `APP_URL` là URL public runtime của API/bot và đặt `WEB_ORIGIN` cùng giá trị khi Dashboard dùng chung domain.
-2. Đặt `NEXT_PUBLIC_API_URL` cùng origin đó trước khi build Docker dashboard, ví dụ `https://telebot.datintech.site` (không thêm `/api`). Giá trị này được đóng gói vào static bundle; các hằng route đã có `/api`, nên Nginx nhận `/api/*` và chuyển sang NestJS. Không dùng `SERVICE_URL_*` vì Coolify dành tiền tố này cho URL do nền tảng quản lý.
-3. Bot hiển thị nút **Xem Dashboard**. Link chỉ dùng trong năm phút; API xác nhận token theo user Telegram, cấp session dashboard và chuyển sang `/` (kèm `#dashboard_token=...`) trên frontend.
-4. Dashboard gọi `GET /api/dashboard` bằng access token; không truyền Telegram ID. Refresh token không đi vào JavaScript. Hai secret `DASHBOARD_ACCESS_TOKEN_SECRET` và `DASHBOARD_REFRESH_TOKEN_SECRET` chỉ nằm ở API.
+2. Đặt `NEXT_PUBLIC_API_URL` cùng origin đó trước khi build Docker dashboard, ví dụ `https://zalobot.datintech.site` (không thêm `/api`). Giá trị này được đóng gói vào static bundle; các hằng route đã có `/api`, nên Nginx nhận `/api/*` và chuyển sang NestJS. Không dùng `SERVICE_URL_*` vì Coolify dành tiền tố này cho URL do nền tảng quản lý.
+3. Bot hiển thị nút **Xem Dashboard**. Link chỉ dùng trong năm phút; API xác nhận token theo user zalo, cấp session dashboard và chuyển sang `/` (kèm `#dashboard_token=...`) trên frontend.
+4. Dashboard gọi `GET /api/dashboard` bằng access token; không truyền zalo ID. Refresh token không đi vào JavaScript. Hai secret `DASHBOARD_ACCESS_TOKEN_SECRET` và `DASHBOARD_REFRESH_TOKEN_SECRET` chỉ nằm ở API.
 
 Access token dashboard được lưu ở browser storage trong 15 phút theo yêu cầu UI. Refresh token sống 7 ngày, được xoay vòng ở cookie `HttpOnly`; Axios tự refresh sau `401`, còn TanStack Query quản lý cache và trạng thái dữ liệu.
 
 Khi phát triển local, Next chạy tại `http://localhost:5173` và browser gọi API tại `http://localhost:3000`; API tự cho phép origin này ở non-production. Khi dashboard và API dùng cùng domain, đặt `APP_URL`, `WEB_ORIGIN` và `NEXT_PUBLIC_API_URL` cùng giá trị. Khi triển khai static web riêng, đặt `WEB_ORIGIN` là URL public của web; API dùng biến này cho CORS và redirect từ `/api/access`.
 
-Khi cần frontend local gọi API remote, đặt `NEXT_PUBLIC_API_URL=https://telebot.datintech.site` trong `apps/web/.env.local` và tạm đặt `CORS_ALLOW_ALL=true` trong ENV của API remote. Chế độ này phản chiếu origin thay vì dùng `*`, nên vẫn tương thích cookie refresh; phải đổi lại `false` sau khi thử nghiệm.
+Khi cần frontend local gọi API remote, đặt `NEXT_PUBLIC_API_URL=https://zalobot.datintech.site` trong `apps/web/.env.local` và tạm đặt `CORS_ALLOW_ALL=true` trong ENV của API remote. Chế độ này phản chiếu origin thay vì dùng `*`, nên vẫn tương thích cookie refresh; phải đổi lại `false` sau khi thử nghiệm.
 
 ## Docker & Tối Ưu Hóa Build Cache
 
@@ -74,8 +74,7 @@ Dự án sử dụng cơ chế **TypeORM Migrations tự động** để đồng
    - Khi container API khởi động, NestJS tự động quét các file trong `apps/api/src/database/migrations/` và thực thi những migration chưa được áp dụng vào database.
    - Trạng thái đã chạy được lưu trong bảng `typeorm_migrations`.
 2. **Các lệnh quản lý Migration (CLI)**:
-   - `npm run migration:run --workspace @telebot/api`: Chạy thủ công tất cả migration mới.
-   - `npm run migration:revert --workspace @telebot/api`: Rollback migration gần nhất.
-   - `npm run migration:generate --workspace @telebot/api -- src/database/migrations/<TenMigration>`: Tự động so sánh Entity và sinh file migration mới.
-   - `npm run migration:create --workspace @telebot/api -- src/database/migrations/<TenMigration>`: Tạo file migration trống.
-
+   - `npm run migration:run --workspace @zalobot/api`: Chạy thủ công tất cả migration mới.
+   - `npm run migration:revert --workspace @zalobot/api`: Rollback migration gần nhất.
+   - `npm run migration:generate --workspace @zalobot/api -- src/database/migrations/<TenMigration>`: Tự động so sánh Entity và sinh file migration mới.
+   - `npm run migration:create --workspace @zalobot/api -- src/database/migrations/<TenMigration>`: Tạo file migration trống.

@@ -1,12 +1,12 @@
-export function renderSuccessHtml(botUsername: string): string {
-  const tgUrl = botUsername ? `https://t.me/${botUsername}` : 'tg://resolve';
+export function renderSuccessHtml(botUsername?: string): string {
+  const returnUrl = botUsername ? `https://zalo.me/${botUsername}` : 'https://zalo.me';
 
   return `<!DOCTYPE html>
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kết Nối Google Thành Công | Telebot</title>
+  <title>Kết Nối Google Thành Công | Zalo Bot</title>
   <style>
     :root {
       --primary: #4285F4;
@@ -77,19 +77,19 @@ export function renderSuccessHtml(botUsername: string): string {
       justify-content: center;
       width: 100%;
       padding: 14px 24px;
-      background: #229ED9;
+      background: #0068FF;
       color: white;
       text-decoration: none;
       font-weight: 600;
       font-size: 16px;
       border-radius: 14px;
       transition: all 0.2s ease;
-      box-shadow: 0 4px 14px rgba(34, 158, 217, 0.4);
+      box-shadow: 0 4px 14px rgba(0, 104, 255, 0.4);
     }
     .btn:hover {
-      background: #1c88bd;
+      background: #0052cc;
       transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(34, 158, 217, 0.6);
+      box-shadow: 0 6px 20px rgba(0, 104, 255, 0.6);
     }
     .footer {
       margin-top: 24px;
@@ -102,8 +102,8 @@ export function renderSuccessHtml(botUsername: string): string {
   <div class="card">
     <div class="icon-wrapper">✓</div>
     <h1>Kết Nối Thành Công!</h1>
-    <p>Tài khoản Google Workspace của bạn đã được kết nối an toàn với trợ lý cá nhân. Bạn có thể quay lại Telegram ngay bây giờ.</p>
-    <a href="${tgUrl}" class="btn">👉 Mở Lại Telegram Bot</a>
+    <p>Tài khoản Google Workspace của bạn đã được kết nối an toàn với trợ lý cá nhân. Bạn có thể quay lại Zalo ngay bây giờ.</p>
+    <a href="${returnUrl}" class="btn">👉 Mở Lại Zalo</a>
     <div class="footer">Bạn có thể an tâm đóng tab trình duyệt này.</div>
   </div>
 </body>
@@ -116,7 +116,7 @@ export function renderErrorHtml(errorMessage: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lỗi Kết Nối Google | Telebot</title>
+  <title>Lỗi Kết Nối Google | Zalo Bot</title>
   <style>
     :root {
       --error: #EA4335;
@@ -142,7 +142,7 @@ export function renderErrorHtml(errorMessage: string): string {
     }
     .card {
       background: var(--card);
-      border: 1px solid rgba(234, 67, 53, 0.3);
+      border: 1px solid rgba(234, 67, 53, 0.2);
       border-radius: 24px;
       padding: 40px 32px;
       max-width: 440px;
@@ -164,26 +164,27 @@ export function renderErrorHtml(errorMessage: string): string {
       font-size: 40px;
     }
     h1 {
-      font-size: 22px;
+      font-size: 24px;
       font-weight: 700;
       margin-bottom: 12px;
       color: #ffffff;
     }
     p {
       color: var(--subtext);
-      font-size: 14px;
+      font-size: 15px;
       line-height: 1.6;
-      margin-bottom: 24px;
-      word-break: break-word;
+      margin-bottom: 32px;
     }
     .error-box {
-      background: rgba(0,0,0,0.3);
-      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       padding: 12px;
+      border-radius: 8px;
       font-family: monospace;
       font-size: 13px;
       color: #fca5a5;
       margin-bottom: 24px;
+      word-break: break-all;
     }
   </style>
 </head>
@@ -191,7 +192,7 @@ export function renderErrorHtml(errorMessage: string): string {
   <div class="card">
     <div class="icon-wrapper">✕</div>
     <h1>Kết Nối Thất Bại</h1>
-    <p>Đã xảy ra sự cố trong quá trình xác thực với Google. Vui lòng quay lại bot Telegram và gõ <code>/login</code> để thử lại.</p>
+    <p>Đã xảy ra sự cố trong quá trình xác thực với Google. Vui lòng thử lại sau.</p>
     <div class="error-box">${errorMessage}</div>
   </div>
 </body>

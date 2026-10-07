@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { localeTag, DEFAULT_EXPENSE_CATEGORIES, type IExpenseListItem } from '@telebot/contracts';
+import { localeTag, DEFAULT_EXPENSE_CATEGORIES, type IExpenseListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';

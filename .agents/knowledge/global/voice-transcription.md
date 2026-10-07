@@ -2,12 +2,12 @@
 
 ## Purpose
 
-Telegram voice notes are transcribed locally before they reach Gemini. This prevents unreviewed speech recognition output from causing assistant actions.
+zalo voice notes are transcribed locally before they reach Gemini. This prevents unreviewed speech recognition output from causing assistant actions.
 
 ## Runtime contract
 
 - `whisper.cpp` runs on loopback at `WHISPER_URL`; it uses multilingual `ggml-base.bin` and no API key.
-- The Telegram handler accepts voice only up to `VOICE_MAX_DURATION_SECONDS` and `VOICE_MAX_BYTES`.
+- The zalo handler accepts voice only up to `VOICE_MAX_DURATION_SECONDS` and `VOICE_MAX_BYTES`.
 - The local server converts uploaded OGG/Opus safely with FFmpeg and returns JSON transcript text.
 - Audio and transcript are not logged verbatim.
 
@@ -19,6 +19,6 @@ Telegram voice notes are transcribed locally before they reach Gemini. This prev
 
 ## Integration seams
 
-- `VoiceTranscriptionService` owns Telegram file retrieval, Whisper HTTP invocation, and pending transcript ownership.
-- `TelegramUpdate` owns Telegram UI callbacks and delegates confirmed text to the existing Gemini request flow.
+- `VoiceTranscriptionService` owns zalo file retrieval, Whisper HTTP invocation, and pending transcript ownership.
+- `zaloUpdate` owns zalo UI callbacks and delegates confirmed text to the existing Gemini request flow.
 - Docker starts `whisper-server` only on `127.0.0.1:8080`; it is never exposed as a public port.

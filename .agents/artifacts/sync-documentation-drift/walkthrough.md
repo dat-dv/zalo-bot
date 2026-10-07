@@ -39,7 +39,7 @@
   npm run typecheck
   ```
 
-  ✅ **PASS**: Tất cả workspaces (`@telebot/api`, `@telebot/web`, `@telebot/contracts`) vượt qua typecheck không lỗi.
+  ✅ **PASS**: Tất cả workspaces (`@zalobot/api`, `@zalobot/web`, `@zalobot/contracts`) vượt qua typecheck không lỗi.
 
 - **Full Workspace Lint**:
 

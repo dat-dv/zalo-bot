@@ -5,7 +5,7 @@ import {
   type IDebtListItem,
   type IDebtPaymentItem,
   type IUpdateDebtRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
 export async function getDebts(signal?: AbortSignal): Promise<IDebtListItem[]> {
@@ -41,11 +41,11 @@ export async function createDebtPayment(
 }
 
 export async function combineDebts(
-  data: import('@telebot/contracts').ICombineDebtsRequest,
+  data: import('@zalobot/contracts').ICombineDebtsRequest,
   signal?: AbortSignal,
-): Promise<import('@telebot/contracts').ICombineDebtsResponse> {
+): Promise<import('@zalobot/contracts').ICombineDebtsResponse> {
   const response = await httpClient.post<
-    IApiResponse<import('@telebot/contracts').ICombineDebtsResponse>
+    IApiResponse<import('@zalobot/contracts').ICombineDebtsResponse>
   >(API_ROUTES.debtsCombine, data, { signal });
   return response.data.data;
 }

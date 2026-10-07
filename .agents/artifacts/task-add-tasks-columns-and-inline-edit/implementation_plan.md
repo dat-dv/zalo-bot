@@ -7,7 +7,7 @@ Tài liệu này mô tả chi tiết phương án thêm các cột dữ liệu m
 ## 1. Mục tiêu & Yêu cầu
 
 1. **Bổ sung các cột dữ liệu trên bảng Tasks**:
-   - **Trạng thái (`status`)**: Checkbox hoàn thành nhanh / Badge trạng thái (*Cần làm* `needsAction` hoặc *Đã xong* `completed*).
+   - **Trạng thái (`status`)**: Checkbox hoàn thành nhanh / Badge trạng thái (_Cần làm_ `needsAction` hoặc _Đã xong_ `completed*).
    - **Tiêu đề (`title`)**: Hiển thị tên công việc, hỗ trợ inline edit (nhấn đúp chuột hoặc nút Sửa).
    - **Ghi chú (`notes`)**: Hiển thị nội dung chi tiết/ghi chú của task, hỗ trợ inline edit.
    - **Hạn chót (`dueAt`)**: Hiển thị ngày giờ hết hạn đã format theo locale (`vi-VN`/`en-US`), hỗ trợ inline edit chọn ngày giờ.
@@ -30,7 +30,8 @@ Tài liệu này mô tả chi tiết phương án thêm các cột dữ liệu m
 ## 2. Chi tiết các thay đổi dự kiến
 
 ### 2.1. Shared Contracts (`packages/contracts`)
-- **[MODIFY] [`packages/contracts/src/index.ts`](file:///Users/datdoan/Documents/projects/telebot/packages/contracts/src/index.ts)**:
+
+- **[MODIFY] [`packages/contracts/src/index.ts`](file:///Users/datdoan/Documents/projects/zalobot/packages/contracts/src/index.ts)**:
   - Bổ sung interface `ITaskListItem` và `IUpdateTaskRequest`:
     ```typescript
     export interface ITaskListItem {
@@ -63,7 +64,8 @@ Tài liệu này mô tả chi tiết phương án thêm các cột dữ liệu m
 ---
 
 ### 2.2. Backend API (`apps/api`)
-- **[MODIFY] [`apps/api/src/reports/reports.controller.ts`](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/reports/reports.controller.ts)**:
+
+- **[MODIFY] [`apps/api/src/reports/reports.controller.ts`](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/reports/reports.controller.ts)**:
   - Cập nhật mapping dữ liệu tasks trong endpoint `GET /dashboard` để trả về đầy đủ các trường `notes`, `status`, `updatedAt`:
     ```typescript
     tasks: tasks.map((item) => ({
@@ -75,23 +77,24 @@ Tài liệu này mô tả chi tiết phương án thêm các cột dữ liệu m
       updatedAt: item.updated || undefined,
     })),
     ```
-- **[MODIFY] [`apps/api/src/google/google-resources.controller.ts`](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/google/google-resources.controller.ts)**:
+- **[MODIFY] [`apps/api/src/google/google-resources.controller.ts`](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/google/google-resources.controller.ts)**:
   - Đảm bảo endpoint `PATCH /tasks/:id` và `DELETE /tasks/:id` trả về định dạng chuẩn xác khi được gọi từ frontend.
 
 ---
 
 ### 2.3. Web Frontend (`apps/web`)
-- **[NEW] [`apps/web/src/modules/tasks/api/tasks-api.ts`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/tasks/api/tasks-api.ts)**:
+
+- **[NEW] [`apps/web/src/modules/tasks/api/tasks-api.ts`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/tasks/api/tasks-api.ts)**:
   - Triển khai các API client method:
     - `getTasks(signal?: AbortSignal): Promise<ITaskListItem[]>`
     - `updateTask(id: string, data: IUpdateTaskRequest, signal?: AbortSignal): Promise<ITaskListItem>`
     - `deleteTask(id: string, signal?: AbortSignal): Promise<boolean>`
-- **[NEW] [`apps/web/src/modules/tasks/api/tasks-query.ts`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/tasks/api/tasks-query.ts)**:
+- **[NEW] [`apps/web/src/modules/tasks/api/tasks-query.ts`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/tasks/api/tasks-query.ts)**:
   - Định nghĩa Query Key Factory `tasksQueryKeys`
   - React Query Hook `useTasksQuery()`
   - React Query Mutation Hook `useUpdateTaskMutation()` (tự động invalidate `tasks` và `dashboard` query keys)
   - React Query Mutation Hook `useDeleteTaskMutation()`
-- **[MODIFY] [`apps/web/src/modules/dashboard/view/tasks-screen.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/view/tasks-screen.tsx)**:
+- **[MODIFY] [`apps/web/src/modules/dashboard/view/tasks-screen.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/view/tasks-screen.tsx)**:
   - Tích hợp `useTasksQuery` và `useUpdateTaskMutation`, `useDeleteTaskMutation`.
   - Quản lý state `editingId` và `editDraft` (`title`, `notes`, `due`, `status`).
   - Xây dựng cấu hình các cột `DataTableColumn<ITaskListItem>` đầy đủ:
@@ -109,6 +112,7 @@ Tài liệu này mô tả chi tiết phương án thêm các cột dữ liệu m
 ## 3. Kế hoạch kiểm thử & Đảm bảo chất lượng (Verification Plan)
 
 ### Automated Verification
+
 1. **Typecheck toàn bộ monorepo**:
    ```bash
    npm run typecheck
@@ -127,10 +131,11 @@ Tài liệu này mô tả chi tiết phương án thêm các cột dữ liệu m
    ```
 
 ### Manual Verification
+
 - Mở trang `/tasks`, kiểm tra hiển thị đầy đủ các cột mới: Trạng thái, Tiêu đề, Ghi chú, Hạn chót, Cập nhật, Thao tác.
 - Thử nghiệm tính năng Inline Edit:
   - Nhấp đúp chuột vào ô Tiêu đề hoặc Ghi chú -> Xuất hiện input chỉnh sửa.
   - Sửa nội dung và nhấn `Enter` -> Gửi PATCH request và hiển thị Toast "Đã cập nhật công việc".
   - Nhấn `Escape` -> Hủy bỏ thay đổi và quay lại dữ liệu cũ.
-- Thử nghiệm checkbox hoàn thành nhanh -> Trạng thái task chuyển đổi giữa *needsAction* và *completed*.
+- Thử nghiệm checkbox hoàn thành nhanh -> Trạng thái task chuyển đổi giữa _needsAction_ và _completed_.
 - Kiểm tra tính tương thích responsive trên cả mobile và desktop.

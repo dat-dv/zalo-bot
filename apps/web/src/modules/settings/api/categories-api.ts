@@ -4,7 +4,7 @@ import {
   type ICategoryItem,
   type ICreateCategoryRequest,
   type IUpdateCategoryRequest,
-} from '@telebot/contracts';
+} from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
 export async function getCategories(

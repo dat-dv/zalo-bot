@@ -20,4 +20,4 @@
 
 ## Lưu ý triển khai
 
-Các môi trường đã dựa vào default cũ phải khai báo rõ các key mới trong `.env.example`, đặc biệt `PORT`, `TELEGRAM_LONG_POLLING_ENABLED`, các giới hạn Whisper/OCR, timezone, model Gemini và `NEXT_PUBLIC_API_URL`.
+Các môi trường đã dựa vào default cũ phải khai báo rõ các key mới trong `.env.example`, đặc biệt `PORT`, `zalo_LONG_POLLING_ENABLED`, các giới hạn Whisper/OCR, timezone, model Gemini và `NEXT_PUBLIC_API_URL`.

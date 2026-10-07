@@ -14,7 +14,7 @@ Tài liệu canonical tương ứng: [`backend-exception-filter.md`](../../knowl
 ## 1. Mục Đích & Kiến Trúc
 
 - Toàn bộ ngoại lệ phát sinh trong quá trình xử lý HTTP request tại Backend (`apps/api`) được bắt và chuẩn hóa bởi `GlobalExceptionsFilter` (đăng ký qua `APP_FILTER` trong `AppModule`).
-- Format lỗi trả về luôn tuân thủ interface `IApiErrorResponse` từ `@telebot/contracts`:
+- Format lỗi trả về luôn tuân thủ interface `IApiErrorResponse` từ `@zalobot/contracts`:
   ```json
   {
     "statusCode": 400,
@@ -34,5 +34,5 @@ Tài liệu canonical tương ứng: [`backend-exception-filter.md`](../../knowl
 3. **Lỗi không xác định (Unhandled Error)**:
    - Trả về `500 Internal Server Error`.
    - Ở môi trường `production`, ẩn hoàn toàn stack trace và thông tin nội bộ của hệ thống.
-4. **Non-HTTP Context (Telegram Bot / Cron)**:
+4. **Non-HTTP Context (zalo Bot / Cron)**:
    - Ghi log lỗi vào Logger hệ thống, không can thiệp vào response HTTP.

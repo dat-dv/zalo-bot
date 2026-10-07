@@ -13,7 +13,7 @@ Bot yêu cầu xác nhận trước khi ghi Google Tasks.
 
 Trước khi hiện hộp xác nhận, bot so sánh tiêu đề với tối đa 50 việc chưa hoàn thành (bỏ dấu, khoảng trắng và ký tự phân cách). Nếu tiêu đề trùng hoặc một tiêu đề là bản mở rộng của tiêu đề còn lại, bot hiện cảnh báo **Có thể trùng**. Đây chỉ là cảnh báo: người dùng vẫn bấm **Xác nhận** được vì hai việc cùng tên có thể là chủ ý.
 
-- Mỗi task hỗ trợ cấu trúc chuẩn 3 phần: `title` (tiêu đề việc), `notes` (ghi chú/hướng dẫn chi tiết), và `due` (hạn chót hoàn thành định dạng ISO 8601). Thẻ xác nhận trên Telegram hiển thị đầy đủ 3 trường này.
+- Mỗi task hỗ trợ cấu trúc chuẩn 3 phần: `title` (tiêu đề việc), `notes` (ghi chú/hướng dẫn chi tiết), và `due` (hạn chót hoàn thành định dạng ISO 8601). Thẻ xác nhận trên zalo hiển thị đầy đủ 3 trường này.
 - Một việc dùng `create_task`.
 - Danh sách nhiều việc độc lập dùng `create_tasks`; bot hiển thị một xác nhận cho toàn bộ danh sách.
 - Sau khi xác nhận, các mục được tạo tuần tự. Google Tasks không hỗ trợ transaction nhiều mục, nên nếu lỗi giữa chừng bot phải báo rõ mục nào đã tạo và mục nào chưa tạo được.

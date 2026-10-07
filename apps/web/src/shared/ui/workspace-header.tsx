@@ -4,16 +4,16 @@ import type { ReactNode } from 'react';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { API_ROUTES, APP_ROUTES, type TranslationKey } from '@telebot/contracts';
+import { API_ROUTES, APP_ROUTES, type TranslationKey } from '@zalobot/contracts';
 import { clearAccessToken, getAccessToken } from '@/modules/auth/client/auth-storage';
 import { httpClient } from '@/shared/api/http-client';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyVisibility } from '@/shared/providers/money-visibility-provider';
 
-function getTelegramBotUrl(): string {
-  const customUrl = process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL?.trim();
+function getzaloBotUrl(): string {
+  const customUrl = process.env.NEXT_PUBLIC_zalo_BOT_URL?.trim();
   if (customUrl) return customUrl;
-  const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.trim();
+  const botUsername = process.env.NEXT_PUBLIC_zalo_BOT_USERNAME?.trim();
   if (botUsername) return `https://t.me/${botUsername}`;
   return 'https://t.me';
 }
@@ -132,7 +132,7 @@ export function WorkspaceHeader({
   };
 
   const routeMeta = ROUTE_HEADER_MAP[pathname];
-  const resolvedTitle = propTitle || (routeMeta ? t(routeMeta.titleKey) : 'Telebot');
+  const resolvedTitle = propTitle || (routeMeta ? t(routeMeta.titleKey) : 'zalobot');
   const resolvedSubtitle =
     propSubtitle || (routeMeta?.subtitleKey ? t(routeMeta.subtitleKey) : undefined);
 
@@ -201,11 +201,11 @@ export function WorkspaceHeader({
         ) : (
           <a
             className="inline-flex min-h-[30px] items-center justify-center gap-1.5 rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white no-underline transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-            href={getTelegramBotUrl()}
+            href={getzaloBotUrl()}
             target="_blank"
             rel="noopener noreferrer"
           >
-            <span>{t('auth.openTelegramBot')}</span>
+            <span>{t('auth.openzaloBot')}</span>
           </a>
         )}
       </div>

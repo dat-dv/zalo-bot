@@ -9,7 +9,7 @@ metadata:
 
 # Công khai web và xác minh Google OAuth
 
-Telebot công khai các trang phục vụ Google review tại:
+zalobot công khai các trang phục vụ Google review tại:
 
 - `/about`: giới thiệu sản phẩm.
 - `/privacy`: chính sách quyền riêng tư và cam kết Google API Services User Data Policy / Limited Use.
@@ -22,11 +22,11 @@ OAuth chỉ yêu cầu thông tin định danh cơ bản, Google Calendar và Go
 ## Checklist phát hành
 
 1. Triển khai domain HTTPS production và bảo đảm `/about`, `/privacy`, `/terms` truy cập công khai được.
-2. Trong Google Cloud Console, khai báo homepage là `https://telebot.datintech.site/about`, privacy policy là `https://telebot.datintech.site/privacy`, terms là `https://telebot.datintech.site/terms`.
+2. Trong Google Cloud Console, khai báo homepage là `https://zalobot.datintech.site/about`, privacy policy là `https://zalobot.datintech.site/privacy`, terms là `https://zalobot.datintech.site/terms`.
 3. Xác minh ownership domain trong Google Search Console.
 4. Khai báo Authorized redirect URI đúng tuyệt đối: `APP_URL + /api/oauth2callback`. Với cấu hình Nginx hiện tại, endpoint này được chuyển tiếp vào NestJS.
 5. Bật Google Calendar API và Google Tasks API; kiểm tra Data Access chỉ hiển thị các scope đang sử dụng.
-6. Trong Verification Center, giải thích từng scope theo chức năng tương ứng và đính kèm video: người dùng mở Telegram, chọn kết nối Google, cấp quyền, tạo/đọc Calendar hoặc Tasks, và nêu cách gửi yêu cầu xóa dữ liệu.
+6. Trong Verification Center, giải thích từng scope theo chức năng tương ứng và đính kèm video: người dùng mở zalo, chọn kết nối Google, cấp quyền, tạo/đọc Calendar hoặc Tasks, và nêu cách gửi yêu cầu xóa dữ liệu.
 7. Sau khi Google duyệt, yêu cầu người dùng cũ kết nối lại nếu cần token chỉ chứa scope mới.
 
 ## Xóa dữ liệu

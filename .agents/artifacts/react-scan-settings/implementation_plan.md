@@ -8,7 +8,7 @@ Thêm `react-scan` cho dashboard Next.js. Tính năng mặc định tắt và ng
 
 ## Phạm vi thay đổi
 
-1. Cài `react-scan` vào workspace `@telebot/web` và cập nhật lockfile.
+1. Cài `react-scan` vào workspace `@zalobot/web` và cập nhật lockfile.
 2. Tạo một client-side provider hoặc component chuyên trách để:
    - đọc lựa chọn từ local storage;
    - mặc định là `false` khi chưa có lựa chọn;

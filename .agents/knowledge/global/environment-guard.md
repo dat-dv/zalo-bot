@@ -9,8 +9,8 @@ Runtime configuration is an explicit deployment contract. API startup and dashbo
 ## Contract
 
 - API loads root `.env` then `.env.local`; `.env.local` has development precedence, while process-provided variables remain valid deployment inputs.
-- Required API values are parsed once into Nest configuration: public URLs, port, CORS and polling flags, Telegram credentials, Gemini settings, Google OAuth client credentials, dashboard secrets, encryption key, AI/OCR limits, and timezone.
-- `TELEGRAM_ALLOWED_USER_IDS` is optional. GramJS flash-call variables are optional as a group, but all three must be present when enabled.
+- Required API values are parsed once into Nest configuration: public URLs, port, CORS and polling flags, zalo credentials, Gemini settings, Google OAuth client credentials, dashboard secrets, encryption key, AI/OCR limits, and timezone.
+- `zalo_ALLOWED_USER_IDS` is optional. GramJS flash-call variables are optional as a group, but all three must be present when enabled.
 - Consumers use validated config values only; they must not read `process.env` or provide their own environment defaults.
 - The static dashboard requires a valid `NEXT_PUBLIC_API_URL` during both configuration load and browser client initialization.
 

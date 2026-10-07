@@ -5,16 +5,16 @@ Risk: high
 Status: awaiting-approval
 ---
 
-# Kế hoạch xác thực token dashboard từ Telegram
+# Kế hoạch xác thực token dashboard từ zalo
 
 ## Mục tiêu
 
-Khi user bấm nút dashboard trong Telegram, API sẽ xác thực link ký, cấp access token cho React lưu vào `localStorage`, và cấp refresh token qua cookie `HttpOnly`. React dùng Axios interceptor để tự refresh access token khi API trả `401`; TanStack Query quản lý dữ liệu dashboard và trạng thái tải/lỗi.
+Khi user bấm nút dashboard trong zalo, API sẽ xác thực link ký, cấp access token cho React lưu vào `localStorage`, và cấp refresh token qua cookie `HttpOnly`. React dùng Axios interceptor để tự refresh access token khi API trả `401`; TanStack Query quản lý dữ liệu dashboard và trạng thái tải/lỗi.
 
 ## Luồng xác thực
 
 ```text
-Telegram button
+zalo button
   -> /reports/access?userId&token (HMAC link hiện có)
   -> xác thực link còn hạn năm phút, cấp:
        access token ngắn hạn (15 phút) trong URL fragment #dashboard_token=...
@@ -29,7 +29,7 @@ Fragment không được gửi về server hoặc theo HTTP Referer; refresh tok
 
 ## Phạm vi triển khai
 
-1. Tạo token service trong `apps/api/src/reports/` dùng chữ ký HMAC, payload tối thiểu gồm Telegram user ID, loại token, hạn dùng và token version/nonce.
+1. Tạo token service trong `apps/api/src/reports/` dùng chữ ký HMAC, payload tối thiểu gồm zalo user ID, loại token, hạn dùng và token version/nonce.
 2. Đổi `/reports/access` thành exchange với link bot hết hạn sau năm phút: cấp access token 15 phút trong fragment và refresh token 7 ngày ở cookie `HttpOnly`; redirect tới `WEB_ORIGIN/reports`.
 3. Bảo vệ `/reports/dashboard` bằng Bearer access token thay vì đọc cookie trực tiếp; thêm `POST /reports/refresh` để xoay refresh token và trả access token mới.
 4. Thêm `POST /reports/logout` để xóa refresh cookie và frontend storage.
@@ -55,14 +55,14 @@ Fragment không được gửi về server hoặc theo HTTP Referer; refresh tok
 ```env
 WEB_ORIGIN=http://localhost:5173
 VITE_API_URL=http://localhost:3000
-REPORT_ACCESS_TOKEN=<existing secret for Telegram link signing>
+REPORT_ACCESS_TOKEN=<existing secret for zalo link signing>
 DASHBOARD_ACCESS_TOKEN_SECRET=<new 64-char random secret>
 DASHBOARD_REFRESH_TOKEN_SECRET=<new 64-char random secret>
 ```
 
 ## Tiêu chí hoàn thành
 
-- User Telegram bấm dashboard, được redirect vào React và tự có access token.
+- User zalo bấm dashboard, được redirect vào React và tự có access token.
 - Refresh hoạt động khi access token hết hạn, không yêu cầu mở lại bot trong 7 ngày.
 - Axios retry đúng một lần sau refresh; TanStack Query hiển thị loading/error/empty/success.
 - Không có refresh token nào xuất hiện trong URL, localStorage hoặc API response.

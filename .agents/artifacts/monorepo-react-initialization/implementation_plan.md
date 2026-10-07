@@ -9,7 +9,7 @@ Status: awaiting-approval
 
 ## Mục tiêu
 
-Chuyển NestJS Telegram bot hiện hữu thành monorepo npm workspaces, giữ nguyên hành vi backend, và tạo ứng dụng React + Vite + TypeScript tại `apps/web` làm nền tảng giao diện quản trị.
+Chuyển NestJS zalo bot hiện hữu thành monorepo npm workspaces, giữ nguyên hành vi backend, và tạo ứng dụng React + Vite + TypeScript tại `apps/web` làm nền tảng giao diện quản trị.
 
 ## Phát hiện hiện tại
 
@@ -23,7 +23,7 @@ Chuyển NestJS Telegram bot hiện hữu thành monorepo npm workspaces, giữ 
 ## Thiết kế đề xuất
 
 ```text
-telebot/
+zalobot/
 ├── apps/
 │   ├── api/                 # NestJS hiện tại (di chuyển bằng mv)
 │   └── web/                 # React + Vite + TypeScript
@@ -49,10 +49,10 @@ Lựa chọn React SPA/Vite giúp khởi tạo frontend nhẹ, chạy tĩnh đ�
 
 ## Các thay đổi có ảnh hưởng
 
-- Lệnh phát triển và deploy backend đổi từ root sang workspace (`npm run dev:api`, `npm run build --workspace @telebot/api`).
+- Lệnh phát triển và deploy backend đổi từ root sang workspace (`npm run dev:api`, `npm run build --workspace @zalobot/api`).
 - Docker build context vẫn là root để npm workspaces cài dependency đúng; volume SQLite tiếp tục là `./data:/app/data`.
-- Biến bí mật chỉ thuộc backend; frontend chỉ nhận `VITE_API_URL` và không được đưa token Gemini/Telegram/Google vào bundle.
-- Không thay đổi database schema, Telegram commands, Google OAuth flow hay nghiệp vụ bot.
+- Biến bí mật chỉ thuộc backend; frontend chỉ nhận `VITE_API_URL` và không được đưa token Gemini/zalo/Google vào bundle.
+- Không thay đổi database schema, zalo commands, Google OAuth flow hay nghiệp vụ bot.
 
 ## Rủi ro và cách giảm thiểu
 

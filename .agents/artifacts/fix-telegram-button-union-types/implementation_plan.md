@@ -8,17 +8,17 @@ RequestFeedback: true
 
 ## Thay đổi dự kiến
 
-1. Trong `apps/api/src/telegram/services/telegram-ui.service.spec.ts`, thêm helper type guard cục bộ để kiểm tra `'callback_data' in button` trước khi đọc giá trị.
+1. Trong `apps/api/src/zalo/services/zalo-ui.service.spec.ts`, thêm helper type guard cục bộ để kiểm tra `'callback_data' in button` trước khi đọc giá trị.
 2. Dùng helper đó ở các assertion đang đọc `callback_data` từ button hoặc button tìm qua `find`.
-3. Không thay đổi hành vi UI, markup Telegram, hay mã runtime.
+3. Không thay đổi hành vi UI, markup zalo, hay mã runtime.
 
 ## Phạm vi và rủi ro
 
-- Chỉ thay đổi test TypeScript Telegram UI.
+- Chỉ thay đổi test TypeScript zalo UI.
 - Rủi ro thấp; thay đổi chỉ làm việc kiểm tra type-safe hơn.
 
 ## Xác minh
 
 1. Chạy typecheck API.
 2. Chạy lint API.
-3. Chạy test/spec Telegram UI phù hợp nếu cấu hình dự án hỗ trợ.
+3. Chạy test/spec zalo UI phù hợp nếu cấu hình dự án hỗ trợ.

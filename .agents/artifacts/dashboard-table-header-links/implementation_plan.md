@@ -11,7 +11,7 @@ Trên trang chủ (`/` - `DashboardHomeScreen`), người dùng muốn tiêu đ�
 ## 2. Quy Chuẩn & Nguyên Tắc Tuân Thủ
 
 1. **Strict Route Safety (`strict-routes-and-paths.md`)**:
-   - Sử dụng các hằng số định tuyến từ `@telebot/contracts` (`APP_ROUTES.tasks`, `APP_ROUTES.reminders`, `APP_ROUTES.calendar`, `APP_ROUTES.transactions`, `APP_ROUTES.debts`). Tuyệt đối không hardcode chuỗi đường dẫn.
+   - Sử dụng các hằng số định tuyến từ `@zalobot/contracts` (`APP_ROUTES.tasks`, `APP_ROUTES.reminders`, `APP_ROUTES.calendar`, `APP_ROUTES.transactions`, `APP_ROUTES.debts`). Tuyệt đối không hardcode chuỗi đường dẫn.
 2. **Zero Hardcoded Text (`i18n-no-hardcoded-user-text.md`)**:
    - Tiêu đề vẫn sử dụng translation key qua `t(...)`.
    - Ký hiệu mũi tên chỉ hướng (nếu có) được đánh dấu `aria-hidden="true"` để đảm bảo accessibility (a11y).
@@ -26,7 +26,9 @@ Trên trang chủ (`/` - `DashboardHomeScreen`), người dùng muốn tiêu đ�
 ## 3. Chi Tiết Các File Thay Đổi (Proposed Changes)
 
 ### 3.1. Shared UI Component: `DataPanel`
-#### [MODIFY] [`apps/web/src/shared/ui/data-table.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/data-table.tsx)
+
+#### [MODIFY] [`apps/web/src/shared/ui/data-table.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/data-table.tsx)
+
 - Import `Link` từ `next/link`.
 - Bổ sung prop tùy chọn `titleHref?: string` vào `DataPanel`.
 - Cập nhật phần render `<h2>`:
@@ -34,7 +36,9 @@ Trên trang chủ (`/` - `DashboardHomeScreen`), người dùng muốn tiêu đ�
   - Nếu không có `titleHref`: render `{title}` thông thường.
 
 ### 3.2. Dashboard Module: `DashboardHomeScreen`
-#### [MODIFY] [`apps/web/src/modules/dashboard/view/dashboard-home-screen.tsx`](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/dashboard/view/dashboard-home-screen.tsx)
+
+#### [MODIFY] [`apps/web/src/modules/dashboard/view/dashboard-home-screen.tsx`](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/dashboard/view/dashboard-home-screen.tsx)
+
 - Cập nhật component `DashboardHomeContent`:
   - `DataPanel` Việc cần làm (Tasks): truyền `titleHref={APP_ROUTES.tasks}`
   - `DataPanel` Nhắc nhở (Reminders): truyền `titleHref={APP_ROUTES.reminders}`
@@ -46,9 +50,13 @@ Trên trang chủ (`/` - `DashboardHomeScreen`), người dùng muốn tiêu đ�
   - Đồng bộ truyền `titleHref` tương tự cho các `DataPanel` trong skeleton loading để bảo đảm tính nhất quán 1:1.
 
 ### 3.3. Documentation & Canonical Knowledge (Phase 2)
-#### [MODIFY] [`.agents/knowledge/modules/dashboard/README.md`](file:///Users/datdoan/Documents/projects/telebot/.agents/knowledge/modules/dashboard/README.md)
+
+#### [MODIFY] [`.agents/knowledge/modules/dashboard/README.md`](file:///Users/datdoan/Documents/projects/zalobot/.agents/knowledge/modules/dashboard/README.md)
+
 - Cập nhật mô tả `DataPanel` header link navigation trong module Dashboard.
-#### [MODIFY] [`.agents/docs/modules/dashboard/README.md`](file:///Users/datdoan/Documents/projects/telebot/.agents/docs/modules/dashboard/README.md)
+
+#### [MODIFY] [`.agents/docs/modules/dashboard/README.md`](file:///Users/datdoan/Documents/projects/zalobot/.agents/docs/modules/dashboard/README.md)
+
 - Cập nhật tài liệu hướng dẫn Dashboard tiếng Việt.
 
 ---
@@ -56,11 +64,13 @@ Trên trang chủ (`/` - `DashboardHomeScreen`), người dùng muốn tiêu đ�
 ## 4. Kế Hoạch Kiểm Thử & Xác Minh (Verification Plan)
 
 ### Automated Verification
+
 - Chạy `npm run typecheck` để đảm bảo an toàn kiểu dữ liệu trong toàn bộ monorepo.
 - Chạy `npm run lint` để đảm bảo tuân thủ ESLint.
 - Chạy `npm run agent-system:validate` để kiểm tra tính toàn vẹn hệ thống tài liệu và quy chuẩn.
 
 ### Manual Verification
+
 - Kiểm tra hiển thị tiêu đề trên trang chủ:
   - Bảng "Việc cần làm": hiển thị liên kết trỏ tới `/tasks`, hover có hiệu ứng đổi màu và icon mũi tên.
   - Bảng "Nhắc nhở": hiển thị liên kết trỏ tới `/reminders`.

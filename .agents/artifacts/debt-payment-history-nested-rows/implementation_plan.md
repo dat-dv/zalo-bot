@@ -5,6 +5,7 @@
 Hiện tại, khi một khoản nợ (khoản đơn lẻ, khoản con trong nợ gộp, hoặc khoản đã tất toán) phát sinh các đợt thanh toán trả nợ (`debt_payments`), số tiền còn lại (`remainingAmount`) bị giảm đi (ví dụ từ 12 triệu còn 10 triệu, hoặc về 0đ khi tất toán) nhưng bảng giao diện chưa hiển thị chi tiết các đợt thanh toán cấu thành, dẫn đến việc thiếu minh bạch nguồn gốc dòng tiền trả nợ.
 
 Kế hoạch này triển khai giải pháp **Hybrid Master-Detail Nested Rows**:
+
 1. Hiển thị thông tin tiến độ trả nợ tổng quan tại cột Số tiền: `(Đã trả X ₫ · N đợt)`.
 2. Hỗ trợ nút mũi tên dropdown `▶ / ▼` trên mọi khoản nợ có phát sinh thanh toán (`payments.length > 0`), cho phép mở rộng các dòng con **Đợt trả nợ** trực tiếp ngay bên dưới.
 3. Hỗ trợ hoàn tác / xóa đợt trả nợ nếu người dùng nhập nhầm.
@@ -15,6 +16,7 @@ Kế hoạch này triển khai giải pháp **Hybrid Master-Detail Nested Rows**
 
 > [!IMPORTANT]
 > **Các tính năng nổi bật sẽ được bổ sung**:
+>
 > 1. **Dòng Đã Tất Toán (`settled`)**: Giữ nút dropdown `▶` để khi bấm vào sẽ thấy lịch sử thanh toán đã tất toán khoản nợ đó (Ngày trả, số tiền, ghi chú).
 > 2. **Dòng Khoản Con trong Nợ Gộp (`child debts`)**: Bấm mở khoản cha ra các khoản con, và từng khoản con có thể bấm mở tiếp các đợt trả nợ của chính khoản con đó.
 > 3. **Cột Số Tiền Còn Lại**: Bổ sung nhãn phụ thông minh: `(Đã trả 2.000.000 ₫ · 1 đợt)` để nhìn lướt qua là biết ngay số tiền đã trả.
@@ -26,7 +28,8 @@ Kế hoạch này triển khai giải pháp **Hybrid Master-Detail Nested Rows**
 
 ### A. Backend API & Entity Mapping
 
-#### [MODIFY] [reports.controller.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/reports/reports.controller.ts)
+#### [MODIFY] [reports.controller.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/reports/reports.controller.ts)
+
 - Cập nhật hàm `mapDebt(debt: DebtEntity)` để map đầy đủ mảng `payments`:
   ```ts
   payments: debt.payments?.map((p) => ({
@@ -37,21 +40,24 @@ Kế hoạch này triển khai giải pháp **Hybrid Master-Detail Nested Rows**
     note: p.note || undefined,
     financeTransactionId: p.financeTransactionId || undefined,
     createdAt: toIsoDate(p.createdAt),
-  })) || []
+  })) || [];
   ```
 - Đảm bảo `payments` được map cho cả khoản nợ cha và các khoản nợ con `children`.
 
-#### [MODIFY] [finance.controller.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/finance/finance.controller.ts)
+#### [MODIFY] [finance.controller.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/finance/finance.controller.ts)
+
 - Bổ sung endpoint `DELETE /api/debts/:id/payments/:paymentId` cho phép xóa/hoàn tác một đợt thanh toán trả nợ.
 
-#### [MODIFY] [finance.service.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/finance/finance.service.ts)
+#### [MODIFY] [finance.service.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/finance/finance.service.ts)
+
 - Thêm hàm `deleteDebtPayment(userId, debtId, paymentId)` chạy trong transaction an toàn, tự động hoàn lại `remainingAmount` cho khoản nợ cha và xóa giao dịch thu chi liên kết nếu có.
 
 ---
 
-### B. Gói Hợp Đồng Dùng Chung (`@telebot/contracts`)
+### B. Gói Hợp Đồng Dùng Chung (`@zalobot/contracts`)
 
-#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/telebot/packages/contracts/src/index.ts)
+#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/zalobot/packages/contracts/src/index.ts)
+
 - Bổ sung translation keys song ngữ (`vi` & `en`):
   - `debts.badge.paymentChild`: `'Đợt trả nợ'` / `'Debt payment'`
   - `debts.badge.paymentInstallment`: `'{count} đợt trả'` / `'{count} payments'`
@@ -66,10 +72,12 @@ Kế hoạch này triển khai giải pháp **Hybrid Master-Detail Nested Rows**
 
 ### C. Frontend Web (`apps/web`)
 
-#### [MODIFY] [debts-api.ts](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/debts/api/debts-api.ts) & [debts-query.ts](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/debts/api/debts-query.ts)
+#### [MODIFY] [debts-api.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/debts/api/debts-api.ts) & [debts-query.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/debts/api/debts-query.ts)
+
 - Thêm hàm `deleteDebtPayment(debtId, paymentId)` và hook `useDeleteDebtPaymentMutation()`.
 
-#### [MODIFY] [debts-table.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/modules/debts/presentation/components/debts-table.tsx)
+#### [MODIFY] [debts-table.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/modules/debts/presentation/components/debts-table.tsx)
+
 - Quản lý state `expandedPaymentDebtIds: Set<string>`.
 - Mở rộng hàm `flattenedRows`: Chèn các dòng con đợt trả nợ (`_isPaymentChild: true`) ngay dưới khoản nợ tương ứng khi người dùng mở rộng.
 - Cập nhật các cột hiển thị:
@@ -88,10 +96,12 @@ Kế hoạch này triển khai giải pháp **Hybrid Master-Detail Nested Rows**
 
 ### D. Tài Liệu Hệ Thống & Knowledge Sync
 
-#### [MODIFY] [debts knowledge](file:///Users/datdoan/Documents/projects/telebot/.agents/knowledge/modules/debts/README.md)
+#### [MODIFY] [debts knowledge](file:///Users/datdoan/Documents/projects/zalobot/.agents/knowledge/modules/debts/README.md)
+
 - Cập nhật quy chuẩn UX cây phân cấp thanh toán nợ lồng nhau (Payment sub-rows).
 
-#### [MODIFY] [debts docs](file:///Users/datdoan/Documents/projects/telebot/.agents/docs/modules/debts/README.md)
+#### [MODIFY] [debts docs](file:///Users/datdoan/Documents/projects/zalobot/.agents/docs/modules/debts/README.md)
+
 - Cập nhật tài liệu hướng dẫn cho developer về cấu trúc dữ liệu `payments` và thao tác xóa/hoàn tác đợt trả nợ.
 
 ---
@@ -99,13 +109,15 @@ Kế hoạch này triển khai giải pháp **Hybrid Master-Detail Nested Rows**
 ## 4. Kế Hoạch Kiểm Thử & Xác Minh (Verification Plan)
 
 ### Automated Tests & Quality Gates
-- `npm run test --workspace=@telebot/api`: Kiểm tra unit tests backend cho việc xóa và ghi nhận đợt trả nợ.
-- `npm run build --workspace=@telebot/contracts`: Build type definitions contracts.
+
+- `npm run test --workspace=@zalobot/api`: Kiểm tra unit tests backend cho việc xóa và ghi nhận đợt trả nợ.
+- `npm run build --workspace=@zalobot/contracts`: Build type definitions contracts.
 - `npm run typecheck`: Kiểm tra 100% type safety trên toàn bộ monorepo.
 - `npm run lint`: Kiểm tra không có vi phạm ESLint hay hardcoded text.
 - `npm run agent-system:validate`: Kiểm tra tính toàn vẹn hệ thống tài liệu.
 
 ### Manual Verification
+
 1. Mở trang Quản lý Công nợ (`/debts`):
    - Kiểm tra khoản nợ đã tất toán (Dòng 1): Có nút `▶` mở ra đợt trả nợ 1.000.000đ ngày 27/8.
    - Kiểm tra khoản nợ con 12tr còn 10tr (Dòng 4): Có nút `▶` mở ra đợt trả nợ 2.000.000đ.

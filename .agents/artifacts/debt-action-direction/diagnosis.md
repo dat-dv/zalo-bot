@@ -2,7 +2,7 @@
 
 ## Hiện tượng
 
-Với khoản phải thu `Trí đang nợ anh`, Telegram hiển thị các nút `💵 Trả nợ` và `🗑️ Xóa khoản này`. Nhãn `Trả nợ` khiến người dùng hiểu nhầm chủ tài khoản là người đi trả tiền. Không có thao tác `Đóng khoản`.
+Với khoản phải thu `Trí đang nợ anh`, zalo hiển thị các nút `💵 Trả nợ` và `🗑️ Xóa khoản này`. Nhãn `Trả nợ` khiến người dùng hiểu nhầm chủ tài khoản là người đi trả tiền. Không có thao tác `Đóng khoản`.
 
 ## Kết quả tái hiện bằng mã nguồn
 
@@ -12,8 +12,8 @@ Lệnh `/debts` biểu diễn đúng chiều khoản nợ: `receivable` thành `
 
 ## Phạm vi ảnh hưởng
 
-- `apps/api/src/telegram/telegram.update.ts`: hiển thị danh sách và xử lý callback.
-- `apps/api/src/telegram/services/telegram-ui.service.ts`: tạo bàn phím nút bấm.
+- `apps/api/src/zalo/zalo.update.ts`: hiển thị danh sách và xử lý callback.
+- `apps/api/src/zalo/services/zalo-ui.service.ts`: tạo bàn phím nút bấm.
 - `apps/api/src/finance/finance.service.ts`: hiện chỉ tất toán khi ghi nhận thanh toán làm số còn lại về 0.
 - `apps/web/src/app.tsx`: chỉ hiển thị bảng; không có các nút tương ứng.
 
@@ -28,4 +28,4 @@ Lệnh `/debts` biểu diễn đúng chiều khoản nợ: `receivable` thành `
 
 ## Trạng thái
 
-Nguyên nhân gốc đã được xác nhận tĩnh từ đường đi hiển thị. Chưa có kiểm thử tự động cho luồng Telegram này, nên chưa có vòng lặp tái hiện runtime độc lập.
+Nguyên nhân gốc đã được xác nhận tĩnh từ đường đi hiển thị. Chưa có kiểm thử tự động cho luồng zalo này, nên chưa có vòng lặp tái hiện runtime độc lập.

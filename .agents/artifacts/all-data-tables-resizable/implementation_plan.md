@@ -5,7 +5,7 @@ RequestFeedback: false
 ## Kết quả triển khai
 
 - `DataTable` tự bật kéo resize cho mọi bảng có `id` và vẫn có thể tắt rõ ràng bằng `allowColumnResize={false}`.
-- Mỗi bảng lưu độ rộng riêng vào `telebot:table-widths:<id>`; Calendar không còn cần cấu hình đặc biệt.
+- Mỗi bảng lưu độ rộng riêng vào `zalobot:table-widths:<id>`; Calendar không còn cần cấu hình đặc biệt.
 - Đã chạy thành công `npm run typecheck`, `npm run lint` và `git diff --check`.
 
 ## Mục tiêu
@@ -17,7 +17,7 @@ Mọi bảng đang dùng `DataTable` có `id` sẽ cho phép kéo mép phải c�
 - Sửa duy nhất component dùng chung `apps/web/src/shared/ui/data-table.tsx`:
   - bật resize mặc định khi bảng có `id`;
   - duy trì cơ chế opt-out cho trường hợp bảng mới không muốn resize;
-  - dùng khoá `telebot:table-widths:<id>` hiện có để cô lập thiết lập của từng bảng.
+  - dùng khoá `zalobot:table-widths:<id>` hiện có để cô lập thiết lập của từng bảng.
 - Xóa thuộc tính bật riêng không còn cần thiết ở Calendar, vì Calendar đã có `id="calendar"`.
 - Cập nhật tài liệu shared UI/global cho quy ước DataTable; không đổi API, dữ liệu, logic nghiệp vụ hoặc cấu hình từng module.
 

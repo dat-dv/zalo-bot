@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { localeTag, type ITaskListItem } from '@telebot/contracts';
+import { localeTag, type ITaskListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 

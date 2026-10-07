@@ -9,10 +9,10 @@ RequestFeedback: true
 Thay hoàn toàn Gemini Vision/OCR bằng luồng sau:
 
 ```
-Ảnh Telegram → Tesseract OCR chạy cục bộ → text OCR đã làm sạch → Gemini phân tích thu/chi → Xác nhận/Hủy → ghi sổ
+Ảnh zalo → Tesseract OCR chạy cục bộ → text OCR đã làm sạch → Gemini phân tích thu/chi → Xác nhận/Hủy → ghi sổ
 ```
 
-Gemini **không được nhận ảnh**, base64 ảnh, URL Telegram, hoặc dữ liệu nhị phân ảnh.
+Gemini **không được nhận ảnh**, base64 ảnh, URL zalo, hoặc dữ liệu nhị phân ảnh.
 
 ## Hiện trạng đã xác minh
 
@@ -22,17 +22,17 @@ Gemini **không được nhận ảnh**, base64 ảnh, URL Telegram, hoặc dữ
 
 ## Thay đổi triển khai
 
-1. Cài `tesseract.js` vào `@telebot/api` và lockfile.
+1. Cài `tesseract.js` vào `@zalobot/api` và lockfile.
 2. Đóng gói dữ liệu ngôn ngữ Tesseract `vie` và `eng` trong Docker image tại đường dẫn nội bộ, để OCR chạy không cần tải model lúc runtime và không gửi ảnh ra ngoài.
 3. Đổi `ReceiptImageAnalysisService` thành owner của toàn bộ xử lý ảnh:
-   - Chọn ảnh Telegram có độ phân giải cao nhất, kiểm tra byte/timeout.
+   - Chọn ảnh zalo có độ phân giải cao nhất, kiểm tra byte/timeout.
    - Dùng Tesseract worker cục bộ với `vie+eng` để trích text.
    - Chuẩn hoá text, giới hạn chiều dài, loại phần rỗng và không log nội dung ảnh/text đầy đủ.
 4. Thay `GeminiService.analyzeReceiptImage(image, mimeType)` bằng `analyzeReceiptText(ocrText)`:
    - Chỉ truyền text OCR đã làm sạch.
    - Gemini trả JSON có cấu trúc `ready`, `missing_fields`, hoặc `not_receipt`.
    - Không có inline image data/base64 trong Gemini request.
-5. Giữ nguyên handler ảnh Telegram và hàng chờ xác nhận. Chỉ kết quả `ready` hợp lệ mới tạo payload `create_finance_transaction`; thiếu/sai dữ liệu phải hỏi lại, không suy đoán.
+5. Giữ nguyên handler ảnh zalo và hàng chờ xác nhận. Chỉ kết quả `ready` hợp lệ mới tạo payload `create_finance_transaction`; thiếu/sai dữ liệu phải hỏi lại, không suy đoán.
 6. Cập nhật cấu hình OCR (ngôn ngữ, đường dẫn data cục bộ, max bytes, timeout), Dockerfile, knowledge/docs và sidecars.
 
 ## Kiểm thử và nghiệm thu

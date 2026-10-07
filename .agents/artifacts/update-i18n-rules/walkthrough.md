@@ -35,5 +35,5 @@
 - **Kiểm tra TypeScript**:
   ```bash
   npm run typecheck
-  # Output: Thành công 100% trên toàn bộ @telebot/api, @telebot/web, @telebot/contracts.
+  # Output: Thành công 100% trên toàn bộ @zalobot/api, @zalobot/web, @zalobot/contracts.
   ```

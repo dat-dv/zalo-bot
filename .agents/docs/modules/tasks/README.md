@@ -17,7 +17,7 @@ Bảng dữ liệu công việc (`TasksScreen`) được xây dựng 100% bằng
 
 1. **Cột Trạng thái (`status`)**:
    - Checkbox đánh dấu hoàn thành/chưa hoàn thành nhanh chóng.
-   - Badge trạng thái trực quan (*Cần làm* `needsAction` hoặc *Đã xong* `completed`).
+   - Badge trạng thái trực quan (_Cần làm_ `needsAction` hoặc _Đã xong_ `completed`).
 2. **Cột Tiêu đề (`title`)**:
    - Hiển thị tên công việc (gạch ngang khi đã hoàn thành).
    - Nhấn đúp chuột hoặc bấm nút Sửa để mở input chỉnh sửa trực tiếp.
@@ -55,6 +55,6 @@ Bảng dữ liệu công việc (`TasksScreen`) được xây dựng 100% bằng
 ## Quy trình kiểm thử
 
 1. Chạy `npm run typecheck` và `npm run lint` để kiểm tra an toàn kiểu và chuẩn mã nguồn.
-2. Chạy `npm run test --workspace @telebot/api` để chạy test backend.
+2. Chạy `npm run test --workspace @zalobot/api` để chạy test backend.
 3. Chạy `npm run build` để kiểm tra build toàn bộ monorepo.
 4. Kiểm tra các thao tác sửa inline, chuyển đổi các tab thời gian (Ngày, Tuần, Tháng, Quý, Năm, Tất cả) và lọc trạng thái (Đã xong, Cần làm) trên trình duyệt.

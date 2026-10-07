@@ -9,7 +9,7 @@ Tái cấu trúc hệ thống điều hướng và giao diện Web Dashboard tr�
 - **Desktop (>= 961px)**: Giữ nguyên bố cục Enterprise Sidebar 210px cố định bên trái, chuyên nghiệp và data-dense.
 - **Mobile & Tablet (<= 960px)**:
   - Ẩn sidebar mặc định.
-  - Hiển thị **Mobile Top Bar** sticky trên cùng: Logo thương hiệu `[T] Telebot` + Nút **Hamburger Menu Button** (với biểu tượng ☰ / ✕ linh hoạt).
+  - Hiển thị **Mobile Top Bar** sticky trên cùng: Logo thương hiệu `[T] zalobot` + Nút **Hamburger Menu Button** (với biểu tượng ☰ / ✕ linh hoạt).
   - Khi người dùng bấm Hamburger Button:
     - Mở **Navigation Drawer** trượt từ bên trái với hiệu ứng transition mượt mà (`transform: translateX(0)`), chứa đầy đủ các phân mục (Tổng quan, Tài chính, Kế hoạch, Dữ liệu), nút chuyển Theme Sáng/Tối, và bộ chọn Ngôn ngữ (Vi/En).
     - Hiển thị **Backdrop Overlay** làm mờ nền phía sau.
@@ -32,7 +32,8 @@ Tái cấu trúc hệ thống điều hướng và giao diện Web Dashboard tr�
 
 ### Gói Shared Contracts (`packages/contracts`)
 
-#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/telebot/packages/contracts/src/index.ts)
+#### [MODIFY] [index.ts](file:///Users/datdoan/Documents/projects/zalobot/packages/contracts/src/index.ts)
+
 - Bổ sung các translation key phục vụ điều hướng mobile và menu drawer (song ngữ `vi` và `en`):
   - `'nav.menu'`: `'Menu điều hướng'` / `'Navigation menu'`
   - `'nav.openMenu'`: `'Mở menu điều hướng'` / `'Open navigation menu'`
@@ -42,7 +43,8 @@ Tái cấu trúc hệ thống điều hướng và giao diện Web Dashboard tr�
 
 ### Giao diện Web Client (`apps/web`)
 
-#### [MODIFY] [app-navigation.tsx](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/shared/ui/app-navigation.tsx)
+#### [MODIFY] [app-navigation.tsx](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/shared/ui/app-navigation.tsx)
+
 - Bổ sung state quản lý mở/đóng drawer: `isOpen: boolean`.
 - Xử lý các sự kiện đóng tự động:
   - Khi chuyển route (`usePathname()` thay đổi).
@@ -54,7 +56,8 @@ Tái cấu trúc hệ thống điều hướng và giao diện Web Dashboard tr�
   - **Backdrop Overlay** (`.app-nav__backdrop`): phủ mờ nền khi menu mở.
   - **Navigation Drawer** (`aside.app-nav`): chứa Header drawer (Brand + Close button), danh sách link nhóm theo section, và Footer (Theme toggle + Language selector).
 
-#### [MODIFY] [styles.css](file:///Users/datdoan/Documents/projects/telebot/apps/web/src/styles.css)
+#### [MODIFY] [styles.css](file:///Users/datdoan/Documents/projects/zalobot/apps/web/src/styles.css)
+
 - Thêm CSS classes cho Mobile Header, Hamburger Button, Backdrop, và Drawer:
   - `.mobile-header`: flexbox sticky top, border, background trắng/tối.
   - `.mobile-header__brand`, `.mobile-header__toggle`.
@@ -72,10 +75,12 @@ Tái cấu trúc hệ thống điều hướng và giao diện Web Dashboard tr�
 
 ### Tài liệu & Kiến thức (`.agents/knowledge/` & `.agents/docs/`)
 
-#### [MODIFY] [.agents/knowledge/modules/dashboard/dashboard.md](file:///Users/datdoan/Documents/projects/telebot/.agents/knowledge/modules/dashboard/dashboard.md)
+#### [MODIFY] [.agents/knowledge/modules/dashboard/dashboard.md](file:///Users/datdoan/Documents/projects/zalobot/.agents/knowledge/modules/dashboard/dashboard.md)
+
 - Cập nhật mô tả kiến trúc giao diện responsive, mobile header bar và drawer menu behavior.
 
-#### [MODIFY] [.agents/docs/modules/dashboard/dashboard.md](file:///Users/datdoan/Documents/projects/telebot/.agents/docs/modules/dashboard/dashboard.md)
+#### [MODIFY] [.agents/docs/modules/dashboard/dashboard.md](file:///Users/datdoan/Documents/projects/zalobot/.agents/docs/modules/dashboard/dashboard.md)
+
 - Cập nhật hướng dẫn trải nghiệm người dùng trên thiết bị di động (Tiếng Việt).
 
 ---
@@ -83,6 +88,7 @@ Tái cấu trúc hệ thống điều hướng và giao diện Web Dashboard tr�
 ## 3. Kế hoạch Kiểm thử & Xác thực (Verification Plan)
 
 ### Automated Verification
+
 - Kiểm tra tính toàn vẹn hệ thống tài liệu và rules:
   ```bash
   npm run agent-system:validate
@@ -97,6 +103,7 @@ Tái cấu trúc hệ thống điều hướng và giao diện Web Dashboard tr�
   ```
 
 ### Manual Verification
+
 - Kiểm tra hiển thị trên Desktop (màn hình rộng > 960px): Sidebar hiển thị bình thường, không có mobile header / hamburger button thừa.
 - Kiểm tra hiển thị trên Mobile / Tablet (màn hình <= 960px):
   - Mobile topbar hiển thị trên cùng với Brand và Hamburger button.

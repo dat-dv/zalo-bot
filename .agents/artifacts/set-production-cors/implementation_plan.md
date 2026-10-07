@@ -8,13 +8,13 @@ RequestFeedback: true
 
 ## Phạm vi thay đổi
 
-| Tệp | Thay đổi |
-| --- | --- |
+| Tệp    | Thay đổi                                                         |
+| ------ | ---------------------------------------------------------------- |
 | `.env` | Đổi duy nhất `CORS_ALLOW_ALL=true` thành `CORS_ALLOW_ALL=false`. |
 
 ## Cơ sở kỹ thuật
 
-`apps/api/src/config/configuration.ts` đọc biến này với mặc định `false`. Khi tắt, `apps/api/src/main.ts` giới hạn CORS theo `WEB_ORIGIN`; `.env` hiện đặt origin này là `https://telebot.datintech.site`.
+`apps/api/src/config/configuration.ts` đọc biến này với mặc định `false`. Khi tắt, `apps/api/src/main.ts` giới hạn CORS theo `WEB_ORIGIN`; `.env` hiện đặt origin này là `https://zalobot.datintech.site`.
 
 ## Rủi ro và triển khai
 

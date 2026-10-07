@@ -18,7 +18,8 @@ Khắc phục lỗi khởi động NestJS: `Nest can't resolve dependencies of t
 
 ### Backend API Module
 
-#### [MODIFY] [finance.module.ts](file:///Users/datdoan/Documents/projects/telebot/apps/api/src/finance/finance.module.ts)
+#### [MODIFY] [finance.module.ts](file:///Users/datdoan/Documents/projects/zalobot/apps/api/src/finance/finance.module.ts)
+
 - Import `UserCategoryEntity` từ `../database/entities/user-category.entity`.
 - Thêm `UserCategoryEntity` vào danh sách entity của `TypeOrmModule.forFeature([...])`.
 
@@ -27,6 +28,7 @@ Khắc phục lỗi khởi động NestJS: `Nest can't resolve dependencies of t
 ## Kế hoạch kiểm thử & xác minh (Verification Plan)
 
 ### Automated Checks
-- Chạy `npm run typecheck --workspace @telebot/api` để xác minh tính toàn vẹn kiểu dữ liệu và module references.
+
+- Chạy `npm run typecheck --workspace @zalobot/api` để xác minh tính toàn vẹn kiểu dữ liệu và module references.
 - Chạy `npm run build:api` để đảm bảo ứng dụng backend build thành công mà không có lỗi TypeScript / NestJS metadata.
 - Chạy `npm run agent-system:validate` để đảm bảo toàn bộ hệ thống tài liệu và rules hợp lệ.

@@ -4,22 +4,22 @@ import { AppProviders } from '@/shared/providers/app-providers';
 
 const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
 const appUrl =
-  rawAppUrl && /^https?:\/\//i.test(rawAppUrl) ? rawAppUrl : 'https://telebot.datintech.site';
+  rawAppUrl && /^https?:\/\//i.test(rawAppUrl) ? rawAppUrl : 'https://zalobot.datintech.site';
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
   title: {
-    default: 'Telebot — Quản lý Tài chính & Kế hoạch Cá nhân',
-    template: '%s | Telebot',
+    default: 'zalobot — Quản lý Tài chính & Kế hoạch Cá nhân',
+    template: '%s | zalobot',
   },
   description:
-    'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp Telegram Bot.',
-  applicationName: 'Telebot',
-  authors: [{ name: 'Telebot', url: 'https://telebot.datintech.site/about' }],
+    'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp zalo Bot.',
+  applicationName: 'zalobot',
+  authors: [{ name: 'zalobot', url: 'https://zalobot.datintech.site/about' }],
   generator: 'Next.js',
   keywords: [
-    'telebot',
-    'telegram bot',
+    'zalobot',
+    'zalo bot',
     'quản lý tài chính',
     'thu chi',
     'công nợ',
@@ -28,13 +28,13 @@ export const metadata: Metadata = {
     'personal finance',
     'task manager',
   ],
-  creator: 'Telebot',
-  publisher: 'Telebot',
+  creator: 'zalobot',
+  publisher: 'zalobot',
   category: 'productivity',
   formatDetection: {
     email: false,
     address: false,
-    telephone: false,
+    zalophone: false,
   },
   icons: {
     icon: [
@@ -51,29 +51,29 @@ export const metadata: Metadata = {
     locale: 'vi_VN',
     alternateLocale: ['en_US'],
     url: '/',
-    siteName: 'Telebot',
-    title: 'Telebot — Quản lý Tài chính & Kế hoạch Cá nhân',
+    siteName: 'zalobot',
+    title: 'zalobot — Quản lý Tài chính & Kế hoạch Cá nhân',
     description:
-      'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp Telegram Bot.',
+      'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp zalo Bot.',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Telebot — Trợ lý Cá nhân & Quản lý Tài chính Thông minh',
+        alt: 'zalobot — Trợ lý Cá nhân & Quản lý Tài chính Thông minh',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Telebot — Quản lý Tài chính & Kế hoạch Cá nhân',
+    title: 'zalobot — Quản lý Tài chính & Kế hoạch Cá nhân',
     description:
-      'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp Telegram Bot.',
+      'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp zalo Bot.',
     images: ['/og-image.png'],
   },
   appleWebApp: {
     capable: true,
-    title: 'Telebot',
+    title: 'zalobot',
     statusBarStyle: 'black-translucent',
   },
   other: {
@@ -97,7 +97,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(() => { try { const saved = localStorage.getItem('telebot-theme'); const theme = saved === 'light' || saved === 'dark' ? saved : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documentElement.dataset.theme = theme; } catch { } })()`,
+            __html: `(() => { try { const saved = localStorage.getItem('zalobot-theme'); const theme = saved === 'light' || saved === 'dark' ? saved : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documenzaloment.dataset.theme = theme; } catch { } })()`,
           }}
         />
       </head>

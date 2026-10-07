@@ -1,15 +1,17 @@
 # Kế hoạch tối ưu Dockerfile API khắc phục lỗi mạng khi deploy Coolify
 
 ## Mô tả bài toán
-Trong quá trình triển khai API trên Coolify/Docker, build container bị dừng tại stage `runner` của [apps/api/Dockerfile](file:///Users/datdoan/Documents/projects/telebot/apps/api/Dockerfile) do lệnh `RUN npm ci --omit=dev --workspace @telebot/api` gặp sự cố gián đoạn kết nối mạng (`ECONNRESET / network aborted`).
-Stage `builder` trước đó đã chạy `npm ci` và biên dịch toàn bộ mã nguồn (`@telebot/contracts` và `@telebot/api`) thành công. Việc chạy thêm một lượt `npm ci` ở stage `runner` không chỉ tạo điểm nghẽn phụ thuộc vào mạng mà còn thiếu các artifacts nội bộ monorepo (`packages/contracts/dist`).
+
+Trong quá trình triển khai API trên Coolify/Docker, build container bị dừng tại stage `runner` của [apps/api/Dockerfile](file:///Users/datdoan/Documents/projects/zalobot/apps/api/Dockerfile) do lệnh `RUN npm ci --omit=dev --workspace @zalobot/api` gặp sự cố gián đoạn kết nối mạng (`ECONNRESET / network aborted`).
+Stage `builder` trước đó đã chạy `npm ci` và biên dịch toàn bộ mã nguồn (`@zalobot/contracts` và `@zalobot/api`) thành công. Việc chạy thêm một lượt `npm ci` ở stage `runner` không chỉ tạo điểm nghẽn phụ thuộc vào mạng mà còn thiếu các artifacts nội bộ monorepo (`packages/contracts/dist`).
 
 ## Thay đổi đề xuất
 
 ### Backend Docker Configuration
 
-#### [MODIFY] [Dockerfile](file:///Users/datdoan/Documents/projects/telebot/apps/api/Dockerfile)
-- **Loại bỏ lượt `npm ci` thứ hai**: Xóa hoàn toàn lệnh `RUN npm ci --omit=dev --workspace @telebot/api` trong stage `runner`.
+#### [MODIFY] [Dockerfile](file:///Users/datdoan/Documents/projects/zalobot/apps/api/Dockerfile)
+
+- **Loại bỏ lượt `npm ci` thứ hai**: Xóa hoàn toàn lệnh `RUN npm ci --omit=dev --workspace @zalobot/api` trong stage `runner`.
 - **Tái sử dụng `node_modules` từ `builder`**: Thêm `COPY --from=builder /app/node_modules ./node_modules`.
 - **Sao chép đầy đủ dist nội bộ monorepo**: Thêm `COPY --from=builder /app/packages/contracts/dist packages/contracts/dist`.
 - **Tối ưu gói hệ thống runner**: Loại bỏ `python3 make g++` khỏi danh sách cài đặt của `apk add` ở runner (do các native binary như `better-sqlite3` đã được biên dịch sẵn ở stage builder), chỉ giữ lại các thư viện runtime cần thiết (`curl ffmpeg libgomp libstdc++`).
@@ -48,8 +50,10 @@ CMD ["/usr/local/bin/start-with-whisper.sh"]
 ## Kế hoạch kiểm thử & xác thực (Verification Plan)
 
 ### Automated Verification
+
 - Kiểm tra tính hợp lệ cú pháp của Dockerfile.
 - Chạy validation hệ thống: `npm run agent-system:validate`.
 
 ### Manual Verification
+
 - Deploy lại ứng dụng trên Coolify để xác nhận stage `runner` hoàn tất tức thì mà không cần tải thêm bất kỳ package nào từ npm registry.

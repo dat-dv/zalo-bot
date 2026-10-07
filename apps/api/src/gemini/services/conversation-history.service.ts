@@ -15,7 +15,7 @@ export interface UserConversationSession {
 @Injectable()
 export class ConversationHistoryService {
   private readonly logger = new Logger(ConversationHistoryService.name);
-  private readonly sessions = new Map<number, UserConversationSession>();
+  private readonly sessions = new Map<string, UserConversationSession>();
 
   /**
    * Maximum messages preserved per user session (Sliding window).
@@ -37,13 +37,14 @@ export class ConversationHistoryService {
     }
   }
 
-  public getHistory(userId: number): Content[] {
-    const session = this.sessions.get(userId);
+  public getHistory(userId: string | number): Content[] {
+    const key = String(userId);
+    const session = this.sessions.get(key);
     if (!session) return [];
 
     const now = Date.now();
     if (now - session.lastActivityAt > this.ttlMs) {
-      this.sessions.delete(userId);
+      this.sessions.delete(key);
       return [];
     }
 
@@ -55,23 +56,23 @@ export class ConversationHistoryService {
       }));
   }
 
-  public appendUserMessage(userId: number, text: string): void {
+  public appendUserMessage(userId: string | number, text: string): void {
     const trimmed = text.trim();
     if (!trimmed) return;
-    this.addMessage(userId, 'user', trimmed);
+    this.addMessage(String(userId), 'user', trimmed);
   }
 
-  public appendModelMessage(userId: number, text: string): void {
+  public appendModelMessage(userId: string | number, text: string): void {
     const trimmed = text.trim();
     if (!trimmed) return;
-    this.addMessage(userId, 'model', trimmed);
+    this.addMessage(String(userId), 'model', trimmed);
   }
 
-  public clearHistory(userId: number): void {
-    this.sessions.delete(userId);
+  public clearHistory(userId: string | number): void {
+    this.sessions.delete(String(userId));
   }
 
-  private addMessage(userId: number, role: 'user' | 'model', text: string): void {
+  private addMessage(userId: string, role: 'user' | 'model', text: string): void {
     const now = Date.now();
     let session = this.sessions.get(userId);
 

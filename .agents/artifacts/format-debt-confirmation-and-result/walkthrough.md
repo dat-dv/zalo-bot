@@ -1,12 +1,13 @@
-# Báo Cáo Hoàn Thành: Chuẩn Hóa Định Dạng Giao Diện Công Nợ & Hệ Thống Telegram
+# Báo Cáo Hoàn Thành: Chuẩn Hóa Định Dạng Giao Diện Công Nợ & Hệ Thống zalo
 
 ## Tổng quan kết quả
 
-Đã giải quyết triệt để lỗi hiển thị raw JSON string khi tạo khoản cho vay / ghi nợ trên Telegram, đồng thời nâng cấp toàn bộ hệ thống thẻ xác nhận (`formatConfirmationBox`) và thẻ kết quả (`formatResultBox`) theo phong cách trực quan, rõ ràng và nhất quán.
+Đã giải quyết triệt để lỗi hiển thị raw JSON string khi tạo khoản cho vay / ghi nợ trên zalo, đồng thời nâng cấp toàn bộ hệ thống thẻ xác nhận (`formatConfirmationBox`) và thẻ kết quả (`formatResultBox`) theo phong cách trực quan, rõ ràng và nhất quán.
 
 ## Chi tiết các thay đổi
 
-### 1. Nâng cấp `TelegramUiService` (`apps/api/src/telegram/services/telegram-ui.service.ts`)
+### 1. Nâng cấp `zaloUiService` (`apps/api/src/zalo/services/zalo-ui.service.ts`)
+
 - **Thẻ xác nhận ghi nợ / cho vay (`create_debt`)**:
   - Tự động nhận diện và hiển thị rõ chiều công nợ:
     - `direction: 'receivable'` ➔ **Cho vay (Người khác nợ bạn)**
@@ -24,9 +25,11 @@
   - `delete_debt`, `create_calendar_event`, `delete_calendar_event`, `create_reminder`, `delete_reminder`, `update_reminder`, `complete_task`, `create_invite_link`, `ban_user`.
 
 ### 2. Bổ sung System Instruction cho Gemini (`apps/api/src/gemini/helpers/gemini-prompt.helper.ts`)
+
 - Thêm mẫu định dạng thẻ `e. THẺ XÁC NHẬN CÔNG NỢ (create_debt, record_debt_payment)` vào hướng dẫn hệ thống để Gemini luôn đồng bộ phong cách phản hồi.
 
-### 3. Kiểm thử Tự Động (`apps/api/src/telegram/services/telegram-ui.service.spec.ts`)
+### 3. Kiểm thử Tự Động (`apps/api/src/zalo/services/zalo-ui.service.spec.ts`)
+
 - Bổ sung 5 bài test bao phủ:
   - Thẻ xác nhận `create_debt` chiều cho vay (receivable) có alias, ghi chú, hạn trả, lưu danh bạ mới.
   - Thẻ xác nhận `create_debt` chiều đi vay (payable).
@@ -36,16 +39,17 @@
 - Toàn bộ 22/22 unit tests đều passed.
 
 ### 4. Đồng bộ Kiến thức & Tài liệu
-- Cập nhật `.agents/knowledge/global/telegram-response-layout.md` (EN).
-- Cập nhật `.agents/docs/global/telegram-response-layout.md` (VI).
+
+- Cập nhật `.agents/knowledge/global/zalo-response-layout.md` (EN).
+- Cập nhật `.agents/docs/global/zalo-response-layout.md` (VI).
 - Bổ sung tài liệu module tasks: `.agents/knowledge/modules/tasks/README.md` và `.agents/docs/modules/tasks/README.md`.
 
 ## Kết quả kiểm tra Quality Gates
 
-| Kiểm tra | Lệnh thực hiện | Kết quả |
-| :--- | :--- | :--- |
-| **Unit Tests** | `npx tsx --test apps/api/src/telegram/services/telegram-ui.service.spec.ts` | ✅ 22/22 tests PASS |
-| **API Tests** | `npm run test --workspace @telebot/api` | ✅ 5/5 tests PASS |
-| **Typecheck** | `npm run typecheck` | ✅ 0 errors |
-| **Lint** | `npm run lint` | ✅ 0 errors |
-| **System Validation** | `npm run agent-system:validate` | ✅ 83 artifacts, 0 cyclic groups PASS |
+| Kiểm tra              | Lệnh thực hiện                                                      | Kết quả                               |
+| :-------------------- | :------------------------------------------------------------------ | :------------------------------------ |
+| **Unit Tests**        | `npx tsx --test apps/api/src/zalo/services/zalo-ui.service.spec.ts` | ✅ 22/22 tests PASS                   |
+| **API Tests**         | `npm run test --workspace @zalobot/api`                             | ✅ 5/5 tests PASS                     |
+| **Typecheck**         | `npm run typecheck`                                                 | ✅ 0 errors                           |
+| **Lint**              | `npm run lint`                                                      | ✅ 0 errors                           |
+| **System Validation** | `npm run agent-system:validate`                                     | ✅ 83 artifacts, 0 cyclic groups PASS |

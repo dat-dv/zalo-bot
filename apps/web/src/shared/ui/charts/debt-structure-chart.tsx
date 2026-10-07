@@ -2,7 +2,7 @@
 
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
-import type { IAnalyticsDebtBreakdown } from '@telebot/contracts';
+import type { IAnalyticsDebtBreakdown } from '@zalobot/contracts';
 
 interface DebtStructureChartProps {
   debts: IAnalyticsDebtBreakdown;

@@ -11,7 +11,7 @@ Hệ thống sử dụng cơ chế **Zero-File-Mount**:
 ```mermaid
 graph TD
     A[Google Cloud Console] -->|Client ID & Secret| B[.env: GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET]
-    
+
     subgraph Multi-Tenant Database Storage
         B -->|Đăng nhập qua /login & /code| DB[(PostgreSQL)]
         DB -->|Bảng user_tokens| T1[Token Admin]
@@ -24,6 +24,7 @@ graph TD
 ```
 
 ### Các Biến Môi Trường Cấu Hình:
+
 - `GOOGLE_CLIENT_ID`: Client ID lấy từ Google Cloud Console (OAuth Client ID - Desktop App).
 - `GOOGLE_CLIENT_SECRET`: Client Secret tương ứng.
 
@@ -59,7 +60,7 @@ Sau khi deploy HTTPS domain, dùng các URL public `/about`, `/privacy` và `/te
 
 ## 3. Luồng Đăng Nhập Cho Người Dùng Mới (`/login` & `/code`)
 
-1. Người dùng gõ `/login` hoặc bấm nút **"🔗 Đăng nhập Google"** trên Telegram (hoặc AI tự gọi tool `login_google`).
+1. Người dùng gõ `/login` hoặc bấm nút **"🔗 Đăng nhập Google"** trên zalo (hoặc AI tự gọi tool `login_google`).
 2. `GoogleAuthService.generateAuthUrl(userId)` sinh URL xác thực Google với tham số `state: userId`.
 3. Người dùng đăng nhập Gmail (đã nằm trong danh sách **Test Users**) và bấm **Cho phép (Allow)**.
 4. Trình duyệt hiển thị mã xác thực (Authorization Code).
@@ -73,9 +74,10 @@ Sau khi deploy HTTPS domain, dùng các URL public `/about`, `/privacy` và `/te
 
 ## 4. Dịch Vụ Google Calendar (`GoogleCalendarService`)
 
-File vị trí: [`src/google/google-calendar.service.ts`](file:///Users/datdoan/Documents/projects/telebot/src/google/google-calendar.service.ts).
+File vị trí: [`src/google/google-calendar.service.ts`](file:///Users/datdoan/Documents/projects/zalobot/src/google/google-calendar.service.ts).
 
 ### Các Phương Thức Nhận `userId`:
+
 - `listEvents(options, userId?)`: Liệt kê sự kiện trong Calendar của đúng người gửi.
 - `createEvent(options, userId?)`: Tạo sự kiện mới kèm 4 mốc chuông `[60p, 30p, 10p, 0p]` vào đúng Calendar của người gửi.
 - `deleteEvent(eventId, userId?)`: Xóa sự kiện.
@@ -85,9 +87,10 @@ File vị trí: [`src/google/google-calendar.service.ts`](file:///Users/datdoan/
 
 ## 5. Dịch Vụ Google Tasks (`GoogleTasksService`)
 
-File vị trí: [`src/google/google-tasks.service.ts`](file:///Users/datdoan/Documents/projects/telebot/src/google/google-tasks.service.ts).
+File vị trí: [`src/google/google-tasks.service.ts`](file:///Users/datdoan/Documents/projects/zalobot/src/google/google-tasks.service.ts).
 
 ### Các Phương Thức Nhận `userId`:
+
 - `listTasks(options, userId?)`: Lấy danh sách việc cần làm từ `@default` tasklist của đúng người gửi.
 - `createTask(options, userId?)`: Tạo to-do mới có deadline vào Tasks của đúng người gửi.
 - `completeTask(taskId, taskListId?, userId?)`: Đánh dấu hoàn thành task.

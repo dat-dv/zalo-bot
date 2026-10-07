@@ -1,6 +1,6 @@
 # Kế Hoạch Triển Khai Hiển Thị Đa Ngôn Ngữ (i18n)
 
-Triển khai hiển thị đa ngôn ngữ (i18n) toàn bộ giao diện Web Dashboard và Telegram bot theo chuẩn của dự án (`@telebot/contracts`), chuyển đổi động giữa Tiếng Việt (`vi`) và Tiếng Anh (`en`), bao gồm cả định dạng tiền tệ (VND/USD hoặc vi-VN/en-US) và thời gian.
+Triển khai hiển thị đa ngôn ngữ (i18n) toàn bộ giao diện Web Dashboard và zalo bot theo chuẩn của dự án (`@zalobot/contracts`), chuyển đổi động giữa Tiếng Việt (`vi`) và Tiếng Anh (`en`), bao gồm cả định dạng tiền tệ (VND/USD hoặc vi-VN/en-US) và thời gian.
 
 ## User Review Required
 
@@ -23,7 +23,7 @@ Không có. Yêu cầu đã rõ ràng theo chuẩn hệ thống i18n hiện có.
 - Bổ sung toàn bộ translation keys cho giao diện Dashboard trong đối tượng `messages`:
   - `dashboard.welcome`: Chào bạn / Welcome
   - `dashboard.statisticsTitle`: Thống kê thu–chi / Income & Expense Statistics
-  - `dashboard.homeSubtitle`: Tổng quan cá nhân, mở từ Telegram / Personal overview, opened from Telegram
+  - `dashboard.homeSubtitle`: Tổng quan cá nhân, mở từ zalo / Personal overview, opened from zalo
   - `dashboard.statisticsSubtitle`: Dữ liệu tháng hiện tại / Current month data
   - `dashboard.metric.monthlyBalance`: Số dư tháng này / Balance this month
   - `dashboard.metric.receivable`: Cần thu / Receivable
@@ -86,4 +86,4 @@ Không có. Yêu cầu đã rõ ràng theo chuẩn hệ thống i18n hiện có.
 - Đổi ngôn ngữ trên thanh điều hướng Dashboard (chọn Tiếng Việt / English) và xác nhận:
   1. Tất cả nhãn, tiêu đề, nút bấm, bảng dữ liệu đều đổi sang ngôn ngữ đã chọn.
   2. Giá trị tiền tệ và ngày tháng định dạng đúng theo locale (`vi-VN` / `en-US`).
-  3. Giá trị cookie `telebot-locale` và thuộc tính `lang` của thẻ `<html>` được cập nhật tương ứng.
+  3. Giá trị cookie `zalobot-locale` và thuộc tính `lang` của thẻ `<html>` được cập nhật tương ứng.

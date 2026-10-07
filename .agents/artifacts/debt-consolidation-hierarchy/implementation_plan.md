@@ -3,6 +3,7 @@
 ## 1. Tổng quan & Mục tiêu
 
 Hiện tại, người dùng có thể có nhiều khoản nợ đơn lẻ phát sinh với cùng một đối tác (hoặc phát sinh trong các đợt khác nhau). Khi người dùng muốn quản lý gọn gàng hơn hoặc khi thực hiện gộp liên hệ / gộp công nợ, hệ thống cần hỗ trợ **Gom/Gộp các khoản nợ (A, B) thành một khoản nợ cha (C)**:
+
 - Khoản nợ cha **C** đại diện cho tổng nợ gốc (`originalAmount = sum(A, B)`) và tổng nợ còn lại (`remainingAmount = sum(A, B)`).
 - Các khoản nợ thành phần **A** và **B** trở thành các khoản con (`parentDebtId = C.id`), giữ nguyên chi tiết ngày phát sinh, ghi chú và lịch sử thanh toán ban đầu để bảo toàn 100% tính minh bạch và truy vết lịch sử.
 - Hỗ trợ cho cả 2 chiều công nợ: Khoản **cho vay / phải thu** (`receivable`) và Khoản **đi vay / phải trả** (`payable`).
@@ -41,6 +42,7 @@ erDiagram
 ## 3. Chi tiết Thay đổi Dự kiến
 
 ### 3.1. Gói Hợp đồng Dùng chung (`packages/contracts`)
+
 - **API Routes**:
   - `API_ROUTES.debtsCombine`: `'/api/debts/combine'`
 - **DTOs & Interfaces**:
@@ -88,6 +90,7 @@ erDiagram
 ---
 
 ### 3.2. Cơ sở Dữ liệu & TypeORM (`apps/api`)
+
 - **Entity `DebtEntity`**:
   - Thêm trường `parentDebtId?: string` (cột `parent_debt_id`, nullable).
   - Thêm quan hệ `@ManyToOne(() => DebtEntity, (d) => d.children, { nullable: true, onDelete: 'SET NULL' })` kèm `@JoinColumn({ name: 'parent_debt_id' }) parentDebt?: DebtEntity`.
@@ -98,6 +101,7 @@ erDiagram
 ---
 
 ### 3.3. Nghiệp vụ Backend (`FinanceService` & `FinanceController`)
+
 - **`FinanceService.combineDebts(userId, input: ICombineDebtsRequest)`**:
   - Kiểm tra `debtIds.length >= 2`.
   - Tìm nạp danh sách debts của user theo `debtIds`.
@@ -124,6 +128,7 @@ erDiagram
 ---
 
 ### 3.4. Web Frontend (`apps/web`)
+
 - **API & Query**:
   - `apps/web/src/modules/debts/api/debts-api.ts`: Thêm hàm `combineDebts(input, signal)`.
   - `apps/web/src/modules/debts/api/debts-query.ts`: Thêm hook `useCombineDebtsMutation()`.
@@ -140,11 +145,12 @@ erDiagram
     - Khoản nợ cha có nút mở rộng/thu gọn (`▶ / ▼`) và badge `[Khoản gộp: N khoản con]`.
     - Khi bấm mở rộng, hiển thị các dòng con thụt lề bên dưới với chi tiết từng khoản ban đầu.
 - **Modal Gộp Liên Hệ (`CombineContactsDialog`)**:
-  - Bổ sung tùy chọn checkbox: *"Gộp các khoản nợ cùng chiều thành một khoản nợ cha"* (`consolidateDebts: true`).
+  - Bổ sung tùy chọn checkbox: _"Gộp các khoản nợ cùng chiều thành một khoản nợ cha"_ (`consolidateDebts: true`).
 
 ---
 
 ### 3.5. Đồng bộ Tài liệu Tri thức Hệ thống
+
 - **Canonical Knowledge (English)**: Cập nhật `.agents/knowledge/modules/debts/README.md` về cấu trúc phân cấp cha–con và API combine debts.
 - **Developer Documentation (Vietnamese)**: Cập nhật `.agents/docs/modules/debts/README.md`.
 
@@ -153,13 +159,15 @@ erDiagram
 ## 4. Kế hoạch Kiểm thử & Xác minh
 
 ### Automated Tests
+
 1. `npm run typecheck` (Kiểm tra kiểu dữ liệu toàn bộ monorepo).
 2. `npm run lint` (Kiểm tra quy chuẩn mã nguồn ESLint).
-3. `npm run test --workspace=@telebot/api` (Chạy toàn bộ unit test suite NestJS bao gồm test cases mới cho combine debts).
-4. `npm run build --workspace=@telebot/web` (Kiểm tra build tĩnh Next.js production).
+3. `npm run test --workspace=@zalobot/api` (Chạy toàn bộ unit test suite NestJS bao gồm test cases mới cho combine debts).
+4. `npm run build --workspace=@zalobot/web` (Kiểm tra build tĩnh Next.js production).
 5. `npm run agent-system:validate` (Kiểm tra tính toàn vẹn của hệ thống agent & docs).
 
 ### Manual Verification
+
 1. Mở trang **Vay & Cho vay** (`/debts`), tích chọn 2 khoản cho vay của một người hoặc nhiều người.
 2. Bấm nút **Gộp khoản nợ (2)**, kiểm tra modal tính tổng số tiền nợ gốc và nợ còn lại chính xác.
 3. Xác nhận gộp, kiểm tra xuất hiện khoản nợ cha với badge khoản gộp và có thể bấm mở rộng xem 2 khoản con.

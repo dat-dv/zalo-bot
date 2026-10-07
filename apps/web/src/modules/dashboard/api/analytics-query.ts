@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import type { IFinanceAnalyticsResponse, AnalyticsGrain } from '@telebot/contracts';
+import type { IFinanceAnalyticsResponse, AnalyticsGrain } from '@zalobot/contracts';
 import { getFinanceAnalytics } from './analytics-api';
 
 export interface AnalyticsQueryParams {

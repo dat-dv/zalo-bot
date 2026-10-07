@@ -1,7 +1,7 @@
 'use client';
 
 import { type ReactNode } from 'react';
-import { type TranslationKey } from '@telebot/contracts';
+import { type TranslationKey } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { type PeriodFilterState, type PeriodGrain } from '@/shared/hooks/use-period-filter';
 import { Button } from './button';

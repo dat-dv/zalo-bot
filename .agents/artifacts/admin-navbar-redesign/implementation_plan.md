@@ -10,7 +10,7 @@ Risk: medium
 
 ## Mục tiêu
 
-Biến thanh điều hướng bên trái của dashboard Telebot thành một sidebar mang cảm giác ứng dụng quản trị: nhận diện sản phẩm rõ ràng, nhóm điều hướng dễ quét, trạng thái trang đang mở nổi bật vừa đủ, và khu vực trạng thái hệ thống tách bạch. Giữ nguyên toàn bộ đường dẫn, dữ liệu và nghiệp vụ hiện có.
+Biến thanh điều hướng bên trái của dashboard zalobot thành một sidebar mang cảm giác ứng dụng quản trị: nhận diện sản phẩm rõ ràng, nhóm điều hướng dễ quét, trạng thái trang đang mở nổi bật vừa đủ, và khu vực trạng thái hệ thống tách bạch. Giữ nguyên toàn bộ đường dẫn, dữ liệu và nghiệp vụ hiện có.
 
 ## Hiện trạng đã xác nhận
 
@@ -23,7 +23,7 @@ Biến thanh điều hướng bên trái của dashboard Telebot thành một si
 
 1. Cập nhật `apps/web/src/shared/ui/reports-navigation.tsx`:
    - Bổ sung biểu tượng SVG nhỏ, có nhãn truy cập phù hợp, cho từng mục để quét nhanh hơn.
-   - Tổ chức sidebar thành các vùng: nhận diện Telebot, nhãn nhóm “Báo cáo”, các mục điều hướng và khu vực footer/trạng thái.
+   - Tổ chức sidebar thành các vùng: nhận diện zalobot, nhãn nhóm “Báo cáo”, các mục điều hướng và khu vực footer/trạng thái.
    - Không đổi `ReportsNavigationPage`, `APP_ROUTES`, URL, props `active`/`footer`, hay hành vi liên kết.
 2. Cập nhật các style navbar trong `apps/web/src/styles.css`:
    - Tạo rail/sidebar gọn, màu nền và đường phân tách trung tính; thương hiệu có dấu hiệu nhận diện nhỏ thay vì trang trí nặng.
@@ -46,7 +46,7 @@ Biến thanh điều hướng bên trái của dashboard Telebot thành một si
 - Toàn bộ 5 đường dẫn hiện hữu hoạt động không thay đổi; trang hiện tại có `aria-current="page"`, nhãn text và trạng thái active dễ nhận biết.
 - Điều hướng dùng được bằng bàn phím, có focus-visible rõ và màu đạt độ tương phản cần thiết.
 - Trên mobile, navigation không tràn viewport và vẫn cuộn ngang được khi cần.
-- Chạy `npm run lint --workspace @telebot/web`, `npm run typecheck --workspace @telebot/web` và kiểm tra trực quan các trang `/reports`, `/reports/statistics`, `/reports/contacts`, `/reports/debts`, `/reports/expenses` sau khi triển khai.
+- Chạy `npm run lint --workspace @zalobot/web`, `npm run typecheck --workspace @zalobot/web` và kiểm tra trực quan các trang `/reports`, `/reports/statistics`, `/reports/contacts`, `/reports/debts`, `/reports/expenses` sau khi triển khai.
 
 ## Rủi ro và cách kiểm soát
 
@@ -56,8 +56,8 @@ Biến thanh điều hướng bên trái của dashboard Telebot thành một si
 
 ## Kết quả triển khai
 
-- Đã cập nhật sidebar báo cáo với dấu nhận diện Telebot, nhãn nhóm, icon SVG kèm nhãn chữ và vùng footer/trạng thái riêng.
+- Đã cập nhật sidebar báo cáo với dấu nhận diện zalobot, nhãn nhóm, icon SVG kèm nhãn chữ và vùng footer/trạng thái riêng.
 - Đã bổ sung các trạng thái hover, active, focus-visible; active có nền xanh nhạt và thanh nhận diện nhỏ. Mobile tiếp tục dùng dải điều hướng ngang cuộn được.
 - Đã cập nhật hướng dẫn UI chuẩn hoá cho sidebar trên desktop và mobile.
-- Đã chạy thành công `npm run lint --workspace @telebot/web`, `npm run typecheck --workspace @telebot/web`, `npm run build --workspace @telebot/web` và `git diff --check`.
+- Đã chạy thành công `npm run lint --workspace @zalobot/web`, `npm run typecheck --workspace @zalobot/web`, `npm run build --workspace @zalobot/web` và `git diff --check`.
 - Kiểm tra trực quan tự động không thực hiện được vì môi trường không có lệnh `agent-browser`; máy chủ local đã khởi động thành công trước khi dừng.

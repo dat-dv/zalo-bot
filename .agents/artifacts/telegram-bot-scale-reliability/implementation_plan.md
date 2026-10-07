@@ -6,20 +6,20 @@ Risk: high
 Status: in-progress
 ---
 
-# Kế hoạch hoàn tất nâng cấp độ tin cậy Telegram Bot
+# Kế hoạch hoàn tất nâng cấp độ tin cậy zalo Bot
 
 ## Quyết định kiến trúc đề xuất
 
 Chuyển hệ thống từ SQLite đơn tiến trình sang **PostgreSQL làm system of record** và **Redis làm shared ephemeral state**.
 
-| Nhu cầu                                | Hiện trạng                            | Đích đến                                                                          |
-| -------------------------------------- | ------------------------------------- | --------------------------------------------------------------------------------- |
-| Dữ liệu nghiệp vụ                      | SQLite volume với `synchronize: true` | PostgreSQL + TypeORM migrations                                                   |
-| Xác nhận AI, transcript voice, history | `Map` trong RAM                       | Redis, TTL rõ ràng, user-bound                                                    |
-| Cooldown/rate limit                    | `Map` trong RAM; admin bypass         | Redis atomic counter/window, policy theo loại request                             |
-| Idempotency thao tác thay đổi dữ liệu  | Chưa có durable key                   | PostgreSQL idempotency ledger + transaction                                       |
-| Polling                                | Một instance, retry cố định           | Chỉ leader poll Telegram; backoff+jitter; instance khác vẫn phục vụ HTTP/outbound |
-| Quan sát                               | Log rời rạc                           | `/api/health`, readiness, metrics nền tảng và correlation ID                      |
+| Nhu cầu                                | Hiện trạng                            | Đích đến                                                                      |
+| -------------------------------------- | ------------------------------------- | ----------------------------------------------------------------------------- |
+| Dữ liệu nghiệp vụ                      | SQLite volume với `synchronize: true` | PostgreSQL + TypeORM migrations                                               |
+| Xác nhận AI, transcript voice, history | `Map` trong RAM                       | Redis, TTL rõ ràng, user-bound                                                |
+| Cooldown/rate limit                    | `Map` trong RAM; admin bypass         | Redis atomic counter/window, policy theo loại request                         |
+| Idempotency thao tác thay đổi dữ liệu  | Chưa có durable key                   | PostgreSQL idempotency ledger + transaction                                   |
+| Polling                                | Một instance, retry cố định           | Chỉ leader poll zalo; backoff+jitter; instance khác vẫn phục vụ HTTP/outbound |
+| Quan sát                               | Log rời rạc                           | `/api/health`, readiness, metrics nền tảng và correlation ID                  |
 
 **Lý do không chọn SQLite làm giải pháp cuối:** SQLite có thể lưu lại state qua restart trong một container, nhưng không đảm bảo vận hành nhiều API instance với write concurrency, distributed cooldown hoặc leader election. Duy trì `synchronize: true` cũng không phù hợp để kiểm soát migration production.
 
@@ -48,23 +48,23 @@ Chuyển hệ thống từ SQLite đơn tiến trình sang **PostgreSQL làm sys
 ### Đợt 3 — Vận hành đa instance
 
 1. Thay retry polling cố định bằng exponential backoff có jitter và phân loại lỗi retryable/non-retryable.
-2. Redis leader lease cho Telegram long polling: chỉ instance giữ lease được poll; mất lease thì dừng polling sạch; các instance khác vẫn phục vụ REST/OAuth/outbound.
-3. Thêm liveness `/api/health/live`, readiness `/api/health/ready` (Postgres, Redis, Telegram lease), và endpoint status nội bộ đã được bảo vệ.
-4. Thêm telemetry cấu trúc: request/correlation ID, latency, lỗi dependency, queue depth, rate-limit rejections, polling lease state.
+2. Redis leader lease cho zalo long polling: chỉ instance giữ lease được poll; mất lease thì dừng polling sạch; các instance khác vẫn phục vụ REST/OAuth/outbound.
+3. Thêm liveness `/api/health/live`, readiness `/api/health/ready` (Postgres, Redis, zalo lease), và endpoint status nội bộ đã được bảo vệ.
+4. Thêm zalometry cấu trúc: request/correlation ID, latency, lỗi dependency, queue depth, rate-limit rejections, polling lease state.
 5. Chuẩn hóa runbook deploy theo rolling update, backup/restore Postgres, Redis availability, single-bot-token incident và rollback migration.
 
 ### Đợt 4 — Tách module và trải nghiệm
 
-1. Tách `TelegramUpdate` thành command/query/callback use cases, giữ decorator lớp mỏng.
+1. Tách `zaloUpdate` thành command/query/callback use cases, giữ decorator lớp mỏng.
 2. Đưa quy tắc confirmation và authorization vào service dùng chung thay vì phân tán ở callback handlers.
 3. Tách Google authorization policy theo capability: finance, debt và reminders nội bộ không bị chặn chỉ vì chưa kết nối Google; calendar/tasks vẫn yêu cầu Google. Đây là **thay đổi trải nghiệm nghiệp vụ** cần test contract và nội dung hướng dẫn mới.
-4. Tạo knowledge/docs mô-đun Telegram chính thức, đồng bộ danh mục docs/knowledge và runbook vận hành.
+4. Tạo knowledge/docs mô-đun zalo chính thức, đồng bộ danh mục docs/knowledge và runbook vận hành.
 
 ## Tệp/khu vực dự kiến thay đổi
 
 - `docker-compose.yml`, `apps/api/Dockerfile`, `.env.example`/tài liệu môi trường.
 - `apps/api/src/config/*`, `apps/api/src/database/*`, entities/migrations/repositories mới.
-- `apps/api/src/gemini/*`, `apps/api/src/telegram/*`, `apps/api/src/users/*`, `apps/api/src/main.ts`.
+- `apps/api/src/gemini/*`, `apps/api/src/zalo/*`, `apps/api/src/users/*`, `apps/api/src/main.ts`.
 - `apps/api/src/common/*` cho health, correlation và observability abstractions.
 - Test API unit/integration và test lifecycle deploy/migration có fixture.
 - `docs/`, `.agents/knowledge/`, `.agents/docs/` và artifact bàn giao.
@@ -81,8 +81,8 @@ Chuyển hệ thống từ SQLite đơn tiến trình sang **PostgreSQL làm sys
 
 - Unit: state TTL, ownership, cancel/confirm race, idempotency replay, rate policy và backoff.
 - Integration: Postgres migrations, atomic invite redemption, concurrent confirmation chỉ gọi tool một lần, Redis outage/degraded behavior.
-- E2E staging: restart giữa lúc chờ xác nhận, hai instance API, failover lease, duplicate Telegram update.
-- Quality gates: `npm run test --workspace @telebot/api`, `npm run typecheck`, `npm run lint`, `npm run build`, `npm run agent-system:validate`.
+- E2E staging: restart giữa lúc chờ xác nhận, hai instance API, failover lease, duplicate zalo update.
+- Quality gates: `npm run test --workspace @zalobot/api`, `npm run typecheck`, `npm run lint`, `npm run build`, `npm run agent-system:validate`.
 
 ## Rollback
 
@@ -111,6 +111,6 @@ Anh xác nhận giúp em lựa chọn **PostgreSQL + Redis** và phạm vi bốn
 
 ## Điều kiện trước khi cutover
 
-1. Có `POSTGRES_PASSWORD` production và backup snapshot `data/telebot.sqlite`.
+1. Có `POSTGRES_PASSWORD` production và backup snapshot `data/zalobot.sqlite`.
 2. Chạy migration khi API writer đã dừng, sau đó đối chiếu số bản ghi.
 3. Chỉ sau khi xác minh mới cấu hình `DATABASE_URL`/`REDIS_URL`, khởi động lại API và chuyển tiếp các hạng mục Redis state/confirmation atomic.

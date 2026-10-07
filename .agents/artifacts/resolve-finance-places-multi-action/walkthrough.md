@@ -1,8 +1,9 @@
 # Tổng Kết Triển Khai: Tra Cứu Nơi Chốn & Hiển Thị Đa Thao Tác JSON (Multi-Action Payload)
 
 ## 1. Mục tiêu hoàn thành
+
 - ✅ **Tránh tạo trùng lặp nơi chốn**: Bổ sung cơ chế tra cứu `resolve_finance_place` để AI tự động kiểm tra danh sách nơi chốn của người dùng trước khi ghi hoặc cập nhật bill.
-- ✅ **Hiển thị minh bạch tất cả payload JSON gọi API**: Khi nơi chốn chưa tồn tại và cần tạo mới kèm sửa/ghi bill (`createNewPlace: true`), Telegram UI hiển thị rõ 2 hành động liên hoàn (1. Tạo nơi chốn mới, 2. Cập nhật / Ghi giao dịch) kèm mảng JSON payload của cả 2 thao tác.
+- ✅ **Hiển thị minh bạch tất cả payload JSON gọi API**: Khi nơi chốn chưa tồn tại và cần tạo mới kèm sửa/ghi bill (`createNewPlace: true`), zalo UI hiển thị rõ 2 hành động liên hoàn (1. Tạo nơi chốn mới, 2. Cập nhật / Ghi giao dịch) kèm mảng JSON payload của cả 2 thao tác.
 - ✅ **Công cụ tạo nơi chốn độc lập**: Bổ sung `create_finance_place` cho phép tạo nơi chốn riêng lẻ khi có yêu cầu.
 - ✅ **Đầy đủ thông tin kết quả**: Hiển thị tên nơi chốn sau khi cập nhật thành công giao dịch thu–chi.
 
@@ -11,6 +12,7 @@
 ## 2. Chi tiết các thành phần đã triển khai
 
 ### Backend Finance & Gemini Tools
+
 1. **`FinanceService` (`apps/api/src/finance/finance.service.ts`)**:
    - Thêm phương thức `resolvePlaces(userId, name)` tra cứu nơi chốn theo `normalizedName`.
    - Cập nhật DTO `CreateFinanceTransactionDto` và `UpdateTransactionDto` hỗ trợ cờ `createNewPlace?: boolean`.
@@ -25,12 +27,13 @@
      - Nếu có kết quả (`places.length > 0`): truyền `placeId`.
      - Nếu không có kết quả (`places.length === 0`): truyền `createNewPlace: true` và `placeName`.
 
-### Giao diện Telegram UI (`TelegramUiService`)
+### Giao diện zalo UI (`zaloUiService`)
+
 1. **Hộp thoại xác nhận đa thao tác**:
    - Khi có `createNewPlace: true` và `placeName`, hộp thoại hiển thị tiêu đề và nội dung rõ ràng:
      ```
      ⚠️ XÁC NHẬN CẬP NHẬT THU–CHI & TẠO NƠI CHỐN MỚI
-     
+
      📝 [Thông tin sửa giao dịch]
      📍 Địa điểm: The Coffee House Tô Hiệu (Tạo mới nơi chốn)
      ```
@@ -56,8 +59,8 @@
 
 ## 3. Kết quả kiểm thử & Quality Gates
 
-- ✅ **API Unit Tests**: 62/62 tests passed (`ResolveFinancePlaceTool`, `CreateFinancePlaceTool`, `UpdateFinanceTransactionTool`, `FinanceService`, `TelegramUiService`).
-- ✅ **Typecheck**: `npm run typecheck` passed 0 errors trên toàn bộ workspaces (`@telebot/api`, `@telebot/web`, `@telebot/contracts`).
+- ✅ **API Unit Tests**: 62/62 tests passed (`ResolveFinancePlaceTool`, `CreateFinancePlaceTool`, `UpdateFinanceTransactionTool`, `FinanceService`, `zaloUiService`).
+- ✅ **Typecheck**: `npm run typecheck` passed 0 errors trên toàn bộ workspaces (`@zalobot/api`, `@zalobot/web`, `@zalobot/contracts`).
 - ✅ **Linter**: `npm run lint` passed 0 errors trên toàn bộ workspaces.
 - ✅ **Build**: `npm run build` thành công cho tất cả packages.
 - ✅ **Agent System Validation**: `npm run agent-system:validate` passed 100%.

@@ -6,14 +6,14 @@ RequestFeedback: true
 
 - Dashboard Next.js được xuất tĩnh tại `apps/web/out`; không có Next.js API Route, Route Handler hoặc BFF.
 - NestJS là API duy nhất và đã đặt global prefix `/api`.
-- `https://telebot.datintech.site` là origin chung. Nginx ở tầng web server quyết định route: `/api/*` được chuyển thẳng sang NestJS; các route còn lại được trả từ static Next.js output.
-- Vì vậy `NEXT_PUBLIC_API_URL` là `https://telebot.datintech.site` (không có `/api`). Các API route dùng sẵn tiền tố `/api`, nên request thực tế là `https://telebot.datintech.site/api/...` và không tạo `/api/api/...`.
+- `https://zalobot.datintech.site` là origin chung. Nginx ở tầng web server quyết định route: `/api/*` được chuyển thẳng sang NestJS; các route còn lại được trả từ static Next.js output.
+- Vì vậy `NEXT_PUBLIC_API_URL` là `https://zalobot.datintech.site` (không có `/api`). Các API route dùng sẵn tiền tố `/api`, nên request thực tế là `https://zalobot.datintech.site/api/...` và không tạo `/api/api/...`.
 
 ## Mục tiêu
 
 1. Làm mới dashboard theo phong cách B2B vận hành: gọn, ưu tiên dữ liệu, dễ quét trên desktop và vẫn sử dụng tốt trên điện thoại.
 2. Cố định rõ hợp đồng URL production: domain mặc định là frontend; browser gọi `/api/*` cùng origin và Nginx định tuyến request đó sang NestJS.
-3. Giữ nguyên session qua Telegram, API contract, dữ liệu và luồng đăng xuất hiện có.
+3. Giữ nguyên session qua zalo, API contract, dữ liệu và luồng đăng xuất hiện có.
 
 ## Phạm vi thay đổi dự kiến
 
@@ -21,8 +21,8 @@ RequestFeedback: true
 
 - Cập nhật `apps/web/src/shared/api/http-client.ts` để chuẩn hoá public origin (loại bỏ slash cuối) và ngăn cấu hình `NEXT_PUBLIC_API_URL` kết thúc bằng `/api`; các `API_ROUTES` hiện hữu giữ nguyên tiền tố `/api`.
 - Cập nhật `.env.example`, `apps/web/.env.local.example`, `docker-compose.yml`, `README.md`, và tài liệu kiến trúc để ghi rõ:
-  - `APP_URL` và `WEB_ORIGIN`: `https://telebot.datintech.site`.
-  - `NEXT_PUBLIC_API_URL`: `https://telebot.datintech.site`.
+  - `APP_URL` và `WEB_ORIGIN`: `https://zalobot.datintech.site`.
+  - `NEXT_PUBLIC_API_URL`: `https://zalobot.datintech.site`.
   - Không sử dụng API route của Next.js: Nginx chuyển `/api/*` sang NestJS, còn các URL khác phục vụ static frontend.
 - Giữ và bổ sung kiểm tra cho rule Nginx `/api/ -> api:3000/api/`; đây là biên định tuyến bắt buộc, không phải API route của Next.js.
 
@@ -43,16 +43,16 @@ RequestFeedback: true
 
 ## Kiểm thử và nghiệm thu
 
-1. `npm run lint --workspace @telebot/web`
-2. `npm run typecheck --workspace @telebot/web`
-3. `npm run build --workspace @telebot/web` để đảm bảo static export vẫn hợp lệ và bundle nhận đúng public origin.
-4. Kiểm tra bản build/preview ở desktop và mobile: navigation, focus keyboard, loading/error/empty/success, cùng URL request đúng dạng `https://telebot.datintech.site/api/...` và không bị lặp `/api/api`.
+1. `npm run lint --workspace @zalobot/web`
+2. `npm run typecheck --workspace @zalobot/web`
+3. `npm run build --workspace @zalobot/web` để đảm bảo static export vẫn hợp lệ và bundle nhận đúng public origin.
+4. Kiểm tra bản build/preview ở desktop và mobile: navigation, focus keyboard, loading/error/empty/success, cùng URL request đúng dạng `https://zalobot.datintech.site/api/...` và không bị lặp `/api/api`.
 
 ## Rủi ro và cách kiểm soát
 
 - `NEXT_PUBLIC_API_URL` là biến build-time: sau khi đổi production config cần build/redeploy lại bundle static web.
 - Không thay đổi trực tiếp `.env` hoặc `.env.local` vì đây là cấu hình runtime có thể chứa bí mật; hướng dẫn và template sẽ được cập nhật, còn server production cần nhập đúng giá trị khi deploy.
-- `APP_URL` phải tiếp tục là frontend origin để backend tự tạo link Telegram `.../api/access`, không được thêm `/api` vào biến này.
+- `APP_URL` phải tiếp tục là frontend origin để backend tự tạo link zalo `.../api/access`, không được thêm `/api` vào biến này.
 
 ## Cần anh xác nhận
 
@@ -62,16 +62,16 @@ Anh duyệt kế hoạch này, em sẽ triển khai UI dashboard và chuẩn ho�
 
 - Hoàn tất: chuẩn hoá API origin ở HTTP client, UI dashboard, template cấu hình production, ghi chú Nginx và tài liệu dashboard/kiến trúc.
 - Không thay đổi DTO, API contract hoặc session flow.
-- Đã kiểm tra: `git diff --check`, `npm run lint --workspace @telebot/web`, `npm run typecheck --workspace @telebot/web`, và `npm run build --workspace @telebot/web` đều thành công; 7 route web được xuất static.
+- Đã kiểm tra: `git diff --check`, `npm run lint --workspace @zalobot/web`, `npm run typecheck --workspace @zalobot/web`, và `npm run build --workspace @zalobot/web` đều thành công; 7 route web được xuất static.
 
 ## Bổ sung: callback OAuth có prefix `/api`
 
 RequestFeedback: true
 
-- Bỏ ngoại lệ `oauth2callback` khỏi NestJS global prefix để callback chính thức là `https://telebot.datintech.site/api/oauth2callback`.
+- Bỏ ngoại lệ `oauth2callback` khỏi NestJS global prefix để callback chính thức là `https://zalobot.datintech.site/api/oauth2callback`.
 - Đổi URL callback mặc định trong cấu hình OAuth sang `${APP_URL}/api/oauth2callback`.
 - Để Nginx định tuyến callback theo cùng rule `/api/*` sang NestJS; gỡ location `/oauth2callback` riêng để không còn public route không prefix.
-- Cập nhật tài liệu và test/check script liên quan; Google Cloud Console phải khai báo chính xác `https://telebot.datintech.site/api/oauth2callback` trong Authorized redirect URIs.
+- Cập nhật tài liệu và test/check script liên quan; Google Cloud Console phải khai báo chính xác `https://zalobot.datintech.site/api/oauth2callback` trong Authorized redirect URIs.
 - Xác minh bằng typecheck/test phù hợp cho API và Nginx config/diff review.
 
 ## Bổ sung: mở CORS cho development từ mọi origin
@@ -118,10 +118,10 @@ RequestFeedback: true
 ### Hành vi mới
 
 1. Nút Dashboard trong menu `/start` và `/help` dùng `callback_data` thay vì chứa URL token cố định.
-2. Callback xác nhận user Telegram, phát token mới và cập nhật đúng nút đó thành URL `.../api/access?token=...`.
-3. Bot hiển thị hướng dẫn ngắn để người dùng bấm nút vừa được làm mới để mở dashboard. Một lần bấm callback không thể đồng thời mở external URL một cách đáng tin cậy trên mọi Telegram client.
+2. Callback xác nhận user zalo, phát token mới và cập nhật đúng nút đó thành URL `.../api/access?token=...`.
+3. Bot hiển thị hướng dẫn ngắn để người dùng bấm nút vừa được làm mới để mở dashboard. Một lần bấm callback không thể đồng thời mở external URL một cách đáng tin cậy trên mọi zalo client.
 4. Thêm test cho keyboard callback và handler phát URL mới; giữ test one-time token hiện có.
-5. Cập nhật tài liệu dashboard/Telegram, chạy typecheck, lint và test liên quan.
+5. Cập nhật tài liệu dashboard/zalo, chạy typecheck, lint và test liên quan.
 
 ### An toàn
 
@@ -133,7 +133,7 @@ RequestFeedback: true
 - Menu `/start` và `/help` hiện phát callback `action:view_reports`, không tạo token sớm và không nhúng token vào URL button.
 - Callback phát token mới, rồi gửi URL one-time mới trong một tin nhắn phản hồi để người dùng mở dashboard.
 - Đã cập nhật regression test menu và sửa mock `AuditService` bị thiếu trong check script dashboard.
-- Đã kiểm tra thành công: API typecheck, API lint, 9 unit tests của Telegram UI, API build, dashboard routing check, `git diff --check`, và agent-system validation.
+- Đã kiểm tra thành công: API typecheck, API lint, 9 unit tests của zalo UI, API build, dashboard routing check, `git diff --check`, và agent-system validation.
 
 ## Bổ sung: inline edit cho bảng Dashboard
 
@@ -141,19 +141,19 @@ RequestFeedback: true
 
 ### Phạm vi dữ liệu
 
-| Bảng | Inline edit | Nơi lưu |
-| --- | --- | --- |
-| Liên lạc | Tên, biệt danh, mô tả | SQLite `debt_contacts` |
-| Công nợ | Hướng, đối tác, số tiền, hạn, ghi chú | SQLite `debts` |
-| Khoản chi / giao dịch | Danh mục, ghi chú, số tiền, ngày | SQLite `finance_transactions` |
-| Lời nhắc | Tiêu đề, thời gian, kênh gửi | SQLite `reminders` |
-| Google Tasks | Tiêu đề, hạn hoàn tất | Google Tasks API |
-| Google Calendar | Tiêu đề, thời gian bắt đầu | Google Calendar API |
-| Hoạt động gần đây / số liệu tổng hợp | Không chỉnh sửa | Audit log và dữ liệu dẫn xuất bất biến |
+| Bảng                                 | Inline edit                           | Nơi lưu                                |
+| ------------------------------------ | ------------------------------------- | -------------------------------------- |
+| Liên lạc                             | Tên, biệt danh, mô tả                 | SQLite `debt_contacts`                 |
+| Công nợ                              | Hướng, đối tác, số tiền, hạn, ghi chú | SQLite `debts`                         |
+| Khoản chi / giao dịch                | Danh mục, ghi chú, số tiền, ngày      | SQLite `finance_transactions`          |
+| Lời nhắc                             | Tiêu đề, thời gian, kênh gửi          | SQLite `reminders`                     |
+| Google Tasks                         | Tiêu đề, hạn hoàn tất                 | Google Tasks API                       |
+| Google Calendar                      | Tiêu đề, thời gian bắt đầu            | Google Calendar API                    |
+| Hoạt động gần đây / số liệu tổng hợp | Không chỉnh sửa                       | Audit log và dữ liệu dẫn xuất bất biến |
 
 ### Thiết kế
 
-1. Khai báo request/response contract PATCH trong `@telebot/contracts`, sau đó thêm endpoint có Bearer auth và validation/server-side ownership checks trong Reports API.
+1. Khai báo request/response contract PATCH trong `@zalobot/contracts`, sau đó thêm endpoint có Bearer auth và validation/server-side ownership checks trong Reports API.
 2. Bổ sung các mutation service cho SQLite, Google Tasks và Google Calendar; ghi audit cho dữ liệu nội bộ và không cho client sửa audit log.
 3. Tạo reusable inline-edit cell trong frontend: idle giống text, hover hiện affordance, click/Enter để sửa, Enter/blur để lưu, Escape để hủy, lỗi hiển thị sát cell và aria-live/focus state đầy đủ.
 4. Tạo TanStack Query mutation theo từng domain, optimistic update có rollback và invalidate cả bảng nguồn lẫn dashboard summary sau khi lưu thành công.

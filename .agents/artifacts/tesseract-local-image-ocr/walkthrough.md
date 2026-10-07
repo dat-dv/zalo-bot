@@ -4,7 +4,7 @@
 
 - Cài `tesseract.js` cho API.
 - Thay Gemini Vision bằng Tesseract OCR cục bộ `vie+eng` trong `ReceiptImageAnalysisService`.
-- Ảnh Telegram chỉ được tải để Tesseract đọc tại API. Gemini chỉ nhận text OCR đã chuẩn hoá, tối đa 12.000 ký tự.
+- Ảnh zalo chỉ được tải để Tesseract đọc tại API. Gemini chỉ nhận text OCR đã chuẩn hoá, tối đa 12.000 ký tự.
 - Xoá cách gửi `inlineData`/base64 ảnh vào Gemini trên luồng hoá đơn.
 - Giữ nguyên cơ chế đề xuất rồi **Xác nhận/Hủy** trước khi tạo giao dịch thu-chi.
 - Dockerfile tải sẵn language data `vie` và `eng` vào `/app/assets/tessdata`; không tải model OCR khi bot chạy.
