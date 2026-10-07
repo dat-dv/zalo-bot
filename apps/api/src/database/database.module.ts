@@ -62,6 +62,8 @@ import { FixPostgresPlaceAndContactUuidTypes1724700000000 } from './migrations/1
           migrationsTableName: 'typeorm_migrations',
           synchronize,
           logging: false,
+          retryAttempts: 25,
+          retryDelay: 2000,
         };
       },
     }),

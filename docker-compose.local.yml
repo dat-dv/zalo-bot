@@ -1,13 +1,44 @@
 services:
-  api:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
     environment:
-      APP_URL: http://localhost:3001
-      WEB_ORIGIN: http://localhost:3001
-      CORS_ALLOW_ALL: 'false'
-      zalo_LONG_POLLING_ENABLED: 'false'
-      RECEIPT_STORAGE_DIR: /app/data
+      POSTGRES_DB: ${POSTGRES_DB:-zalobot}
+      POSTGRES_USER: ${POSTGRES_USER:-zalobot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - zalobot-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  web:
-    build:
-      args:
-        NEXT_PUBLIC_API_URL: http://localhost:3000
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - zalobot-redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - '${OLLAMA_PORT:-11434}:11434'
+    volumes:
+      - zalobot-ollama:/root/.ollama
+
+volumes:
+  zalobot-postgres:
+  zalobot-redis:
+  zalobot-ollama:

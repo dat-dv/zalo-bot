@@ -91,15 +91,20 @@ npm run start:prod
 docker-compose up -d --build
 ```
 
-### Chạy local với Docker
+### Chạy hạ tầng Local cho việc phát triển (PostgreSQL, Redis, Ollama)
 
-Để chạy dashboard, API, PostgreSQL và Redis trên máy local mà không làm bot production long-polling, dùng override local:
+Để chạy các dịch vụ hạ tầng nền phục vụ cho việc phát triển local với hot-reload (`npm run dev`):
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+npm run docker:local
+# hoặc: docker compose -f docker-compose.local.yml up -d
 ```
 
-Mở dashboard tại `http://localhost:3001`. Override local dùng các secret sẵn có trong `.env`, lấy các lựa chọn local trong `.env.local`, trỏ web tới API local và luôn đặt `zalo_LONG_POLLING_ENABLED=false`.
+Để dừng các container hạ tầng:
+```bash
+npm run docker:local:down
+# hoặc: docker compose -f docker-compose.local.yml down
+```
 
 ### 2. Xem logs & trạng thái
 
