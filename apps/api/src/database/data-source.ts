@@ -22,9 +22,7 @@ import { AddParentDebtHierarchy1724680000000 } from './migrations/1724680000000-
 import { FixPostgresUuidTypes1724690000000 } from './migrations/1724690000000-FixPostgresUuidTypes';
 import { FixPostgresPlaceAndContactUuidTypes1724700000000 } from './migrations/1724700000000-FixPostgresPlaceAndContactUuidTypes';
 
-// Load environment variables for TypeORM CLI
-loadDotenv({ path: fromApiRoot('.env.local') });
-loadDotenv({ path: fromApiRoot('.env') });
+// Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
 loadDotenv({ path: fromProjectRoot('.env') });
 

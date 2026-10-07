@@ -6,10 +6,8 @@ import * as readline from 'readline';
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import * as dotenv from 'dotenv';
-import { projectRoot, apiRoot } from '../src/config/project-root';
+import { projectRoot } from '../src/config/project-root';
 
-dotenv.config({ path: path.resolve(apiRoot(), '.env.local') });
-dotenv.config({ path: path.resolve(apiRoot(), '.env') });
 dotenv.config({ path: path.resolve(projectRoot(), '.env.local') });
 dotenv.config({ path: path.resolve(projectRoot(), '.env') });
 

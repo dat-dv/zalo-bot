@@ -4,7 +4,7 @@ import { AppProviders } from '@/shared/providers/app-providers';
 
 const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
 const appUrl =
-  rawAppUrl && /^https?:\/\//i.test(rawAppUrl) ? rawAppUrl : 'https://zalobot.datintech.site';
+  rawAppUrl && /^https?:\/\//i.test(rawAppUrl) ? rawAppUrl : 'https://bot.datintech.site';
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   description:
     'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp zalo Bot.',
   applicationName: 'zalobot',
-  authors: [{ name: 'zalobot', url: 'https://zalobot.datintech.site/about' }],
+  authors: [{ name: 'zalobot', url: 'https://bot.datintech.site/about' }],
   generator: 'Next.js',
   keywords: [
     'zalobot',

@@ -51,8 +51,6 @@ function isPostgresUrl(value: string): boolean {
 }
 
 export function loadEnvironment(): void {
-  loadDotenv({ path: fromApiRoot('.env.local'), override: false, quiet: true });
-  loadDotenv({ path: fromApiRoot('.env'), override: false, quiet: true });
   loadDotenv({ path: fromProjectRoot('.env.local'), override: false, quiet: true });
   loadDotenv({ path: fromProjectRoot('.env'), override: false, quiet: true });
 }

@@ -11,7 +11,7 @@ PostgreSQL          Persistent runtime data
 
 Chạy cả API và React: `npm run dev` · Chạy riêng API: `npm run dev:api` · Chạy riêng React: `npm run dev:web` · Build toàn bộ: `npm run build`.
 
-Dashboard mở từ bot cần `APP_URL`, `NEXT_PUBLIC_API_URL`, `DASHBOARD_ACCESS_TOKEN_SECRET` và `DASHBOARD_REFRESH_TOKEN_SECRET`. Khi dùng một domain, đặt cả ba URL public thành `https://zalobot.datintech.site` (không thêm `/api` vào `NEXT_PUBLIC_API_URL`): static Next.js phục vụ các route giao diện, còn Nginx chuyển mọi `/api/*` sang NestJS. `NEXT_PUBLIC_API_URL` được đóng gói vào static output khi build. Không dùng tên `SERVICE_URL_*` vì Coolify dành tiền tố này cho URL được quản lý. Bot tạo link exchange dùng một lần cho từng người dùng; access token có hạn 1 ngày và refresh token có hạn 7 ngày.
+Dashboard mở từ bot cần `APP_URL`, `NEXT_PUBLIC_API_URL`, `DASHBOARD_ACCESS_TOKEN_SECRET` và `DASHBOARD_REFRESH_TOKEN_SECRET`. Khi dùng một domain, đặt cả ba URL public thành `https://bot.datintech.site` (không thêm `/api` vào `NEXT_PUBLIC_API_URL`): static Next.js phục vụ các route giao diện, còn Nginx chuyển mọi `/api/*` sang NestJS. `NEXT_PUBLIC_API_URL` được đóng gói vào static output khi build. Không dùng tên `SERVICE_URL_*` vì Coolify dành tiền tố này cho URL được quản lý. Bot tạo link exchange dùng một lần cho từng người dùng; access token có hạn 1 ngày và refresh token có hạn 7 ngày.
 
 Trợ lý cá nhân hoạt động 24/7 trên zalo, được xây dựng bằng **NestJS**, lưu trữ **PostgreSQL (TypeORM)** và hỗ trợ **Đa Người Dùng (Multi-User Isolation)** kết nối độc lập với hệ sinh thái **Google Workspace**.
 
