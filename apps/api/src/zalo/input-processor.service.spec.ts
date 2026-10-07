@@ -5,6 +5,14 @@ import { InputProcessor } from './input-processor.service';
 import { ZaloService } from './zalo.service';
 import { UsersService } from '../users/users.service';
 import { ZaloWebhookEventName } from './dto/zalo-webhook.dto';
+import { TextInputService } from './text/text-input.service';
+import { TextToolFactory } from './text/text-tool.factory';
+import { StartToolStrategy } from './text/strategies/start-tool.strategy';
+import { HelpToolStrategy } from './text/strategies/help-tool.strategy';
+import { EchoToolStrategy } from './text/strategies/echo-tool.strategy';
+import { PingToolStrategy } from './text/strategies/ping-tool.strategy';
+import { ResetToolStrategy } from './text/strategies/reset-tool.strategy';
+import { ConversationToolStrategy } from './text/strategies/conversation-tool.strategy';
 
 interface MockSetup {
   processor: InputProcessor;
@@ -23,7 +31,7 @@ function createMockSetup(overrides?: {
       sentMessages.push({ chatId, text });
       return Promise.resolve(true);
     },
-  };
+  } as unknown as ZaloService;
 
   const mockUsersService = {
     isAllowed: () => (overrides?.isAllowed !== undefined ? overrides.isAllowed : true),
@@ -32,20 +40,37 @@ function createMockSetup(overrides?: {
       reason: 'Vui lòng gửi chậm lại.',
     }),
     upsertUser: () => Promise.resolve({} as never),
-  };
+  } as unknown as UsersService;
 
   const mockConfigService = {
     get: (key: string) => {
       if (key === 'zalo.allowedUserIds') return overrides?.allowedUserIds || [];
       return undefined;
     },
-  };
+  } as unknown as ConfigService;
 
-  const processor = new InputProcessor(
-    mockZaloService as unknown as ZaloService,
-    mockUsersService as unknown as UsersService,
-    mockConfigService as unknown as ConfigService,
+  const startStrategy = new StartToolStrategy(mockZaloService);
+  const helpStrategy = new HelpToolStrategy(mockZaloService);
+  const echoStrategy = new EchoToolStrategy(mockZaloService);
+  const pingStrategy = new PingToolStrategy(mockZaloService);
+  const resetStrategy = new ResetToolStrategy(mockZaloService);
+  const conversationStrategy = new ConversationToolStrategy(
+    mockZaloService,
+    mockUsersService,
+    mockConfigService,
   );
+
+  const factory = new TextToolFactory(
+    startStrategy,
+    helpStrategy,
+    echoStrategy,
+    pingStrategy,
+    resetStrategy,
+    conversationStrategy,
+  );
+
+  const textInputService = new TextInputService(factory);
+  const processor = new InputProcessor(mockZaloService, textInputService);
 
   return { processor, sentMessages };
 }

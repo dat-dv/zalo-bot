@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ZaloService } from './zalo.service';
-import { UsersService } from '../users/users.service';
+import { TextInputService } from './text/text-input.service';
+import { TextToolType } from './text/text-tool.enum';
 import { AgentInput } from './types/agent-input.type';
 import { ZALO_EVENTS } from './zalo.constants';
 import { ZaloWebhookEventName } from './dto/zalo-webhook.dto';
@@ -12,8 +12,7 @@ export class InputProcessor {
 
   constructor(
     private readonly zaloService: ZaloService,
-    private readonly usersService: UsersService,
-    private readonly configService: ConfigService,
+    private readonly textInputService: TextInputService,
   ) {}
 
   public async process(input: AgentInput): Promise<void> {
@@ -24,7 +23,7 @@ export class InputProcessor {
 
     switch (input.type) {
       case 'text':
-        return this.processText(input);
+        return this.textInputService.process(input);
 
       case 'image':
         return this.processImage(input);
@@ -44,77 +43,14 @@ export class InputProcessor {
     }
   }
 
-  private async processText(input: AgentInput): Promise<void> {
-    const text = input.text?.trim() || '';
-    const targetChatId = input.chatId;
-    const senderId = input.senderId;
-    const displayName = input.displayName;
-
-    // 1. /start command
-    if (text === '/start') {
-      await this.handleStartCommand(targetChatId, displayName);
-      return;
-    }
-
-    // 2. /help command
-    if (text === '/help') {
-      await this.zaloService.sendMessage(
-        targetChatId,
-        '📖 Danh sách lệnh hỗ trợ:\n\n' +
-          '• /start - Bắt đầu & giới thiệu bot\n' +
-          '• /help - Hướng dẫn sử dụng\n' +
-          '• /echo <nội dung> - Bot phản hồi lại nội dung bạn vừa nhập\n' +
-          '• /clear hoặc /reset - Xóa ngữ cảnh hội thoại hiện tại\n' +
-          '• /ping - Kiểm tra trạng thái hoạt động của bot',
-      );
-      return;
-    }
-
-    // 3. /echo command
-    if (text.startsWith('/echo')) {
-      const echoContent = text.slice(5).trim();
-      if (echoContent) {
-        await this.zaloService.sendMessage(targetChatId, `Bạn vừa nói: ${echoContent}`);
-      } else {
-        await this.zaloService.sendMessage(
-          targetChatId,
-          'Hãy nhập gì đó sau lệnh /echo (ví dụ: /echo Xin chào)',
-        );
-      }
-      return;
-    }
-
-    // 4. /ping command
-    if (text === '/ping') {
-      await this.zaloService.sendMessage(
-        targetChatId,
-        '🏓 Pong! Webhook Zalo Bot đang hoạt động bình thường.',
-      );
-      return;
-    }
-
-    // 5. /reset or /clear command
-    if (text === '/reset' || text === '/clear') {
-      await this.zaloService.sendMessage(
-        targetChatId,
-        '🧹 Đã làm mới ngữ cảnh hội thoại. Bạn có thể bắt đầu phiên trò chuyện mới!',
-      );
-      return;
-    }
-
-    // 6. Conversational input
-    await this.handleConversationalMessage(targetChatId, senderId, text);
-  }
-
   private async processImage(input: AgentInput): Promise<void> {
     const targetChatId = input.chatId || input.senderId;
     this.logger.log(`Received image from ${input.senderId}: ${input.imageUrl}`);
     if (input.caption) {
-      await this.processText({
+      return this.textInputService.process({
         ...input,
         text: input.caption,
       });
-      return;
     }
 
     await this.zaloService.sendMessage(
@@ -140,7 +76,6 @@ export class InputProcessor {
 
   private async processEvent(input: AgentInput): Promise<void> {
     const eventName = String(input.eventName || '');
-    const targetChatId = input.chatId || input.senderId;
 
     if (
       eventName === String(ZALO_EVENTS.UNFOLLOW) ||
@@ -154,8 +89,8 @@ export class InputProcessor {
       eventName === String(ZALO_EVENTS.FOLLOW) ||
       eventName === String(ZaloWebhookEventName.FOLLOW)
     ) {
-      if (targetChatId) {
-        await this.handleStartCommand(targetChatId, input.displayName);
+      if (input.senderId) {
+        await this.textInputService.process(input, TextToolType.START);
       }
       return;
     }
@@ -167,43 +102,6 @@ export class InputProcessor {
     await this.zaloService.sendMessage(
       targetChatId,
       'Tin nhắn của bạn hiện chưa được hỗ trợ xử lý trên hệ thống trợ lý.',
-    );
-  }
-
-  private async handleStartCommand(targetChatId: string, displayName: string): Promise<void> {
-    await this.zaloService.sendMessage(
-      targetChatId,
-      `👋 Chào ${displayName}! Tôi là chatbot trên Zalo.\n\n` +
-        'Gõ /help để xem danh sách các lệnh hỗ trợ.',
-    );
-  }
-
-  private async handleConversationalMessage(
-    targetChatId: string,
-    senderId: string,
-    text: string,
-  ): Promise<void> {
-    const allowedIds = this.configService.get<string[]>('zalo.allowedUserIds') || [];
-    if (allowedIds.length > 0 && !this.usersService.isAllowed(senderId)) {
-      this.logger.warn(`Unauthorized Zalo user message attempt from ${senderId}`);
-      await this.zaloService.sendMessage(
-        targetChatId,
-        'Xin lỗi, tài khoản của bạn chưa được cấp quyền sử dụng trợ lý này.',
-      );
-      return;
-    }
-
-    const cooldown = this.usersService.checkCooldown(senderId);
-    if (!cooldown.allowed) {
-      await this.zaloService.sendMessage(targetChatId, cooldown.reason || 'Vui lòng gửi chậm lại.');
-      return;
-    }
-
-    await this.usersService.upsertUser(senderId);
-
-    await this.zaloService.sendMessage(
-      targetChatId,
-      `Đã nhận tin nhắn: "${text}". Gõ /help để xem danh sách các lệnh hỗ trợ.`,
     );
   }
 }
