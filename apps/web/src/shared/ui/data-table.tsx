@@ -846,7 +846,7 @@ export function DataTable<T extends DataTableRow>({
     event.preventDefault();
     event.stopPropagation();
 
-    const header = event.currentTarget.parenzaloment;
+    const header = event.currentTarget.parentElement;
     if (!header) return;
 
     const startX = event.clientX;

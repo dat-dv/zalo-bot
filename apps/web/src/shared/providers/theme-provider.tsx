@@ -22,7 +22,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const preferredTheme = getPreferredTheme();
-    document.documenzaloment.dataset.theme = preferredTheme;
+    document.documentElement.dataset.theme = preferredTheme;
     setTheme(preferredTheme);
   }, []);
 
@@ -34,7 +34,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       } catch {
         // Keep the in-memory preference when storage is unavailable.
       }
-      document.documenzaloment.dataset.theme = nextTheme;
+      document.documentElement.dataset.theme = nextTheme;
       return nextTheme;
     });
   };

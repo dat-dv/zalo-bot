@@ -40,9 +40,7 @@ export class GoogleAuthController {
       this.logger.error(`Google OAuth callback invalid state (userId): ${state}`);
       res
         .status(400)
-        .send(
-          renderErrorHtml('Không tìm thấy thông tin định danh người dùng (State ID).'),
-        );
+        .send(renderErrorHtml('Không tìm thấy thông tin định danh người dùng (State ID).'));
       return;
     }
 

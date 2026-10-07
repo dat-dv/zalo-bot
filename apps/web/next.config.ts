@@ -5,19 +5,19 @@ import path from 'path';
 loadEnvConfig(path.resolve(import.meta.dirname, '../..'));
 
 const isStaticExport = process.env.NODE_ENV === 'production';
-const configuredApiOrigin = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, '');
-if (!configuredApiOrigin) {
-  throw new Error(
-    'NEXT_PUBLIC_API_URL must be configured before starting or building the dashboard.',
-  );
-}
+const configuredApiOrigin = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000')
+  .trim()
+  .replace(/\/+$/, '');
+
+let apiOrigin = 'http://localhost:3000';
 try {
   const url = new URL(configuredApiOrigin);
-  if (!['http:', 'https:'].includes(url.protocol)) throw new Error();
+  if (['http:', 'https:'].includes(url.protocol)) {
+    apiOrigin = configuredApiOrigin;
+  }
 } catch {
-  throw new Error('NEXT_PUBLIC_API_URL must be a valid HTTP(S) URL.');
+  apiOrigin = 'http://localhost:3000';
 }
-const apiOrigin = configuredApiOrigin;
 
 const nextConfig: NextConfig = {
   ...(isStaticExport ? { output: 'export' } : {}),

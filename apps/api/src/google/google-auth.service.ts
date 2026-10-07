@@ -150,7 +150,7 @@ export class GoogleAuthService implements OnModuleInit {
     }
   }
 
-  public async saveTokensForUser(userId: number, tokens: Credentials): Promise<void> {
+  public async saveTokensForUser(userId: string | number, tokens: Credentials): Promise<void> {
     const strId = userId.toString();
 
     try {

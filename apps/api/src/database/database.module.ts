@@ -15,7 +15,7 @@ import { UserCategoryEntity } from './entities/user-category.entity';
 import { FinancePlaceEntity } from './entities/finance-place.entity';
 import { AuditLogSubscriber } from './audit-log.subscriber';
 import { InitSchema1724650000000 } from './migrations/1724650000000-InitSchema';
-import { MigrazalogacyPlaceContacts1724660000000 } from './migrations/1724660000000-MigrazalogacyPlaceContacts';
+import { MigrateLegacyPlaceContacts1724660000000 } from './migrations/1724660000000-MigrateLegacyPlaceContacts';
 import { CreateDebtPaymentAllocations1724670000000 } from './migrations/1724670000000-CreateDebtPaymentAllocations';
 import { AddParentDebtHierarchy1724680000000 } from './migrations/1724680000000-AddParentDebtHierarchy';
 import { FixPostgresUuidTypes1724690000000 } from './migrations/1724690000000-FixPostgresUuidTypes';
@@ -25,7 +25,7 @@ import { FixPostgresPlaceAndContactUuidTypes1724700000000 } from './migrations/1
   imports: [
     TypeOrmModule.forRootAsync({
       useFactory: () => {
-        const databaseUrl = process.env.DATABASE_URL.trim();
+        const databaseUrl = (process.env.DATABASE_URL || '').trim();
         const databaseSsl = process.env.DATABASE_SSL?.trim().toLowerCase() === 'true';
         const synchronize = process.env.TYPEORM_SYNCHRONIZE?.trim().toLowerCase() === 'true';
         const entities = [
@@ -52,7 +52,7 @@ import { FixPostgresPlaceAndContactUuidTypes1724700000000 } from './migrations/1
           subscribers: [AuditLogSubscriber],
           migrations: [
             InitSchema1724650000000,
-            MigrazalogacyPlaceContacts1724660000000,
+            MigrateLegacyPlaceContacts1724660000000,
             CreateDebtPaymentAllocations1724670000000,
             AddParentDebtHierarchy1724680000000,
             FixPostgresUuidTypes1724690000000,

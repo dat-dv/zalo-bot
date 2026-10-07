@@ -27,7 +27,7 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
   );
   const setLocale = (next: SupportedLocale) => {
     document.cookie = `${LOCALE_COOKIE}=${next};path=/;max-age=31536000;SameSite=Lax`;
-    document.documenzaloment.lang = localeTag(next);
+    document.documentElement.lang = localeTag(next);
     setLocaleState(next);
   };
   const value = useMemo(

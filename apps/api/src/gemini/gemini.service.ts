@@ -1,11 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  GoogleGenerativeAI,
-  GenerativeModel,
-  ChatSession,
-  Content,
-} from '@google/generative-ai';
+import { GoogleGenerativeAI, GenerativeModel, ChatSession, Content } from '@google/generative-ai';
 import { buildSystemInstruction, getCurrentTimeInfo } from './helpers/gemini-prompt.helper';
 
 export interface ReceiptImageAnalysis {

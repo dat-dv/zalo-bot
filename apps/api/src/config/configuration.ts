@@ -12,13 +12,8 @@ export interface AppConfig {
     url?: string;
   };
   zalo: {
-    oaId?: string;
-    appId?: string;
-    secretKey?: string;
-    oaSecretKey?: string;
-    accessToken?: string;
-    refreshToken?: string;
-    webhookSecret?: string;
+    botToken: string;
+    webhookUrl: string;
     adminId?: string;
     allowedUserIds: string[];
   };
@@ -106,13 +101,8 @@ export default (): AppConfig => {
     },
     redis: { url: readOptionalEnv('REDIS_URL') },
     zalo: {
-      oaId: readOptionalEnv('ZALO_OA_ID'),
-      appId: readOptionalEnv('ZALO_APP_ID'),
-      secretKey: readOptionalEnv('ZALO_SECRET_KEY'),
-      oaSecretKey: readOptionalEnv('ZALO_OA_SECRET_KEY'),
-      accessToken: readOptionalEnv('ZALO_ACCESS_TOKEN'),
-      refreshToken: readOptionalEnv('ZALO_REFRESH_TOKEN'),
-      webhookSecret: readOptionalEnv('ZALO_WEBHOOK_SECRET'),
+      botToken: readEnv('ZALO_BOT_TOKEN', readEnv('BOT_TOKEN')),
+      webhookUrl: readEnv('ZALO_WEBHOOK_URL', readEnv('WEBHOOK_URL')),
       adminId,
       allowedUserIds,
     },

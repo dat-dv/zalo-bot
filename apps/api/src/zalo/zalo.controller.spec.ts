@@ -3,7 +3,7 @@ import test from 'node:test';
 import { ZaloController } from './zalo.controller';
 import { ZaloWebhookPayload } from './dto/zalo-webhook.dto';
 
-void test('ZaloController GET webhook returns challenge verification', () => {
+void test('ZaloController GET webhook returns challenge verification or status', () => {
   const controller = new ZaloController({} as any);
 
   const res1 = controller.verifyWebhook('challenge_token_abc');
@@ -16,29 +16,27 @@ void test('ZaloController GET webhook returns challenge verification', () => {
   assert.equal(res3.status, 'ok');
 });
 
-void test('ZaloController POST webhook verifies signature and delegates processing', async () => {
-  let processedPayload: ZaloWebhookPayload | null = null;
+void test('ZaloController POST webhook forwards update to ZaloService', () => {
+  let processedPayload: unknown = null;
   const mockZaloService = {
-    verifySignature: () => true,
-    handleWebhookEvent: async (payload: ZaloWebhookPayload) => {
+    processUpdate: (payload: unknown) => {
       processedPayload = payload;
-      return { error: 0, message: 'Success' };
     },
   };
 
   const controller = new ZaloController(mockZaloService as any);
 
   const payload: ZaloWebhookPayload = {
-    event_name: 'user_send_text',
-    sender: { id: 'u1' },
-    recipient: { id: 'oa1' },
-    message: { text: 'Hello' },
-    timestamp: 123456789,
+    update_id: 1,
+    message: {
+      chat: { id: 'u1' },
+      from: { id: 'u1' },
+      text: 'Hello',
+    },
   };
 
-  const result = await controller.handleWebhook(payload, 'mac=123', '123456789');
+  const result = controller.handleWebhook(payload);
 
-  assert.deepEqual(result, { error: 0, message: 'Success' });
-  // Verify service received payload
-  assert.equal(processedPayload?.sender.id, 'u1');
+  assert.deepEqual(result, { ok: true });
+  assert.deepEqual(processedPayload, payload);
 });

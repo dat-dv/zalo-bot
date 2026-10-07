@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class MigrazalogacyPlaceContacts1724660000000 implements MigrationInterface {
-  name = 'MigrazalogacyPlaceContacts1724660000000';
+export class MigrateLegacyPlaceContacts1724660000000 implements MigrationInterface {
+  name = 'MigrateLegacyPlaceContacts1724660000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // 1. Đảm bảo unique index cho (user_id, normalized_name) trên bảng finance_places

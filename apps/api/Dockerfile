@@ -15,7 +15,7 @@ RUN --mount=type=cache,target=/var/cache/apk \
 WORKDIR /opt
 ARG WHISPER_CPP_VERSION=v1.7.4
 RUN git clone --depth 1 --branch ${WHISPER_CPP_VERSION} https://github.com/ggml-org/whisper.cpp.git && \
-    cmake -S whisper.cpp -B whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF && \
+    cmake -S whisper.cpp -B whisper.cpp/build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DGGML_NATIVE=OFF && \
     cmake --build whisper.cpp/build --target whisper-server -j"$(nproc)" && \
     whisper.cpp/models/download-ggml-model.sh base whisper.cpp/models
 

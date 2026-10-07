@@ -1,87 +1,39 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHmac, createHash } from 'crypto';
-import { ZaloWebhookPayload } from './dto/zalo-webhook.dto';
-import { ZALO_API_URLS, ZALO_EVENTS } from './zalo.constants';
 import { UsersService } from '../users/users.service';
 import { GeminiService } from '../gemini/gemini.service';
 import { ConversationHistoryService } from '../gemini/services/conversation-history.service';
+import { ZALO_API_URLS, ZALO_EVENTS } from './zalo.constants';
+import { ZaloWebhookPayload } from './dto/zalo-webhook.dto';
 
 @Injectable()
-export class ZaloService {
+export class ZaloService implements OnModuleInit {
   private readonly logger = new Logger(ZaloService.name);
+  private token: string | null = null;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
     private readonly geminiService: GeminiService,
     private readonly conversationHistoryService: ConversationHistoryService,
-  ) {}
-
-  /**
-   * Verify Zalo webhook signature if secret key is configured.
-   */
-  public verifySignature(
-    signatureHeader: string | undefined,
-    body: Record<string, unknown> | string,
-    timestamp?: string | number,
-  ): boolean {
-    const secretKey =
-      this.configService.get<string>('zalo.oaSecretKey') ||
-      this.configService.get<string>('zalo.secretKey') ||
-      this.configService.get<string>('zalo.webhookSecret');
-
-    if (!secretKey) {
-      // Secret key not configured: allow all in dev/test environment with warning
-      this.logger.debug('Zalo secret key not configured; skipping signature verification.');
-      return true;
-    }
-
-    if (!signatureHeader) {
-      this.logger.warn('Missing Zalo signature header in webhook request.');
-      return false;
-    }
-
-    try {
-      const appId =
-        this.configService.get<string>('zalo.appId') ||
-        (typeof body === 'object' && body !== null ? (body as Record<string, unknown>).app_id : '');
-      const rawData = typeof body === 'string' ? body : JSON.stringify(body);
-      const ts = timestamp ? String(timestamp) : '';
-
-      // Zalo OA signature algorithm: sha256(appId + rawData + timestamp + secretKey)
-      const expectedSig = createHash('sha256')
-        .update(`${appId}${rawData}${ts}${secretKey}`)
-        .digest('hex');
-
-      const expectedHmac = createHmac('sha256', secretKey).update(rawData).digest('hex');
-
-      const cleanSig = signatureHeader.replace(/^mac=/i, '').trim();
-
-      const isValid =
-        cleanSig.toLowerCase() === expectedSig.toLowerCase() ||
-        cleanSig.toLowerCase() === expectedHmac.toLowerCase();
-
-      if (!isValid) {
-        this.logger.warn(`Invalid Zalo webhook signature. Received: ${cleanSig}`);
-      }
-      return isValid;
-    } catch (err) {
-      this.logger.error(`Error verifying Zalo signature: ${(err as Error).message}`);
-      return false;
+  ) {
+    this.token = this.configService.get<string>('zalo.botToken') || null;
+    if (!this.token) {
+      this.logger.warn('ZALO_BOT_TOKEN is not configured.');
     }
   }
 
-  /**
-   * Send text message back to user via Zalo OA OpenAPI (Customer Service message)
-   */
-  public async sendMessage(recipientId: string, text: string): Promise<boolean> {
-    const accessToken = this.configService.get<string>('zalo.accessToken');
+  public onModuleInit() {
+    const webhookUrl = this.configService.get<string>('zalo.webhookUrl');
+    if (webhookUrl) {
+      this.logger.log(`Zalo webhook configured for endpoint: ${webhookUrl}`);
+    }
+  }
 
-    if (!accessToken) {
-      this.logger.warn(
-        `ZALO_ACCESS_TOKEN is not configured. Outgoing message to ${recipientId} logged: "${text}"`,
-      );
+  public async sendMessage(chatId: string | number, text: string): Promise<boolean> {
+    const targetUserId = String(chatId);
+    if (!this.token) {
+      this.logger.warn(`Zalo token not configured. Outgoing message to ${targetUserId}: "${text}"`);
       return false;
     }
 
@@ -90,11 +42,11 @@ export class ZaloService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          access_token: accessToken,
+          access_token: this.token,
         },
         body: JSON.stringify({
           recipient: {
-            user_id: recipientId,
+            user_id: targetUserId,
           },
           message: {
             text,
@@ -102,77 +54,149 @@ export class ZaloService {
         }),
       });
 
-      const result = (await response.json()) as { error: number; message: string };
+      const data = (await response.json().catch((): null => null)) as {
+        error?: number;
+        message?: string;
+      } | null;
 
-      if (result.error !== 0) {
+      if (!response.ok || (data && data.error !== 0 && data.error !== undefined)) {
         this.logger.error(
-          `Failed to send Zalo message to user ${recipientId}. Error code ${result.error}: ${result.message}`,
+          `Failed to send Zalo message to ${targetUserId}: ${JSON.stringify(data || response.statusText)}`,
         );
         return false;
       }
 
-      this.logger.log(`Successfully sent Zalo message to user ${recipientId}`);
+      this.logger.log(`Successfully sent message to Zalo user ${targetUserId}`);
       return true;
-    } catch (error) {
-      const err = error as Error;
-      this.logger.error(`Exception while sending Zalo message: ${err.message}`);
+    } catch (err) {
+      this.logger.error(`Error sending Zalo message to ${targetUserId}: ${(err as Error).message}`);
       return false;
     }
   }
 
-  /**
-   * Handle incoming event from Zalo OA Webhook
-   */
-  public async handleWebhookEvent(
-    payload: ZaloWebhookPayload,
-  ): Promise<{ error: number; message: string }> {
-    const eventName = payload.event_name;
-    const senderId = payload.sender?.id;
-
-    this.logger.log(`Received Zalo webhook event: "${eventName}" from sender: "${senderId}"`);
-
-    if (!senderId) {
-      return { error: 0, message: 'Event ignored: Missing sender id' };
-    }
-
-    switch (eventName) {
-      case ZALO_EVENTS.USER_SEND_TEXT:
-        await this.handleUserSendText(senderId, payload);
-        break;
-
-      case ZALO_EVENTS.FOLLOW:
-        await this.handleUserFollow(senderId);
-        break;
-
-      case ZALO_EVENTS.UNFOLLOW:
-        this.logger.log(`User ${senderId} unfollowed Zalo Official Account.`);
-        break;
-
-      case ZALO_EVENTS.USER_SEND_IMAGE:
-        await this.sendMessage(
-          senderId,
-          'Tôi đã nhận được hình ảnh của bạn. Hiện tại hệ thống đang tiếp tục nâng cấp để xử lý hình ảnh tối ưu hơn.',
-        );
-        break;
-
-      default:
-        this.logger.debug(`Unhandled event: ${eventName}`);
-        break;
-    }
-
-    return { error: 0, message: 'Success' };
-  }
-
-  private async handleUserSendText(
-    senderId: string,
-    payload: ZaloWebhookPayload,
-  ): Promise<void> {
-    const userText = payload.message?.text?.trim();
-    if (!userText) {
+  public async processUpdate(update: unknown): Promise<void> {
+    if (!update || typeof update !== 'object') {
+      this.logger.warn('Received invalid or empty Zalo update.');
       return;
     }
 
-    // Check allowed users if allowed list is enforced
+    const payload = update as ZaloWebhookPayload;
+
+    // Handle user unfollow or follow
+    if (payload.event_name === ZALO_EVENTS.UNFOLLOW) {
+      this.logger.log(`User ${payload.sender?.id} unfollowed official account.`);
+      return;
+    }
+
+    if (payload.event_name === ZALO_EVENTS.FOLLOW) {
+      const followerId = String(payload.sender?.id ?? payload.user_id_by_app ?? '');
+      if (followerId) {
+        await this.handleStartCommand(followerId, 'bạn');
+      }
+      return;
+    }
+
+    // Resolve chatId / senderId
+    const senderId = String(
+      payload.sender?.id ??
+        payload.message?.chat?.id ??
+        payload.message?.from?.id ??
+        payload.user_id_by_app ??
+        '',
+    ).trim();
+
+    const text = (
+      payload.message?.text ?? (typeof payload.message === 'string' ? payload.message : '')
+    )?.trim();
+
+    const displayName =
+      payload.message?.from?.display_name ||
+      (payload.sender?.id ? String(payload.sender.id) : 'bạn');
+
+    if (!senderId) {
+      this.logger.debug('Received webhook without identifiable sender ID.');
+      return;
+    }
+
+    if (!text) {
+      this.logger.debug(`Received non-text message from ${senderId}`);
+      return;
+    }
+
+    await this.handleTextMessage(senderId, text, displayName);
+  }
+
+  private async handleTextMessage(
+    senderId: string,
+    text: string,
+    displayName: string,
+  ): Promise<void> {
+    // 1. /start command
+    if (text === '/start') {
+      await this.handleStartCommand(senderId, displayName);
+      return;
+    }
+
+    // 2. /help command
+    if (text === '/help') {
+      await this.sendMessage(
+        senderId,
+        '📖 Danh sách lệnh hỗ trợ:\n\n' +
+          '• /start - Bắt đầu & giới thiệu bot\n' +
+          '• /help - Hướng dẫn sử dụng\n' +
+          '• /echo <nội dung> - Bot phản hồi lại nội dung bạn vừa nhập\n' +
+          '• /clear hoặc /reset - Xóa ngữ cảnh hội thoại hiện tại\n' +
+          '• /ping - Kiểm tra trạng thái hoạt động của bot\n\n' +
+          '💡 Hoặc bạn chỉ cần nhắn tin văn bản tự nhiên, AI sẽ tự động phân tích và ghi nhận thu chi/công nợ.',
+      );
+      return;
+    }
+
+    // 3. /echo command
+    if (text.startsWith('/echo')) {
+      const echoContent = text.slice(5).trim();
+      if (echoContent) {
+        await this.sendMessage(senderId, `Bạn vừa nói: ${echoContent}`);
+      } else {
+        await this.sendMessage(senderId, 'Hãy nhập gì đó sau lệnh /echo (ví dụ: /echo Xin chào)');
+      }
+      return;
+    }
+
+    // 4. /ping command
+    if (text === '/ping') {
+      await this.sendMessage(senderId, '🏓 Pong! Webhook Zalo Bot đang hoạt động bình thường.');
+      return;
+    }
+
+    // 5. /reset or /clear command
+    if (text === '/reset' || text === '/clear') {
+      this.conversationHistoryService.clearHistory(senderId);
+      await this.sendMessage(
+        senderId,
+        '🧹 Đã làm mới ngữ cảnh hội thoại. Bạn có thể bắt đầu phiên trò chuyện mới!',
+      );
+      return;
+    }
+
+    // 6. Conversational input with Gemini AI
+    await this.handleAiConversation(senderId, text);
+  }
+
+  private async handleStartCommand(senderId: string, displayName: string): Promise<void> {
+    await this.sendMessage(
+      senderId,
+      `👋 Chào ${displayName}! Tôi là chatbot trợ lý tài chính thông minh trên Zalo.\n\n` +
+        'Bạn có thể gửi tin nhắn cho tôi bất kỳ lúc nào để:\n' +
+        '• Ghi thu chi: "ăn trưa 45k", "tiền lương 15tr"\n' +
+        '• Quản lý nợ: "cho Nam vay 500k", "Hùng trả 200k"\n' +
+        '• Tra cứu: "hôm nay chi bao nhiêu?", "ai đang nợ tôi?"\n\n' +
+        'Gõ /help để xem danh sách các lệnh hỗ trợ.',
+    );
+  }
+
+  private async handleAiConversation(senderId: string, text: string): Promise<void> {
+    // Check allowed users if configured
     const allowedIds = this.configService.get<string[]>('zalo.allowedUserIds') || [];
     if (allowedIds.length > 0 && !this.usersService.isAllowed(senderId)) {
       this.logger.warn(`Unauthorized Zalo user message attempt from ${senderId}`);
@@ -195,23 +219,15 @@ export class ZaloService {
 
     // Retrieve previous conversation context
     const history = this.conversationHistoryService.getHistory(senderId);
-    this.conversationHistoryService.appendUserMessage(senderId, userText);
+    this.conversationHistoryService.appendUserMessage(senderId, text);
 
     // Generate response with Gemini AI
-    const response = await this.geminiService.chat(userText, history, senderId);
+    const response = await this.geminiService.chat(text, history, senderId);
 
     // Preserve model reply in conversation session
     this.conversationHistoryService.appendModelMessage(senderId, response.text);
 
     // Dispatch reply to Zalo user
     await this.sendMessage(senderId, response.text);
-  }
-
-  private async handleUserFollow(senderId: string): Promise<void> {
-    await this.usersService.upsertUser(senderId);
-    await this.sendMessage(
-      senderId,
-      'Xin chào! Cảm ơn bạn đã quan tâm. Tôi là trợ lý ảo cá nhân thông minh của bạn. Hãy gửi tin nhắn cho tôi bất kỳ lúc nào bạn cần nhé! 🚀',
-    );
   }
 }

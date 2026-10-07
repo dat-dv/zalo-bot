@@ -1,38 +1,45 @@
+export interface ZaloChat {
+  id: string | number;
+  [key: string]: unknown;
+}
+
+export interface ZaloFrom {
+  id: string | number;
+  display_name?: string;
+  [key: string]: unknown;
+}
+
 export interface ZaloSender {
-  id: string;
+  id: string | number;
+  [key: string]: unknown;
 }
 
 export interface ZaloRecipient {
-  id: string;
+  id: string | number;
+  [key: string]: unknown;
 }
 
-export interface ZaloMessageAttachmentPayload {
-  thumbnail?: string;
-  url?: string;
-  id?: string;
-  description?: string;
-  title?: string;
-}
-
-export interface ZaloMessageAttachment {
-  type: string;
-  payload?: ZaloMessageAttachmentPayload;
-}
-
-export interface ZaloWebhookMessage {
+export interface ZaloMessagePayload {
+  msg_id?: string | number;
+  message_id?: string | number;
   text?: string;
-  msg_id?: string;
-  attachments?: ZaloMessageAttachment[];
+  chat?: ZaloChat;
+  from?: ZaloFrom;
+  attachments?: Array<{
+    type?: string;
+    payload?: Record<string, unknown>;
+  }>;
+  [key: string]: unknown;
 }
 
 export interface ZaloWebhookPayload {
   app_id?: string;
-  oa_id?: string;
   user_id_by_app?: string;
-  event_name: string;
-  sender: ZaloSender;
-  recipient: ZaloRecipient;
-  message?: ZaloWebhookMessage;
-  timestamp: string | number;
-  info?: Record<string, unknown>;
+  event_name?: string;
+  timestamp?: string | number;
+  sender?: ZaloSender;
+  recipient?: ZaloRecipient;
+  message?: ZaloMessagePayload;
+  update_id?: number | string;
+  [key: string]: unknown;
 }

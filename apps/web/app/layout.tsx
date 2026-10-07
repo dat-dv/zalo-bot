@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   formatDetection: {
     email: false,
     address: false,
-    zalophone: false,
+    telephone: false,
   },
   icons: {
     icon: [
@@ -97,7 +97,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(() => { try { const saved = localStorage.getItem('zalobot-theme'); const theme = saved === 'light' || saved === 'dark' ? saved : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documenzaloment.dataset.theme = theme; } catch { } })()`,
+            __html: `(() => { try { const saved = localStorage.getItem('zalobot-theme'); const theme = saved === 'light' || saved === 'dark' ? saved : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documentElement.dataset.theme = theme; } catch { } })()`,
           }}
         />
       </head>
