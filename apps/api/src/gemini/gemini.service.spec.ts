@@ -1,53 +1,27 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildReceiptAnalysisPrompt, parseReceiptImageAnalysis } from './gemini.service';
+import { GeminiService } from './gemini.service';
+import { ConfigService } from '@nestjs/config';
+import { getCurrentTimeInfo, buildSystemInstruction } from './helpers/gemini-prompt.helper';
 
-void test('includes Vietnam time context in the direct OCR JSON prompt', () => {
-  const prompt = buildReceiptAnalysisPrompt('Thanh toán hôm nay', {
-    nowText: 'Hôm nay là: Thứ Hai, ngày 25/08/2026 lúc 09:30:00 (Múi giờ Asia/Ho_Chi_Minh)',
-    nowIso: '2026-08-25T09:30:00+07:00',
-  });
-
-  assert.match(prompt, /Asia\/Ho_Chi_Minh/);
-  assert.match(prompt, /2026-08-25T09:30:00\+07:00/);
-  assert.match(prompt, /Thanh toán hôm nay/);
+void test('getCurrentTimeInfo formats time with timezone', () => {
+  const timeInfo = getCurrentTimeInfo('Asia/Ho_Chi_Minh');
+  assert.ok(timeInfo.nowText.includes('Asia/Ho_Chi_Minh'));
+  assert.ok(timeInfo.nowIso.length > 0);
 });
 
-void test('parses a complete receipt into a confirmation-ready transaction', () => {
-  const result = parseReceiptImageAnalysis(
-    JSON.stringify({
-      kind: 'ready',
-      type: 'expense',
-      amount: 65000,
-      category: 'Ăn uống',
-      note: 'Cơm trưa',
-      summary: 'Hoá đơn cơm trưa 65.000đ.',
-    }),
-  );
-
-  assert.deepEqual(result, {
-    kind: 'ready',
-    type: 'expense',
-    amount: 65000,
-    category: 'Ăn uống',
-    note: 'Cơm trưa',
-    occurredAt: undefined,
-    summary: 'Hoá đơn cơm trưa 65.000đ.',
-  });
+void test('buildSystemInstruction includes time context', () => {
+  const instruction = buildSystemInstruction('Asia/Ho_Chi_Minh');
+  assert.ok(instruction.includes('Zalo'));
+  assert.ok(instruction.includes('Asia/Ho_Chi_Minh'));
 });
 
-void test('does not create a transaction from an incomplete image analysis', () => {
-  const result = parseReceiptImageAnalysis(
-    JSON.stringify({
-      kind: 'missing_fields',
-      missingFields: ['amount'],
-      summary: 'Chỉ đọc được tên cửa hàng.',
-    }),
-  );
-
-  assert.deepEqual(result, {
-    kind: 'missing_fields',
-    missingFields: ['amount'],
-    summary: 'Chỉ đọc được tên cửa hàng.',
+void test('GeminiService returns notice when GEMINI_API_KEY is not configured', async () => {
+  const configService = new ConfigService({
+    gemini: { apiKey: '', model: 'gemini-2.5-flash' },
+    timezone: 'Asia/Ho_Chi_Minh',
   });
+  const service = new GeminiService(configService);
+  const result = await service.chat('Xin chào');
+  assert.match(result.text, /GEMINI_API_KEY/);
 });

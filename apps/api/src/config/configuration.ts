@@ -21,17 +21,6 @@ export interface AppConfig {
     apiKey: string;
     model: string;
   };
-  voice: {
-    whisperUrl: string;
-    timeoutMs: number;
-    maxDurationSeconds: number;
-    maxBytes: number;
-  };
-  receiptImage: {
-    timeoutMs: number;
-    maxBytes: number;
-    langPath: string;
-  };
   receiptStorage: {
     dir: string;
   };
@@ -109,17 +98,6 @@ export default (): AppConfig => {
     gemini: {
       apiKey: readEnv('GEMINI_API_KEY'),
       model: readEnv('GEMINI_MODEL', 'gemini-2.5-flash'),
-    },
-    voice: {
-      whisperUrl: readEnv('WHISPER_URL', 'http://127.0.0.1:8080'),
-      timeoutMs: readNumberEnv('WHISPER_TIMEOUT_MS', 45000),
-      maxDurationSeconds: readNumberEnv('VOICE_MAX_DURATION_SECONDS', 90),
-      maxBytes: readNumberEnv('VOICE_MAX_BYTES', 8388608),
-    },
-    receiptImage: {
-      timeoutMs: readNumberEnv('RECEIPT_IMAGE_TIMEOUT_MS', 45000),
-      maxBytes: readNumberEnv('RECEIPT_IMAGE_MAX_BYTES', 10485760),
-      langPath: readEnv('TESSERACT_LANG_PATH', './assets/tessdata'),
     },
     receiptStorage: {
       dir: readEnv('RECEIPT_STORAGE_DIR', './data/receipts'),

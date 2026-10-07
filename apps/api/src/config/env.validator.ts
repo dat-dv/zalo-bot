@@ -65,7 +65,6 @@ export function validateEnvironment(): EnvValidationResult {
     'GOOGLE_CLIENT_SECRET',
     'DASHBOARD_ACCESS_TOKEN_SECRET',
     'DASHBOARD_REFRESH_TOKEN_SECRET',
-    'TESSERACT_LANG_PATH',
     'RECEIPT_STORAGE_DIR',
   ];
   for (const key of requiredKeys) {
@@ -78,14 +77,7 @@ export function validateEnvironment(): EnvValidationResult {
       );
   }
 
-  for (const key of [
-    'PORT',
-    'WHISPER_TIMEOUT_MS',
-    'VOICE_MAX_DURATION_SECONDS',
-    'VOICE_MAX_BYTES',
-    'RECEIPT_IMAGE_TIMEOUT_MS',
-    'RECEIPT_IMAGE_MAX_BYTES',
-  ]) {
+  for (const key of ['PORT']) {
     if (!isPositiveInteger(readEnv(key)))
       addError(
         errors,
@@ -95,7 +87,7 @@ export function validateEnvironment(): EnvValidationResult {
       );
   }
 
-  for (const key of ['APP_URL', 'WEB_ORIGIN', 'WHISPER_URL']) {
+  for (const key of ['APP_URL', 'WEB_ORIGIN']) {
     if (!isHttpUrl(readEnv(key)))
       addError(
         errors,

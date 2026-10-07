@@ -37,7 +37,6 @@ services:
       - .env
       - ${ENV_FILE:-.env.local}
     environment:
-      WHISPER_URL: http://127.0.0.1:8080
       DATABASE_URL: postgresql://${POSTGRES_USER:-zalobot}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.local}@postgres:5432/${POSTGRES_DB:-zalobot}
       DATABASE_SSL: 'false'
       REDIS_URL: redis://redis:6379
