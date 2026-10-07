@@ -91,7 +91,7 @@ export class UsersController {
     return userId;
   }
   private id(value: unknown): string {
-    const id = String(value ?? '').trim();
+    const id = (typeof value === 'string' || typeof value === 'number' ? String(value) : '').trim();
     if (!id) throw new BadRequestException('id is invalid.');
     return id;
   }
