@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ConfigService } from '@nestjs/config';
 import { ZaloService } from './zalo.service';
 
-void test('ZaloService initializes and logs webhook configuration onModuleInit', async () => {
+void test('ZaloService initializes and logs webhook configuration onModuleInit', () => {
   const mockConfigService = {
     get: (key: string) => {
       if (key === 'zalo.botToken') return 'mock_token_123';
@@ -11,144 +12,80 @@ void test('ZaloService initializes and logs webhook configuration onModuleInit',
     },
   };
 
-  const service = new ZaloService(mockConfigService as any, {} as any);
+  const service = new ZaloService(mockConfigService as unknown as ConfigService);
   service.onModuleInit();
   assert.ok(service);
 });
 
-void test('ZaloService processUpdate processes /start, /help, /echo, /ping', async () => {
-  const sentMessages: Array<{ chatId: string | number; text: string }> = [];
+void test('ZaloService sendMessage returns false when botToken is missing', async () => {
   const mockConfigService = {
-    get: (key: string) => {
-      if (key === 'zalo.botToken') return 'mock_token_123';
-      return undefined;
-    },
+    get: (_key: string) => undefined,
   };
 
-  const service = new ZaloService(mockConfigService as any, {} as any);
-
-  service.sendMessage = (chatId: string | number, text: string) => {
-    sentMessages.push({ chatId, text });
-    return Promise.resolve(true);
-  };
-
-  // 1. /start
-  await service.processInput({
-    message: {
-      chat: { id: 'c1' },
-      from: { id: 'u1', display_name: 'Đạt' },
-      text: '/start',
-    },
-  });
-  assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0].text, /Chào Đạt!/);
-
-  // 2. /help
-  await service.processInput({
-    message: {
-      chat: { id: 'c1' },
-      from: { id: 'u1' },
-      text: '/help',
-    },
-  });
-  assert.equal(sentMessages.length, 2);
-  assert.match(sentMessages[1].text, /Danh sách lệnh hỗ trợ/);
-
-  // 3. /echo with text
-  await service.processInput({
-    message: {
-      chat: { id: 'c1' },
-      from: { id: 'u1' },
-      text: '/echo Xin chào',
-    },
-  });
-  assert.equal(sentMessages.length, 3);
-  assert.equal(sentMessages[2].text, 'Bạn vừa nói: Xin chào');
-
-  // 4. /echo without text
-  await service.processInput({
-    message: {
-      chat: { id: 'c1' },
-      from: { id: 'u1' },
-      text: '/echo',
-    },
-  });
-  assert.equal(sentMessages.length, 4);
-  assert.match(sentMessages[3].text, /Hãy nhập gì đó sau lệnh \/echo/);
-
-  // 5. /ping
-  await service.processInput({
-    message: {
-      chat: { id: 'c1' },
-      from: { id: 'u1' },
-      text: '/ping',
-    },
-  });
-  assert.equal(sentMessages.length, 5);
-  assert.match(sentMessages[4].text, /Pong!/);
+  const service = new ZaloService(mockConfigService as unknown as ConfigService);
+  const result = await service.sendMessage('12345', 'Hello');
+  assert.equal(result, false);
 });
 
-void test('ZaloService handles incoming conversational message', async () => {
-  const sentMessages: Array<{ chatId: string | number; text: string }> = [];
-
+void test('ZaloService sendMessage sends POST request to Zalo API successfully', async () => {
   const mockConfigService = {
     get: (key: string) => {
-      if (key === 'zalo.botToken') return 'mock_token';
-      if (key === 'zalo.allowedUserIds') return [];
+      if (key === 'zalo.botToken') return 'valid_token_xyz';
       return undefined;
     },
   };
 
-  const mockUsersService = {
-    isAllowed: () => true,
-    checkCooldown: () => ({ allowed: true }),
-    upsertUser: () => Promise.resolve({} as any),
+  const originalFetch = globalThis.fetch;
+  let requestUrl = '';
+  let requestHeaders: Record<string, string> = {};
+  let requestBody = '';
+
+  globalThis.fetch = (input: string | URL | Request, init?: RequestInit) => {
+    requestUrl = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    requestHeaders = (init?.headers as Record<string, string>) || {};
+    requestBody = typeof init?.body === 'string' ? init.body : '';
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ error: 0, message: 'Success' }),
+    } as Response);
   };
 
-  const service = new ZaloService(mockConfigService as any, mockUsersService as any);
+  try {
+    const service = new ZaloService(mockConfigService as unknown as ConfigService);
+    const result = await service.sendMessage('user_999', 'Xin chào');
 
-  service.sendMessage = (chatId: string | number, text: string) => {
-    sentMessages.push({ chatId, text });
-    return Promise.resolve(true);
-  };
-
-  await service.processInput({
-    sender: { id: 'user_123' },
-    message: {
-      text: 'Cơm trưa 35k',
-      from: { id: 'user_123', display_name: 'Dat' },
-    },
-  });
-
-  assert.equal(sentMessages.length, 1);
-  assert.equal(sentMessages[0].chatId, 'user_123');
-  assert.match(sentMessages[0].text, /Cơm trưa 35k/);
+    assert.equal(result, true);
+    assert.match(requestUrl, /openapi\.zalo\.me/);
+    assert.equal(requestHeaders.access_token, 'valid_token_xyz');
+    assert.match(requestBody, /"user_id":"user_999"/);
+    assert.match(requestBody, /"text":"Xin chào"/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
-void test('ZaloService handles /reset and clears session', async () => {
-  const sentMessages: Array<{ chatId: string | number; text: string }> = [];
-
+void test('ZaloService sendMessage returns false when Zalo API returns error', async () => {
   const mockConfigService = {
     get: (key: string) => {
-      if (key === 'zalo.botToken') return 'mock_token';
+      if (key === 'zalo.botToken') return 'valid_token_xyz';
       return undefined;
     },
   };
 
-  const service = new ZaloService(mockConfigService as any, {} as any);
-
-  service.sendMessage = (chatId: string | number, text: string) => {
-    sentMessages.push({ chatId, text });
-    return Promise.resolve(true);
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () => {
+    return Promise.resolve({
+      ok: false,
+      statusText: 'Bad Request',
+      json: () => Promise.resolve({ error: -101, message: 'Invalid token' }),
+    } as Response);
   };
 
-  await service.processInput({
-    sender: { id: 'user_reset' },
-    message: {
-      text: '/reset',
-    },
-  });
-
-  assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0].text, /Đã làm mới ngữ cảnh/);
+  try {
+    const service = new ZaloService(mockConfigService as unknown as ConfigService);
+    const result = await service.sendMessage('user_999', 'Xin chào');
+    assert.equal(result, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

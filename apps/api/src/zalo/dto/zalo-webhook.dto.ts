@@ -31,7 +31,7 @@ export class ZaloChatDto {
     example: 'PRIVATE',
     enum: ['PRIVATE', 'GROUP'],
   })
-  chat_type?: 'PRIVATE' | 'GROUP' | string;
+  chat_type?: 'PRIVATE' | 'GROUP';
 }
 
 /**
@@ -251,7 +251,7 @@ export function normalizeZaloWebhookPayload(payload: ZaloWebhookPayloadDto): Nor
   const stickerUrl = message?.url || message?.sticker;
   const caption = message?.caption;
   const isBot = Boolean(message?.from?.is_bot);
-  const isUnsupported = eventName === ZaloWebhookEventName.MESSAGE_UNSUPPORTED_RECEIVED;
+  const isUnsupported = eventName === (ZaloWebhookEventName.MESSAGE_UNSUPPORTED_RECEIVED as string);
 
   return {
     eventName,

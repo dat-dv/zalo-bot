@@ -10,7 +10,9 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags, ApiHeader, ApiBody } from '@nestjs/swagger';
-import { ZaloService } from './zalo.service';
+import { ConfigService } from '@nestjs/config';
+import { InputProcessor } from './input-processor.service';
+import { ZaloMessageParser } from './zalo-message-parser.service';
 import { ZaloWebhookPayloadDto } from './dto/zalo-webhook.dto';
 
 @ApiTags('Zalo Bot Webhook')
@@ -18,7 +20,11 @@ import { ZaloWebhookPayloadDto } from './dto/zalo-webhook.dto';
 export class ZaloController {
   private readonly logger = new Logger(ZaloController.name);
 
-  constructor(private readonly zaloService: ZaloService) {}
+  constructor(
+    private readonly inputProcessor: InputProcessor,
+    private readonly zaloMessageParser: ZaloMessageParser,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Get(['webhook', 'zalo/webhook', 'api/webhook', 'api/zalo/webhook'])
   @ApiOperation({ summary: 'Kiểm tra trạng thái Webhook Zalo Bot' })
@@ -54,16 +60,21 @@ export class ZaloController {
   })
   @ApiResponse({ status: 200, description: 'Đã nhận và xử lý sự kiện webhook' })
   public handleWebhook(
-    @Body() update: ZaloWebhookPayloadDto,
+    @Body() payload: ZaloWebhookPayloadDto,
     @Headers('x-bot-api-secret-token') secretToken?: string,
   ): { ok: boolean } {
     this.logger.debug('Received webhook payload from Zalo Bot');
-    this.logger.log('update', JSON.stringify(update));
-    if (typeof this.zaloService.processInput === 'function') {
-      void this.zaloService.processInput(update, secretToken);
-    } else if (typeof (this.zaloService as any).processUpdate === 'function') {
-      void (this.zaloService as any).processUpdate(update, secretToken);
+    this.logger.log('update', JSON.stringify(payload));
+
+    const configuredSecretToken = this.configService.get<string>('zalo.secretToken');
+    if (configuredSecretToken && secretToken !== configuredSecretToken) {
+      this.logger.warn('Unauthorized Zalo webhook request: invalid X-Bot-Api-Secret-Token.');
+      return { ok: false };
     }
+
+    const input = this.zaloMessageParser.parse(payload);
+    void this.inputProcessor.process(input);
+
     return { ok: true };
   }
 }
