@@ -12,6 +12,7 @@ export const ZALO_EVENTS = {
 } as const;
 
 export const ZALO_API_URLS = {
+  BOT_SEND_MESSAGE: (token: string) => `https://bot-api.zaloplatforms.com/bot${token}/sendMessage`,
   SEND_MESSAGE: 'https://openapi.zalo.me/v3.0/oa/message/cs',
   GET_PROFILE: 'https://openapi.zalo.me/v3.0/oa/user/detail',
 } as const;

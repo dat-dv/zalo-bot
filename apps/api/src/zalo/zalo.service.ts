@@ -9,6 +9,7 @@ export class ZaloService implements OnModuleInit {
 
   constructor(private readonly configService: ConfigService) {
     this.token = this.configService.get<string>('zalo.botToken') || null;
+
     if (!this.token) {
       this.logger.warn('ZALO_BOT_TOKEN is not configured.');
     }
@@ -21,46 +22,51 @@ export class ZaloService implements OnModuleInit {
     }
   }
 
-  public async sendMessage(chatId: string | number, text: string): Promise<boolean> {
-    const targetUserId = String(chatId);
+  public async sendMessage(chatId: string, text: string): Promise<boolean> {
+    const targetChatId = String(chatId);
+
     if (!this.token) {
-      this.logger.warn(`Zalo token not configured. Outgoing message to ${targetUserId}: "${text}"`);
+      this.logger.warn(`Zalo token not configured. Outgoing message to ${targetChatId}: "${text}"`);
       return false;
     }
 
+    const entrypoint = ZALO_API_URLS.BOT_SEND_MESSAGE(this.token);
+
+    this.logger.log({
+      entrypoint,
+      targetChatId,
+      text,
+    });
     try {
-      const response = await fetch(ZALO_API_URLS.SEND_MESSAGE, {
+      const response = await fetch(entrypoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          access_token: this.token,
         },
         body: JSON.stringify({
-          recipient: {
-            user_id: targetUserId,
-          },
-          message: {
-            text,
-          },
+          chat_id: targetChatId,
+          text,
         }),
       });
 
       const data = (await response.json().catch((): null => null)) as {
+        ok?: boolean;
         error?: number;
         message?: string;
+        description?: string;
       } | null;
 
-      if (!response.ok || (data && data.error !== 0 && data.error !== undefined)) {
+      if (!response.ok || data?.ok === false || (data?.error !== 0 && data?.error !== undefined)) {
         this.logger.error(
-          `Failed to send Zalo message to ${targetUserId}: ${JSON.stringify(data || response.statusText)}`,
+          `Failed to send Zalo message to ${targetChatId}: ${JSON.stringify(data || response.statusText)}`,
         );
         return false;
       }
 
-      this.logger.log(`Successfully sent message to Zalo user ${targetUserId}`);
+      this.logger.log(`Successfully sent message to Zalo chat ${targetChatId}`);
       return true;
     } catch (err) {
-      this.logger.error(`Error sending Zalo message to ${targetUserId}: ${(err as Error).message}`);
+      this.logger.error(`Error sending Zalo message to ${targetChatId}: ${(err as Error).message}`);
       return false;
     }
   }

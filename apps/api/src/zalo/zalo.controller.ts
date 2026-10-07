@@ -9,7 +9,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags, ApiHeader, ApiBody } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags, ApiHeader } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { InputProcessor } from './input-processor.service';
 import { ZaloMessageParser } from './zalo-message-parser.service';
@@ -54,27 +54,27 @@ export class ZaloController {
     required: false,
     description: 'Secret token xác thực từ Zalo Bot Platform (nếu đã cấu hình)',
   })
-  @ApiBody({
-    type: ZaloWebhookPayloadDto,
-    description: 'Dữ liệu sự kiện tương tác từ Zalo Bot',
-  })
+  // @ApiBody({
+  //   type: ZaloWebhookPayloadDto,
+  //   description: 'Dữ liệu sự kiện tương tác từ Zalo Bot',
+  // })
   @ApiResponse({ status: 200, description: 'Đã nhận và xử lý sự kiện webhook' })
   public handleWebhook(
     @Body() payload: ZaloWebhookPayloadDto,
     @Headers('x-bot-api-secret-token') secretToken?: string,
   ): { ok: boolean } {
-    this.logger.debug('Received webhook payload from Zalo Bot');
-    this.logger.log('update', JSON.stringify(payload));
-
+    this.logger.debug(
+      'Received webhook payload from Zalo Bot : \n',
+      JSON.stringify(payload, null, 2),
+    );
     const configuredSecretToken = this.configService.get<string>('zalo.secretToken');
+
     if (configuredSecretToken && secretToken !== configuredSecretToken) {
       this.logger.warn('Unauthorized Zalo webhook request: invalid X-Bot-Api-Secret-Token.');
       return { ok: false };
     }
-
     const input = this.zaloMessageParser.parse(payload);
     void this.inputProcessor.process(input);
-
     return { ok: true };
   }
 }

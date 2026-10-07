@@ -27,7 +27,7 @@ void test('ZaloService sendMessage returns false when botToken is missing', asyn
   assert.equal(result, false);
 });
 
-void test('ZaloService sendMessage sends POST request to Zalo API successfully', async () => {
+void test('ZaloService sendMessage sends POST request to Zalo Bot Platform API successfully', async () => {
   const mockConfigService = {
     get: (key: string) => {
       if (key === 'zalo.botToken') return 'valid_token_xyz';
@@ -46,7 +46,7 @@ void test('ZaloService sendMessage sends POST request to Zalo API successfully',
     requestBody = typeof init?.body === 'string' ? init.body : '';
     return Promise.resolve({
       ok: true,
-      json: () => Promise.resolve({ error: 0, message: 'Success' }),
+      json: () => Promise.resolve({ ok: true, result: { message_id: 'm1' } }),
     } as Response);
   };
 
@@ -55,9 +55,9 @@ void test('ZaloService sendMessage sends POST request to Zalo API successfully',
     const result = await service.sendMessage('user_999', 'Xin chào');
 
     assert.equal(result, true);
-    assert.match(requestUrl, /openapi\.zalo\.me/);
-    assert.equal(requestHeaders.access_token, 'valid_token_xyz');
-    assert.match(requestBody, /"user_id":"user_999"/);
+    assert.match(requestUrl, /bot-api\.zaloplatforms\.com\/botvalid_token_xyz\/sendMessage/);
+    assert.equal(requestHeaders['Content-Type'], 'application/json');
+    assert.match(requestBody, /"chat_id":"user_999"/);
     assert.match(requestBody, /"text":"Xin chào"/);
   } finally {
     globalThis.fetch = originalFetch;
@@ -77,7 +77,7 @@ void test('ZaloService sendMessage returns false when Zalo API returns error', a
     return Promise.resolve({
       ok: false,
       statusText: 'Bad Request',
-      json: () => Promise.resolve({ error: -101, message: 'Invalid token' }),
+      json: () => Promise.resolve({ ok: false, description: 'Invalid token' }),
     } as Response);
   };
 
