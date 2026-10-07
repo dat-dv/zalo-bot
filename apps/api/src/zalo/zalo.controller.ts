@@ -9,7 +9,7 @@ export class ZaloController {
 
   constructor(private readonly zaloService: ZaloService) {}
 
-  @Get(['webhook', 'zalo/webhook'])
+  @Get(['webhook', 'zalo/webhook', 'api/webhook', 'api/zalo/webhook'])
   @ApiOperation({ summary: 'Kiểm tra trạng thái Webhook Zalo Bot' })
   @ApiResponse({ status: 200, description: 'Webhook Zalo hoạt động bình thường' })
   public verifyWebhook(
@@ -29,13 +29,14 @@ export class ZaloController {
     };
   }
 
-  @Post(['webhook', 'zalo/webhook'])
+  @Post(['webhook', 'zalo/webhook', 'api/webhook', 'api/zalo/webhook'])
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Nhận sự kiện Webhook từ Zalo Bot' })
   @ApiResponse({ status: 200, description: 'Đã xử lý sự kiện webhook' })
   public handleWebhook(@Body() update: unknown): { ok: boolean } {
     this.logger.debug('Received webhook payload from Zalo Bot');
-    this.zaloService.processUpdate(update);
+    this.logger.log('update', JSON.stringify(update));
+    void this.zaloService.processUpdate(update);
     return { ok: true };
   }
 }

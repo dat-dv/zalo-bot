@@ -12,14 +12,19 @@ import { RemindersModule } from './reminders/reminders.module';
 import { FinanceModule } from './finance/finance.module';
 import { AuditModule } from './audit/audit.module';
 import { ReportsModule } from './reports/reports.module';
-import { fromProjectRoot } from './config/project-root';
+import { fromApiRoot, fromProjectRoot } from './config/project-root';
 import { GlobalExceptionsFilter } from './common/filters/global-exceptions.filter';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: [fromProjectRoot('.env.local'), fromProjectRoot('.env')],
+      envFilePath: [
+        fromApiRoot('.env.local'),
+        fromApiRoot('.env'),
+        fromProjectRoot('.env.local'),
+        fromProjectRoot('.env'),
+      ],
       load: [configuration],
     }),
     ScheduleModule.forRoot(),

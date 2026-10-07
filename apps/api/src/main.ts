@@ -13,7 +13,9 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
 
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', {
+    exclude: ['webhook', 'zalo/webhook', 'api/webhook', 'api/zalo/webhook'],
+  });
   app.enableShutdownHooks();
 
   // 3. Configure Swagger OpenAPI Documentation
@@ -62,10 +64,12 @@ async function bootstrap() {
 
   await app.listen(port);
 
+  const webhookUrl = configService.get<string>('zalo.webhookUrl') || `${appUrl}/webhook`;
+
   logger.log(`🚀 Web Server is listening on port ${port}`);
   logger.log(`📚 Swagger OpenAPI Docs: ${appUrl}/api/docs`);
   logger.log(`🌐 Public OAuth Callback URL: ${appUrl}/api/oauth2callback`);
-  logger.log(`🤖 Zalo Webhook endpoint: ${appUrl}/api/zalo/webhook`);
+  logger.log(`🤖 Zalo Webhook endpoint: ${webhookUrl}`);
 }
 
 // Global Process Resilience Guards

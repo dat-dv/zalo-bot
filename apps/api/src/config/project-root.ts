@@ -9,6 +9,15 @@ export function projectRoot(): string {
     : currentDirectory;
 }
 
+export function apiRoot(): string {
+  const root = projectRoot();
+  return path.resolve(root, 'apps/api');
+}
+
 export function fromProjectRoot(...segments: string[]): string {
   return path.resolve(projectRoot(), ...segments);
+}
+
+export function fromApiRoot(...segments: string[]): string {
+  return path.resolve(apiRoot(), ...segments);
 }

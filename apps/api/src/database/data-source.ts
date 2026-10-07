@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
 import { config as loadDotenv } from 'dotenv';
-import { fromProjectRoot } from '../config/project-root';
+import { fromApiRoot, fromProjectRoot } from '../config/project-root';
 import { UserEntity } from './entities/user.entity';
 import { InviteEntity } from './entities/invite.entity';
 import { UserTokenEntity } from './entities/user-token.entity';
@@ -23,6 +23,8 @@ import { FixPostgresUuidTypes1724690000000 } from './migrations/1724690000000-Fi
 import { FixPostgresPlaceAndContactUuidTypes1724700000000 } from './migrations/1724700000000-FixPostgresPlaceAndContactUuidTypes';
 
 // Load environment variables for TypeORM CLI
+loadDotenv({ path: fromApiRoot('.env.local') });
+loadDotenv({ path: fromApiRoot('.env') });
 loadDotenv({ path: fromProjectRoot('.env.local') });
 loadDotenv({ path: fromProjectRoot('.env') });
 

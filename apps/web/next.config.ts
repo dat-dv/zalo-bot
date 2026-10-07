@@ -2,6 +2,9 @@ import type { NextConfig } from 'next';
 import { loadEnvConfig } from '@next/env';
 import path from 'path';
 
+// 1. Ưu tiên nạp biến môi trường riêng của apps/web (.env.local, .env)
+loadEnvConfig(import.meta.dirname);
+// 2. Dự phòng nạp root nếu chưa có file cấu hình trong apps/web
 loadEnvConfig(path.resolve(import.meta.dirname, '../..'));
 
 const isStaticExport = process.env.NODE_ENV === 'production';
