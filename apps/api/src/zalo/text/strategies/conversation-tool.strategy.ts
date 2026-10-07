@@ -38,6 +38,10 @@ export class ConversationToolStrategy implements TextToolStrategy {
 
     await this.usersService.upsertUser(context.senderId);
 
-    await this.zaloService.sendMessage(context.chatId, `Đã nhận tin nhắn: "${context.text}"`);
+    const messageText =
+      context.aiReplyText ||
+      `Đã nhận tin nhắn: "${context.text}". Gõ /help để xem danh sách các lệnh hỗ trợ.`;
+
+    await this.zaloService.sendMessage(context.chatId, messageText);
   }
 }

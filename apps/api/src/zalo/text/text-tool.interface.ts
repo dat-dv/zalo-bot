@@ -7,6 +7,8 @@ export interface TextToolContext {
   senderId: string;
   displayName: string;
   text: string;
+  toolArgs?: Record<string, unknown>;
+  aiReplyText?: string;
 }
 
 export interface TextToolStrategy {

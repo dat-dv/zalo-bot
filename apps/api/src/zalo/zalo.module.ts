@@ -11,10 +11,17 @@ import { EchoToolStrategy } from './text/strategies/echo-tool.strategy';
 import { PingToolStrategy } from './text/strategies/ping-tool.strategy';
 import { ResetToolStrategy } from './text/strategies/reset-tool.strategy';
 import { ConversationToolStrategy } from './text/strategies/conversation-tool.strategy';
+import { ManageDebtToolStrategy } from './text/strategies/manage-debt-tool.strategy';
+import { RecordTransactionToolStrategy } from './text/strategies/record-transaction-tool.strategy';
+import { SetReminderToolStrategy } from './text/strategies/set-reminder-tool.strategy';
+import { GetReportToolStrategy } from './text/strategies/get-report-tool.strategy';
 import { UsersModule } from '../users/users.module';
+import { LlmModule } from '../llm/llm.module';
+import { FinanceModule } from '../finance/finance.module';
+import { RemindersModule } from '../reminders/reminders.module';
 
 @Module({
-  imports: [UsersModule],
+  imports: [UsersModule, LlmModule, FinanceModule, RemindersModule],
   controllers: [ZaloController],
   providers: [
     ZaloService,
@@ -28,6 +35,10 @@ import { UsersModule } from '../users/users.module';
     PingToolStrategy,
     ResetToolStrategy,
     ConversationToolStrategy,
+    ManageDebtToolStrategy,
+    RecordTransactionToolStrategy,
+    SetReminderToolStrategy,
+    GetReportToolStrategy,
   ],
   exports: [ZaloService, ZaloMessageParser, InputProcessor, TextInputService, TextToolFactory],
 })

@@ -13,6 +13,13 @@ import { EchoToolStrategy } from './text/strategies/echo-tool.strategy';
 import { PingToolStrategy } from './text/strategies/ping-tool.strategy';
 import { ResetToolStrategy } from './text/strategies/reset-tool.strategy';
 import { ConversationToolStrategy } from './text/strategies/conversation-tool.strategy';
+import { ManageDebtToolStrategy } from './text/strategies/manage-debt-tool.strategy';
+import { RecordTransactionToolStrategy } from './text/strategies/record-transaction-tool.strategy';
+import { SetReminderToolStrategy } from './text/strategies/set-reminder-tool.strategy';
+import { GetReportToolStrategy } from './text/strategies/get-report-tool.strategy';
+import { FinanceService } from '../finance/finance.service';
+import { RemindersService } from '../reminders/reminders.service';
+import { LlmService } from '../llm/llm.service';
 
 interface MockSetup {
   processor: InputProcessor;
@@ -49,6 +56,23 @@ function createMockSetup(overrides?: {
     },
   } as unknown as ConfigService;
 
+  const mockFinanceService = {
+    createDebt: () => Promise.resolve({} as never),
+    createTransaction: () => Promise.resolve({} as never),
+    getSummary: () => Promise.resolve({ income: 0, expense: 0, balance: 0 } as never),
+  } as unknown as FinanceService;
+
+  const mockRemindersService = {
+    createReminder: () => Promise.resolve({ remindAt: new Date() } as never),
+  } as unknown as RemindersService;
+
+  const mockLlmService = {
+    generate: () =>
+      Promise.resolve({
+        text: 'Đã nhận tin nhắn.',
+      }),
+  } as unknown as LlmService;
+
   const startStrategy = new StartToolStrategy(mockZaloService);
   const helpStrategy = new HelpToolStrategy(mockZaloService);
   const echoStrategy = new EchoToolStrategy(mockZaloService);
@@ -59,6 +83,13 @@ function createMockSetup(overrides?: {
     mockUsersService,
     mockConfigService,
   );
+  const manageDebtStrategy = new ManageDebtToolStrategy(mockZaloService, mockFinanceService);
+  const recordTransactionStrategy = new RecordTransactionToolStrategy(
+    mockZaloService,
+    mockFinanceService,
+  );
+  const setReminderStrategy = new SetReminderToolStrategy(mockZaloService, mockRemindersService);
+  const getReportStrategy = new GetReportToolStrategy(mockZaloService, mockFinanceService);
 
   const factory = new TextToolFactory(
     startStrategy,
@@ -67,9 +98,13 @@ function createMockSetup(overrides?: {
     pingStrategy,
     resetStrategy,
     conversationStrategy,
+    manageDebtStrategy,
+    recordTransactionStrategy,
+    setReminderStrategy,
+    getReportStrategy,
   );
 
-  const textInputService = new TextInputService(factory);
+  const textInputService = new TextInputService(factory, mockLlmService);
   const processor = new InputProcessor(mockZaloService, textInputService);
 
   return { processor, sentMessages };
@@ -189,7 +224,7 @@ void test('InputProcessor handles conversational messages and user auth', async 
     text: 'Ăn trưa 35k',
   });
   assert.equal(successSetup.sentMessages.length, 1);
-  assert.match(successSetup.sentMessages[0].text, /Đã nhận tin nhắn: "Ăn trưa 35k"/);
+  assert.match(successSetup.sentMessages[0].text, /Đã nhận tin nhắn/);
 });
 
 void test('InputProcessor handles image messages with and without caption', async () => {

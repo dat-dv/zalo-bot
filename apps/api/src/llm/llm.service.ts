@@ -1,0 +1,36 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { ILlmProvider, LlmResponse, LlmToolDefinition } from './types/llm.types';
+import { GeminiProvider } from './providers/gemini.provider';
+import { OpenAiProvider } from './providers/openai.provider';
+
+@Injectable()
+export class LlmService {
+  private readonly logger = new Logger(LlmService.name);
+  private readonly providerMap = new Map<string, ILlmProvider>();
+
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly geminiProvider: GeminiProvider,
+    private readonly openAiProvider: OpenAiProvider,
+  ) {
+    this.providerMap.set(geminiProvider.name, geminiProvider);
+    this.providerMap.set(openAiProvider.name, openAiProvider);
+  }
+
+  public async generate(
+    prompt: string,
+    tools?: LlmToolDefinition[],
+    systemInstruction?: string,
+  ): Promise<LlmResponse> {
+    const configuredProvider = this.configService.get<string>('llm.provider') || 'gemini';
+
+    const provider = this.providerMap.get(configuredProvider.toLowerCase()) || this.geminiProvider;
+
+    this.logger.debug(
+      `Dispatching prompt to LLM provider: ${provider.name} (configured: ${configuredProvider})`,
+    );
+
+    return provider.generate(prompt, tools, systemInstruction);
+  }
+}

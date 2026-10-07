@@ -31,6 +31,18 @@ export interface AppConfig {
     dashboardRefreshTokenSecret: string;
   };
   security: { encryptionKey: string };
+  llm: {
+    provider: string;
+    gemini: {
+      apiKey: string;
+      model: string;
+    };
+    openai: {
+      apiKey: string;
+      model: string;
+      baseUrl: string;
+    };
+  };
 }
 
 function readEnv(name: string, fallback = ''): string {
@@ -106,5 +118,17 @@ export default (): AppConfig => {
       dashboardRefreshTokenSecret: readEnv('DASHBOARD_REFRESH_TOKEN_SECRET'),
     },
     security: { encryptionKey: readEnv('DATA_ENCRYPTION_KEY', '0'.repeat(64)) },
+    llm: {
+      provider: readEnv('LLM_PROVIDER', 'gemini'),
+      gemini: {
+        apiKey: readEnv('GEMINI_API_KEY'),
+        model: readEnv('GEMINI_MODEL', 'gemini-2.5-flash'),
+      },
+      openai: {
+        apiKey: readOptionalEnv('OPENAI_API_KEY') || '',
+        model: readEnv('OPENAI_MODEL', 'gpt-4o-mini'),
+        baseUrl: readEnv('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+      },
+    },
   };
 };
