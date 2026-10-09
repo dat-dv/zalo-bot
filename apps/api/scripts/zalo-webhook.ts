@@ -16,10 +16,10 @@ if (!token) {
 
 const baseUrl = `https://bot-api.zaloplatforms.com/bot${token}`;
 
-async function getWebhookInfo() {
+async function getWebhookInfo(): Promise<unknown> {
   console.log('📡 Đang kiểm tra thông tin cấu hình Webhook từ Zalo Platform...');
   const res = await fetch(`${baseUrl}/getWebhookInfo`);
-  const data = await res.json();
+  const data = (await res.json()) as unknown;
   console.log('Kết quả getWebhookInfo:');
   console.log(JSON.stringify(data, null, 2));
   return data;
@@ -46,8 +46,12 @@ async function testWebhook() {
     console.log('\n❌ KẾT NỐI THẤT BẠI!');
     if (data?.result?.outcome === 'webhook.http.403') {
       console.log('👉 Lỗi HTTP 403 Forbidden:');
-      console.log('   - Cloudflare đang chặn request từ Zalo (thường do Bot Fight Mode hoặc WAF rule).');
-      console.log('   - Giải pháp: Vào Cloudflare Dashboard -> Security -> Bots -> Tắt "Bot Fight Mode".');
+      console.log(
+        '   - Cloudflare đang chặn request từ Zalo (thường do Bot Fight Mode hoặc WAF rule).',
+      );
+      console.log(
+        '   - Giải pháp: Vào Cloudflare Dashboard -> Security -> Bots -> Tắt "Bot Fight Mode".',
+      );
     }
     if (data?.result?.hint) {
       console.log(`👉 Gợi ý từ Zalo: ${data.result.hint}`);
@@ -107,13 +111,13 @@ async function setWebhook() {
   return data;
 }
 
-async function deleteWebhook() {
+async function deleteWebhook(): Promise<unknown> {
   console.log('🗑️ Đang xóa Webhook trên Zalo Platform...');
   const res = await fetch(`${baseUrl}/deleteWebhook`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   });
-  const data = await res.json();
+  const data = (await res.json()) as unknown;
   console.log('Kết quả deleteWebhook:');
   console.log(JSON.stringify(data, null, 2));
   return data;
@@ -146,4 +150,4 @@ async function main() {
   }
 }
 
-main();
+void main();

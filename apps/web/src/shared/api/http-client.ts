@@ -17,15 +17,33 @@ function normalizeApiOrigin(value: string): string {
     .replace(/\/api$/i, '');
 }
 
-const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
-if (!configuredApiUrl) {
-  throw new Error('NEXT_PUBLIC_API_URL must be configured before the dashboard can call the API.');
+export function resolveApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    // Khi đang truy cập qua Cloudflare Tunnel, Ngrok hoặc Nginx Gateway local:
+    // FE và BE cùng được route qua Gateway trên cùng domain, nên gọi relative URL (/api/...)
+    const isGatewayOrTunnel =
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname.includes('trycloudflare.com') ||
+      hostname.includes('ngrok') ||
+      hostname.includes('loca.lt');
+
+    if (isGatewayOrTunnel) {
+      return '';
+    }
+  }
+
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+  return configured ? normalizeApiOrigin(configured) : '';
 }
-const apiUrl = normalizeApiOrigin(configuredApiUrl);
+
+const apiUrl = resolveApiBaseUrl();
 export const httpClient = axios.create({ baseURL: apiUrl, withCredentials: true });
 let refreshRequest: Promise<string> | undefined;
 
 httpClient.interceptors.request.use((config) => {
+  config.baseURL = resolveApiBaseUrl();
   const token = getAccessToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
@@ -39,9 +57,10 @@ httpClient.interceptors.response.use(undefined, async (error: unknown) => {
     return Promise.reject(error);
   request._dashboardRetried = true;
   try {
+    const activeBase = resolveApiBaseUrl();
     refreshRequest ??= axios
       .post<IApiResponse<IDashboardAccessTokenResponse>>(
-        `${apiUrl}${API_ROUTES.dashboardRefresh}`,
+        `${activeBase}${API_ROUTES.dashboardRefresh}`,
         undefined,
         { withCredentials: true },
       )

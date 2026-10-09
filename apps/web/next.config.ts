@@ -6,18 +6,19 @@ import path from 'path';
 loadEnvConfig(path.resolve(import.meta.dirname, '../..'));
 
 const isStaticExport = process.env.NODE_ENV === 'production';
-const configuredApiOrigin = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000')
+const defaultPort = process.env.NGINX_PORT || process.env.GATEWAY_PORT || '3000';
+const configuredApiOrigin = (process.env.NEXT_PUBLIC_API_URL || `http://localhost:${defaultPort}`)
   .trim()
   .replace(/\/+$/, '');
 
-let apiOrigin = 'http://localhost:3000';
+let apiOrigin = `http://localhost:${defaultPort}`;
 try {
   const url = new URL(configuredApiOrigin);
   if (['http:', 'https:'].includes(url.protocol)) {
     apiOrigin = configuredApiOrigin;
   }
 } catch {
-  apiOrigin = 'http://localhost:3000';
+  apiOrigin = `http://localhost:${defaultPort}`;
 }
 
 const nextConfig: NextConfig = {

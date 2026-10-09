@@ -62,7 +62,7 @@ load_env() {
 load_env "$PROJECT_ROOT/.env.local"
 load_env "$PROJECT_ROOT/.env"
 
-GATEWAY_PORT="${GATEWAY_PORT:-3000}"
+GATEWAY_PORT="${NGINX_PORT:-${GATEWAY_PORT:-3000}}"
 BE_PORT="${BE_PORT:-3005}"
 FE_PORT="${FE_PORT:-5173}"
 BOT_TOKEN="${ZALO_BOT_TOKEN:-${BOT_TOKEN:-}}"
@@ -207,7 +207,8 @@ if [ -f "$ENV_FILE" ]; then
   if [ "$GATEWAY_MODE" = "true" ]; then
     update_env_var "APP_URL" "$TUNNEL_URL"
     update_env_var "WEB_ORIGIN" "$TUNNEL_URL"
-    echo "📝 Đã tự động cập nhật ZALO_WEBHOOK_URL, APP_URL, WEB_ORIGIN trong .env -> $TUNNEL_URL"
+    update_env_var "NEXT_PUBLIC_API_URL" "$TUNNEL_URL"
+    echo "📝 Đã tự động cập nhật ZALO_WEBHOOK_URL, APP_URL, WEB_ORIGIN, NEXT_PUBLIC_API_URL trong .env -> $TUNNEL_URL"
   else
     echo "📝 Đã tự động cập nhật ZALO_WEBHOOK_URL trong .env -> $FULL_WEBHOOK_URL"
   fi

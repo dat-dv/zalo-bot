@@ -85,6 +85,16 @@ export function validateEnvironment(): EnvValidationResult {
     );
   }
 
+  const nginxPort = readEnv('NGINX_PORT') || readEnv('GATEWAY_PORT');
+  if (nginxPort && !isPositiveInteger(nginxPort)) {
+    addError(
+      errors,
+      'NGINX_PORT / GATEWAY_PORT',
+      'Phải là số nguyên dương.',
+      'Khai báo số nguyên dương cho NGINX_PORT trong file .env.',
+    );
+  }
+
   for (const key of ['APP_URL', 'WEB_ORIGIN']) {
     if (!isHttpUrl(readEnv(key)))
       addError(

@@ -43,7 +43,9 @@ export class DashboardToolStrategy implements TextToolStrategy {
           if (val) return val.replace(/\/+$/, '');
         }
       }
-    } catch {}
+    } catch {
+      // Ignore reading error
+    }
 
     // 2. Thử lấy từ cấu hình Zalo Webhook
     const webhookUrl = this.configService.get<string>('zalo.webhookUrl') || '';
@@ -57,7 +59,9 @@ export class DashboardToolStrategy implements TextToolStrategy {
         ) {
           return parsed.origin;
         }
-      } catch {}
+      } catch {
+        // Ignore parsing error
+      }
     }
 
     return (this.configService.get<string>('appUrl') || '').replace(/\/+$/, '');
