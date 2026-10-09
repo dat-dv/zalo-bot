@@ -90,9 +90,11 @@ npm install
 Tạo file `.env` tại thư mục gốc của dự án:
 
 ```env
-# 1. zalo BOT
-zalo_BOT_TOKEN=your_zalo_bot_token_here
-zalo_ADMIN_ID=your_zalo_user_id_here
+# 1. ZALO BOT
+ZALO_BOT_TOKEN=your_zalo_bot_token_here
+ZALO_WEBHOOK_URL=https://zalobot.example.com/webhook
+ZALO_WEBHOOK_SECRET_TOKEN=your_secret_token_here
+ZALO_ADMIN_ID=your_zalo_user_id_here
 
 # 2. GOOGLE OAUTH CREDENTIALS (ZERO-FILE-MOUNT)
 GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
@@ -105,15 +107,13 @@ DASHBOARD_REFRESH_TOKEN_SECRET=another_64_random_characters
 
 # 4. URL PUBLIC
 APP_URL=https://zalobot.example.com
-# WEB_ORIGIN chỉ cần khi dashboard dùng domain khác APP_URL
 WEB_ORIGIN=https://zalobot.example.com
-# NEXT_PUBLIC_API_URL được dùng khi build dashboard
 NEXT_PUBLIC_API_URL=https://zalobot.example.com
 
-# 5. CALLME
-zalo_API_ID=your_zalo_api_id
-zalo_API_HASH=your_zalo_api_hash
-zalo_SESSION=your_zalo_session
+# 5. CẤU HÌNH LLM (AI)
+LLM_PROVIDER=qwen
+QWEN_BASE_URL=http://localhost:11434
+QWEN_MODEL=qwen2.5:14b
 ```
 
 ---
@@ -123,7 +123,14 @@ zalo_SESSION=your_zalo_session
 ### Chế độ Development (Hot-Reload):
 
 ```bash
-npm run start:dev
+# 1. Khởi chạy hạ tầng nền (PostgreSQL, Redis, Ollama):
+npm run docker:local
+
+# 2. Khởi chạy song song Backend API & Frontend Dashboard:
+npm run dev
+
+# 3. Mở Cloudflare Tunnel kết nối Zalo Bot Platform (nếu test Webhook local):
+npm run tunnel
 ```
 
 ### Chạy nền 24/7 với Docker Compose:
@@ -145,11 +152,11 @@ pm2 startup
 
 ## 📚 Bộ Tài Liệu Phát Triển Chi Tiết
 
-Dự án có bộ tài liệu module độc lập tại thư mục [`docs/`](/docs/README.md):
+Dự án có bộ tài liệu module độc lập tại thư mục [`docs/`](docs/README.md):
 
-- 🗺️ **[Documentation Hub](file:///Users/datdoan/Documents/projects/zalobot/docs/README.md)**: Bản đồ & lộ trình tra cứu toàn bộ tài liệu dự án.
-- 🏛️ **[Kiến trúc hệ thống](file:///Users/datdoan/Documents/projects/zalobot/docs/architecture.md)**: Sơ đồ luồng dữ liệu, PostgreSQL và nguyên lý thiết kế đa người dùng.
-- 📅 **[Tích hợp Google Workspace](file:///Users/datdoan/Documents/projects/zalobot/docs/google-integration.md)**: Full Scopes, quản lý Token trong PostgreSQL & mở rộng Gmail/Drive/Sheets.
-- 💬 **[Giao diện zalo Bot](file:///Users/datdoan/Documents/projects/zalobot/docs/zalo-bot.md)**: Deep Link Invite, Slash Commands, Private Guard & tối ưu UX.
-- 🚀 **[Triển khai & Vận hành](file:///Users/datdoan/Documents/projects/zalobot/docs/deployment.md)**: Cấu hình Zero-File-Mount trên Coolify, Docker, PM2 & Persistent Storage.
-- 🛠️ **[Quy chuẩn phát triển](file:///Users/datdoan/Documents/projects/zalobot/docs/development-workflow.md)**: Coding conventions, ESLint/Prettier, Husky hooks & kiểm thử.
+- 🗺️ **[Documentation Hub](docs/README.md)**: Bản đồ & lộ trình tra cứu toàn bộ tài liệu dự án.
+- 🏛️ **[Kiến trúc hệ thống](docs/architecture.md)**: Sơ đồ luồng dữ liệu, PostgreSQL và nguyên lý thiết kế đa người dùng.
+- 📅 **[Tích hợp Google Workspace](docs/google-integration.md)**: Full Scopes, quản lý Token trong PostgreSQL & mở rộng Gmail/Drive/Sheets.
+- 💬 **[Giao diện Zalo Bot](docs/zalo-bot.md)**: Webhook flow, Slash Commands, Strategy Pattern, AI Tool Calling & Quản trị.
+- 🚀 **[Triển khai & Vận hành](docs/deployment.md)**: Cấu hình Zero-File-Mount trên Coolify, Docker, PM2 & Persistent Storage.
+- 🛠️ **[Quy chuẩn phát triển](docs/development-workflow.md)**: Coding conventions, ESLint/Prettier, Husky hooks & kiểm thử.

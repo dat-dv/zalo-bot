@@ -57,7 +57,7 @@ import { AuditModule } from '../audit/audit.module';
     LlmModule,
     FinanceModule,
     forwardRef(() => RemindersModule),
-    GoogleModule,
+    forwardRef(() => GoogleModule),
     DashboardAuthModule,
     ReceiptStorageModule,
     AuditModule,

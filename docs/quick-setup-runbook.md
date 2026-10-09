@@ -73,12 +73,12 @@
 
 ### 1. Kích hoạt tài khoản Admin:
 
-- Mở bot zalo lên, gõ: `/login` (hoặc bấm nút **"🔗 Đăng nhập Google"**).
+- Mở bot Zalo lên, gõ: `/login`.
 - Đăng nhập Gmail ➔ Bấm **Nâng cao** ➔ **Tiếp tục** ➔ **Cho phép**.
-- Trình duyệt sẽ tự hiện trang **"✅ Kết nối thành công!"** và Bot zalo tự gửi tin nhắn kích hoạt!
+- Trình duyệt sẽ tự hiện trang **"✅ Kết nối thành công!"** và Bot Zalo tự gửi tin nhắn xác nhận kích hoạt!
 
 ### 2. Mời bạn bè / người thân cùng dùng:
 
 - Gõ lệnh `/invite` (hoặc nhắn _"Tạo link mời bạn"_ cho AI).
-- Bot sinh ra link `https://t.me/TenBot?start=invite_xxx`.
-- Bạn gửi link cho bạn bè ➔ Bạn bè bấm link là có ngay trợ lý Google Calendar & Tasks riêng biệt!
+- Bot sinh ra mã mời dạng: `/start invite_xxx` (có hạn 24 giờ).
+- Bạn gửi mã cho bạn bè ➔ Bạn bè gửi lệnh này vào bot là có ngay trợ lý Google Calendar & Tasks riêng biệt!

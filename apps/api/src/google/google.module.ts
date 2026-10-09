@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { GoogleAuthController } from './google-auth.controller';
 import { GoogleAuthService } from './google-auth.service';
@@ -8,9 +8,14 @@ import { UserTokenEntity } from '../database/entities/user-token.entity';
 import { TokenEncryptionService } from './token-encryption.service';
 import { GoogleResourcesController } from './google-resources.controller';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
+import { ZaloModule } from '../zalo/zalo.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([UserTokenEntity]), DashboardAuthModule],
+  imports: [
+    TypeOrmModule.forFeature([UserTokenEntity]),
+    DashboardAuthModule,
+    forwardRef(() => ZaloModule),
+  ],
   controllers: [GoogleAuthController, GoogleResourcesController],
   providers: [GoogleAuthService, GoogleCalendarService, GoogleTasksService, TokenEncryptionService],
   exports: [GoogleAuthService, GoogleCalendarService, GoogleTasksService],

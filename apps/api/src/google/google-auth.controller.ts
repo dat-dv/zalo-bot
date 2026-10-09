@@ -1,15 +1,21 @@
-import { Controller, Get, Query, Logger, Res } from '@nestjs/common';
+import { Controller, Get, Query, Logger, Res, Optional, Inject, forwardRef } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { GoogleAuthService } from './google-auth.service';
 import { renderSuccessHtml, renderErrorHtml } from './templates/oauth-html.template';
+import { ZaloService } from '../zalo/zalo.service';
 
 @ApiTags('Google Auth & System Health')
 @Controller()
 export class GoogleAuthController {
   private readonly logger = new Logger(GoogleAuthController.name);
 
-  constructor(private readonly googleAuthService: GoogleAuthService) {}
+  constructor(
+    private readonly googleAuthService: GoogleAuthService,
+    @Optional()
+    @Inject(forwardRef(() => ZaloService))
+    private readonly zaloService?: ZaloService,
+  ) {}
 
   @Get(['', 'health'])
   @ApiOperation({ summary: 'Kiểm tra trạng thái hoạt động của hệ thống (Health check)' })
@@ -47,6 +53,20 @@ export class GoogleAuthController {
     try {
       await this.googleAuthService.exchangeCodeForTokens(userId, code);
       this.logger.log(`Google OAuth callback completed successfully for user ${userId}`);
+
+      // Gửi thông báo xác nhận thành công tới tài khoản Zalo của người dùng
+      if (this.zaloService && userId) {
+        try {
+          await this.zaloService.sendMessage(
+            userId,
+            '🎉 KẾT NỐI GOOGLE THÀNH CÔNG!\n\nTài khoản Google Calendar & Google Tasks của bạn đã được liên kết hoàn tất. Bây giờ bạn có thể bắt đầu sử dụng trợ lý rồi nhé! 🚀',
+          );
+        } catch (sendErr) {
+          this.logger.warn(
+            `Could not send confirmation message to Zalo user ${userId}: ${(sendErr as Error).message}`,
+          );
+        }
+      }
 
       res.status(200).send(renderSuccessHtml());
     } catch (err) {

@@ -6,7 +6,7 @@ Tài liệu này mô tả chi tiết kiến trúc tổng thể, luồng dữ li�
 
 ## 1. Bức Tranh Tổng Thể (High-Level Overview)
 
-Dự án được tổ chức dưới dạng **npm workspaces monorepo**. Backend là **Modular Monolith NestJS** tại `apps/api`, giao diện quản trị React + Vite tại `apps/web`, và các hợp đồng dùng chung tại `packages/contracts`. Backend hỗ trợ **Kiến trúc Đa Người Dùng (Multi-Tenant Isolation)** với **PostgreSQL (TypeORM)**.
+Dự án được tổ chức dưới dạng **npm workspaces monorepo**. Backend là **Modular Monolith NestJS** tại `apps/api`, giao diện quản trị Next.js Static Export tại `apps/web`, và các hợp đồng dùng chung tại `packages/contracts`. Backend hỗ trợ **Kiến trúc Đa Người Dùng (Multi-Tenant Isolation)** với **PostgreSQL (TypeORM)**.
 
 1. **Người dùng Zalo**: Gửi yêu cầu qua ngôn ngữ tự nhiên tiếng Việt hoặc qua các lệnh tắt (Slash Commands).
 2. **Tầng Phân Quyền & Quản Lý Người Dùng (`UsersModule` + PostgreSQL)**: Quản lý người dùng, danh sách trắng động và chống spam qua cơ sở dữ liệu PostgreSQL.
@@ -14,18 +14,25 @@ Dự án được tổ chức dưới dạng **npm workspaces monorepo**. Backen
 
 ```mermaid
 graph TD
-    User([Người dùng Zalo]) <-->|Message / Slash Command| ZL[Zalo Bot Layer]
-    ZL -->|Auth & Cooldown| Guard{Được phép sử dụng?}
-    Guard -- No --> Reject[Từ chối / Giới hạn tần suất]
-    Guard -- Yes --> Handler[Zalo Service Handler]
+    User([Người dùng Zalo]) <-->|Webhook Event / Message| ZL[Zalo Webhook Controller]
+    ZL --> Parser[ZaloMessageParser]
+    Parser --> Processor[InputProcessor]
+    Processor -->|Auth & Cooldown| Guard{Được phép sử dụng?}
+    Guard -- No --> Reject[Từ chối / Chờ cooldown]
+    Guard -- Yes --> TextService[TextInputService]
+    TextService -->|Fast Path / LLM| Factory[TextToolFactory & Strategies]
 
-    Handler <--> Google[Google Workspace Layer]
+    Factory <--> Google[Google Workspace Layer]
+    Factory <--> Finance[Finance & Debt Layer]
+    Factory --> Outbound[ZaloService: SendMessage]
+    Outbound --> User
 
     subgraph PostgreSQL Database Storage
         DB[(PostgreSQL)]
         DB --> UsersTable[users: Thông tin & vai trò Admin/Member]
         DB --> InvitesTable[invites: Mã mời & hạn 24h]
-        DB --> TokensTable[user_tokens: Token Google OAuth]
+        DB --> TokensTable[user_tokens: Token Google OAuth mã hóa]
+        DB --> FinTable[finances, debts, reminders: Dữ liệu nghiệp vụ]
     end
 ```
 
@@ -46,16 +53,29 @@ apps/api/src/
 │
 ├── database/                       # TẦNG CƠ SỞ DỮ LIỆU POSTGRESQL (TYPEORM)
 │   ├── database.module.ts          # TypeOrmModule (PostgreSQL)
-│   └── entities/                   # UserEntity, InviteEntity, UserTokenEntity
+│   └── entities/                   # UserEntity, InviteEntity, UserTokenEntity...
 │
 ├── users/                          # TẦNG QUẢN LÝ NGƯỜI DÙNG
 │   ├── users.service.ts            # TypeORM Repositories, In-Memory Cache, Cooldown
 │   └── users.module.ts
 │
-├── zalo/                           # TẦNG GIAO TIẾP ZALO
-│   ├── zalo.controller.ts          # Webhook endpoint nhận update từ Zalo Bot
-│   ├── zalo.service.ts             # Xử lý webhook events & gửi tin nhắn
+├── zalo/                           # TẦNG GIAO TIẾP ZALO BOT
+│   ├── zalo.controller.ts          # Webhook endpoint nhận GET verify & POST events
+│   ├── zalo-message-parser.service.ts # Chuẩn hóa payload sự kiện Zalo
+│   ├── input-processor.service.ts  # Whitelist, Cooldown 2s, Event Dispatcher
+│   ├── text/
+│   │   ├── text-input.service.ts   # Fast-path Router & LLM Tool Calling
+│   │   ├── text-tool.factory.ts    # Factory quản lý các Strategy theo TextToolType
+│   │   └── strategies/             # 30+ Strategy độc lập (start, help, debt, task...)
+│   ├── zalo.service.ts             # Outbound: POST bot-api.zaloplatforms.com/sendMessage
 │   └── zalo.module.ts
+│
+├── llm/                            # TẦNG TRÍ TUỆ NHÂN TẠO (MULTI-PROVIDER)
+│   ├── llm.service.ts              # Router phân phối LLM linh hoạt
+│   └── providers/                  # Qwen (Ollama), Gemini, OpenAI
+│
+├── finance/                        # TẦNG THU CHI & CÔNG NỢ
+├── reminders/                      # TẦNG NHẮC VIỆC HẸN GIỜ & CRON SCHEDULER
 │
 └── google/                         # TẦNG TÍCH HỢP GOOGLE WORKSPACE
     ├── templates/

@@ -75,6 +75,15 @@ export function validateEnvironment(): EnvValidationResult {
       );
   }
 
+  if (!readEnv('ZALO_BOT_TOKEN') && !readEnv('BOT_TOKEN')) {
+    addError(
+      errors,
+      'ZALO_BOT_TOKEN',
+      'Biến môi trường bắt buộc đang trống.',
+      'Khai báo token Zalo Bot trong file .env hoặc môi trường triển khai.',
+    );
+  }
+
   const bePort = readEnv('BE_PORT') || readEnv('PORT');
   if (!isPositiveInteger(bePort)) {
     addError(

@@ -9,8 +9,8 @@ Tài liệu này hướng dẫn toàn bộ quy trình thiết lập môi trườ
 - **Node.js**: Phiên bản 20.x hoặc 22.x LTS.
 - **NPM**: Phiên bản 10.x trở lên.
 - **Docker & Docker Compose** (nếu chạy dạng container).
-- **Tài khoản Google Cloud** đã kích hoạt Calendar API & Tasks API (và đã add Gmail của bạn bè vào mục _Test Users_).
-- **zalo Bot Token** tạo từ `@BotFather`.
+- **Tài khoản Google Cloud** đã kích hoạt Calendar API & Tasks API.
+- **Zalo Bot Token** tạo từ Zalo Bot Platform (`bot-api.zaloplatforms.com`).
 
 ---
 
@@ -22,28 +22,28 @@ Tạo file `.env` tại thư mục gốc từ mẫu `.env.example`:
 cp .env.example .env
 ```
 
-Nội dung chi tiết các biến:
+Nội dung chi tiết các biến chính:
 
 ```env
 APP_URL=https://zalobot.example.com
 WEB_ORIGIN=https://zalobot.example.com
 NEXT_PUBLIC_API_URL=https://zalobot.example.com
 
-ZALO_BOT_TOKEN=replace-with-bot-token
-ZALO_ADMIN_ID=123456789
+ZALO_BOT_TOKEN=replace-with-zalo-bot-token
+ZALO_WEBHOOK_URL=https://zalobot.example.com/webhook
+ZALO_WEBHOOK_SECRET_TOKEN=optional-secret-token
+ZALO_ADMIN_ID=your-admin-zalo-user-id
+
 DATA_ENCRYPTION_KEY=64-hex-characters
 GOOGLE_CLIENT_ID=replace-with-google-client-id
 GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
 DASHBOARD_ACCESS_TOKEN_SECRET=64-random-characters
 DASHBOARD_REFRESH_TOKEN_SECRET=another-64-random-characters
 
-# CallMe
-zalo_API_ID=replace-with-zalo-api-id
-zalo_API_HASH=replace-with-zalo-api-hash
-zalo_SESSION=replace-with-zalo-session
+LLM_PROVIDER=qwen
+QWEN_BASE_URL=http://localhost:11434
+QWEN_MODEL=qwen2.5:14b
 ```
-
-> Bot mặc định nhận lệnh như `/help` bằng long polling. Chỉ thêm `zalo_LONG_POLLING_ENABLED=false` khi đã cấu hình webhook hoặc một worker polling riêng nhận update thay cho API này.
 
 ---
 
