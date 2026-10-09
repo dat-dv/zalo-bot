@@ -6,7 +6,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useRef,
   useState,
 } from 'react';
 
@@ -17,13 +16,11 @@ interface ReactScanContextValue {
   setReactScanEnabled: (enabled: boolean) => void;
 }
 
-type ReactScanModule = Pick<typeof import('react-scan'), 'scan' | 'setOptions'>;
-
 const ReactScanContext = createContext<ReactScanContextValue | null>(null);
 
 function getInitialReactScanEnabled(): boolean {
   try {
-    return window.localStorage.getItem(REACT_SCAN_STORAGE_KEY) === 'true';
+    return typeof window !== 'undefined' && window.localStorage.getItem(REACT_SCAN_STORAGE_KEY) === 'true';
   } catch {
     return false;
   }
@@ -31,50 +28,16 @@ function getInitialReactScanEnabled(): boolean {
 
 export function ReactScanProvider({ children }: { children: ReactNode }) {
   const [isReactScanEnabled, setIsReactScanEnabled] = useState(false);
-  const reactScanModuleRef = useRef<ReactScanModule | null>(null);
 
   useEffect(() => {
     setIsReactScanEnabled(getInitialReactScanEnabled());
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    if (!isReactScanEnabled) {
-      reactScanModuleRef.current?.setOptions({ enabled: false, showToolbar: false });
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const options = {
-      enabled: true,
-      showToolbar: true,
-      dangerouslyForceRunInProduction: true,
-    };
-
-    if (reactScanModuleRef.current) {
-      reactScanModuleRef.current.setOptions(options);
-    } else {
-      void import('react-scan')
-        .then((module) => {
-          if (cancelled) return;
-          reactScanModuleRef.current = module;
-          module.scan(options);
-        })
-        .catch(() => {
-          if (!cancelled) setIsReactScanEnabled(false);
-        });
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isReactScanEnabled]);
-
   const setReactScanEnabled = useCallback((enabled: boolean) => {
     try {
-      window.localStorage.setItem(REACT_SCAN_STORAGE_KEY, String(enabled));
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(REACT_SCAN_STORAGE_KEY, String(enabled));
+      }
     } catch {
       // Keep the preference only for this tab when storage is unavailable.
     }
@@ -95,3 +58,4 @@ export function useReactScan() {
   }
   return context;
 }
+

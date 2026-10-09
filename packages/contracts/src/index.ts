@@ -1264,11 +1264,12 @@ export function translate(
   key: TranslationKey,
   values: TranslationValues = {},
 ): string {
-  let text: string = typedMessages[locale]?.[key] ?? typedMessages[DEFAULT_LOCALE][key];
+  let text: string = typedMessages[locale]?.[key] ?? typedMessages[DEFAULT_LOCALE][key] ?? key;
   for (const [name, value] of Object.entries(values))
     text = text.replaceAll(`{${name}}`, String(value));
   return text;
 }
+
 
 export interface IApiResponse<T> {
   data: T;

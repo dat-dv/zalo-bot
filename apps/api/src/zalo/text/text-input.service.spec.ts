@@ -104,11 +104,7 @@ function createTextInputService(options?: SetupOptions) {
   const echoStrategy = new EchoToolStrategy(mockZaloService);
   const pingStrategy = new PingToolStrategy(mockZaloService);
   const resetStrategy = new ResetToolStrategy(mockZaloService);
-  const conversationStrategy = new ConversationToolStrategy(
-    mockZaloService,
-    mockUsersService,
-    mockConfigService,
-  );
+  const conversationStrategy = new ConversationToolStrategy(mockZaloService);
   const manageDebtStrategy = new ManageDebtToolStrategy(mockZaloService, mockFinanceService);
   const recordTransactionStrategy = new RecordTransactionToolStrategy(
     mockZaloService,

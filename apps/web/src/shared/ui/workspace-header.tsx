@@ -11,12 +11,17 @@ import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyVisibility } from '@/shared/providers/money-visibility-provider';
 
 function getzaloBotUrl(): string {
-  const customUrl = process.env.NEXT_PUBLIC_zalo_BOT_URL?.trim();
+  const customUrl =
+    process.env.NEXT_PUBLIC_ZALO_BOT_URL?.trim() ||
+    process.env.NEXT_PUBLIC_zalo_BOT_URL?.trim();
   if (customUrl) return customUrl;
-  const botUsername = process.env.NEXT_PUBLIC_zalo_BOT_USERNAME?.trim();
-  if (botUsername) return `https://t.me/${botUsername}`;
-  return 'https://t.me';
+  const botUsername =
+    process.env.NEXT_PUBLIC_ZALO_BOT_USERNAME?.trim() ||
+    process.env.NEXT_PUBLIC_zalo_BOT_USERNAME?.trim();
+  if (botUsername) return `https://zalo.me/${botUsername}`;
+  return 'https://zalo.me';
 }
+
 
 interface RouteHeaderMeta {
   titleKey: TranslationKey;

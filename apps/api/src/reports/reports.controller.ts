@@ -74,14 +74,23 @@ export class ReportsController {
 
     // Ưu tiên redirect về cùng Origin/Host mà user đang truy cập (hỗ trợ Cloudflare Tunnel / Gateway)
     let webOrigin = this.config.getOrThrow<string>('webOrigin').replace(/\/+$/, '');
+    const configuredProto = webOrigin.startsWith('https://') ? 'https' : 'http';
     const forwardedHost = req.get('x-forwarded-host') || req.get('host');
-    const forwardedProto = req.get('x-forwarded-proto') || req.protocol || 'http';
-    if (forwardedHost) {
+    const headerProto = req.get('x-forwarded-proto');
+    const forwardedProto = headerProto && headerProto.includes('https') ? 'https' : configuredProto;
+
+    if (
+      forwardedHost &&
+      !['localhost', '127.0.0.1', '0.0.0.0', 'host.docker.internal'].includes(
+        forwardedHost.split(':')[0],
+      )
+    ) {
       webOrigin = `${forwardedProto}://${forwardedHost}`.replace(/\/+$/, '');
     }
 
     res.redirect(`${webOrigin}/#dashboard_token=${encodeURIComponent(access.token)}`);
   }
+
 
   private renderAccessError(res: Response): void {
     res.status(401).type('html').send(`<!doctype html>

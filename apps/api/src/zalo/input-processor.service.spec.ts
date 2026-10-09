@@ -30,8 +30,10 @@ function createMockSetup(overrides?: {
   allowedUserIds?: string[];
   isAllowed?: boolean;
   cooldownAllowed?: boolean;
+  useRealCooldownTracker?: boolean;
 }): MockSetup {
   const sentMessages: Array<{ chatId: string | number; text: string }> = [];
+  const lastRequestTimes = new Map<string, number>();
 
   const mockZaloService = {
     sendMessage: (chatId: string | number, text: string) => {
@@ -42,10 +44,31 @@ function createMockSetup(overrides?: {
 
   const mockUsersService = {
     isAllowed: () => (overrides?.isAllowed !== undefined ? overrides.isAllowed : true),
-    checkCooldown: () => ({
-      allowed: overrides?.cooldownAllowed !== undefined ? overrides.cooldownAllowed : true,
-      reason: 'Vui lòng gửi chậm lại.',
-    }),
+    checkCooldown: (userId: string | number) => {
+      if (overrides?.cooldownAllowed !== undefined) {
+        return {
+          allowed: overrides.cooldownAllowed,
+          reason: 'Vui lòng gửi chậm lại.',
+        };
+      }
+      if (overrides?.useRealCooldownTracker) {
+        const strId = userId.toString();
+        const now = Date.now();
+        const lastTime = lastRequestTimes.get(strId) || 0;
+        const timeSinceLast = (now - lastTime) / 1000;
+        if (timeSinceLast < 2) {
+          const waitSeconds = Math.ceil(2 - timeSinceLast);
+          return {
+            allowed: false,
+            reason: `⏳ Bạn đang gửi tin nhắn quá nhanh. Vui lòng chờ ${waitSeconds} giây trước khi gửi tiếp nhé!`,
+            waitSeconds,
+          };
+        }
+        lastRequestTimes.set(strId, now);
+        return { allowed: true };
+      }
+      return { allowed: true };
+    },
     upsertUser: () => Promise.resolve({} as never),
   } as unknown as UsersService;
 
@@ -78,11 +101,7 @@ function createMockSetup(overrides?: {
   const echoStrategy = new EchoToolStrategy(mockZaloService);
   const pingStrategy = new PingToolStrategy(mockZaloService);
   const resetStrategy = new ResetToolStrategy(mockZaloService);
-  const conversationStrategy = new ConversationToolStrategy(
-    mockZaloService,
-    mockUsersService,
-    mockConfigService,
-  );
+  const conversationStrategy = new ConversationToolStrategy(mockZaloService);
   const manageDebtStrategy = new ManageDebtToolStrategy(mockZaloService, mockFinanceService);
   const recordTransactionStrategy = new RecordTransactionToolStrategy(
     mockZaloService,
@@ -105,7 +124,12 @@ function createMockSetup(overrides?: {
   );
 
   const textInputService = new TextInputService(factory, mockLlmService);
-  const processor = new InputProcessor(mockZaloService, textInputService);
+  const processor = new InputProcessor(
+    mockZaloService,
+    textInputService,
+    mockUsersService,
+    mockConfigService,
+  );
 
   return { processor, sentMessages };
 }
@@ -225,6 +249,35 @@ void test('InputProcessor handles conversational messages and user auth', async 
   });
   assert.equal(successSetup.sentMessages.length, 1);
   assert.match(successSetup.sentMessages[0].text, /Đã nhận tin nhắn/);
+});
+
+void test('InputProcessor with real cooldown tracker allows first message and blocks rapid second message', async () => {
+  const { processor, sentMessages } = createMockSetup({ useRealCooldownTracker: true });
+
+  // First conversational message -> should succeed and NOT trigger cooldown
+  await processor.process({
+    type: 'text',
+    senderId: 'user_123',
+    chatId: 'c1',
+    displayName: 'Thành viên',
+    text: 'Xin chào bot',
+  });
+
+  assert.equal(sentMessages.length, 1);
+  assert.doesNotMatch(sentMessages[0].text, /Bạn đang gửi tin nhắn quá nhanh/);
+  assert.match(sentMessages[0].text, /Đã nhận tin nhắn/);
+
+  // Immediate second message (< 2s) -> triggers rate limit
+  await processor.process({
+    type: 'text',
+    senderId: 'user_123',
+    chatId: 'c1',
+    displayName: 'Thành viên',
+    text: 'Xin chào lần 2',
+  });
+
+  assert.equal(sentMessages.length, 2);
+  assert.match(sentMessages[1].text, /Bạn đang gửi tin nhắn quá nhanh/);
 });
 
 void test('InputProcessor handles image messages with and without caption', async () => {
