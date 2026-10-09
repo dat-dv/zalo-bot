@@ -53,7 +53,11 @@ export class ReportsController {
 
   @Get('access')
   @ApiOperation({ summary: 'Đổi One-Time Token lấy Dashboard Session Token' })
-  public async access(@Query('token') token: string, @Res() res: Response): Promise<void> {
+  public async access(
+    @Query('token') token: string,
+    @Res() res: Response,
+    @Req() req: Request,
+  ): Promise<void> {
     let userId: string | number;
     try {
       userId = await this.tokens.consumeExchangeToken(token);
@@ -67,7 +71,15 @@ export class ReportsController {
     const access = this.tokens.issueAccessToken(userId);
     const refresh = this.tokens.issueRefreshToken(userId);
     this.setRefreshCookie(res, refresh.token);
-    const webOrigin = this.config.getOrThrow<string>('webOrigin').replace(/\/+$/, '');
+
+    // Ưu tiên redirect về cùng Origin/Host mà user đang truy cập (hỗ trợ Cloudflare Tunnel / Gateway)
+    let webOrigin = this.config.getOrThrow<string>('webOrigin').replace(/\/+$/, '');
+    const forwardedHost = req.get('x-forwarded-host') || req.get('host');
+    const forwardedProto = req.get('x-forwarded-proto') || req.protocol || 'http';
+    if (forwardedHost) {
+      webOrigin = `${forwardedProto}://${forwardedHost}`.replace(/\/+$/, '');
+    }
+
     res.redirect(`${webOrigin}/#dashboard_token=${encodeURIComponent(access.token)}`);
   }
 

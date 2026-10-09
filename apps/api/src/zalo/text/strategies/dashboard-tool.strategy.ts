@@ -5,6 +5,9 @@ import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { ReportsTokenService } from '../../../reports/reports-token.service';
 
+import * as fs from 'fs';
+import { fromProjectRoot } from '../../../config/project-root';
+
 @Injectable()
 export class DashboardToolStrategy implements TextToolStrategy {
   public readonly type = TextToolType.DASHBOARD;
@@ -16,8 +19,52 @@ export class DashboardToolStrategy implements TextToolStrategy {
     private readonly reportsTokens: ReportsTokenService,
   ) {}
 
+  private resolveAppUrl(): string {
+    // 1. Thử đọc URL từ file .env để bắt kịp tunnel vừa khởi động (không cần restart server)
+    try {
+      const envPath = fromProjectRoot('.env');
+      if (fs.existsSync(envPath)) {
+        const content = fs.readFileSync(envPath, 'utf-8');
+        const matchWebhook = content.match(/^ZALO_WEBHOOK_URL=(.+)$/m);
+        if (matchWebhook && matchWebhook[1]) {
+          const val = matchWebhook[1].trim().replace(/^['"]+|['"]+$/g, '');
+          const parsed = new URL(val);
+          if (
+            parsed.hostname.includes('trycloudflare.com') ||
+            parsed.hostname.includes('ngrok') ||
+            parsed.hostname.includes('loca.lt')
+          ) {
+            return parsed.origin;
+          }
+        }
+        const matchAppUrl = content.match(/^APP_URL=(.+)$/m);
+        if (matchAppUrl && matchAppUrl[1]) {
+          const val = matchAppUrl[1].trim().replace(/^['"]+|['"]+$/g, '');
+          if (val) return val.replace(/\/+$/, '');
+        }
+      }
+    } catch {}
+
+    // 2. Thử lấy từ cấu hình Zalo Webhook
+    const webhookUrl = this.configService.get<string>('zalo.webhookUrl') || '';
+    if (webhookUrl) {
+      try {
+        const parsed = new URL(webhookUrl);
+        if (
+          parsed.hostname.includes('trycloudflare.com') ||
+          parsed.hostname.includes('ngrok') ||
+          parsed.hostname.includes('loca.lt')
+        ) {
+          return parsed.origin;
+        }
+      } catch {}
+    }
+
+    return (this.configService.get<string>('appUrl') || '').replace(/\/+$/, '');
+  }
+
   public async execute(context: TextToolContext): Promise<void> {
-    const appUrl = (this.configService.get<string>('appUrl') || '').replace(/\/+$/, '');
+    const appUrl = this.resolveAppUrl();
 
     try {
       const token = await this.reportsTokens.issueExchangeToken(context.senderId);

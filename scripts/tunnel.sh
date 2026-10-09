@@ -62,15 +62,35 @@ load_env() {
 load_env "$PROJECT_ROOT/.env.local"
 load_env "$PROJECT_ROOT/.env"
 
-PORT="${PORT_ARG:-${PORT:-3005}}"
+GATEWAY_PORT="${GATEWAY_PORT:-3000}"
+BE_PORT="${BE_PORT:-3005}"
+FE_PORT="${FE_PORT:-5173}"
 BOT_TOKEN="${ZALO_BOT_TOKEN:-${BOT_TOKEN:-}}"
 SECRET_TOKEN="${ZALO_WEBHOOK_SECRET_TOKEN:-${SECRET_TOKEN:-}}"
 WEBHOOK_PATH="${WEBHOOK_PATH:-/webhook}"
+
+if [ -n "$PORT_ARG" ]; then
+  PORT="$PORT_ARG"
+elif curl -s -o /dev/null --connect-timeout 1 "http://127.0.0.1:${GATEWAY_PORT}" 2>/dev/null; then
+  PORT="$GATEWAY_PORT"
+  GATEWAY_MODE=true
+elif curl -s -o /dev/null --connect-timeout 1 "http://127.0.0.1:${BE_PORT}" 2>/dev/null; then
+  PORT="$BE_PORT"
+  GATEWAY_MODE=false
+else
+  PORT="${GATEWAY_PORT}"
+  GATEWAY_MODE=true
+fi
 
 echo "================================================================="
 echo "🤖 KHỞI ĐỘNG CLOUDFLARE TUNNEL CHO ZALO BOT"
 echo "================================================================="
 echo "👉 Target Local : http://127.0.0.1:$PORT"
+if [ "$PORT" = "$GATEWAY_PORT" ]; then
+  echo "👉 Kiến trúc    : Nginx Gateway (Proxy /api sang $BE_PORT, còn lại sang $FE_PORT)"
+else
+  echo "👉 Kiến trúc    : Trực tiếp Backend API ($PORT)"
+fi
 echo "👉 Webhook Path : $WEBHOOK_PATH"
 [ "$BACKGROUND_MODE" = "true" ] && echo "👉 Chế độ       : Chạy ngầm (Background Daemon)" || echo "👉 Chế độ       : Giữ Terminal (Foreground Session)"
 
@@ -94,7 +114,11 @@ fi
 if [ "$LOCAL_ALIVE" = "false" ]; then
   echo ""
   echo "⚠️  LƯU Ý: Chưa phát hiện server phản hồi tại http://127.0.0.1:${PORT}"
-  echo "👉 Hãy đảm bảo bạn đã chạy 'npm run dev' trong một terminal khác!"
+  if [ "$PORT" = "$GATEWAY_PORT" ]; then
+    echo "👉 Hãy đảm bảo Docker Nginx đã chạy ('npm run docker:local') và app dev đã chạy ('npm run dev')!"
+  else
+    echo "👉 Hãy đảm bảo Backend đã chạy tại port $PORT ('npm run dev')!"
+  fi
   echo ""
 else
   echo "✅ Đã kết nối thử tới local server (Target: http://${TARGET_HOST}:${PORT})"
@@ -164,15 +188,29 @@ FULL_WEBHOOK_URL="${TUNNEL_URL}${WEBHOOK_PATH}"
 echo "✅ Đã tạo Tunnel thành công: ${TUNNEL_URL}"
 echo "🌐 URL Webhook hoàn chỉnh : ${FULL_WEBHOOK_URL}"
 
-# Cập nhật ZALO_WEBHOOK_URL trong .env
+# Cập nhật ZALO_WEBHOOK_URL, APP_URL, WEB_ORIGIN trong .env
 ENV_FILE="$PROJECT_ROOT/.env"
-if [ -f "$ENV_FILE" ] && grep -q "^ZALO_WEBHOOK_URL=" "$ENV_FILE"; then
-  if [[ "$OSTYPE" == "darwin"* ]]; then
-    sed -i '' "s|^ZALO_WEBHOOK_URL=.*|ZALO_WEBHOOK_URL=${FULL_WEBHOOK_URL}|" "$ENV_FILE"
+if [ -f "$ENV_FILE" ]; then
+  update_env_var() {
+    local k="$1"
+    local v="$2"
+    if grep -q "^${k}=" "$ENV_FILE"; then
+      if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' "s|^${k}=.*|${k}=${v}|" "$ENV_FILE"
+      else
+        sed -i "s|^${k}=.*|${k}=${v}|" "$ENV_FILE"
+      fi
+    fi
+  }
+
+  update_env_var "ZALO_WEBHOOK_URL" "$FULL_WEBHOOK_URL"
+  if [ "$GATEWAY_MODE" = "true" ]; then
+    update_env_var "APP_URL" "$TUNNEL_URL"
+    update_env_var "WEB_ORIGIN" "$TUNNEL_URL"
+    echo "📝 Đã tự động cập nhật ZALO_WEBHOOK_URL, APP_URL, WEB_ORIGIN trong .env -> $TUNNEL_URL"
   else
-    sed -i "s|^ZALO_WEBHOOK_URL=.*|ZALO_WEBHOOK_URL=${FULL_WEBHOOK_URL}|" "$ENV_FILE"
+    echo "📝 Đã tự động cập nhật ZALO_WEBHOOK_URL trong .env -> $FULL_WEBHOOK_URL"
   fi
-  echo "📝 Đã tự động cập nhật ZALO_WEBHOOK_URL trong .env"
 fi
 
 # Chờ tunnel thông mạng và trả về HTTP 200

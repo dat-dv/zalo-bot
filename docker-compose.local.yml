@@ -38,6 +38,22 @@ services:
     volumes:
       - zalobot-ollama:/root/.ollama
 
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - '${GATEWAY_PORT:-3000}:80'
+    environment:
+      - BE_PORT=${BE_PORT:-3005}
+      - FE_PORT=${FE_PORT:-5173}
+    volumes:
+      - ./docker/nginx/nginx.local.conf.template:/etc/nginx/templates/default.conf.template:ro
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    depends_on:
+      - postgres
+      - redis
+
 volumes:
   zalobot-postgres:
   zalobot-redis:

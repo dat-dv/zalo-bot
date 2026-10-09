@@ -93,7 +93,7 @@ export default (): AppConfig => {
   const appUrl = readEnv('APP_URL').replace(/\/+$/, '');
 
   return {
-    port: readNumberEnv('PORT', 3000),
+    port: readNumberEnv('BE_PORT', readNumberEnv('PORT', 3005)),
     appUrl,
     webOrigin: readEnv('WEB_ORIGIN', appUrl).replace(/\/+$/, ''),
     cors: { allowAll: readBooleanEnv('CORS_ALLOW_ALL', true) },

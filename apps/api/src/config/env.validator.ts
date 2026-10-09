@@ -75,14 +75,14 @@ export function validateEnvironment(): EnvValidationResult {
       );
   }
 
-  for (const key of ['PORT']) {
-    if (!isPositiveInteger(readEnv(key)))
-      addError(
-        errors,
-        key,
-        'Phải là số nguyên dương.',
-        'Khai báo một số nguyên dương trong .env.local.',
-      );
+  const bePort = readEnv('BE_PORT') || readEnv('PORT');
+  if (!isPositiveInteger(bePort)) {
+    addError(
+      errors,
+      'PORT / BE_PORT',
+      'Phải là số nguyên dương.',
+      'Khai báo số nguyên dương cho BE_PORT (hoặc PORT) trong file .env.',
+    );
   }
 
   for (const key of ['APP_URL', 'WEB_ORIGIN']) {

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --port 5173",
+    "dev": "next dev --port ${FE_PORT:-5173}",
     "build": "next build",
     "lint": "eslint .",
     "lint:check": "eslint .",
