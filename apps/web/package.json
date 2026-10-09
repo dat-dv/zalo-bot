@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --port ${FE_PORT:-5173}",
-    "build": "next build --webpack",
+    "build": "next build",
 
     "lint": "eslint .",
     "lint:check": "eslint .",

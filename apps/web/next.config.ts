@@ -21,7 +21,33 @@ try {
   apiOrigin = `http://localhost:${defaultPort}`;
 }
 
+const devOrigins = new Set<string>([
+  'localhost',
+  '127.0.0.1',
+  '*.trycloudflare.com',
+  '*.ngrok-free.app',
+  '*.ngrok.app',
+  '*.loca.lt',
+]);
+
+const registerOrigin = (raw?: string) => {
+  if (!raw) return;
+  try {
+    const url = new URL(raw.trim());
+    devOrigins.add(url.hostname);
+    if (url.port) devOrigins.add(url.host);
+  } catch {
+    const cleaned = raw.trim().replace(/^https?:\/\//i, '').split('/')[0];
+    if (cleaned) devOrigins.add(cleaned);
+  }
+};
+
+registerOrigin(process.env.APP_URL);
+registerOrigin(process.env.WEB_ORIGIN);
+registerOrigin(process.env.NEXT_PUBLIC_APP_URL);
+
 const nextConfig: NextConfig = {
+  allowedDevOrigins: Array.from(devOrigins),
   ...(isStaticExport ? { output: 'export' } : {}),
   trailingSlash: false,
   ...(isStaticExport
@@ -39,3 +65,4 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
