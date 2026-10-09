@@ -17,7 +17,7 @@ export class ReceiptImageStorageService {
     this.storageDir = resolve(config.getOrThrow<string>('receiptStorage.dir'));
   }
 
-  public async store(userId: number, image: Buffer): Promise<string> {
+  public async store(userId: number | string, image: Buffer): Promise<string> {
     const receiptId = randomUUID();
     const directory = this.userDirectory(userId);
     const destination = join(directory, `${receiptId}.jpg`);
@@ -44,7 +44,7 @@ export class ReceiptImageStorageService {
     }
   }
 
-  public async read(userId: number, receiptUrl: string): Promise<Buffer> {
+  public async read(userId: number | string, receiptUrl: string): Promise<Buffer> {
     const receiptId = this.receiptIdFromUrl(receiptUrl);
     try {
       return await readFile(join(this.userDirectory(userId), `${receiptId}.jpg`));
@@ -53,14 +53,14 @@ export class ReceiptImageStorageService {
     }
   }
 
-  public async remove(userId: number, receiptUrl: unknown): Promise<void> {
+  public async remove(userId: number | string, receiptUrl: unknown): Promise<void> {
     if (typeof receiptUrl !== 'string') return;
     const receiptId = this.receiptIdFromUrl(receiptUrl, false);
     if (!receiptId) return;
     await rm(join(this.userDirectory(userId), `${receiptId}.jpg`), { force: true });
   }
 
-  private userDirectory(userId: number): string {
+  private userDirectory(userId: number | string): string {
     return join(this.storageDir, String(userId));
   }
 

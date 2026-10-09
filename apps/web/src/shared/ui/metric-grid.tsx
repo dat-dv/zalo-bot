@@ -39,7 +39,8 @@ export function MetricGridSkeleton({ count, className }: MetricGridSkeletonProps
   return (
     <div
       className={
-        className ?? 'grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2 max-[640px]:grid-cols-2'
+        className ??
+        'grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2 max-[640px]:grid-cols-2'
       }
       aria-hidden="true"
     >

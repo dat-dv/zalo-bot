@@ -33,7 +33,7 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
 
     try {
       const tx = await this.financeService.createTransaction({
-        userId: Number(context.senderId) || 1,
+        userId: context.senderId,
         type,
         amount,
         category,

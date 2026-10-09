@@ -65,7 +65,7 @@ export class GoogleTasksService {
 
   constructor(private readonly authService: GoogleAuthService) {}
 
-  private getTasksClient(userId?: number): tasks_v1.Tasks {
+  private getTasksClient(userId?: number | string): tasks_v1.Tasks {
     const auth = this.authService.getOAuth2Client(userId);
     if (!auth || !this.authService.isAuthorized(userId)) {
       throw new Error(
@@ -75,7 +75,7 @@ export class GoogleTasksService {
     return google.tasks({ version: 'v1', auth });
   }
 
-  public async listTaskLists(userId?: number): Promise<tasks_v1.Schema$TaskList[]> {
+  public async listTaskLists(userId?: number | string): Promise<tasks_v1.Schema$TaskList[]> {
     const tasks = this.getTasksClient(userId);
     const res = await tasks.tasklists.list();
     return res.data.items || [];
@@ -83,7 +83,7 @@ export class GoogleTasksService {
 
   public async listTasks(
     options: ListTasksOptions = {},
-    userId?: number,
+    userId?: number | string,
   ): Promise<tasks_v1.Schema$Task[]> {
     const tasks = this.getTasksClient(userId);
     const taskListId = options.taskListId || '@default';
@@ -104,7 +104,7 @@ export class GoogleTasksService {
 
   public async findPotentialDuplicateTasks(
     requestedTitles: string[],
-    userId?: number,
+    userId?: number | string,
   ): Promise<TaskDuplicateWarning[]> {
     const tasks = await this.listTasks({ showCompleted: false, maxResults: 50 }, userId);
     const activeTasks: PotentialDuplicateTask[] = tasks.flatMap((task) => {
@@ -124,7 +124,7 @@ export class GoogleTasksService {
 
   public async createTask(
     options: CreateTaskOptions,
-    userId?: number,
+    userId?: number | string,
   ): Promise<tasks_v1.Schema$Task> {
     const tasks = this.getTasksClient(userId);
     const taskListId = options.taskListId || '@default';
@@ -148,7 +148,7 @@ export class GoogleTasksService {
   public async completeTask(
     taskId: string,
     taskListId: string = '@default',
-    userId?: number,
+    userId?: number | string,
   ): Promise<tasks_v1.Schema$Task> {
     const tasks = this.getTasksClient(userId);
 
@@ -167,7 +167,7 @@ export class GoogleTasksService {
   public async getTask(
     taskId: string,
     taskListId: string = '@default',
-    userId?: number,
+    userId?: number | string,
   ): Promise<tasks_v1.Schema$Task> {
     const tasks = this.getTasksClient(userId);
     const res = await tasks.tasks.get({ tasklist: taskListId, task: taskId });
@@ -178,7 +178,7 @@ export class GoogleTasksService {
     taskId: string,
     options: UpdateTaskOptions,
     taskListId: string = '@default',
-    userId?: number,
+    userId?: number | string,
   ): Promise<tasks_v1.Schema$Task> {
     const tasks = this.getTasksClient(userId);
     const res = await tasks.tasks.patch({
@@ -192,7 +192,7 @@ export class GoogleTasksService {
   public async deleteTask(
     taskId: string,
     taskListId: string = '@default',
-    userId?: number,
+    userId?: number | string,
   ): Promise<boolean> {
     const tasks = this.getTasksClient(userId);
     await tasks.tasks.delete({

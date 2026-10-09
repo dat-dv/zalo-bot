@@ -12,6 +12,7 @@
     "format": "prettier --write \"{app,src}/**/*.{ts,tsx,css}\" \"*.{js,ts,json}\"",
     "format:check": "prettier --check \"{app,src}/**/*.{ts,tsx,css}\" \"*.{js,ts,json}\"",
     "typecheck": "tsc -b --pretty false",
+    "test": "tsx --test $(find src -name '*.spec.ts' -print)",
     "start": "next dev"
   },
   "dependencies": {

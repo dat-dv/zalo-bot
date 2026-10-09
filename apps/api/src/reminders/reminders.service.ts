@@ -4,7 +4,7 @@ import { Repository, LessThanOrEqual } from 'typeorm';
 import { ReminderEntity } from '../database/entities/reminder.entity';
 
 export interface CreateReminderDto {
-  userId: number;
+  userId: number | string;
   title: string;
   remindAt: Date;
   notifyType?: 'text' | 'call';
@@ -58,7 +58,7 @@ export class RemindersService {
     });
   }
 
-  public async getUserUpcomingReminders(userId: number): Promise<ReminderEntity[]> {
+  public async getUserUpcomingReminders(userId: number | string): Promise<ReminderEntity[]> {
     return this.reminderRepo.find({
       where: {
         userId: userId.toString(),
@@ -70,12 +70,12 @@ export class RemindersService {
     });
   }
 
-  public getUserReminder(userId: number, id: string): Promise<ReminderEntity | null> {
+  public getUserReminder(userId: number | string, id: string): Promise<ReminderEntity | null> {
     return this.reminderRepo.findOne({ where: { id, userId: userId.toString() } });
   }
 
   public async updateReminder(
-    userId: number,
+    userId: number | string,
     id: string,
     input: UpdateReminderDto,
   ): Promise<ReminderEntity | null> {
@@ -147,7 +147,10 @@ export class RemindersService {
     return saved;
   }
 
-  public async markCompleted(reminderId: string, userId?: number): Promise<ReminderEntity | null> {
+  public async markCompleted(
+    reminderId: string,
+    userId?: number | string,
+  ): Promise<ReminderEntity | null> {
     const whereCondition: Record<string, unknown> = { id: reminderId };
     if (userId) {
       whereCondition.userId = userId.toString();
@@ -175,7 +178,7 @@ export class RemindersService {
     return saved;
   }
 
-  public async deleteReminder(reminderId: string, userId?: number): Promise<boolean> {
+  public async deleteReminder(reminderId: string, userId?: number | string): Promise<boolean> {
     const whereCondition: Record<string, unknown> = { id: reminderId };
     if (userId) {
       whereCondition.userId = userId.toString();

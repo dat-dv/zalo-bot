@@ -38,7 +38,7 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
 
     try {
       const debt = await this.financeService.createDebt({
-        userId: Number(context.senderId) || 1,
+        userId: context.senderId,
         direction,
         counterparty,
         amount,

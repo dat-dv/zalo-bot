@@ -1,5 +1,5 @@
 import { config as loadDotenv } from 'dotenv';
-import { fromApiRoot, fromProjectRoot } from './project-root';
+import { fromProjectRoot } from './project-root';
 
 export interface EnvValidationResult {
   isValid: boolean;

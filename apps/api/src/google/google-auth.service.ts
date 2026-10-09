@@ -203,7 +203,7 @@ export class GoogleAuthService implements OnModuleInit {
     }
   }
 
-  public async revokeUserTokens(userId: number): Promise<void> {
+  public async revokeUserTokens(userId: number | string): Promise<void> {
     const strId = userId.toString();
     try {
       await this.tokenRepo.delete({ userId: strId });

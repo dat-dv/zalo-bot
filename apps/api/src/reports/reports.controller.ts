@@ -54,7 +54,7 @@ export class ReportsController {
   @Get('access')
   @ApiOperation({ summary: 'Đổi One-Time Token lấy Dashboard Session Token' })
   public async access(@Query('token') token: string, @Res() res: Response): Promise<void> {
-    let userId: number;
+    let userId: string | number;
     try {
       userId = await this.tokens.consumeExchangeToken(token);
     } catch (error) {
@@ -291,7 +291,7 @@ export class ReportsController {
 
   private async getCalendarEvents(
     googleConnected: boolean,
-    userId: number,
+    userId: number | string,
     now: Date,
   ): Promise<calendar_v3.Schema$Event[]> {
     if (!googleConnected) return [];
@@ -307,7 +307,7 @@ export class ReportsController {
 
   private async getTasks(
     googleConnected: boolean,
-    userId: number,
+    userId: number | string,
   ): Promise<tasks_v1.Schema$Task[]> {
     if (!googleConnected) return [];
     try {
@@ -320,7 +320,7 @@ export class ReportsController {
     }
   }
 
-  private getAccessUserId(req: Request): number {
+  private getAccessUserId(req: Request): string | number {
     const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
     if (!token) throw new UnauthorizedException();
     return this.tokens.verifyAccessToken(token);

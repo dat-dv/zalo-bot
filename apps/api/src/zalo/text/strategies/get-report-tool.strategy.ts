@@ -16,7 +16,7 @@ export class GetReportToolStrategy implements TextToolStrategy {
 
   public async execute(context: TextToolContext): Promise<void> {
     try {
-      const summary = await this.financeService.getSummary(Number(context.senderId) || 1);
+      const summary = await this.financeService.getSummary(context.senderId);
 
       const reply =
         `📊 BÁO CÁO TÀI CHÍNH CỦA BẠN:\n\n` +

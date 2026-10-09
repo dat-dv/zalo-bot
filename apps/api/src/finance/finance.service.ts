@@ -31,7 +31,7 @@ import { UserCategoryEntity } from '../database/entities/user-category.entity';
 import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
 
 export interface CreateFinanceTransactionDto {
-  userId: number;
+  userId: number | string;
   type: 'income' | 'expense';
   amount: number;
   currency?: string;
@@ -54,7 +54,7 @@ export interface FinanceSummary {
 }
 
 export interface CreateDebtDto {
-  userId: number;
+  userId: number | string;
   direction: 'receivable' | 'payable';
   counterparty: string;
   counterpartyAlias?: string;
@@ -145,7 +145,7 @@ export class FinanceService {
   ) {}
 
   public async resolveOrCreatePlace(
-    userId: number,
+    userId: number | string,
     placeName: string,
   ): Promise<FinancePlaceEntity | null> {
     const trimmed = placeName?.trim();
@@ -203,7 +203,7 @@ export class FinanceService {
   }
 
   public async getSummary(
-    userId: number,
+    userId: number | string,
     startAt?: string,
     endAt?: string,
   ): Promise<FinanceSummary> {
@@ -243,7 +243,7 @@ export class FinanceService {
   }
 
   public async getAnalyticsReport(
-    userId: number,
+    userId: number | string,
     startAt?: string,
     endAt?: string,
     grain: AnalyticsGrain = 'month',
@@ -505,7 +505,7 @@ export class FinanceService {
   }
 
   public async listTransactions(
-    userId: number,
+    userId: number | string,
     type?: 'income' | 'expense',
   ): Promise<FinanceTransactionEntity[]> {
     const where: FindOptionsWhere<FinanceTransactionEntity> = {
@@ -524,14 +524,17 @@ export class FinanceService {
     });
   }
 
-  public getTransaction(userId: number, id: string): Promise<FinanceTransactionEntity | null> {
+  public getTransaction(
+    userId: number | string,
+    id: string,
+  ): Promise<FinanceTransactionEntity | null> {
     return this.transactionRepo.findOne({
       where: { id, userId: userId.toString() },
       relations: { place: true, contact: true, allocations: { debt: true } },
     });
   }
 
-  public getLatestTransaction(userId: number): Promise<FinanceTransactionEntity | null> {
+  public getLatestTransaction(userId: number | string): Promise<FinanceTransactionEntity | null> {
     return this.transactionRepo.findOne({
       where: { userId: userId.toString() },
       order: { createdAt: 'DESC' },
@@ -539,14 +542,14 @@ export class FinanceService {
   }
 
   public findReceiptTransaction(
-    userId: number,
+    userId: number | string,
     receiptUrl: string,
   ): Promise<FinanceTransactionEntity | null> {
     return this.transactionRepo.findOne({ where: { userId: userId.toString(), receiptUrl } });
   }
 
   public async updateTransaction(
-    userId: number,
+    userId: number | string,
     id: string,
     input: UpdateTransactionDto,
   ): Promise<FinanceTransactionEntity | null> {
@@ -597,7 +600,7 @@ export class FinanceService {
     return this.transactionRepo.save(transaction);
   }
 
-  public async resolvePlaces(userId: number, name: string): Promise<FinancePlaceEntity[]> {
+  public async resolvePlaces(userId: number | string, name: string): Promise<FinancePlaceEntity[]> {
     const normalizedName = this.normalizeIdentity(name);
     if (!normalizedName) return [];
     return this.placeRepo.find({
@@ -606,7 +609,7 @@ export class FinanceService {
     });
   }
 
-  public listPlaces(userId: number): Promise<FinancePlaceEntity[]> {
+  public listPlaces(userId: number | string): Promise<FinancePlaceEntity[]> {
     return this.placeRepo.find({
       where: { userId: userId.toString() },
       order: { name: 'ASC', createdAt: 'ASC' },
@@ -614,18 +617,18 @@ export class FinanceService {
     });
   }
 
-  public getPlace(userId: number, id: string): Promise<FinancePlaceEntity | null> {
+  public getPlace(userId: number | string, id: string): Promise<FinancePlaceEntity | null> {
     return this.placeRepo.findOne({ where: { id, userId: userId.toString() } });
   }
 
-  public async createPlace(userId: number, name: string): Promise<FinancePlaceEntity> {
+  public async createPlace(userId: number | string, name: string): Promise<FinancePlaceEntity> {
     const place = await this.resolveOrCreatePlace(userId, name);
     if (!place) throw new Error('Tên nơi chốn không được để trống.');
     return place;
   }
 
   public async updatePlace(
-    userId: number,
+    userId: number | string,
     id: string,
     name: string,
   ): Promise<FinancePlaceEntity | null> {
@@ -643,14 +646,14 @@ export class FinanceService {
     return this.placeRepo.save(place);
   }
 
-  public async deletePlace(userId: number, id: string): Promise<boolean> {
+  public async deletePlace(userId: number | string, id: string): Promise<boolean> {
     const place = await this.getPlace(userId, id);
     if (!place) return false;
     await this.placeRepo.remove(place);
     return true;
   }
 
-  public async deleteTransaction(userId: number, id: string): Promise<boolean> {
+  public async deleteTransaction(userId: number | string, id: string): Promise<boolean> {
     const transaction = await this.getTransaction(userId, id);
     if (!transaction) return false;
 
@@ -738,7 +741,7 @@ export class FinanceService {
   }
 
   public async resolveContacts(
-    userId: number,
+    userId: number | string,
     name: string,
     alias?: string,
   ): Promise<DebtContactEntity[]> {
@@ -758,7 +761,7 @@ export class FinanceService {
     });
   }
 
-  public async listContacts(userId: number): Promise<DebtContactEntity[]> {
+  public async listContacts(userId: number | string): Promise<DebtContactEntity[]> {
     return this.contactRepo.find({
       where: { userId: userId.toString() },
       order: { displayName: 'ASC', createdAt: 'DESC' },
@@ -766,11 +769,11 @@ export class FinanceService {
     });
   }
 
-  public getContact(userId: number, id: string): Promise<DebtContactEntity | null> {
+  public getContact(userId: number | string, id: string): Promise<DebtContactEntity | null> {
     return this.contactRepo.findOne({ where: { id, userId: userId.toString() } });
   }
 
-  public async deleteContact(userId: number, id: string): Promise<boolean> {
+  public async deleteContact(userId: number | string, id: string): Promise<boolean> {
     const contact = await this.getContact(userId, id);
     if (!contact) return false;
     await this.contactRepo.remove(contact);
@@ -778,7 +781,7 @@ export class FinanceService {
   }
 
   public async createContact(
-    userId: number,
+    userId: number | string,
     name: string,
     alias?: string,
     descriptor?: string,
@@ -818,7 +821,7 @@ export class FinanceService {
   }
 
   private async resolvePlaceId(
-    userId: number,
+    userId: number | string,
     placeId?: string | null,
     placeName?: string,
   ): Promise<string | undefined> {
@@ -834,7 +837,7 @@ export class FinanceService {
     return undefined;
   }
 
-  public async getActiveDebts(userId: number): Promise<DebtEntity[]> {
+  public async getActiveDebts(userId: number | string): Promise<DebtEntity[]> {
     return this.debtRepo.find({
       where: { userId: userId.toString(), status: 'active', parentDebtId: IsNull() },
       relations: { contact: true, payments: true },
@@ -842,7 +845,10 @@ export class FinanceService {
     });
   }
 
-  public async listDebts(userId: number, status?: 'active' | 'settled'): Promise<DebtEntity[]> {
+  public async listDebts(
+    userId: number | string,
+    status?: 'active' | 'settled',
+  ): Promise<DebtEntity[]> {
     return this.debtRepo.find({
       where: status ? { userId: userId.toString(), status } : { userId: userId.toString() },
       relations: {
@@ -860,7 +866,7 @@ export class FinanceService {
     });
   }
 
-  public getDebt(userId: number, id: string): Promise<DebtEntity | null> {
+  public getDebt(userId: number | string, id: string): Promise<DebtEntity | null> {
     return this.debtRepo.findOne({
       where: { id, userId: userId.toString() },
       relations: {
@@ -874,7 +880,7 @@ export class FinanceService {
   }
 
   public async updateDebt(
-    userId: number,
+    userId: number | string,
     id: string,
     input: UpdateDebtDto,
   ): Promise<DebtEntity | null> {
@@ -940,7 +946,7 @@ export class FinanceService {
     return this.debtRepo.save(debt);
   }
 
-  public async listExpenses(userId: number): Promise<FinanceTransactionEntity[]> {
+  public async listExpenses(userId: number | string): Promise<FinanceTransactionEntity[]> {
     return this.transactionRepo.find({
       where: { userId: userId.toString(), type: 'expense' },
       order: { occurredAt: 'DESC' },
@@ -949,7 +955,7 @@ export class FinanceService {
   }
 
   public async updateContact(
-    userId: number,
+    userId: number | string,
     contactId: string,
     name: string,
     alias?: string,
@@ -981,7 +987,7 @@ export class FinanceService {
   }
 
   public async combineContacts(
-    userId: number,
+    userId: number | string,
     input: CombineContactsDto,
   ): Promise<CombineContactsResult> {
     const uid = userId.toString();
@@ -1074,7 +1080,10 @@ export class FinanceService {
     };
   }
 
-  public async combineDebts(userId: number, input: CombineDebtsDto): Promise<CombineDebtsResult> {
+  public async combineDebts(
+    userId: number | string,
+    input: CombineDebtsDto,
+  ): Promise<CombineDebtsResult> {
     const uid = userId.toString();
     const uniqueIds = Array.from(new Set((input.debtIds || []).filter(Boolean)));
     if (uniqueIds.length < 2) {
@@ -1176,7 +1185,7 @@ export class FinanceService {
   }
 
   public async recordDebtPayment(
-    userId: number,
+    userId: number | string,
     debtId: string,
     amount: number,
     paymentDate?: string,
@@ -1234,7 +1243,10 @@ export class FinanceService {
     });
   }
 
-  public async getDebtPayments(userId: number, debtId: string): Promise<DebtPaymentEntity[]> {
+  public async getDebtPayments(
+    userId: number | string,
+    debtId: string,
+  ): Promise<DebtPaymentEntity[]> {
     return this.debtPaymentRepo.find({
       where: { debtId, userId: userId.toString() },
       relations: { financeTransaction: true },
@@ -1243,7 +1255,7 @@ export class FinanceService {
   }
 
   public async deleteDebtPayment(
-    userId: number,
+    userId: number | string,
     debtId: string,
     paymentId: string,
   ): Promise<boolean> {
@@ -1303,7 +1315,7 @@ export class FinanceService {
   }
 
   public async listCandidateDebts(
-    userId: number,
+    userId: number | string,
     transactionId: string,
   ): Promise<ICandidateDebtItem[]> {
     const uid = userId.toString();
@@ -1368,7 +1380,7 @@ export class FinanceService {
   }
 
   public async getTransactionAllocations(
-    userId: number,
+    userId: number | string,
     transactionId: string,
   ): Promise<IDebtAllocationItem[]> {
     const uid = userId.toString();
@@ -1400,7 +1412,7 @@ export class FinanceService {
   }
 
   public async allocateTransactionToDebts(
-    userId: number,
+    userId: number | string,
     transactionId: string,
     allocations: Array<{ debtId: string; amount: number; note?: string }>,
   ): Promise<{ allocations: IDebtAllocationItem[]; remainingUnallocated: number }> {
@@ -1561,7 +1573,7 @@ export class FinanceService {
   }
 
   public async deleteDebtAllocation(
-    userId: number,
+    userId: number | string,
     transactionId: string,
     allocationId: string,
   ): Promise<boolean> {
@@ -1600,7 +1612,7 @@ export class FinanceService {
     });
   }
 
-  public async deleteDebt(userId: number, debtId: string): Promise<boolean> {
+  public async deleteDebt(userId: number | string, debtId: string): Promise<boolean> {
     const debt = await this.debtRepo.findOne({
       where: { id: debtId, userId: userId.toString() },
     });
@@ -1610,7 +1622,7 @@ export class FinanceService {
   }
 
   public async listCategories(
-    userId: number,
+    userId: number | string,
     type?: 'income' | 'expense',
   ): Promise<UserCategoryEntity[]> {
     const uid = userId.toString();
@@ -1629,7 +1641,7 @@ export class FinanceService {
     });
   }
 
-  public async seedDefaultCategories(userId: number): Promise<void> {
+  public async seedDefaultCategories(userId: number | string): Promise<void> {
     const uid = userId.toString();
     const entities: UserCategoryEntity[] = [];
 
@@ -1659,7 +1671,7 @@ export class FinanceService {
   }
 
   public async createCategory(
-    userId: number,
+    userId: number | string,
     input: ICreateCategoryRequest,
   ): Promise<UserCategoryEntity> {
     const uid = userId.toString();
@@ -1687,7 +1699,7 @@ export class FinanceService {
   }
 
   public async updateCategory(
-    userId: number,
+    userId: number | string,
     id: string,
     input: IUpdateCategoryRequest,
   ): Promise<UserCategoryEntity | null> {
@@ -1722,7 +1734,7 @@ export class FinanceService {
     return this.userCategoryRepo.save(category);
   }
 
-  public async deleteCategory(userId: number, id: string): Promise<boolean> {
+  public async deleteCategory(userId: number | string, id: string): Promise<boolean> {
     const uid = userId.toString();
     const category = await this.userCategoryRepo.findOne({
       where: { id, userId: uid },

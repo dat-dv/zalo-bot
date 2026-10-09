@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
 import { config as loadDotenv } from 'dotenv';
-import { fromApiRoot, fromProjectRoot } from '../config/project-root';
+import { fromProjectRoot } from '../config/project-root';
 import { UserEntity } from './entities/user.entity';
 import { InviteEntity } from './entities/invite.entity';
 import { UserTokenEntity } from './entities/user-token.entity';

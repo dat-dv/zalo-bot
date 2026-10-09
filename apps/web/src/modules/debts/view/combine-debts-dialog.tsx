@@ -1,1 +1,1 @@
-export { CombineDebtsDialog } from "../presentation/components/combine-debts-dialog";
+export { CombineDebtsDialog } from '../presentation/components/combine-debts-dialog';

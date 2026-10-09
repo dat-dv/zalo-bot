@@ -539,7 +539,7 @@ export class FinanceController {
     return { data: { deleted: true } };
   }
 
-  private userId(req: Request): number {
+  private userId(req: Request): string | number {
     return getDashboardUserId(req, this.tokens);
   }
   private async required<T>(result: Promise<T | null>): Promise<T> {

@@ -85,7 +85,7 @@ export class UsersController {
     return { data: { deleted: true } };
   }
 
-  private admin(req: Request): number {
+  private admin(req: Request): string | number {
     const userId = getDashboardUserId(req, this.tokens);
     if (!this.users.isAdmin(userId)) throw new ForbiddenException();
     return userId;

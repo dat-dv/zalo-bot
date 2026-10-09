@@ -28,7 +28,7 @@ export class GoogleAuthController {
     @Query('error') error: string | undefined,
     @Res() res: Response,
   ): Promise<void> {
-    const userId = state ? Number(state) : NaN;
+    const userId = state ? state.trim() : '';
 
     if (error || !code) {
       this.logger.error(`Google OAuth callback error: ${error || 'Missing authorization code'}`);
@@ -36,7 +36,7 @@ export class GoogleAuthController {
       return;
     }
 
-    if (!userId || isNaN(userId)) {
+    if (!userId) {
       this.logger.error(`Google OAuth callback invalid state (userId): ${state}`);
       res
         .status(400)

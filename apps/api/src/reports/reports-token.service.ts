@@ -10,7 +10,7 @@ type TokenKind = 'access' | 'refresh';
 interface DashboardTokenPayload {
   expiresAt: number;
   kind: TokenKind;
-  userId: number;
+  userId: number | string;
 }
 
 @Injectable()
@@ -21,15 +21,15 @@ export class ReportsTokenService {
     private readonly exchangeTokens: Repository<DashboardExchangeTokenEntity>,
   ) {}
 
-  public issueAccessToken(userId: number): { token: string; expiresAt: string } {
+  public issueAccessToken(userId: number | string): { token: string; expiresAt: string } {
     return this.issue(userId, 'access', 24 * 60 * 60 * 1000);
   }
 
-  public issueRefreshToken(userId: number): { token: string; expiresAt: string } {
+  public issueRefreshToken(userId: number | string): { token: string; expiresAt: string } {
     return this.issue(userId, 'refresh', 7 * 24 * 60 * 60 * 1000);
   }
 
-  public async issueExchangeToken(userId: number): Promise<string> {
+  public async issueExchangeToken(userId: number | string): Promise<string> {
     const token = randomBytes(32).toString('base64url');
     await this.exchangeTokens.save(
       this.exchangeTokens.create({
@@ -41,7 +41,7 @@ export class ReportsTokenService {
     return token;
   }
 
-  public async consumeExchangeToken(token: string): Promise<number> {
+  public async consumeExchangeToken(token: string): Promise<string | number> {
     if (!token) throw new UnauthorizedException();
     const now = new Date();
     const result = await this.exchangeTokens
@@ -56,20 +56,20 @@ export class ReportsTokenService {
     const record = await this.exchangeTokens.findOneBy({
       tokenHash: this.hashExchangeToken(token),
     });
-    if (!record || !Number.isSafeInteger(Number(record.userId))) throw new UnauthorizedException();
-    return Number(record.userId);
+    if (!record || !record.userId) throw new UnauthorizedException();
+    return Number.isSafeInteger(Number(record.userId)) ? Number(record.userId) : record.userId;
   }
 
-  public verifyAccessToken(token: string): number {
+  public verifyAccessToken(token: string): string | number {
     return this.verify(token, 'access');
   }
 
-  public verifyRefreshToken(token: string): number {
+  public verifyRefreshToken(token: string): string | number {
     return this.verify(token, 'refresh');
   }
 
   private issue(
-    userId: number,
+    userId: number | string,
     kind: TokenKind,
     ttlMs: number,
   ): { token: string; expiresAt: string } {
@@ -82,7 +82,7 @@ export class ReportsTokenService {
     };
   }
 
-  private verify(token: string, expectedKind: TokenKind): number {
+  private verify(token: string, expectedKind: TokenKind): string | number {
     const [encodedPayload, signature] = token.split('.');
     if (
       !encodedPayload ||
@@ -97,11 +97,13 @@ export class ReportsTokenService {
       ) as DashboardTokenPayload;
       if (
         payload.kind !== expectedKind ||
-        !Number.isSafeInteger(payload.userId) ||
+        (!Number.isSafeInteger(Number(payload.userId)) && !String(payload.userId).trim()) ||
         payload.expiresAt <= Date.now()
       )
         throw new UnauthorizedException();
-      return payload.userId;
+      return Number.isSafeInteger(Number(payload.userId))
+        ? Number(payload.userId)
+        : String(payload.userId);
     } catch {
       throw new UnauthorizedException();
     }

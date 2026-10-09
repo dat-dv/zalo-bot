@@ -97,4 +97,161 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
       },
     },
   },
+  {
+    name: TextToolType.CREATE_CALENDAR_EVENT,
+    description:
+      'Tạo sự kiện hoặc lịch hẹn mới trên Google Calendar. ' +
+      'Ví dụ: "mai 14h họp dự án", "hẹn ăn tối thứ 6 lúc 19h tại Landmark 81".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        summary: {
+          type: 'STRING',
+          description: 'Tiêu đề cuộc hẹn / sự kiện',
+        },
+        startDateTime: {
+          type: 'STRING',
+          description: 'Thời gian bắt đầu dạng ISO 8601 (ví dụ: 2026-10-08T14:00:00+07:00)',
+        },
+        endDateTime: {
+          type: 'STRING',
+          description: 'Thời gian kết thúc dạng ISO 8601 (ví dụ: 2026-10-08T15:00:00+07:00)',
+        },
+        description: {
+          type: 'STRING',
+          description: 'Mô tả chi tiết nội dung sự kiện nếu có',
+        },
+        location: {
+          type: 'STRING',
+          description: 'Địa điểm diễn ra sự kiện nếu có',
+        },
+      },
+      required: ['summary', 'startDateTime', 'endDateTime'],
+    },
+  },
+  {
+    name: TextToolType.LIST_CALENDAR_EVENTS,
+    description:
+      'Tra cứu danh sách lịch hẹn trên Google Calendar theo khoảng thời gian hoặc từ khóa. ' +
+      'Ví dụ: "lịch hôm nay", "ngày mai có lịch gì không", "xem lịch tuần này", "tìm lịch họp".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        timeMin: {
+          type: 'STRING',
+          description: 'Thời gian bắt đầu tìm kiếm dạng ISO (mặc định là hiện tại)',
+        },
+        timeMax: {
+          type: 'STRING',
+          description: 'Thời gian kết thúc tìm kiếm dạng ISO',
+        },
+        query: {
+          type: 'STRING',
+          description: 'Từ khóa tìm kiếm tiêu đề sự kiện',
+        },
+      },
+    },
+  },
+  {
+    name: TextToolType.DELETE_CALENDAR_EVENT,
+    description:
+      'Xóa một sự kiện trên Google Calendar. ' +
+      'Ví dụ: "xóa lịch họp dự án chiều nay", "hủy lịch ăn tối".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        eventId: {
+          type: 'STRING',
+          description: 'ID sự kiện cần xóa nếu biết',
+        },
+        query: {
+          type: 'STRING',
+          description: 'Tên hoặc từ khóa sự kiện cần xóa',
+        },
+      },
+    },
+  },
+  {
+    name: TextToolType.CREATE_TASK,
+    description:
+      'Thêm một việc cần làm mới vào Google Tasks (To-Do List). ' +
+      'Ví dụ: "thêm việc nộp báo cáo trước 17h", "cần mua sữa chua", "nhắc làm slide".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        title: {
+          type: 'STRING',
+          description: 'Tiêu đề công việc cần làm',
+        },
+        due: {
+          type: 'STRING',
+          description: 'Hạn chót hoàn thành dạng RFC 3339 / ISO (ví dụ: 2026-10-08T17:00:00.000Z)',
+        },
+        notes: {
+          type: 'STRING',
+          description: 'Ghi chú thêm về công việc',
+        },
+      },
+      required: ['title'],
+    },
+  },
+  {
+    name: TextToolType.LIST_TASKS,
+    description:
+      'Tra cứu danh sách việc cần làm (To-Do) từ Google Tasks. ' +
+      'Ví dụ: "xem danh sách việc cần làm", "còn việc gì chưa làm", "danh sách task".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        showCompleted: {
+          type: 'BOOLEAN',
+          description:
+            'true nếu muốn xem cả việc đã hoàn thành, false để chỉ xem việc chưa làm (mặc định false)',
+        },
+        maxResults: {
+          type: 'NUMBER',
+          description: 'Số lượng việc tối đa cần lấy (mặc định 20)',
+        },
+      },
+    },
+  },
+  {
+    name: TextToolType.COMPLETE_TASK,
+    description:
+      'Đánh dấu hoàn thành một công việc trong Google Tasks. ' +
+      'Ví dụ: "đã xong việc nộp báo cáo", "hoàn thành task mua sữa".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        taskId: {
+          type: 'STRING',
+          description: 'ID của công việc cần hoàn thành nếu biết',
+        },
+        taskTitle: {
+          type: 'STRING',
+          description: 'Tên của công việc cần hoàn thành',
+        },
+      },
+    },
+  },
+  {
+    name: TextToolType.LOGIN_GOOGLE,
+    description:
+      'Tạo đường dẫn đăng nhập kết nối tài khoản Google Workspace cá nhân (Calendar & Tasks). ' +
+      'Ví dụ: "kết nối google", "đăng nhập google", "liên kết calendar", "đổi tài khoản gmail".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {},
+    },
+  },
+  {
+    name: TextToolType.CREATE_INVITE_LINK,
+    description:
+      'Tạo mã mời sử dụng bot dành cho Quản trị viên (Admin only). ' +
+      'Ví dụ: "tạo link mời", "mời bạn bè", "tạo mã mời người dùng mới".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {},
+    },
+  },
 ];

@@ -22,11 +22,16 @@
     "lint": "npm run lint:check --workspaces --if-present",
     "lint:fix": "npm run lint:fix --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "start:api": "npm run start:prod --workspace @zalobot/api",
-    "agent-system:precommit": "node scripts/agent-system/precommit/run.mjs",
-    "agent-system:validate": "tsx scripts/agent-system/validate.ts",
-    "docker:local": "docker compose -f docker-compose.local.yml up -d",
-    "docker:local:down": "docker compose -f docker-compose.local.yml down"
+    "zalo:webhook:status": "npm run zalo:webhook:status --workspace @zalobot/api",
+    "zalo:webhook:set": "npm run zalo:webhook:set --workspace @zalobot/api",
+    "zalo:webhook:test": "npm run zalo:webhook:test --workspace @zalobot/api",
+    "zalo:webhook:delete": "npm run zalo:webhook:delete --workspace @zalobot/api",
+    "tunnel": "bash scripts/tunnel.sh",
+    "tunnel:bg": "bash scripts/tunnel.sh bg",
+    "tunnel:stop": "bash scripts/tunnel.sh stop",
+    "zalo:tunnel": "bash scripts/tunnel.sh"
   },
   "devDependencies": {
     "concurrently": "^9.2.4"

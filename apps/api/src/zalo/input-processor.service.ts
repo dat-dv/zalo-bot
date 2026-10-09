@@ -1,10 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ZaloService } from './zalo.service';
 import { TextInputService } from './text/text-input.service';
 import { TextToolType } from './text/text-tool.enum';
 import { AgentInput } from './types/agent-input.type';
 import { ZALO_EVENTS } from './zalo.constants';
 import { ZaloWebhookEventName } from './dto/zalo-webhook.dto';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class InputProcessor {
@@ -13,12 +15,51 @@ export class InputProcessor {
   constructor(
     private readonly zaloService: ZaloService,
     private readonly textInputService: TextInputService,
+    @Optional() private readonly usersService?: UsersService,
+    @Optional() private readonly configService?: ConfigService,
   ) {}
 
   public async process(input: AgentInput): Promise<void> {
     if (!input.senderId && input.type !== 'event') {
       this.logger.debug('Received webhook without identifiable sender ID.');
       return;
+    }
+
+    if (input.type === 'event') {
+      return this.processEvent(input);
+    }
+
+    const text = input.text?.trim() || '';
+    const isInviteActivation = text.startsWith('/start invite_') || text.startsWith('invite_');
+
+    // 1. Whitelist Check
+    if (this.usersService && this.configService && !isInviteActivation) {
+      const allowedIds = this.configService.get<string[]>('zalo.allowedUserIds') || [];
+      if (allowedIds.length > 0 && !this.usersService.isAllowed(input.senderId)) {
+        this.logger.warn(`Unauthorized Zalo user message attempt from ${input.senderId}`);
+        const targetChatId = input.chatId || input.senderId;
+        await this.zaloService.sendMessage(
+          targetChatId,
+          `⛔ Xin lỗi, tài khoản Zalo của bạn (${input.displayName || 'bạn'}) chưa được cấp quyền sử dụng trợ lý này.\n\nVui lòng liên hệ Quản trị viên (Admin) để nhận link mời (invite) nhé!`,
+        );
+        return;
+      }
+
+      // 2. Rate-limiting / Cooldown Check
+      const cooldown = this.usersService.checkCooldown(input.senderId);
+      if (!cooldown.allowed) {
+        const targetChatId = input.chatId || input.senderId;
+        await this.zaloService.sendMessage(
+          targetChatId,
+          cooldown.reason || 'Vui lòng gửi chậm lại.',
+        );
+        return;
+      }
+
+      // 3. Auto Upsert User
+      await this.usersService.upsertUser(input.senderId, 'user', {
+        firstName: input.displayName,
+      });
     }
 
     switch (input.type) {
@@ -33,9 +74,6 @@ export class InputProcessor {
 
       case 'sticker':
         return this.processSticker(input);
-
-      case 'event':
-        return this.processEvent(input);
 
       case 'unsupported':
       default:

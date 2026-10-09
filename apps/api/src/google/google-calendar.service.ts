@@ -38,7 +38,7 @@ export class GoogleCalendarService {
     private readonly configService: ConfigService,
   ) {}
 
-  private getCalendarClient(userId?: number): calendar_v3.Calendar {
+  private getCalendarClient(userId?: number | string): calendar_v3.Calendar {
     const auth = this.authService.getOAuth2Client(userId);
     if (!auth || !this.authService.isAuthorized(userId)) {
       throw new Error(
@@ -50,7 +50,7 @@ export class GoogleCalendarService {
 
   public async listEvents(
     options: ListEventsOptions = {},
-    userId?: number,
+    userId?: number | string,
   ): Promise<calendar_v3.Schema$Event[]> {
     const calendar = this.getCalendarClient(userId);
     const timeZone = this.configService.getOrThrow<string>('timezone');
@@ -71,7 +71,7 @@ export class GoogleCalendarService {
 
   public async createEvent(
     options: CreateEventOptions,
-    userId?: number,
+    userId?: number | string,
   ): Promise<calendar_v3.Schema$Event> {
     const calendar = this.getCalendarClient(userId);
     const defaultTimeZone = this.configService.getOrThrow<string>('timezone');
@@ -117,7 +117,7 @@ export class GoogleCalendarService {
     return res.data;
   }
 
-  public async deleteEvent(eventId: string, userId?: number): Promise<boolean> {
+  public async deleteEvent(eventId: string, userId?: number | string): Promise<boolean> {
     const calendar = this.getCalendarClient(userId);
     await calendar.events.delete({
       calendarId: 'primary',
@@ -130,7 +130,7 @@ export class GoogleCalendarService {
   public async updateEvent(
     eventId: string,
     options: UpdateEventOptions,
-    userId?: number,
+    userId?: number | string,
   ): Promise<calendar_v3.Schema$Event> {
     const calendar = this.getCalendarClient(userId);
     const existing = await this.getEvent(eventId, userId);
@@ -151,7 +151,10 @@ export class GoogleCalendarService {
     return res.data;
   }
 
-  public async getEvent(eventId: string, userId?: number): Promise<calendar_v3.Schema$Event> {
+  public async getEvent(
+    eventId: string,
+    userId?: number | string,
+  ): Promise<calendar_v3.Schema$Event> {
     const calendar = this.getCalendarClient(userId);
     const res = await calendar.events.get({
       calendarId: 'primary',

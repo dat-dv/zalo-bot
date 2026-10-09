@@ -26,7 +26,7 @@ export class SetReminderToolStrategy implements TextToolStrategy {
 
     try {
       const reminder = await this.remindersService.createReminder({
-        userId: Number(context.senderId) || 1,
+        userId: context.senderId,
         title,
         remindAt: isNaN(remindAt.getTime()) ? new Date(Date.now() + 3600000) : remindAt,
       });
