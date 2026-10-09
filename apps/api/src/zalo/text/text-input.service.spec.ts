@@ -36,6 +36,9 @@ function createTextInputService(options?: SetupOptions) {
       sentMessages.push({ chatId, text });
       return Promise.resolve(true);
     },
+    sendChatAction: () => Promise.resolve(true),
+    startChatAction: () => () => {},
+    withChatAction: <T>(_chatId: string | number, fn: () => Promise<T>) => fn(),
   } as unknown as ZaloService;
 
   const mockUsersService = {
@@ -126,7 +129,7 @@ function createTextInputService(options?: SetupOptions) {
     getReportStrategy,
   );
 
-  const service = new TextInputService(factory, mockLlmService);
+  const service = new TextInputService(factory, mockLlmService, mockZaloService);
 
   return { service, sentMessages, factory, getLlmCallCount: () => llmCallCount };
 }

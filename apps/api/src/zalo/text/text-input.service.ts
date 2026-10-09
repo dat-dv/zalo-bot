@@ -4,6 +4,7 @@ import { TextToolFactory } from './text-tool.factory';
 import { TextToolType } from './text-tool.enum';
 import { ZALO_TOOL_DEFINITIONS } from './text-tool.definitions';
 import { LlmService } from '../../llm/llm.service';
+import { ZaloService } from '../zalo.service';
 
 @Injectable()
 export class TextInputService {
@@ -12,6 +13,7 @@ export class TextInputService {
   constructor(
     private readonly toolFactory: TextToolFactory,
     private readonly llmService: LlmService,
+    private readonly zaloService: ZaloService,
   ) {}
 
   public async process(input: AgentInput, toolTypeOverride?: TextToolType): Promise<void> {
@@ -68,10 +70,12 @@ export class TextInputService {
       '- Nếu người dùng chỉ chào hỏi hoặc trò chuyện, hãy trả lời tự nhiên, ngắn gọn, thân thiện bằng tiếng Việt.';
 
     try {
-      const response = await this.llmService.generate(
-        text,
-        ZALO_TOOL_DEFINITIONS,
-        systemInstruction,
+      const response = await this.zaloService.withChatAction(chatId, () =>
+        this.llmService.generate(
+          text,
+          ZALO_TOOL_DEFINITIONS,
+          systemInstruction,
+        ),
       );
 
       if (response.toolCall) {

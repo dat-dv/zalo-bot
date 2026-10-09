@@ -40,6 +40,9 @@ function createMockSetup(overrides?: {
       sentMessages.push({ chatId, text });
       return Promise.resolve(true);
     },
+    sendChatAction: () => Promise.resolve(true),
+    startChatAction: () => () => {},
+    withChatAction: <T>(_chatId: string | number, fn: () => Promise<T>) => fn(),
   } as unknown as ZaloService;
 
   const mockUsersService = {
@@ -123,7 +126,7 @@ function createMockSetup(overrides?: {
     getReportStrategy,
   );
 
-  const textInputService = new TextInputService(factory, mockLlmService);
+  const textInputService = new TextInputService(factory, mockLlmService, mockZaloService);
   const processor = new InputProcessor(
     mockZaloService,
     textInputService,
