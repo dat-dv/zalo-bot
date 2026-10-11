@@ -137,12 +137,7 @@ function createMockSetup(overrides?: {
     mockZaloService,
     confirmationService,
   );
-  const processor = new InputProcessor(
-    mockZaloService,
-    textInputService,
-    mockUsersService,
-    mockConfigService,
-  );
+  const processor = new InputProcessor(mockZaloService, textInputService, mockUsersService);
 
   return { processor, sentMessages };
 }
