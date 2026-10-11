@@ -1,6 +1,7 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
 import { ZaloService } from './zalo.service';
 import { FinanceService } from '../finance/finance.service';
+import { RedisService } from '../redis/redis.service';
 
 export interface PendingTransaction {
   code: string;
@@ -28,6 +29,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   constructor(
     private readonly zaloService: ZaloService,
     private readonly financeService: FinanceService,
+    @Optional() private readonly redisService?: RedisService,
   ) {}
 
   public onModuleDestroy(): void {
@@ -43,27 +45,46 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     this.pendingMap.clear();
   }
 
-  public hasPendingForUser(userId: string): boolean {
-    for (const pending of this.pendingMap.values()) {
-      if (pending.userId === userId) {
-        return true;
+  public async getPendingByCode(code: string): Promise<PendingTransaction | undefined> {
+    if (this.redisService) {
+      const raw = await this.redisService.get(`pending:tx:code:${code}`);
+      if (raw) {
+        try {
+          return JSON.parse(raw) as PendingTransaction;
+        } catch {
+          // ignore json parse error, fall back to memory
+        }
       }
     }
-    return false;
-  }
-
-  public getPendingByCode(code: string): PendingTransaction | undefined {
     return this.pendingMap.get(code);
   }
 
-  public getPendingForUser(userId: string): PendingTransaction[] {
-    const list: PendingTransaction[] = [];
-    for (const pending of this.pendingMap.values()) {
-      if (pending.userId === userId) {
-        list.push(pending);
+  public async getPendingForUser(userId: string): Promise<PendingTransaction | undefined> {
+    if (this.redisService) {
+      const code = await this.redisService.get(`pending:tx:user:${userId}`);
+      if (code) {
+        const item = await this.getPendingByCode(code);
+        if (item) return item;
       }
     }
-    return list;
+    const list = Array.from(this.pendingMap.values()).filter((p) => p.userId === userId);
+    return list[list.length - 1];
+  }
+
+  private async deletePending(code: string, userId?: string): Promise<void> {
+    if (this.redisService) {
+      await this.redisService.del(`pending:tx:code:${code}`);
+      if (userId) {
+        await this.redisService.del(`pending:tx:user:${userId}`);
+      }
+    }
+    const local = this.pendingMap.get(code);
+    if (local) {
+      if (local.timer) {
+        clearTimeout(local.timer);
+      }
+      this.pendingMap.delete(code);
+    }
   }
 
   private generateCode(): string {
@@ -92,6 +113,22 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       expiresAt,
     };
 
+    // Lưu vào Redis với TTL 60 giây (tự động giải phóng bộ nhớ khi hết hạn)
+    if (this.redisService) {
+      const ttlSeconds = Math.ceil(this.timeoutMs / 1000);
+      const serialized = JSON.stringify({
+        code: pending.code,
+        userId: pending.userId,
+        chatId: pending.chatId,
+        payload: pending.payload,
+        createdAt: pending.createdAt,
+        expiresAt: pending.expiresAt,
+      });
+      await this.redisService.set(`pending:tx:code:${code}`, serialized, ttlSeconds);
+      await this.redisService.set(`pending:tx:user:${params.userId}`, code, ttlSeconds);
+    }
+
+    // Thiết lập timer thông báo hết hạn sau 1 phút
     pending.timer = setTimeout(async () => {
       await this.handleTimeout(code);
     }, this.timeoutMs);
@@ -130,13 +167,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   }
 
   public async handleTimeout(code: string): Promise<void> {
-    const pending = this.pendingMap.get(code);
+    const pending = await this.getPendingByCode(code);
     if (!pending) return;
 
-    if (pending.timer) {
-      clearTimeout(pending.timer);
-    }
-    this.pendingMap.delete(code);
+    await this.deletePending(code, pending.userId);
 
     const typeLabel = pending.payload.type === 'income' ? 'khoản thu' : 'khoản chi';
     const txAmount = Number(pending.payload.amount).toLocaleString('vi-VN');
@@ -174,7 +208,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     let pending: PendingTransaction | undefined;
 
     if (code) {
-      pending = this.pendingMap.get(code);
+      pending = await this.getPendingByCode(code);
       if (!pending) {
         await this.zaloService.sendMessage(
           chatId,
@@ -190,25 +224,14 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         return true;
       }
     } else {
-      const userList = this.getPendingForUser(userId);
-      if (userList.length === 0) {
+      pending = await this.getPendingForUser(userId);
+      if (!pending) {
         return false;
       }
-      if (userList.length > 1) {
-        await this.zaloService.sendMessage(
-          chatId,
-          `⚠️ Bạn đang có ${userList.length} giao dịch chờ xác nhận. Vui lòng nhập rõ mã, ví dụ: "yes ${userList[userList.length - 1].code}".`,
-        );
-        return true;
-      }
-      pending = userList[0];
     }
 
     if (Date.now() > pending.expiresAt) {
-      if (pending.timer) {
-        clearTimeout(pending.timer);
-      }
-      this.pendingMap.delete(pending.code);
+      await this.deletePending(pending.code, pending.userId);
       await this.zaloService.sendMessage(
         chatId,
         `⏰ Giao dịch mã "${pending.code}" đã hết hạn xác nhận (quá 1 phút) và chưa được lưu.`,
@@ -216,10 +239,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       return true;
     }
 
-    if (pending.timer) {
-      clearTimeout(pending.timer);
-    }
-    this.pendingMap.delete(pending.code);
+    await this.deletePending(pending.code, pending.userId);
 
     try {
       const tx = await this.financeService.createTransaction(pending.payload);
@@ -258,7 +278,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     let pending: PendingTransaction | undefined;
 
     if (code) {
-      pending = this.pendingMap.get(code);
+      pending = await this.getPendingByCode(code);
       if (!pending) {
         await this.zaloService.sendMessage(
           chatId,
@@ -274,24 +294,13 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         return true;
       }
     } else {
-      const userList = this.getPendingForUser(userId);
-      if (userList.length === 0) {
+      pending = await this.getPendingForUser(userId);
+      if (!pending) {
         return false;
       }
-      if (userList.length > 1) {
-        await this.zaloService.sendMessage(
-          chatId,
-          `⚠️ Bạn đang có ${userList.length} giao dịch chờ xác nhận. Vui lòng nhập rõ mã, ví dụ: "cancel ${userList[userList.length - 1].code}".`,
-        );
-        return true;
-      }
-      pending = userList[0];
     }
 
-    if (pending.timer) {
-      clearTimeout(pending.timer);
-    }
-    this.pendingMap.delete(pending.code);
+    await this.deletePending(pending.code, pending.userId);
 
     const typeLabel = pending.payload.type === 'income' ? 'khoản thu' : 'khoản chi';
     const txAmount = Number(pending.payload.amount).toLocaleString('vi-VN');

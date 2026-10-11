@@ -126,11 +126,11 @@ function createTextInputService(options?: SetupOptions) {
   const conversationStrategy = new ConversationToolStrategy(mockZaloService);
   const manageDebtStrategy = new ManageDebtToolStrategy(mockZaloService, mockFinanceService);
   const confirmationService = new TransactionConfirmationService(
-    mockZaloService as any,
+    mockZaloService,
     mockFinanceService,
   );
   const recordTransactionStrategy = new RecordTransactionToolStrategy(
-    mockZaloService as any,
+    mockZaloService,
     confirmationService,
   );
   const setReminderStrategy = new SetReminderToolStrategy(mockZaloService, mockRemindersService);
@@ -152,7 +152,7 @@ function createTextInputService(options?: SetupOptions) {
   const service = new TextInputService(
     factory,
     mockLlmService,
-    mockZaloService as any,
+    mockZaloService,
     confirmationService,
   );
 

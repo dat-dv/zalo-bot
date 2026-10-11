@@ -38,69 +38,76 @@ export class TextToolFactory {
   private readonly strategyMap = new Map<TextToolType, TextToolStrategy>();
 
   constructor(
-    startStrategy: StartToolStrategy,
-    helpStrategy: HelpToolStrategy,
-    echoStrategy: EchoToolStrategy,
-    pingStrategy: PingToolStrategy,
-    resetStrategy: ResetToolStrategy,
-    conversationStrategy: ConversationToolStrategy,
-    manageDebtStrategy: ManageDebtToolStrategy,
-    recordTransactionStrategy: RecordTransactionToolStrategy,
-    setReminderStrategy: SetReminderToolStrategy,
-    getReportStrategy: GetReportToolStrategy,
-    loginStrategy: LoginToolStrategy,
-    codeStrategy: CodeToolStrategy,
-    statusStrategy: StatusToolStrategy,
-    todayStrategy: TodayToolStrategy,
-    weekStrategy: WeekToolStrategy,
-    financeQuickStrategy: FinanceQuickToolStrategy,
-    debtsQuickStrategy: DebtsQuickToolStrategy,
-    tasksQuickStrategy: TasksQuickToolStrategy,
-    remindersQuickStrategy: RemindersQuickToolStrategy,
-    dashboardStrategy: DashboardToolStrategy,
-    inviteStrategy: InviteToolStrategy,
-    usersListStrategy: UsersListToolStrategy,
-    banStrategy: BanToolStrategy,
-    createCalendarEventStrategy: CreateCalendarEventToolStrategy,
-    listCalendarEventsStrategy: ListCalendarEventsToolStrategy,
-    deleteCalendarEventStrategy: DeleteCalendarEventToolStrategy,
-    createTaskStrategy: CreateTaskToolStrategy,
-    listTasksStrategy: ListTasksToolStrategy,
-    completeTaskStrategy: CompleteTaskToolStrategy,
-    loginGoogleStrategy: LoginGoogleToolStrategy,
-    createInviteLinkStrategy: CreateInviteLinkToolStrategy,
+    startStrategy?: StartToolStrategy,
+    helpStrategy?: HelpToolStrategy,
+    echoStrategy?: EchoToolStrategy,
+    pingStrategy?: PingToolStrategy,
+    resetStrategy?: ResetToolStrategy,
+    conversationStrategy?: ConversationToolStrategy,
+    manageDebtStrategy?: ManageDebtToolStrategy,
+    recordTransactionStrategy?: RecordTransactionToolStrategy,
+    setReminderStrategy?: SetReminderToolStrategy,
+    getReportStrategy?: GetReportToolStrategy,
+    loginStrategy?: LoginToolStrategy,
+    codeStrategy?: CodeToolStrategy,
+    statusStrategy?: StatusToolStrategy,
+    todayStrategy?: TodayToolStrategy,
+    weekStrategy?: WeekToolStrategy,
+    financeQuickStrategy?: FinanceQuickToolStrategy,
+    debtsQuickStrategy?: DebtsQuickToolStrategy,
+    tasksQuickStrategy?: TasksQuickToolStrategy,
+    remindersQuickStrategy?: RemindersQuickToolStrategy,
+    dashboardStrategy?: DashboardToolStrategy,
+    inviteStrategy?: InviteToolStrategy,
+    usersListStrategy?: UsersListToolStrategy,
+    banStrategy?: BanToolStrategy,
+    createCalendarEventStrategy?: CreateCalendarEventToolStrategy,
+    listCalendarEventsStrategy?: ListCalendarEventsToolStrategy,
+    deleteCalendarEventStrategy?: DeleteCalendarEventToolStrategy,
+    createTaskStrategy?: CreateTaskToolStrategy,
+    listTasksStrategy?: ListTasksToolStrategy,
+    completeTaskStrategy?: CompleteTaskToolStrategy,
+    loginGoogleStrategy?: LoginGoogleToolStrategy,
+    createInviteLinkStrategy?: CreateInviteLinkToolStrategy,
   ) {
-    this.strategyMap.set(TextToolType.START, startStrategy);
-    this.strategyMap.set(TextToolType.HELP, helpStrategy);
-    this.strategyMap.set(TextToolType.ECHO, echoStrategy);
-    this.strategyMap.set(TextToolType.PING, pingStrategy);
-    this.strategyMap.set(TextToolType.RESET, resetStrategy);
-    this.strategyMap.set(TextToolType.CONVERSATION, conversationStrategy);
-    this.strategyMap.set(TextToolType.MANAGE_DEBT, manageDebtStrategy);
-    this.strategyMap.set(TextToolType.RECORD_TRANSACTION, recordTransactionStrategy);
-    this.strategyMap.set(TextToolType.SET_REMINDER, setReminderStrategy);
-    this.strategyMap.set(TextToolType.GET_REPORT, getReportStrategy);
-    this.strategyMap.set(TextToolType.LOGIN, loginStrategy);
-    this.strategyMap.set(TextToolType.CODE, codeStrategy);
-    this.strategyMap.set(TextToolType.STATUS, statusStrategy);
-    this.strategyMap.set(TextToolType.TODAY, todayStrategy);
-    this.strategyMap.set(TextToolType.WEEK, weekStrategy);
-    this.strategyMap.set(TextToolType.FINANCE, financeQuickStrategy);
-    this.strategyMap.set(TextToolType.DEBTS, debtsQuickStrategy);
-    this.strategyMap.set(TextToolType.TASKS, tasksQuickStrategy);
-    this.strategyMap.set(TextToolType.REMINDERS, remindersQuickStrategy);
-    this.strategyMap.set(TextToolType.DASHBOARD, dashboardStrategy);
-    this.strategyMap.set(TextToolType.INVITE, inviteStrategy);
-    this.strategyMap.set(TextToolType.USERS, usersListStrategy);
-    this.strategyMap.set(TextToolType.BAN, banStrategy);
-    this.strategyMap.set(TextToolType.CREATE_CALENDAR_EVENT, createCalendarEventStrategy);
-    this.strategyMap.set(TextToolType.LIST_CALENDAR_EVENTS, listCalendarEventsStrategy);
-    this.strategyMap.set(TextToolType.DELETE_CALENDAR_EVENT, deleteCalendarEventStrategy);
-    this.strategyMap.set(TextToolType.CREATE_TASK, createTaskStrategy);
-    this.strategyMap.set(TextToolType.LIST_TASKS, listTasksStrategy);
-    this.strategyMap.set(TextToolType.COMPLETE_TASK, completeTaskStrategy);
-    this.strategyMap.set(TextToolType.LOGIN_GOOGLE, loginGoogleStrategy);
-    this.strategyMap.set(TextToolType.CREATE_INVITE_LINK, createInviteLinkStrategy);
+    if (startStrategy) this.strategyMap.set(TextToolType.START, startStrategy);
+    if (helpStrategy) this.strategyMap.set(TextToolType.HELP, helpStrategy);
+    if (echoStrategy) this.strategyMap.set(TextToolType.ECHO, echoStrategy);
+    if (pingStrategy) this.strategyMap.set(TextToolType.PING, pingStrategy);
+    if (resetStrategy) this.strategyMap.set(TextToolType.RESET, resetStrategy);
+    if (conversationStrategy) this.strategyMap.set(TextToolType.CONVERSATION, conversationStrategy);
+    if (manageDebtStrategy) this.strategyMap.set(TextToolType.MANAGE_DEBT, manageDebtStrategy);
+    if (recordTransactionStrategy)
+      this.strategyMap.set(TextToolType.RECORD_TRANSACTION, recordTransactionStrategy);
+    if (setReminderStrategy) this.strategyMap.set(TextToolType.SET_REMINDER, setReminderStrategy);
+    if (getReportStrategy) this.strategyMap.set(TextToolType.GET_REPORT, getReportStrategy);
+    if (loginStrategy) this.strategyMap.set(TextToolType.LOGIN, loginStrategy);
+    if (codeStrategy) this.strategyMap.set(TextToolType.CODE, codeStrategy);
+    if (statusStrategy) this.strategyMap.set(TextToolType.STATUS, statusStrategy);
+    if (todayStrategy) this.strategyMap.set(TextToolType.TODAY, todayStrategy);
+    if (weekStrategy) this.strategyMap.set(TextToolType.WEEK, weekStrategy);
+    if (financeQuickStrategy) this.strategyMap.set(TextToolType.FINANCE, financeQuickStrategy);
+    if (debtsQuickStrategy) this.strategyMap.set(TextToolType.DEBTS, debtsQuickStrategy);
+    if (tasksQuickStrategy) this.strategyMap.set(TextToolType.TASKS, tasksQuickStrategy);
+    if (remindersQuickStrategy)
+      this.strategyMap.set(TextToolType.REMINDERS, remindersQuickStrategy);
+    if (dashboardStrategy) this.strategyMap.set(TextToolType.DASHBOARD, dashboardStrategy);
+    if (inviteStrategy) this.strategyMap.set(TextToolType.INVITE, inviteStrategy);
+    if (usersListStrategy) this.strategyMap.set(TextToolType.USERS, usersListStrategy);
+    if (banStrategy) this.strategyMap.set(TextToolType.BAN, banStrategy);
+    if (createCalendarEventStrategy)
+      this.strategyMap.set(TextToolType.CREATE_CALENDAR_EVENT, createCalendarEventStrategy);
+    if (listCalendarEventsStrategy)
+      this.strategyMap.set(TextToolType.LIST_CALENDAR_EVENTS, listCalendarEventsStrategy);
+    if (deleteCalendarEventStrategy)
+      this.strategyMap.set(TextToolType.DELETE_CALENDAR_EVENT, deleteCalendarEventStrategy);
+    if (createTaskStrategy) this.strategyMap.set(TextToolType.CREATE_TASK, createTaskStrategy);
+    if (listTasksStrategy) this.strategyMap.set(TextToolType.LIST_TASKS, listTasksStrategy);
+    if (completeTaskStrategy)
+      this.strategyMap.set(TextToolType.COMPLETE_TASK, completeTaskStrategy);
+    if (loginGoogleStrategy) this.strategyMap.set(TextToolType.LOGIN_GOOGLE, loginGoogleStrategy);
+    if (createInviteLinkStrategy)
+      this.strategyMap.set(TextToolType.CREATE_INVITE_LINK, createInviteLinkStrategy);
   }
 
   public resolveFastPathToolType(text: string): TextToolType | null {
