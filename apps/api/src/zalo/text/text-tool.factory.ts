@@ -172,8 +172,12 @@ export class TextToolFactory {
       return TextToolType.CODE;
     }
 
-    // 8. /status
-    if (trimmed === '/status' || trimmed.startsWith('/status ')) return TextToolType.STATUS;
+    // 8. /status, /id, /myid
+
+    const isCallId = ['/status', '/id', '/myid'].some((i) => trimmed.toLowerCase().startsWith(i));
+    if (isCallId) {
+      return TextToolType.STATUS;
+    }
 
     // 9. /today
     if (trimmed === '/today' || trimmed.startsWith('/today ') || lower === 'hôm nay') {

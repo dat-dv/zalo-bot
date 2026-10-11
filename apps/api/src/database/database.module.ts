@@ -20,6 +20,7 @@ import { AddParentDebtHierarchy1724680000000 } from './migrations/1724680000000-
 import { FixPostgresUuidTypes1724690000000 } from './migrations/1724690000000-FixPostgresUuidTypes';
 import { FixPostgresPlaceAndContactUuidTypes1724700000000 } from './migrations/1724700000000-FixPostgresPlaceAndContactUuidTypes';
 import { DropInvitesTable1724710000000 } from './migrations/1724710000000-DropInvitesTable';
+import { AddGrantAccessToUsers1724720000000 } from './migrations/1724720000000-AddGrantAccessToUsers';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { DropInvitesTable1724710000000 } from './migrations/1724710000000-DropIn
             FixPostgresUuidTypes1724690000000,
             FixPostgresPlaceAndContactUuidTypes1724700000000,
             DropInvitesTable1724710000000,
+            AddGrantAccessToUsers1724720000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

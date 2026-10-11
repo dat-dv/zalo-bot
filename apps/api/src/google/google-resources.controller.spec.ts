@@ -152,14 +152,15 @@ void test('GoogleResourcesController listEvents returns empty data when Google A
 
   const mockAuthService = {
     isAuthorized: () => true,
-    handleAuthError: async (userId: string | number, err: unknown) => {
+    handleAuthError: (userId: string | number, _err: unknown) => {
       revokedUserId = userId;
-      return true;
+      return Promise.resolve(true);
     },
   } as unknown as GoogleAuthService;
 
   const mockCalendarService = {
-    listEvents: () => Promise.reject(new Error('invalid_grant: Token has been expired or revoked.')),
+    listEvents: () =>
+      Promise.reject(new Error('invalid_grant: Token has been expired or revoked.')),
   } as unknown as GoogleCalendarService;
 
   const controller = new GoogleResourcesController(
@@ -186,7 +187,7 @@ void test('GoogleResourcesController listEvents returns empty data when Google A
 
   const mockAuthService = {
     isAuthorized: () => true,
-    handleAuthError: async () => false,
+    handleAuthError: () => Promise.resolve(false),
   } as unknown as GoogleAuthService;
 
   const mockCalendarService = {
@@ -217,9 +218,9 @@ void test('GoogleResourcesController listTasks returns empty data when Google Ta
 
   const mockAuthService = {
     isAuthorized: () => true,
-    handleAuthError: async (userId: string | number) => {
+    handleAuthError: (userId: string | number) => {
       revokedUserId = userId;
-      return true;
+      return Promise.resolve(true);
     },
   } as unknown as GoogleAuthService;
 

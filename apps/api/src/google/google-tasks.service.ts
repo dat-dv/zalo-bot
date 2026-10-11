@@ -109,9 +109,7 @@ export class GoogleTasksService {
         this.logger.warn(`Revoked invalid Google token for user ${userId} during listTasks`);
         return [];
       }
-      this.logger.error(
-        `Error listing Google Tasks for user ${userId}: ${(err as Error).message}`,
-      );
+      this.logger.error(`Error listing Google Tasks for user ${userId}: ${(err as Error).message}`);
       throw err;
     }
   }

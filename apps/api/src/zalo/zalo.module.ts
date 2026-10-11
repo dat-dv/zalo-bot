@@ -51,6 +51,9 @@ import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 import { ReceiptStorageModule } from '../receipt-storage/receipt-storage.module';
 import { AuditModule } from '../audit/audit.module';
 
+import { InitialAdminBootstrapGuard } from './guards/initial-admin-bootstrap.guard';
+import { GrantAccessGuard } from './guards/grant-access.guard';
+
 @Module({
   imports: [
     UsersModule,
@@ -67,6 +70,8 @@ import { AuditModule } from '../audit/audit.module';
     ZaloService,
     ZaloMessageParser,
     InputProcessor,
+    InitialAdminBootstrapGuard,
+    GrantAccessGuard,
     TextInputService,
     TransactionConfirmationService,
     TextToolFactory,
@@ -105,6 +110,8 @@ import { AuditModule } from '../audit/audit.module';
     ZaloService,
     ZaloMessageParser,
     InputProcessor,
+    InitialAdminBootstrapGuard,
+    GrantAccessGuard,
     TextInputService,
     TransactionConfirmationService,
     TextToolFactory,

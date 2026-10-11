@@ -111,7 +111,8 @@ export class GoogleAuthService implements OnModuleInit {
       code?: number | string;
       response?: { status?: number; data?: { error?: string; error_description?: string } };
     };
-    const status = err.response?.status || (typeof err.status === 'number' ? err.status : undefined);
+    const status =
+      err.response?.status || (typeof err.status === 'number' ? err.status : undefined);
     if (status === 401) return true;
     const msg = (err.message || '').toLowerCase();
     const respErr = String(err.response?.data?.error || '').toLowerCase();

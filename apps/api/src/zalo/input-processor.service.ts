@@ -6,6 +6,8 @@ import { AgentInput } from './types/agent-input.type';
 import { ZALO_EVENTS } from './zalo.constants';
 import { ZaloWebhookEventName } from './dto/zalo-webhook.dto';
 import { UsersService } from '../users/users.service';
+import { InitialAdminBootstrapGuard } from './guards/initial-admin-bootstrap.guard';
+import { GrantAccessGuard } from './guards/grant-access.guard';
 
 @Injectable()
 export class InputProcessor {
@@ -14,8 +16,19 @@ export class InputProcessor {
   constructor(
     private readonly zaloService: ZaloService,
     private readonly textInputService: TextInputService,
-    @Optional() private readonly usersService?: UsersService,
-  ) {}
+    @Optional() private readonly adminBootstrapGuard?: InitialAdminBootstrapGuard,
+    @Optional() private readonly grantAccessGuard?: GrantAccessGuard,
+    @Optional() private usersService?: UsersService,
+  ) {
+    // Gracefully handle legacy test calls passing usersService as 3rd parameter
+    if (
+      adminBootstrapGuard &&
+      typeof (adminBootstrapGuard as unknown as UsersService).checkCooldown === 'function'
+    ) {
+      this.usersService = adminBootstrapGuard as unknown as UsersService;
+      this.adminBootstrapGuard = undefined;
+    }
+  }
 
   public async process(input: AgentInput): Promise<void> {
     if (!input.senderId && input.type !== 'event') {
@@ -33,7 +46,24 @@ export class InputProcessor {
       return this.processEvent(input);
     }
 
-    // 1. Rate-limiting / Cooldown Check + Auto Upsert User
+    // Guard 1: Nếu chưa có user nào trong whitelist/admin thì phong admin cho người đầu tiên
+    if (this.adminBootstrapGuard && typeof this.adminBootstrapGuard.canActivate === 'function') {
+      const isFirstAdminHandled = await this.adminBootstrapGuard.canActivate(input);
+      if (isFirstAdminHandled) {
+        return;
+      }
+    }
+
+    // Guard 2: Kiểm tra quyền truy cập (isGrantAccess / Whitelist). Nếu chưa được cấp quyền thì reject & gửi ID
+    if (this.grantAccessGuard && typeof this.grantAccessGuard.canActivate === 'function') {
+      const canAccess = await this.grantAccessGuard.canActivate(input);
+      if (!canAccess) {
+        return;
+      }
+    }
+
+    // Khi đã đi qua được cả 2 Interceptor (được cấp quyền):
+    // Kiểm tra Cooldown / Rate-limiting
     if (this.usersService) {
       const cooldown = this.usersService.checkCooldown(input.senderId);
       if (!cooldown.allowed) {
@@ -44,11 +74,6 @@ export class InputProcessor {
         );
         return;
       }
-
-      // Auto Upsert User
-      await this.usersService.upsertUser(input.senderId, 'user', {
-        firstName: input.displayName,
-      });
     }
 
     switch (input.type) {

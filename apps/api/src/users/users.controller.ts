@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
+import { UserRole, GrantAccessStatus } from '@zalobot/contracts';
 import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import { UsersService } from './users.service';
@@ -42,9 +43,34 @@ export class UsersController {
   }
 
   @Post('users')
+  @ApiOperation({ summary: 'Thêm hoặc cập nhật người dùng thủ công' })
   async createUser(@Req() req: Request, @Body() body: Record<string, unknown>) {
     this.admin(req);
-    return { data: await this.users.upsertUser(this.id(body.id), this.role(body.role)) };
+    const id = this.id(body.id);
+    const role = body.role ? this.role(body.role) : UserRole.USER;
+    const grantAccess = this.parseGrantAccess(body.grantAccess, GrantAccessStatus.GRANTED);
+    const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : undefined;
+    return {
+      data: await this.users.upsertUser(id, role, {
+        firstName,
+        grantAccess,
+      }),
+    };
+  }
+
+  @Patch('users/:id/grant-access')
+  @ApiOperation({
+    summary: 'Cấp quyền hoặc thu hồi quyền truy cập bot (grantAccess) của người dùng',
+  })
+  async setGrantAccess(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: Record<string, unknown>,
+  ) {
+    this.admin(req);
+    const grantAccess = this.parseGrantAccess(body.grantAccess, GrantAccessStatus.GRANTED);
+    const user = await this.users.setGrantAccess(id, grantAccess);
+    return { data: user };
   }
 
   @Patch('users/:id')
@@ -54,8 +80,15 @@ export class UsersController {
     @Body() body: Record<string, unknown>,
   ) {
     this.admin(req);
-    const user = await this.users.updateRole(id, this.role(body.role));
+    let user = await this.users.getUser(id);
     if (!user) throw new NotFoundException();
+
+    if (body.role !== undefined) {
+      user = await this.users.updateRole(id, this.role(body.role));
+    }
+    if (body.grantAccess !== undefined) {
+      user = await this.users.setGrantAccess(id, this.parseGrantAccess(body.grantAccess));
+    }
     return { data: user };
   }
 
@@ -72,13 +105,25 @@ export class UsersController {
     if (!this.users.isAdmin(userId)) throw new ForbiddenException();
     return userId;
   }
+
   private id(value: unknown): string {
     const id = (typeof value === 'string' || typeof value === 'number' ? String(value) : '').trim();
     if (!id) throw new BadRequestException('id is invalid.');
     return id;
   }
-  private role(value: unknown): 'admin' | 'user' {
-    if (value === 'admin' || value === 'user') return value;
+
+  private role(value: unknown): UserRole {
+    if (value === UserRole.ADMIN || value === UserRole.USER) return value;
     throw new BadRequestException('role is invalid.');
+  }
+
+  private parseGrantAccess(
+    value: unknown,
+    fallback = GrantAccessStatus.GRANTED,
+  ): GrantAccessStatus {
+    if (value === undefined || value === null) return fallback;
+    return Number(value) === Number(GrantAccessStatus.GRANTED)
+      ? GrantAccessStatus.GRANTED
+      : GrantAccessStatus.DENIED;
   }
 }

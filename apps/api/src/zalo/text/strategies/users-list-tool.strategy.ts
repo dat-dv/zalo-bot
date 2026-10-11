@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { UserRole } from '@zalobot/contracts';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
@@ -41,7 +42,7 @@ export class UsersListToolStrategy implements TextToolStrategy {
       const userLines = users.map((u, idx) => {
         const isAuth = this.googleAuthService.isAuthorized(u.id);
         const name = u.firstName || u.username || 'Người dùng';
-        const role = u.role === 'admin' ? '👑 Admin' : '👤 Member';
+        const role = u.role === UserRole.ADMIN ? '👑 Admin' : '👤 Member';
         const google = isAuth ? 'Google: ✅' : 'Google: ❌';
         return `  ${idx + 1}. ${name} (${u.id}) - ${role} | ${google}`;
       });

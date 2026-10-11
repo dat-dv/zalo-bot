@@ -76,7 +76,7 @@ function createMockSetup(overrides?: {
     upsertUser: () => Promise.resolve({} as never),
   } as unknown as UsersService;
 
-  const mockConfigService = {
+  const _mockConfigService = {
     get: (key: string) => {
       if (key === 'zalo.allowedUserIds') return overrides?.allowedUserIds || [];
       return undefined;

@@ -15,6 +15,7 @@ export const API_ROUTES = {
   financeAnalytics: '/api/finance/analytics',
   reminders: '/api/reminders',
   users: '/api/users',
+  usersGrantAccess: (id: string) => `/api/users/${id}/grant-access`,
   calendarEvents: '/api/calendar/events',
   tasks: '/api/tasks',
   googleAuthCallback: '/api/oauth2callback',
@@ -48,6 +49,7 @@ export const APP_ROUTES = {
 
   contacts: '/contacts',
   places: '/places',
+  users: '/users',
   settings: '/settings',
 } as const;
 
@@ -98,6 +100,7 @@ const messages = {
     'nav.reminders': 'Nhắc nhở',
     'nav.reports': 'Tài chính',
     'nav.settings': 'Cài đặt',
+    'nav.users': 'Người dùng',
     'nav.personalSpace': 'Cá nhân',
     'nav.section.overview': 'TỔNG QUAN',
     'nav.section.finance': 'TÀI CHÍNH',
@@ -691,6 +694,7 @@ const messages = {
     'nav.reminders': 'Reminders',
     'nav.reports': 'Finance',
     'nav.settings': 'Settings',
+    'nav.users': 'Users',
     'nav.personalSpace': 'Personal',
     'nav.section.overview': 'OVERVIEW',
     'nav.section.finance': 'FINANCE',
@@ -1400,6 +1404,27 @@ export interface IExpenseListItem {
   placeName?: string;
   occurredAt: string;
   updatedAt?: string;
+}
+
+export enum UserRole {
+  ADMIN = 'admin',
+  USER = 'user',
+}
+
+export enum GrantAccessStatus {
+  DENIED = 0,
+  GRANTED = 1,
+}
+
+export interface IUserListItem {
+  id: string;
+  username?: string;
+  firstName?: string;
+  role: UserRole;
+  grantAccess: GrantAccessStatus;
+  status: 'active' | 'suspended';
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface IDashboardData {

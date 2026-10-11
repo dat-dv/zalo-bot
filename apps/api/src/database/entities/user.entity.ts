@@ -1,5 +1,5 @@
 import { Entity, PrimaryColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import type { SupportedLocale } from '@zalobot/contracts';
+import { UserRole, GrantAccessStatus, type SupportedLocale } from '@zalobot/contracts';
 
 @Entity('users')
 export class UserEntity {
@@ -12,14 +12,17 @@ export class UserEntity {
   @Column({ type: 'varchar', nullable: true })
   firstName?: string;
 
-  @Column({ type: 'varchar', default: 'user' })
-  role: 'admin' | 'user';
+  @Column({ type: 'varchar', default: UserRole.USER })
+  role: UserRole;
 
   @Column({ type: 'varchar', default: 'vi' })
   preferredLocale: SupportedLocale;
 
   @Column({ type: 'varchar', default: 'Asia/Ho_Chi_Minh' })
   timezone: string;
+
+  @Column({ name: 'grant_access', type: 'int', default: GrantAccessStatus.DENIED })
+  grantAccess: GrantAccessStatus;
 
   @Column({ name: 'phone_number', type: 'varchar', nullable: true })
   phoneNumber?: string;

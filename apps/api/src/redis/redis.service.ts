@@ -91,4 +91,18 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       return false;
     }
   }
+
+  public async getWhitelist(userId: string): Promise<string | null> {
+    return this.get(`whitelist:user:${userId}`);
+  }
+
+  public async setWhitelist(userId: string, allowed: boolean): Promise<boolean> {
+    // Cache for 24 hours if allowed, 10 minutes if rejected so changes take effect quickly
+    const ttlSeconds = allowed ? 86400 : 600;
+    return this.set(`whitelist:user:${userId}`, allowed ? '1' : '0', ttlSeconds);
+  }
+
+  public async delWhitelist(userId: string): Promise<boolean> {
+    return this.del(`whitelist:user:${userId}`);
+  }
 }
