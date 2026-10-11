@@ -23,7 +23,7 @@
     "zalo:webhook:set": "tsx scripts/zalo-webhook.ts set",
     "zalo:webhook:test": "tsx scripts/zalo-webhook.ts test",
     "zalo:webhook:delete": "tsx scripts/zalo-webhook.ts delete",
-    "typeorm": "ts-node -r tsconfig-paths/register ../../node_modules/typeorm/cli.js",
+    "typeorm": "ts-node --project tsconfig.json -r tsconfig-paths/register ../../node_modules/typeorm/cli.js",
     "migration:run": "npm run typeorm -- -d src/database/data-source.ts migration:run",
     "migration:revert": "npm run typeorm -- -d src/database/data-source.ts migration:revert",
     "migration:generate": "npm run typeorm -- -d src/database/data-source.ts migration:generate",
