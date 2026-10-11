@@ -235,7 +235,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     deletePayload?: DeleteTransactionDto;
     payload?: DeleteTransactionDto;
   }): Promise<PendingAction> {
-    const data = params.deletePayload || params.payload!;
+    const data = params.deletePayload || params.payload;
     const typeLabel = data.type === 'income' ? 'khoản thu' : 'khoản chi';
     return this.createPendingAction({
       userId: params.userId,
@@ -475,19 +475,20 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       switch (pending.actionType) {
         case 'RECORD_TRANSACTION':
         case 'create': {
-          const tx = await this.financeService.createTransaction(pending.payload);
-          const typeLabel = pending.payload.type === 'income' ? '🟢 Khoản thu' : '🔴 Khoản chi';
+          const payload = pending.payload as unknown as CreateFinanceTransactionDto;
+          const tx = await this.financeService.createTransaction(payload);
+          const typeLabel = payload.type === 'income' ? '🟢 Khoản thu' : '🔴 Khoản chi';
           const cardContent = renderDtoConfirmationCard(
             {
-              ...pending.payload,
-              amount: tx?.amount ?? pending.payload.amount,
-              category: tx?.category ?? pending.payload.category,
-              note: tx?.note ?? pending.payload.note,
+              ...payload,
+              amount: tx?.amount ?? payload.amount,
+              category: tx?.category ?? payload.category,
+              note: tx?.note ?? payload.note,
               occurredAt: tx?.occurredAt
                 ? tx.occurredAt instanceof Date
                   ? tx.occurredAt.toISOString()
                   : String(tx.occurredAt)
-                : pending.payload.occurredAt,
+                : payload.occurredAt,
             },
             FINANCE_TRANSACTION_DESCRIPTOR,
           );
@@ -497,7 +498,8 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         }
         case 'DELETE_TRANSACTION':
         case 'delete': {
-          const payload = (pending.payload || pending.deletePayload) as DeleteTransactionDto;
+          const payload = (pending.payload ||
+            pending.deletePayload) as unknown as DeleteTransactionDto;
           const success = await this.financeService.deleteTransaction(
             pending.userId,
             payload.transactionId,
@@ -518,23 +520,24 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           break;
         }
         case 'MANAGE_DEBT': {
-          const debt = await this.financeService.createDebt(pending.payload);
+          const payload = pending.payload as unknown as CreateDebtDto;
+          const debt = await this.financeService.createDebt(payload);
           const cardContent = renderDtoConfirmationCard(
             {
-              ...pending.payload,
-              amount: debt?.originalAmount ?? pending.payload.amount,
-              counterparty: debt?.counterparty ?? pending.payload.counterparty,
-              note: debt?.note ?? pending.payload.note,
+              ...payload,
+              amount: debt?.originalAmount ?? payload.amount,
+              counterparty: debt?.counterparty ?? payload.counterparty,
+              note: debt?.note ?? payload.note,
               occurredAt: debt?.occurredAt
                 ? debt.occurredAt instanceof Date
                   ? debt.occurredAt.toISOString()
                   : String(debt.occurredAt)
-                : pending.payload.occurredAt,
+                : payload.occurredAt,
               dueAt: debt?.dueAt
                 ? debt.dueAt instanceof Date
                   ? debt.dueAt.toISOString()
                   : String(debt.dueAt)
-                : pending.payload.dueAt,
+                : payload.dueAt,
             },
             DEBT_DESCRIPTOR,
           );
@@ -546,12 +549,13 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           if (!this.remindersService) {
             throw new Error('RemindersService chưa được cấu hình.');
           }
-          const reminder = await this.remindersService.createReminder(pending.payload);
+          const payload = pending.payload as unknown as CreateReminderDto;
+          const reminder = await this.remindersService.createReminder(payload);
           const cardContent = renderDtoConfirmationCard(
             {
-              ...pending.payload,
-              title: reminder?.title ?? pending.payload.title,
-              remindAt: reminder?.remindAt ?? pending.payload.remindAt,
+              ...payload,
+              title: reminder?.title ?? payload.title,
+              remindAt: reminder?.remindAt ?? payload.remindAt,
             },
             REMINDER_DESCRIPTOR,
           );
@@ -563,11 +567,12 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           if (!this.googleTasksService) {
             throw new Error('GoogleTasksService chưa được cấu hình.');
           }
-          const task = await this.googleTasksService.createTask(pending.payload, pending.userId);
+          const payload = pending.payload as unknown as CreateTaskOptions;
+          const task = await this.googleTasksService.createTask(payload, pending.userId);
           const cardContent = renderDtoConfirmationCard(
             {
-              ...pending.payload,
-              title: task?.title ?? pending.payload.title,
+              ...payload,
+              title: task?.title ?? payload.title,
             },
             TASK_DESCRIPTOR,
           );
@@ -582,7 +587,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           if (!this.googleTasksService) {
             throw new Error('GoogleTasksService chưa được cấu hình.');
           }
-          const payload = pending.payload as CompleteTaskDto;
+          const payload = pending.payload as unknown as CompleteTaskDto;
           await this.googleTasksService.completeTask(payload.taskId, '@default', pending.userId);
           const cardContent = renderDtoConfirmationCard(payload, COMPLETE_TASK_DESCRIPTOR);
           const reply =
@@ -596,11 +601,9 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           if (!this.googleCalendarService) {
             throw new Error('GoogleCalendarService chưa được cấu hình.');
           }
-          await this.googleCalendarService.createEvent(pending.payload, pending.userId);
-          const cardContent = renderDtoConfirmationCard(
-            pending.payload,
-            CALENDAR_EVENT_DESCRIPTOR,
-          );
+          const payload = pending.payload as unknown as CreateEventOptions;
+          await this.googleCalendarService.createEvent(payload, pending.userId);
+          const cardContent = renderDtoConfirmationCard(payload, CALENDAR_EVENT_DESCRIPTOR);
           const reply =
             `✅ ĐÃ XÁC NHẬN VÀ TẠO SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG!\n\n` +
             cardContent +
@@ -612,20 +615,16 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           if (!this.googleCalendarService) {
             throw new Error('GoogleCalendarService chưa được cấu hình.');
           }
-          const payload = pending.payload as DeleteCalendarEventDto;
+          const payload = pending.payload as unknown as DeleteCalendarEventDto;
           await this.googleCalendarService.deleteEvent(payload.eventId, pending.userId);
-          const cardContent = renderDtoConfirmationCard(
-            payload,
-            DELETE_CALENDAR_EVENT_DESCRIPTOR,
-          );
+          const cardContent = renderDtoConfirmationCard(payload, DELETE_CALENDAR_EVENT_DESCRIPTOR);
           const reply =
-            `🗑️ ĐÃ XÁC NHẬN VÀ XÓA SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG!\n\n` +
-            cardContent;
+            `🗑️ ĐÃ XÁC NHẬN VÀ XÓA SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG!\n\n` + cardContent;
           await this.zaloService.sendMessage(chatId, reply);
           break;
         }
         case 'BAN_USER': {
-          const payload = pending.payload as BanUserDto;
+          const payload = pending.payload as unknown as BanUserDto;
           if (this.usersService) {
             await this.usersService.banUser(payload.targetUserId);
           }
@@ -641,7 +640,8 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           break;
         }
         default: {
-          await this.financeService.createTransaction(pending.payload);
+          const payload = pending.payload as unknown as CreateFinanceTransactionDto;
+          await this.financeService.createTransaction(payload);
           await this.zaloService.sendMessage(chatId, '✅ Đã xác nhận thao tác thành công!');
           break;
         }
@@ -700,8 +700,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       actionDesc = `khóa tài khoản "${pending.payload?.targetUserId || ''}"`;
     }
 
-    const note =
-      pending.payload?.note || pending.payload?.title || pending.payload?.summary || '';
+    const note = pending.payload?.note || pending.payload?.title || pending.payload?.summary || '';
     const noteSuffix = note ? ` "${note}"` : '';
 
     await this.zaloService.sendMessage(
