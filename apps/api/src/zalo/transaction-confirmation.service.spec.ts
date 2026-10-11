@@ -2,40 +2,44 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TransactionConfirmationService } from './transaction-confirmation.service';
 import { ZaloService } from './zalo.service';
-import { FinanceService } from '../finance/finance.service';
-import { RemindersService } from '../reminders/reminders.service';
-import { GoogleTasksService } from '../google/google-tasks.service';
-import { GoogleCalendarService } from '../google/google-calendar.service';
+import {
+  FinanceService,
+  CreateFinanceTransactionDto,
+  CreateDebtDto,
+} from '../finance/finance.service';
+import { RemindersService, CreateReminderDto } from '../reminders/reminders.service';
+import { GoogleTasksService, CreateTaskOptions } from '../google/google-tasks.service';
+import { GoogleCalendarService, CreateEventOptions } from '../google/google-calendar.service';
 import { UsersService } from '../users/users.service';
 import { GoogleAuthService } from '../google/google-auth.service';
 
 interface TestContext {
   service: TransactionConfirmationService;
   sentMessages: Array<{ chatId: string | number; text: string }>;
-  createdTransactions: any[];
+  createdTransactions: CreateFinanceTransactionDto[];
   deletedTransactions: Array<{ userId: string | number; id: string }>;
-  createdDebts: any[];
-  createdReminders: any[];
-  createdTasks: any[];
-  completedTasks: any[];
-  createdEvents: any[];
-  deletedCalendarEvents: any[];
-  bannedUsers: any[];
-  revokedTokens: any[];
+  createdDebts: CreateDebtDto[];
+  createdReminders: CreateReminderDto[];
+  createdTasks: Array<CreateTaskOptions & { userId: string }>;
+  completedTasks: Array<{ taskId: string; listId: string; userId: string }>;
+  createdEvents: Array<CreateEventOptions & { userId: string }>;
+  deletedCalendarEvents: Array<{ eventId: string; userId: string }>;
+  bannedUsers: string[];
+  revokedTokens: string[];
 }
 
 function createTestContext(): TestContext {
   const sentMessages: Array<{ chatId: string | number; text: string }> = [];
-  const createdTransactions: any[] = [];
+  const createdTransactions: CreateFinanceTransactionDto[] = [];
   const deletedTransactions: Array<{ userId: string | number; id: string }> = [];
-  const createdDebts: any[] = [];
-  const createdReminders: any[] = [];
-  const createdTasks: any[] = [];
-  const completedTasks: any[] = [];
-  const createdEvents: any[] = [];
-  const deletedCalendarEvents: any[] = [];
-  const bannedUsers: any[] = [];
-  const revokedTokens: any[] = [];
+  const createdDebts: CreateDebtDto[] = [];
+  const createdReminders: CreateReminderDto[] = [];
+  const createdTasks: Array<CreateTaskOptions & { userId: string }> = [];
+  const completedTasks: Array<{ taskId: string; listId: string; userId: string }> = [];
+  const createdEvents: Array<CreateEventOptions & { userId: string }> = [];
+  const deletedCalendarEvents: Array<{ eventId: string; userId: string }> = [];
+  const bannedUsers: string[] = [];
+  const revokedTokens: string[] = [];
 
   const mockZaloService = {
     sendMessage: (chatId: string | number, text: string) => {
@@ -45,7 +49,7 @@ function createTestContext(): TestContext {
   } as unknown as ZaloService;
 
   const mockFinanceService = {
-    createTransaction: (dto: any) => {
+    createTransaction: (dto: CreateFinanceTransactionDto) => {
       createdTransactions.push(dto);
       return Promise.resolve({
         id: 'tx_1',
@@ -53,10 +57,10 @@ function createTestContext(): TestContext {
         type: dto.type,
         category: dto.category,
         note: dto.note,
-        occurredAt: dto.occurredAt,
-      });
+        occurredAt: dto.occurredAt ? new Date(dto.occurredAt) : new Date(),
+      } as never);
     },
-    createDebt: (dto: any) => {
+    createDebt: (dto: CreateDebtDto) => {
       createdDebts.push(dto);
       return Promise.resolve({
         id: 'debt_1',
@@ -64,7 +68,7 @@ function createTestContext(): TestContext {
         originalAmount: dto.amount,
         direction: dto.direction,
         note: dto.note,
-      });
+      } as never);
     },
     deleteTransaction: (userId: string | number, id: string) => {
       deletedTransactions.push({ userId, id });
@@ -73,23 +77,23 @@ function createTestContext(): TestContext {
   } as unknown as FinanceService;
 
   const mockRemindersService = {
-    createReminder: (dto: any) => {
+    createReminder: (dto: CreateReminderDto) => {
       createdReminders.push(dto);
       return Promise.resolve({
         id: 'rem_1',
         title: dto.title,
         remindAt: dto.remindAt,
-      });
+      } as never);
     },
   } as unknown as RemindersService;
 
   const mockGoogleTasksService = {
-    createTask: (options: any, userId: string) => {
+    createTask: (options: CreateTaskOptions, userId: string) => {
       createdTasks.push({ ...options, userId });
       return Promise.resolve({
         id: 'task_1',
         title: options.title,
-      });
+      } as never);
     },
     completeTask: (taskId: string, listId: string, userId: string) => {
       completedTasks.push({ taskId, listId, userId });
@@ -98,12 +102,12 @@ function createTestContext(): TestContext {
   } as unknown as GoogleTasksService;
 
   const mockGoogleCalendarService = {
-    createEvent: (options: any, userId: string) => {
+    createEvent: (options: CreateEventOptions, userId: string) => {
       createdEvents.push({ ...options, userId });
       return Promise.resolve({
         id: 'event_1',
         summary: options.summary,
-      });
+      } as never);
     },
     deleteEvent: (eventId: string, userId: string) => {
       deletedCalendarEvents.push({ eventId, userId });
@@ -316,7 +320,7 @@ void test('TransactionConfirmationService cancels delete with "cancel <mã>"', a
 void test('TransactionConfirmationService notifies when delete timeout expires', async () => {
   const { service, sentMessages } = createTestContext();
 
-  const pending = await service.createPendingDelete({
+  const _pending = await service.createPendingDelete({
     userId: 'u1',
     chatId: 'c1',
     payload: {
