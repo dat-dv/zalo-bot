@@ -133,3 +133,41 @@ void test('GlobalExceptionsFilter ignores non-http context safely', () => {
   assert.equal(state.statusCode, 0);
   assert.equal(state.body, null);
 });
+
+void test('GlobalExceptionsFilter includes requestId in response body and header', () => {
+  const filter = new GlobalExceptionsFilter();
+  const state: MockResponseState = { statusCode: 0, body: null };
+  const setHeaders: Record<string, string> = {};
+  const mockResponse = {
+    status(code: number) {
+      state.statusCode = code;
+      return mockResponse;
+    },
+    json(body: IApiErrorResponse) {
+      state.body = body;
+      return mockResponse;
+    },
+    setHeader(key: string, value: string) {
+      setHeaders[key.toLowerCase()] = value;
+    },
+  };
+
+  const host = {
+    getType: () => 'http',
+    switchToHttp: () => ({
+      getRequest: () => ({
+        method: 'GET',
+        url: '/api/transactions/404',
+        headers: { 'x-request-id': 'custom-req-trace-id' },
+      }),
+      getResponse: () => mockResponse,
+      getNext: () => {},
+    }),
+  } as unknown as ArgumentsHost;
+
+  filter.catch(new NotFoundException('Not found with trace'), host);
+
+  assert.equal(state.statusCode, 404);
+  assert.equal(state.body?.requestId, 'custom-req-trace-id');
+  assert.equal(setHeaders['x-request-id'], 'custom-req-trace-id');
+});

@@ -15,7 +15,6 @@ export const API_ROUTES = {
   financeAnalytics: '/api/finance/analytics',
   reminders: '/api/reminders',
   users: '/api/users',
-  invites: '/api/invites',
   calendarEvents: '/api/calendar/events',
   tasks: '/api/tasks',
   googleAuthCallback: '/api/oauth2callback',
@@ -1280,6 +1279,7 @@ export interface IApiErrorResponse {
   error: string;
   timestamp: string;
   path: string;
+  requestId?: string;
 }
 
 export interface IDashboardAccessTokenResponse {

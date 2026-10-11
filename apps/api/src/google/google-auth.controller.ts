@@ -4,6 +4,7 @@ import { Response } from 'express';
 import { GoogleAuthService } from './google-auth.service';
 import { renderSuccessHtml, renderErrorHtml } from './templates/oauth-html.template';
 import { ZaloService } from '../zalo/zalo.service';
+import { BypassTransform } from '../common/decorators/bypass-transform.decorator';
 
 @ApiTags('Google Auth & System Health')
 @Controller()
@@ -18,6 +19,7 @@ export class GoogleAuthController {
   ) {}
 
   @Get(['', 'health'])
+  @BypassTransform()
   @ApiOperation({ summary: 'Kiểm tra trạng thái hoạt động của hệ thống (Health check)' })
   @ApiResponse({ status: 200, description: 'Hệ thống đang hoạt động bình thường' })
   public getHealth(): string {

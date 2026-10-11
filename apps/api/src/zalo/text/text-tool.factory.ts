@@ -21,7 +21,6 @@ import { DebtsQuickToolStrategy } from './strategies/debts-quick-tool.strategy';
 import { TasksQuickToolStrategy } from './strategies/tasks-quick-tool.strategy';
 import { RemindersQuickToolStrategy } from './strategies/reminders-quick-tool.strategy';
 import { DashboardToolStrategy } from './strategies/dashboard-tool.strategy';
-import { InviteToolStrategy } from './strategies/invite-tool.strategy';
 import { UsersListToolStrategy } from './strategies/users-list-tool.strategy';
 import { BanToolStrategy } from './strategies/ban-tool.strategy';
 import { CreateCalendarEventToolStrategy } from './strategies/create-calendar-event-tool.strategy';
@@ -31,7 +30,6 @@ import { CreateTaskToolStrategy } from './strategies/create-task-tool.strategy';
 import { ListTasksToolStrategy } from './strategies/list-tasks-tool.strategy';
 import { CompleteTaskToolStrategy } from './strategies/complete-task-tool.strategy';
 import { LoginGoogleToolStrategy } from './strategies/login-google-tool.strategy';
-import { CreateInviteLinkToolStrategy } from './strategies/create-invite-link-tool.strategy';
 import { DeleteTransactionToolStrategy } from './strategies/delete-transaction-tool.strategy';
 
 @Injectable()
@@ -59,7 +57,6 @@ export class TextToolFactory {
     tasksQuickStrategy?: TasksQuickToolStrategy,
     remindersQuickStrategy?: RemindersQuickToolStrategy,
     dashboardStrategy?: DashboardToolStrategy,
-    inviteStrategy?: InviteToolStrategy,
     usersListStrategy?: UsersListToolStrategy,
     banStrategy?: BanToolStrategy,
     createCalendarEventStrategy?: CreateCalendarEventToolStrategy,
@@ -69,7 +66,6 @@ export class TextToolFactory {
     listTasksStrategy?: ListTasksToolStrategy,
     completeTaskStrategy?: CompleteTaskToolStrategy,
     loginGoogleStrategy?: LoginGoogleToolStrategy,
-    createInviteLinkStrategy?: CreateInviteLinkToolStrategy,
     deleteTransactionStrategy?: DeleteTransactionToolStrategy,
   ) {
     if (startStrategy) this.strategyMap.set(TextToolType.START, startStrategy);
@@ -96,7 +92,6 @@ export class TextToolFactory {
     if (remindersQuickStrategy)
       this.strategyMap.set(TextToolType.REMINDERS, remindersQuickStrategy);
     if (dashboardStrategy) this.strategyMap.set(TextToolType.DASHBOARD, dashboardStrategy);
-    if (inviteStrategy) this.strategyMap.set(TextToolType.INVITE, inviteStrategy);
     if (usersListStrategy) this.strategyMap.set(TextToolType.USERS, usersListStrategy);
     if (banStrategy) this.strategyMap.set(TextToolType.BAN, banStrategy);
     if (createCalendarEventStrategy)
@@ -110,18 +105,14 @@ export class TextToolFactory {
     if (completeTaskStrategy)
       this.strategyMap.set(TextToolType.COMPLETE_TASK, completeTaskStrategy);
     if (loginGoogleStrategy) this.strategyMap.set(TextToolType.LOGIN_GOOGLE, loginGoogleStrategy);
-    if (createInviteLinkStrategy)
-      this.strategyMap.set(TextToolType.CREATE_INVITE_LINK, createInviteLinkStrategy);
-    if (deleteTransactionStrategy)
-      this.strategyMap.set(TextToolType.DELETE_TRANSACTION, deleteTransactionStrategy);
   }
 
   public resolveFastPathToolType(text: string): TextToolType | null {
     const trimmed = text.trim();
     const lower = trimmed.toLowerCase();
 
-    // 1. /start or invite link
-    if (trimmed === '/start' || trimmed.startsWith('/start ') || trimmed.startsWith('invite_')) {
+    // 1. /start
+    if (trimmed === '/start' || trimmed.startsWith('/start ')) {
       return TextToolType.START;
     }
 
@@ -200,8 +191,7 @@ export class TextToolFactory {
       return TextToolType.DASHBOARD;
     }
 
-    // 16. Admin commands: /invite, /users, /ban
-    if (trimmed === '/invite') return TextToolType.INVITE;
+    // 16. Admin commands: /users, /ban
     if (trimmed === '/users') return TextToolType.USERS;
     if (trimmed.startsWith('/ban')) return TextToolType.BAN;
 

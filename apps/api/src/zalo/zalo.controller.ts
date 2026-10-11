@@ -14,8 +14,10 @@ import { ConfigService } from '@nestjs/config';
 import { InputProcessor } from './input-processor.service';
 import { ZaloMessageParser } from './zalo-message-parser.service';
 import { ZaloWebhookPayloadDto } from './dto/zalo-webhook.dto';
+import { BypassTransform } from '../common/decorators/bypass-transform.decorator';
 
 @ApiTags('Zalo Bot Webhook')
+@BypassTransform()
 @Controller()
 export class ZaloController {
   private readonly logger = new Logger(ZaloController.name);

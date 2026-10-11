@@ -29,7 +29,6 @@ function createFactory(): TextToolFactory {
     createDummyStrategy(TextToolType.TASKS),
     createDummyStrategy(TextToolType.REMINDERS),
     createDummyStrategy(TextToolType.DASHBOARD),
-    createDummyStrategy(TextToolType.INVITE),
     createDummyStrategy(TextToolType.USERS),
     createDummyStrategy(TextToolType.BAN),
     createDummyStrategy(TextToolType.CREATE_CALENDAR_EVENT),
@@ -39,7 +38,6 @@ function createFactory(): TextToolFactory {
     createDummyStrategy(TextToolType.LIST_TASKS),
     createDummyStrategy(TextToolType.COMPLETE_TASK),
     createDummyStrategy(TextToolType.LOGIN_GOOGLE),
-    createDummyStrategy(TextToolType.CREATE_INVITE_LINK),
     createDummyStrategy(TextToolType.DELETE_TRANSACTION),
   );
 }
@@ -48,8 +46,7 @@ void test('TextToolFactory resolves tool types by enum correctly', () => {
   const factory = createFactory();
 
   assert.equal(factory.resolveFastPathToolType('/start'), TextToolType.START);
-  assert.equal(factory.resolveFastPathToolType('/start invite_123'), TextToolType.START);
-  assert.equal(factory.resolveFastPathToolType('invite_abc'), TextToolType.START);
+  assert.equal(factory.resolveFastPathToolType('/start 123'), TextToolType.START);
   assert.equal(factory.resolveFastPathToolType('/help'), TextToolType.HELP);
   assert.equal(factory.resolveFastPathToolType('/echo test'), TextToolType.ECHO);
   assert.equal(factory.resolveFastPathToolType('/ping'), TextToolType.PING);
@@ -77,7 +74,6 @@ void test('TextToolFactory resolves tool types by enum correctly', () => {
   assert.equal(factory.resolveFastPathToolType('/reminders'), TextToolType.REMINDERS);
   assert.equal(factory.resolveFastPathToolType('/nhac'), TextToolType.REMINDERS);
   assert.equal(factory.resolveFastPathToolType('/dashboard'), TextToolType.DASHBOARD);
-  assert.equal(factory.resolveFastPathToolType('/invite'), TextToolType.INVITE);
   assert.equal(factory.resolveFastPathToolType('/users'), TextToolType.USERS);
   assert.equal(factory.resolveFastPathToolType('/ban u123'), TextToolType.BAN);
 

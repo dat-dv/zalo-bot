@@ -164,4 +164,3 @@ void test('BAN_USER_DESCRIPTOR renders user ban confirmation details', () => {
   assert.match(card, /• Vai trò hiện tại: Người dùng/);
   assert.match(card, /• Lý do khóa: Spam liên tục/);
 });
-

@@ -29,18 +29,15 @@ export class InputProcessor {
       return this.processEvent(input);
     }
 
-    const text = input.text?.trim() || '';
-    const isInviteActivation = text.startsWith('/start invite_') || text.startsWith('invite_');
-
     // 1. Whitelist Check
-    if (this.usersService && this.configService && !isInviteActivation) {
+    if (this.usersService && this.configService) {
       const allowedIds = this.configService.get<string[]>('zalo.allowedUserIds') || [];
       if (allowedIds.length > 0 && !this.usersService.isAllowed(input.senderId)) {
         this.logger.warn(`Unauthorized Zalo user message attempt from ${input.senderId}`);
         const targetChatId = input.chatId || input.senderId;
         await this.zaloService.sendMessage(
           targetChatId,
-          `⛔ Xin lỗi, tài khoản Zalo của bạn (${input.displayName || 'bạn'}) chưa được cấp quyền sử dụng trợ lý này.\n\nVui lòng liên hệ Quản trị viên (Admin) để nhận link mời (invite) nhé!`,
+          `⛔ Xin lỗi, tài khoản Zalo của bạn (${input.displayName || 'bạn'}) chưa được cấp quyền sử dụng trợ lý này.\n\nVui lòng liên hệ Quản trị viên (Admin) để được cấp quyền sử dụng nhé!`,
         );
         return;
       }

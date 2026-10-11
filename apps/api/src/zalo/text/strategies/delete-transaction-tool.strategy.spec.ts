@@ -80,7 +80,10 @@ void test('DeleteTransactionToolStrategy creates pending delete when transaction
   });
 
   await strategy.execute({
-    input: { type: 'text', text: 'Xóa giao dịch 88ca5db0-5e4a-4f10-af57-48fcb57e48b7' } as AgentInput,
+    input: {
+      type: 'text',
+      text: 'Xóa giao dịch 88ca5db0-5e4a-4f10-af57-48fcb57e48b7',
+    } as AgentInput,
     chatId: 'c1',
     senderId: 'u1',
     displayName: 'Đạt',

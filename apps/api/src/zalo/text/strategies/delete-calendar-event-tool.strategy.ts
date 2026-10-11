@@ -85,7 +85,9 @@ export class DeleteCalendarEventToolStrategy implements TextToolStrategy {
         },
       });
     } catch (err) {
-      this.logger.error(`Failed to create pending delete calendar event: ${(err as Error).message}`);
+      this.logger.error(
+        `Failed to create pending delete calendar event: ${(err as Error).message}`,
+      );
       await this.zaloService.sendMessage(
         context.chatId,
         `⚠️ Không thể tạo yêu cầu xóa sự kiện: ${(err as Error).message}`,

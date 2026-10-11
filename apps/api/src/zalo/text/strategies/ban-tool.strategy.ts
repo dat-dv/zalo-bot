@@ -56,7 +56,7 @@ export class BanToolStrategy implements TextToolStrategy {
 
     try {
       const user = await this.usersService.getUser(targetId);
-      const targetName = user ? (user.firstName || user.username || undefined) : undefined;
+      const targetName = user ? user.firstName || user.username || undefined : undefined;
       const role = user?.role;
 
       await this.confirmationService.createPendingBanUser({

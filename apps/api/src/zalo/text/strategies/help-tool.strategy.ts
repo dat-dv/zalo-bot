@@ -18,7 +18,6 @@ export class HelpToolStrategy implements TextToolStrategy {
 
     const adminCommands = isAdmin
       ? `\n👑 LỆNH DÀNH CHO QUẢN TRỊ VIÊN:\n` +
-        `• /invite - Tạo mã mời 1 lần cho người dùng mới (hạn 24h)\n` +
         `• /users - Xem danh sách người dùng & trạng thái Google\n` +
         `• /ban <id> - Thu hồi quyền & hủy token Google của người dùng\n`
       : '';

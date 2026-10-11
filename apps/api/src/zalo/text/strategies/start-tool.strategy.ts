@@ -17,52 +17,6 @@ export class StartToolStrategy implements TextToolStrategy {
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
-    const rawText = context.text?.trim() || '';
-
-    // 1. Handle invite code: e.g. /start invite_xyz or just invite_xyz
-    if (rawText.includes('invite_')) {
-      const match = rawText.match(/invite_[a-zA-Z0-9]+/);
-      const inviteCode = match ? match[0] : '';
-
-      if (inviteCode && this.usersService) {
-        const result = await this.usersService.consumeInvite(inviteCode, {
-          id: context.senderId,
-          firstName: context.displayName,
-        });
-
-        if (!result.success) {
-          await this.zaloService.sendMessage(
-            context.chatId,
-            `⚠️ Kích hoạt thất bại: ${result.message}`,
-          );
-          return;
-        }
-
-        let authUrl = '';
-        try {
-          authUrl = this.googleAuthService?.generateAuthUrl(context.senderId) || '';
-        } catch {
-          // ignore
-        }
-
-        const authGuide = authUrl
-          ? `👉 BƯỚC TIẾP THEO: KẾT NỐI GOOGLE CALENDAR & TASKS\n` +
-            `Mở link sau trên trình duyệt để cấp quyền:\n` +
-            `🔗 ${authUrl}\n\n` +
-            `Sau khi bấm "Cho phép", tài khoản của bạn sẽ sẵn sàng sử dụng ngay!`
-          : `Gõ /login để nhận link liên kết tài khoản Google nhé!`;
-
-        const welcomeActivated =
-          `🎉 CHÚC MỪNG ${context.displayName?.toUpperCase() || 'BẠN'} ĐÃ KÍCH HOẠT THÀNH CÔNG!\n\n` +
-          `Bạn đã được cấp quyền sử dụng trợ lý cá nhân Zalo độc lập 100%.\n\n` +
-          `${authGuide}`;
-
-        await this.zaloService.sendMessage(context.chatId, welcomeActivated);
-        return;
-      }
-    }
-
-    // 2. Normal /start
     const isGoogleConnected = Boolean(this.googleAuthService?.isAuthorized(context.senderId));
     const isAdmin = Boolean(this.usersService?.isAdmin(context.senderId));
 

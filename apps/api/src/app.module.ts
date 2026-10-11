@@ -13,7 +13,7 @@ import { FinanceModule } from './finance/finance.module';
 import { AuditModule } from './audit/audit.module';
 import { ReportsModule } from './reports/reports.module';
 import { fromApiRoot, fromProjectRoot } from './config/project-root';
-import { GlobalExceptionsFilter } from './common/filters/global-exceptions.filter';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -28,6 +28,7 @@ import { GlobalExceptionsFilter } from './common/filters/global-exceptions.filte
       load: [configuration],
     }),
     ScheduleModule.forRoot(),
+    CommonModule,
     RedisModule,
     DatabaseModule,
     UsersModule,
@@ -37,12 +38,6 @@ import { GlobalExceptionsFilter } from './common/filters/global-exceptions.filte
     AuditModule,
     ReportsModule,
     ZaloModule,
-  ],
-  providers: [
-    {
-      provide: APP_FILTER,
-      useClass: GlobalExceptionsFilter,
-    },
   ],
 })
 export class AppModule {}

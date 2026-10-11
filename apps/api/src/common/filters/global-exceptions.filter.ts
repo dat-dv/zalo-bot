@@ -85,25 +85,36 @@ export class GlobalExceptionsFilter implements ExceptionFilter {
     const path = request?.url || request?.originalUrl || 'unknown';
     const method = request?.method || 'UNKNOWN';
 
+    const rawRequestId =
+      request?.headers?.['x-request-id'] || (request as unknown as { id?: string })?.id;
+    const requestId = Array.isArray(rawRequestId) ? rawRequestId[0] : rawRequestId;
+
     const responseBody: IApiErrorResponse = {
       statusCode: status,
       message,
       error,
       timestamp: new Date().toISOString(),
       path,
+      ...(requestId ? { requestId } : {}),
     };
+
+    if (requestId && !response.headersSent && typeof response.setHeader === 'function') {
+      response.setHeader('x-request-id', requestId);
+    }
+
+    const logReqId = requestId ? ` [reqId: ${requestId}]` : '';
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       const stack = exception instanceof Error ? exception.stack : undefined;
       const detail =
         exception instanceof QueryFailedError ? ` - Details: ${exception.message}` : '';
       this.logger.error(
-        `[${method}] ${path} -> ${status} - ${typeof message === 'string' ? message : JSON.stringify(message)}${detail}`,
+        `[${method}] ${path} -> ${status} - ${typeof message === 'string' ? message : JSON.stringify(message)}${detail}${logReqId}`,
         stack,
       );
     } else {
       this.logger.warn(
-        `[${method}] ${path} -> ${status} - ${typeof message === 'string' ? message : JSON.stringify(message)}`,
+        `[${method}] ${path} -> ${status} - ${typeof message === 'string' ? message : JSON.stringify(message)}${logReqId}`,
       );
     }
 
