@@ -13,6 +13,7 @@ import { AuditModule } from './audit/audit.module';
 import { ReportsModule } from './reports/reports.module';
 import { fromApiRoot, fromProjectRoot } from './config/project-root';
 import { CommonModule } from './common/common.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { CommonModule } from './common/common.module';
     }),
     ScheduleModule.forRoot(),
     CommonModule,
+    HealthModule,
     RedisModule,
     DatabaseModule,
     UsersModule,

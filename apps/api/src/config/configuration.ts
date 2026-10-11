@@ -14,8 +14,6 @@ export interface AppConfig {
   zalo: {
     botToken: string;
     webhookUrl: string;
-    adminId?: string;
-    allowedUserIds: string[];
     secretToken?: string;
   };
   receiptStorage: {
@@ -79,17 +77,6 @@ function readNumberEnv(name: string, fallback = 0): number {
 }
 
 export default (): AppConfig => {
-  const allowedUserIds = (readOptionalEnv('ZALO_ALLOWED_USER_IDS') ?? '')
-    .split(',')
-    .map((id) => id.trim())
-    .filter((id) => id.length > 0);
-
-  const adminId = readOptionalEnv('ZALO_ADMIN_ID');
-
-  if (adminId && !allowedUserIds.includes(adminId)) {
-    allowedUserIds.push(adminId);
-  }
-
   const appUrl = readEnv('APP_URL').replace(/\/+$/, '');
 
   return {
@@ -106,8 +93,6 @@ export default (): AppConfig => {
     zalo: {
       botToken: readEnv('ZALO_BOT_TOKEN', readEnv('BOT_TOKEN')),
       webhookUrl: readEnv('ZALO_WEBHOOK_URL', readEnv('WEBHOOK_URL')),
-      adminId,
-      allowedUserIds,
       secretToken: readOptionalEnv('ZALO_WEBHOOK_SECRET_TOKEN'),
     },
     receiptStorage: {

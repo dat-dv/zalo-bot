@@ -38,7 +38,7 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix('api', {
-    exclude: ['webhook', 'zalo/webhook', 'api/webhook', 'api/zalo/webhook'],
+    exclude: ['webhook', 'zalo/webhook', 'api/webhook', 'api/zalo/webhook', 'health'],
   });
   app.enableShutdownHooks();
 

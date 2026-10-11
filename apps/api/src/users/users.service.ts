@@ -24,7 +24,6 @@ export class UsersService implements OnModuleInit {
   ) {}
 
   public async onModuleInit(): Promise<void> {
-    await this.seedInitialUsers();
     await this.refreshMemoryCache();
   }
 
@@ -41,58 +40,12 @@ export class UsersService implements OnModuleInit {
         }
       }
 
-      // Also include env admin & allowed IDs from Zalo configuration
-      const adminId = this.configService.get<string>('zalo.adminId');
-      if (adminId) {
-        this.adminUserIdsCache.add(adminId.toString());
-        this.allowedUserIdsCache.add(adminId.toString());
-      }
-
-      const allowedIds = this.configService.get<string[]>('zalo.allowedUserIds') || [];
-      for (const id of allowedIds) {
-        this.allowedUserIdsCache.add(id.toString());
-      }
-
       this.logger.log(
         `PostgreSQL initialized with ${users.length} registered users (Admins: ${this.adminUserIdsCache.size}).`,
       );
     } catch (err) {
       const error = err as Error;
       this.logger.error(`Error refreshing memory cache: ${error.message}`);
-    }
-  }
-
-  private async seedInitialUsers(): Promise<void> {
-    const adminIdEnv = this.configService.get<string>('zalo.adminId');
-    const allowedIds = this.configService.get<string[]>('zalo.allowedUserIds') || [];
-
-    if (adminIdEnv) {
-      const adminStr = adminIdEnv.toString();
-      const existing = await this.userRepo.findOne({ where: { id: adminStr } });
-      if (!existing) {
-        const adminUser = this.userRepo.create({
-          id: adminStr,
-          role: 'admin',
-          createdAt: new Date(),
-        });
-        await this.userRepo.save(adminUser);
-      }
-    }
-
-    if (allowedIds && allowedIds.length > 0) {
-      for (const [index, idStr] of allowedIds.entries()) {
-        const strId = idStr.toString();
-        const existing = await this.userRepo.findOne({ where: { id: strId } });
-        if (!existing) {
-          const isFirstOrAdmin = adminIdEnv ? strId === adminIdEnv : index === 0;
-          const user = this.userRepo.create({
-            id: strId,
-            role: isFirstOrAdmin ? 'admin' : 'user',
-            createdAt: new Date(),
-          });
-          await this.userRepo.save(user);
-        }
-      }
     }
   }
 
