@@ -58,6 +58,26 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
       }
     }
 
+    const rawPlaceName =
+      typeof args.placeName === 'object' && args.placeName !== null
+        ? ((args.placeName as Record<string, unknown>).placeName ??
+          (args.placeName as Record<string, unknown>).name ??
+          (args.placeName as Record<string, unknown>).value)
+        : args.placeName;
+    const placeName =
+      typeof rawPlaceName === 'string' && rawPlaceName.trim() ? rawPlaceName.trim() : undefined;
+
+    const rawPaymentMethod =
+      typeof args.paymentMethod === 'object' && args.paymentMethod !== null
+        ? ((args.paymentMethod as Record<string, unknown>).paymentMethod ??
+          (args.paymentMethod as Record<string, unknown>).name ??
+          (args.paymentMethod as Record<string, unknown>).value)
+        : args.paymentMethod;
+    const paymentMethod =
+      typeof rawPaymentMethod === 'string' && rawPaymentMethod.trim()
+        ? rawPaymentMethod.trim()
+        : undefined;
+
     if (amount <= 0) {
       await this.zaloService.sendMessage(
         context.chatId,
@@ -77,6 +97,8 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
           category,
           note,
           occurredAt: occurredAtStr,
+          placeName,
+          paymentMethod,
         },
       });
     } catch (err) {

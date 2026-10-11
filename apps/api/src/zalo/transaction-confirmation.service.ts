@@ -11,7 +11,10 @@ export interface PendingTransaction {
     userId: string;
     type: 'income' | 'expense';
     amount: number;
-    category: string;
+    currency?: string;
+    category?: string;
+    paymentMethod?: string;
+    placeName?: string;
     note: string;
     occurredAt?: string;
   };
@@ -95,6 +98,40 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     return code;
   }
 
+  public formatTransactionCard(payload: PendingTransaction['payload']): string {
+    const txAmount = Number(payload.amount).toLocaleString('vi-VN');
+    const currency = payload.currency || 'VND';
+    const category = payload.category?.trim() || '(trống)';
+    const note = payload.note?.trim() || '(trống)';
+
+    let timeFormatted = '(trống)';
+    if (payload.occurredAt) {
+      const txDate = new Date(payload.occurredAt);
+      if (!Number.isNaN(txDate.getTime())) {
+        timeFormatted = txDate.toLocaleString('vi-VN', {
+          timeZone: 'Asia/Ho_Chi_Minh',
+          hour: '2-digit',
+          minute: '2-digit',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+      }
+    }
+
+    const place = payload.placeName?.trim() || '(trống)';
+    const paymentMethod = payload.paymentMethod?.trim() || '(trống)';
+
+    return (
+      `• Số tiền: ${txAmount} ${currency === 'VND' ? 'đ' : currency}\n` +
+      `• Danh mục: ${category}\n` +
+      `• Ghi chú: ${note}\n` +
+      `• Thời gian: ${timeFormatted}\n` +
+      `• Địa điểm: ${place}\n` +
+      `• Phương thức: ${paymentMethod}`
+    );
+  }
+
   public async createPending(params: {
     userId: string;
     chatId: string;
@@ -136,28 +173,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     this.pendingMap.set(code, pending);
 
     const typeLabel = pending.payload.type === 'income' ? '🟢 Khoản thu' : '🔴 Khoản chi';
-    const txAmount = Number(pending.payload.amount).toLocaleString('vi-VN');
 
-    let msg =
+    const msg =
       `⏳ Xác nhận lưu ${typeLabel.toLowerCase()}?\n\n` +
-      `• Số tiền: ${txAmount} đ\n` +
-      `• Danh mục: ${pending.payload.category}\n` +
-      `• Ghi chú: ${pending.payload.note}`;
-
-    if (pending.payload.occurredAt) {
-      const txDate = new Date(pending.payload.occurredAt);
-      const formattedDate = txDate.toLocaleString('vi-VN', {
-        timeZone: 'Asia/Ho_Chi_Minh',
-        hour: '2-digit',
-        minute: '2-digit',
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      });
-      msg += `\n• Thời gian: ${formattedDate}`;
-    }
-
-    msg +=
+      this.formatTransactionCard(pending.payload) +
       `\n\n👉 Soạn: yes ${code} (để xác nhận lưu)` +
       `\n👉 Soạn: cancel ${code} (để hủy bỏ)` +
       `\n⏱️ Tự động hết hạn sau 1 phút.`;
@@ -244,27 +263,20 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     try {
       const tx = await this.financeService.createTransaction(pending.payload);
       const typeLabel = pending.payload.type === 'income' ? '🟢 Khoản thu' : '🔴 Khoản chi';
-      const txAmount = Number(tx?.amount ?? pending.payload.amount).toLocaleString('vi-VN');
 
-      let reply =
+      const occurredAtVal = tx?.occurredAt
+        ? (tx.occurredAt instanceof Date ? tx.occurredAt.toISOString() : String(tx.occurredAt))
+        : pending.payload.occurredAt;
+
+      const reply =
         `✅ Đã xác nhận và lưu ${typeLabel.toLowerCase()} thành công!\n\n` +
-        `• Số tiền: ${txAmount} đ\n` +
-        `• Danh mục: ${tx?.category ?? pending.payload.category}\n` +
-        `• Ghi chú: ${tx?.note ?? pending.payload.note}`;
-
-      const occurredAtVal = tx?.occurredAt || pending.payload.occurredAt;
-      if (occurredAtVal) {
-        const txDate = new Date(occurredAtVal);
-        const formattedDate = txDate.toLocaleString('vi-VN', {
-          timeZone: 'Asia/Ho_Chi_Minh',
-          hour: '2-digit',
-          minute: '2-digit',
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
+        this.formatTransactionCard({
+          ...pending.payload,
+          amount: tx?.amount ?? pending.payload.amount,
+          category: tx?.category ?? pending.payload.category,
+          note: tx?.note ?? pending.payload.note,
+          occurredAt: occurredAtVal,
         });
-        reply += `\n• Thời gian: ${formattedDate}`;
-      }
 
       await this.zaloService.sendMessage(chatId, reply);
       return true;

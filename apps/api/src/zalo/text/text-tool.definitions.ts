@@ -75,6 +75,14 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
             'Nếu người dùng nêu rõ ngày giờ (hôm qua, tối qua, ngày 11/10...), hãy tính toán chính xác dựa trên giờ hiện tại. ' +
             'Nếu không nêu thời gian, hãy bỏ qua.',
         },
+        placeName: {
+          type: 'STRING',
+          description: 'Địa điểm hoặc tên quán nếu có đề cập (ví dụ: Highlands Coffee, Circle K, chợ Bến Thành)',
+        },
+        paymentMethod: {
+          type: 'STRING',
+          description: 'Phương thức thanh toán nếu có đề cập (ví dụ: tiền mặt, chuyển khoản, thẻ, ví MoMo)',
+        },
       },
       required: ['type', 'amount'],
     },
