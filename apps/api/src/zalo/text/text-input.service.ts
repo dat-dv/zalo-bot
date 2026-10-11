@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { AgentInput } from '../types/agent-input.type';
 import { TextToolFactory } from './text-tool.factory';
 import { TextToolType } from './text-tool.enum';
@@ -6,6 +7,7 @@ import { ZALO_TOOL_DEFINITIONS } from './text-tool.definitions';
 import { LlmService } from '../../llm/llm.service';
 import { ZaloService } from '../zalo.service';
 import { TransactionConfirmationService } from '../transaction-confirmation.service';
+import { cleanBotMention } from './bot-mention.util';
 
 @Injectable()
 export class TextInputService {
@@ -16,10 +18,18 @@ export class TextInputService {
     private readonly llmService: LlmService,
     private readonly zaloService: ZaloService,
     private readonly confirmationService: TransactionConfirmationService,
+    @Optional() private readonly configService?: ConfigService,
   ) {}
 
   public async process(input: AgentInput, toolTypeOverride?: TextToolType): Promise<void> {
-    const text = input.text?.trim() || '';
+    const rawText = input.text?.trim() || '';
+    const botName =
+      this.configService?.get<string>('zalo.botName') ||
+      process.env.BOT_NAME ||
+      process.env.ZALO_BOT_NAME ||
+      'Bot';
+    const text = cleanBotMention(rawText, botName);
+    input.text = text;
     const chatId = input.chatId || input.senderId;
     const senderId = input.senderId;
     const displayName = input.displayName;

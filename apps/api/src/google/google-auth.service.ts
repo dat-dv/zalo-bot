@@ -103,6 +103,41 @@ export class GoogleAuthService implements OnModuleInit {
     return !!(creds && (creds.access_token || creds.refresh_token));
   }
 
+  public isAuthError(error: unknown): boolean {
+    if (!error) return false;
+    const err = error as {
+      message?: string;
+      status?: number;
+      code?: number | string;
+      response?: { status?: number; data?: { error?: string; error_description?: string } };
+    };
+    const status = err.response?.status || (typeof err.status === 'number' ? err.status : undefined);
+    if (status === 401) return true;
+    const msg = (err.message || '').toLowerCase();
+    const respErr = String(err.response?.data?.error || '').toLowerCase();
+    const respDesc = String(err.response?.data?.error_description || '').toLowerCase();
+    return (
+      msg.includes('invalid_grant') ||
+      msg.includes('invalid_token') ||
+      msg.includes('token has been expired or revoked') ||
+      msg.includes('unauthorized') ||
+      respErr.includes('invalid_grant') ||
+      respErr.includes('invalid_client') ||
+      respDesc.includes('token has been expired or revoked')
+    );
+  }
+
+  public async handleAuthError(userId: string | number, error: unknown): Promise<boolean> {
+    if (this.isAuthError(error)) {
+      this.logger.warn(
+        `Google OAuth token for user ${userId} is invalid or expired. Revoking stored tokens.`,
+      );
+      await this.revokeUserTokens(userId);
+      return true;
+    }
+    return false;
+  }
+
   public generateAuthUrl(userId: string | number): string {
     const client = this.createOAuth2Instance();
     if (!client) {

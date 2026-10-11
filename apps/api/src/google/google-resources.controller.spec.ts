@@ -143,3 +143,100 @@ void test('GoogleResourcesController createEvent throws BadRequestException when
     },
   );
 });
+
+void test('GoogleResourcesController listEvents returns empty data when Google API throws auth error (invalid_grant)', async () => {
+  let revokedUserId: string | number | null = null;
+  const mockTokens = {
+    verifyAccessToken: () => 'user-123',
+  } as unknown as ReportsTokenService;
+
+  const mockAuthService = {
+    isAuthorized: () => true,
+    handleAuthError: async (userId: string | number, err: unknown) => {
+      revokedUserId = userId;
+      return true;
+    },
+  } as unknown as GoogleAuthService;
+
+  const mockCalendarService = {
+    listEvents: () => Promise.reject(new Error('invalid_grant: Token has been expired or revoked.')),
+  } as unknown as GoogleCalendarService;
+
+  const controller = new GoogleResourcesController(
+    mockCalendarService,
+    {} as unknown as GoogleTasksService,
+    mockTokens,
+    mockAuthService,
+  );
+
+  const req = createMockRequest('user-123');
+  const result = await controller.listEvents(req, {
+    timeMin: '2026-09-27T17:00:00.000Z',
+    timeMax: '2026-11-01T17:00:00.000Z',
+  });
+
+  assert.deepEqual(result, { data: [] });
+  assert.equal(revokedUserId, 'user-123');
+});
+
+void test('GoogleResourcesController listEvents returns empty data when Google API throws network or 403 error', async () => {
+  const mockTokens = {
+    verifyAccessToken: () => 'user-123',
+  } as unknown as ReportsTokenService;
+
+  const mockAuthService = {
+    isAuthorized: () => true,
+    handleAuthError: async () => false,
+  } as unknown as GoogleAuthService;
+
+  const mockCalendarService = {
+    listEvents: () => Promise.reject(new Error('Google Calendar API has not been used in project')),
+  } as unknown as GoogleCalendarService;
+
+  const controller = new GoogleResourcesController(
+    mockCalendarService,
+    {} as unknown as GoogleTasksService,
+    mockTokens,
+    mockAuthService,
+  );
+
+  const req = createMockRequest('user-123');
+  const result = await controller.listEvents(req, {
+    timeMin: '2026-09-27T17:00:00.000Z',
+    timeMax: '2026-11-01T17:00:00.000Z',
+  });
+
+  assert.deepEqual(result, { data: [] });
+});
+
+void test('GoogleResourcesController listTasks returns empty data when Google Tasks API throws auth error', async () => {
+  let revokedUserId: string | number | null = null;
+  const mockTokens = {
+    verifyAccessToken: () => 'user-123',
+  } as unknown as ReportsTokenService;
+
+  const mockAuthService = {
+    isAuthorized: () => true,
+    handleAuthError: async (userId: string | number) => {
+      revokedUserId = userId;
+      return true;
+    },
+  } as unknown as GoogleAuthService;
+
+  const mockTasksService = {
+    listTasks: () => Promise.reject(new Error('invalid_token')),
+  } as unknown as GoogleTasksService;
+
+  const controller = new GoogleResourcesController(
+    {} as unknown as GoogleCalendarService,
+    mockTasksService,
+    mockTokens,
+    mockAuthService,
+  );
+
+  const req = createMockRequest('user-123');
+  const result = await controller.listTasks(req, {});
+
+  assert.deepEqual(result, { data: [] });
+  assert.equal(revokedUserId, 'user-123');
+});

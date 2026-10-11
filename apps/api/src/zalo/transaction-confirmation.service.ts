@@ -191,6 +191,9 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     pending.timer = setTimeout(async () => {
       await this.handleTimeout(code);
     }, this.timeoutMs);
+    if (typeof pending.timer?.unref === 'function') {
+      pending.timer.unref();
+    }
 
     this.pendingMap.set(code, pending);
 

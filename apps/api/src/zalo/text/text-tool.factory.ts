@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { cleanBotMention } from './bot-mention.util';
 import { TextToolType } from './text-tool.enum';
 import { TextToolStrategy } from './text-tool.interface';
 import { StartToolStrategy } from './strategies/start-tool.strategy';
@@ -67,6 +69,7 @@ export class TextToolFactory {
     completeTaskStrategy?: CompleteTaskToolStrategy,
     loginGoogleStrategy?: LoginGoogleToolStrategy,
     deleteTransactionStrategy?: DeleteTransactionToolStrategy,
+    @Optional() private readonly configService?: ConfigService,
   ) {
     if (startStrategy) this.strategyMap.set(TextToolType.START, startStrategy);
     if (helpStrategy) this.strategyMap.set(TextToolType.HELP, helpStrategy);
@@ -107,29 +110,57 @@ export class TextToolFactory {
     if (loginGoogleStrategy) this.strategyMap.set(TextToolType.LOGIN_GOOGLE, loginGoogleStrategy);
   }
 
-  public resolveFastPathToolType(text: string): TextToolType | null {
-    const trimmed = text.trim();
+  public resolveFastPathToolType(text: string, customBotName?: string): TextToolType | null {
+    const botName =
+      customBotName ||
+      this.configService?.get<string>('zalo.botName') ||
+      process.env.BOT_NAME ||
+      process.env.ZALO_BOT_NAME ||
+      'Bot';
+    const cleaned = cleanBotMention(text, botName);
+    const trimmed = cleaned.trim();
     const lower = trimmed.toLowerCase();
 
     // 1. /start
-    if (trimmed === '/start' || trimmed.startsWith('/start ')) {
+    if (trimmed === '/start' || trimmed.startsWith('/start ') || lower === 'start') {
       return TextToolType.START;
     }
 
     // 2. /help
-    if (trimmed === '/help') return TextToolType.HELP;
+    if (
+      trimmed === '/help' ||
+      trimmed.startsWith('/help ') ||
+      lower === 'help' ||
+      lower === 'trợ giúp'
+    ) {
+      return TextToolType.HELP;
+    }
 
     // 3. /echo
     if (trimmed.startsWith('/echo')) return TextToolType.ECHO;
 
     // 4. /ping
-    if (trimmed === '/ping') return TextToolType.PING;
+    if (trimmed === '/ping' || trimmed.startsWith('/ping ')) return TextToolType.PING;
 
     // 5. /reset or /clear
-    if (trimmed === '/reset' || trimmed === '/clear') return TextToolType.RESET;
+    if (
+      trimmed === '/reset' ||
+      trimmed.startsWith('/reset ') ||
+      trimmed === '/clear' ||
+      trimmed.startsWith('/clear ')
+    ) {
+      return TextToolType.RESET;
+    }
 
     // 6. /login or /auth
-    if (trimmed === '/login' || trimmed === '/auth') return TextToolType.LOGIN;
+    if (
+      trimmed === '/login' ||
+      trimmed.startsWith('/login ') ||
+      trimmed === '/auth' ||
+      trimmed.startsWith('/auth ')
+    ) {
+      return TextToolType.LOGIN;
+    }
 
     // 7. /code or auth code pasted
     if (
@@ -142,27 +173,46 @@ export class TextToolFactory {
     }
 
     // 8. /status
-    if (trimmed === '/status') return TextToolType.STATUS;
+    if (trimmed === '/status' || trimmed.startsWith('/status ')) return TextToolType.STATUS;
 
     // 9. /today
-    if (trimmed === '/today') return TextToolType.TODAY;
+    if (trimmed === '/today' || trimmed.startsWith('/today ') || lower === 'hôm nay') {
+      return TextToolType.TODAY;
+    }
 
     // 10. /week
-    if (trimmed === '/week') return TextToolType.WEEK;
+    if (trimmed === '/week' || trimmed.startsWith('/week ') || lower === 'tuần này') {
+      return TextToolType.WEEK;
+    }
 
     // 11. /finance, /thuchi, /money
-    if (trimmed === '/finance' || trimmed === '/thuchi' || trimmed === '/money') {
+    if (
+      trimmed === '/finance' ||
+      trimmed.startsWith('/finance ') ||
+      trimmed === '/thuchi' ||
+      trimmed.startsWith('/thuchi ') ||
+      trimmed === '/money' ||
+      trimmed.startsWith('/money ')
+    ) {
       return TextToolType.FINANCE;
     }
 
     // 12. /debts, /debt, /congo
-    if (trimmed === '/debts' || trimmed === '/debt' || trimmed === '/congo') {
+    if (
+      trimmed === '/debts' ||
+      trimmed.startsWith('/debts ') ||
+      trimmed === '/debt' ||
+      trimmed.startsWith('/debt ') ||
+      trimmed === '/congo' ||
+      trimmed.startsWith('/congo ')
+    ) {
       return TextToolType.DEBTS;
     }
 
     // 13. /tasks, /task, /task <content>, /viec
     if (
       trimmed === '/tasks' ||
+      trimmed.startsWith('/tasks ') ||
       trimmed === '/task' ||
       trimmed.startsWith('/task ') ||
       trimmed === '/viec' ||
@@ -174,9 +224,13 @@ export class TextToolFactory {
     // 14. /reminders, /reminder, /nhacnho, /nhac
     if (
       trimmed === '/reminders' ||
+      trimmed.startsWith('/reminders ') ||
       trimmed === '/reminder' ||
+      trimmed.startsWith('/reminder ') ||
       trimmed === '/nhacnho' ||
-      trimmed === '/nhac'
+      trimmed.startsWith('/nhacnho ') ||
+      trimmed === '/nhac' ||
+      trimmed.startsWith('/nhac ')
     ) {
       return TextToolType.REMINDERS;
     }
@@ -184,15 +238,19 @@ export class TextToolFactory {
     // 15. /dashboard or phrases
     if (
       trimmed === '/dashboard' ||
+      trimmed.startsWith('/dashboard ') ||
       lower === 'dashboard' ||
+      lower.startsWith('dashboard ') ||
       lower === 'mở dashboard' ||
-      lower === 'xem dashboard'
+      lower.startsWith('mở dashboard ') ||
+      lower === 'xem dashboard' ||
+      lower.startsWith('xem dashboard ')
     ) {
       return TextToolType.DASHBOARD;
     }
 
     // 16. Admin commands: /users, /ban
-    if (trimmed === '/users') return TextToolType.USERS;
+    if (trimmed === '/users' || trimmed.startsWith('/users ')) return TextToolType.USERS;
     if (trimmed.startsWith('/ban')) return TextToolType.BAN;
 
     return null;
@@ -202,6 +260,10 @@ export class TextToolFactory {
     const fastPath = this.resolveFastPathToolType(text);
     if (fastPath) return fastPath;
     return TextToolType.CONVERSATION;
+  }
+
+  public registerStrategy(strategy: TextToolStrategy): void {
+    this.strategyMap.set(strategy.type, strategy);
   }
 
   public getStrategy(type: TextToolType): TextToolStrategy {

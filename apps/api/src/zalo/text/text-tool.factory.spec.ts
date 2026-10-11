@@ -74,10 +74,26 @@ void test('TextToolFactory resolves tool types by enum correctly', () => {
   assert.equal(factory.resolveFastPathToolType('/reminders'), TextToolType.REMINDERS);
   assert.equal(factory.resolveFastPathToolType('/nhac'), TextToolType.REMINDERS);
   assert.equal(factory.resolveFastPathToolType('/dashboard'), TextToolType.DASHBOARD);
+  assert.equal(factory.resolveFastPathToolType('@Bot /dashboard'), TextToolType.DASHBOARD);
+  assert.equal(factory.resolveFastPathToolType('/dashboard @Bot'), TextToolType.DASHBOARD);
+  assert.equal(
+    factory.resolveFastPathToolType('/dashboard @Bot Teétajjsne'),
+    TextToolType.DASHBOARD,
+  );
+  assert.equal(
+    factory.resolveFastPathToolType('@Bot /dashboard Teétajjsne'),
+    TextToolType.DASHBOARD,
+  );
+  assert.equal(factory.resolveFastPathToolType('@Bot /help'), TextToolType.HELP);
+  assert.equal(factory.resolveFastPathToolType('/help @Bot'), TextToolType.HELP);
+  assert.equal(factory.resolveFastPathToolType('@Bot /ping'), TextToolType.PING);
+  assert.equal(factory.resolveFastPathToolType('/ping @Bot'), TextToolType.PING);
   assert.equal(factory.resolveFastPathToolType('/users'), TextToolType.USERS);
   assert.equal(factory.resolveFastPathToolType('/ban u123'), TextToolType.BAN);
 
   assert.equal(factory.resolveFastPathToolType('nợ a 100k'), null);
+  assert.equal(factory.resolveFastPathToolType('@Bot nợ a 100k'), null);
+  assert.equal(factory.resolveFastPathToolType('nợ a 100k @Bot'), null);
 });
 
 void test('TextToolFactory returns corresponding strategy for each enum type', () => {

@@ -13,6 +13,7 @@ export interface AppConfig {
   };
   zalo: {
     botToken: string;
+    botName: string;
     webhookUrl: string;
     secretToken?: string;
   };
@@ -92,6 +93,7 @@ export default (): AppConfig => {
     redis: { url: readOptionalEnv('REDIS_URL') },
     zalo: {
       botToken: readEnv('ZALO_BOT_TOKEN', readEnv('BOT_TOKEN')),
+      botName: readEnv('BOT_NAME', readEnv('ZALO_BOT_NAME', 'Bot')),
       webhookUrl: readEnv('ZALO_WEBHOOK_URL', readEnv('WEBHOOK_URL')),
       secretToken: readOptionalEnv('ZALO_WEBHOOK_SECRET_TOKEN'),
     },

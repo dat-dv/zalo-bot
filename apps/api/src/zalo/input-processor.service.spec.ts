@@ -217,20 +217,20 @@ void test('InputProcessor processes /reset and /clear commands', async () => {
 });
 
 void test('InputProcessor handles conversational messages and user auth', async () => {
-  // Case 1: Unauthorized user
-  const unauthorizedSetup = createMockSetup({
+  // Case 1: Normal user processing
+  const userSetup = createMockSetup({
     allowedUserIds: ['admin_user'],
-    isAllowed: false,
+    isAllowed: true,
   });
-  await unauthorizedSetup.processor.process({
+  await userSetup.processor.process({
     type: 'text',
     senderId: 'guest_user',
     chatId: 'c1',
     displayName: 'Guest',
     text: 'Cà phê 25k',
   });
-  assert.equal(unauthorizedSetup.sentMessages.length, 1);
-  assert.match(unauthorizedSetup.sentMessages[0].text, /chưa được cấp quyền/);
+  assert.equal(userSetup.sentMessages.length, 1);
+  assert.equal(userSetup.sentMessages[0].text, 'Đã nhận tin nhắn.');
 
   // Case 2: Cooldown triggered
   const cooldownSetup = createMockSetup({

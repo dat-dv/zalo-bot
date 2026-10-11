@@ -107,9 +107,11 @@ function createTextInputService(options?: SetupOptions) {
   } as unknown as RemindersService;
 
   let llmCallCount = 0;
+  let lastLlmPrompt = '';
   const mockLlmService = {
-    generate: () => {
+    generate: (prompt: string) => {
       llmCallCount++;
+      lastLlmPrompt = prompt;
       return Promise.resolve(
         options?.llmResponse || {
           text: 'Xin chào, tôi có thể giúp gì cho bạn?',
@@ -162,11 +164,12 @@ function createTextInputService(options?: SetupOptions) {
     factory,
     confirmationService,
     getLlmCallCount: () => llmCallCount,
+    getLastLlmPrompt: () => lastLlmPrompt,
   };
 }
 
 void test('TextInputService routes commands to tool strategies without calling LLM', async () => {
-  const { service, sentMessages, getLlmCallCount } = createTextInputService();
+  const { service, sentMessages, getLlmCallCount, factory } = createTextInputService();
 
   // 1. /start
   await service.process({
@@ -190,6 +193,49 @@ void test('TextInputService routes commands to tool strategies without calling L
   });
   assert.equal(sentMessages.length, 2);
   assert.match(sentMessages[1].text, /Danh sách lệnh hỗ trợ/);
+  assert.equal(getLlmCallCount(), 0);
+
+  // 3. /help with @Bot at start
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: '@Bot /help',
+  });
+  assert.equal(sentMessages.length, 3);
+  assert.match(sentMessages[2].text, /Danh sách lệnh hỗ trợ/);
+  assert.equal(getLlmCallCount(), 0);
+
+  // 4. /help with @Bot at end
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: '/help @Bot',
+  });
+  assert.equal(sentMessages.length, 4);
+  assert.match(sentMessages[3].text, /Danh sách lệnh hỗ trợ/);
+  assert.equal(getLlmCallCount(), 0);
+
+  // 5. /dashboard with @Bot and extra text
+  let dashboardExecuted = false;
+  factory.registerStrategy({
+    type: TextToolType.DASHBOARD,
+    execute: () => {
+      dashboardExecuted = true;
+      return Promise.resolve();
+    },
+  });
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: '/dashboard @Bot Teétajjsne',
+  });
+  assert.equal(dashboardExecuted, true);
   assert.equal(getLlmCallCount(), 0);
 });
 
@@ -236,6 +282,36 @@ void test('TextInputService routes natural text to LLM and executes MANAGE_DEBT 
   assert.match(sentMessages[1].text, /Đã xác nhận và ghi nhận khoản nợ thành công/);
   assert.match(sentMessages[1].text, /Người liên quan: a/);
   assert.match(sentMessages[1].text, /100\.000 đ/);
+});
+
+void test('TextInputService cleans @Bot at beginning and end for natural text before sending to LLM', async () => {
+  const { service, getLastLlmPrompt, getLlmCallCount } = createTextInputService({
+    llmResponse: {
+      text: 'Chào bạn, tôi là bot!',
+    },
+  });
+
+  // 1. @Bot ở đầu câu
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: '@Bot ăn trưa 45k',
+  });
+  assert.equal(getLastLlmPrompt(), 'ăn trưa 45k');
+  assert.equal(getLlmCallCount(), 1);
+
+  // 2. @Bot ở cuối câu
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'chi tiêu 50k đổ xăng @Bot',
+  });
+  assert.equal(getLastLlmPrompt(), 'chi tiêu 50k đổ xăng');
+  assert.equal(getLlmCallCount(), 2);
 });
 
 void test('TextInputService routes natural text to LLM and executes RECORD_TRANSACTION tool', async () => {

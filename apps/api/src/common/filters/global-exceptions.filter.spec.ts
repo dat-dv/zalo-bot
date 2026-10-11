@@ -171,3 +171,23 @@ void test('GlobalExceptionsFilter includes requestId in response body and header
   assert.equal(state.body?.requestId, 'custom-req-trace-id');
   assert.equal(setHeaders['x-request-id'], 'custom-req-trace-id');
 });
+
+void test('GlobalExceptionsFilter handles upstream 401 GaxiosError without 500 internal server error', () => {
+  const filter = new GlobalExceptionsFilter();
+  const state: MockResponseState = { statusCode: 0, body: null };
+  const host = createMockHost({ method: 'GET', url: '/api/calendar/events' }, state);
+
+  const upstreamError = Object.assign(new Error('Request failed with status code 401'), {
+    response: {
+      status: 401,
+      data: { error: 'invalid_grant', error_description: 'Token has been expired or revoked.' },
+    },
+  });
+
+  filter.catch(upstreamError, host);
+
+  assert.equal(state.statusCode, 401);
+  assert.equal(state.body?.statusCode, 401);
+  assert.equal(state.body?.error, 'Unauthorized');
+  assert.equal(state.body?.message, 'invalid_grant');
+});

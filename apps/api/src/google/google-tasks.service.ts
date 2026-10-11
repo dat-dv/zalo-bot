@@ -85,21 +85,35 @@ export class GoogleTasksService {
     options: ListTasksOptions = {},
     userId?: number | string,
   ): Promise<tasks_v1.Schema$Task[]> {
+    if (userId !== undefined && !this.authService.isAuthorized(userId)) {
+      return [];
+    }
     const tasks = this.getTasksClient(userId);
     const taskListId = options.taskListId || '@default';
     const showCompleted = options.showCompleted ?? false;
     const showHidden = options.showHidden ?? (showCompleted ? true : false);
 
-    const res = await tasks.tasks.list({
-      tasklist: taskListId,
-      showCompleted,
-      showHidden,
-      dueMin: options.dueMin,
-      dueMax: options.dueMax,
-      maxResults: options.maxResults || 50,
-    });
+    try {
+      const res = await tasks.tasks.list({
+        tasklist: taskListId,
+        showCompleted,
+        showHidden,
+        dueMin: options.dueMin,
+        dueMax: options.dueMax,
+        maxResults: options.maxResults || 50,
+      });
 
-    return res.data.items || [];
+      return res.data.items || [];
+    } catch (err) {
+      if (userId !== undefined && (await this.authService.handleAuthError(userId, err))) {
+        this.logger.warn(`Revoked invalid Google token for user ${userId} during listTasks`);
+        return [];
+      }
+      this.logger.error(
+        `Error listing Google Tasks for user ${userId}: ${(err as Error).message}`,
+      );
+      throw err;
+    }
   }
 
   public async findPotentialDuplicateTasks(

@@ -52,21 +52,35 @@ export class GoogleCalendarService {
     options: ListEventsOptions = {},
     userId?: number | string,
   ): Promise<calendar_v3.Schema$Event[]> {
+    if (userId !== undefined && !this.authService.isAuthorized(userId)) {
+      return [];
+    }
     const calendar = this.getCalendarClient(userId);
     const timeZone = this.configService.getOrThrow<string>('timezone');
 
-    const res = await calendar.events.list({
-      calendarId: 'primary',
-      timeMin: options.timeMin || new Date().toISOString(),
-      timeMax: options.timeMax,
-      maxResults: options.maxResults || 20,
-      singleEvents: true,
-      orderBy: 'startTime',
-      timeZone,
-      q: options.query,
-    });
+    try {
+      const res = await calendar.events.list({
+        calendarId: 'primary',
+        timeMin: options.timeMin || new Date().toISOString(),
+        timeMax: options.timeMax,
+        maxResults: options.maxResults || 20,
+        singleEvents: true,
+        orderBy: 'startTime',
+        timeZone,
+        q: options.query,
+      });
 
-    return res.data.items || [];
+      return res.data.items || [];
+    } catch (err) {
+      if (userId !== undefined && (await this.authService.handleAuthError(userId, err))) {
+        this.logger.warn(`Revoked invalid Google token for user ${userId} during listEvents`);
+        return [];
+      }
+      this.logger.error(
+        `Error listing Google Calendar events for user ${userId}: ${(err as Error).message}`,
+      );
+      throw err;
+    }
   }
 
   public async createEvent(

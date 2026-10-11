@@ -3,7 +3,10 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
+  Logger,
+  NotFoundException,
   Param,
   Patch,
   Post,
@@ -24,6 +27,8 @@ import { GoogleAuthService } from './google-auth.service';
 @ApiBearerAuth('bearer-jwt')
 @Controller()
 export class GoogleResourcesController {
+  private readonly logger = new Logger(GoogleResourcesController.name);
+
   constructor(
     private readonly calendar: GoogleCalendarService,
     private readonly tasks: GoogleTasksService,
@@ -43,44 +48,81 @@ export class GoogleResourcesController {
     if (timeMin && timeMax && new Date(timeMin) >= new Date(timeMax)) {
       throw new BadRequestException('timeMin must be earlier than timeMax.');
     }
-    const items = await this.calendar.listEvents(
-      {
-        timeMin,
-        timeMax,
-        query: query.query,
-        maxResults: query.maxResults ? this.limit(query.maxResults) : 100,
-      },
-      userId,
-    );
-    return {
-      data: items.map((item) => this.mapEventToListItem(item)),
-    };
+    try {
+      const items = await this.calendar.listEvents(
+        {
+          timeMin,
+          timeMax,
+          query: query.query,
+          maxResults: query.maxResults ? this.limit(query.maxResults) : 100,
+        },
+        userId,
+      );
+      return {
+        data: items.map((item) => this.mapEventToListItem(item)),
+      };
+    } catch (err) {
+      if (
+        typeof this.authService?.handleAuthError === 'function' &&
+        (await this.authService.handleAuthError(userId, err))
+      ) {
+        return { data: [] };
+      }
+      this.logger.warn(
+        `Failed to retrieve Google Calendar events for user ${userId}: ${(err as Error).message}`,
+      );
+      return { data: [] };
+    }
   }
+
   @Get('calendar/events/:id')
   async getEvent(@Req() req: Request, @Param('id') id: string) {
-    const item = await this.calendar.getEvent(id, this.userId(req));
-    return { data: this.mapEventToListItem(item) };
+    const userId = this.userId(req);
+    try {
+      const item = await this.calendar.getEvent(id, userId);
+      return { data: this.mapEventToListItem(item) };
+    } catch (err) {
+      await this.handleGoogleResourceError(userId, err, 'sự kiện');
+    }
   }
+
   @Post('calendar/events')
   async createEvent(@Req() req: Request, @Body() body: Record<string, unknown>) {
-    const item = await this.calendar.createEvent(this.eventInput(body), this.userId(req));
-    return { data: this.mapEventToListItem(item) };
+    const userId = this.userId(req);
+    try {
+      const item = await this.calendar.createEvent(this.eventInput(body), userId);
+      return { data: this.mapEventToListItem(item) };
+    } catch (err) {
+      await this.handleGoogleResourceError(userId, err, 'sự kiện');
+    }
   }
+
   @Patch('calendar/events/:id')
   async updateEvent(
     @Req() req: Request,
     @Param('id') id: string,
     @Body() body: Record<string, unknown>,
   ) {
-    const item = await this.calendar.updateEvent(id, this.eventInput(body, true), this.userId(req));
-    return {
-      data: this.mapEventToListItem(item),
-    };
+    const userId = this.userId(req);
+    try {
+      const item = await this.calendar.updateEvent(id, this.eventInput(body, true), userId);
+      return {
+        data: this.mapEventToListItem(item),
+      };
+    } catch (err) {
+      await this.handleGoogleResourceError(userId, err, 'sự kiện');
+    }
   }
+
   @Delete('calendar/events/:id')
   async deleteEvent(@Req() req: Request, @Param('id') id: string) {
-    await this.calendar.deleteEvent(id, this.userId(req));
-    return { data: { deleted: true } };
+    const userId = this.userId(req);
+    try {
+      await this.calendar.deleteEvent(id, userId);
+      return { data: { deleted: true } };
+    } catch (err) {
+      await this.handleGoogleResourceError(userId, err, 'sự kiện');
+    }
   }
 
   @Get('tasks')
@@ -91,59 +133,142 @@ export class GoogleResourcesController {
     }
     const showCompleted = query.showCompleted === undefined ? true : query.showCompleted === 'true';
     const showHidden = query.showHidden === undefined ? showCompleted : query.showHidden === 'true';
-    const items = await this.tasks.listTasks(
-      {
-        taskListId: query.taskListId,
-        showCompleted,
-        showHidden,
-        dueMin: query.dueMin,
-        dueMax: query.dueMax,
-        maxResults: query.maxResults ? this.limit(query.maxResults) : 100,
-      },
-      userId,
-    );
-    return {
-      data: items.map((item) => this.mapTaskToListItem(item)),
-    };
+    try {
+      const items = await this.tasks.listTasks(
+        {
+          taskListId: query.taskListId,
+          showCompleted,
+          showHidden,
+          dueMin: query.dueMin,
+          dueMax: query.dueMax,
+          maxResults: query.maxResults ? this.limit(query.maxResults) : 100,
+        },
+        userId,
+      );
+      return {
+        data: items.map((item) => this.mapTaskToListItem(item)),
+      };
+    } catch (err) {
+      if (
+        typeof this.authService?.handleAuthError === 'function' &&
+        (await this.authService.handleAuthError(userId, err))
+      ) {
+        return { data: [] };
+      }
+      this.logger.warn(
+        `Failed to retrieve Google Tasks for user ${userId}: ${(err as Error).message}`,
+      );
+      return { data: [] };
+    }
   }
+
   @Get('tasks/:id')
   async getTask(
     @Req() req: Request,
     @Param('id') id: string,
     @Query('taskListId') taskListId?: string,
   ) {
-    const item = await this.tasks.getTask(id, taskListId, this.userId(req));
-    return { data: this.mapTaskToListItem(item) };
+    const userId = this.userId(req);
+    try {
+      const item = await this.tasks.getTask(id, taskListId, userId);
+      return { data: this.mapTaskToListItem(item) };
+    } catch (err) {
+      await this.handleGoogleResourceError(userId, err, 'công việc');
+    }
   }
+
   @Post('tasks')
   async createTask(@Req() req: Request, @Body() body: Record<string, unknown>) {
-    const item = await this.tasks.createTask(this.taskInput(body), this.userId(req));
-    return { data: this.mapTaskToListItem(item) };
+    const userId = this.userId(req);
+    try {
+      const item = await this.tasks.createTask(this.taskInput(body), userId);
+      return { data: this.mapTaskToListItem(item) };
+    } catch (err) {
+      await this.handleGoogleResourceError(userId, err, 'công việc');
+    }
   }
+
   @Patch('tasks/:id')
   async updateTask(
     @Req() req: Request,
     @Param('id') id: string,
     @Body() body: Record<string, unknown>,
   ) {
-    const item = await this.tasks.updateTask(
-      id,
-      this.taskInput(body, true),
-      this.optional(body.taskListId),
-      this.userId(req),
-    );
-    return {
-      data: this.mapTaskToListItem(item),
-    };
+    const userId = this.userId(req);
+    try {
+      const item = await this.tasks.updateTask(
+        id,
+        this.taskInput(body, true),
+        this.optional(body.taskListId),
+        userId,
+      );
+      return {
+        data: this.mapTaskToListItem(item),
+      };
+    } catch (err) {
+      await this.handleGoogleResourceError(userId, err, 'công việc');
+    }
   }
+
   @Delete('tasks/:id')
   async deleteTask(
     @Req() req: Request,
     @Param('id') id: string,
     @Query('taskListId') taskListId?: string,
   ) {
-    await this.tasks.deleteTask(id, taskListId, this.userId(req));
-    return { data: { deleted: true } };
+    const userId = this.userId(req);
+    try {
+      await this.tasks.deleteTask(id, taskListId, userId);
+      return { data: { deleted: true } };
+    } catch (err) {
+      await this.handleGoogleResourceError(userId, err, 'công việc');
+    }
+  }
+
+  private async handleGoogleResourceError(
+    userId: string | number,
+    err: unknown,
+    resourceName: string,
+  ): Promise<never> {
+    if (
+      err instanceof BadRequestException ||
+      err instanceof NotFoundException ||
+      err instanceof ForbiddenException
+    ) {
+      throw err;
+    }
+    if (
+      typeof this.authService?.handleAuthError === 'function' &&
+      (await this.authService.handleAuthError(userId, err))
+    ) {
+      throw new BadRequestException(
+        'Tài khoản Google của bạn chưa được kết nối hoặc phiên đăng nhập đã hết hạn. Vui lòng gõ /login trên bot để liên kết lại tài khoản.',
+      );
+    }
+    const gError = err as {
+      status?: number;
+      response?: { status?: number; data?: { error?: string | { message?: string } } };
+      message?: string;
+    };
+    const status = gError.response?.status || gError.status;
+    const respError = gError.response?.data?.error;
+    const msg =
+      typeof respError === 'string'
+        ? respError
+        : typeof respError === 'object' && respError?.message
+          ? respError.message
+          : gError.message || '';
+
+    if (status === 404) {
+      throw new NotFoundException(`Không tìm thấy ${resourceName} trên Google.`);
+    }
+    if (status === 403) {
+      throw new ForbiddenException(`Không có quyền truy cập ${resourceName} trên Google.`);
+    }
+    if (status === 400) {
+      throw new BadRequestException(msg || `Dữ liệu ${resourceName} không hợp lệ.`);
+    }
+    throw new BadRequestException(msg || `Thao tác ${resourceName} trên Google thất bại.`);
   }
 
   private mapEventToListItem(item: calendar_v3.Schema$Event): ICalendarEventItem {

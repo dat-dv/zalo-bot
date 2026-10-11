@@ -75,6 +75,44 @@ export class GlobalExceptionsFilter implements ExceptionFilter {
         message = 'Database query failed';
         error = 'Internal Server Error';
       }
+    } else if (
+      exception instanceof Error &&
+      typeof (exception as unknown as { response?: { status?: unknown } }).response?.status ===
+        'number'
+    ) {
+      const httpError = exception as unknown as {
+        response: {
+          status: number;
+          data?: { error?: string | { message?: string }; error_description?: string };
+        };
+        message: string;
+      };
+      const upstreamStatus = httpError.response.status;
+      if (upstreamStatus >= 400 && upstreamStatus < 500) {
+        status = upstreamStatus;
+        const respData = httpError.response.data;
+        const detailMsg =
+          typeof respData?.error === 'string'
+            ? respData.error
+            : typeof respData?.error === 'object' && respData?.error?.message
+              ? respData.error.message
+              : respData?.error_description || exception.message;
+        message = detailMsg || exception.message;
+        error =
+          status === HttpStatus.UNAUTHORIZED
+            ? 'Unauthorized'
+            : status === HttpStatus.FORBIDDEN
+              ? 'Forbidden'
+              : status === HttpStatus.NOT_FOUND
+                ? 'Not Found'
+                : status === HttpStatus.BAD_REQUEST
+                  ? 'Bad Request'
+                  : 'Client Error';
+      } else {
+        status = HttpStatus.BAD_GATEWAY;
+        message = 'Dịch vụ liên kết tạm thời không khả dụng.';
+        error = 'Bad Gateway';
+      }
     } else if (exception instanceof Error) {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       const isProd = process.env.NODE_ENV === 'production';
