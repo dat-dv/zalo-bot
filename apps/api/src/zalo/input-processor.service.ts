@@ -25,6 +25,12 @@ export class InputProcessor {
       return;
     }
 
+    // Bỏ qua tin nhắn do chính bot gửi ra để tránh vòng lặp vô hạn
+    if (input.isBot) {
+      this.logger.debug(`Ignoring message from bot itself (senderId: ${input.senderId})`);
+      return;
+    }
+
     if (input.type === 'event') {
       return this.processEvent(input);
     }
