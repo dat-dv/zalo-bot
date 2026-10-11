@@ -25,6 +25,8 @@ export const API_ROUTES = {
   transactionAllocations: (id: string) => `/api/transactions/${id}/allocations`,
   transactionAllocationDetail: (txId: string, allocId: string) =>
     `/api/transactions/${txId}/allocations/${allocId}`,
+  healthDeploy: '/health/deploy',
+  deployNotify: '/api/deploy/notify',
 } as const;
 
 export const APP_ROUTES = {
@@ -1882,4 +1884,22 @@ export interface IFinanceAnalyticsResponse {
   trend: IAnalyticsTrendBucket[];
   categories: IAnalyticsCategoryBreakdown[];
   debts: IAnalyticsDebtBreakdown;
+}
+
+export interface IDeployNotifyRequest {
+  message?: string;
+  version?: string;
+  commit?: string;
+  branch?: string;
+  environment?: string;
+  deployedBy?: string;
+}
+
+export interface IDeployNotifyResponse {
+  status: string;
+  notified: boolean;
+  message: string;
+  adminCount: number;
+  recipients?: string[];
+  timestamp: string;
 }

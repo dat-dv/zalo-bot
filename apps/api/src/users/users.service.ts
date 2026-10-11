@@ -141,6 +141,62 @@ export class UsersService implements OnModuleInit {
     return this.adminUserIdsCache.size > 0;
   }
 
+  /**
+   * Get all admin users in the system (from DB role=ADMIN, env ADMIN_USER_IDS, and memory cache)
+   */
+  public async getAdminUsers(): Promise<UserEntity[]> {
+    if (this.adminUserIdsCache.size === 0) {
+      await this.refreshMemoryCache();
+    }
+
+    const envAdminIds = Array.from(this.getEnvAdminIds());
+    let dbAdmins: UserEntity[] = [];
+    try {
+      if (typeof this.userRepo.find === 'function') {
+        dbAdmins = await this.userRepo.find({
+          where: { role: UserRole.ADMIN },
+        });
+      }
+    } catch {
+      // In tests or if table empty
+    }
+
+    const adminMap = new Map<string, UserEntity>();
+    for (const a of dbAdmins) {
+      adminMap.set(a.id, a);
+    }
+
+    for (const cachedId of this.adminUserIdsCache) {
+      if (!adminMap.has(cachedId)) {
+        try {
+          if (typeof this.userRepo.findOne === 'function') {
+            const u = await this.userRepo.findOne({ where: { id: cachedId } });
+            if (u) adminMap.set(u.id, u);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    for (const envId of envAdminIds) {
+      if (!adminMap.has(envId)) {
+        adminMap.set(envId, {
+          id: envId,
+          role: UserRole.ADMIN,
+          grantAccess: GrantAccessStatus.GRANTED,
+          preferredLocale: 'vi',
+          timezone: 'Asia/Ho_Chi_Minh',
+          status: 'active',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    return Array.from(adminMap.values());
+  }
+
   public isAdmin(userId: string | number): boolean {
     const strId = userId.toString();
     return this.adminUserIdsCache.has(strId) || this.getEnvAdminIds().has(strId);
