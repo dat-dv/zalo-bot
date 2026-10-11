@@ -17,7 +17,7 @@ import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import { UsersService } from './users.service';
 
-@ApiTags('Users & Invitations (Admin Only)')
+@ApiTags('Users (Admin Only)')
 @ApiBearerAuth('bearer-jwt')
 @Controller()
 export class UsersController {
@@ -64,24 +64,6 @@ export class UsersController {
     this.admin(req);
     if (!(await this.users.banUser(id)))
       throw new NotFoundException('User not found or is an admin.');
-    return { data: { deleted: true } };
-  }
-
-  @Get('invites')
-  async listInvites(@Req() req: Request) {
-    this.admin(req);
-    return { data: await this.users.listInvites() };
-  }
-
-  @Post('invites')
-  async createInvite(@Req() req: Request) {
-    return { data: await this.users.createInvite(this.admin(req)) };
-  }
-
-  @Delete('invites/:code')
-  async revokeInvite(@Req() req: Request, @Param('code') code: string) {
-    this.admin(req);
-    if (!(await this.users.revokeInvite(code))) throw new NotFoundException();
     return { data: { deleted: true } };
   }
 

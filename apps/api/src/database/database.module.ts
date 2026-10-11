@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserEntity } from './entities/user.entity';
-import { InviteEntity } from './entities/invite.entity';
 import { UserTokenEntity } from './entities/user-token.entity';
 import { ReminderEntity } from './entities/reminder.entity';
 import { FinanceTransactionEntity } from './entities/finance-transaction.entity';
@@ -30,7 +29,6 @@ import { FixPostgresPlaceAndContactUuidTypes1724700000000 } from './migrations/1
         const synchronize = process.env.TYPEORM_SYNCHRONIZE?.trim().toLowerCase() === 'true';
         const entities = [
           UserEntity,
-          InviteEntity,
           UserTokenEntity,
           ReminderEntity,
           FinanceTransactionEntity,
@@ -69,7 +67,6 @@ import { FixPostgresPlaceAndContactUuidTypes1724700000000 } from './migrations/1
     }),
     TypeOrmModule.forFeature([
       UserEntity,
-      InviteEntity,
       UserTokenEntity,
       ReminderEntity,
       FinanceTransactionEntity,

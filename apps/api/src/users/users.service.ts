@@ -1,10 +1,8 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
-import * as crypto from 'crypto';
+import { Repository } from 'typeorm';
 import { UserEntity } from '../database/entities/user.entity';
-import { InviteEntity } from '../database/entities/invite.entity';
 import { normalizeLocale, type SupportedLocale } from '@zalobot/contracts';
 
 @Injectable()
@@ -23,8 +21,6 @@ export class UsersService implements OnModuleInit {
     private readonly configService: ConfigService,
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
-    @InjectRepository(InviteEntity)
-    private readonly inviteRepo: Repository<InviteEntity>,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -128,71 +124,6 @@ export class UsersService implements OnModuleInit {
     return user.preferredLocale;
   }
 
-  public async createInvite(adminId: string | number): Promise<InviteEntity> {
-    const code = 'invite_' + crypto.randomBytes(6).toString('hex');
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(); // 24 hours
-
-    const invite = this.inviteRepo.create({
-      code,
-      createdBy: adminId.toString(),
-      createdAt: now,
-      expiresAt,
-    });
-
-    const saved = await this.inviteRepo.save(invite);
-    return saved;
-  }
-
-  public async consumeInvite(
-    code: string,
-    user: { id: string | number; username?: string; firstName?: string },
-  ): Promise<{ success: boolean; message: string }> {
-    const invite = await this.inviteRepo.findOne({ where: { code } });
-    if (!invite) {
-      return { success: false, message: 'Mã mời không tồn tại hoặc đã hết hạn.' };
-    }
-
-    if (invite.usedBy) {
-      return { success: false, message: 'Mã mời này đã được sử dụng trước đó.' };
-    }
-
-    if (new Date(invite.expiresAt).getTime() < Date.now()) {
-      return { success: false, message: 'Mã mời này đã hết hạn sử dụng (quá 24 giờ).' };
-    }
-
-    const strId = user.id.toString();
-
-    // Mark as used
-    invite.usedBy = strId;
-    invite.usedAt = new Date().toISOString();
-    await this.inviteRepo.save(invite);
-
-    // Add user to database
-    let existingUser = await this.userRepo.findOne({ where: { id: strId } });
-    if (!existingUser) {
-      existingUser = this.userRepo.create({
-        id: strId,
-        username: user.username,
-        firstName: user.firstName,
-        role: 'user',
-        createdAt: new Date(),
-      });
-    } else {
-      existingUser.username = user.username;
-      existingUser.firstName = user.firstName;
-    }
-    await this.userRepo.save(existingUser);
-
-    this.allowedUserIdsCache.add(strId);
-    this.logger.log(`User ${user.id} (${user.firstName}) joined via invite code ${code}`);
-
-    return {
-      success: true,
-      message: `Chào mừng ${user.firstName || 'bạn'}! Bạn đã kích hoạt quyền sử dụng trợ lý thành công.`,
-    };
-  }
-
   public checkCooldown(userId: string | number): {
     allowed: boolean;
     reason?: string;
@@ -279,16 +210,5 @@ export class UsersService implements OnModuleInit {
     const user = await this.getUser(id);
     if (!user) return null;
     return this.upsertUser(id, role);
-  }
-
-  public listInvites(): Promise<InviteEntity[]> {
-    return this.inviteRepo.find({ order: { createdAt: 'DESC' } });
-  }
-
-  public async revokeInvite(code: string): Promise<boolean> {
-    const invite = await this.inviteRepo.findOne({ where: { code, usedBy: IsNull() } });
-    if (!invite) return false;
-    await this.inviteRepo.remove(invite);
-    return true;
   }
 }

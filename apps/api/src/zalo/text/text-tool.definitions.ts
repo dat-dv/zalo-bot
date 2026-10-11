@@ -292,14 +292,4 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
       properties: {},
     },
   },
-  {
-    name: TextToolType.CREATE_INVITE_LINK,
-    description:
-      'Tạo mã mời sử dụng bot dành cho Quản trị viên (Admin only). ' +
-      'Ví dụ: "tạo link mời", "mời bạn bè", "tạo mã mời người dùng mới".',
-    parameters: {
-      type: 'OBJECT',
-      properties: {},
-    },
-  },
 ];

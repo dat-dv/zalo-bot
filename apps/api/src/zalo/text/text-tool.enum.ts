@@ -15,7 +15,6 @@ export enum TextToolType {
   TASKS = 'TASKS',
   REMINDERS = 'REMINDERS',
   DASHBOARD = 'DASHBOARD',
-  INVITE = 'INVITE',
   USERS = 'USERS',
   BAN = 'BAN',
 
@@ -32,7 +31,6 @@ export enum TextToolType {
   LIST_TASKS = 'LIST_TASKS',
   COMPLETE_TASK = 'COMPLETE_TASK',
   LOGIN_GOOGLE = 'LOGIN_GOOGLE',
-  CREATE_INVITE_LINK = 'CREATE_INVITE_LINK',
 
   // Conversational response
   CONVERSATION = 'CONVERSATION',

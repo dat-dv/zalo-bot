@@ -24,7 +24,6 @@ import { DebtsQuickToolStrategy } from './text/strategies/debts-quick-tool.strat
 import { TasksQuickToolStrategy } from './text/strategies/tasks-quick-tool.strategy';
 import { RemindersQuickToolStrategy } from './text/strategies/reminders-quick-tool.strategy';
 import { DashboardToolStrategy } from './text/strategies/dashboard-tool.strategy';
-import { InviteToolStrategy } from './text/strategies/invite-tool.strategy';
 import { UsersListToolStrategy } from './text/strategies/users-list-tool.strategy';
 import { BanToolStrategy } from './text/strategies/ban-tool.strategy';
 
@@ -40,7 +39,6 @@ import { CreateTaskToolStrategy } from './text/strategies/create-task-tool.strat
 import { ListTasksToolStrategy } from './text/strategies/list-tasks-tool.strategy';
 import { CompleteTaskToolStrategy } from './text/strategies/complete-task-tool.strategy';
 import { LoginGoogleToolStrategy } from './text/strategies/login-google-tool.strategy';
-import { CreateInviteLinkToolStrategy } from './text/strategies/create-invite-link-tool.strategy';
 import { DeleteTransactionToolStrategy } from './text/strategies/delete-transaction-tool.strategy';
 
 // Related Domain Modules
@@ -88,7 +86,6 @@ import { AuditModule } from '../audit/audit.module';
     TasksQuickToolStrategy,
     RemindersQuickToolStrategy,
     DashboardToolStrategy,
-    InviteToolStrategy,
     UsersListToolStrategy,
     BanToolStrategy,
     ManageDebtToolStrategy,
@@ -102,7 +99,6 @@ import { AuditModule } from '../audit/audit.module';
     ListTasksToolStrategy,
     CompleteTaskToolStrategy,
     LoginGoogleToolStrategy,
-    CreateInviteLinkToolStrategy,
     DeleteTransactionToolStrategy,
   ],
   exports: [

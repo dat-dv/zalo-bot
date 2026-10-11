@@ -79,7 +79,6 @@ export class TextInputService {
       '- Về tra cứu việc cần làm ("danh sách việc cần làm", "còn việc gì chưa xong"): gọi LIST_TASKS.\n' +
       '- Về hoàn thành việc ("đã xong việc nộp báo cáo"): gọi COMPLETE_TASK.\n' +
       '- Về kết nối Google ("kết nối google", "đăng nhập google"): gọi LOGIN_GOOGLE.\n' +
-      '- Về tạo mã mời (Admin): gọi CREATE_INVITE_LINK.\n' +
       '- Nếu người dùng chỉ chào hỏi hoặc trò chuyện, hãy trả lời tự nhiên, ngắn gọn, thân thiện bằng tiếng Việt.\n\n' +
       'QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n' +
       '- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object (ví dụ đúng: {"amount": 15000, "category": "Ăn uống", "type": "expense", "note": "uống cà phê"}, KHÔNG ĐƯỢC: {"amount": {"amount": 15000}}).';
