@@ -5,6 +5,7 @@ import { DebtPaymentEntity } from '../database/entities/debt-payment.entity';
 import { DebtPaymentAllocationEntity } from '../database/entities/debt-payment-allocation.entity';
 import { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
 import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
+import { DebtContactEntity } from '../database/entities/debt-contact.entity';
 import { FinanceService } from './finance.service';
 
 function createFinanceService(debt: Partial<DebtEntity>) {
@@ -1053,4 +1054,332 @@ void test('FinanceService.deleteTransaction restores debt remaining amount when 
 
   assert.deepEqual(deletedAllocCriteria, { financeTransactionId: 'tx-del-1', userId: '42' });
   assert.deepEqual(deletedPaymentCriteria, { financeTransactionId: 'tx-del-1', userId: '42' });
+});
+
+void test('FinanceService.combinePlaces selects highest transaction count as lead, reassigns transactions, and updates name', async () => {
+  const placeA: FinancePlaceEntity = {
+    id: 'place-a',
+    userId: '42',
+    name: 'Highlands',
+    normalizedName: 'highlands',
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-01'),
+  };
+  const placeB: FinancePlaceEntity = {
+    id: 'place-b',
+    userId: '42',
+    name: 'Highlands Coffee',
+    normalizedName: 'highlands coffee',
+    createdAt: new Date('2026-01-02'),
+    updatedAt: new Date('2026-01-02'),
+  };
+
+  const transactionsOfA: Partial<FinanceTransactionEntity>[] = [
+    { id: 'tx-1', userId: '42', placeId: 'place-a' },
+  ];
+
+  let removedPlaces: FinancePlaceEntity[] = [];
+  let savedPlace: FinancePlaceEntity | undefined;
+  let savedTransactions: Partial<FinanceTransactionEntity>[] = [];
+
+  const service = new FinanceService(
+    {
+      count: (opts: { where: { placeId: string; userId: string } }) => {
+        if (opts.where.placeId === 'place-a') return Promise.resolve(1);
+        if (opts.where.placeId === 'place-b') return Promise.resolve(5);
+        return Promise.resolve(0);
+      },
+      find: () => Promise.resolve(transactionsOfA),
+      save: (txs: Partial<FinanceTransactionEntity>[]) => {
+        savedTransactions = txs;
+        return Promise.resolve(txs);
+      },
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {
+      find: () => Promise.resolve([placeA, placeB]),
+      findOne: () => Promise.resolve(null),
+      remove: (places: FinancePlaceEntity[]) => {
+        removedPlaces = places;
+        return Promise.resolve(places);
+      },
+      save: (p: FinancePlaceEntity) => {
+        savedPlace = p;
+        return Promise.resolve(p);
+      },
+    } as never,
+  );
+
+  const result = await service.combinePlaces(42, {
+    placeIds: ['place-a', 'place-b'],
+    name: 'Highlands Coffee Landmark',
+  });
+
+  // placeB had 5 transactions, placeA had 1 -> placeB is lead
+  assert.equal(result.leadPlace.id, 'place-b');
+  assert.equal(result.leadPlace.name, 'Highlands Coffee Landmark');
+  assert.equal(result.mergedPlacesCount, 1);
+  assert.equal(result.affectedTransactionsCount, 1);
+  assert.equal(result.leadPlace.transactionCount, 6);
+
+  // transactions of placeA were reassigned to placeB
+  assert.equal(savedTransactions.length, 1);
+  assert.equal(savedTransactions[0].placeId, 'place-b');
+
+  // placeA was removed
+  assert.equal(removedPlaces.length, 1);
+  assert.equal(removedPlaces[0].id, 'place-a');
+
+  // lead place was updated
+  assert.equal(savedPlace?.id, 'place-b');
+  assert.equal(savedPlace?.name, 'Highlands Coffee Landmark');
+});
+
+void test('FinanceService.combinePlaces respects explicit targetPlaceId', async () => {
+  const placeA: FinancePlaceEntity = {
+    id: 'place-a',
+    userId: '42',
+    name: 'Phúc Long',
+    normalizedName: 'phuc long',
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-01'),
+  };
+  const placeB: FinancePlaceEntity = {
+    id: 'place-b',
+    userId: '42',
+    name: 'Phúc Long Tea & Coffee',
+    normalizedName: 'phuc long tea and coffee',
+    createdAt: new Date('2026-01-02'),
+    updatedAt: new Date('2026-01-02'),
+  };
+
+  const transactionsOfB: Partial<FinanceTransactionEntity>[] = [
+    { id: 'tx-10', userId: '42', placeId: 'place-b' },
+    { id: 'tx-11', userId: '42', placeId: 'place-b' },
+  ];
+
+  let removedPlaces: FinancePlaceEntity[] = [];
+  let savedTransactions: Partial<FinanceTransactionEntity>[] = [];
+
+  const service = new FinanceService(
+    {
+      count: (opts: { where: { placeId: string; userId: string } }) => {
+        if (opts.where.placeId === 'place-a') return Promise.resolve(1);
+        if (opts.where.placeId === 'place-b') return Promise.resolve(10);
+        return Promise.resolve(0);
+      },
+      find: () => Promise.resolve(transactionsOfB),
+      save: (txs: Partial<FinanceTransactionEntity>[]) => {
+        savedTransactions = txs;
+        return Promise.resolve(txs);
+      },
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {
+      find: () => Promise.resolve([placeA, placeB]),
+      findOne: () => Promise.resolve(null),
+      remove: (places: FinancePlaceEntity[]) => {
+        removedPlaces = places;
+        return Promise.resolve(places);
+      },
+      save: (p: FinancePlaceEntity) => Promise.resolve(p),
+    } as never,
+  );
+
+  const result = await service.combinePlaces(42, {
+    placeIds: ['place-a', 'place-b'],
+    targetPlaceId: 'place-a',
+  });
+
+  // Explicit targetPlaceId 'place-a' was selected
+  assert.equal(result.leadPlace.id, 'place-a');
+  assert.equal(result.leadPlace.name, 'Phúc Long');
+  assert.equal(result.mergedPlacesCount, 1);
+  assert.equal(result.affectedTransactionsCount, 2);
+
+  // transactions of placeB were reassigned to placeA
+  assert.equal(savedTransactions.length, 2);
+  assert.equal(savedTransactions[0].placeId, 'place-a');
+  assert.equal(savedTransactions[1].placeId, 'place-a');
+
+  // placeB was removed
+  assert.equal(removedPlaces[0].id, 'place-b');
+});
+
+void test('combineContacts prioritizes contact linked to User as lead over one with more resources', async () => {
+  const contactWithUser: DebtContactEntity = {
+    id: 'c-user',
+    userId: '42',
+    displayName: 'Thành (User)',
+    normalizedName: 'thanh user',
+    linkedUserId: 'user-99',
+    createdAt: new Date('2026-02-01'),
+    updatedAt: new Date('2026-02-01'),
+  };
+
+  const contactWithManyResources: DebtContactEntity = {
+    id: 'c-many',
+    userId: '42',
+    displayName: 'Thành bạn thân',
+    normalizedName: 'thanh ban than',
+    phoneNumber: '0901234567',
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-01'),
+  };
+
+  const debtsOfMany: Partial<DebtEntity>[] = [
+    { id: 'debt-1', userId: '42', contactId: 'c-many', counterparty: 'Thành bạn thân' },
+  ];
+  const txsOfMany: Partial<FinanceTransactionEntity>[] = [
+    { id: 'tx-1', userId: '42', contactId: 'c-many' },
+    { id: 'tx-2', userId: '42', contactId: 'c-many' },
+  ];
+
+  const savedContacts: DebtContactEntity[] = [];
+  let removedContacts: DebtContactEntity[] = [];
+  let savedDebts: Partial<DebtEntity>[] = [];
+  let savedTxs: Partial<FinanceTransactionEntity>[] = [];
+
+  const service = new FinanceService(
+    {
+      count: (opts: { where: { contactId: string; userId: string } }) => {
+        if (opts.where.contactId === 'c-user') return Promise.resolve(1);
+        if (opts.where.contactId === 'c-many') return Promise.resolve(10);
+        return Promise.resolve(0);
+      },
+      find: () => Promise.resolve(txsOfMany),
+      save: (txs: Partial<FinanceTransactionEntity>[]) => {
+        savedTxs = txs;
+        return Promise.resolve(txs);
+      },
+    } as never,
+    {
+      count: (opts: { where: { contactId: string; userId: string } }) => {
+        if (opts.where.contactId === 'c-user') return Promise.resolve(1);
+        if (opts.where.contactId === 'c-many') return Promise.resolve(5);
+        return Promise.resolve(0);
+      },
+      find: () => Promise.resolve(debtsOfMany),
+      save: (debts: Partial<DebtEntity>[]) => {
+        savedDebts = debts;
+        return Promise.resolve(debts);
+      },
+    } as never,
+    {
+      find: () => Promise.resolve([contactWithManyResources, contactWithUser]),
+      save: (c: DebtContactEntity) => {
+        savedContacts.push(c);
+        return Promise.resolve(c);
+      },
+      remove: (contacts: DebtContactEntity[]) => {
+        removedContacts = contacts;
+        return Promise.resolve(contacts);
+      },
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+
+  const result = await service.combineContacts(42, {
+    contactIds: ['c-user', 'c-many'],
+    displayName: 'Thành Đã Gộp',
+  });
+
+  // Lead should be c-user despite c-many having far more resources (15 vs 2)
+  assert.equal(result.targetContact.id, 'c-user');
+  assert.equal(result.targetContact.displayName, 'Thành Đã Gộp');
+  assert.equal(result.targetContact.linkedUserId, 'user-99');
+  // Inherited phone from c-many
+  assert.equal(result.targetContact.phoneNumber, '0901234567');
+
+  // Debts and transactions were reassigned to c-user
+  assert.equal(savedDebts.length, 1);
+  assert.equal(savedDebts[0].contactId, 'c-user');
+  assert.equal(savedDebts[0].counterparty, 'Thành Đã Gộp');
+
+  assert.equal(savedTxs.length, 2);
+  assert.equal(savedTxs[0].contactId, 'c-user');
+  assert.equal(savedTxs[1].contactId, 'c-user');
+
+  // c-many was removed
+  assert.equal(removedContacts.length, 1);
+  assert.equal(removedContacts[0].id, 'c-many');
+});
+
+void test('combineContacts prioritizes candidate with most total resources when neither has linked user', async () => {
+  const contactA: DebtContactEntity = {
+    id: 'c-a',
+    userId: '42',
+    displayName: 'Quán A',
+    normalizedName: 'quan a',
+    createdAt: new Date('2026-01-01'),
+    updatedAt: new Date('2026-01-01'),
+  };
+
+  const contactB: DebtContactEntity = {
+    id: 'c-b',
+    userId: '42',
+    displayName: 'Quán B',
+    normalizedName: 'quan b',
+    createdAt: new Date('2026-01-02'),
+    updatedAt: new Date('2026-01-02'),
+  };
+
+  const txsOfA: Partial<FinanceTransactionEntity>[] = [
+    { id: 'tx-a1', userId: '42', contactId: 'c-a' },
+  ];
+
+  let savedTxs: Partial<FinanceTransactionEntity>[] = [];
+  let removedContacts: DebtContactEntity[] = [];
+
+  const service = new FinanceService(
+    {
+      count: (opts: { where: { contactId: string; userId: string } }) => {
+        if (opts.where.contactId === 'c-a') return Promise.resolve(2);
+        if (opts.where.contactId === 'c-b') return Promise.resolve(8);
+        return Promise.resolve(0);
+      },
+      find: () => Promise.resolve(txsOfA),
+      save: (txs: Partial<FinanceTransactionEntity>[]) => {
+        savedTxs = txs;
+        return Promise.resolve(txs);
+      },
+    } as never,
+    {
+      count: () => Promise.resolve(0),
+      find: () => Promise.resolve([]),
+      save: () => Promise.resolve([]),
+    } as never,
+    {
+      find: () => Promise.resolve([contactA, contactB]),
+      save: (c: DebtContactEntity) => Promise.resolve(c),
+      remove: (contacts: DebtContactEntity[]) => {
+        removedContacts = contacts;
+        return Promise.resolve(contacts);
+      },
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+
+  const result = await service.combineContacts(42, {
+    contactIds: ['c-a', 'c-b'],
+  });
+
+  // Lead should be c-b because it has 8 txs vs c-a with 2 txs
+  assert.equal(result.targetContact.id, 'c-b');
+  assert.equal(removedContacts[0].id, 'c-a');
+  assert.equal(savedTxs[0].contactId, 'c-b');
 });

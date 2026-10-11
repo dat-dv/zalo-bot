@@ -288,6 +288,46 @@ export class FinanceController {
     return { data: { deleted: true } };
   }
 
+  @Post('places/combine')
+  @ApiOperation({ summary: 'Gộp nhiều nơi chốn/địa điểm thành một nơi chốn chính' })
+  async combinePlaces(@Req() req: Request, @Body() body: RecordBody) {
+    const rawPlaceIds = Array.isArray(body.placeIds)
+      ? body.placeIds.filter(
+          (item): item is string => typeof item === 'string' && Boolean(item.trim()),
+        )
+      : [];
+    const targetPlaceId = this.optionalString(body.targetPlaceId);
+    const rawSourceIds = Array.isArray(body.sourcePlaceIds)
+      ? body.sourcePlaceIds.filter(
+          (item): item is string => typeof item === 'string' && Boolean(item.trim()),
+        )
+      : [];
+
+    const placeIds = Array.from(
+      new Set([...rawPlaceIds, ...(targetPlaceId ? [targetPlaceId] : []), ...rawSourceIds]),
+    );
+
+    if (placeIds.length < 2) {
+      throw new BadRequestException(
+        'placeIds must contain at least 2 distinct place ids to combine.',
+      );
+    }
+
+    const result = await this.finance.combinePlaces(this.userId(req), {
+      placeIds,
+      targetPlaceId,
+      name: this.optionalString(body.name),
+    });
+
+    return {
+      data: {
+        leadPlace: this.placeResponse(result.leadPlace),
+        mergedPlacesCount: result.mergedPlacesCount,
+        affectedTransactionsCount: result.affectedTransactionsCount,
+      },
+    };
+  }
+
   @Get('contacts/:id')
   async getContact(@Req() req: Request, @Param('id') id: string) {
     return { data: await this.required(this.finance.getContact(this.userId(req), id)) };
@@ -306,6 +346,7 @@ export class FinanceController {
         this.optionalString(body.bankCode),
         this.optionalString(body.bankName),
         this.optionalString(body.avatarUrl),
+        body.linkedUserId === null ? null : this.optionalString(body.linkedUserId),
       ),
     };
   }
@@ -324,6 +365,7 @@ export class FinanceController {
         this.optionalString(body.bankCode),
         this.optionalString(body.bankName),
         this.optionalString(body.avatarUrl),
+        body.linkedUserId === null ? null : this.optionalString(body.linkedUserId),
       ),
     };
   }
@@ -331,22 +373,38 @@ export class FinanceController {
   @Post('contacts/combine')
   @ApiOperation({ summary: 'Gộp nhiều liên hệ thành một liên hệ chính' })
   async combineContacts(@Req() req: Request, @Body() body: RecordBody) {
-    const targetContactId = this.string(body.targetContactId, 'targetContactId');
-    const sourceContactIds = Array.isArray(body.sourceContactIds)
+    const targetContactId = this.optionalString(body.targetContactId);
+    const rawSourceContactIds = Array.isArray(body.sourceContactIds)
       ? body.sourceContactIds.filter(
           (item): item is string => typeof item === 'string' && Boolean(item.trim()),
         )
       : [];
-    if (sourceContactIds.length === 0) {
-      throw new BadRequestException('sourceContactIds must be a non-empty array of strings.');
+    const rawContactIds = Array.isArray(body.contactIds)
+      ? body.contactIds.filter(
+          (item): item is string => typeof item === 'string' && Boolean(item.trim()),
+        )
+      : [];
+
+    const contactIds = Array.from(
+      new Set([
+        ...rawContactIds,
+        ...(targetContactId ? [targetContactId] : []),
+        ...rawSourceContactIds,
+      ]),
+    );
+
+    if (contactIds.length < 2) {
+      throw new BadRequestException('Phải chọn ít nhất 2 người liên quan để gộp.');
     }
 
     const result = await this.finance.combineContacts(this.userId(req), {
       targetContactId,
-      sourceContactIds,
+      sourceContactIds: rawSourceContactIds,
+      contactIds,
       displayName: this.optionalString(body.displayName),
       alias: this.optionalString(body.alias),
       descriptor: this.optionalString(body.descriptor),
+      linkedUserId: body.linkedUserId === null ? null : this.optionalString(body.linkedUserId),
       consolidateDebts: body.consolidateDebts === true,
     });
 
@@ -362,10 +420,12 @@ export class FinanceController {
           bankCode: result.targetContact.bankCode,
           bankName: result.targetContact.bankName,
           avatarUrl: result.targetContact.avatarUrl,
+          linkedUserId: result.targetContact.linkedUserId,
           createdAt: toIsoDate(result.targetContact.createdAt),
           updatedAt: toOptionalIsoDate(result.targetContact.updatedAt),
         },
         affectedDebtsCount: result.affectedDebtsCount,
+        affectedTransactionsCount: result.affectedTransactionsCount,
         mergedCount: result.mergedCount,
       },
     };
@@ -566,10 +626,17 @@ export class FinanceController {
       throw new BadRequestException(`${name} is invalid.`);
     return value;
   }
-  private placeResponse(place: { id: string; name: string; createdAt: Date; updatedAt?: Date }) {
+  private placeResponse(place: {
+    id: string;
+    name: string;
+    createdAt: Date;
+    updatedAt?: Date;
+    transactionCount?: number;
+  }) {
     return {
       id: place.id,
       name: place.name,
+      transactionCount: place.transactionCount ?? 0,
       createdAt: toIsoDate(place.createdAt),
       updatedAt: toOptionalIsoDate(place.updatedAt),
     };

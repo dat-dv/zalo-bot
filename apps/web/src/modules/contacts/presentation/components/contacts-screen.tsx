@@ -370,6 +370,65 @@ export function ContactsScreen() {
       },
     },
     {
+      id: 'linkedUser',
+      header: t('contacts.columns.linkedUser'),
+      minWidth: '140px',
+      defaultHidden: false,
+      cell: (item) => {
+        if (item.linkedUser) {
+          return (
+            <span className="inline-flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-950/60 dark:text-sky-300">
+              <span aria-hidden="true">👤</span>
+              {item.linkedUser.firstName
+                ? `${item.linkedUser.firstName} (@${item.linkedUser.username})`
+                : `@${item.linkedUser.username}`}
+            </span>
+          );
+        }
+        if (item.linkedUserId) {
+          return (
+            <span className="font-mono text-[10.5px] text-slate-500 dark:text-slate-400">
+              #{item.linkedUserId.slice(0, 8)}
+            </span>
+          );
+        }
+        return <span className="text-slate-400 select-none dark:text-slate-600">—</span>;
+      },
+    },
+    {
+      id: 'resources',
+      header: t('contacts.columns.resources'),
+      minWidth: '150px',
+      defaultHidden: false,
+      cell: (item) => {
+        const debts = item.debtCount ?? 0;
+        const txs = item.transactionCount ?? 0;
+        if (debts === 0 && txs === 0) {
+          return <span className="text-slate-400 select-none dark:text-slate-600">0</span>;
+        }
+        return (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {debts > 0 ? (
+              <span
+                className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[10.5px] font-medium text-amber-800 dark:bg-amber-950/80 dark:text-amber-300"
+                title={`${debts} khoản nợ`}
+              >
+                {t('contacts.combineModal.debtsBadge', { count: debts })}
+              </span>
+            ) : null}
+            {txs > 0 ? (
+              <span
+                className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10.5px] text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                title={`${txs} giao dịch`}
+              >
+                {t('contacts.combineModal.transactionsBadge', { count: txs })}
+              </span>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    {
       id: 'createdAt',
       header: t('dashboard.columns.date'),
       align: 'right',

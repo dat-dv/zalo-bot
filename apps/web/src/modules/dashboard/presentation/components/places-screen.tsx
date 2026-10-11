@@ -12,16 +12,19 @@ import {
   useUpdatePlaceMutation,
   useDeletePlaceMutation,
 } from '../../api/places-query';
+import { CombinePlacesDialog } from './combine-places-dialog';
 
 export function PlacesScreen() {
   const queryClient = useQueryClient();
   const { locale, t } = useLocale();
   const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<{ name: string }>({ name: '' });
   const [isCreating, setIsCreating] = useState(false);
   const [newPlaceName, setNewPlaceName] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isCombineOpen, setIsCombineOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -40,6 +43,10 @@ export function PlacesScreen() {
     return rawList.filter((item) => item.name.toLowerCase().includes(query));
   }, [rawList, search]);
 
+  const selectedPlaces = useMemo(() => {
+    return rawList.filter((p) => selectedIds.has(p.id));
+  }, [rawList, selectedIds]);
+
   const formatDate = (value?: string) =>
     value
       ? new Intl.DateTimeFormat(localeTag(locale), {
@@ -55,6 +62,26 @@ export function PlacesScreen() {
         setToastMessage(null);
       });
     }, 3000);
+  };
+
+  const handleToggleRow = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedIds.size === filteredPlaces.length && filteredPlaces.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredPlaces.map((p) => p.id)));
+    }
   };
 
   const handleStartEdit = (place: IFinancePlace) => {
@@ -103,6 +130,11 @@ export function PlacesScreen() {
     try {
       await deleteMutation.mutateAsync(id);
       setDeleteConfirmId(null);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       showToast(t('places.delete.success'));
     } catch {
       // Error handled by mutation
@@ -110,6 +142,35 @@ export function PlacesScreen() {
   };
 
   const placeColumns: DataTableColumn<IFinancePlace>[] = [
+    {
+      id: 'select',
+      header: (
+        <label className="flex items-center justify-center">
+          <input
+            type="checkbox"
+            className="cursor-pointer accent-slate-900 dark:accent-sky-500"
+            checked={filteredPlaces.length > 0 && selectedIds.size === filteredPlaces.length}
+            onChange={handleToggleSelectAll}
+            aria-label={t('places.selectAll')}
+          />
+        </label>
+      ),
+      label: t('places.selectAll'),
+      minWidth: '44px',
+      width: '44px',
+      hideable: false,
+      cell: (item) => (
+        <label className="flex items-center justify-center">
+          <input
+            type="checkbox"
+            className="cursor-pointer accent-slate-900 dark:accent-sky-500"
+            checked={selectedIds.has(item.id)}
+            onChange={() => handleToggleRow(item.id)}
+            aria-label={item.name}
+          />
+        </label>
+      ),
+    },
     {
       id: 'name',
       header: t('places.columns.name'),
@@ -144,6 +205,17 @@ export function PlacesScreen() {
           </span>
         );
       },
+    },
+    {
+      id: 'transactionCount',
+      header: t('places.columns.transactionCount'),
+      minWidth: '110px',
+      align: 'right',
+      cell: (item) => (
+        <span className="font-mono text-[11.5px] text-slate-600 dark:text-slate-400">
+          {item.transactionCount ?? 0}
+        </span>
+      ),
     },
     {
       id: 'createdAt',
@@ -240,6 +312,8 @@ export function PlacesScreen() {
     },
   ];
 
+  const isPartiallySelected = selectedIds.size > 0 && selectedIds.size < filteredPlaces.length;
+
   return (
     <>
       {toastMessage && (
@@ -274,6 +348,40 @@ export function PlacesScreen() {
             counter={t('table.rowsCount', { count: filteredPlaces.length })}
             toolbar={
               <div className="flex flex-wrap items-center gap-1.5">
+                {selectedIds.size >= 2 && (
+                  <button
+                    type="button"
+                    className="inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                    onClick={() => setIsCombineOpen(true)}
+                  >
+                    {t('places.actions.combine', { count: selectedIds.size })}
+                  </button>
+                )}
+                {filteredPlaces.length > 0 && (
+                  <button
+                    type="button"
+                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                      selectedIds.size === filteredPlaces.length
+                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                    }`}
+                    onClick={handleToggleSelectAll}
+                  >
+                    {selectedIds.size === filteredPlaces.length
+                      ? t('places.deselectAll')
+                      : t('places.selectAll')}
+                  </button>
+                )}
+                {isPartiallySelected && (
+                  <button
+                    type="button"
+                    className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-sky-500 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/50"
+                    onClick={() => setSelectedIds(new Set())}
+                    title={t('places.deselectAll')}
+                  >
+                    {t('places.selectedCount', { count: selectedIds.size })} ✕
+                  </button>
+                )}
                 {isCreating ? (
                   <form
                     onSubmit={(e) => void handleCreatePlace(e)}
@@ -338,6 +446,16 @@ export function PlacesScreen() {
           </DataPanel>
         </section>
       )}
+
+      <CombinePlacesDialog
+        isOpen={isCombineOpen}
+        selectedPlaces={selectedPlaces}
+        onClose={() => setIsCombineOpen(false)}
+        onSuccess={(count) => {
+          setSelectedIds(new Set());
+          showToast(t('places.combine.success', { count }));
+        }}
+      />
     </>
   );
 }

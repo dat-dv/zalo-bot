@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
@@ -29,6 +29,7 @@ import { DebtPaymentEntity } from '../database/entities/debt-payment.entity';
 import { DebtPaymentAllocationEntity } from '../database/entities/debt-payment-allocation.entity';
 import { UserCategoryEntity } from '../database/entities/user-category.entity';
 import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
+import { UserEntity } from '../database/entities/user.entity';
 
 export interface CreateFinanceTransactionDto {
   userId: number | string;
@@ -97,17 +98,20 @@ export interface UpdateDebtDto {
 }
 
 export interface CombineContactsDto {
-  targetContactId: string;
-  sourceContactIds: string[];
+  targetContactId?: string;
+  sourceContactIds?: string[];
+  contactIds?: string[];
   displayName?: string;
   alias?: string;
   descriptor?: string;
+  linkedUserId?: string | null;
   consolidateDebts?: boolean;
 }
 
 export interface CombineContactsResult {
   targetContact: DebtContactEntity;
   affectedDebtsCount: number;
+  affectedTransactionsCount: number;
   mergedCount: number;
 }
 
@@ -123,6 +127,18 @@ export interface CombineDebtsDto {
 export interface CombineDebtsResult {
   parentDebt: DebtEntity;
   mergedDebtsCount: number;
+}
+
+export interface CombinePlacesDto {
+  placeIds: string[];
+  targetPlaceId?: string;
+  name?: string;
+}
+
+export interface CombinePlacesResult {
+  leadPlace: FinancePlaceEntity & { transactionCount?: number };
+  mergedPlacesCount: number;
+  affectedTransactionsCount: number;
 }
 
 @Injectable()
@@ -142,6 +158,9 @@ export class FinanceService {
     private readonly userCategoryRepo: Repository<UserCategoryEntity>,
     @InjectRepository(FinancePlaceEntity)
     private readonly placeRepo: Repository<FinancePlaceEntity>,
+    @Optional()
+    @InjectRepository(UserEntity)
+    private readonly userRepo?: Repository<UserEntity>,
   ) {}
 
   public async resolveOrCreatePlace(
@@ -609,12 +628,51 @@ export class FinanceService {
     });
   }
 
-  public listPlaces(userId: number | string): Promise<FinancePlaceEntity[]> {
-    return this.placeRepo.find({
-      where: { userId: userId.toString() },
+  public async listPlaces(
+    userId: number | string,
+  ): Promise<(FinancePlaceEntity & { transactionCount?: number })[]> {
+    const uid = userId.toString();
+    const places = await this.placeRepo.find({
+      where: { userId: uid },
       order: { name: 'ASC', createdAt: 'ASC' },
       take: 200,
     });
+    if (places.length === 0) return [];
+
+    try {
+      if (typeof this.transactionRepo.createQueryBuilder === 'function') {
+        const counts: Array<{ placeId: string; count: string | number }> =
+          await this.transactionRepo
+            .createQueryBuilder('t')
+            .select('t.place_id', 'placeId')
+            .addSelect('COUNT(*)', 'count')
+            .where('t.user_id = :userId', { userId: uid })
+            .andWhere('t.place_id IS NOT NULL')
+            .groupBy('t.place_id')
+            .getRawMany();
+
+        const countMap = new Map<string, number>();
+        for (const c of counts) {
+          if (c.placeId) {
+            countMap.set(c.placeId, Number(c.count) || 0);
+          }
+        }
+
+        return places.map((place) =>
+          Object.assign(place, {
+            transactionCount: countMap.get(place.id) ?? 0,
+          }),
+        );
+      }
+    } catch {
+      // Graceful fallback for mock or unsupported raw queries
+    }
+
+    return places.map((place) =>
+      Object.assign(place, {
+        transactionCount: 0,
+      }),
+    );
   }
 
   public getPlace(userId: number | string, id: string): Promise<FinancePlaceEntity | null> {
@@ -651,6 +709,99 @@ export class FinanceService {
     if (!place) return false;
     await this.placeRepo.remove(place);
     return true;
+  }
+
+  public async combinePlaces(
+    userId: number | string,
+    input: CombinePlacesDto,
+  ): Promise<CombinePlacesResult> {
+    const uid = userId.toString();
+    const uniqueIds = Array.from(new Set((input.placeIds || []).filter(Boolean)));
+    if (uniqueIds.length < 2) {
+      throw new Error('Cần chọn ít nhất 2 nơi chốn để gộp.');
+    }
+
+    const places = await this.placeRepo.find({
+      where: { id: In(uniqueIds), userId: uid },
+    });
+    if (places.length < 2) {
+      throw new Error('Không tìm thấy đủ nơi chốn hợp lệ để gộp.');
+    }
+
+    // Count transactions associated with each candidate place
+    const countMap = new Map<string, number>();
+    for (const p of places) {
+      let count = 0;
+      if (typeof this.transactionRepo.count === 'function') {
+        count = await this.transactionRepo.count({
+          where: { placeId: p.id, userId: uid },
+        });
+      }
+      countMap.set(p.id, count);
+    }
+
+    // Determine lead place:
+    // If targetPlaceId is provided, use it; otherwise pick the place with most related transactions
+    let leadPlace: FinancePlaceEntity;
+    if (input.targetPlaceId) {
+      const found = places.find((p) => p.id === input.targetPlaceId);
+      if (!found) {
+        throw new Error('Không tìm thấy nơi chốn chính đã chọn.');
+      }
+      leadPlace = found;
+    } else {
+      const sorted = [...places].sort((a, b) => {
+        const countDiff = (countMap.get(b.id) ?? 0) - (countMap.get(a.id) ?? 0);
+        if (countDiff !== 0) return countDiff;
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
+      leadPlace = sorted[0];
+    }
+
+    const sourcePlaces = places.filter((p) => p.id !== leadPlace.id);
+    const sourceIds = sourcePlaces.map((p) => p.id);
+
+    const desiredName = (input.name !== undefined ? input.name.trim() : '') || leadPlace.name;
+    if (!desiredName) {
+      throw new Error('Tên nơi chốn không được để trống.');
+    }
+    const normalizedName = this.normalizeIdentity(desiredName);
+
+    // Ensure desiredName does not conflict with another existing place outside this merge set
+    const duplicate = await this.placeRepo.findOne({
+      where: { userId: uid, normalizedName },
+    });
+    if (duplicate && !uniqueIds.includes(duplicate.id)) {
+      throw new Error('Tên nơi chốn này đã tồn tại ở một địa điểm khác.');
+    }
+
+    // Reassign transactions from source places to lead place
+    let affectedTransactionsCount = 0;
+    const transactions = await this.transactionRepo.find({
+      where: { placeId: In(sourceIds), userId: uid },
+    });
+    if (transactions.length > 0) {
+      for (const tx of transactions) {
+        tx.placeId = leadPlace.id;
+      }
+      await this.transactionRepo.save(transactions);
+      affectedTransactionsCount = transactions.length;
+    }
+
+    // Remove source places
+    await this.placeRepo.remove(sourcePlaces);
+
+    // Update lead place name & normalized name
+    leadPlace.name = desiredName;
+    leadPlace.normalizedName = normalizedName;
+    await this.placeRepo.save(leadPlace);
+
+    const totalTransactions = (countMap.get(leadPlace.id) ?? 0) + affectedTransactionsCount;
+    return {
+      leadPlace: Object.assign(leadPlace, { transactionCount: totalTransactions }),
+      mergedPlacesCount: sourcePlaces.length,
+      affectedTransactionsCount,
+    };
   }
 
   public async deleteTransaction(userId: number | string, id: string): Promise<boolean> {
@@ -761,16 +912,71 @@ export class FinanceService {
     });
   }
 
-  public async listContacts(userId: number | string): Promise<DebtContactEntity[]> {
-    return this.contactRepo.find({
-      where: { userId: userId.toString() },
+  public async listContacts(
+    userId: number | string,
+  ): Promise<(DebtContactEntity & { debtCount?: number; transactionCount?: number })[]> {
+    const uid = userId.toString();
+    const contacts = await this.contactRepo.find({
+      where: { userId: uid },
+      relations: { linkedUser: true },
       order: { displayName: 'ASC', createdAt: 'DESC' },
       take: 200,
     });
+    if (contacts.length === 0) return [];
+
+    const debtMap = new Map<string, number>();
+    const txMap = new Map<string, number>();
+
+    try {
+      if (typeof this.debtRepo.createQueryBuilder === 'function') {
+        const debtCounts: Array<{ contactId: string; count: string | number }> = await this.debtRepo
+          .createQueryBuilder('d')
+          .select('d.contact_id', 'contactId')
+          .addSelect('COUNT(*)', 'count')
+          .where('d.user_id = :userId', { userId: uid })
+          .andWhere('d.contact_id IS NOT NULL')
+          .groupBy('d.contact_id')
+          .getRawMany();
+        for (const item of debtCounts) {
+          if (item.contactId) debtMap.set(item.contactId, Number(item.count) || 0);
+        }
+      }
+    } catch {
+      // fallback
+    }
+
+    try {
+      if (typeof this.transactionRepo.createQueryBuilder === 'function') {
+        const txCounts: Array<{ contactId: string; count: string | number }> =
+          await this.transactionRepo
+            .createQueryBuilder('t')
+            .select('t.contact_id', 'contactId')
+            .addSelect('COUNT(*)', 'count')
+            .where('t.user_id = :userId', { userId: uid })
+            .andWhere('t.contact_id IS NOT NULL')
+            .groupBy('t.contact_id')
+            .getRawMany();
+        for (const item of txCounts) {
+          if (item.contactId) txMap.set(item.contactId, Number(item.count) || 0);
+        }
+      }
+    } catch {
+      // fallback
+    }
+
+    return contacts.map((c) =>
+      Object.assign(c, {
+        debtCount: debtMap.get(c.id) ?? 0,
+        transactionCount: txMap.get(c.id) ?? 0,
+      }),
+    );
   }
 
   public getContact(userId: number | string, id: string): Promise<DebtContactEntity | null> {
-    return this.contactRepo.findOne({ where: { id, userId: userId.toString() } });
+    return this.contactRepo.findOne({
+      where: { id, userId: userId.toString() },
+      relations: { linkedUser: true },
+    });
   }
 
   public async deleteContact(userId: number | string, id: string): Promise<boolean> {
@@ -790,6 +996,7 @@ export class FinanceService {
     bankCode?: string,
     bankName?: string,
     avatarUrl?: string,
+    linkedUserId?: string | null,
   ): Promise<DebtContactEntity> {
     const displayName = name?.trim();
     if (!displayName) throw new Error('Cần có tên người liên quan.');
@@ -804,6 +1011,7 @@ export class FinanceService {
         bankCode: bankCode?.trim() || undefined,
         bankName: bankName?.trim() || undefined,
         avatarUrl: avatarUrl?.trim() || undefined,
+        linkedUserId: linkedUserId?.trim() || undefined,
         normalizedName: this.normalizeIdentity(displayName),
         normalizedAlias: alias ? this.normalizeIdentity(alias) : undefined,
       }),
@@ -965,10 +1173,9 @@ export class FinanceService {
     bankCode?: string,
     bankName?: string,
     avatarUrl?: string,
+    linkedUserId?: string | null,
   ): Promise<DebtContactEntity> {
-    const contact = await this.contactRepo.findOne({
-      where: { id: contactId, userId: userId.toString() },
-    });
+    const contact = await this.getContact(userId, contactId);
     if (!contact) throw new Error('Không tìm thấy người trong danh bạ công nợ.');
     const displayName = name?.trim();
     if (!displayName) throw new Error('Tên không được để trống.');
@@ -981,6 +1188,7 @@ export class FinanceService {
     if (bankCode !== undefined) contact.bankCode = bankCode?.trim() || undefined;
     if (bankName !== undefined) contact.bankName = bankName?.trim() || undefined;
     if (avatarUrl !== undefined) contact.avatarUrl = avatarUrl?.trim() || undefined;
+    if (linkedUserId !== undefined) contact.linkedUserId = linkedUserId?.trim() || undefined;
     contact.normalizedName = this.normalizeIdentity(displayName);
     contact.normalizedAlias = alias ? this.normalizeIdentity(alias) : undefined;
     return this.contactRepo.save(contact);
@@ -991,23 +1199,76 @@ export class FinanceService {
     input: CombineContactsDto,
   ): Promise<CombineContactsResult> {
     const uid = userId.toString();
-    const targetContact = await this.contactRepo.findOne({
-      where: { id: input.targetContactId, userId: uid },
-    });
-    if (!targetContact) {
-      throw new Error('Không tìm thấy liên hệ đích để gộp.');
-    }
-
-    const uniqueSourceIds = Array.from(
-      new Set(input.sourceContactIds.filter((id) => id !== input.targetContactId)),
+    const allCandidateIds = Array.from(
+      new Set(
+        [
+          ...(input.contactIds || []),
+          ...(input.targetContactId ? [input.targetContactId] : []),
+          ...(input.sourceContactIds || []),
+        ].filter(Boolean),
+      ),
     );
-    if (uniqueSourceIds.length === 0) {
-      return { targetContact, affectedDebtsCount: 0, mergedCount: 0 };
+
+    if (allCandidateIds.length < 2) {
+      throw new Error('Cần chọn ít nhất 2 người liên quan để gộp.');
     }
 
-    const sourceContacts = await this.contactRepo.find({
-      where: { id: In(uniqueSourceIds), userId: uid },
+    const contacts = await this.contactRepo.find({
+      where: { id: In(allCandidateIds), userId: uid },
+      relations: { linkedUser: true },
     });
+
+    if (contacts.length < 2) {
+      throw new Error('Không tìm thấy đủ người liên quan hợp lệ để gộp.');
+    }
+
+    // Count debts and transactions for each candidate contact
+    const resourceCountMap = new Map<
+      string,
+      { debtCount: number; txCount: number; total: number }
+    >();
+    for (const c of contacts) {
+      let debtCount = 0;
+      let txCount = 0;
+      if (typeof this.debtRepo.count === 'function') {
+        debtCount = await this.debtRepo.count({ where: { contactId: c.id, userId: uid } });
+      }
+      if (typeof this.transactionRepo.count === 'function') {
+        txCount = await this.transactionRepo.count({ where: { contactId: c.id, userId: uid } });
+      }
+      resourceCountMap.set(c.id, { debtCount, txCount, total: debtCount + txCount });
+    }
+
+    // Smart Lead Selection:
+    // 1. Explicit targetContactId if provided
+    // 2. Otherwise sort:
+    //    - Priority 1: Has linked user (Boolean(c.linkedUserId))
+    //    - Priority 2: Highest total resource count (debts + transactions)
+    //    - Priority 3: Earliest createdAt
+    let targetContact: DebtContactEntity;
+    if (input.targetContactId) {
+      const found = contacts.find((c) => c.id === input.targetContactId);
+      if (!found) {
+        throw new Error('Không tìm thấy người liên quan chính đã chọn.');
+      }
+      targetContact = found;
+    } else {
+      const sorted = [...contacts].sort((a, b) => {
+        const aHasUser = a.linkedUserId ? 1 : 0;
+        const bHasUser = b.linkedUserId ? 1 : 0;
+        if (aHasUser !== bHasUser) return bHasUser - aHasUser;
+
+        const aTotal = resourceCountMap.get(a.id)?.total ?? 0;
+        const bTotal = resourceCountMap.get(b.id)?.total ?? 0;
+        if (aTotal !== bTotal) return bTotal - aTotal;
+
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      });
+      targetContact = sorted[0];
+    }
+
+    const sourceContacts = contacts.filter((c) => c.id !== targetContact.id);
+    const sourceIds = sourceContacts.map((c) => c.id);
 
     if (input.displayName?.trim()) {
       targetContact.displayName = input.displayName.trim();
@@ -1023,12 +1284,41 @@ export class FinanceService {
       targetContact.descriptor = input.descriptor.trim() || undefined;
     }
 
+    // Preserve or inherit linked user
+    if (input.linkedUserId !== undefined) {
+      targetContact.linkedUserId = input.linkedUserId || undefined;
+    } else if (!targetContact.linkedUserId) {
+      const sourceWithUser = sourceContacts.find((c) => Boolean(c.linkedUserId));
+      if (sourceWithUser) {
+        targetContact.linkedUserId = sourceWithUser.linkedUserId;
+      }
+    }
+
+    // Inherit missing fields from sources if targetContact lacks them
+    if (!targetContact.phoneNumber) {
+      const sPhone = sourceContacts.find((c) => Boolean(c.phoneNumber?.trim()));
+      if (sPhone) targetContact.phoneNumber = sPhone.phoneNumber;
+    }
+    if (!targetContact.bankAccountNumber) {
+      const sBank = sourceContacts.find((c) => Boolean(c.bankAccountNumber?.trim()));
+      if (sBank) {
+        targetContact.bankAccountNumber = sBank.bankAccountNumber;
+        targetContact.bankCode = sBank.bankCode;
+        targetContact.bankName = sBank.bankName;
+      }
+    }
+    if (!targetContact.avatarUrl) {
+      const sAvatar = sourceContacts.find((c) => Boolean(c.avatarUrl?.trim()));
+      if (sAvatar) targetContact.avatarUrl = sAvatar.avatarUrl;
+    }
+
     await this.contactRepo.save(targetContact);
 
+    // Reassign debts
     let affectedDebtsCount = 0;
-    for (const source of sourceContacts) {
+    if (sourceIds.length > 0) {
       const debts = await this.debtRepo.find({
-        where: { contactId: source.id, userId: uid },
+        where: { contactId: In(sourceIds), userId: uid },
       });
       if (debts.length > 0) {
         for (const debt of debts) {
@@ -1037,21 +1327,37 @@ export class FinanceService {
           debt.counterpartyAlias = targetContact.alias;
         }
         await this.debtRepo.save(debts);
-        affectedDebtsCount += debts.length;
+        affectedDebtsCount = debts.length;
       }
     }
 
+    // Reassign transactions
+    let affectedTransactionsCount = 0;
+    if (sourceIds.length > 0) {
+      const transactions = await this.transactionRepo.find({
+        where: { contactId: In(sourceIds), userId: uid },
+      });
+      if (transactions.length > 0) {
+        for (const tx of transactions) {
+          tx.contactId = targetContact.id;
+        }
+        await this.transactionRepo.save(transactions);
+        affectedTransactionsCount = transactions.length;
+      }
+    }
+
+    // Delete source contacts
     if (sourceContacts.length > 0) {
       await this.contactRepo.remove(sourceContacts);
     }
 
+    // Consolidate debts if requested
     if (input.consolidateDebts) {
       const allContactDebts = await this.debtRepo.find({
         where: { contactId: targetContact.id, userId: uid, parentDebtId: IsNull() },
       });
       for (const dir of ['receivable', 'payable'] as const) {
         const dirDebts = allContactDebts.filter((d) => d.direction === dir);
-        // Group by currency to avoid mismatched currency merging
         const byCurrency = new Map<string, DebtEntity[]>();
         for (const d of dirDebts) {
           const curr = (d.currency || 'VND').toUpperCase();
@@ -1076,6 +1382,7 @@ export class FinanceService {
     return {
       targetContact,
       affectedDebtsCount,
+      affectedTransactionsCount,
       mergedCount: sourceContacts.length,
     };
   }

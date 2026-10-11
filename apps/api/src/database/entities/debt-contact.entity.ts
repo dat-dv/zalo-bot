@@ -3,9 +3,12 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { UserEntity } from './user.entity';
 
 @Entity('debt_contacts')
 export class DebtContactEntity {
@@ -47,6 +50,14 @@ export class DebtContactEntity {
 
   @Column({ name: 'avatar_url', type: 'varchar', nullable: true })
   avatarUrl?: string;
+
+  @Index()
+  @Column({ name: 'linked_user_id', type: 'varchar', nullable: true })
+  linkedUserId?: string;
+
+  @ManyToOne(() => UserEntity, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'linked_user_id' })
+  linkedUser?: UserEntity;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

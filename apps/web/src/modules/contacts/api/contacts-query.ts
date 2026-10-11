@@ -35,6 +35,8 @@ export function useCombineContactsMutation() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: contactsQueryKeys.list() });
       void queryClient.invalidateQueries({ queryKey: ['debts'] });
+      void queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      void queryClient.invalidateQueries({ queryKey: ['expenses'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });

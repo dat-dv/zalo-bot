@@ -1,6 +1,8 @@
 import {
   API_ROUTES,
   type IApiResponse,
+  type ICombinePlacesRequest,
+  type ICombinePlacesResponse,
   type ICreatePlaceRequest,
   type IFinancePlace,
   type IUpdatePlaceRequest,
@@ -43,4 +45,16 @@ export async function deletePlace(id: string, signal?: AbortSignal): Promise<boo
     { signal },
   );
   return response.data.data.deleted;
+}
+
+export async function combinePlaces(
+  data: ICombinePlacesRequest,
+  signal?: AbortSignal,
+): Promise<ICombinePlacesResponse> {
+  const response = await httpClient.post<IApiResponse<ICombinePlacesResponse>>(
+    API_ROUTES.placesCombine,
+    data,
+    { signal },
+  );
+  return response.data.data;
 }

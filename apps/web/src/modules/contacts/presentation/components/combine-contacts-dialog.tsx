@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useId } from 'react';
+import { useState, useEffect, useId, useMemo } from 'react';
 import type { IContactListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useCombineContactsMutation } from '../../api/contacts-query';
+import { useUsersQuery } from '@/modules/users/api/users-query';
 
 interface CombineContactsDialogProps {
   isOpen: boolean;
@@ -20,26 +21,45 @@ export function CombineContactsDialog({
 }: CombineContactsDialogProps) {
   const { t } = useLocale();
   const combineMutation = useCombineContactsMutation();
+  const usersQuery = useUsersQuery({ enabled: isOpen });
 
   const titleId = useId();
   const descId = useId();
 
-  const [targetId, setTargetId] = useState<string>('');
+  const [leadContactId, setLeadContactId] = useState<string>('');
   const [displayName, setDisplayName] = useState<string>('');
   const [alias, setAlias] = useState<string>('');
   const [descriptor, setDescriptor] = useState<string>('');
+  const [linkedUserId, setLinkedUserId] = useState<string>('');
   const [consolidateDebts, setConsolidateDebts] = useState<boolean>(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Smart candidate sorting:
+  // Priority 1: Has linked user account
+  // Priority 2: Highest total related resources (debts + transactions)
+  // Priority 3: Earliest createdAt
+  const sortedCandidates = useMemo(() => {
+    return [...selectedContacts].sort((a, b) => {
+      const aHasUser = a.linkedUserId || a.linkedUser ? 1 : 0;
+      const bHasUser = b.linkedUserId || b.linkedUser ? 1 : 0;
+      if (aHasUser !== bHasUser) return bHasUser - aHasUser;
+
+      const aTotal = (Number(a.debtCount) || 0) + (Number(a.transactionCount) || 0);
+      const bTotal = (Number(b.debtCount) || 0) + (Number(b.transactionCount) || 0);
+      if (aTotal !== bTotal) return bTotal - aTotal;
+
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+  }, [selectedContacts]);
+
   // Initialize or reset form whenever dialog opens or selected contacts change
   useEffect(() => {
-    if (!isOpen || selectedContacts.length === 0) return;
+    if (!isOpen || sortedCandidates.length === 0) return;
 
-    const first = selectedContacts[0];
-    const initialTargetId = first.id;
-    setTargetId(initialTargetId);
-    setDisplayName(first.displayName);
-    setAlias(first.alias || '');
+    const lead = sortedCandidates[0];
+    setLeadContactId(lead.id);
+    setDisplayName(lead.displayName);
+    setAlias(lead.alias || '');
 
     // Combine descriptors from all selected contacts if available
     const combinedDescriptors = Array.from(
@@ -48,20 +68,26 @@ export function CombineContactsDialog({
       ),
     ).join(' | ');
 
-    setDescriptor(combinedDescriptors || first.descriptor || '');
+    setDescriptor(combinedDescriptors || lead.descriptor || '');
+
+    // Default linked user: lead's linked user, or first candidate that has a linked user
+    const defaultUser =
+      lead.linkedUserId || selectedContacts.find((c) => c.linkedUserId)?.linkedUserId || '';
+    setLinkedUserId(defaultUser);
+
     setConsolidateDebts(true);
     setErrorMessage(null);
-  }, [isOpen, selectedContacts]);
+  }, [isOpen, sortedCandidates, selectedContacts]);
 
-  // When user switches target contact in dropdown
-  const handleTargetChange = (newTargetId: string) => {
-    setTargetId(newTargetId);
-    const target = selectedContacts.find((c) => c.id === newTargetId);
-    if (target) {
-      setDisplayName(target.displayName);
-      if (target.alias && !alias) {
-        setAlias(target.alias);
-      }
+  // When user clicks another contact to make it the lead
+  const handleSelectLead = (contact: IContactListItem) => {
+    setLeadContactId(contact.id);
+    setDisplayName(contact.displayName);
+    if (contact.alias) {
+      setAlias(contact.alias);
+    }
+    if (contact.linkedUserId) {
+      setLinkedUserId(contact.linkedUserId);
     }
   };
 
@@ -78,6 +104,12 @@ export function CombineContactsDialog({
 
   if (!isOpen || selectedContacts.length < 2) return null;
 
+  const totalDebts = selectedContacts.reduce((sum, c) => sum + (Number(c.debtCount) || 0), 0);
+  const totalTransactions = selectedContacts.reduce(
+    (sum, c) => sum + (Number(c.transactionCount) || 0),
+    0,
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedName = displayName.trim();
@@ -86,16 +118,18 @@ export function CombineContactsDialog({
       return;
     }
 
-    const sourceContactIds = selectedContacts.map((c) => c.id).filter((id) => id !== targetId);
+    const sourceContactIds = selectedContacts.map((c) => c.id).filter((id) => id !== leadContactId);
 
     try {
       setErrorMessage(null);
       await combineMutation.mutateAsync({
-        targetContactId: targetId,
+        targetContactId: leadContactId,
         sourceContactIds,
+        contactIds: selectedContacts.map((c) => c.id),
         displayName: trimmedName,
         alias: alias.trim() || undefined,
         descriptor: descriptor.trim() || undefined,
+        linkedUserId: linkedUserId || undefined,
         consolidateDebts,
       });
       onSuccess(selectedContacts.length);
@@ -111,7 +145,7 @@ export function CombineContactsDialog({
       role="presentation"
     >
       <div
-        className="w-full max-w-[460px] rounded-md border border-slate-300 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+        className="w-full max-w-[520px] rounded-md border border-slate-300 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -141,7 +175,7 @@ export function CombineContactsDialog({
         </header>
 
         <form onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-3.5 px-5 py-4">
+          <div className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto px-5 py-4">
             {errorMessage && (
               <div
                 className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300"
@@ -151,30 +185,109 @@ export function CombineContactsDialog({
               </div>
             )}
 
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="combine-target-select"
-                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
-              >
-                {t('contacts.combineModal.targetLabel')}
-              </label>
-              <select
-                id="combine-target-select"
-                className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
-                value={targetId}
-                onChange={(e) => handleTargetChange(e.target.value)}
-                disabled={combineMutation.isPending}
-              >
-                {selectedContacts.map((contact) => (
-                  <option key={contact.id} value={contact.id}>
-                    {contact.displayName}
-                    {contact.alias ? ` (${contact.alias})` : ''}
-                    {contact.descriptor ? ` · ${contact.descriptor}` : ''}
-                  </option>
-                ))}
-              </select>
+            {/* Top section: Candidate contacts collection */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  {t('contacts.combineModal.contactsList')} ({selectedContacts.length})
+                </span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {t('contacts.combineModal.leadHint')}
+                </span>
+              </div>
+
+              <div className="flex max-h-48 flex-col gap-1.5 overflow-y-auto rounded border border-slate-200 bg-slate-50/50 p-2 dark:border-slate-800 dark:bg-slate-950/40">
+                {sortedCandidates.map((contact, index) => {
+                  const isLead = contact.id === leadContactId;
+                  const isTop = index === 0;
+                  const hasUser = Boolean(contact.linkedUser || contact.linkedUserId);
+
+                  return (
+                    <div
+                      key={contact.id}
+                      onClick={() => handleSelectLead(contact)}
+                      className={`flex cursor-pointer items-center justify-between rounded border p-2 text-xs transition-colors ${
+                        isLead
+                          ? 'border-sky-500 bg-sky-50/80 shadow-xs dark:border-sky-500/80 dark:bg-sky-950/40'
+                          : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="radio"
+                          id={`lead-contact-${contact.id}`}
+                          name="leadContact"
+                          className="size-3.5 accent-sky-600 dark:accent-sky-500"
+                          checked={isLead}
+                          onChange={() => handleSelectLead(contact)}
+                          aria-label={`Chọn ${contact.displayName} làm người liên quan chính`}
+                        />
+                        <div className="flex flex-col">
+                          <span
+                            className={`font-medium ${
+                              isLead
+                                ? 'font-semibold text-sky-900 dark:text-sky-200'
+                                : 'text-slate-800 dark:text-slate-200'
+                            }`}
+                          >
+                            {contact.displayName}
+                            {contact.alias ? (
+                              <span className="ml-1 text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                                ({contact.alias})
+                              </span>
+                            ) : null}
+                          </span>
+                          {contact.descriptor ? (
+                            <span className="line-clamp-1 text-[11px] text-slate-500 dark:text-slate-400">
+                              {contact.descriptor}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                        {hasUser ? (
+                          <span className="inline-flex items-center rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-medium text-sky-800 dark:bg-sky-950/80 dark:text-sky-300">
+                            👤{' '}
+                            {contact.linkedUser?.username ||
+                              contact.linkedUser?.firstName ||
+                              'User'}
+                          </span>
+                        ) : null}
+
+                        {(contact.debtCount ?? 0) > 0 ? (
+                          <span className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[10.5px] font-medium text-amber-800 dark:bg-amber-950/80 dark:text-amber-300">
+                            {t('contacts.combineModal.debtsBadge', {
+                              count: contact.debtCount ?? 0,
+                            })}
+                          </span>
+                        ) : null}
+
+                        {(contact.transactionCount ?? 0) > 0 ? (
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10.5px] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                            {t('contacts.combineModal.transactionsBadge', {
+                              count: contact.transactionCount ?? 0,
+                            })}
+                          </span>
+                        ) : null}
+
+                        {isLead ? (
+                          <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300">
+                            ★ {t('contacts.combineModal.leadBadge')}
+                          </span>
+                        ) : isTop ? (
+                          <span className="rounded bg-slate-200 px-1 py-0.5 text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                            Lead gợi ý
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
+            {/* Bottom section: Editable details */}
             <div className="flex flex-col gap-1.5">
               <label
                 htmlFor="combine-name-input"
@@ -230,6 +343,33 @@ export function CombineContactsDialog({
               />
             </div>
 
+            {/* Linked User Select */}
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="combine-user-select"
+                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+              >
+                {t('contacts.combineModal.linkedUserLabel')}
+              </label>
+              <select
+                id="combine-user-select"
+                className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
+                value={linkedUserId}
+                onChange={(e) => setLinkedUserId(e.target.value)}
+                disabled={combineMutation.isPending || usersQuery.isLoading}
+              >
+                <option value="">-- {t('common.notSet')} --</option>
+                {usersQuery.data?.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.firstName
+                      ? `${user.firstName} (@${user.username || user.id})`
+                      : user.username || user.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Consolidate debts checkbox */}
             <div className="flex items-center gap-2 pt-1">
               <input
                 id="combine-consolidate-debts"
@@ -247,6 +387,15 @@ export function CombineContactsDialog({
               </label>
             </div>
 
+            {/* Resources summary hint */}
+            <div className="rounded bg-slate-50 px-3 py-2 text-[11px] text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
+              {t('contacts.combineModal.resourcesHint', {
+                debts: totalDebts,
+                transactions: totalTransactions,
+              })}
+            </div>
+
+            {/* Warning callout */}
             <div className="flex items-start gap-2 rounded border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
               <span className="shrink-0" aria-hidden="true">
                 ⚠️

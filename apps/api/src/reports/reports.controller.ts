@@ -212,7 +212,24 @@ export class ReportsController {
         displayName: contact.displayName,
         alias: contact.alias,
         descriptor: contact.descriptor,
+        phoneNumber: contact.phoneNumber,
+        bankAccountNumber: contact.bankAccountNumber,
+        bankCode: contact.bankCode,
+        bankName: contact.bankName,
+        avatarUrl: contact.avatarUrl,
+        linkedUserId: contact.linkedUserId,
+        linkedUser: contact.linkedUser
+          ? {
+              id: contact.linkedUser.id,
+              username: contact.linkedUser.username,
+              firstName: contact.linkedUser.firstName,
+              avatarUrl: contact.linkedUser.avatarUrl,
+            }
+          : undefined,
+        debtCount: contact.debtCount ?? 0,
+        transactionCount: contact.transactionCount ?? 0,
         createdAt: toIsoDate(contact.createdAt),
+        updatedAt: toOptionalIsoDate(contact.updatedAt),
       })),
     };
   }

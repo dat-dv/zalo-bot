@@ -5,6 +5,7 @@ export const API_ROUTES = {
   dashboardLogout: '/api/logout',
   categories: '/api/categories',
   places: '/api/places',
+  placesCombine: '/api/places/combine',
   contacts: '/api/contacts',
   contactsCombine: '/api/contacts/combine',
   debts: '/api/debts',
@@ -245,14 +246,25 @@ const messages = {
     'contacts.actions.save': 'Lưu',
     'contacts.actions.cancel': 'Hủy',
     'contacts.actions.combine': 'Gộp liên hệ ({count})',
-    'contacts.combineModal.title': 'Gộp liên hệ / Địa chỉ quán',
-    'contacts.combineModal.desc': 'Chọn liên hệ chính và điều chỉnh thông tin gộp.',
-    'contacts.combineModal.targetLabel': 'Liên hệ chính (giữ lại)',
+    'contacts.combineModal.title': 'Gộp người liên quan',
+    'contacts.combineModal.desc':
+      'Tập hợp các người liên quan trùng lặp và chuyển toàn bộ công nợ & giao dịch sang người liên quan chính.',
+    'contacts.combineModal.contactsList': 'Tập hợp người liên quan cần gộp',
+    'contacts.combineModal.targetLabel': 'Người liên quan chính (Lead)',
+    'contacts.combineModal.leadBadge': 'Người liên quan chính (Lead)',
+    'contacts.combineModal.linkedUserBadge': 'Tài khoản User',
+    'contacts.combineModal.debtsBadge': '{count} nợ',
+    'contacts.combineModal.transactionsBadge': '{count} giao dịch',
+    'contacts.combineModal.leadHint':
+      'Mặc định ưu tiên người đã liên kết với tài khoản User hoặc có nhiều công nợ/giao dịch nhất làm Lead.',
+    'contacts.combineModal.resourcesHint':
+      'Toàn bộ {debts} khoản nợ và {txs} giao dịch liên quan sẽ được chuyển sang người liên quan chính.',
     'contacts.combineModal.mergedName': 'Tên sau khi gộp',
     'contacts.combineModal.mergedAlias': 'Tên gọi / Biệt danh sau khi gộp',
     'contacts.combineModal.mergedDescriptor': 'Địa chỉ quán / Ghi chú sau khi gộp',
+    'contacts.combineModal.linkedUserLabel': 'Liên kết với tài khoản User',
     'contacts.combineModal.warning':
-      'Toàn bộ khoản nợ liên quan sẽ được chuyển sang liên hệ chính. Hành động này không thể hoàn tác.',
+      'Toàn bộ công nợ và giao dịch liên quan sẽ được chuyển sang người liên quan chính. Các liên hệ phụ sẽ bị xóa vĩnh viễn.',
     'contacts.combineModal.confirm': 'Xác nhận gộp',
     'contacts.inlineEdit.saved': 'Đã lưu thay đổi',
     'contacts.combine.success': 'Đã gộp thành công {count} liên hệ',
@@ -265,6 +277,8 @@ const messages = {
     'contacts.columns.phone': 'Số điện thoại',
     'contacts.columns.bankAccount': 'Tài khoản ngân hàng',
     'contacts.columns.bankName': 'Ngân hàng',
+    'contacts.columns.linkedUser': 'Tài khoản User',
+    'contacts.columns.resources': 'Dữ liệu liên quan',
     'places.title': 'Nơi chốn & Địa điểm',
     'places.subtitle': 'Danh sách cửa hàng, quán ăn, bệnh viện và địa điểm thu chi của bạn',
     'places.actions.create': 'Thêm nơi chốn',
@@ -280,6 +294,24 @@ const messages = {
       'Bạn có chắc chắn muốn xóa nơi chốn này không? Các giao dịch cũ vẫn sẽ được giữ nguyên.',
     'places.delete.success': 'Đã xóa nơi chốn thành công',
     'places.noData': 'Chưa có nơi chốn nào',
+    'places.columns.transactionCount': 'Số giao dịch',
+    'places.actions.combine': 'Gộp nơi chốn ({count})',
+    'places.selectAll': 'Chọn tất cả',
+    'places.deselectAll': 'Bỏ chọn',
+    'places.selectedCount': 'Đã chọn {count}',
+    'places.combineModal.title': 'Gộp nơi chốn / Cửa hàng',
+    'places.combineModal.desc':
+      'Tập hợp các địa điểm trùng lặp và chuyển toàn bộ giao dịch sang một địa điểm chính.',
+    'places.combineModal.placesList': 'Tập hợp các nơi chốn cần gộp',
+    'places.combineModal.leadBadge': 'Nơi chốn chính (Lead)',
+    'places.combineModal.leadHint':
+      'Mặc định chọn nơi chốn có nhiều giao dịch nhất làm lead. Bạn có thể chọn địa điểm khác nếu muốn.',
+    'places.combineModal.newNameLabel': 'Tên nơi chốn mới sau khi gộp',
+    'places.combineModal.transactionsBadge': '{count} giao dịch',
+    'places.combineModal.warning':
+      'Toàn bộ giao dịch liên quan đến các nơi chốn cũ sẽ được chuyển sang nơi chốn chính. Các nơi chốn phụ sẽ bị xóa vĩnh viễn.',
+    'places.combineModal.confirm': 'Xác nhận gộp',
+    'places.combine.success': 'Đã gộp thành công {count} nơi chốn',
     'debts.columns.status': 'Trạng thái',
     'debts.columns.settledAt': 'Ngày tất toán',
     'debts.columns.currency': 'Tiền tệ',
@@ -839,14 +871,25 @@ const messages = {
     'contacts.actions.save': 'Save',
     'contacts.actions.cancel': 'Cancel',
     'contacts.actions.combine': 'Combine ({count})',
-    'contacts.combineModal.title': 'Combine Contacts / Places',
-    'contacts.combineModal.desc': 'Select primary contact and adjust merged details.',
-    'contacts.combineModal.targetLabel': 'Primary contact (keep)',
+    'contacts.combineModal.title': 'Combine Contacts / People',
+    'contacts.combineModal.desc':
+      'Merge duplicate contacts and reassign all debts & transactions to the lead contact.',
+    'contacts.combineModal.contactsList': 'Contacts to combine',
+    'contacts.combineModal.targetLabel': 'Lead contact',
+    'contacts.combineModal.leadBadge': 'Lead contact',
+    'contacts.combineModal.linkedUserBadge': 'User Account',
+    'contacts.combineModal.debtsBadge': '{count} debts',
+    'contacts.combineModal.transactionsBadge': '{count} txs',
+    'contacts.combineModal.leadHint':
+      'Automatically prioritizes contacts linked to user accounts or with the most debts/transactions as Lead.',
+    'contacts.combineModal.resourcesHint':
+      'All {debts} debts and {txs} transactions will be reassigned to the lead contact.',
     'contacts.combineModal.mergedName': 'Merged display name',
     'contacts.combineModal.mergedAlias': 'Merged alias',
     'contacts.combineModal.mergedDescriptor': 'Merged address / note',
+    'contacts.combineModal.linkedUserLabel': 'Link with User Account',
     'contacts.combineModal.warning':
-      'All related debts will be migrated to the primary contact. This action cannot be undone.',
+      'All linked debts and transactions will be reassigned to the lead contact. Secondary contacts will be permanently deleted.',
     'contacts.combineModal.confirm': 'Confirm Combine',
     'contacts.inlineEdit.saved': 'Changes saved',
     'contacts.combine.success': 'Successfully combined {count} contacts',
@@ -859,6 +902,8 @@ const messages = {
     'contacts.columns.phone': 'Phone number',
     'contacts.columns.bankAccount': 'Bank account',
     'contacts.columns.bankName': 'Bank name',
+    'contacts.columns.linkedUser': 'Linked User',
+    'contacts.columns.resources': 'Related Data',
     'places.title': 'Places & Locations',
     'places.subtitle': 'Stores, restaurants, hospitals and locations used in your transactions',
     'places.actions.create': 'Add place',
@@ -874,6 +919,24 @@ const messages = {
       'Are you sure you want to delete this place? Historical transactions will be preserved.',
     'places.delete.success': 'Place deleted successfully',
     'places.noData': 'No places found',
+    'places.columns.transactionCount': 'Transactions',
+    'places.actions.combine': 'Combine ({count})',
+    'places.selectAll': 'Select all',
+    'places.deselectAll': 'Deselect all',
+    'places.selectedCount': '{count} selected',
+    'places.combineModal.title': 'Combine Places / Stores',
+    'places.combineModal.desc':
+      'Merge duplicate places and reassign all transactions to a single lead place.',
+    'places.combineModal.placesList': 'Places to combine',
+    'places.combineModal.leadBadge': 'Lead place',
+    'places.combineModal.leadHint':
+      'Defaults to the place with the highest transaction count. You can select another place if preferred.',
+    'places.combineModal.newNameLabel': 'New place name after merge',
+    'places.combineModal.transactionsBadge': '{count} transactions',
+    'places.combineModal.warning':
+      'All transactions linked to former places will be reassigned to the lead place. Secondary places will be permanently deleted.',
+    'places.combineModal.confirm': 'Confirm Combine',
+    'places.combine.success': 'Successfully combined {count} places',
     'debts.columns.status': 'Status',
     'debts.columns.settledAt': 'Settled date',
     'debts.columns.currency': 'Currency',
@@ -1301,6 +1364,15 @@ export interface IContactListItem {
   bankCode?: string;
   bankName?: string;
   avatarUrl?: string;
+  linkedUserId?: string;
+  linkedUser?: {
+    id: string;
+    username?: string;
+    firstName?: string;
+    avatarUrl?: string;
+  };
+  debtCount?: number;
+  transactionCount?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -1667,20 +1739,24 @@ export interface IUpdateContactRequest {
   bankCode?: string;
   bankName?: string;
   avatarUrl?: string;
+  linkedUserId?: string | null;
 }
 
 export interface ICombineContactsRequest {
-  targetContactId: string;
-  sourceContactIds: string[];
+  targetContactId?: string;
+  sourceContactIds?: string[];
+  contactIds?: string[];
   displayName?: string;
   alias?: string;
   descriptor?: string;
+  linkedUserId?: string | null;
   consolidateDebts?: boolean;
 }
 
 export interface ICombineContactsResponse {
   targetContact: IContactListItem;
   affectedDebtsCount: number;
+  affectedTransactionsCount: number;
   mergedCount: number;
 }
 
@@ -1712,6 +1788,7 @@ export interface ICategoryItem {
 export interface IFinancePlace {
   id: string;
   name: string;
+  transactionCount?: number;
   createdAt: string;
   updatedAt?: string;
 }
@@ -1722,6 +1799,18 @@ export interface ICreatePlaceRequest {
 
 export interface IUpdatePlaceRequest {
   name: string;
+}
+
+export interface ICombinePlacesRequest {
+  placeIds: string[];
+  targetPlaceId?: string;
+  name?: string;
+}
+
+export interface ICombinePlacesResponse {
+  leadPlace: IFinancePlace;
+  mergedPlacesCount: number;
+  affectedTransactionsCount: number;
 }
 
 export interface ICreateCategoryRequest {

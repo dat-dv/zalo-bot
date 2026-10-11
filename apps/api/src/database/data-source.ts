@@ -22,6 +22,7 @@ import { FixPostgresUuidTypes1724690000000 } from './migrations/1724690000000-Fi
 import { FixPostgresPlaceAndContactUuidTypes1724700000000 } from './migrations/1724700000000-FixPostgresPlaceAndContactUuidTypes';
 import { DropInvitesTable1724710000000 } from './migrations/1724710000000-DropInvitesTable';
 import { AddGrantAccessToUsers1724720000000 } from './migrations/1724720000000-AddGrantAccessToUsers';
+import { AddLinkedUserIdToDebtContacts1724730000000 } from './migrations/1724730000000-AddLinkedUserIdToDebtContacts';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -60,6 +61,7 @@ export const AppDataSource = new DataSource({
     FixPostgresPlaceAndContactUuidTypes1724700000000,
     DropInvitesTable1724710000000,
     AddGrantAccessToUsers1724720000000,
+    AddLinkedUserIdToDebtContacts1724730000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,
