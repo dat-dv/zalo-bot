@@ -28,6 +28,8 @@
     "zalo:webhook:set": "npm run zalo:webhook:set --workspace @zalobot/api",
     "zalo:webhook:test": "npm run zalo:webhook:test --workspace @zalobot/api",
     "zalo:webhook:delete": "npm run zalo:webhook:delete --workspace @zalobot/api",
+    "migration:run": "npm run migration:run --workspace @zalobot/api",
+    "migration:revert": "npm run migration:revert --workspace @zalobot/api",
     "tunnel": "bash scripts/tunnel.sh",
     "tunnel:bg": "bash scripts/tunnel.sh bg",
     "tunnel:stop": "bash scripts/tunnel.sh stop",
