@@ -1,5 +1,4 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserEntity } from '../database/entities/user.entity';
@@ -18,7 +17,6 @@ export class UsersService implements OnModuleInit {
   private lastRequestTimes: Map<string, number> = new Map();
 
   constructor(
-    private readonly configService: ConfigService,
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
   ) {}

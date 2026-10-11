@@ -91,20 +91,8 @@ export class GoogleAuthService implements OnModuleInit {
   }
 
   public getOAuth2Client(userId?: string | number): OAuth2Client | null {
-    // If no userId passed, resolve to Admin's userId
-    let targetUserId = userId !== undefined ? String(userId) : undefined;
-    if (!targetUserId) {
-      targetUserId = this.configService.get<string>('zalo.adminId');
-    }
-
-    if (!targetUserId) {
-      const allowedIds = this.configService.get<string[]>('zalo.allowedUserIds');
-      if (allowedIds && allowedIds.length > 0) targetUserId = allowedIds[0];
-    }
-
-    if (!targetUserId) return null;
-
-    const strId = targetUserId.toString();
+    if (userId === undefined) return null;
+    const strId = String(userId);
     return this.userClients.get(strId) || null;
   }
 

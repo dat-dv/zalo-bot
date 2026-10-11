@@ -1,5 +1,4 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { ZaloService } from './zalo.service';
 import { TextInputService } from './text/text-input.service';
 import { TextToolType } from './text/text-tool.enum';
@@ -16,7 +15,6 @@ export class InputProcessor {
     private readonly zaloService: ZaloService,
     private readonly textInputService: TextInputService,
     @Optional() private readonly usersService?: UsersService,
-    @Optional() private readonly configService?: ConfigService,
   ) {}
 
   public async process(input: AgentInput): Promise<void> {
@@ -35,20 +33,8 @@ export class InputProcessor {
       return this.processEvent(input);
     }
 
-    // 1. Whitelist Check
-    if (this.usersService && this.configService) {
-      const allowedIds = this.configService.get<string[]>('zalo.allowedUserIds') || [];
-      if (allowedIds.length > 0 && !this.usersService.isAllowed(input.senderId)) {
-        this.logger.warn(`Unauthorized Zalo user message attempt from ${input.senderId}`);
-        const targetChatId = input.chatId || input.senderId;
-        await this.zaloService.sendMessage(
-          targetChatId,
-          `⛔ Xin lỗi, tài khoản Zalo của bạn (${input.displayName || 'bạn'}) chưa được cấp quyền sử dụng trợ lý này.\n\nVui lòng liên hệ Quản trị viên (Admin) để được cấp quyền sử dụng nhé!`,
-        );
-        return;
-      }
-
-      // 2. Rate-limiting / Cooldown Check
+    // 1. Rate-limiting / Cooldown Check + Auto Upsert User
+    if (this.usersService) {
       const cooldown = this.usersService.checkCooldown(input.senderId);
       if (!cooldown.allowed) {
         const targetChatId = input.chatId || input.senderId;
@@ -59,7 +45,7 @@ export class InputProcessor {
         return;
       }
 
-      // 3. Auto Upsert User
+      // Auto Upsert User
       await this.usersService.upsertUser(input.senderId, 'user', {
         firstName: input.displayName,
       });
