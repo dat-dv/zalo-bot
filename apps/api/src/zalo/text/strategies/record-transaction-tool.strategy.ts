@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
-import { FinanceService } from '../../../finance/finance.service';
+import { TransactionConfirmationService } from '../../transaction-confirmation.service';
+import { parseAmount } from '../../../llm/utils/tool-arguments.util';
 
 @Injectable()
 export class RecordTransactionToolStrategy implements TextToolStrategy {
@@ -11,17 +12,51 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
 
   constructor(
     private readonly zaloService: ZaloService,
-    private readonly financeService: FinanceService,
+    private readonly confirmationService: TransactionConfirmationService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
     const args = context.toolArgs || {};
-    const type = args.type === 'income' ? 'income' : 'expense';
-    const amount = Math.abs(Number(args.amount) || 0);
+
+    const rawType =
+      typeof args.type === 'object' && args.type !== null
+        ? ((args.type as Record<string, unknown>).type ??
+          (args.type as Record<string, unknown>).value)
+        : args.type;
+    const type = rawType === 'income' ? 'income' : 'expense';
+
+    const amount = parseAmount(args.amount);
+
+    const rawCategory =
+      typeof args.category === 'object' && args.category !== null
+        ? ((args.category as Record<string, unknown>).category ??
+          (args.category as Record<string, unknown>).name ??
+          (args.category as Record<string, unknown>).value)
+        : args.category;
     const category =
-      typeof args.category === 'string' && args.category.trim() ? args.category.trim() : 'Khác';
+      typeof rawCategory === 'string' && rawCategory.trim() ? rawCategory.trim() : 'Khác';
+
+    const rawNote =
+      typeof args.note === 'object' && args.note !== null
+        ? ((args.note as Record<string, unknown>).note ??
+          (args.note as Record<string, unknown>).title ??
+          (args.note as Record<string, unknown>).value)
+        : args.note;
     const note =
-      typeof args.note === 'string' && args.note.trim() ? args.note.trim() : 'Giao dịch qua Zalo';
+      typeof rawNote === 'string' && rawNote.trim() ? rawNote.trim() : 'Giao dịch qua Zalo';
+
+    const rawOccurredAt =
+      typeof args.occurredAt === 'object' && args.occurredAt !== null
+        ? ((args.occurredAt as Record<string, unknown>).occurredAt ??
+          (args.occurredAt as Record<string, unknown>).value)
+        : args.occurredAt;
+    let occurredAtStr: string | undefined;
+    if (typeof rawOccurredAt === 'string' && rawOccurredAt.trim()) {
+      const parsedDate = new Date(rawOccurredAt.trim());
+      if (!Number.isNaN(parsedDate.getTime())) {
+        occurredAtStr = parsedDate.toISOString();
+      }
+    }
 
     if (amount <= 0) {
       await this.zaloService.sendMessage(
@@ -32,29 +67,23 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
     }
 
     try {
-      const tx = await this.financeService.createTransaction({
+      await this.confirmationService.createPending({
         userId: context.senderId,
-        type,
-        amount,
-        category,
-        note,
+        chatId: context.chatId,
+        payload: {
+          userId: context.senderId,
+          type,
+          amount,
+          category,
+          note,
+          occurredAt: occurredAtStr,
+        },
       });
-
-      const typeLabel = type === 'income' ? '🟢 Khoản thu' : '🔴 Khoản chi';
-      const txAmount = Number(tx.amount || amount).toLocaleString('vi-VN');
-
-      const reply =
-        `✅ Đã lưu ${typeLabel.toLowerCase()} thành công!\n\n` +
-        `• Số tiền: ${txAmount} đ\n` +
-        `• Danh mục: ${tx.category}\n` +
-        `• Ghi chú: ${tx.note}`;
-
-      await this.zaloService.sendMessage(context.chatId, reply);
     } catch (err) {
-      this.logger.error(`Failed to record transaction: ${(err as Error).message}`);
+      this.logger.error(`Failed to create pending transaction: ${(err as Error).message}`);
       await this.zaloService.sendMessage(
         context.chatId,
-        '⚠️ Có lỗi xảy ra khi lưu giao dịch thu chi.',
+        '⚠️ Có lỗi xảy ra khi tạo yêu cầu xác nhận giao dịch.',
       );
     }
   }

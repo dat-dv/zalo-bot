@@ -5,6 +5,7 @@ import { TextToolType } from './text-tool.enum';
 import { ZALO_TOOL_DEFINITIONS } from './text-tool.definitions';
 import { LlmService } from '../../llm/llm.service';
 import { ZaloService } from '../zalo.service';
+import { TransactionConfirmationService } from '../transaction-confirmation.service';
 
 @Injectable()
 export class TextInputService {
@@ -14,6 +15,7 @@ export class TextInputService {
     private readonly toolFactory: TextToolFactory,
     private readonly llmService: LlmService,
     private readonly zaloService: ZaloService,
+    private readonly confirmationService: TransactionConfirmationService,
   ) {}
 
   public async process(input: AgentInput, toolTypeOverride?: TextToolType): Promise<void> {
@@ -32,6 +34,16 @@ export class TextInputService {
         displayName,
         text,
       });
+      return;
+    }
+
+    // 2. Pending Transaction Confirmation fast-path ("yes 123", "cancel 123", etc.)
+    const handledConfirmation = await this.confirmationService.handleCommand(
+      senderId,
+      chatId,
+      text,
+    );
+    if (handledConfirmation) {
       return;
     }
 
@@ -55,8 +67,8 @@ export class TextInputService {
       `Bạn là trợ lý cá nhân thông minh trên Zalo. Thời gian hiện tại là: ${now}.\n` +
       'Nhiệm vụ của bạn:\n' +
       '- Phân tích yêu cầu của người dùng để gọi công cụ (tool call) phù hợp nhất.\n' +
-      '- Về công nợ ("nợ a 100k", "cho Nam vay 200k"): gọi MANAGE_DEBT, xác định chính xác direction (receivable: người ta nợ mình, payable: mình nợ người ta), counterparty và amount.\n' +
-      '- Về thu chi ("ăn trưa 45k", "tiền lương 15tr"): gọi RECORD_TRANSACTION, xác định type (income, expense), category và amount.\n' +
+      '- Về công nợ ("nợ a 100k", "cho Nam vay 200k", "mai trả nợ"): gọi MANAGE_DEBT, xác định chính xác direction (receivable: người ta nợ mình, payable: mình nợ người ta), counterparty, amount, occurredAt (nếu có) và dueAt (nếu có).\n' +
+      '- Về thu chi ("ăn trưa 45k", "tiền lương 15tr", "tối qua cà phê 15k"): gọi RECORD_TRANSACTION, xác định type (income, expense), category, amount và occurredAt (nếu có đề cập thời gian trong quá khứ/tương lai, tính chuẩn ISO theo giờ hiện tại).\n' +
       '- Về nhắc nhở ("mai 9h họp", "15 phút nữa nhắc tắt bếp"): gọi SET_REMINDER, tính toán thời điểm ISO chính xác dựa trên giờ hiện tại.\n' +
       '- Về báo cáo chi tiêu ("hôm nay tiêu bao nhiêu", "báo cáo tài chính"): gọi GET_REPORT.\n' +
       '- Về lịch hẹn Google Calendar ("mai 14h họp dự án", "hẹn cà phê thứ 6 lúc 19h"): gọi CREATE_CALENDAR_EVENT, tính toán startDateTime và endDateTime theo chuẩn ISO 8601.\n' +
@@ -67,28 +79,28 @@ export class TextInputService {
       '- Về hoàn thành việc ("đã xong việc nộp báo cáo"): gọi COMPLETE_TASK.\n' +
       '- Về kết nối Google ("kết nối google", "đăng nhập google"): gọi LOGIN_GOOGLE.\n' +
       '- Về tạo mã mời (Admin): gọi CREATE_INVITE_LINK.\n' +
-      '- Nếu người dùng chỉ chào hỏi hoặc trò chuyện, hãy trả lời tự nhiên, ngắn gọn, thân thiện bằng tiếng Việt.';
+      '- Nếu người dùng chỉ chào hỏi hoặc trò chuyện, hãy trả lời tự nhiên, ngắn gọn, thân thiện bằng tiếng Việt.\n\n' +
+      'QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n' +
+      '- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object (ví dụ đúng: {"amount": 15000, "category": "Ăn uống", "type": "expense", "note": "uống cà phê"}, KHÔNG ĐƯỢC: {"amount": {"amount": 15000}}).';
 
     try {
       const response = await this.zaloService.withChatAction(chatId, () =>
-        this.llmService.generate(
-          text,
-          ZALO_TOOL_DEFINITIONS,
-          systemInstruction,
-        ),
+        this.llmService.generate(text, ZALO_TOOL_DEFINITIONS, systemInstruction),
       );
 
-      if (response.toolCall) {
+      const toolCall = response.toolCall;
+
+      if (toolCall) {
         this.logger.log(
-          `LLM resolved tool "${response.toolCall.name}" with args: ${JSON.stringify(response.toolCall.args)}`,
+          `LLM resolved tool "${toolCall.name}" with args: ${JSON.stringify(toolCall.args)}`,
         );
 
         let strategy;
         try {
-          strategy = this.toolFactory.getStrategy(response.toolCall.name as TextToolType);
+          strategy = this.toolFactory.getStrategy(toolCall.name as TextToolType);
         } catch {
           this.logger.warn(
-            `Strategy for tool "${response.toolCall.name}" not found. Falling back to CONVERSATION.`,
+            `Strategy for tool "${toolCall.name}" not found. Falling back to CONVERSATION.`,
           );
           strategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
         }
@@ -99,7 +111,7 @@ export class TextInputService {
           senderId,
           displayName,
           text,
-          toolArgs: response.toolCall.args,
+          toolArgs: toolCall.args,
         });
         return;
       }

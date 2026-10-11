@@ -20,6 +20,7 @@ import { GetReportToolStrategy } from './text/strategies/get-report-tool.strateg
 import { FinanceService } from '../finance/finance.service';
 import { RemindersService } from '../reminders/reminders.service';
 import { LlmService } from '../llm/llm.service';
+import { TransactionConfirmationService } from './transaction-confirmation.service';
 
 interface MockSetup {
   processor: InputProcessor;
@@ -106,9 +107,13 @@ function createMockSetup(overrides?: {
   const resetStrategy = new ResetToolStrategy(mockZaloService);
   const conversationStrategy = new ConversationToolStrategy(mockZaloService);
   const manageDebtStrategy = new ManageDebtToolStrategy(mockZaloService, mockFinanceService);
-  const recordTransactionStrategy = new RecordTransactionToolStrategy(
+  const confirmationService = new TransactionConfirmationService(
     mockZaloService,
     mockFinanceService,
+  );
+  const recordTransactionStrategy = new RecordTransactionToolStrategy(
+    mockZaloService,
+    confirmationService,
   );
   const setReminderStrategy = new SetReminderToolStrategy(mockZaloService, mockRemindersService);
   const getReportStrategy = new GetReportToolStrategy(mockZaloService, mockFinanceService);
@@ -126,7 +131,12 @@ function createMockSetup(overrides?: {
     getReportStrategy,
   );
 
-  const textInputService = new TextInputService(factory, mockLlmService, mockZaloService);
+  const textInputService = new TextInputService(
+    factory,
+    mockLlmService,
+    mockZaloService,
+    confirmationService,
+  );
   const processor = new InputProcessor(
     mockZaloService,
     textInputService,

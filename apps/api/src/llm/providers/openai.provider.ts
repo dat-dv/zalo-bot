@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ILlmProvider, LlmResponse, LlmToolDefinition } from '../types/llm.types';
+import { cleanToolArguments, normalizeSchemaTypes } from '../utils/tool-arguments.util';
 
 @Injectable()
 export class OpenAiProvider implements ILlmProvider {
@@ -42,7 +43,7 @@ export class OpenAiProvider implements ILlmProvider {
         function: {
           name: t.name,
           description: t.description,
-          parameters: t.parameters,
+          parameters: normalizeSchemaTypes(t.parameters),
         },
       }));
     }
@@ -91,7 +92,7 @@ export class OpenAiProvider implements ILlmProvider {
         return {
           toolCall: {
             name: toolCall.function?.name || '',
-            args: parsedArgs,
+            args: cleanToolArguments(parsedArgs),
           },
         };
       }

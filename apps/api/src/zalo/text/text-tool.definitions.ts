@@ -28,6 +28,17 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           type: 'STRING',
           description: 'Ghi chú thêm về lý do nợ nếu có',
         },
+        occurredAt: {
+          type: 'STRING',
+          description:
+            'Thời điểm phát sinh nợ dạng ISO 8601 (ví dụ: 2026-10-11T20:00:00+07:00). ' +
+            'Nếu người dùng nêu rõ ngày giờ trong quá khứ/tương lai (hôm qua, tối 11/10...), hãy tính toán chính xác dựa trên giờ hiện tại.',
+        },
+        dueAt: {
+          type: 'STRING',
+          description:
+            'Thời điểm hẹn trả nợ dạng ISO 8601 nếu người dùng có đề cập (ví dụ: mai trả, cuối tuần trả).',
+        },
       },
       required: ['direction', 'counterparty', 'amount'],
     },
@@ -36,7 +47,7 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
     name: TextToolType.RECORD_TRANSACTION,
     description:
       'Ghi nhận giao dịch thu chi tiền hàng ngày. ' +
-      'Ví dụ: "ăn trưa 45k", "mua xăng 50k", "tiền lương 15tr", "được thưởng 500k".',
+      'Ví dụ: "ăn trưa 45k", "mua xăng 50k", "tiền lương 15tr", "được thưởng 500k", "tối qua cà phê 15k".',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -55,7 +66,14 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
         },
         note: {
           type: 'STRING',
-          description: 'Chi tiết khoản tiền (ví dụ: ăn trưa, đổ xăng)',
+          description: 'Chi tiết khoản tiền (ví dụ: ăn trưa, đổ xăng, uống cà phê)',
+        },
+        occurredAt: {
+          type: 'STRING',
+          description:
+            'Thời điểm phát sinh giao dịch dạng ISO 8601 (ví dụ: 2026-10-11T20:00:00+07:00). ' +
+            'Nếu người dùng nêu rõ ngày giờ (hôm qua, tối qua, ngày 11/10...), hãy tính toán chính xác dựa trên giờ hiện tại. ' +
+            'Nếu không nêu thời gian, hãy bỏ qua.',
         },
       },
       required: ['type', 'amount'],

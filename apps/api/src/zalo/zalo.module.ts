@@ -5,6 +5,7 @@ import { InputProcessor } from './input-processor.service';
 import { ZaloMessageParser } from './zalo-message-parser.service';
 import { TextInputService } from './text/text-input.service';
 import { TextToolFactory } from './text/text-tool.factory';
+import { TransactionConfirmationService } from './transaction-confirmation.service';
 
 // Fast-path / Command Strategies
 import { StartToolStrategy } from './text/strategies/start-tool.strategy';
@@ -68,6 +69,7 @@ import { AuditModule } from '../audit/audit.module';
     ZaloMessageParser,
     InputProcessor,
     TextInputService,
+    TransactionConfirmationService,
     TextToolFactory,
     StartToolStrategy,
     HelpToolStrategy,
@@ -101,6 +103,13 @@ import { AuditModule } from '../audit/audit.module';
     LoginGoogleToolStrategy,
     CreateInviteLinkToolStrategy,
   ],
-  exports: [ZaloService, ZaloMessageParser, InputProcessor, TextInputService, TextToolFactory],
+  exports: [
+    ZaloService,
+    ZaloMessageParser,
+    InputProcessor,
+    TextInputService,
+    TransactionConfirmationService,
+    TextToolFactory,
+  ],
 })
 export class ZaloModule {}

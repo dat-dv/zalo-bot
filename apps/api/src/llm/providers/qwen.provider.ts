@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ILlmProvider, LlmResponse, LlmToolDefinition } from '../types/llm.types';
+import { cleanToolArguments, normalizeSchemaTypes } from '../utils/tool-arguments.util';
 
 @Injectable()
 export class QwenProvider implements ILlmProvider {
@@ -54,7 +55,7 @@ export class QwenProvider implements ILlmProvider {
         function: {
           name: t.name,
           description: t.description,
-          parameters: t.parameters,
+          parameters: normalizeSchemaTypes(t.parameters),
         },
       }));
     }
@@ -128,7 +129,7 @@ export class QwenProvider implements ILlmProvider {
         return {
           toolCall: {
             name: toolCall.function?.name || '',
-            args: parsedArgs,
+            args: cleanToolArguments(parsedArgs),
           },
         };
       }
@@ -149,7 +150,7 @@ export class QwenProvider implements ILlmProvider {
               return {
                 toolCall: {
                   name: parsed.name,
-                  args: parsed.arguments || parsed.args || {},
+                  args: cleanToolArguments(parsed.arguments || parsed.args || {}),
                 },
               };
             }

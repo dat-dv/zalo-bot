@@ -15,7 +15,7 @@ export class GeminiProvider implements ILlmProvider {
     systemInstruction?: string,
   ): Promise<LlmResponse> {
     const apiKey = this.configService.get<string>('llm.gemini.apiKey') || '';
-    const model = this.configService.get<string>('llm.gemini.model') || 'gemini-2.5-flash';
+    const model = this.configService.get<string>('llm.gemini.model') || 'gemini-3.5-flash-lite';
 
     if (!apiKey) {
       this.logger.warn('Gemini API key is missing. Skipping LLM call.');

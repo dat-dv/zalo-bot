@@ -91,7 +91,6 @@ export class ReportsController {
     res.redirect(`${webOrigin}/#dashboard_token=${encodeURIComponent(access.token)}`);
   }
 
-
   private renderAccessError(res: Response): void {
     res.status(401).type('html').send(`<!doctype html>
 <html lang="vi">

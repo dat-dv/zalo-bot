@@ -18,4 +18,3 @@ export class ConversationToolStrategy implements TextToolStrategy {
     await this.zaloService.sendMessage(context.chatId, messageText);
   }
 }
-

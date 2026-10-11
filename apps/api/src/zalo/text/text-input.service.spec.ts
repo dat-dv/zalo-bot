@@ -20,6 +20,7 @@ import { FinanceService } from '../../finance/finance.service';
 import { RemindersService } from '../../reminders/reminders.service';
 import { LlmService } from '../../llm/llm.service';
 import { LlmResponse } from '../../llm/types/llm.types';
+import { TransactionConfirmationService } from '../transaction-confirmation.service';
 
 interface SetupOptions {
   allowedUserIds?: string[];
@@ -58,20 +59,35 @@ function createTextInputService(options?: SetupOptions) {
   } as unknown as ConfigService;
 
   const mockFinanceService = {
-    createDebt: (dto: { counterparty: string; amount: number; direction: string }) =>
+    createDebt: (dto: {
+      counterparty: string;
+      amount: number;
+      direction: string;
+      occurredAt?: string;
+      dueAt?: string;
+    }) =>
       Promise.resolve({
         id: 'debt_1',
         counterparty: dto.counterparty,
         amount: dto.amount,
         direction: dto.direction,
+        occurredAt: dto.occurredAt ? new Date(dto.occurredAt) : undefined,
+        dueAt: dto.dueAt ? new Date(dto.dueAt) : undefined,
       } as never),
-    createTransaction: (dto: { type: string; amount: number; category: string; note: string }) =>
+    createTransaction: (dto: {
+      type: string;
+      amount: number;
+      category: string;
+      note: string;
+      occurredAt?: string;
+    }) =>
       Promise.resolve({
         id: 'tx_1',
         type: dto.type,
         amount: dto.amount,
         category: dto.category,
         note: dto.note,
+        occurredAt: dto.occurredAt ? new Date(dto.occurredAt) : undefined,
       } as never),
     getSummary: () =>
       Promise.resolve({
@@ -109,9 +125,13 @@ function createTextInputService(options?: SetupOptions) {
   const resetStrategy = new ResetToolStrategy(mockZaloService);
   const conversationStrategy = new ConversationToolStrategy(mockZaloService);
   const manageDebtStrategy = new ManageDebtToolStrategy(mockZaloService, mockFinanceService);
-  const recordTransactionStrategy = new RecordTransactionToolStrategy(
-    mockZaloService,
+  const confirmationService = new TransactionConfirmationService(
+    mockZaloService as any,
     mockFinanceService,
+  );
+  const recordTransactionStrategy = new RecordTransactionToolStrategy(
+    mockZaloService as any,
+    confirmationService,
   );
   const setReminderStrategy = new SetReminderToolStrategy(mockZaloService, mockRemindersService);
   const getReportStrategy = new GetReportToolStrategy(mockZaloService, mockFinanceService);
@@ -129,9 +149,20 @@ function createTextInputService(options?: SetupOptions) {
     getReportStrategy,
   );
 
-  const service = new TextInputService(factory, mockLlmService, mockZaloService);
+  const service = new TextInputService(
+    factory,
+    mockLlmService,
+    mockZaloService as any,
+    confirmationService,
+  );
 
-  return { service, sentMessages, factory, getLlmCallCount: () => llmCallCount };
+  return {
+    service,
+    sentMessages,
+    factory,
+    confirmationService,
+    getLlmCallCount: () => llmCallCount,
+  };
 }
 
 void test('TextInputService routes commands to tool strategies without calling LLM', async () => {
@@ -237,4 +268,63 @@ void test('TextInputService replies with conversational text when LLM does not c
 
   assert.equal(sentMessages.length, 1);
   assert.equal(sentMessages[0].text, 'Chào bạn! Hôm nay tôi có thể giúp gì?');
+});
+
+void test('TextInputService handles nested toolCall arguments and parses RECORD_TRANSACTION successfully', async () => {
+  const { service, sentMessages } = createTextInputService({
+    llmResponse: {
+      toolCall: {
+        name: TextToolType.RECORD_TRANSACTION,
+        args: {
+          amount: { amount: 15000 },
+          category: { category: 'Ăn uống' },
+          note: { note: 'uống cà phê' },
+          type: { type: 'expense' },
+          occurredAt: '2026-10-11T20:00:00+07:00',
+        },
+      },
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'tối 11/10 tức hôm qua uống cà phê hết 15k',
+  });
+
+  assert.equal(sentMessages.length, 1);
+  assert.match(sentMessages[0].text, /khoản chi/);
+  assert.match(sentMessages[0].text, /15\.000 đ/);
+  assert.match(sentMessages[0].text, /Ăn uống/);
+  assert.match(sentMessages[0].text, /uống cà phê/);
+  assert.match(sentMessages[0].text, /11\/10\/2026/);
+});
+
+void test('TextInputService handles string amounts like 15k in RECORD_TRANSACTION', async () => {
+  const { service, sentMessages } = createTextInputService({
+    llmResponse: {
+      toolCall: {
+        name: TextToolType.RECORD_TRANSACTION,
+        args: {
+          amount: '15k',
+          category: 'Cà phê',
+          note: 'cà phê',
+          type: 'expense',
+        },
+      },
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'uống cà phê 15k',
+  });
+
+  assert.equal(sentMessages.length, 1);
+  assert.match(sentMessages[0].text, /15\.000 đ/);
 });

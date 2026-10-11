@@ -127,7 +127,7 @@ export default (): AppConfig => {
       provider: readEnv('LLM_PROVIDER', 'gemini'),
       gemini: {
         apiKey: readEnv('GEMINI_API_KEY'),
-        model: readEnv('GEMINI_MODEL', 'gemini-2.5-flash'),
+        model: readEnv('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
       },
       openai: {
         apiKey: readOptionalEnv('OPENAI_API_KEY') || '',
