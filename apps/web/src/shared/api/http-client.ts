@@ -55,6 +55,7 @@ httpClient.interceptors.response.use(undefined, async (error: unknown) => {
     (InternalAxiosRequestConfig & { _dashboardRetried?: boolean }) | undefined;
   if (!request || request._dashboardRetried || request.url === API_ROUTES.dashboardRefresh)
     return Promise.reject(error);
+  if (!getAccessToken()) return Promise.reject(error);
   request._dashboardRetried = true;
   try {
     const activeBase = resolveApiBaseUrl();
