@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
-import { RemindersService } from '../../../reminders/reminders.service';
+import { TransactionConfirmationService } from '../../transaction-confirmation.service';
 
 @Injectable()
 export class SetReminderToolStrategy implements TextToolStrategy {
@@ -11,7 +11,7 @@ export class SetReminderToolStrategy implements TextToolStrategy {
 
   constructor(
     private readonly zaloService: ZaloService,
-    private readonly remindersService: RemindersService,
+    private readonly confirmationService: TransactionConfirmationService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
@@ -25,25 +25,21 @@ export class SetReminderToolStrategy implements TextToolStrategy {
     const remindAt = remindAtStr ? new Date(remindAtStr) : new Date(Date.now() + 60 * 60 * 1000);
 
     try {
-      const reminder = await this.remindersService.createReminder({
+      await this.confirmationService.createPendingReminder({
         userId: context.senderId,
-        title,
-        remindAt: isNaN(remindAt.getTime()) ? new Date(Date.now() + 3600000) : remindAt,
+        chatId: context.chatId,
+        payload: {
+          userId: context.senderId,
+          title,
+          remindAt: Number.isNaN(remindAt.getTime()) ? new Date(Date.now() + 3600000) : remindAt,
+        },
       });
-
-      const formattedTime = reminder.remindAt.toLocaleString('vi-VN', {
-        timeZone: 'Asia/Ho_Chi_Minh',
-      });
-
-      const reply =
-        `⏰ Đã đặt lịch nhắc thành công!\n\n` +
-        `• Nội dung: ${reminder.title}\n` +
-        `• Thời gian: ${formattedTime}`;
-
-      await this.zaloService.sendMessage(context.chatId, reply);
     } catch (err) {
-      this.logger.error(`Failed to create reminder: ${(err as Error).message}`);
-      await this.zaloService.sendMessage(context.chatId, '⚠️ Có lỗi xảy ra khi tạo lịch nhắc.');
+      this.logger.error(`Failed to create pending reminder: ${(err as Error).message}`);
+      await this.zaloService.sendMessage(
+        context.chatId,
+        '⚠️ Có lỗi xảy ra khi tạo yêu cầu xác nhận lịch nhắc.',
+      );
     }
   }
 }

@@ -32,6 +32,7 @@ import { ListTasksToolStrategy } from './strategies/list-tasks-tool.strategy';
 import { CompleteTaskToolStrategy } from './strategies/complete-task-tool.strategy';
 import { LoginGoogleToolStrategy } from './strategies/login-google-tool.strategy';
 import { CreateInviteLinkToolStrategy } from './strategies/create-invite-link-tool.strategy';
+import { DeleteTransactionToolStrategy } from './strategies/delete-transaction-tool.strategy';
 
 @Injectable()
 export class TextToolFactory {
@@ -69,6 +70,7 @@ export class TextToolFactory {
     completeTaskStrategy?: CompleteTaskToolStrategy,
     loginGoogleStrategy?: LoginGoogleToolStrategy,
     createInviteLinkStrategy?: CreateInviteLinkToolStrategy,
+    deleteTransactionStrategy?: DeleteTransactionToolStrategy,
   ) {
     if (startStrategy) this.strategyMap.set(TextToolType.START, startStrategy);
     if (helpStrategy) this.strategyMap.set(TextToolType.HELP, helpStrategy);
@@ -79,6 +81,8 @@ export class TextToolFactory {
     if (manageDebtStrategy) this.strategyMap.set(TextToolType.MANAGE_DEBT, manageDebtStrategy);
     if (recordTransactionStrategy)
       this.strategyMap.set(TextToolType.RECORD_TRANSACTION, recordTransactionStrategy);
+    if (deleteTransactionStrategy)
+      this.strategyMap.set(TextToolType.DELETE_TRANSACTION, deleteTransactionStrategy);
     if (setReminderStrategy) this.strategyMap.set(TextToolType.SET_REMINDER, setReminderStrategy);
     if (getReportStrategy) this.strategyMap.set(TextToolType.GET_REPORT, getReportStrategy);
     if (loginStrategy) this.strategyMap.set(TextToolType.LOGIN, loginStrategy);
@@ -108,6 +112,8 @@ export class TextToolFactory {
     if (loginGoogleStrategy) this.strategyMap.set(TextToolType.LOGIN_GOOGLE, loginGoogleStrategy);
     if (createInviteLinkStrategy)
       this.strategyMap.set(TextToolType.CREATE_INVITE_LINK, createInviteLinkStrategy);
+    if (deleteTransactionStrategy)
+      this.strategyMap.set(TextToolType.DELETE_TRANSACTION, deleteTransactionStrategy);
   }
 
   public resolveFastPathToolType(text: string): TextToolType | null {

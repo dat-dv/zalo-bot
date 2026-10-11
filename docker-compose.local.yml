@@ -30,14 +30,6 @@ services:
       timeout: 5s
       retries: 5
 
-  ollama:
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    ports:
-      - '${OLLAMA_PORT:-11434}:11434'
-    volumes:
-      - zalobot-ollama:/root/.ollama
-
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
@@ -57,4 +49,3 @@ services:
 volumes:
   zalobot-postgres:
   zalobot-redis:
-  zalobot-ollama:

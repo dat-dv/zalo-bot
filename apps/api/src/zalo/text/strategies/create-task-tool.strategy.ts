@@ -4,6 +4,7 @@ import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { GoogleTasksService } from '../../../google/google-tasks.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
+import { TransactionConfirmationService } from '../../transaction-confirmation.service';
 
 @Injectable()
 export class CreateTaskToolStrategy implements TextToolStrategy {
@@ -14,6 +15,7 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
     private readonly zaloService: ZaloService,
     private readonly tasksService: GoogleTasksService,
     private readonly googleAuthService: GoogleAuthService,
+    private readonly confirmationService: TransactionConfirmationService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
@@ -53,37 +55,30 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
         );
         if (dupes.length > 0 && dupes[0].matches.length > 0) {
           const matchedTitles = dupes[0].matches.map((m) => `"${m.title}"`).join(', ');
-          duplicateWarning = `\n\n⚠️ Lưu ý: Bạn đã có việc tương tự trong danh sách: ${matchedTitles}.`;
+          duplicateWarning = `⚠️ Lưu ý: Bạn đã có việc tương tự trong danh sách: ${matchedTitles}.`;
         }
       } catch {
         // ignore duplicate check errors
       }
 
-      const task = await this.tasksService.createTask(
-        {
+      await this.confirmationService.createPendingTask({
+        userId: context.senderId,
+        chatId: context.chatId,
+        payload: {
           title,
           due: args.due,
           notes: args.notes,
         },
-        context.senderId,
-      );
+      });
 
-      const dueText = args.due
-        ? `\n• Hạn chót: ${new Date(args.due).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`
-        : '';
-      const notesText = args.notes ? `\n• Ghi chú: ${args.notes}` : '';
-
-      const reply =
-        `✅ ĐÃ THÊM VIỆC CẦN LÀM VÀO GOOGLE TASKS!\n\n` +
-        `• Công việc: ${task.title}${dueText}${notesText}${duplicateWarning}\n\n` +
-        `💡 Gõ /tasks để xem toàn bộ danh sách việc cần làm.`;
-
-      await this.zaloService.sendMessage(context.chatId, reply);
+      if (duplicateWarning) {
+        await this.zaloService.sendMessage(context.chatId, duplicateWarning);
+      }
     } catch (err) {
-      this.logger.error(`Failed to create task: ${(err as Error).message}`);
+      this.logger.error(`Failed to create pending task: ${(err as Error).message}`);
       await this.zaloService.sendMessage(
         context.chatId,
-        `⚠️ Không thể tạo việc cần làm: ${(err as Error).message}`,
+        `⚠️ Không thể tạo yêu cầu việc cần làm: ${(err as Error).message}`,
       );
     }
   }

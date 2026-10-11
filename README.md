@@ -123,7 +123,7 @@ QWEN_MODEL=qwen2.5:14b
 ### Chế độ Development (Hot-Reload):
 
 ```bash
-# 1. Khởi chạy hạ tầng nền (PostgreSQL, Redis, Ollama):
+# 1. Khởi chạy hạ tầng nền (PostgreSQL, Redis):
 npm run docker:local
 
 # 2. Khởi chạy song song Backend API & Frontend Dashboard:

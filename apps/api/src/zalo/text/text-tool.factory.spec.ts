@@ -40,6 +40,7 @@ function createFactory(): TextToolFactory {
     createDummyStrategy(TextToolType.COMPLETE_TASK),
     createDummyStrategy(TextToolType.LOGIN_GOOGLE),
     createDummyStrategy(TextToolType.CREATE_INVITE_LINK),
+    createDummyStrategy(TextToolType.DELETE_TRANSACTION),
   );
 }
 

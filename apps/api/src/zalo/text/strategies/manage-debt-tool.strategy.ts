@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
-import { FinanceService } from '../../../finance/finance.service';
+import { TransactionConfirmationService } from '../../transaction-confirmation.service';
 import { parseAmount } from '../../../llm/utils/tool-arguments.util';
 
 @Injectable()
@@ -12,7 +12,7 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
 
   constructor(
     private readonly zaloService: ZaloService,
-    private readonly financeService: FinanceService,
+    private readonly confirmationService: TransactionConfirmationService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
@@ -81,57 +81,24 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
     }
 
     try {
-      const debt = await this.financeService.createDebt({
+      await this.confirmationService.createPendingDebt({
         userId: context.senderId,
-        direction,
-        counterparty,
-        amount,
-        note,
-        occurredAt: occurredAtStr,
-        dueAt: dueAtStr,
+        chatId: context.chatId,
+        payload: {
+          userId: context.senderId,
+          direction,
+          counterparty,
+          amount,
+          note,
+          occurredAt: occurredAtStr,
+          dueAt: dueAtStr,
+        },
       });
-
-      const directionLabel = direction === 'receivable' ? '👉 Họ nợ bạn' : '👈 Bạn nợ họ';
-
-      const debtAmount = Number(debt.originalAmount || amount).toLocaleString('vi-VN');
-
-      let reply =
-        `✅ Đã ghi nhận khoản nợ thành công!\n\n` +
-        `• Người liên quan: ${debt.counterparty}\n` +
-        `• Phân loại: ${directionLabel}\n` +
-        `• Số tiền: ${debtAmount} đ` +
-        (note ? `\n• Ghi chú: ${note}` : '');
-
-      if (debt.occurredAt) {
-        const dDate = new Date(debt.occurredAt);
-        const formattedDate = dDate.toLocaleString('vi-VN', {
-          timeZone: 'Asia/Ho_Chi_Minh',
-          hour: '2-digit',
-          minute: '2-digit',
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        });
-        reply += `\n• Thời gian: ${formattedDate}`;
-      }
-
-      if (debt.dueAt) {
-        const dDue = new Date(debt.dueAt);
-        const formattedDue = dDue.toLocaleDateString('vi-VN', {
-          timeZone: 'Asia/Ho_Chi_Minh',
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-        });
-        reply += `\n• Hạn trả: ${formattedDue}`;
-      }
-
-      await this.zaloService.sendMessage(context.chatId, reply);
     } catch (err) {
-      this.logger.error(`Failed to record debt: ${(err as Error).message}`);
+      this.logger.error(`Failed to create pending debt: ${(err as Error).message}`);
       await this.zaloService.sendMessage(
         context.chatId,
-        '⚠️ Có lỗi xảy ra khi lưu khoản nợ vào cơ sở dữ liệu.',
+        '⚠️ Có lỗi xảy ra khi tạo yêu cầu xác nhận khoản nợ.',
       );
     }
   }

@@ -72,7 +72,7 @@ apps/api/src/
 │
 ├── llm/                            # TẦNG TRÍ TUỆ NHÂN TẠO (MULTI-PROVIDER)
 │   ├── llm.service.ts              # Router phân phối LLM linh hoạt
-│   └── providers/                  # Qwen (Ollama), Gemini, OpenAI
+│   └── providers/                  # Gemini, OpenAI, Qwen
 │
 ├── finance/                        # TẦNG THU CHI & CÔNG NỢ
 ├── reminders/                      # TẦNG NHẮC VIỆC HẸN GIỜ & CRON SCHEDULER

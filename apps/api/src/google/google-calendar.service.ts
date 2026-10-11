@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { google, calendar_v3 } from 'googleapis';
 import { GoogleAuthService } from './google-auth.service';
@@ -41,7 +41,7 @@ export class GoogleCalendarService {
   private getCalendarClient(userId?: number | string): calendar_v3.Calendar {
     const auth = this.authService.getOAuth2Client(userId);
     if (!auth || !this.authService.isAuthorized(userId)) {
-      throw new Error(
+      throw new BadRequestException(
         'Tài khoản Google Calendar của bạn chưa được kết nối. Vui lòng gõ /login trên bot để liên kết tài khoản Google cá nhân.',
       );
     }

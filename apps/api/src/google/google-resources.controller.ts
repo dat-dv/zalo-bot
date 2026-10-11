@@ -18,6 +18,7 @@ import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import { GoogleCalendarService } from './google-calendar.service';
 import { GoogleTasksService } from './google-tasks.service';
+import { GoogleAuthService } from './google-auth.service';
 
 @ApiTags('Google Workspace (Calendar & Tasks)')
 @ApiBearerAuth('bearer-jwt')
@@ -27,11 +28,16 @@ export class GoogleResourcesController {
     private readonly calendar: GoogleCalendarService,
     private readonly tasks: GoogleTasksService,
     private readonly tokens: ReportsTokenService,
+    private readonly authService: GoogleAuthService,
   ) {}
 
   @Get('calendar/events')
   @ApiOperation({ summary: 'Lấy danh sách sự kiện Google Calendar' })
   async listEvents(@Req() req: Request, @Query() query: Record<string, string | undefined>) {
+    const userId = this.userId(req);
+    if (!this.authService.isAuthorized(userId)) {
+      return { data: [] };
+    }
     const timeMin = query.timeMin ? this.date(query.timeMin, 'timeMin') : undefined;
     const timeMax = query.timeMax ? this.date(query.timeMax, 'timeMax') : undefined;
     if (timeMin && timeMax && new Date(timeMin) >= new Date(timeMax)) {
@@ -44,7 +50,7 @@ export class GoogleResourcesController {
         query: query.query,
         maxResults: query.maxResults ? this.limit(query.maxResults) : 100,
       },
-      this.userId(req),
+      userId,
     );
     return {
       data: items.map((item) => this.mapEventToListItem(item)),
@@ -79,6 +85,10 @@ export class GoogleResourcesController {
 
   @Get('tasks')
   async listTasks(@Req() req: Request, @Query() query: Record<string, string | undefined>) {
+    const userId = this.userId(req);
+    if (!this.authService.isAuthorized(userId)) {
+      return { data: [] };
+    }
     const showCompleted = query.showCompleted === undefined ? true : query.showCompleted === 'true';
     const showHidden = query.showHidden === undefined ? showCompleted : query.showHidden === 'true';
     const items = await this.tasks.listTasks(
@@ -90,7 +100,7 @@ export class GoogleResourcesController {
         dueMax: query.dueMax,
         maxResults: query.maxResults ? this.limit(query.maxResults) : 100,
       },
-      this.userId(req),
+      userId,
     );
     return {
       data: items.map((item) => this.mapTaskToListItem(item)),

@@ -124,16 +124,16 @@ function createTextInputService(options?: SetupOptions) {
   const pingStrategy = new PingToolStrategy(mockZaloService);
   const resetStrategy = new ResetToolStrategy(mockZaloService);
   const conversationStrategy = new ConversationToolStrategy(mockZaloService);
-  const manageDebtStrategy = new ManageDebtToolStrategy(mockZaloService, mockFinanceService);
   const confirmationService = new TransactionConfirmationService(
     mockZaloService,
     mockFinanceService,
   );
+  const manageDebtStrategy = new ManageDebtToolStrategy(mockZaloService, confirmationService);
   const recordTransactionStrategy = new RecordTransactionToolStrategy(
     mockZaloService,
     confirmationService,
   );
-  const setReminderStrategy = new SetReminderToolStrategy(mockZaloService, mockRemindersService);
+  const setReminderStrategy = new SetReminderToolStrategy(mockZaloService, confirmationService);
   const getReportStrategy = new GetReportToolStrategy(mockZaloService, mockFinanceService);
 
   const factory = new TextToolFactory(
@@ -216,10 +216,26 @@ void test('TextInputService routes natural text to LLM and executes MANAGE_DEBT 
   });
 
   assert.equal(getLlmCallCount(), 1);
-  assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0].text, /Đã ghi nhận khoản nợ thành công/);
+  assert.match(sentMessages[0].text, /Xác nhận/);
   assert.match(sentMessages[0].text, /Người liên quan: a/);
   assert.match(sentMessages[0].text, /100\.000 đ/);
+  assert.match(sentMessages[0].text, /yes\s+\d{3}/);
+
+  const match = sentMessages[0].text.match(/yes\s+(\d{3})/);
+  const code = match ? match[1] : '';
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: `yes ${code}`,
+  });
+
+  assert.equal(sentMessages.length, 2);
+  assert.match(sentMessages[1].text, /Đã xác nhận và ghi nhận khoản nợ thành công/);
+  assert.match(sentMessages[1].text, /Người liên quan: a/);
+  assert.match(sentMessages[1].text, /100\.000 đ/);
 });
 
 void test('TextInputService routes natural text to LLM and executes RECORD_TRANSACTION tool', async () => {

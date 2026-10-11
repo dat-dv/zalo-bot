@@ -91,7 +91,7 @@ npm run start:prod
 docker-compose up -d --build
 ```
 
-### Chạy hạ tầng Local cho việc phát triển (PostgreSQL, Redis, Ollama)
+### Chạy hạ tầng Local cho việc phát triển (PostgreSQL, Redis, Nginx Gateway)
 
 Để chạy các dịch vụ hạ tầng nền phục vụ cho việc phát triển local với hot-reload (`npm run dev`):
 
