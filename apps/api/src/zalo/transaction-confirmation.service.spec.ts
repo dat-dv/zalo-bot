@@ -35,10 +35,7 @@ function createTestContext(): TestContext {
     },
   } as unknown as FinanceService;
 
-  const service = new TransactionConfirmationService(
-    mockZaloService,
-    mockFinanceService,
-  );
+  const service = new TransactionConfirmationService(mockZaloService, mockFinanceService);
   service.timeoutMs = 50; // 50ms for tests
 
   return { service, sentMessages, createdTransactions };

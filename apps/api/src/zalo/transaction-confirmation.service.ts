@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ZaloService } from './zalo.service';
 import { FinanceService } from '../finance/finance.service';
 import { RedisService } from '../redis/redis.service';
@@ -29,7 +29,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   constructor(
     private readonly zaloService: ZaloService,
     private readonly financeService: FinanceService,
-    @Optional() private readonly redisService?: RedisService,
+    private readonly redisService?: RedisService,
   ) {}
 
   public onModuleDestroy(): void {
@@ -244,16 +244,17 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     try {
       const tx = await this.financeService.createTransaction(pending.payload);
       const typeLabel = pending.payload.type === 'income' ? '🟢 Khoản thu' : '🔴 Khoản chi';
-      const txAmount = Number(tx.amount || pending.payload.amount).toLocaleString('vi-VN');
+      const txAmount = Number(tx?.amount ?? pending.payload.amount).toLocaleString('vi-VN');
 
       let reply =
         `✅ Đã xác nhận và lưu ${typeLabel.toLowerCase()} thành công!\n\n` +
         `• Số tiền: ${txAmount} đ\n` +
-        `• Danh mục: ${tx.category}\n` +
-        `• Ghi chú: ${tx.note}`;
+        `• Danh mục: ${tx?.category ?? pending.payload.category}\n` +
+        `• Ghi chú: ${tx?.note ?? pending.payload.note}`;
 
-      if (tx.occurredAt) {
-        const txDate = new Date(tx.occurredAt);
+      const occurredAtVal = tx?.occurredAt || pending.payload.occurredAt;
+      if (occurredAtVal) {
+        const txDate = new Date(occurredAtVal);
         const formattedDate = txDate.toLocaleString('vi-VN', {
           timeZone: 'Asia/Ho_Chi_Minh',
           hour: '2-digit',
