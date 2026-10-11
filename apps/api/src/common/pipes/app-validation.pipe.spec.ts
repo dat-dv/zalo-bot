@@ -39,7 +39,7 @@ void test('AppValidationPipe throws BadRequestException with clean messages on i
     },
     (err: unknown) => {
       assert.ok(err instanceof BadRequestException);
-      const res = (err as BadRequestException).getResponse() as {
+      const res = err.getResponse() as {
         message: string[];
       };
       assert.ok(Array.isArray(res.message));

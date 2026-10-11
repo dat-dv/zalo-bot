@@ -1,7 +1,10 @@
 import { NestFactory } from '@nestjs/core';
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import compression from 'compression';
 import { AppModule } from './app.module';
 import { loadEnvironment } from './config/env.validator';
 
@@ -12,6 +15,27 @@ async function bootstrap() {
   // Initialize NestJS Application
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
+
+  // Security & Performance Middlewares
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+    }),
+  );
+  app.use(compression());
+  app.use(cookieParser());
+
+  // Validation DTO toàn cục
+  app.useGlobalPipes(
+    new ValidationPipe({
+      // 1. Tự động loại bỏ các field thừa không được khai báo trong DTO (Chống Mass Assignment Attack)
+      whitelist: true,
+      // 2. Chặn đứng & ném lỗi 400 Bad Request ngay lập tức nếu client gửi field lạ không có trong DTO
+      forbidNonWhitelisted: true,
+      // 3. Tự động ép kiểu dữ liệu payload về đúng kiểu khai báo trong DTO (VD: string '123' -> number 123)
+      transform: true,
+    }),
+  );
 
   app.setGlobalPrefix('api', {
     exclude: ['webhook', 'zalo/webhook', 'api/webhook', 'api/zalo/webhook'],
@@ -60,6 +84,8 @@ async function bootstrap() {
     app.enableCors({ origin: true, credentials: true });
   } else if (corsOrigins.some(Boolean)) {
     app.enableCors({ origin: corsOrigins.filter(Boolean), credentials: true });
+  } else {
+    app.enableCors({ origin: true, credentials: true });
   }
 
   await app.listen(port);

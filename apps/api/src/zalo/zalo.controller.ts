@@ -13,7 +13,7 @@ import { ApiOperation, ApiResponse, ApiTags, ApiHeader, ApiBody } from '@nestjs/
 import { ConfigService } from '@nestjs/config';
 import { InputProcessor } from './input-processor.service';
 import { ZaloMessageParser } from './zalo-message-parser.service';
-import { ZaloWebhookPayloadDto } from './dto/zalo-webhook.dto';
+import { ZaloWebhookPayload, ZaloWebhookPayloadDto } from './dto/zalo-webhook.dto';
 import { BypassTransform } from '../common/decorators/bypass-transform.decorator';
 
 @ApiTags('Zalo Bot Webhook')
@@ -63,7 +63,7 @@ export class ZaloController {
   })
   @ApiResponse({ status: 200, description: 'Đã nhận và xử lý sự kiện webhook' })
   public handleWebhook(
-    @Body() payload: ZaloWebhookPayloadDto,
+    @Body() payload: ZaloWebhookPayload,
     @Headers('x-bot-api-secret-token') secretToken?: string,
   ): { ok: boolean } {
     this.logger.debug(

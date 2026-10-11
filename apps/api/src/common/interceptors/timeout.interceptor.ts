@@ -20,17 +20,15 @@ export class TimeoutInterceptor implements NestInterceptor {
       context.getClass(),
     ]);
 
-    const timeoutLimit = customTimeout && customTimeout > 0 ? customTimeout : DEFAULT_REQUEST_TIMEOUT;
+    const timeoutLimit =
+      customTimeout && customTimeout > 0 ? customTimeout : DEFAULT_REQUEST_TIMEOUT;
 
     return next.handle().pipe(
       timeout(timeoutLimit),
       catchError((err: unknown) => {
         if (err instanceof TimeoutError) {
           return throwError(
-            () =>
-              new RequestTimeoutException(
-                `Request timed out after ${timeoutLimit}ms`,
-              ),
+            () => new RequestTimeoutException(`Request timed out after ${timeoutLimit}ms`),
           );
         }
         return throwError(() => err);

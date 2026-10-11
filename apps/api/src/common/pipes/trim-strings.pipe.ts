@@ -6,7 +6,7 @@ function trimDeep<T>(value: T): T {
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => trimDeep(item)) as unknown as T;
+    return (value as unknown[]).map((item: unknown) => trimDeep(item)) as unknown as T;
   }
 
   if (value !== null && typeof value === 'object' && !(value instanceof Date)) {

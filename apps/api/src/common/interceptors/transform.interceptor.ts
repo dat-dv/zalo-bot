@@ -43,7 +43,7 @@ export class TransformInterceptor<T> implements NestInterceptor<T, IApiResponse<
 
         return {
           data: response,
-        } as IApiResponse<T>;
+        };
       }),
     );
   }
