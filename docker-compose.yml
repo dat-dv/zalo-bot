@@ -36,7 +36,7 @@ services:
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     ports:
-      - '${PORT:-3000}:${PORT:-3000}'
+      - '${BE_PORT:-${PORT:-3005}}:${BE_PORT:-${PORT:-3005}}'
     env_file:
       - path: .env
         required: true
