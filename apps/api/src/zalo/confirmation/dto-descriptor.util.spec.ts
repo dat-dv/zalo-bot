@@ -109,7 +109,7 @@ void test('DELETE_TRANSACTION_DESCRIPTOR displays target transaction ID and deta
   };
 
   const card = renderDtoConfirmationCard(delDto, DELETE_TRANSACTION_DESCRIPTOR);
-  assert.match(card, /• Mã giao dịch \(ID\): uuid-1234-abcd/);
+  assert.match(card, /• Mã giao dịch: uuid-1234-abcd/);
   assert.match(card, /• Phân loại: 🔴 Khoản chi/);
   assert.match(card, /• Số tiền: 30\.000 đ/);
   assert.match(card, /• Danh mục: Ăn sáng/);

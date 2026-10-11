@@ -58,11 +58,8 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   constructor(
     private readonly zaloService: ZaloService,
     private readonly financeService: FinanceService,
-    @Inject(forwardRef(() => RemindersService))
     private readonly remindersService?: RemindersService,
-    @Inject(forwardRef(() => GoogleTasksService))
     private readonly googleTasksService?: GoogleTasksService,
-    @Inject(forwardRef(() => GoogleCalendarService))
     private readonly googleCalendarService?: GoogleCalendarService,
     private readonly redisService?: RedisService,
   ) {}
