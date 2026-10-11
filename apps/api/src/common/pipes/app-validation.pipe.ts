@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Optional,
   ValidationError,
   ValidationPipe,
   ValidationPipeOptions,
@@ -23,7 +24,7 @@ function formatValidationErrors(errors: ValidationError[]): string[] {
 
 @Injectable()
 export class AppValidationPipe extends ValidationPipe {
-  constructor(options?: ValidationPipeOptions) {
+  constructor(@Optional() options?: ValidationPipeOptions) {
     super({
       whitelist: true,
       transform: true,

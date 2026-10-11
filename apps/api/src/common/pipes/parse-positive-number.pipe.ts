@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional, PipeTransform } from '@nestjs/common';
 
 export interface ParsePositiveNumberPipeOptions {
   optional?: boolean;
@@ -8,7 +8,7 @@ export interface ParsePositiveNumberPipeOptions {
 
 @Injectable()
 export class ParsePositiveNumberPipe implements PipeTransform<unknown, number | undefined> {
-  constructor(private readonly options: ParsePositiveNumberPipeOptions = {}) {}
+  constructor(@Optional() private readonly options: ParsePositiveNumberPipeOptions = {}) {}
 
   transform(value: unknown): number | undefined {
     const fieldName = this.options.fieldName || 'Giá trị';

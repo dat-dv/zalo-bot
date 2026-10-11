@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-zalobot}
       POSTGRES_USER: ${POSTGRES_USER:-zalobot}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.local}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env or .env.production}
     volumes:
       - zalobot-postgres:/var/lib/postgresql/data
     healthcheck:
@@ -36,12 +36,14 @@ services:
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
     ports:
-      - '${BE_PORT:-${PORT:-3005}}:${BE_PORT:-${PORT:-3005}}'
+      - '${BE_PORT:-3005}:${BE_PORT:-3005}'
     env_file:
       - path: .env
-        required: true
+        required: false
+      - path: .env.production
+        required: false
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-zalobot}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.local}@postgres:5432/${POSTGRES_DB:-zalobot}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-zalobot}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zalobot}
       DATABASE_SSL: 'false'
       REDIS_URL: redis://redis:6379
       TYPEORM_SYNCHRONIZE: ${TYPEORM_SYNCHRONIZE:-false}
@@ -60,10 +62,12 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://zalobot.datintech.site}
+    environment:
+      - BE_PORT=${BE_PORT:-3005}
     restart: unless-stopped
     ports:
-      - '${WEB_PORT:-3001}:80'
+      - '${NGINX_PORT:-${WEB_PORT:-3009}}:80'
     depends_on:
       - api
 

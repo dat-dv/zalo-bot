@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, PipeTransform } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional, PipeTransform } from '@nestjs/common';
 
 export interface ParseIsoDatePipeOptions {
   optional?: boolean;
@@ -7,7 +7,7 @@ export interface ParseIsoDatePipeOptions {
 
 @Injectable()
 export class ParseIsoDatePipe implements PipeTransform<unknown, Date | undefined> {
-  constructor(private readonly options: ParseIsoDatePipeOptions = {}) {}
+  constructor(@Optional() private readonly options: ParseIsoDatePipeOptions = {}) {}
 
   transform(value: unknown): Date | undefined {
     const fieldName = this.options.fieldName || 'Ngày tháng';

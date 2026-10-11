@@ -19,6 +19,6 @@ RUN npm run build --workspace @zalobot/contracts && npm run build --workspace @z
 # Stage 2: Nginx Web Runner
 FROM nginx:1.27-alpine AS runner
 
-COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY apps/web/nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=builder /app/apps/web/out /usr/share/nginx/html
 EXPOSE 80
