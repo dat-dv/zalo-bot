@@ -686,21 +686,30 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     await this.deletePending(pending.code, pending.userId);
 
     let actionDesc = pending.title || 'thao tác';
+    const payload = pending.payload;
+    const rawType = typeof payload.type === 'string' ? payload.type : undefined;
     if (pending.actionType === 'RECORD_TRANSACTION' || pending.actionType === 'create') {
-      const typeLabel = pending.payload?.type === 'income' ? 'khoản thu' : 'khoản chi';
+      const typeLabel = rawType === 'income' ? 'khoản thu' : 'khoản chi';
       actionDesc = `giao dịch ${typeLabel}`;
     } else if (pending.actionType === 'DELETE_TRANSACTION' || pending.actionType === 'delete') {
-      const typeLabel = pending.payload?.type === 'income' ? 'khoản thu' : 'khoản chi';
+      const typeLabel = rawType === 'income' ? 'khoản thu' : 'khoản chi';
       actionDesc = `yêu cầu xóa ${typeLabel}`;
     } else if (pending.actionType === 'COMPLETE_TASK') {
-      actionDesc = `hoàn thành việc "${pending.payload?.taskTitle || ''}"`;
+      const taskTitle = typeof payload.taskTitle === 'string' ? payload.taskTitle : '';
+      actionDesc = `hoàn thành việc "${taskTitle}"`;
     } else if (pending.actionType === 'DELETE_CALENDAR_EVENT') {
-      actionDesc = `xóa sự kiện "${pending.payload?.summary || ''}"`;
+      const summary = typeof payload.summary === 'string' ? payload.summary : '';
+      actionDesc = `xóa sự kiện "${summary}"`;
     } else if (pending.actionType === 'BAN_USER') {
-      actionDesc = `khóa tài khoản "${pending.payload?.targetUserId || ''}"`;
+      const targetUserId = typeof payload.targetUserId === 'string' ? payload.targetUserId : '';
+      actionDesc = `khóa tài khoản "${targetUserId}"`;
     }
 
-    const note = pending.payload?.note || pending.payload?.title || pending.payload?.summary || '';
+    const note =
+      (typeof payload.note === 'string' && payload.note) ||
+      (typeof payload.title === 'string' && payload.title) ||
+      (typeof payload.summary === 'string' && payload.summary) ||
+      '';
     const noteSuffix = note ? ` "${note}"` : '';
 
     await this.zaloService.sendMessage(
