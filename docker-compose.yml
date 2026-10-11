@@ -56,6 +56,12 @@ services:
         condition: service_healthy
     volumes:
       - zalobot-receipts:/app/data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:$${BE_PORT:-3005}/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   web:
     build:
@@ -69,7 +75,14 @@ services:
     ports:
       - '${NGINX_PORT:-${WEB_PORT:-3009}}:80'
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:80/ > /dev/null || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
 
 volumes:
   zalobot-postgres:
