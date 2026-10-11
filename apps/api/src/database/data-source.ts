@@ -2,7 +2,6 @@ import { DataSource } from 'typeorm';
 import { config as loadDotenv } from 'dotenv';
 import { fromProjectRoot } from '../config/project-root';
 import { UserEntity } from './entities/user.entity';
-import { InviteEntity } from './entities/invite.entity';
 import { UserTokenEntity } from './entities/user-token.entity';
 import { ReminderEntity } from './entities/reminder.entity';
 import { FinanceTransactionEntity } from './entities/finance-transaction.entity';
@@ -37,7 +36,6 @@ export const AppDataSource = new DataSource({
   ssl: databaseSsl ? { rejectUnauthorized: false } : false,
   entities: [
     UserEntity,
-    InviteEntity,
     UserTokenEntity,
     ReminderEntity,
     FinanceTransactionEntity,
