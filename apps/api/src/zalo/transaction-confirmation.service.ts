@@ -3,11 +3,24 @@ import { ZaloService } from './zalo.service';
 import { FinanceService } from '../finance/finance.service';
 import { RedisService } from '../redis/redis.service';
 
+export type PendingActionType = 'create' | 'delete';
+
+export interface PendingDeletePayload {
+  transactionId: string;
+  type: 'income' | 'expense';
+  amount: number;
+  currency?: string;
+  category?: string;
+  note?: string;
+  occurredAt?: string;
+}
+
 export interface PendingTransaction {
+  action?: PendingActionType;
   code: string;
   userId: string;
   chatId: string;
-  payload: {
+  payload?: {
     userId: string;
     type: 'income' | 'expense';
     amount: number;
@@ -18,6 +31,7 @@ export interface PendingTransaction {
     note: string;
     occurredAt?: string;
   };
+  deletePayload?: PendingDeletePayload;
   createdAt: number;
   expiresAt: number;
   timer?: NodeJS.Timeout;
@@ -98,7 +112,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     return code;
   }
 
-  public formatTransactionCard(payload: PendingTransaction['payload']): string {
+  public formatTransactionCard(payload: NonNullable<PendingTransaction['payload']>): string {
     const txAmount = Number(payload.amount).toLocaleString('vi-VN');
     const currency = payload.currency || 'VND';
     const category = payload.category?.trim() || '(trống)';
@@ -135,13 +149,14 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   public async createPending(params: {
     userId: string;
     chatId: string;
-    payload: PendingTransaction['payload'];
+    payload: NonNullable<PendingTransaction['payload']>;
   }): Promise<PendingTransaction> {
     const code = this.generateCode();
     const now = Date.now();
     const expiresAt = now + this.timeoutMs;
 
     const pending: PendingTransaction = {
+      action: 'create',
       code,
       userId: params.userId,
       chatId: params.chatId,
@@ -154,6 +169,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     if (this.redisService) {
       const ttlSeconds = Math.ceil(this.timeoutMs / 1000);
       const serialized = JSON.stringify({
+        action: pending.action,
         code: pending.code,
         userId: pending.userId,
         chatId: pending.chatId,
@@ -185,19 +201,110 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     return pending;
   }
 
+  public async createPendingDelete(params: {
+    userId: string;
+    chatId: string;
+    deletePayload: PendingDeletePayload;
+  }): Promise<PendingTransaction> {
+    const code = this.generateCode();
+    const now = Date.now();
+    const expiresAt = now + this.timeoutMs;
+
+    const pending: PendingTransaction = {
+      action: 'delete',
+      code,
+      userId: params.userId,
+      chatId: params.chatId,
+      deletePayload: params.deletePayload,
+      createdAt: now,
+      expiresAt,
+    };
+
+    // Lưu vào Redis với TTL 60 giây
+    if (this.redisService) {
+      const ttlSeconds = Math.ceil(this.timeoutMs / 1000);
+      const serialized = JSON.stringify({
+        action: pending.action,
+        code: pending.code,
+        userId: pending.userId,
+        chatId: pending.chatId,
+        deletePayload: pending.deletePayload,
+        createdAt: pending.createdAt,
+        expiresAt: pending.expiresAt,
+      });
+      await this.redisService.set(`pending:tx:code:${code}`, serialized, ttlSeconds);
+      await this.redisService.set(`pending:tx:user:${params.userId}`, code, ttlSeconds);
+    }
+
+    // Thiết lập timer thông báo hết hạn sau 1 phút
+    pending.timer = setTimeout(async () => {
+      await this.handleTimeout(code);
+    }, this.timeoutMs);
+
+    this.pendingMap.set(code, pending);
+
+    const typeLabel =
+      pending.deletePayload.type === 'income' ? '🟢 Khoản thu' : '🔴 Khoản chi';
+    const txAmount = Number(pending.deletePayload.amount).toLocaleString('vi-VN');
+    const currency = pending.deletePayload.currency || 'VND';
+
+    let timeFormatted = '(trống)';
+    if (pending.deletePayload.occurredAt) {
+      const txDate = new Date(pending.deletePayload.occurredAt);
+      if (!Number.isNaN(txDate.getTime())) {
+        timeFormatted = txDate.toLocaleString('vi-VN', {
+          timeZone: 'Asia/Ho_Chi_Minh',
+          hour: '2-digit',
+          minute: '2-digit',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+        });
+      }
+    }
+
+    const msg =
+      `⚠️ Xác nhận XÓA ${typeLabel.toLowerCase()} này?\n\n` +
+      `• Số tiền: ${txAmount} ${currency === 'VND' ? 'đ' : currency}\n` +
+      `• Danh mục: ${pending.deletePayload.category || '(trống)'}\n` +
+      `• Ghi chú: ${pending.deletePayload.note || '(trống)'}\n` +
+      `• Thời gian: ${timeFormatted}\n` +
+      `• ID: ${pending.deletePayload.transactionId}\n\n` +
+      `👉 Soạn: yes ${code} (để xác nhận xóa)\n` +
+      `👉 Soạn: cancel ${code} (để hủy bỏ)\n` +
+      `⏱️ Tự động hết hạn sau 1 phút.`;
+
+    await this.zaloService.sendMessage(params.chatId, msg);
+    return pending;
+  }
+
   public async handleTimeout(code: string): Promise<void> {
     const pending = await this.getPendingByCode(code);
     if (!pending) return;
 
     await this.deletePending(code, pending.userId);
 
-    const typeLabel = pending.payload.type === 'income' ? 'khoản thu' : 'khoản chi';
-    const txAmount = Number(pending.payload.amount).toLocaleString('vi-VN');
+    if (pending.action === 'delete' && pending.deletePayload) {
+      const typeLabel =
+        pending.deletePayload.type === 'income' ? 'khoản thu' : 'khoản chi';
+      const txAmount = Number(pending.deletePayload.amount).toLocaleString('vi-VN');
 
-    await this.zaloService.sendMessage(
-      pending.chatId,
-      `⏰ Giao dịch ${typeLabel} "${pending.payload.note}" (${txAmount} đ - mã: ${code}) đã hết hạn 1 phút và chưa được xác nhận.`,
-    );
+      await this.zaloService.sendMessage(
+        pending.chatId,
+        `⏰ Yêu cầu xóa ${typeLabel} "${pending.deletePayload.note || ''}" (${txAmount} đ - mã: ${code}) đã hết hạn 1 phút. Giao dịch vẫn an toàn.`,
+      );
+      return;
+    }
+
+    if (pending.payload) {
+      const typeLabel = pending.payload.type === 'income' ? 'khoản thu' : 'khoản chi';
+      const txAmount = Number(pending.payload.amount).toLocaleString('vi-VN');
+
+      await this.zaloService.sendMessage(
+        pending.chatId,
+        `⏰ Giao dịch ${typeLabel} "${pending.payload.note}" (${txAmount} đ - mã: ${code}) đã hết hạn 1 phút và chưa được xác nhận.`,
+      );
+    }
   }
 
   public async handleCommand(userId: string, chatId: string, text: string): Promise<boolean> {

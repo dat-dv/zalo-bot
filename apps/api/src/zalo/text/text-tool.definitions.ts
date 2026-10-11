@@ -88,6 +88,25 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
     },
   },
   {
+    name: TextToolType.DELETE_TRANSACTION,
+    description:
+      'Xóa một giao dịch thu chi (khoản thu, khoản chi) đã ghi nhận trước đó theo ID hoặc mô tả. ' +
+      'Ví dụ: "Xóa Giao dịch thu–chi (finance_transactions) có ID: 88ca5db0-5e4a-4f10-af57-48fcb57e48b7", "xóa giao dịch id 88ca...", "xóa khoản chi ăn trưa 45k lúc nãy", "hủy giao dịch gần nhất".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        transactionId: {
+          type: 'STRING',
+          description: 'ID (UUID) của giao dịch cần xóa nếu người dùng cung cấp',
+        },
+        query: {
+          type: 'STRING',
+          description: 'Mô tả, ghi chú hoặc từ khóa tìm kiếm giao dịch cần xóa (ví dụ: "ăn trưa", "gần nhất")',
+        },
+      },
+    },
+  },
+  {
     name: TextToolType.SET_REMINDER,
     description:
       'Đặt lịch hẹn hoặc lời nhắc công việc trong tương lai. ' +
