@@ -14,7 +14,9 @@ async function bootstrap() {
 
   // Initialize NestJS Application
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+  });
 
   // Security & Performance Middlewares
   app.use(
