@@ -3,7 +3,7 @@ import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { UsersService } from '../../../users/users.service';
-import { GoogleAuthService } from '../../../google/google-auth.service';
+import { TransactionConfirmationService } from '../../transaction-confirmation.service';
 
 @Injectable()
 export class BanToolStrategy implements TextToolStrategy {
@@ -13,7 +13,7 @@ export class BanToolStrategy implements TextToolStrategy {
   constructor(
     private readonly zaloService: ZaloService,
     private readonly usersService: UsersService,
-    private readonly googleAuthService: GoogleAuthService,
+    private readonly confirmationService: TransactionConfirmationService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
@@ -55,26 +55,25 @@ export class BanToolStrategy implements TextToolStrategy {
     }
 
     try {
-      const banned = await this.usersService.banUser(targetId);
-      if (!banned) {
-        await this.zaloService.sendMessage(
-          context.chatId,
-          `⚠️ Không tìm thấy người dùng ${targetId} để khóa hoặc người dùng là Admin.`,
-        );
-        return;
-      }
+      const user = await this.usersService.getUser(targetId);
+      const targetName = user ? (user.firstName || user.username || undefined) : undefined;
+      const role = user?.role;
 
-      await this.googleAuthService.revokeUserTokens(targetId);
-
-      await this.zaloService.sendMessage(
-        context.chatId,
-        `✅ Đã thu hồi quyền sử dụng và xóa bỏ toàn bộ Token Google của tài khoản ${targetId}.`,
-      );
+      await this.confirmationService.createPendingBanUser({
+        userId: context.senderId,
+        chatId: context.chatId,
+        payload: {
+          targetUserId: targetId,
+          targetName,
+          role,
+          reason: 'Lệnh khóa tài khoản từ Quản trị viên',
+        },
+      });
     } catch (err) {
-      this.logger.error(`Failed to ban user ${targetId}: ${(err as Error).message}`);
+      this.logger.error(`Failed to create pending ban user ${targetId}: ${(err as Error).message}`);
       await this.zaloService.sendMessage(
         context.chatId,
-        '⚠️ Có lỗi xảy ra khi thực hiện lệnh khóa người dùng.',
+        '⚠️ Có lỗi xảy ra khi tạo yêu cầu khóa tài khoản người dùng.',
       );
     }
   }

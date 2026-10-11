@@ -19,7 +19,7 @@ void test('ZaloService initializes and logs webhook configuration onModuleInit',
 
 void test('ZaloService sendMessage returns false when botToken is missing', async () => {
   const mockConfigService = {
-    get: (_key: string) => undefined,
+    get: (_key: string): undefined => undefined,
   };
 
   const service = new ZaloService(mockConfigService as unknown as ConfigService);
@@ -147,8 +147,8 @@ void test('ZaloService withChatAction automatically cleans up interval timer on 
     const service = new ZaloService(mockConfigService as unknown as ConfigService);
 
     // Case 1: successful execution
-    const result = await service.withChatAction('user_999', async () => {
-      return 'done';
+    const result = await service.withChatAction('user_999', () => {
+      return Promise.resolve('done');
     });
     assert.equal(result, 'done');
     assert.ok(chatActionCallCount >= 1);
@@ -156,8 +156,8 @@ void test('ZaloService withChatAction automatically cleans up interval timer on 
     // Case 2: exception inside execution -> finally must clean up
     await assert.rejects(
       async () => {
-        await service.withChatAction('user_999', async () => {
-          throw new Error('Simulation error');
+        await service.withChatAction('user_999', () => {
+          return Promise.reject(new Error('Simulation error'));
         });
       },
       { message: 'Simulation error' },

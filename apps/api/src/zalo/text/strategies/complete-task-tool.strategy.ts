@@ -7,6 +7,7 @@ import {
   arePotentialDuplicateTaskTitles,
 } from '../../../google/google-tasks.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
+import { TransactionConfirmationService } from '../../transaction-confirmation.service';
 
 @Injectable()
 export class CompleteTaskToolStrategy implements TextToolStrategy {
@@ -17,6 +18,7 @@ export class CompleteTaskToolStrategy implements TextToolStrategy {
     private readonly zaloService: ZaloService,
     private readonly tasksService: GoogleTasksService,
     private readonly googleAuthService: GoogleAuthService,
+    private readonly confirmationService: TransactionConfirmationService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
@@ -37,10 +39,23 @@ export class CompleteTaskToolStrategy implements TextToolStrategy {
 
     let targetTaskId = args.taskId;
     let taskName = args.taskTitle || '';
+    let taskNotes: string | undefined;
+    let taskDue: string | undefined;
 
     try {
-      if (!targetTaskId) {
-        // Search by taskTitle in pending tasks
+      const tasks = await this.tasksService.listTasks(
+        { showCompleted: false, maxResults: 50 },
+        context.senderId,
+      );
+
+      if (targetTaskId) {
+        const matchedById = tasks.find((t) => t.id === targetTaskId);
+        if (matchedById) {
+          taskName = matchedById.title || taskName;
+          taskNotes = matchedById.notes || undefined;
+          taskDue = matchedById.due || undefined;
+        }
+      } else {
         const queryTitle = args.taskTitle?.trim();
         if (!queryTitle) {
           await this.zaloService.sendMessage(
@@ -49,11 +64,6 @@ export class CompleteTaskToolStrategy implements TextToolStrategy {
           );
           return;
         }
-
-        const tasks = await this.tasksService.listTasks(
-          { showCompleted: false, maxResults: 50 },
-          context.senderId,
-        );
 
         const matched = tasks.find((t) =>
           arePotentialDuplicateTaskTitles(queryTitle, t.title || ''),
@@ -69,20 +79,25 @@ export class CompleteTaskToolStrategy implements TextToolStrategy {
 
         targetTaskId = matched.id;
         taskName = matched.title || queryTitle;
+        taskNotes = matched.notes || undefined;
+        taskDue = matched.due || undefined;
       }
 
-      await this.tasksService.completeTask(targetTaskId, '@default', context.senderId);
-
-      const titleNote = taskName ? ` "${taskName}"` : '';
-      await this.zaloService.sendMessage(
-        context.chatId,
-        `🎉 ĐÃ HOÀN THÀNH CÔNG VIỆC${titleNote} TRÊN GOOGLE TASKS!`,
-      );
+      await this.confirmationService.createPendingCompleteTask({
+        userId: context.senderId,
+        chatId: context.chatId,
+        payload: {
+          taskId: targetTaskId,
+          taskTitle: taskName,
+          notes: taskNotes,
+          due: taskDue,
+        },
+      });
     } catch (err) {
-      this.logger.error(`Failed to complete task: ${(err as Error).message}`);
+      this.logger.error(`Failed to create pending complete task: ${(err as Error).message}`);
       await this.zaloService.sendMessage(
         context.chatId,
-        `⚠️ Không thể đánh dấu hoàn thành: ${(err as Error).message}`,
+        `⚠️ Không thể tạo yêu cầu hoàn thành việc: ${(err as Error).message}`,
       );
     }
   }

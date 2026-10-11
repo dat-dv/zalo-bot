@@ -6,6 +6,8 @@ import { FinanceService } from '../finance/finance.service';
 import { RemindersService } from '../reminders/reminders.service';
 import { GoogleTasksService } from '../google/google-tasks.service';
 import { GoogleCalendarService } from '../google/google-calendar.service';
+import { UsersService } from '../users/users.service';
+import { GoogleAuthService } from '../google/google-auth.service';
 
 interface TestContext {
   service: TransactionConfirmationService;
@@ -15,7 +17,11 @@ interface TestContext {
   createdDebts: any[];
   createdReminders: any[];
   createdTasks: any[];
+  completedTasks: any[];
   createdEvents: any[];
+  deletedCalendarEvents: any[];
+  bannedUsers: any[];
+  revokedTokens: any[];
 }
 
 function createTestContext(): TestContext {
@@ -25,7 +31,11 @@ function createTestContext(): TestContext {
   const createdDebts: any[] = [];
   const createdReminders: any[] = [];
   const createdTasks: any[] = [];
+  const completedTasks: any[] = [];
   const createdEvents: any[] = [];
+  const deletedCalendarEvents: any[] = [];
+  const bannedUsers: any[] = [];
+  const revokedTokens: any[] = [];
 
   const mockZaloService = {
     sendMessage: (chatId: string | number, text: string) => {
@@ -81,6 +91,10 @@ function createTestContext(): TestContext {
         title: options.title,
       });
     },
+    completeTask: (taskId: string, listId: string, userId: string) => {
+      completedTasks.push({ taskId, listId, userId });
+      return Promise.resolve(true);
+    },
   } as unknown as GoogleTasksService;
 
   const mockGoogleCalendarService = {
@@ -91,7 +105,25 @@ function createTestContext(): TestContext {
         summary: options.summary,
       });
     },
+    deleteEvent: (eventId: string, userId: string) => {
+      deletedCalendarEvents.push({ eventId, userId });
+      return Promise.resolve(true);
+    },
   } as unknown as GoogleCalendarService;
+
+  const mockUsersService = {
+    banUser: (userId: string) => {
+      bannedUsers.push(userId);
+      return Promise.resolve(true);
+    },
+  } as unknown as UsersService;
+
+  const mockGoogleAuthService = {
+    revokeUserTokens: (userId: string) => {
+      revokedTokens.push(userId);
+      return Promise.resolve(true);
+    },
+  } as unknown as GoogleAuthService;
 
   const service = new TransactionConfirmationService(
     mockZaloService,
@@ -99,6 +131,8 @@ function createTestContext(): TestContext {
     mockRemindersService,
     mockGoogleTasksService,
     mockGoogleCalendarService,
+    mockUsersService,
+    mockGoogleAuthService,
   );
   service.timeoutMs = 50; // 50ms for tests
 
@@ -110,7 +144,11 @@ function createTestContext(): TestContext {
     createdDebts,
     createdReminders,
     createdTasks,
+    completedTasks,
     createdEvents,
+    deletedCalendarEvents,
+    bannedUsers,
+    revokedTokens,
   };
 }
 
@@ -407,6 +445,93 @@ void test('TransactionConfirmationService creates and confirms Google Calendar E
   assert.equal(createdEvents.length, 1);
   assert.equal(createdEvents[0].summary, 'Gặp gỡ đối tác');
   assert.match(sentMessages[1].text, /ĐÃ XÁC NHẬN VÀ TẠO SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG/);
+
+  service.clearAll();
+});
+
+void test('TransactionConfirmationService creates and confirms task completion with strict shape', async () => {
+  const { service, sentMessages, completedTasks } = createTestContext();
+
+  const pending = await service.createPendingCompleteTask({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      taskId: 'task_complete_999',
+      taskTitle: 'Gửi email báo giá',
+    },
+  });
+
+  assert.equal(pending.code.length, 3);
+  assert.equal(completedTasks.length, 0);
+  assert.match(sentMessages[0].text, /Xác nhận hoàn thành việc cần làm/i);
+  assert.match(sentMessages[0].text, /Gửi email báo giá/);
+  assert.match(sentMessages[0].text, /task_complete_999/);
+
+  // Confirm
+  await service.handleCommand('u1', 'c1', `yes ${pending.code}`);
+  assert.equal(completedTasks.length, 1);
+  assert.equal(completedTasks[0].taskId, 'task_complete_999');
+  assert.match(sentMessages[1].text, /ĐÃ XÁC NHẬN VÀ HOÀN THÀNH CÔNG VIỆC TRÊN GOOGLE TASKS/);
+
+  service.clearAll();
+});
+
+void test('TransactionConfirmationService creates and confirms Google Calendar event deletion with strict shape', async () => {
+  const { service, sentMessages, deletedCalendarEvents } = createTestContext();
+
+  const pending = await service.createPendingDeleteCalendarEvent({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      eventId: 'cal_event_del_123',
+      summary: 'Họp giao ban sáng',
+      location: 'Phòng họp A',
+    },
+  });
+
+  assert.equal(pending.code.length, 3);
+  assert.equal(deletedCalendarEvents.length, 0);
+  assert.match(sentMessages[0].text, /Xác nhận XÓA sự kiện Google Calendar/i);
+  assert.match(sentMessages[0].text, /Họp giao ban sáng/);
+  assert.match(sentMessages[0].text, /Phòng họp A/);
+
+  // Confirm
+  await service.handleCommand('u1', 'c1', `yes ${pending.code}`);
+  assert.equal(deletedCalendarEvents.length, 1);
+  assert.equal(deletedCalendarEvents[0].eventId, 'cal_event_del_123');
+  assert.match(sentMessages[1].text, /ĐÃ XÁC NHẬN VÀ XÓA SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG/);
+
+  service.clearAll();
+});
+
+void test('TransactionConfirmationService creates and confirms user ban with strict shape', async () => {
+  const { service, sentMessages, bannedUsers, revokedTokens } = createTestContext();
+
+  const pending = await service.createPendingBanUser({
+    userId: 'admin_1',
+    chatId: 'c1',
+    payload: {
+      targetUserId: 'bad_user_456',
+      targetName: 'Hacker',
+      role: 'user',
+      reason: 'Spam hệ thống',
+    },
+  });
+
+  assert.equal(pending.code.length, 3);
+  assert.equal(bannedUsers.length, 0);
+  assert.match(sentMessages[0].text, /Xác nhận KHÓA tài khoản người dùng/i);
+  assert.match(sentMessages[0].text, /bad_user_456/);
+  assert.match(sentMessages[0].text, /Hacker/);
+  assert.match(sentMessages[0].text, /Spam hệ thống/);
+
+  // Confirm
+  await service.handleCommand('admin_1', 'c1', `yes ${pending.code}`);
+  assert.equal(bannedUsers.length, 1);
+  assert.equal(bannedUsers[0], 'bad_user_456');
+  assert.equal(revokedTokens.length, 1);
+  assert.equal(revokedTokens[0], 'bad_user_456');
+  assert.match(sentMessages[1].text, /ĐÃ XÁC NHẬN VÀ KHÓA TÀI KHOẢN NGƯỜI DÙNG THÀNH CÔNG/);
 
   service.clearAll();
 });

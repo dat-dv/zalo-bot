@@ -5,18 +5,27 @@ import { ZaloService } from '../../zalo.service';
 import { FinanceService } from '../../../finance/finance.service';
 import { TransactionConfirmationService } from '../../transaction-confirmation.service';
 import { FinanceTransactionEntity } from '../../../database/entities/finance-transaction.entity';
+import { DeleteTransactionDto } from '../../confirmation/dto-descriptor.util';
+import { AgentInput } from '../../types/agent-input.type';
+
+interface PendingDeleteParam {
+  userId: string;
+  chatId: string;
+  payload?: DeleteTransactionDto;
+  deletePayload?: DeleteTransactionDto;
+}
 
 interface TestContext {
   strategy: DeleteTransactionToolStrategy;
   sentMessages: Array<{ chatId: string | number; text: string }>;
-  pendingDeletes: any[];
+  pendingDeletes: PendingDeleteParam[];
 }
 
 function createTestContext(
   mockTransactions: Record<string, FinanceTransactionEntity> = {},
 ): TestContext {
   const sentMessages: Array<{ chatId: string | number; text: string }> = [];
-  const pendingDeletes: any[] = [];
+  const pendingDeletes: PendingDeleteParam[] = [];
 
   const mockZaloService = {
     sendMessage: (chatId: string | number, text: string) => {
@@ -39,9 +48,9 @@ function createTestContext(
   } as unknown as FinanceService;
 
   const mockConfirmationService = {
-    createPendingDelete: (params: any) => {
+    createPendingDelete: (params: PendingDeleteParam) => {
       pendingDeletes.push(params);
-      return Promise.resolve({ code: '999' });
+      return Promise.resolve({ code: '999' } as never);
     },
   } as unknown as TransactionConfirmationService;
 
@@ -71,6 +80,7 @@ void test('DeleteTransactionToolStrategy creates pending delete when transaction
   });
 
   await strategy.execute({
+    input: { type: 'text', text: 'Xóa giao dịch 88ca5db0-5e4a-4f10-af57-48fcb57e48b7' } as AgentInput,
     chatId: 'c1',
     senderId: 'u1',
     displayName: 'Đạt',
@@ -82,8 +92,8 @@ void test('DeleteTransactionToolStrategy creates pending delete when transaction
 
   assert.equal(pendingDeletes.length, 1);
   assert.equal(pendingDeletes[0].userId, 'u1');
-  assert.equal(pendingDeletes[0].payload.transactionId, '88ca5db0-5e4a-4f10-af57-48fcb57e48b7');
-  assert.equal(pendingDeletes[0].payload.amount, 50000);
+  assert.equal(pendingDeletes[0].payload?.transactionId, '88ca5db0-5e4a-4f10-af57-48fcb57e48b7');
+  assert.equal(pendingDeletes[0].payload?.amount, 50000);
   assert.equal(sentMessages.length, 0); // Confirmation message is sent by confirmationService
 });
 
@@ -105,6 +115,10 @@ void test('DeleteTransactionToolStrategy extracts UUID from raw user text if too
 
   // User input matching user prompt from report
   await strategy.execute({
+    input: {
+      type: 'text',
+      text: 'Xóa Giao dịch thu–chi (finance_transactions) có ID: 88ca5db0-5e4a-4f10-af57-48fcb57e48b7',
+    } as AgentInput,
     chatId: 'c1',
     senderId: 'u1',
     displayName: 'Đạt',
@@ -113,14 +127,18 @@ void test('DeleteTransactionToolStrategy extracts UUID from raw user text if too
   });
 
   assert.equal(pendingDeletes.length, 1);
-  assert.equal(pendingDeletes[0].payload.transactionId, '88ca5db0-5e4a-4f10-af57-48fcb57e48b7');
-  assert.equal(pendingDeletes[0].payload.amount, 75000);
+  assert.equal(pendingDeletes[0].payload?.transactionId, '88ca5db0-5e4a-4f10-af57-48fcb57e48b7');
+  assert.equal(pendingDeletes[0].payload?.amount, 75000);
 });
 
 void test('DeleteTransactionToolStrategy sends warning message when transaction is not found', async () => {
   const { strategy, pendingDeletes, sentMessages } = createTestContext({});
 
   await strategy.execute({
+    input: {
+      type: 'text',
+      text: 'Xóa giao dịch có ID: 00000000-0000-0000-0000-000000000000',
+    } as AgentInput,
     chatId: 'c1',
     senderId: 'u1',
     displayName: 'Đạt',

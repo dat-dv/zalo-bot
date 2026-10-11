@@ -90,10 +90,9 @@ export class DeleteTransactionToolStrategy implements TextToolStrategy {
           currency: transaction.currency,
           category: transaction.category,
           note: transaction.note,
-          occurredAt:
-            transaction.occurredAt instanceof Date
-              ? transaction.occurredAt.toISOString()
-              : (transaction.occurredAt as unknown as string),
+          occurredAt: transaction.occurredAt
+            ? new Date(transaction.occurredAt).toISOString()
+            : undefined,
         },
       });
     } catch (err) {

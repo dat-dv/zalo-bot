@@ -34,7 +34,7 @@ void test('ZaloController POST webhook forwards parsed input to InputProcessor',
   };
 
   const mockConfigService = {
-    get: (_key: string) => undefined,
+    get: (_key: string): undefined => undefined,
   };
 
   const parser = new ZaloMessageParser();

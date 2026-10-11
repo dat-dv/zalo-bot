@@ -868,6 +868,7 @@ void test('FinanceService.updateTransaction blocks changing type when allocation
         amount: 600_000,
         createdAt: new Date(),
         updatedAt: new Date(),
+        allocatedAt: new Date(),
       } as DebtPaymentAllocationEntity,
     ],
   };
@@ -915,6 +916,7 @@ void test('FinanceService.updateTransaction blocks reducing amount below total a
         amount: 400_000,
         createdAt: new Date(),
         updatedAt: new Date(),
+        allocatedAt: new Date(),
       } as DebtPaymentAllocationEntity,
       {
         id: 'alloc-2',
@@ -924,6 +926,7 @@ void test('FinanceService.updateTransaction blocks reducing amount below total a
         amount: 300_000,
         createdAt: new Date(),
         updatedAt: new Date(),
+        allocatedAt: new Date(),
       } as DebtPaymentAllocationEntity,
     ],
   };

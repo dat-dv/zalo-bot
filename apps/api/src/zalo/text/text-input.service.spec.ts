@@ -42,7 +42,7 @@ function createTextInputService(options?: SetupOptions) {
     withChatAction: <T>(_chatId: string | number, fn: () => Promise<T>) => fn(),
   } as unknown as ZaloService;
 
-  const mockUsersService = {
+  const _mockUsersService = {
     isAllowed: () => (options?.isAllowed !== undefined ? options.isAllowed : true),
     checkCooldown: () => ({
       allowed: options?.cooldownAllowed !== undefined ? options.cooldownAllowed : true,
@@ -51,7 +51,7 @@ function createTextInputService(options?: SetupOptions) {
     upsertUser: () => Promise.resolve({} as never),
   } as unknown as UsersService;
 
-  const mockConfigService = {
+  const _mockConfigService = {
     get: (key: string) => {
       if (key === 'zalo.allowedUserIds') return options?.allowedUserIds || [];
       return undefined;
@@ -97,7 +97,7 @@ function createTextInputService(options?: SetupOptions) {
       } as never),
   } as unknown as FinanceService;
 
-  const mockRemindersService = {
+  const _mockRemindersService = {
     createReminder: (dto: { title: string; remindAt: Date }) =>
       Promise.resolve({
         id: 'rem_1',

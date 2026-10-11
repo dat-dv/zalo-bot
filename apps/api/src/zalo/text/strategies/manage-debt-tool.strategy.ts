@@ -16,7 +16,7 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
-    const args = (context.toolArgs ?? {}) as Record<string, unknown>;
+    const args = context.toolArgs ?? {};
 
     const rawDirection =
       typeof args.direction === 'object' && args.direction !== null

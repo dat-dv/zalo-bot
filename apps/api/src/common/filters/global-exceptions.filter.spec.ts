@@ -36,7 +36,7 @@ function createMockHost(
     switchToHttp: () => ({
       getRequest: () => req,
       getResponse: () => mockResponse,
-      getNext: () => undefined,
+      getNext: (): undefined => undefined,
     }),
   } as unknown as ArgumentsHost;
 }

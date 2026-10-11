@@ -106,16 +106,16 @@ function createMockSetup(overrides?: {
   const pingStrategy = new PingToolStrategy(mockZaloService);
   const resetStrategy = new ResetToolStrategy(mockZaloService);
   const conversationStrategy = new ConversationToolStrategy(mockZaloService);
-  const manageDebtStrategy = new ManageDebtToolStrategy(mockZaloService, mockFinanceService);
   const confirmationService = new TransactionConfirmationService(
     mockZaloService,
     mockFinanceService,
   );
+  const manageDebtStrategy = new ManageDebtToolStrategy(mockZaloService, confirmationService);
   const recordTransactionStrategy = new RecordTransactionToolStrategy(
     mockZaloService,
     confirmationService,
   );
-  const setReminderStrategy = new SetReminderToolStrategy(mockZaloService, mockRemindersService);
+  const setReminderStrategy = new SetReminderToolStrategy(mockZaloService, confirmationService);
   const getReportStrategy = new GetReportToolStrategy(mockZaloService, mockFinanceService);
 
   const factory = new TextToolFactory(

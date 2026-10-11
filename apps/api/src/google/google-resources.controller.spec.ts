@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { GoogleResourcesController } from './google-resources.controller';
 import { GoogleCalendarService } from './google-calendar.service';
@@ -29,9 +30,7 @@ void test('GoogleResourcesController listTasks returns empty data array when use
   } as unknown as GoogleAuthService;
 
   const mockTasksService = {
-    listTasks: async () => {
-      throw new Error('Should not be called');
-    },
+    listTasks: () => Promise.reject(new Error('Should not be called')),
   } as unknown as GoogleTasksService;
 
   const controller = new GoogleResourcesController(
@@ -57,9 +56,7 @@ void test('GoogleResourcesController listEvents returns empty data array when us
   } as unknown as GoogleAuthService;
 
   const mockCalendarService = {
-    listEvents: async () => {
-      throw new Error('Should not be called');
-    },
+    listEvents: () => Promise.reject(new Error('Should not be called')),
   } as unknown as GoogleCalendarService;
 
   const controller = new GoogleResourcesController(
@@ -82,7 +79,7 @@ void test('GoogleResourcesController createTask throws BadRequestException when 
 
   const mockAuthService = {
     isAuthorized: () => false,
-    getOAuth2Client: () => null,
+    getOAuth2Client: (): null => null,
   } as unknown as GoogleAuthService;
 
   const tasksService = new GoogleTasksService(mockAuthService);
@@ -115,12 +112,12 @@ void test('GoogleResourcesController createEvent throws BadRequestException when
 
   const mockAuthService = {
     isAuthorized: () => false,
-    getOAuth2Client: () => null,
+    getOAuth2Client: (): null => null,
   } as unknown as GoogleAuthService;
 
   const calendarService = new GoogleCalendarService(mockAuthService, {
     getOrThrow: () => 'Asia/Ho_Chi_Minh',
-  } as unknown as any);
+  } as unknown as ConfigService);
 
   const controller = new GoogleResourcesController(
     calendarService,

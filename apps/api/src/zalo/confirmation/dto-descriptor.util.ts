@@ -292,6 +292,126 @@ export const CALENDAR_EVENT_DESCRIPTOR: DtoDescriptor<CreateEventOptions> = {
 };
 
 /**
+ * DTO đại diện cho việc hoàn thành công việc Google Tasks.
+ */
+export interface CompleteTaskDto {
+  taskId: string;
+  taskTitle: string;
+  notes?: string;
+  due?: string;
+}
+
+/**
+ * Strict Descriptor cho CompleteTaskDto.
+ */
+export const COMPLETE_TASK_DESCRIPTOR: DtoDescriptor<CompleteTaskDto> = {
+  taskTitle: {
+    label: 'Việc cần làm',
+    order: 1,
+    format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
+  },
+  due: {
+    label: 'Hạn chót',
+    order: 2,
+    format: (v) => formatDateTimeVN(v),
+  },
+  notes: {
+    label: 'Ghi chú',
+    order: 3,
+    format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
+  },
+  taskId: {
+    label: 'Mã công việc (ID)',
+    order: 4,
+    format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
+  },
+};
+
+/**
+ * DTO đại diện cho việc xóa sự kiện Google Calendar.
+ */
+export interface DeleteCalendarEventDto {
+  eventId: string;
+  summary: string;
+  startDateTime?: string;
+  endDateTime?: string;
+  location?: string;
+  description?: string;
+}
+
+/**
+ * Strict Descriptor cho DeleteCalendarEventDto.
+ */
+export const DELETE_CALENDAR_EVENT_DESCRIPTOR: DtoDescriptor<DeleteCalendarEventDto> = {
+  summary: {
+    label: 'Tiêu đề sự kiện',
+    order: 1,
+    format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
+  },
+  startDateTime: {
+    label: 'Bắt đầu',
+    order: 2,
+    format: (v) => formatDateTimeVN(v),
+  },
+  endDateTime: {
+    label: 'Kết thúc',
+    order: 3,
+    format: (v) => formatDateTimeVN(v),
+  },
+  location: {
+    label: 'Địa điểm',
+    order: 4,
+    format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
+  },
+  description: {
+    label: 'Mô tả',
+    order: 5,
+    format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
+  },
+  eventId: {
+    label: 'Mã sự kiện (ID)',
+    order: 6,
+    format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
+  },
+};
+
+/**
+ * DTO đại diện cho việc khóa tài khoản người dùng (Admin).
+ */
+export interface BanUserDto {
+  targetUserId: string;
+  targetName?: string;
+  role?: string;
+  reason?: string;
+}
+
+/**
+ * Strict Descriptor cho BanUserDto.
+ */
+export const BAN_USER_DESCRIPTOR: DtoDescriptor<BanUserDto> = {
+  targetUserId: {
+    label: 'Mã người dùng (ID)',
+    order: 1,
+    format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
+  },
+  targetName: {
+    label: 'Tên người dùng',
+    order: 2,
+    format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
+  },
+  role: {
+    label: 'Vai trò hiện tại',
+    order: 3,
+    format: (v) => (v === 'admin' ? 'Quản trị viên' : 'Người dùng'),
+  },
+  reason: {
+    label: 'Lý do khóa',
+    order: 4,
+    format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
+  },
+};
+
+/**
  * Render thẻ xác nhận dựa trên DTO và Descriptor tương ứng.
  * Mọi field hiển thị nếu không có giá trị sẽ tự động điền "(trống)".
  */
@@ -327,9 +447,11 @@ export function renderDtoConfirmationCard<T extends object>(
         formatted = Number.isNaN(val) ? '(trống)' : val.toLocaleString('vi-VN');
       } else if (typeof val === 'boolean') {
         formatted = val ? 'Có' : 'Không';
-      } else {
-        const str = String(val).trim();
+      } else if (typeof val === 'string') {
+        const str = val.trim();
         formatted = str || '(trống)';
+      } else {
+        formatted = JSON.stringify(val);
       }
     }
 

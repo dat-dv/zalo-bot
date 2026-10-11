@@ -4,6 +4,7 @@ import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { GoogleCalendarService } from '../../../google/google-calendar.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
+import { TransactionConfirmationService } from '../../transaction-confirmation.service';
 
 @Injectable()
 export class DeleteCalendarEventToolStrategy implements TextToolStrategy {
@@ -14,6 +15,7 @@ export class DeleteCalendarEventToolStrategy implements TextToolStrategy {
     private readonly zaloService: ZaloService,
     private readonly calendarService: GoogleCalendarService,
     private readonly googleAuthService: GoogleAuthService,
+    private readonly confirmationService: TransactionConfirmationService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
@@ -34,6 +36,10 @@ export class DeleteCalendarEventToolStrategy implements TextToolStrategy {
 
     let targetEventId = args.eventId;
     let targetSummary = '';
+    let targetStart: string | undefined;
+    let targetEnd: string | undefined;
+    let targetLocation: string | undefined;
+    let targetDescription: string | undefined;
 
     try {
       if (!targetEventId && args.query) {
@@ -52,6 +58,10 @@ export class DeleteCalendarEventToolStrategy implements TextToolStrategy {
         const matched = events[0];
         targetEventId = matched.id || undefined;
         targetSummary = matched.summary || '';
+        targetStart = matched.start?.dateTime || matched.start?.date || undefined;
+        targetEnd = matched.end?.dateTime || matched.end?.date || undefined;
+        targetLocation = matched.location || undefined;
+        targetDescription = matched.description || undefined;
       }
 
       if (!targetEventId) {
@@ -62,18 +72,23 @@ export class DeleteCalendarEventToolStrategy implements TextToolStrategy {
         return;
       }
 
-      await this.calendarService.deleteEvent(targetEventId, context.senderId);
-
-      const summaryNote = targetSummary ? ` ("${targetSummary}")` : '';
-      await this.zaloService.sendMessage(
-        context.chatId,
-        `🗑️ Đã xóa sự kiện Google Calendar${summaryNote} thành công!`,
-      );
+      await this.confirmationService.createPendingDeleteCalendarEvent({
+        userId: context.senderId,
+        chatId: context.chatId,
+        payload: {
+          eventId: targetEventId,
+          summary: targetSummary || 'Sự kiện Google Calendar',
+          startDateTime: targetStart,
+          endDateTime: targetEnd,
+          location: targetLocation,
+          description: targetDescription,
+        },
+      });
     } catch (err) {
-      this.logger.error(`Failed to delete calendar event: ${(err as Error).message}`);
+      this.logger.error(`Failed to create pending delete calendar event: ${(err as Error).message}`);
       await this.zaloService.sendMessage(
         context.chatId,
-        `⚠️ Không thể xóa sự kiện: ${(err as Error).message}`,
+        `⚠️ Không thể tạo yêu cầu xóa sự kiện: ${(err as Error).message}`,
       );
     }
   }

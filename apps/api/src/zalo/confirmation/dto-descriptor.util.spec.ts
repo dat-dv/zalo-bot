@@ -8,7 +8,9 @@ import {
   TASK_DESCRIPTOR,
   CALENDAR_EVENT_DESCRIPTOR,
   DELETE_TRANSACTION_DESCRIPTOR,
-  DtoDescriptor,
+  COMPLETE_TASK_DESCRIPTOR,
+  DELETE_CALENDAR_EVENT_DESCRIPTOR,
+  BAN_USER_DESCRIPTOR,
 } from './dto-descriptor.util';
 import { CreateFinanceTransactionDto, CreateDebtDto } from '../../finance/finance.service';
 import { CreateReminderDto } from '../../reminders/reminders.service';
@@ -116,3 +118,50 @@ void test('DELETE_TRANSACTION_DESCRIPTOR displays target transaction ID and deta
   assert.match(card, /• Ghi chú: bánh mì/);
   assert.match(card, /• Thời gian: \(trống\)/);
 });
+
+void test('COMPLETE_TASK_DESCRIPTOR renders task completion card with empty fallbacks', () => {
+  const completeDto = {
+    taskId: 'task_complete_123',
+    taskTitle: 'Nộp báo cáo thuế',
+  };
+
+  const card = renderDtoConfirmationCard(completeDto, COMPLETE_TASK_DESCRIPTOR);
+  assert.match(card, /• Việc cần làm: Nộp báo cáo thuế/);
+  assert.match(card, /• Hạn chót: \(trống\)/);
+  assert.match(card, /• Ghi chú: \(trống\)/);
+  assert.match(card, /• Mã công việc \(ID\): task_complete_123/);
+});
+
+void test('DELETE_CALENDAR_EVENT_DESCRIPTOR renders event details for deletion', () => {
+  const delEventDto = {
+    eventId: 'event_del_456',
+    summary: 'Hẹn cà phê cuối tuần',
+    startDateTime: '2026-10-18T09:00:00+07:00',
+    endDateTime: '2026-10-18T10:30:00+07:00',
+    location: 'Highlands Coffee',
+  };
+
+  const card = renderDtoConfirmationCard(delEventDto, DELETE_CALENDAR_EVENT_DESCRIPTOR);
+  assert.match(card, /• Tiêu đề sự kiện: Hẹn cà phê cuối tuần/);
+  assert.match(card, /• Bắt đầu:/);
+  assert.match(card, /• Kết thúc:/);
+  assert.match(card, /• Địa điểm: Highlands Coffee/);
+  assert.match(card, /• Mô tả: \(trống\)/);
+  assert.match(card, /• Mã sự kiện \(ID\): event_del_456/);
+});
+
+void test('BAN_USER_DESCRIPTOR renders user ban confirmation details', () => {
+  const banDto = {
+    targetUserId: 'user_ban_789',
+    targetName: 'Nguyễn Văn A',
+    role: 'user',
+    reason: 'Spam liên tục',
+  };
+
+  const card = renderDtoConfirmationCard(banDto, BAN_USER_DESCRIPTOR);
+  assert.match(card, /• Mã người dùng \(ID\): user_ban_789/);
+  assert.match(card, /• Tên người dùng: Nguyễn Văn A/);
+  assert.match(card, /• Vai trò hiện tại: Người dùng/);
+  assert.match(card, /• Lý do khóa: Spam liên tục/);
+});
+

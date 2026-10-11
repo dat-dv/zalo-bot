@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ZaloService } from './zalo.service';
 import {
   FinanceService,
@@ -8,6 +8,8 @@ import {
 import { RemindersService, CreateReminderDto } from '../reminders/reminders.service';
 import { GoogleTasksService, CreateTaskOptions } from '../google/google-tasks.service';
 import { GoogleCalendarService, CreateEventOptions } from '../google/google-calendar.service';
+import { UsersService } from '../users/users.service';
+import { GoogleAuthService } from '../google/google-auth.service';
 import { RedisService } from '../redis/redis.service';
 import {
   DtoDescriptor,
@@ -19,6 +21,12 @@ import {
   REMINDER_DESCRIPTOR,
   TASK_DESCRIPTOR,
   CALENDAR_EVENT_DESCRIPTOR,
+  COMPLETE_TASK_DESCRIPTOR,
+  CompleteTaskDto,
+  DELETE_CALENDAR_EVENT_DESCRIPTOR,
+  DeleteCalendarEventDto,
+  BAN_USER_DESCRIPTOR,
+  BanUserDto,
 } from './confirmation/dto-descriptor.util';
 
 export type PendingActionType =
@@ -27,7 +35,10 @@ export type PendingActionType =
   | 'MANAGE_DEBT'
   | 'SET_REMINDER'
   | 'CREATE_TASK'
+  | 'COMPLETE_TASK'
   | 'CREATE_CALENDAR_EVENT'
+  | 'DELETE_CALENDAR_EVENT'
+  | 'BAN_USER'
   | 'create'
   | 'delete';
 
@@ -39,7 +50,7 @@ export interface PendingAction {
   chatId: string;
   actionType: PendingActionType;
   title: string;
-  payload: any;
+  payload: Record<string, unknown>;
   deletePayload?: PendingDeletePayload;
   createdAt: number;
   expiresAt: number;
@@ -61,6 +72,8 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     private readonly remindersService?: RemindersService,
     private readonly googleTasksService?: GoogleTasksService,
     private readonly googleCalendarService?: GoogleCalendarService,
+    private readonly usersService?: UsersService,
+    private readonly googleAuthService?: GoogleAuthService,
     private readonly redisService?: RedisService,
   ) {}
 
@@ -127,7 +140,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     return code;
   }
 
-  public formatTransactionCard(payload: any): string {
+  public formatTransactionCard(payload: CreateFinanceTransactionDto): string {
     return renderDtoConfirmationCard(payload, FINANCE_TRANSACTION_DESCRIPTOR);
   }
 
@@ -152,7 +165,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       chatId: params.chatId,
       actionType: params.actionType,
       title: params.title,
-      payload: params.payload,
+      payload: params.payload as Record<string, unknown>,
       createdAt: now,
       expiresAt,
     };
@@ -222,7 +235,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     deletePayload?: DeleteTransactionDto;
     payload?: DeleteTransactionDto;
   }): Promise<PendingAction> {
-    const data = params.deletePayload || params.payload;
+    const data = params.deletePayload || params.payload!;
     const typeLabel = data.type === 'income' ? 'khoản thu' : 'khoản chi';
     return this.createPendingAction({
       userId: params.userId,
@@ -291,6 +304,24 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   }
 
   /**
+   * Tạo yêu cầu xác nhận hoàn thành việc cần làm trên Google Tasks.
+   */
+  public async createPendingCompleteTask(params: {
+    userId: string;
+    chatId: string;
+    payload: CompleteTaskDto;
+  }): Promise<PendingAction> {
+    return this.createPendingAction({
+      userId: params.userId,
+      chatId: params.chatId,
+      actionType: 'COMPLETE_TASK',
+      title: 'hoàn thành việc cần làm',
+      payload: params.payload,
+      descriptor: COMPLETE_TASK_DESCRIPTOR,
+    });
+  }
+
+  /**
    * Tạo yêu cầu xác nhận sự kiện Google Calendar.
    */
   public async createPendingCalendarEvent(params: {
@@ -308,6 +339,42 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     });
   }
 
+  /**
+   * Tạo yêu cầu xác nhận xóa sự kiện Google Calendar.
+   */
+  public async createPendingDeleteCalendarEvent(params: {
+    userId: string;
+    chatId: string;
+    payload: DeleteCalendarEventDto;
+  }): Promise<PendingAction> {
+    return this.createPendingAction({
+      userId: params.userId,
+      chatId: params.chatId,
+      actionType: 'DELETE_CALENDAR_EVENT',
+      title: 'XÓA sự kiện Google Calendar',
+      payload: params.payload,
+      descriptor: DELETE_CALENDAR_EVENT_DESCRIPTOR,
+    });
+  }
+
+  /**
+   * Tạo yêu cầu xác nhận khóa tài khoản người dùng (Admin).
+   */
+  public async createPendingBanUser(params: {
+    userId: string;
+    chatId: string;
+    payload: BanUserDto;
+  }): Promise<PendingAction> {
+    return this.createPendingAction({
+      userId: params.userId,
+      chatId: params.chatId,
+      actionType: 'BAN_USER',
+      title: 'KHÓA tài khoản người dùng',
+      payload: params.payload,
+      descriptor: BAN_USER_DESCRIPTOR,
+    });
+  }
+
   public async handleTimeout(code: string): Promise<void> {
     const pending = await this.getPendingByCode(code);
     if (!pending) return;
@@ -315,11 +382,27 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     await this.deletePending(code, pending.userId);
 
     let title = pending.title || 'Thao tác';
+    const payload = pending.payload;
+    const rawType = typeof payload.type === 'string' ? payload.type : undefined;
     if (pending.actionType === 'DELETE_TRANSACTION' || pending.actionType === 'delete') {
-      const typeLabel = pending.payload?.type === 'income' ? 'khoản thu' : 'khoản chi';
+      const typeLabel = rawType === 'income' ? 'khoản thu' : 'khoản chi';
       title = `Yêu cầu xóa ${typeLabel}`;
+    } else if (pending.actionType === 'COMPLETE_TASK') {
+      const taskTitle = typeof payload.taskTitle === 'string' ? payload.taskTitle : '';
+      title = `Yêu cầu hoàn thành việc "${taskTitle}"`;
+    } else if (pending.actionType === 'DELETE_CALENDAR_EVENT') {
+      const summary = typeof payload.summary === 'string' ? payload.summary : '';
+      title = `Yêu cầu xóa sự kiện "${summary}"`;
+    } else if (pending.actionType === 'BAN_USER') {
+      const targetUserId = typeof payload.targetUserId === 'string' ? payload.targetUserId : '';
+      title = `Yêu cầu khóa tài khoản "${targetUserId}"`;
     }
-    const note = pending.payload?.note || pending.payload?.title || pending.payload?.summary || '';
+
+    const note =
+      (typeof payload.note === 'string' && payload.note) ||
+      (typeof payload.title === 'string' && payload.title) ||
+      (typeof payload.summary === 'string' && payload.summary) ||
+      '';
     const noteSuffix = note ? ` "${note}"` : '';
 
     await this.zaloService.sendMessage(
@@ -495,16 +578,65 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           await this.zaloService.sendMessage(chatId, reply);
           break;
         }
+        case 'COMPLETE_TASK': {
+          if (!this.googleTasksService) {
+            throw new Error('GoogleTasksService chưa được cấu hình.');
+          }
+          const payload = pending.payload as CompleteTaskDto;
+          await this.googleTasksService.completeTask(payload.taskId, '@default', pending.userId);
+          const cardContent = renderDtoConfirmationCard(payload, COMPLETE_TASK_DESCRIPTOR);
+          const reply =
+            `🎉 ĐÃ XÁC NHẬN VÀ HOÀN THÀNH CÔNG VIỆC TRÊN GOOGLE TASKS!\n\n` +
+            cardContent +
+            `\n\n💡 Gõ /tasks để xem danh sách việc cần làm còn lại.`;
+          await this.zaloService.sendMessage(chatId, reply);
+          break;
+        }
         case 'CREATE_CALENDAR_EVENT': {
           if (!this.googleCalendarService) {
             throw new Error('GoogleCalendarService chưa được cấu hình.');
           }
           await this.googleCalendarService.createEvent(pending.payload, pending.userId);
-          const cardContent = renderDtoConfirmationCard(pending.payload, CALENDAR_EVENT_DESCRIPTOR);
+          const cardContent = renderDtoConfirmationCard(
+            pending.payload,
+            CALENDAR_EVENT_DESCRIPTOR,
+          );
           const reply =
             `✅ ĐÃ XÁC NHẬN VÀ TẠO SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG!\n\n` +
             cardContent +
             `\n\n🔗 Sự kiện đã được đồng bộ lên Google Calendar của bạn.`;
+          await this.zaloService.sendMessage(chatId, reply);
+          break;
+        }
+        case 'DELETE_CALENDAR_EVENT': {
+          if (!this.googleCalendarService) {
+            throw new Error('GoogleCalendarService chưa được cấu hình.');
+          }
+          const payload = pending.payload as DeleteCalendarEventDto;
+          await this.googleCalendarService.deleteEvent(payload.eventId, pending.userId);
+          const cardContent = renderDtoConfirmationCard(
+            payload,
+            DELETE_CALENDAR_EVENT_DESCRIPTOR,
+          );
+          const reply =
+            `🗑️ ĐÃ XÁC NHẬN VÀ XÓA SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG!\n\n` +
+            cardContent;
+          await this.zaloService.sendMessage(chatId, reply);
+          break;
+        }
+        case 'BAN_USER': {
+          const payload = pending.payload as BanUserDto;
+          if (this.usersService) {
+            await this.usersService.banUser(payload.targetUserId);
+          }
+          if (this.googleAuthService) {
+            await this.googleAuthService.revokeUserTokens(payload.targetUserId);
+          }
+          const cardContent = renderDtoConfirmationCard(payload, BAN_USER_DESCRIPTOR);
+          const reply =
+            `⛔ ĐÃ XÁC NHẬN VÀ KHÓA TÀI KHOẢN NGƯỜI DÙNG THÀNH CÔNG!\n\n` +
+            cardContent +
+            `\n\nToàn bộ quyền truy cập và Token Google của tài khoản đã bị thu hồi.`;
           await this.zaloService.sendMessage(chatId, reply);
           break;
         }
@@ -560,9 +692,16 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     } else if (pending.actionType === 'DELETE_TRANSACTION' || pending.actionType === 'delete') {
       const typeLabel = pending.payload?.type === 'income' ? 'khoản thu' : 'khoản chi';
       actionDesc = `yêu cầu xóa ${typeLabel}`;
+    } else if (pending.actionType === 'COMPLETE_TASK') {
+      actionDesc = `hoàn thành việc "${pending.payload?.taskTitle || ''}"`;
+    } else if (pending.actionType === 'DELETE_CALENDAR_EVENT') {
+      actionDesc = `xóa sự kiện "${pending.payload?.summary || ''}"`;
+    } else if (pending.actionType === 'BAN_USER') {
+      actionDesc = `khóa tài khoản "${pending.payload?.targetUserId || ''}"`;
     }
 
-    const note = pending.payload?.note || pending.payload?.title || pending.payload?.summary || '';
+    const note =
+      pending.payload?.note || pending.payload?.title || pending.payload?.summary || '';
     const noteSuffix = note ? ` "${note}"` : '';
 
     await this.zaloService.sendMessage(
