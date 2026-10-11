@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  createContext,
-  type ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 const REACT_SCAN_STORAGE_KEY = 'zalobot-react-scan-enabled';
 
@@ -20,7 +13,10 @@ const ReactScanContext = createContext<ReactScanContextValue | null>(null);
 
 function getInitialReactScanEnabled(): boolean {
   try {
-    return typeof window !== 'undefined' && window.localStorage.getItem(REACT_SCAN_STORAGE_KEY) === 'true';
+    return (
+      typeof window !== 'undefined' &&
+      window.localStorage.getItem(REACT_SCAN_STORAGE_KEY) === 'true'
+    );
   } catch {
     return false;
   }
@@ -58,4 +54,3 @@ export function useReactScan() {
   }
   return context;
 }
-

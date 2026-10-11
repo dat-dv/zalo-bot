@@ -166,8 +166,7 @@ export const DEBT_DESCRIPTOR: DtoDescriptor<CreateDebtDto> = {
   direction: {
     label: 'Phân loại',
     order: 1,
-    format: (v) =>
-      v === 'receivable' ? '👉 Họ nợ bạn (Phải thu)' : '👈 Bạn nợ họ (Phải trả)',
+    format: (v) => (v === 'receivable' ? '👉 Họ nợ bạn (Phải thu)' : '👈 Bạn nợ họ (Phải trả)'),
   },
   counterparty: {
     label: 'Người liên quan',
@@ -227,8 +226,7 @@ export const REMINDER_DESCRIPTOR: DtoDescriptor<CreateReminderDto> = {
   repeatType: {
     label: 'Lặp lại',
     order: 4,
-    format: (v) =>
-      v === 'daily' ? 'Hàng ngày' : v === 'weekly' ? 'Hàng tuần' : 'Không lặp',
+    format: (v) => (v === 'daily' ? 'Hàng ngày' : v === 'weekly' ? 'Hàng tuần' : 'Không lặp'),
   },
   status: { label: 'Trạng thái', hidden: true },
 };

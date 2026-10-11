@@ -23,4 +23,3 @@ export function captureDashboardToken(): void {
   setAccessToken(token);
   window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
 }
-

@@ -37,7 +37,10 @@ const registerOrigin = (raw?: string) => {
     devOrigins.add(url.hostname);
     if (url.port) devOrigins.add(url.host);
   } catch {
-    const cleaned = raw.trim().replace(/^https?:\/\//i, '').split('/')[0];
+    const cleaned = raw
+      .trim()
+      .replace(/^https?:\/\//i, '')
+      .split('/')[0];
     if (cleaned) devOrigins.add(cleaned);
   }
 };
@@ -65,4 +68,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-

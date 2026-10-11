@@ -77,11 +77,13 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
         },
         placeName: {
           type: 'STRING',
-          description: 'Địa điểm hoặc tên quán nếu có đề cập (ví dụ: Highlands Coffee, Circle K, chợ Bến Thành)',
+          description:
+            'Địa điểm hoặc tên quán nếu có đề cập (ví dụ: Highlands Coffee, Circle K, chợ Bến Thành)',
         },
         paymentMethod: {
           type: 'STRING',
-          description: 'Phương thức thanh toán nếu có đề cập (ví dụ: tiền mặt, chuyển khoản, thẻ, ví MoMo)',
+          description:
+            'Phương thức thanh toán nếu có đề cập (ví dụ: tiền mặt, chuyển khoản, thẻ, ví MoMo)',
         },
       },
       required: ['type', 'amount'],
@@ -101,7 +103,8 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
         },
         query: {
           type: 'STRING',
-          description: 'Mô tả, ghi chú hoặc từ khóa tìm kiếm giao dịch cần xóa (ví dụ: "ăn trưa", "gần nhất")',
+          description:
+            'Mô tả, ghi chú hoặc từ khóa tìm kiếm giao dịch cần xóa (ví dụ: "ăn trưa", "gần nhất")',
         },
       },
     },

@@ -1270,7 +1270,6 @@ export function translate(
   return text;
 }
 
-
 export interface IApiResponse<T> {
   data: T;
 }

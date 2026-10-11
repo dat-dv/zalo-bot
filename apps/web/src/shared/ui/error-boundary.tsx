@@ -55,7 +55,8 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               </div>
               <h1 className="text-lg font-bold text-slate-100">Đã xảy ra lỗi hiển thị giao diện</h1>
               <p className="mt-2 text-sm leading-relaxed text-slate-400">
-                Hệ thống gặp sự cố khi hiển thị dữ liệu bảng điều khiển. Vui lòng thử làm mới trang hoặc đăng nhập lại từ Zalo Bot.
+                Hệ thống gặp sự cố khi hiển thị dữ liệu bảng điều khiển. Vui lòng thử làm mới trang
+                hoặc đăng nhập lại từ Zalo Bot.
               </p>
               {this.state.error?.message && (
                 <div className="mt-4 max-h-24 w-full overflow-y-auto rounded bg-slate-950 p-2 text-left font-mono text-[11px] text-rose-300">

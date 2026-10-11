@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "next dev --port ${FE_PORT:-5173}",
     "build": "next build",
-
     "lint": "eslint .",
     "lint:check": "eslint .",
     "lint:fix": "eslint . --fix",

@@ -27,8 +27,7 @@ function getzaloWebApp(): ZaloWebApp | undefined {
 
 function getzaloBotUrl(): string {
   const customUrl =
-    process.env.NEXT_PUBLIC_ZALO_BOT_URL?.trim() ||
-    process.env.NEXT_PUBLIC_zalo_BOT_URL?.trim();
+    process.env.NEXT_PUBLIC_ZALO_BOT_URL?.trim() || process.env.NEXT_PUBLIC_zalo_BOT_URL?.trim();
   if (customUrl) return customUrl;
   const botUsername =
     process.env.NEXT_PUBLIC_ZALO_BOT_USERNAME?.trim() ||
