@@ -70,22 +70,22 @@ export class ZaloController {
     @Body() payload: ZaloWebhookPayload,
     @Headers('x-bot-api-secret-token') secretToken?: string,
   ): { ok: boolean } {
-    // Log RAW body (trước khi ValidationPipe strip) để debug khi Zalo gửi fields không khai báo trong DTO
+    // 1. Trích xuất payload thô 100% nguyên gốc chưa qua bất kỳ pipe hay DTO biến đổi nào
     const rawBody = req.rawBody?.toString('utf-8');
+    let rawPayload: ZaloWebhookPayloadDto = payload;
     if (rawBody) {
       try {
-        const rawParsed: unknown = JSON.parse(rawBody);
-        this.logger.debug(
-          `[RAW] Zalo webhook payload (before pipe):\n${JSON.stringify(rawParsed, null, 2)}`,
-        );
+        rawPayload = JSON.parse(rawBody) as ZaloWebhookPayloadDto;
       } catch {
-        this.logger.debug(`[RAW] Zalo webhook payload (before pipe, non-JSON):\n${rawBody}`);
+        rawPayload = payload;
       }
+    } else if (req.body && typeof req.body === 'object') {
+      rawPayload = req.body as ZaloWebhookPayloadDto;
     }
 
-    // Log payload sau khi ValidationPipe xử lý để so sánh
-    this.logger.debug(
-      `[PARSED] Zalo webhook payload (after pipe):\n${JSON.stringify(payload, null, 2)}`,
+    // 2. Log RAW INPUT BAN ĐẦU CHƯA BIẾN ĐỔI ở mức LOG để luôn hiển thị trong log container
+    this.logger.log(
+      `📥 [ZALO WEBHOOK RAW INPUT - CHƯA BIẾN ĐỔI]:\n${JSON.stringify(rawPayload, null, 2)}`,
     );
 
     const configuredSecretToken = this.configService.get<string>('zalo.secretToken');
@@ -94,7 +94,9 @@ export class ZaloController {
       this.logger.warn('Unauthorized Zalo webhook request: invalid X-Bot-Api-Secret-Token.');
       return { ok: false };
     }
-    const input = this.zaloMessageParser.parse(payload);
+
+    // 3. Sử dụng rawPayload trực tiếp để đảm bảo KHÔNG BỊ MẤT BẤT KỲ TRƯỜNG NÀO
+    const input = this.zaloMessageParser.parse(rawPayload);
     void this.inputProcessor.process(input);
     return { ok: true };
   }

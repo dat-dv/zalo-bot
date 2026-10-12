@@ -32,10 +32,23 @@ export class LoginGoogleToolStrategy implements TextToolStrategy {
     try {
       const authUrl = this.googleAuthService.generateAuthUrl(context.senderId);
       const isConnected = this.googleAuthService.isSharedAuthorized();
+      const hasStorage =
+        typeof this.googleAuthService.hasStorageScopes === 'function'
+          ? this.googleAuthService.hasStorageScopes()
+          : true;
 
-      const statusNote = isConnected
-        ? '💡 Bạn ĐÃ kết nối Google dùng chung. Bấm link bên dưới nếu bạn muốn đổi sang tài khoản Gmail khác.'
-        : '⚠️ Hệ thống CHƯA kết nối tài khoản Google dùng chung.';
+      let statusNote = '';
+      if (!isConnected) {
+        statusNote = '⚠️ Hệ thống CHƯA kết nối tài khoản Google dùng chung.';
+      } else if (!hasStorage) {
+        statusNote =
+          '⚠️ TÀI KHOẢN GOOGLE HIỆN TẠI THIẾU QUYỀN DRIVE & PHOTOS!\n' +
+          'Tài khoản đã kết nối Lịch & Tasks nhưng CHƯA có quyền lưu ảnh/video lên Drive và Photos.\n' +
+          '👉 Bấm link bên dưới để cấp quyền bổ sung:';
+      } else {
+        statusNote =
+          '💡 Bạn ĐÃ kết nối Google dùng chung đầy đủ quyền (Calendar, Tasks, Drive, Photos). Bấm link bên dưới nếu bạn muốn đổi sang tài khoản Gmail khác:';
+      }
 
       const reply =
         `🔐 KẾT NỐI TÀI KHOẢN GOOGLE HỆ THỐNG (DÙNG CHUNG)\n\n` +

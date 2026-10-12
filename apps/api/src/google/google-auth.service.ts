@@ -66,9 +66,8 @@ export class GoogleAuthService implements OnModuleInit {
               token_type: t.tokenType,
               expiry_date: t.expiryDate ? Number(t.expiryDate) : undefined,
             });
-            const numUserId = Number(t.userId);
             client.on('tokens', (refreshed: Credentials) => {
-              void this.saveTokensForUser(numUserId, refreshed);
+              void this.saveTokensForUser(t.userId, refreshed);
             });
             this.userClients.set(t.userId, client);
             if (!this.sharedUserId) {
@@ -136,6 +135,13 @@ export class GoogleAuthService implements OnModuleInit {
     if (!client) return false;
     const creds = client.credentials;
     return !!(creds && (creds.access_token || creds.refresh_token));
+  }
+
+  public hasStorageScopes(userId?: string | number): boolean {
+    const client = this.getOAuth2Client(userId);
+    if (!client) return false;
+    const scope = client.credentials?.scope || '';
+    return scope.includes('drive') && scope.includes('photoslibrary');
   }
 
   public async getSharedAccountEmail(): Promise<string | null> {

@@ -85,6 +85,15 @@ export class TextInputService {
       }
     }
 
+    // Nếu người dùng chỉ gõ số "1" hoặc "2" đơn lẻ nhưng hiện không có ảnh nào chờ xử lý (tránh LLM gọi nhầm tool)
+    if (/^[12]$/.test(text.trim())) {
+      await this.zaloService.sendMessage(
+        chatId,
+        '💡 Hiện không có hình ảnh hoặc giao dịch nào đang chờ xử lý. Bạn có thể gửi ảnh mới hoặc nhập yêu cầu cụ thể (Ví dụ: "ăn trưa 45k", "mai 9h họp").',
+      );
+      return;
+    }
+
     // 2. Fast-path for deterministic commands (/start, /help, /echo, /ping, /reset)
     const fastPath = this.toolFactory.resolveFastPathToolType(text);
     if (fastPath) {
@@ -223,14 +232,24 @@ export class TextInputService {
 
       if (this.mediaStorageService) {
         try {
+          const urls = pending.receiptUrls?.length ? pending.receiptUrls : [pending.receiptUrl];
+          const total = urls.length;
+
           await this.zaloService.sendMessage(
             chatId,
-            '⏳ Đang tải ảnh lên Google Drive & Google Photos dùng chung...',
+            total > 1
+              ? `⏳ Đang tải ${total} ảnh lên Google Drive & Google Photos dùng chung...`
+              : '⏳ Đang tải ảnh lên Google Drive & Google Photos dùng chung...',
           );
-          const buffer = await this.getImageBuffer(pending.receiptUrl);
-          const dualResult = await this.mediaStorageService.uploadImage(senderId, buffer);
-          const summary = this.mediaStorageService.formatUploadSummary(dualResult, 'image');
-          await this.zaloService.sendMessage(chatId, summary);
+
+          for (let i = 0; i < urls.length; i++) {
+            const url = urls[i];
+            const buffer = await this.getImageBuffer(url);
+            const dualResult = await this.mediaStorageService.uploadImage(senderId, buffer);
+            const summary = this.mediaStorageService.formatUploadSummary(dualResult, 'image');
+            const prefix = total > 1 ? `[Ảnh ${i + 1}/${total}]\n` : '';
+            await this.zaloService.sendMessage(chatId, `${prefix}${summary}`);
+          }
           return true;
         } catch (err) {
           this.logger.error(`Failed to dual upload image: ${(err as Error).message}`);
@@ -472,4 +491,3 @@ export class TextInputService {
     return Buffer.from(url);
   }
 }
-

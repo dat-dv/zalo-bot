@@ -326,10 +326,7 @@ export class GooglePhotosService {
    * Lấy productUrl (link web) của album Google Photos theo tiêu đề.
    * Trả về null nếu chưa tồn tại hoặc chưa được uỷ quyền.
    */
-  public async getAlbumLink(
-    albumTitle: string,
-    userId?: number | string,
-  ): Promise<string | null> {
+  public async getAlbumLink(albumTitle: string, userId?: number | string): Promise<string | null> {
     try {
       const accessToken = await this.getAccessToken(userId);
       const listRes = await fetch(

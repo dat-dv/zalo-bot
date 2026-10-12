@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ZaloService } from './zalo.service';
 import { TextInputService } from './text/text-input.service';
@@ -13,8 +13,16 @@ import { PendingImageActionService } from './pending-image-action.service';
 import { cleanBotMention } from './text/bot-mention.util';
 
 @Injectable()
-export class InputProcessor {
+export class InputProcessor implements OnModuleDestroy {
   private readonly logger = new Logger(InputProcessor.name);
+  private readonly imageDebounceTimers = new Map<string, NodeJS.Timeout>();
+
+  public onModuleDestroy(): void {
+    for (const timer of this.imageDebounceTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.imageDebounceTimers.clear();
+  }
 
   constructor(
     private readonly zaloService: ZaloService,
@@ -36,6 +44,10 @@ export class InputProcessor {
   }
 
   public async process(input: AgentInput): Promise<void> {
+    this.logger.log(
+      `📥 [InputProcessor] Processing: type=${input.type}, senderId=${input.senderId}, text="${input.text || ''}", imageUrl=${input.imageUrl || ''}`,
+    );
+
     if (!input.senderId && input.type !== 'event') {
       this.logger.debug('Received webhook without identifiable sender ID.');
       return;
@@ -104,7 +116,13 @@ export class InputProcessor {
     const targetChatId = input.chatId || input.senderId;
     this.logger.log(`Received image from ${input.senderId}: ${input.imageUrl}`);
 
-    const receiptUrl = input.imageUrl;
+    const incomingUrls: string[] = input.imageUrls?.length
+      ? input.imageUrls
+      : input.imageUrl
+        ? [input.imageUrl]
+        : [];
+
+    const primaryReceiptUrl = incomingUrls[0] || input.imageUrl;
 
     const botName =
       this.configService?.get<string>('zalo.botName') ||
@@ -114,23 +132,45 @@ export class InputProcessor {
     const rawCaption = input.caption || input.text || '';
     const cleanedCaption = cleanBotMention(rawCaption, botName);
 
-    if (receiptUrl && this.pendingImageActionService && input.senderId) {
-      await this.pendingImageActionService.setPending(input.senderId, {
-        userId: input.senderId,
-        chatId: targetChatId,
-        receiptUrl,
-      });
+    if (primaryReceiptUrl && this.pendingImageActionService && input.senderId) {
+      for (const url of incomingUrls) {
+        await this.pendingImageActionService.addPendingImage(input.senderId, {
+          userId: input.senderId,
+          chatId: targetChatId,
+          receiptUrl: url,
+        });
+      }
 
       if (cleanedCaption) {
+        const existingTimer = this.imageDebounceTimers.get(input.senderId);
+        if (existingTimer) {
+          clearTimeout(existingTimer);
+          this.imageDebounceTimers.delete(input.senderId);
+        }
         return this.textInputService.process({
           ...input,
           text: cleanedCaption,
         });
       }
 
-      await this.zaloService.sendMessage(
-        targetChatId,
-        `📸 Tôi đã nhận được hình ảnh của bạn! Bạn muốn xử lý ảnh như thế nào?
+      // Debounce: Nếu người dùng gửi nhiều ảnh cùng lúc, Zalo sẽ bắn N webhook riêng lẻ cách nhau ~100-200ms.
+      // Gom tất cả ảnh vào 1 batch và chỉ gửi ĐÚNG 1 thông báo sau 1000ms.
+      const existingTimer = this.imageDebounceTimers.get(input.senderId);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
+
+      const timer = setTimeout(async () => {
+        this.imageDebounceTimers.delete(input.senderId);
+        const pending = await this.pendingImageActionService?.getPending(input.senderId);
+        if (!pending) return;
+
+        const count = pending.receiptUrls?.length || 1;
+        const countText = count > 1 ? ` (${count} ảnh)` : '';
+
+        await this.zaloService.sendMessage(
+          targetChatId,
+          `📸 Tôi đã nhận được hình ảnh${countText} của bạn! Bạn muốn xử lý ảnh như thế nào?
 
 1️⃣ Tạo bill / Ghi nhận chi tiêu (nếu đây là hóa đơn)
    👉 Trả lời: "1" hoặc "1 <ghi chú>" (Ví dụ: "1 Ăn trưa Highlands")
@@ -138,7 +178,10 @@ export class InputProcessor {
    👉 Trả lời: "2"
 
 💡 Bạn có thể tiếp tục trò chuyện bình thường hoặc gõ "hủy" để bỏ qua ảnh.`,
-      );
+        );
+      }, 1000);
+      timer.unref();
+      this.imageDebounceTimers.set(input.senderId, timer);
       return;
     }
 

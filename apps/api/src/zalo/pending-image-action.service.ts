@@ -5,6 +5,7 @@ export interface PendingImageAction {
   userId: string;
   chatId: string;
   receiptUrl: string;
+  receiptUrls: string[];
   createdAt: number;
   expiresAt: number;
 }
@@ -33,17 +34,71 @@ export class PendingImageActionService implements OnModuleDestroy {
     this.memoryMap.clear();
   }
 
+  /**
+   * Lưu hoặc cập nhật một pending image action
+   */
   public async setPending(
     userId: string,
-    data: Omit<PendingImageAction, 'createdAt' | 'expiresAt'>,
+    data: Omit<PendingImageAction, 'createdAt' | 'expiresAt' | 'receiptUrls'> & {
+      receiptUrls?: string[];
+    },
   ): Promise<PendingImageAction> {
     const now = Date.now();
+    const urls = data.receiptUrls?.length ? data.receiptUrls : [data.receiptUrl];
     const action: PendingImageAction = {
       ...data,
+      receiptUrls: urls,
       createdAt: now,
       expiresAt: now + this.timeoutMs,
     };
 
+    await this.saveAction(userId, action);
+    return action;
+  }
+
+  /**
+   * Thêm ảnh vào batch đang chờ của người dùng.
+   * Nếu người dùng vừa gửi ảnh trước đó (chưa hết timeout), ảnh mới sẽ được gộp vào batch.
+   */
+  public async addPendingImage(
+    userId: string,
+    data: { userId: string; chatId: string; receiptUrl: string },
+  ): Promise<{ action: PendingImageAction; isNew: boolean; totalCount: number }> {
+    const existing = await this.getPending(userId);
+    const now = Date.now();
+
+    if (existing) {
+      const urls = existing.receiptUrls?.length ? [...existing.receiptUrls] : [existing.receiptUrl];
+      if (!urls.includes(data.receiptUrl)) {
+        urls.push(data.receiptUrl);
+      }
+      existing.receiptUrls = urls;
+      existing.expiresAt = now + this.timeoutMs;
+      await this.saveAction(userId, existing);
+      return {
+        action: existing,
+        isNew: false,
+        totalCount: urls.length,
+      };
+    }
+
+    const action: PendingImageAction = {
+      userId: data.userId,
+      chatId: data.chatId,
+      receiptUrl: data.receiptUrl,
+      receiptUrls: [data.receiptUrl],
+      createdAt: now,
+      expiresAt: now + this.timeoutMs,
+    };
+    await this.saveAction(userId, action);
+    return {
+      action,
+      isNew: true,
+      totalCount: 1,
+    };
+  }
+
+  private async saveAction(userId: string, action: PendingImageAction): Promise<void> {
     // 1. Lưu Redis nếu có
     if (this.redisService) {
       try {
@@ -68,7 +123,6 @@ export class PendingImageActionService implements OnModuleDestroy {
     timer.unref();
 
     this.memoryMap.set(userId, { action, timer });
-    return action;
   }
 
   public async getPending(userId: string): Promise<PendingImageAction | undefined> {
@@ -79,6 +133,9 @@ export class PendingImageActionService implements OnModuleDestroy {
         if (raw) {
           const parsed = JSON.parse(raw) as PendingImageAction;
           if (parsed.expiresAt > Date.now()) {
+            if (!parsed.receiptUrls) {
+              parsed.receiptUrls = [parsed.receiptUrl];
+            }
             return parsed;
           }
         }
@@ -95,6 +152,10 @@ export class PendingImageActionService implements OnModuleDestroy {
       if (item.timer) clearTimeout(item.timer);
       this.memoryMap.delete(userId);
       return undefined;
+    }
+
+    if (!item.action.receiptUrls) {
+      item.action.receiptUrls = [item.action.receiptUrl];
     }
 
     return item.action;

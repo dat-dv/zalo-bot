@@ -24,6 +24,7 @@ void test('LoginToolStrategy blocks non-admin user and informs admin requirement
   const mockGoogleAuthService = {
     generateAuthUrl: () => 'https://accounts.google.com/o/oauth2/auth?...',
     isSharedAuthorized: () => false,
+    hasStorageScopes: () => true,
   } as unknown as GoogleAuthService;
 
   const strategy = new LoginToolStrategy(mockZaloService, mockGoogleAuthService, mockUsersService);

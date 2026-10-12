@@ -140,7 +140,13 @@ export class MediaStorageService {
           `  👉 Xem tại: ${result.drive.webViewLink || 'Đã lưu trên Drive'}`,
       );
     } else if (result.driveError) {
-      lines.push(`• 📁 Google Drive: ⚠️ Lỗi lưu trữ (${result.driveError})`);
+      const isPermError =
+        result.driveError.includes('Insufficient Permission') ||
+        result.driveError.includes('insufficient');
+      const errDetail = isPermError
+        ? 'Chưa cấp quyền Google Drive (Quản trị viên vui lòng gõ /login để cấp quyền bổ sung)'
+        : result.driveError;
+      lines.push(`• 📁 Google Drive: ⚠️ Lỗi lưu trữ (${errDetail})`);
     }
 
     if (result.photos) {
@@ -149,7 +155,14 @@ export class MediaStorageService {
           `  👉 Xem tại: ${result.photos.productUrl || 'Đã thêm vào Google Photos'}`,
       );
     } else if (result.photosError) {
-      lines.push(`• 📸 Google Photos: ⚠️ Lỗi lưu trữ (${result.photosError})`);
+      const isPermError =
+        result.photosError.includes('401') ||
+        result.photosError.includes('Authentication session') ||
+        result.photosError.includes('permission');
+      const errDetail = isPermError
+        ? 'Chưa cấp quyền Google Photos (Quản trị viên vui lòng gõ /login để cấp quyền bổ sung)'
+        : result.photosError;
+      lines.push(`• 📸 Google Photos: ⚠️ Lỗi lưu trữ (${errDetail})`);
     }
 
     return lines.join('\n\n');
