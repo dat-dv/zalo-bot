@@ -52,6 +52,7 @@ export interface PendingAction {
   title: string;
   payload: Record<string, unknown>;
   deletePayload?: PendingDeletePayload;
+  rawPrompt?: string;
   createdAt: number;
   expiresAt: number;
   timer?: NodeJS.Timeout;
@@ -64,7 +65,7 @@ export type PendingTransaction = PendingAction;
 export class TransactionConfirmationService implements OnModuleDestroy {
   private readonly logger = new Logger(TransactionConfirmationService.name);
   private readonly pendingMap = new Map<string, PendingAction>();
-  public timeoutMs = 60 * 1000; // 1 phút (60 giây)
+  public timeoutMs = 5 * 60 * 1000; // 5 phút (300 giây)
 
   constructor(
     private readonly zaloService: ZaloService,
@@ -154,6 +155,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     title: string;
     payload: T;
     descriptor: DtoDescriptor<T>;
+    rawPrompt?: string;
   }): Promise<PendingAction> {
     const code = this.generateCode();
     const now = Date.now();
@@ -166,11 +168,12 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       actionType: params.actionType,
       title: params.title,
       payload: params.payload as Record<string, unknown>,
+      rawPrompt: params.rawPrompt,
       createdAt: now,
       expiresAt,
     };
 
-    // Lưu vào Redis với TTL 60 giây (tự động dọn dẹp khi hết hạn)
+    // Lưu vào Redis với TTL (tự động dọn dẹp khi hết hạn)
     if (this.redisService) {
       const ttlSeconds = Math.ceil(this.timeoutMs / 1000);
       const serialized = JSON.stringify({
@@ -180,6 +183,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         actionType: pending.actionType,
         title: pending.title,
         payload: pending.payload,
+        rawPrompt: pending.rawPrompt,
         createdAt: pending.createdAt,
         expiresAt: pending.expiresAt,
       });
@@ -204,6 +208,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       cardContent +
       `\n\n👉 Soạn: yes ${code} (để xác nhận)` +
       `\n👉 Soạn: cancel ${code} (để hủy bỏ)` +
+      `\n👉 Soạn: edit ${code} <nội dung sửa> (để điều chỉnh)` +
       `\n⏱️ Tự động hết hạn sau 1 phút.`;
 
     await this.zaloService.sendMessage(params.chatId, msg);
@@ -217,6 +222,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     userId: string;
     chatId: string;
     payload: CreateFinanceTransactionDto;
+    rawPrompt?: string;
   }): Promise<PendingAction> {
     const typeLabel = params.payload.type === 'income' ? '🟢 Khoản thu' : '🔴 Khoản chi';
     return this.createPendingAction({
@@ -226,6 +232,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       title: `lưu ${typeLabel}`,
       payload: params.payload,
       descriptor: FINANCE_TRANSACTION_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
     });
   }
 
@@ -237,6 +244,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     chatId: string;
     deletePayload?: DeleteTransactionDto;
     payload?: DeleteTransactionDto;
+    rawPrompt?: string;
   }): Promise<PendingAction> {
     const data = params.deletePayload || params.payload;
     const typeLabel = data.type === 'income' ? 'khoản thu' : 'khoản chi';
@@ -247,6 +255,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       title: `XÓA ${typeLabel}`,
       payload: data,
       descriptor: DELETE_TRANSACTION_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
     });
   }
 
@@ -257,6 +266,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     userId: string;
     chatId: string;
     payload: CreateDebtDto;
+    rawPrompt?: string;
   }): Promise<PendingAction> {
     const directionLabel =
       params.payload.direction === 'receivable' ? 'khoản cho vay (họ nợ)' : 'khoản nợ (bạn nợ)';
@@ -267,6 +277,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       title: `ghi nhận ${directionLabel}`,
       payload: params.payload,
       descriptor: DEBT_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
     });
   }
 
@@ -277,6 +288,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     userId: string;
     chatId: string;
     payload: CreateReminderDto;
+    rawPrompt?: string;
   }): Promise<PendingAction> {
     return this.createPendingAction({
       userId: params.userId,
@@ -285,6 +297,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       title: 'đặt lịch nhắc nhở',
       payload: params.payload,
       descriptor: REMINDER_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
     });
   }
 
@@ -295,6 +308,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     userId: string;
     chatId: string;
     payload: CreateTaskOptions;
+    rawPrompt?: string;
   }): Promise<PendingAction> {
     return this.createPendingAction({
       userId: params.userId,
@@ -303,6 +317,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       title: 'thêm việc cần làm (Google Tasks)',
       payload: params.payload,
       descriptor: TASK_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
     });
   }
 
@@ -313,6 +328,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     userId: string;
     chatId: string;
     payload: CompleteTaskDto;
+    rawPrompt?: string;
   }): Promise<PendingAction> {
     return this.createPendingAction({
       userId: params.userId,
@@ -321,6 +337,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       title: 'hoàn thành việc cần làm',
       payload: params.payload,
       descriptor: COMPLETE_TASK_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
     });
   }
 
@@ -331,6 +348,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     userId: string;
     chatId: string;
     payload: CreateEventOptions;
+    rawPrompt?: string;
   }): Promise<PendingAction> {
     return this.createPendingAction({
       userId: params.userId,
@@ -339,6 +357,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       title: 'tạo sự kiện Google Calendar',
       payload: params.payload,
       descriptor: CALENDAR_EVENT_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
     });
   }
 
@@ -349,6 +368,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     userId: string;
     chatId: string;
     payload: DeleteCalendarEventDto;
+    rawPrompt?: string;
   }): Promise<PendingAction> {
     return this.createPendingAction({
       userId: params.userId,
@@ -357,6 +377,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       title: 'XÓA sự kiện Google Calendar',
       payload: params.payload,
       descriptor: DELETE_CALENDAR_EVENT_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
     });
   }
 
@@ -367,6 +388,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     userId: string;
     chatId: string;
     payload: BanUserDto;
+    rawPrompt?: string;
   }): Promise<PendingAction> {
     return this.createPendingAction({
       userId: params.userId,
@@ -375,6 +397,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       title: 'KHÓA tài khoản người dùng',
       payload: params.payload,
       descriptor: BAN_USER_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
     });
   }
 
@@ -410,11 +433,16 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
     await this.zaloService.sendMessage(
       pending.chatId,
-      `⏰ ${title}${noteSuffix} (mã: ${code}) đã hết hạn 1 phút và chưa được xác nhận.`,
+      `⏰ ${title}${noteSuffix} (mã: ${code}) đã hết hạn 5 phút và chưa được xác nhận.`,
     );
   }
 
-  public async handleCommand(userId: string, chatId: string, text: string): Promise<boolean> {
+  public async handleCommand(
+    userId: string,
+    chatId: string,
+    text: string,
+    onEdit?: (pending: PendingAction, instruction: string) => Promise<void>,
+  ): Promise<boolean> {
     const trimmed = text.trim();
     if (!trimmed) return false;
 
@@ -427,14 +455,118 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       return this.processConfirm(userId, chatId, code);
     }
 
-    // Khớp hủy: cancel, no, hủy, huy (+ mã tùy chọn)
-    const cancelMatch = trimmed.match(/^(?:cancel|no|hủy|huy)(?:\s+([a-zA-Z0-9]{3,6}))?$/i);
+    // Khớp hủy: cancel, no, hủy, huỷ, huy (+ mã tùy chọn)
+    const cancelMatch = trimmed.match(
+      /^(?:cancel|no|hủy|huỷ|huy|bỏ\s*qua|bo\s*qua)(?:\s+([a-zA-Z0-9]{3,6}))?$/i,
+    );
     if (cancelMatch) {
       const code = cancelMatch[1];
       return this.processCancel(userId, chatId, code);
     }
 
+    // Khớp điều chỉnh / sửa: edit, sửa, sua, chỉnh sửa, chinh sua, sửa lại, sua lai
+    const editPrefixMatch = trimmed.match(
+      /^(?:edit|chỉnh\s*sửa|chinh\s*sua|sửa\s*lại|sua\s*lai|sửa|sua)(?:[:\-–\s]+|$)([\s\S]*)$/i,
+    );
+    if (editPrefixMatch) {
+      const rest = (editPrefixMatch[1] || '').trim();
+      let code: string | undefined;
+      let instruction: string = rest;
+
+      const tokenMatch = rest.match(/^([a-zA-Z0-9]{3,6})(?:[:\-–\s]+([\s\S]*)|$)/);
+      if (tokenMatch) {
+        const possibleCode = tokenMatch[1];
+        const remainder = tokenMatch[2]?.trim() || '';
+
+        const existingPending = await this.getPendingByCode(possibleCode);
+        if (existingPending) {
+          code = possibleCode;
+          instruction = remainder;
+        } else if (/^\d{3,6}$/.test(possibleCode)) {
+          code = possibleCode;
+          instruction = remainder;
+        }
+      }
+
+      const handled = await this.processEdit(userId, chatId, code, instruction, onEdit);
+      if (handled) {
+        return true;
+      }
+    }
+
     return false;
+  }
+
+  private async processEdit(
+    userId: string,
+    chatId: string,
+    code?: string,
+    instruction?: string,
+    onEdit?: (pending: PendingAction, instruction: string) => Promise<void>,
+  ): Promise<boolean> {
+    let pending: PendingAction | undefined;
+
+    if (code) {
+      pending = await this.getPendingByCode(code);
+      if (!pending) {
+        await this.zaloService.sendMessage(
+          chatId,
+          `⚠️ Không tìm thấy yêu cầu chờ xác nhận với mã "${code}". Vui lòng kiểm tra lại.`,
+        );
+        return true;
+      }
+      if (pending.userId !== userId && pending.chatId !== chatId) {
+        await this.zaloService.sendMessage(
+          chatId,
+          `⚠️ Bạn không có quyền chỉnh sửa yêu cầu mã "${code}".`,
+        );
+        return true;
+      }
+    } else {
+      pending = await this.getPendingForUser(userId);
+      if (!pending) {
+        return false;
+      }
+    }
+
+    if (Date.now() > pending.expiresAt) {
+      await this.deletePending(pending.code, pending.userId);
+      await this.zaloService.sendMessage(
+        chatId,
+        `⏰ Yêu cầu mã "${pending.code}" đã hết hạn xác nhận (quá 1 phút) và chưa được thực hiện.`,
+      );
+      return true;
+    }
+
+    const trimmedInstruction = instruction?.trim() || '';
+    if (!trimmedInstruction) {
+      await this.zaloService.sendMessage(
+        chatId,
+        `✏️ Vui lòng cung cấp nội dung bạn muốn chỉnh sửa cho yêu cầu (mã: ${pending.code}).\nVí dụ: edit ${pending.code} đổi số tiền thành 60k`,
+      );
+      return true;
+    }
+
+    await this.deletePending(pending.code, pending.userId);
+
+    if (onEdit) {
+      try {
+        await onEdit(pending, trimmedInstruction);
+      } catch (err) {
+        this.logger.error(`Lỗi khi xử lý edit pending action: ${(err as Error).message}`);
+        await this.zaloService.sendMessage(
+          chatId,
+          `⚠️ Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu: ${(err as Error).message}`,
+        );
+      }
+      return true;
+    }
+
+    await this.zaloService.sendMessage(
+      chatId,
+      `✏️ Đã nhận yêu cầu điều chỉnh cho mã "${pending.code}": "${trimmedInstruction}".`,
+    );
+    return true;
   }
 
   private async processConfirm(userId: string, chatId: string, code?: string): Promise<boolean> {
@@ -467,7 +599,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       await this.deletePending(pending.code, pending.userId);
       await this.zaloService.sendMessage(
         chatId,
-        `⏰ Yêu cầu mã "${pending.code}" đã hết hạn xác nhận (quá 1 phút) và chưa được thực hiện.`,
+        `⏰ Yêu cầu mã "${pending.code}" đã hết hạn xác nhận (quá 5 phút) và chưa được thực hiện.`,
       );
       return true;
     }

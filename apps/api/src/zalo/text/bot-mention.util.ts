@@ -16,7 +16,8 @@ export function cleanBotMention(text: string, botName = 'Bot'): string {
   if (!trimmed) return '';
 
   const cleanName = (botName || 'Bot').replace(/^@/, '').trim();
-  const names = Array.from(new Set([cleanName, 'Bot', 'bot'].filter(Boolean)));
+  const baseNames = [cleanName, 'Bot Finance Assistant', 'Finance Assistant', 'Bot', 'bot'];
+  const names = Array.from(new Set(baseNames.filter(Boolean))).sort((a, b) => b.length - a.length);
   const namePattern = names.map(escapeRegex).join('|');
 
   let result = trimmed;

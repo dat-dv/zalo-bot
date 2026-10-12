@@ -133,14 +133,14 @@ export class InputProcessor {
 
       await this.zaloService.sendMessage(
         targetChatId,
-        `📸 Tôi đã nhận được hình ảnh của bạn! Bạn muốn xử lý như thế nào?
+        `📸 Tôi đã nhận được hình ảnh của bạn! Bạn muốn xử lý ảnh như thế nào?
 
-1️⃣ Tạo bill / Ghi nhận chi tiêu từ hóa đơn này
+1️⃣ Tạo bill / Ghi nhận chi tiêu (nếu đây là hóa đơn)
    👉 Trả lời: "1" hoặc "1 <ghi chú>" (Ví dụ: "1 Ăn trưa Highlands")
 2️⃣ Lưu trữ ảnh lên Google Drive
    👉 Trả lời: "2"
 
-💡 Bạn cũng có thể gõ "hủy" để bỏ qua ảnh này.`,
+💡 Bạn có thể tiếp tục trò chuyện bình thường hoặc gõ "hủy" để bỏ qua ảnh.`,
       );
       return;
     }
@@ -154,7 +154,7 @@ export class InputProcessor {
 
     await this.zaloService.sendMessage(
       targetChatId,
-      '📸 Đã nhận ảnh từ bạn. Hệ thống đang sẵn sàng xử lý nội dung hóa đơn!',
+      '📸 Đã nhận ảnh từ bạn. Bạn có thể tiếp tục trò chuyện hoặc gửi thêm yêu cầu!',
     );
   }
 

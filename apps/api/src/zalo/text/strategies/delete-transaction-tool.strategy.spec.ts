@@ -13,6 +13,7 @@ interface PendingDeleteParam {
   chatId: string;
   payload?: DeleteTransactionDto;
   deletePayload?: DeleteTransactionDto;
+  rawPrompt?: string;
 }
 
 interface TestContext {

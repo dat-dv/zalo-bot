@@ -37,4 +37,7 @@ void test('cleanBotMention supports custom botName from env', () => {
   );
   // Fallback to @Bot or @bot still works
   assert.equal(cleanBotMention('@Bot /dashboard', 'MyAssistant'), '/dashboard');
+  assert.equal(cleanBotMention('@Bot Finance Assistant huỷ'), 'huỷ');
+  assert.equal(cleanBotMention('huỷ @Bot Finance Assistant'), 'huỷ');
+  assert.equal(cleanBotMention('@Bot Finance Assistant ê'), 'ê');
 });

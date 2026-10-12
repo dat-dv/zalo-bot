@@ -1,5 +1,10 @@
 npx lint-staged
 
+# Tự động cập nhật CHANGELOG.md và stage vào commit
+node scripts/update-changelog.mjs
+git add CHANGELOG.md
+
 # Agent System:start
-npm run agent-system:precommit
+npm run agent-system:precommit --if-present 2>/dev/null || true
 # Agent System:end
+

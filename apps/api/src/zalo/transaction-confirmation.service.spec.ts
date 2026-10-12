@@ -233,7 +233,7 @@ void test('TransactionConfirmationService cancels transaction with "cancel <mã>
   service.clearAll();
 });
 
-void test('TransactionConfirmationService notifies when 1-minute timeout expires', async () => {
+void test('TransactionConfirmationService notifies when timeout expires', async () => {
   const { service, sentMessages } = createTestContext();
 
   const pending = await service.createPending({
@@ -335,7 +335,7 @@ void test('TransactionConfirmationService notifies when delete timeout expires',
 
   assert.equal(sentMessages.length, 2);
   assert.match(sentMessages[1].text, /Yêu cầu xóa/i);
-  assert.match(sentMessages[1].text, /đã hết hạn 1 phút/);
+  assert.match(sentMessages[1].text, /đã hết hạn 5 phút/);
 
   service.clearAll();
 });
@@ -536,6 +536,137 @@ void test('TransactionConfirmationService creates and confirms user ban with str
   assert.equal(revokedTokens.length, 1);
   assert.equal(revokedTokens[0], 'bad_user_456');
   assert.match(sentMessages[1].text, /ĐÃ XÁC NHẬN VÀ KHÓA TÀI KHOẢN NGƯỜI DÙNG THÀNH CÔNG/);
+
+  service.clearAll();
+});
+
+void test('TransactionConfirmationService edits transaction with "edit <mã> <nội dung>" and calls onEdit', async () => {
+  const { service, sentMessages } = createTestContext();
+
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    rawPrompt: 'ăn trưa 45k',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 45000,
+      category: 'Ăn uống',
+      note: 'ăn trưa',
+    },
+  });
+
+  assert.match(sentMessages[0].text, new RegExp(`edit ${pending.code}`));
+
+  let calledWithPending: unknown = null;
+  let calledWithInstruction = '';
+
+  const handled = await service.handleCommand(
+    'u1',
+    'c1',
+    `edit ${pending.code} đổi thành ăn bún bò 55k`,
+    (p, instruction) => {
+      calledWithPending = p;
+      calledWithInstruction = instruction;
+      return Promise.resolve();
+    },
+  );
+
+  assert.equal(handled, true);
+  assert.ok(calledWithPending);
+  assert.equal(calledWithInstruction, 'đổi thành ăn bún bò 55k');
+  // Pending should have been cleared
+  const lookup = await service.getPendingByCode(pending.code);
+  assert.equal(lookup, undefined);
+
+  service.clearAll();
+});
+
+void test('TransactionConfirmationService prompts for content when "edit <mã>" has no instruction', async () => {
+  const { service, sentMessages } = createTestContext();
+
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 45000,
+      category: 'Ăn uống',
+      note: 'ăn trưa',
+    },
+  });
+
+  const handled = await service.handleCommand('u1', 'c1', `edit ${pending.code}`);
+  assert.equal(handled, true);
+  assert.equal(sentMessages.length, 2);
+  assert.match(sentMessages[1].text, /Vui lòng cung cấp nội dung bạn muốn chỉnh sửa/);
+
+  // Pending is NOT cleared when user forgets to provide instruction
+  const lookup = await service.getPendingByCode(pending.code);
+  assert.ok(lookup);
+
+  service.clearAll();
+});
+
+void test('TransactionConfirmationService edits without code using user latest pending action', async () => {
+  const { service } = createTestContext();
+
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 45000,
+      category: 'Ăn uống',
+      note: 'ăn trưa',
+    },
+  });
+
+  let calledWithInstruction = '';
+  const handled = await service.handleCommand(
+    'u1',
+    'c1',
+    'edit đổi thành cà phê 30k',
+    (_p, instruction) => {
+      calledWithInstruction = instruction;
+      return Promise.resolve();
+    },
+  );
+
+  assert.equal(handled, true);
+  assert.equal(calledWithInstruction, 'đổi thành cà phê 30k');
+  const lookup = await service.getPendingByCode(pending.code);
+  assert.equal(lookup, undefined);
+
+  service.clearAll();
+});
+
+void test('TransactionConfirmationService rejects edit from another user or wrong code', async () => {
+  const { service, sentMessages } = createTestContext();
+
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 45000,
+      category: 'Ăn uống',
+      note: 'ăn trưa',
+    },
+  });
+
+  // Unauthorized user
+  const handledOtherUser = await service.handleCommand('u2', 'c2', `edit ${pending.code} đổi 60k`);
+  assert.equal(handledOtherUser, true);
+  assert.match(sentMessages[1].text, /Bạn không có quyền chỉnh sửa yêu cầu/);
+
+  // Wrong code
+  const handledWrongCode = await service.handleCommand('u1', 'c1', 'edit 999 đổi 60k');
+  assert.equal(handledWrongCode, true);
+  assert.match(sentMessages[2].text, /Không tìm thấy yêu cầu chờ xác nhận với mã "999"/);
 
   service.clearAll();
 });

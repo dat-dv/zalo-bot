@@ -84,6 +84,7 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
       await this.confirmationService.createPendingDebt({
         userId: context.senderId,
         chatId: context.chatId,
+        rawPrompt: context.text,
         payload: {
           userId: context.senderId,
           direction,

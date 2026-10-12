@@ -59,7 +59,7 @@ export class DeployNotifyService implements OnApplicationBootstrap {
     try {
       const apiPkgPath = fromApiRoot('package.json');
       if (fs.existsSync(apiPkgPath)) {
-        const pkg = JSON.parse(fs.readFileSync(apiPkgPath, 'utf8'));
+        const pkg = JSON.parse(fs.readFileSync(apiPkgPath, 'utf8')) as { version?: string };
         if (pkg.version) {
           return `v${pkg.version}`;
         }
@@ -71,7 +71,7 @@ export class DeployNotifyService implements OnApplicationBootstrap {
     try {
       const rootPkgPath = fromProjectRoot('package.json');
       if (fs.existsSync(rootPkgPath)) {
-        const pkg = JSON.parse(fs.readFileSync(rootPkgPath, 'utf8'));
+        const pkg = JSON.parse(fs.readFileSync(rootPkgPath, 'utf8')) as { version?: string };
         if (pkg.version) {
           return `v${pkg.version}`;
         }

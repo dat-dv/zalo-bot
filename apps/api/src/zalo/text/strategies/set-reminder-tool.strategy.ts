@@ -28,6 +28,7 @@ export class SetReminderToolStrategy implements TextToolStrategy {
       await this.confirmationService.createPendingReminder({
         userId: context.senderId,
         chatId: context.chatId,
+        rawPrompt: context.text,
         payload: {
           userId: context.senderId,
           title,

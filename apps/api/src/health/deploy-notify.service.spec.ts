@@ -163,4 +163,3 @@ void test('DeployNotifyService resolveChangelog extracts items from CHANGELOG.md
     assert.ok(changelog.length <= 5);
   }
 });
-

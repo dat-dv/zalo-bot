@@ -50,6 +50,7 @@ export class CreateCalendarEventToolStrategy implements TextToolStrategy {
       await this.confirmationService.createPendingCalendarEvent({
         userId: context.senderId,
         chatId: context.chatId,
+        rawPrompt: context.text,
         payload: {
           summary,
           startDateTime,

@@ -62,6 +62,7 @@ export class BanToolStrategy implements TextToolStrategy {
       await this.confirmationService.createPendingBanUser({
         userId: context.senderId,
         chatId: context.chatId,
+        rawPrompt: context.text,
         payload: {
           targetUserId: targetId,
           targetName,

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert';
 import { PendingImageActionService } from './pending-image-action.service';
 
-test('PendingImageActionService sets, gets and clears pending image actions in memory', async () => {
+void test('PendingImageActionService sets, gets and clears pending image actions in memory', async () => {
   const service = new PendingImageActionService();
   service.timeoutMs = 1000;
 
@@ -26,7 +26,7 @@ test('PendingImageActionService sets, gets and clears pending image actions in m
   service.clearAll();
 });
 
-test('PendingImageActionService expires actions after timeout', async () => {
+void test('PendingImageActionService expires actions after timeout', async () => {
   const service = new PendingImageActionService();
   service.timeoutMs = 50; // 50ms
 

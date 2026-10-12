@@ -3,7 +3,7 @@ import assert from 'node:assert';
 import sharp from 'sharp';
 import { OcrService } from './ocr.service';
 
-test('OcrService extracts text from an image buffer', async () => {
+void test('OcrService extracts text from an image buffer', async () => {
   const ocrService = new OcrService();
 
   // Create an image containing text using sharp
@@ -23,7 +23,7 @@ test('OcrService extracts text from an image buffer', async () => {
   assert.match(text, /85|000|HIGHLANDS|COFFEE/i);
 });
 
-test('OcrService handles empty or invalid buffer gracefully', async () => {
+void test('OcrService handles empty or invalid buffer gracefully', async () => {
   const ocrService = new OcrService();
   const emptyBuffer = Buffer.from('');
   const text = await ocrService.extractTextFromBuffer(emptyBuffer);

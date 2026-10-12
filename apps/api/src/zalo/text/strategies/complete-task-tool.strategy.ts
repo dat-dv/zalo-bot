@@ -86,6 +86,7 @@ export class CompleteTaskToolStrategy implements TextToolStrategy {
       await this.confirmationService.createPendingCompleteTask({
         userId: context.senderId,
         chatId: context.chatId,
+        rawPrompt: context.text,
         payload: {
           taskId: targetTaskId,
           taskTitle: taskName,

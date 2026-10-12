@@ -1,0 +1,6 @@
+#!/bin/sh
+# Tự động ghi nhận thông điệp commit đang tạo vào CHANGELOG.md (nếu có thông điệp)
+if [ -n "$1" ] && [ -f "$1" ]; then
+  node scripts/update-changelog.mjs --msg-file "$1" >/dev/null 2>&1 || true
+  git add CHANGELOG.md >/dev/null 2>&1 || true
+fi

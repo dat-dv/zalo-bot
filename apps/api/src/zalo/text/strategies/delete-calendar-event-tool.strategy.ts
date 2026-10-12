@@ -75,6 +75,7 @@ export class DeleteCalendarEventToolStrategy implements TextToolStrategy {
       await this.confirmationService.createPendingDeleteCalendarEvent({
         userId: context.senderId,
         chatId: context.chatId,
+        rawPrompt: context.text,
         payload: {
           eventId: targetEventId,
           summary: targetSummary || 'Sự kiện Google Calendar',

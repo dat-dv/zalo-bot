@@ -448,7 +448,7 @@ void test('TextInputService handles pending image action option 1: OCR -> LLM RE
     read: () => Promise.resolve(Buffer.from('fake-image-bytes')),
   } as unknown as ReceiptImageStorageService;
 
-  const { service, sentMessages, confirmationService } = createTextInputService({
+  const { service, sentMessages } = createTextInputService({
     pendingImageActionService: pendingImageService,
     ocrService: mockOcrService,
     receiptStorageService: mockReceiptStorage,
@@ -558,7 +558,39 @@ void test('TextInputService handles pending image action cancel command', async 
   assert.strictEqual(pendingAfter, undefined);
 });
 
-void test('TextInputService prompts user with options when image is pending and invalid input is sent', async () => {
+void test('TextInputService allows user to continue normally when image is pending and normal text is sent', async () => {
+  const pendingImageService = new PendingImageActionService();
+  await pendingImageService.setPending('u1', {
+    userId: 'u1',
+    chatId: 'c1',
+    receiptUrl: '/api/receipts/bill-abc',
+  });
+
+  const { service, sentMessages } = createTextInputService({
+    pendingImageActionService: pendingImageService,
+    llmResponse: {
+      text: 'Chào Đạt, mình có thể giúp gì cho bạn?',
+    },
+  });
+
+  // User sends normal text instead of 1, 2, or cancel -> does NOT block user!
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'ê',
+  });
+
+  assert.equal(sentMessages.length, 1);
+  assert.match(sentMessages[0].text, /Chào Đạt/);
+
+  // Pending image is cleared so user continues freely
+  const pendingAfter = await pendingImageService.getPending('u1');
+  assert.strictEqual(pendingAfter, undefined);
+});
+
+void test('TextInputService handles pending image action cancel with huỷ and mention', async () => {
   const pendingImageService = new PendingImageActionService();
   await pendingImageService.setPending('u1', {
     userId: 'u1',
@@ -575,13 +607,67 @@ void test('TextInputService prompts user with options when image is pending and 
     senderId: 'u1',
     chatId: 'c1',
     displayName: 'Đạt',
-    text: 'xin chào',
+    text: 'huỷ @Bot Finance Assistant',
   });
 
   assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0].text, /Bạn đang có 1 ảnh hóa đơn chờ xử lý/);
+  assert.match(sentMessages[0].text, /Đã hủy yêu cầu xử lý hình ảnh/);
 
-  // Pending image should still be kept
   const pendingAfter = await pendingImageService.getPending('u1');
-  assert.ok(pendingAfter);
+  assert.strictEqual(pendingAfter, undefined);
+});
+
+void test('TextInputService handles "edit <mã> <nội dung>" by feeding context back to LLM and updating confirmation card', async () => {
+  const { service, sentMessages, confirmationService, getLastLlmPrompt } = createTextInputService({
+    llmResponse: {
+      toolCall: {
+        name: 'RECORD_TRANSACTION',
+        args: {
+          type: 'expense',
+          amount: 60000,
+          category: 'Ăn uống',
+          note: 'ăn bún bò',
+        },
+      },
+    },
+  });
+
+  // 1. Create initial pending action
+  const initialPending = await confirmationService.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    rawPrompt: 'ăn trưa 45k',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 45000,
+      category: 'Ăn uống',
+      note: 'ăn trưa',
+    },
+  });
+
+  assert.equal(sentMessages.length, 1);
+  assert.match(sentMessages[0].text, /45\.000 đ/);
+
+  // 2. User sends edit command with code and instruction
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: `edit ${initialPending.code} đổi thành ăn bún bò 60k`,
+  });
+
+  // Verify LLM prompt contains previous context
+  const llmPrompt = getLastLlmPrompt();
+  assert.match(llmPrompt, /RECORD_TRANSACTION/);
+  assert.match(llmPrompt, /ăn trưa 45k/);
+  assert.match(llmPrompt, /đổi thành ăn bún bò 60k/);
+
+  // A new confirmation card was generated with 60.000 đ
+  assert.equal(sentMessages.length, 2);
+  assert.match(sentMessages[1].text, /60\.000 đ/);
+  assert.match(sentMessages[1].text, /ăn bún bò/);
+
+  confirmationService.clearAll();
 });

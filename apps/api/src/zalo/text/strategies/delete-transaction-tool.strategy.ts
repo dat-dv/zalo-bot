@@ -83,6 +83,7 @@ export class DeleteTransactionToolStrategy implements TextToolStrategy {
       await this.confirmationService.createPendingDelete({
         userId: context.senderId,
         chatId: context.chatId,
+        rawPrompt: context.text,
         payload: {
           transactionId: transaction.id,
           type: transaction.type,

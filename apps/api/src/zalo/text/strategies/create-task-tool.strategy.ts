@@ -64,6 +64,7 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
       await this.confirmationService.createPendingTask({
         userId: context.senderId,
         chatId: context.chatId,
+        rawPrompt: context.text,
         payload: {
           title,
           due: args.due,

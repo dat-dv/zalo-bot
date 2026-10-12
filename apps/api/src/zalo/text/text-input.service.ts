@@ -6,7 +6,7 @@ import { TextToolType } from './text-tool.enum';
 import { ZALO_TOOL_DEFINITIONS } from './text-tool.definitions';
 import { LlmService } from '../../llm/llm.service';
 import { ZaloService } from '../zalo.service';
-import { TransactionConfirmationService } from '../transaction-confirmation.service';
+import { TransactionConfirmationService, PendingAction } from '../transaction-confirmation.service';
 import { cleanBotMention } from './bot-mention.util';
 import { PendingImageActionService } from '../pending-image-action.service';
 import { OcrService } from '../../ocr/ocr.service';
@@ -53,11 +53,14 @@ export class TextInputService {
       return;
     }
 
-    // 2. Pending Transaction Confirmation fast-path ("yes 123", "cancel 123", etc.)
+    // 2. Pending Transaction Confirmation fast-path ("yes 123", "cancel 123", "edit 123 ...", etc.)
     const handledConfirmation = await this.confirmationService.handleCommand(
       senderId,
       chatId,
       text,
+      async (pending, instruction) => {
+        await this.handleEditPendingAction(input, pending, instruction);
+      },
     );
     if (handledConfirmation) {
       return;
@@ -184,10 +187,14 @@ export class TextInputService {
 
     const trimmed = text.trim();
 
-    // 1. Kiểm tra lệnh hủy
-    if (/^(?:hủy|huy|cancel|bỏ\s*qua|bo\s*qua)$/i.test(trimmed)) {
+    // 1. Kiểm tra lệnh hủy (hỗ trợ cả hủy và huỷ)
+    if (
+      /^(?:hủy|huỷ|huy|cancel|bỏ\s*qua|bo\s*qua|dừng|dung|không|khong|ko)(?:\s+(?:ảnh|anh|nhé|nhe|ạ|a))?$/i.test(
+        trimmed,
+      )
+    ) {
       await this.pendingImageActionService.clearPending(senderId);
-      await this.zaloService.sendMessage(chatId, '❌ Đã hủy yêu cầu xử lý hình ảnh hóa đơn.');
+      await this.zaloService.sendMessage(chatId, '❌ Đã hủy yêu cầu xử lý hình ảnh.');
       return true;
     }
 
@@ -250,7 +257,7 @@ export class TextInputService {
         );
 
         const toolCall = response.toolCall;
-        if (toolCall && toolCall.name === TextToolType.RECORD_TRANSACTION) {
+        if (toolCall && toolCall.name === (TextToolType.RECORD_TRANSACTION as string)) {
           if (!toolCall.args.receiptUrl) {
             toolCall.args.receiptUrl = pending.receiptUrl;
           }
@@ -291,11 +298,100 @@ export class TextInputService {
       }
     }
 
-    // Nếu người dùng nhắn text bất kỳ mà không phải 1, 2, hủy
-    await this.zaloService.sendMessage(
-      chatId,
-      `⚠️ Bạn đang có 1 ảnh hóa đơn chờ xử lý:\n\n1️⃣ Tạo bill (Gõ: "1" hoặc "1 <ghi chú>")\n2️⃣ Lưu Google Drive (Gõ: "2")\n\n👉 Hoặc gõ "hủy" để tiếp tục cuộc trò chuyện bình thường.`,
-    );
-    return true;
+    // Nếu người dùng nhắn nội dung khác (không chọn 1, 2 hay lệnh hủy):
+    // Tự động xóa pending ảnh và cho người dùng làm tiếp cuộc trò chuyện bình thường.
+    await this.pendingImageActionService.clearPending(senderId);
+    return false;
+  }
+
+  public async handleEditPendingAction(
+    input: AgentInput,
+    pending: PendingAction,
+    instruction: string,
+  ): Promise<void> {
+    const chatId = input.chatId || input.senderId;
+    const senderId = input.senderId;
+    const displayName = input.displayName;
+    const now = new Date().toISOString();
+
+    const previousInfoLines: string[] = [
+      `- Loại thao tác (Tool Call trước đó): ${pending.actionType}`,
+      `- Tiêu đề: ${pending.title}`,
+    ];
+    if (pending.rawPrompt) {
+      previousInfoLines.push(`- Yêu cầu ban đầu của người dùng: "${pending.rawPrompt}"`);
+    }
+    previousInfoLines.push(`- Dữ liệu tham số hiện tại:`, JSON.stringify(pending.payload, null, 2));
+
+    const prompt =
+      `Người dùng đang chỉnh sửa / cung cấp lại ngữ cảnh cho yêu cầu thao tác đang chờ xác nhận (mã: ${pending.code}).\n\n` +
+      `[NGỮ CẢNH THAO TÁC TRƯỚC ĐÓ]\n` +
+      `${previousInfoLines.join('\n')}\n\n` +
+      `[YÊU CẦU ĐIỀU CHỈNH / CONTEXT MỚI TỪ NGƯỜI DÙNG]\n` +
+      `"${instruction}"\n\n` +
+      `Nhiệm vụ của bạn:\n` +
+      `- Phân tích kỹ yêu cầu điều chỉnh của người dùng dựa trên ngữ cảnh và dữ liệu tham số hiện tại.\n` +
+      `- Giữ nguyên các thông tin cũ nếu người dùng không yêu cầu thay đổi.\n` +
+      `- Cập nhật, thay đổi hoặc bổ sung các trường thông tin theo đúng yêu cầu mới của người dùng.\n` +
+      `- Gọi lại công cụ (tool call) phù hợp nhất (${pending.actionType} hoặc công cụ tương ứng) với các tham số đã cập nhật hoàn chỉnh để tạo yêu cầu xác nhận mới.\n` +
+      `- Nếu người dùng đổi ý sang hành động khác, hãy gọi công cụ phù hợp với ý định mới.\n\n` +
+      `QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n` +
+      `- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object.`;
+
+    const systemInstruction =
+      `Bạn là trợ lý cá nhân thông minh trên Zalo. Thời gian hiện tại là: ${now}.\n` +
+      `Nhiệm vụ: Cập nhật thông tin thao tác dựa trên ngữ cảnh thao tác trước đó và yêu cầu điều chỉnh của người dùng để gọi công cụ phù hợp.\n` +
+      `QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n` +
+      `- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object.`;
+
+    try {
+      const response = await this.zaloService.withChatAction(chatId, () =>
+        this.llmService.generate(prompt, ZALO_TOOL_DEFINITIONS, systemInstruction),
+      );
+
+      const toolCall = response.toolCall;
+      if (toolCall) {
+        this.logger.log(
+          `LLM resolved updated tool "${toolCall.name}" with args: ${JSON.stringify(toolCall.args)}`,
+        );
+
+        let strategy;
+        try {
+          strategy = this.toolFactory.getStrategy(toolCall.name as TextToolType);
+        } catch {
+          this.logger.warn(
+            `Strategy for tool "${toolCall.name}" not found. Falling back to CONVERSATION.`,
+          );
+          strategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
+        }
+
+        await strategy.execute({
+          input,
+          chatId,
+          senderId,
+          displayName,
+          text: instruction,
+          toolArgs: toolCall.args,
+        });
+        return;
+      }
+
+      // Plain AI conversational reply if LLM didn't return a tool call
+      const conversationStrategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
+      await conversationStrategy.execute({
+        input,
+        chatId,
+        senderId,
+        displayName,
+        text: instruction,
+        aiReplyText: response.text,
+      });
+    } catch (err) {
+      this.logger.error(`Failed to handle edit pending action: ${(err as Error).message}`);
+      await this.zaloService.sendMessage(
+        chatId,
+        `⚠️ Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu: ${(err as Error).message}`,
+      );
+    }
   }
 }

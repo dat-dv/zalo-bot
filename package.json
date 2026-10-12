@@ -37,7 +37,8 @@
     "release": "node scripts/release.mjs patch",
     "release:patch": "node scripts/release.mjs patch",
     "release:minor": "node scripts/release.mjs minor",
-    "release:major": "node scripts/release.mjs major"
+    "release:major": "node scripts/release.mjs major",
+    "changelog": "node scripts/update-changelog.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.2.4"

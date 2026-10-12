@@ -98,6 +98,7 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
       await this.confirmationService.createPending({
         userId: context.senderId,
         chatId: context.chatId,
+        rawPrompt: context.text,
         payload: {
           userId: context.senderId,
           type,
