@@ -47,6 +47,10 @@ export class GoogleDriveService {
     return this.authService.isAuthorized(userId);
   }
 
+  public hasStorageScopes(userId?: number | string): boolean {
+    return this.authService.hasStorageScopes(userId);
+  }
+
   /**
    * Đảm bảo một folder tồn tại dưới parentId, nếu chưa có thì tạo mới
    */
@@ -87,7 +91,14 @@ export class GoogleDriveService {
       );
       return created.data.id;
     } catch (err) {
-      this.logger.error(`Failed to ensure folder "${folderName}": ${(err as Error).message}`);
+      const errMsg = (err as Error).message;
+      if (errMsg.includes('Insufficient Permission') || errMsg.includes('insufficient_scope')) {
+        this.logger.warn(
+          `Google Drive permission missing when accessing folder "${folderName}": ${errMsg}`,
+        );
+      } else {
+        this.logger.error(`Failed to ensure folder "${folderName}": ${errMsg}`);
+      }
       throw err;
     }
   }

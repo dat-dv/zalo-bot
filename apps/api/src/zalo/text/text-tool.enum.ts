@@ -6,7 +6,6 @@ export enum TextToolType {
   PING = 'PING',
   RESET = 'RESET',
   LOGIN = 'LOGIN',
-  CODE = 'CODE',
   STATUS = 'STATUS',
   TODAY = 'TODAY',
   WEEK = 'WEEK',

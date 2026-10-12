@@ -240,9 +240,18 @@ export class InputProcessor implements OnModuleDestroy {
     this.logger.debug(`Received unsupported message event from ${input.senderId}`);
 
     let linksSection = '';
+    let isPermissionMissing = false;
+
     if (this.mediaStorageService) {
       try {
-        const { driveLink, photosLink } = await this.mediaStorageService.getVideoStorageLinks();
+        const {
+          driveLink,
+          photosLink,
+          isPermissionMissing: permMissing,
+        } = await this.mediaStorageService.getVideoStorageLinks();
+        if (permMissing) {
+          isPermissionMissing = true;
+        }
         const lines: string[] = [];
         if (driveLink) lines.push(`• 📁 Google Drive: ${driveLink}`);
         if (photosLink) lines.push(`• 🎬 Google Photos: ${photosLink}`);
@@ -254,12 +263,23 @@ export class InputProcessor implements OnModuleDestroy {
       }
     }
 
+    let storageGuidance = '';
+    if (linksSection) {
+      storageGuidance = linksSection;
+    } else if (isPermissionMissing) {
+      storageGuidance =
+        '\n\n⚠️ Lưu ý: Tài khoản Google của Bot hiện CHƯA ĐƯỢC CẤP QUYỀN Google Drive & Photos để tạo kho lưu trữ.' +
+        '\n👉 Quản trị viên vui lòng gõ /login để cấp quyền bổ sung.';
+    } else {
+      storageGuidance =
+        '\n\n💡 Bạn có thể gõ /video hoặc /kho để lấy link Google Drive tải video lên nhé!';
+    }
+
     await this.zaloService.sendMessage(
       targetChatId,
       '⚠️ Định dạng này hiện chưa được hỗ trợ (Zalo Bot hiện chỉ hỗ trợ nhận tin nhắn văn bản và hình ảnh, phía Zalo chưa mở tính năng nhận video hoặc file đính kèm cho Bot).\n\n' +
         '💡 Bạn có thể gửi hình ảnh hóa đơn/chứng từ để bot tự động nhận diện.' +
-        (linksSection ||
-          '\n\n💡 Bạn có thể gõ "link video" hoặc "link kho" để lấy link Google Drive tải video lên nhé!'),
+        storageGuidance,
     );
   }
 }

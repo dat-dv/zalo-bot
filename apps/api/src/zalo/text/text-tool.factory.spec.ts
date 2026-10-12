@@ -20,7 +20,6 @@ function createFactory(): TextToolFactory {
     createDummyStrategy(TextToolType.SET_REMINDER),
     createDummyStrategy(TextToolType.GET_REPORT),
     createDummyStrategy(TextToolType.LOGIN),
-    createDummyStrategy(TextToolType.CODE),
     createDummyStrategy(TextToolType.STATUS),
     createDummyStrategy(TextToolType.TODAY),
     createDummyStrategy(TextToolType.WEEK),
@@ -57,12 +56,6 @@ void test('TextToolFactory resolves tool types by enum correctly', () => {
 
   assert.equal(factory.resolveFastPathToolType('/login'), TextToolType.LOGIN);
   assert.equal(factory.resolveFastPathToolType('/auth'), TextToolType.LOGIN);
-  assert.equal(factory.resolveFastPathToolType('/code 12345'), TextToolType.CODE);
-  assert.equal(factory.resolveFastPathToolType('code=12345'), TextToolType.CODE);
-  assert.equal(
-    factory.resolveFastPathToolType('4/0AQb8C1xZ-LONG-GOOGLE-AUTH-CODE-12345'),
-    TextToolType.CODE,
-  );
   assert.equal(factory.resolveFastPathToolType('/status'), TextToolType.STATUS);
   assert.equal(factory.resolveFastPathToolType('/today'), TextToolType.TODAY);
   assert.equal(factory.resolveFastPathToolType('/week'), TextToolType.WEEK);
@@ -92,6 +85,7 @@ void test('TextToolFactory resolves tool types by enum correctly', () => {
   assert.equal(factory.resolveFastPathToolType('/ping @Bot'), TextToolType.PING);
   assert.equal(factory.resolveFastPathToolType('/users'), TextToolType.USERS);
   assert.equal(factory.resolveFastPathToolType('/ban u123'), TextToolType.BAN);
+  assert.equal(factory.resolveFastPathToolType('/kho'), TextToolType.GET_STORAGE_LINKS);
 
   assert.equal(factory.resolveFastPathToolType('nợ a 100k'), null);
   assert.equal(factory.resolveFastPathToolType('@Bot nợ a 100k'), null);

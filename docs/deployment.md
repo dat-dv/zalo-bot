@@ -47,17 +47,14 @@ QWEN_MODEL=qwen2.5:14b
 
 ---
 
-## 3. Quy Trình Đăng Nhập Google 100% Qua zalo
-
+## 3. Quy Trình Đăng Nhập Google Qua Zalo
+ 
 Không cần chạy lệnh terminal `npm run auth` hay sinh file token thủ công:
 
-1. Mở bot trên zalo và gõ: `/login` (hoặc bấm nút **"🔗 Đăng nhập Google"**).
-2. Đăng nhập Gmail trên trình duyệt và bấm **Cho phép (Allow)**.
-3. Copy mã xác thực trả về và gửi lại cho bot:
-   ```
-   /code 4/0AQ...
-   ```
-4. Toàn bộ Token của **Admin** và **Bạn bè** được tự động lưu trữ và quản lý độc lập, bảo mật trong **PostgreSQL (bảng `user_tokens`)**!
+1. Mở bot trên Zalo và gõ: `/login` (hoặc bấm nút **"🔗 Đăng nhập Google"**).
+2. Đăng nhập Gmail trên trình duyệt và bấm **Cho phép (Allow)** các quyền.
+3. Hệ thống tự động nhận mã xác thực qua callback và gửi thông báo hoàn tất kết nối tới Zalo!
+4. Toàn bộ Token được tự động lưu trữ và quản lý độc lập, bảo mật trong **PostgreSQL (bảng `user_tokens`)**!
 
 ---
 
@@ -169,7 +166,7 @@ pm2 monit
 
 | Hiện tượng                                                 | Nguyên nhân                                           | Cách khắc phục                                                           |
 | ---------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------ |
-| Bot báo `Yêu cầu kết nối tài khoản Google`                 | Chưa đăng nhập Google OAuth.                          | Bấm nút **"🔗 Đăng nhập Google"** hoặc gõ `/login` rồi gửi `/code <mã>`. |
+| Bot báo `Yêu cầu kết nối tài khoản Google`                 | Chưa đăng nhập Google OAuth.                          | Bấm nút **"🔗 Đăng nhập Google"** hoặc gõ `/login` để cấp quyền. |
 | Người lạ nhắn tin báo `Truy cập bị từ chối`                | Chưa được Admin mời qua link `/invite`.               | Admin gõ `/invite` lấy link gửi cho bạn, hoặc gõ `/allow <id>`.          |
 | Lỗi `Google OAuth credentials chưa được cấu hình`          | Thiếu `GOOGLE_CLIENT_ID` hoặc `GOOGLE_CLIENT_SECRET`. | Kiểm tra lại các biến môi trường trên Coolify hoặc file `.env`.          |
 

@@ -15,7 +15,6 @@ import { PingToolStrategy } from './text/strategies/ping-tool.strategy';
 import { ResetToolStrategy } from './text/strategies/reset-tool.strategy';
 import { ConversationToolStrategy } from './text/strategies/conversation-tool.strategy';
 import { LoginToolStrategy } from './text/strategies/login-tool.strategy';
-import { CodeToolStrategy } from './text/strategies/code-tool.strategy';
 import { StatusToolStrategy } from './text/strategies/status-tool.strategy';
 import { TodayToolStrategy } from './text/strategies/today-tool.strategy';
 import { WeekToolStrategy } from './text/strategies/week-tool.strategy';
@@ -95,7 +94,6 @@ import { ImageBatchHandler } from './pending-image/image-batch-handler.service';
     ResetToolStrategy,
     ConversationToolStrategy,
     LoginToolStrategy,
-    CodeToolStrategy,
     StatusToolStrategy,
     TodayToolStrategy,
     WeekToolStrategy,

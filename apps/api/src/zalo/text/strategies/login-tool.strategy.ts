@@ -60,9 +60,8 @@ export class LoginToolStrategy implements TextToolStrategy {
         `Các bước thực hiện:\n` +
         `1️⃣ Mở đường dẫn sau trên trình duyệt:\n` +
         `👉 ${authUrl}\n\n` +
-        `2️⃣ Đăng nhập Gmail và bấm "Cho phép" (Allow) các quyền.\n` +
-        `3️⃣ Sau khi cấp quyền thành công, nếu cần bạn có thể gửi lại mã xác thực qua cú pháp:\n` +
-        `/code <mã_xác_thực>`;
+        `2️⃣ Đăng nhập Gmail và bấm "Cho phép" (Allow) các quyền.\n\n` +
+        `Sau khi cấp quyền thành công, hệ thống sẽ tự động kích hoạt kết nối và gửi thông báo xác nhận tới bạn!`;
 
       await this.zaloService.sendMessage(context.chatId, reply);
     } catch (err) {

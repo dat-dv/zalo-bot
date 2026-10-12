@@ -91,28 +91,26 @@ sequenceDiagram
 | :--- | :--- |
 | `/start` | Khởi động bot, hướng dẫn sử dụng ban đầu hoặc kích hoạt mã mời (`/start invite_...`). |
 | `/help` | Xem danh sách toàn bộ lệnh hỗ trợ và hướng dẫn tương tác bằng tiếng Việt tự nhiên. |
-| `/login` hoặc `/auth` | Nhận link đăng nhập Google Calendar & Google Tasks cá nhân hóa. |
-| `/code <mã_xác_thực>` | Xác thực Authorization Code thủ công (nếu không tự động chuyển hướng). |
-| `/status` | Kiểm tra trạng thái tài khoản, vai trò (Admin/Member) và kết nối Google Workspace. |
-| `/today` | Xem tổng hợp lịch hẹn Google Calendar & công việc Google Tasks trong ngày hôm nay. |
-| `/week` | Xem tổng hợp kế hoạch lịch trình & công việc trong 7 ngày tới. |
-| `/tasks` | Tra cứu danh sách việc cần làm chưa hoàn thành trên Google Tasks. |
+| `/login` hoặc `/auth` | Đăng nhập Google (Admin: Calendar, Tasks, Drive & Photos dùng chung). |
+| `/status` | Kiểm tra trạng thái tài khoản & kết nối Google. |
+| `/today` | Xem tổng hợp lịch hẹn & việc cần làm hôm nay. |
+| `/week` | Xem tổng hợp kế hoạch lịch trình & công việc 7 ngày tới. |
+| `/tasks` | Tra cứu danh sách việc cần làm (Google Tasks). |
 | `/task <nội dung>` | Thêm nhanh việc cần làm vào Google Tasks. |
-| `/finance` hoặc `/thuchi` | Xem báo cáo tài chính thu - chi cá nhân trong ngày hôm nay. |
-| `/debts` hoặc `/congo` | Xem sổ công nợ hiện tại (các khoản người khác nợ mình và mình nợ người khác). |
-| `/dashboard` | Nhận link một lần mở Web Dashboard trực quan (Biểu đồ, phân tích số liệu). |
-| `/reminders` | Tra cứu danh sách các nhắc nhở hẹn giờ đang chờ phát chuông. |
-| `/ping` | Kiểm tra độ trễ và khả năng phản hồi tức thời của bot. |
-| `/echo <nội dung>` | Yêu cầu bot lặp lại chính xác nội dung gửi vào. |
-| `/reset` hoặc `/clear` | Làm mới phiên hội thoại hiện tại. |
+| `/finance` hoặc `/thuchi` | Xem báo cáo thu chi hôm nay. |
+| `/debts` hoặc `/congo` | Xem danh sách các khoản nợ & cho vay. |
+| `/dashboard` | Mở Web Dashboard trực quan (Biểu đồ, phân tích). |
+| `/reminders` | Tra cứu danh sách lời nhắc hẹn giờ sắp tới. |
+| `/ping` | Kiểm tra kết nối bot. |
+| `/echo <nội dung>` | Bot lặp lại nội dung. |
+| `/reset` hoặc `/clear` | Làm mới phiên hội thoại. |
 
 ### 👑 Dành Riêng Cho Quản Trị Viên (Admin):
 
 | Lệnh | Mô Tả Chức Năng |
 | :--- | :--- |
-| `/invite` | Tạo mã mời 1 lần (có giá trị trong 24 giờ) để mời bạn bè/đồng nghiệp tham gia trợ lý. |
-| `/users` | Xem danh sách toàn bộ người dùng trong hệ thống và tình trạng kết nối Google. |
-| `/ban <zalo_id>` | Thu hồi quyền sử dụng, khóa tài khoản và hủy toàn bộ Token Google của một người dùng. |
+| `/users` | Xem danh sách người dùng & trạng thái Google. |
+| `/ban <zalo_id>` | Thu hồi quyền & hủy token Google của người dùng. |
 
 ---
 

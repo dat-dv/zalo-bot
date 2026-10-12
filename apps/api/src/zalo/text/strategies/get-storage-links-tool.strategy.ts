@@ -62,6 +62,28 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
       return;
     }
 
+    // Kiểm tra quyền lưu trữ Google Drive & Photos
+    if (!this.googleAuthService.hasStorageScopes()) {
+      let loginLinkNote = '👉 Quản trị viên vui lòng gõ /login để cấp quyền bổ sung.';
+      try {
+        const authUrl = this.googleAuthService.generateAuthUrl(context.senderId);
+        loginLinkNote =
+          `👉 Quản trị viên vui lòng mở liên kết sau để cấp quyền bổ sung:\n` +
+          `🔗 ${authUrl}\n\n` +
+          `(Hoặc gõ /login để nhận link cấp quyền)`;
+      } catch {
+        // fallback
+      }
+
+      await this.zaloService.sendMessage(
+        context.chatId,
+        `⚠️ TÀI KHOẢN GOOGLE CHƯA CẤP QUYỀN LƯU TRỮ (DRIVE & PHOTOS)\n\n` +
+          `Tài khoản Google của Bot hiện đã kết nối (Lịch & Tasks) nhưng CHƯA ĐƯỢC CẤP QUYỀN truy cập Google Drive & Google Photos để tạo kho lưu trữ file.\n\n` +
+          `${loginLinkNote}`,
+      );
+      return;
+    }
+
     if (!this.driveService && !this.photosService) {
       await this.zaloService.sendMessage(
         context.chatId,

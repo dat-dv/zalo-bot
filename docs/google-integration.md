@@ -13,7 +13,7 @@ graph TD
     A[Google Cloud Console] -->|Client ID & Secret| B[.env: GOOGLE_CLIENT_ID & GOOGLE_CLIENT_SECRET]
 
     subgraph Multi-Tenant Database Storage
-        B -->|Đăng nhập qua /login & /code| DB[(PostgreSQL)]
+        B -->|Đăng nhập qua /login & OAuth Callback| DB[(PostgreSQL)]
         DB -->|Bảng user_tokens| T1[Token Admin]
         DB -->|Bảng user_tokens| T2[Token Bạn bè 1]
         DB -->|Bảng user_tokens| T3[Token Bạn bè 2]
@@ -58,17 +58,13 @@ Sau khi deploy HTTPS domain, dùng các URL public `/about`, `/privacy` và `/te
 
 ---
 
-## 3. Luồng Đăng Nhập Cho Người Dùng Mới (`/login` & `/code`)
+## 3. Luồng Đăng Nhập Tài Khoản Google (`/login`)
 
-1. Người dùng gõ `/login` hoặc bấm nút **"🔗 Đăng nhập Google"** trên zalo (hoặc AI tự gọi tool `login_google`).
+1. Quản trị viên gõ `/login` hoặc bấm nút **"🔗 Đăng nhập Google"** trên Zalo (hoặc AI tự gọi tool `LOGIN_GOOGLE`).
 2. `GoogleAuthService.generateAuthUrl(userId)` sinh URL xác thực Google với tham số `state: userId`.
-3. Người dùng đăng nhập Gmail (đã nằm trong danh sách **Test Users**) và bấm **Cho phép (Allow)**.
-4. Trình duyệt hiển thị mã xác thực (Authorization Code).
-5. Người dùng gửi mã cho bot:
-   ```text
-   /code 4/0AQ...
-   ```
-6. Bot tự động trao đổi mã lấy `access_token` & `refresh_token`, lưu an toàn vào bảng **`user_tokens`** trong PostgreSQL.
+3. Quản trị viên mở link, đăng nhập Gmail và bấm **Cho phép (Allow)** các quyền.
+4. Trình duyệt tự động chuyển hướng về endpoint OAuth Callback của hệ thống (`/oauth2callback`).
+5. Hệ thống tự động nhận Authorization Code, trao đổi lấy `access_token` & `refresh_token`, lưu an toàn vào PostgreSQL và gửi thông báo xác nhận thành công tới Zalo!
 
 ---
 

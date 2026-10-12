@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { cleanBotMention } from './bot-mention.util';
 import { TextToolType } from './text-tool.enum';
@@ -14,7 +14,6 @@ import { RecordTransactionToolStrategy } from './strategies/record-transaction-t
 import { SetReminderToolStrategy } from './strategies/set-reminder-tool.strategy';
 import { GetReportToolStrategy } from './strategies/get-report-tool.strategy';
 import { LoginToolStrategy } from './strategies/login-tool.strategy';
-import { CodeToolStrategy } from './strategies/code-tool.strategy';
 import { StatusToolStrategy } from './strategies/status-tool.strategy';
 import { TodayToolStrategy } from './strategies/today-tool.strategy';
 import { WeekToolStrategy } from './strategies/week-tool.strategy';
@@ -52,7 +51,6 @@ export class TextToolFactory {
     setReminderStrategy?: SetReminderToolStrategy,
     getReportStrategy?: GetReportToolStrategy,
     loginStrategy?: LoginToolStrategy,
-    codeStrategy?: CodeToolStrategy,
     statusStrategy?: StatusToolStrategy,
     todayStrategy?: TodayToolStrategy,
     weekStrategy?: WeekToolStrategy,
@@ -73,7 +71,7 @@ export class TextToolFactory {
     deleteTransactionStrategy?: DeleteTransactionToolStrategy,
     createPlaceStrategy?: CreatePlaceToolStrategy,
     getStorageLinksStrategy?: GetStorageLinksToolStrategy,
-    @Optional() private readonly configService?: ConfigService,
+    private readonly configService?: ConfigService,
   ) {
     if (startStrategy) this.strategyMap.set(TextToolType.START, startStrategy);
     if (helpStrategy) this.strategyMap.set(TextToolType.HELP, helpStrategy);
@@ -89,7 +87,6 @@ export class TextToolFactory {
     if (setReminderStrategy) this.strategyMap.set(TextToolType.SET_REMINDER, setReminderStrategy);
     if (getReportStrategy) this.strategyMap.set(TextToolType.GET_REPORT, getReportStrategy);
     if (loginStrategy) this.strategyMap.set(TextToolType.LOGIN, loginStrategy);
-    if (codeStrategy) this.strategyMap.set(TextToolType.CODE, codeStrategy);
     if (statusStrategy) this.strategyMap.set(TextToolType.STATUS, statusStrategy);
     if (todayStrategy) this.strategyMap.set(TextToolType.TODAY, todayStrategy);
     if (weekStrategy) this.strategyMap.set(TextToolType.WEEK, weekStrategy);
@@ -120,7 +117,9 @@ export class TextToolFactory {
   public resolveFastPathToolType(text: string, customBotName?: string): TextToolType | null {
     const botName =
       customBotName ||
-      this.configService?.get<string>('zalo.botName') ||
+      (typeof this.configService?.get === 'function'
+        ? this.configService.get<string>('zalo.botName')
+        : undefined) ||
       process.env.BOT_NAME ||
       process.env.ZALO_BOT_NAME ||
       'Bot';
@@ -169,18 +168,7 @@ export class TextToolFactory {
       return TextToolType.LOGIN;
     }
 
-    // 7. /code or auth code pasted
-    if (
-      trimmed.startsWith('/code') ||
-      trimmed.includes('oauth2callback') ||
-      trimmed.includes('code=') ||
-      (trimmed.startsWith('4/') && trimmed.length > 25)
-    ) {
-      return TextToolType.CODE;
-    }
-
-    // 8. /status, /id, /myid
-
+    // 7. /status, /id, /myid
     const isCallId = ['/status', '/id', '/myid'].some((i) => trimmed.toLowerCase().startsWith(i));
     if (isCallId) {
       return TextToolType.STATUS;
