@@ -238,10 +238,28 @@ export class InputProcessor implements OnModuleDestroy {
   private async processUnsupported(input: AgentInput): Promise<void> {
     const targetChatId = input.chatId || input.senderId;
     this.logger.debug(`Received unsupported message event from ${input.senderId}`);
+
+    let linksSection = '';
+    if (this.mediaStorageService) {
+      try {
+        const { driveLink, photosLink } = await this.mediaStorageService.getVideoStorageLinks();
+        const lines: string[] = [];
+        if (driveLink) lines.push(`• 📁 Google Drive: ${driveLink}`);
+        if (photosLink) lines.push(`• 🎬 Google Photos: ${photosLink}`);
+        if (lines.length > 0) {
+          linksSection = `\n\n📂 ĐƯỜNG DẪN KHO LƯU TRỮ GOOGLE CỦA BOT:\n` + lines.join('\n');
+        }
+      } catch {
+        // Safe fallback if links cannot be retrieved
+      }
+    }
+
     await this.zaloService.sendMessage(
       targetChatId,
       '⚠️ Định dạng này hiện chưa được hỗ trợ (Zalo Bot hiện chỉ hỗ trợ nhận tin nhắn văn bản và hình ảnh, phía Zalo chưa mở tính năng nhận video hoặc file đính kèm cho Bot).\n\n' +
-        '💡 Bạn có thể gửi hình ảnh hóa đơn/chứng từ, hoặc gõ "link video" / "link kho" để lấy đường dẫn thư mục Google Drive dùng chung và tải video lên nhé!',
+        '💡 Bạn có thể gửi hình ảnh hóa đơn/chứng từ để bot tự động nhận diện.' +
+        (linksSection ||
+          '\n\n💡 Bạn có thể gõ "link video" hoặc "link kho" để lấy link Google Drive tải video lên nhé!'),
     );
   }
 }

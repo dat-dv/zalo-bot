@@ -167,4 +167,18 @@ export class MediaStorageService {
 
     return lines.join('\n\n');
   }
+
+  /**
+   * Lấy link thư mục Google Drive (zalobot/video) và album Google Photos (ZaloBot - Video)
+   */
+  public async getVideoStorageLinks(): Promise<{
+    driveLink: string | null;
+    photosLink: string | null;
+  }> {
+    const [driveLink, photosLink] = await Promise.all([
+      this.driveService ? this.driveService.getFolderWebLink('zalobot/video') : null,
+      this.photosService ? this.photosService.getAlbumLink('ZaloBot - Video') : null,
+    ]);
+    return { driveLink, photosLink };
+  }
 }
