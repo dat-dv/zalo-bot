@@ -155,7 +155,7 @@ function updateChangelog(version, changelogSection) {
     if (existingSectionMatch) {
       finalContent = currentContent.replace(versionHeaderRegex, changelogSection);
     } else {
-      const afterHeader = currentContent.replace(/^# Changelog[^\n]*\n+(\w[^\n]*\n+)?/, '');
+      const afterHeader = currentContent.replace(/^# Changelog[\s\S]*?(?=^## \[|$)/m, '');
       finalContent = header + changelogSection + afterHeader;
     }
   } else {

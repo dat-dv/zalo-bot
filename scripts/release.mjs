@@ -161,7 +161,7 @@ function updateChangelog(newVersion, changelogSection) {
   if (!currentContent) {
     finalContent = header + changelogSection;
   } else if (currentContent.startsWith('# Changelog')) {
-    const afterHeader = currentContent.replace(/^# Changelog[^\n]*\n+(\w[^\n]*\n+)?/, '');
+    const afterHeader = currentContent.replace(/^# Changelog[\s\S]*?(?=^## \[|$)/m, '');
     finalContent = header + changelogSection + afterHeader;
   } else {
     finalContent = header + changelogSection + currentContent;
