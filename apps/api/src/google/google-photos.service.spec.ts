@@ -5,7 +5,7 @@ import { GoogleAuthService } from './google-auth.service';
 
 void test('GooglePhotosService throws BadRequestException when unauthorized', async () => {
   const mockAuthService = {
-    getOAuth2Client: () => null,
+    getOAuth2Client: (): null => null,
     isAuthorized: () => false,
   } as unknown as GoogleAuthService;
 

@@ -8,7 +8,7 @@
   "scripts": {
     "build": "nest build",
     "test": "tsx --test $(find src -name '*.spec.ts' -print)",
-    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "format": "prettier --write \"src/**/*.ts\" \"scripts/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"scripts/**/*.ts\"",
     "lint": "eslint \"{src,apps,libs,test,scripts}/**/*.ts\" --fix",

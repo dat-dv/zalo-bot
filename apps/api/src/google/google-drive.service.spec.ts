@@ -5,7 +5,7 @@ import { GoogleAuthService } from './google-auth.service';
 
 void test('GoogleDriveService throws BadRequestException when unauthorized', () => {
   const mockAuthService = {
-    getOAuth2Client: () => null,
+    getOAuth2Client: (): null => null,
     isAuthorized: () => false,
   } as unknown as GoogleAuthService;
 

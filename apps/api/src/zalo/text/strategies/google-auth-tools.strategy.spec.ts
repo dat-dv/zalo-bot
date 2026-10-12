@@ -32,8 +32,14 @@ void test('LoginToolStrategy blocks non-admin user and informs admin requirement
   await strategy.execute({
     chatId: 'c1',
     senderId: 'member_1',
+    displayName: 'Member 1',
     text: '/login',
-    input: { type: 'text', senderId: 'member_1' },
+    input: {
+      type: 'text',
+      senderId: 'member_1',
+      chatId: 'c1',
+      displayName: 'Member 1',
+    },
   });
 
   assert.equal(sentMessages.length, 1);
@@ -44,8 +50,14 @@ void test('LoginToolStrategy blocks non-admin user and informs admin requirement
   await strategy.execute({
     chatId: 'c1',
     senderId: 'admin_1',
+    displayName: 'Admin',
     text: '/login',
-    input: { type: 'text', senderId: 'admin_1' },
+    input: {
+      type: 'text',
+      senderId: 'admin_1',
+      chatId: 'c1',
+      displayName: 'Admin',
+    },
   });
 
   assert.equal(sentMessages.length, 1);
@@ -85,8 +97,14 @@ void test('CodeToolStrategy blocks non-admin and allows admin to exchange code',
   await strategy.execute({
     chatId: 'c1',
     senderId: 'member_1',
+    displayName: 'Member 1',
     text: '/code 4/mock-code',
-    input: { type: 'text', senderId: 'member_1' },
+    input: {
+      type: 'text',
+      senderId: 'member_1',
+      chatId: 'c1',
+      displayName: 'Member 1',
+    },
   });
 
   assert.equal(sentMessages.length, 1);
@@ -98,8 +116,14 @@ void test('CodeToolStrategy blocks non-admin and allows admin to exchange code',
   await strategy.execute({
     chatId: 'c1',
     senderId: 'admin_1',
+    displayName: 'Admin',
     text: '/code 4/mock-code',
-    input: { type: 'text', senderId: 'admin_1' },
+    input: {
+      type: 'text',
+      senderId: 'admin_1',
+      chatId: 'c1',
+      displayName: 'Admin',
+    },
   });
 
   assert.equal(sentMessages.length, 1);
@@ -139,7 +163,12 @@ void test('StatusToolStrategy displays shared workspace status properly', async 
     senderId: 'member_2',
     displayName: 'Thành viên Test',
     text: '/status',
-    input: { type: 'text', senderId: 'member_2' },
+    input: {
+      type: 'text',
+      senderId: 'member_2',
+      chatId: 'c1',
+      displayName: 'Thành viên Test',
+    },
   });
 
   assert.equal(sentMessages.length, 1);
