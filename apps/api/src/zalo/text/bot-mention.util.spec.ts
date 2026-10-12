@@ -41,3 +41,15 @@ void test('cleanBotMention supports custom botName from env', () => {
   assert.equal(cleanBotMention('huỷ @Bot Finance Assistant'), 'huỷ');
   assert.equal(cleanBotMention('@Bot Finance Assistant ê'), 'ê');
 });
+
+void test('cleanBotMention cleans image placeholders and group mentions', () => {
+  assert.equal(cleanBotMention('[Hình ảnh] @Bot Finance Assistant'), '');
+  assert.equal(cleanBotMention('@Bot Finance Assistant [Hình ảnh]'), '');
+  assert.equal(cleanBotMention('[Hình ảnh] @Bot Finance Assistant 1'), '1');
+  assert.equal(
+    cleanBotMention('[Hình ảnh] @Bot Finance Assistant 1 Ăn trưa Highlands'),
+    '1 Ăn trưa Highlands',
+  );
+  assert.equal(cleanBotMention('[Ảnh] @Bot 2'), '2');
+  assert.equal(cleanBotMention('@Bot Finance Assistant'), '');
+});

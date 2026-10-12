@@ -1,4 +1,5 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ZaloService } from './zalo.service';
 import { TextInputService } from './text/text-input.service';
 import { TextToolType } from './text/text-tool.enum';
@@ -9,7 +10,7 @@ import { UsersService } from '../users/users.service';
 import { InitialAdminBootstrapGuard } from './guards/initial-admin-bootstrap.guard';
 import { GrantAccessGuard } from './guards/grant-access.guard';
 import { PendingImageActionService } from './pending-image-action.service';
-import { ReceiptImageStorageService } from '../receipt-storage/receipt-image-storage.service';
+import { cleanBotMention } from './text/bot-mention.util';
 
 @Injectable()
 export class InputProcessor {
@@ -22,7 +23,7 @@ export class InputProcessor {
     @Optional() private readonly grantAccessGuard?: GrantAccessGuard,
     @Optional() private usersService?: UsersService,
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
-    @Optional() private readonly receiptStorageService?: ReceiptImageStorageService,
+    @Optional() private readonly configService?: ConfigService,
   ) {
     // Gracefully handle legacy test calls passing usersService as 3rd parameter
     if (
@@ -103,19 +104,15 @@ export class InputProcessor {
     const targetChatId = input.chatId || input.senderId;
     this.logger.log(`Received image from ${input.senderId}: ${input.imageUrl}`);
 
-    let receiptUrl: string | undefined;
-    if (this.receiptStorageService && input.imageUrl && input.senderId) {
-      try {
-        const res = await fetch(input.imageUrl);
-        if (res.ok) {
-          const arrayBuffer = await res.arrayBuffer();
-          const buffer = Buffer.from(arrayBuffer);
-          receiptUrl = await this.receiptStorageService.store(input.senderId, buffer);
-        }
-      } catch (err) {
-        this.logger.warn(`Failed to download and store receipt image: ${(err as Error).message}`);
-      }
-    }
+    const receiptUrl = input.imageUrl;
+
+    const botName =
+      this.configService?.get<string>('zalo.botName') ||
+      process.env.BOT_NAME ||
+      process.env.ZALO_BOT_NAME ||
+      'Bot';
+    const rawCaption = input.caption || input.text || '';
+    const cleanedCaption = cleanBotMention(rawCaption, botName);
 
     if (receiptUrl && this.pendingImageActionService && input.senderId) {
       await this.pendingImageActionService.setPending(input.senderId, {
@@ -124,10 +121,10 @@ export class InputProcessor {
         receiptUrl,
       });
 
-      if (input.caption?.trim()) {
+      if (cleanedCaption) {
         return this.textInputService.process({
           ...input,
-          text: input.caption.trim(),
+          text: cleanedCaption,
         });
       }
 
@@ -145,10 +142,10 @@ export class InputProcessor {
       return;
     }
 
-    if (input.caption) {
+    if (cleanedCaption) {
       return this.textInputService.process({
         ...input,
-        text: input.caption,
+        text: cleanedCaption,
       });
     }
 

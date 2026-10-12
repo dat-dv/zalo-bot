@@ -17,9 +17,6 @@ export interface AppConfig {
     webhookUrl: string;
     secretToken?: string;
   };
-  receiptStorage: {
-    dir: string;
-  };
   timezone: string;
   google: {
     clientId: string;
@@ -96,9 +93,6 @@ export default (): AppConfig => {
       botName: readEnv('BOT_NAME', readEnv('ZALO_BOT_NAME', 'Bot')),
       webhookUrl: readEnv('ZALO_WEBHOOK_URL', readEnv('WEBHOOK_URL')),
       secretToken: readOptionalEnv('ZALO_WEBHOOK_SECRET_TOKEN'),
-    },
-    receiptStorage: {
-      dir: readEnv('RECEIPT_STORAGE_DIR', './data/receipts'),
     },
     timezone: readEnv('DEFAULT_TIMEZONE', 'Asia/Ho_Chi_Minh'),
     google: {

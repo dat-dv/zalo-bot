@@ -10,7 +10,6 @@ import { TransactionConfirmationService, PendingAction } from '../transaction-co
 import { cleanBotMention } from './bot-mention.util';
 import { PendingImageActionService } from '../pending-image-action.service';
 import { OcrService } from '../../ocr/ocr.service';
-import { ReceiptImageStorageService } from '../../receipt-storage/receipt-image-storage.service';
 import { MediaStorageService } from '../../receipt-storage/media-storage.service';
 
 @Injectable()
@@ -25,7 +24,6 @@ export class TextInputService {
     @Optional() private readonly configService?: ConfigService,
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
     @Optional() private readonly ocrService?: OcrService,
-    @Optional() private readonly receiptStorageService?: ReceiptImageStorageService,
     @Optional() private readonly mediaStorageService?: MediaStorageService,
   ) {}
 
@@ -41,6 +39,11 @@ export class TextInputService {
     const chatId = input.chatId || input.senderId;
     const senderId = input.senderId;
     const displayName = input.displayName;
+
+    // Bỏ qua nếu tin nhắn ảnh nhưng không có nội dung text hợp lệ sau khi làm sạch mention
+    if (!text && input.type === 'image') {
+      return;
+    }
 
     // 1. Explicit tool override
     if (toolTypeOverride) {
@@ -217,13 +220,13 @@ export class TextInputService {
     ) {
       await this.pendingImageActionService.clearPending(senderId);
 
-      if (this.receiptStorageService && this.mediaStorageService) {
+      if (this.mediaStorageService) {
         try {
           await this.zaloService.sendMessage(
             chatId,
             '⏳ Đang tải ảnh lên Google Drive & Google Photos dùng chung...',
           );
-          const buffer = await this.receiptStorageService.read(senderId, pending.receiptUrl);
+          const buffer = await this.getImageBuffer(pending.receiptUrl);
           const dualResult = await this.mediaStorageService.uploadImage(senderId, buffer);
           const summary = this.mediaStorageService.formatUploadSummary(dualResult, 'image');
           await this.zaloService.sendMessage(chatId, summary);
@@ -257,30 +260,28 @@ export class TextInputService {
       let ocrText = '';
       let activeReceiptUrl = pending.receiptUrl;
 
-      if (this.receiptStorageService) {
-        try {
-          const buffer = await this.receiptStorageService.read(senderId, pending.receiptUrl);
-          if (this.ocrService) {
-            ocrText = await this.ocrService.extractTextFromBuffer(buffer);
-          }
-
-          if (this.mediaStorageService) {
-            try {
-              const uploadResult = await this.mediaStorageService.uploadBill(senderId, buffer, {
-                note: userNote,
-              });
-              if (uploadResult.drive?.webViewLink) {
-                activeReceiptUrl = uploadResult.drive.webViewLink;
-              }
-            } catch (upErr) {
-              this.logger.warn(
-                `Could not upload bill to Google Drive/Photos: ${(upErr as Error).message}`,
-              );
-            }
-          }
-        } catch (err) {
-          this.logger.warn(`Failed to read/OCR receipt image: ${(err as Error).message}`);
+      try {
+        const buffer = await this.getImageBuffer(pending.receiptUrl);
+        if (this.ocrService) {
+          ocrText = await this.ocrService.extractTextFromBuffer(buffer);
         }
+
+        if (this.mediaStorageService) {
+          try {
+            const uploadResult = await this.mediaStorageService.uploadBill(senderId, buffer, {
+              note: userNote,
+            });
+            if (uploadResult.drive?.webViewLink) {
+              activeReceiptUrl = uploadResult.drive.webViewLink;
+            }
+          } catch (upErr) {
+            this.logger.warn(
+              `Could not upload bill to Google Drive/Photos: ${(upErr as Error).message}`,
+            );
+          }
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to read/OCR receipt image: ${(err as Error).message}`);
       }
 
       const now = new Date().toISOString();

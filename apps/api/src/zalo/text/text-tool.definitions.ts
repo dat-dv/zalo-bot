@@ -312,4 +312,22 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
       required: ['name'],
     },
   },
+  {
+    name: TextToolType.GET_STORAGE_LINKS,
+    description:
+      'Tra cứu đường dẫn (link) thư mục Google Drive và album Google Photos nơi bot lưu trữ hình ảnh, hóa đơn, video của người dùng. ' +
+      'Ví dụ: "ảnh lưu ở đâu", "cho tôi link xem ảnh", "đường link vào folder", "link drive", "link album ảnh", ' +
+      '"link hóa đơn", "hình ảnh lưu ở đâu", "link xem video", "đường dẫn kho lưu trữ", "xem folder ảnh", "thư mục hóa đơn ở đâu".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        type: {
+          type: 'STRING',
+          enum: ['all', 'bill', 'image', 'video'],
+          description:
+            'Loại kho lưu trữ cần lấy link: bill (hóa đơn), image (hình ảnh), video, all (tất cả, mặc định).',
+        },
+      },
+    },
+  },
 ];

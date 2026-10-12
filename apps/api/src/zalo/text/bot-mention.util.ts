@@ -12,15 +12,17 @@ function escapeRegex(str: string): string {
  */
 export function cleanBotMention(text: string, botName = 'Bot'): string {
   if (!text) return '';
-  const trimmed = text.trim();
-  if (!trimmed) return '';
+  let result = text.trim();
+  if (!result) return '';
 
   const cleanName = (botName || 'Bot').replace(/^@/, '').trim();
   const baseNames = [cleanName, 'Bot Finance Assistant', 'Finance Assistant', 'Bot', 'bot'];
   const names = Array.from(new Set(baseNames.filter(Boolean))).sort((a, b) => b.length - a.length);
   const namePattern = names.map(escapeRegex).join('|');
 
-  let result = trimmed;
+  // Loại bỏ các tiền tố/hậu tố định danh tin nhắn ảnh từ client Zalo (ví dụ: [Hình ảnh], [Ảnh], [Image], [Photo])
+  result = result.replace(/^\[(?:hình ảnh|hinh anh|ảnh|anh|image|photo)\]\s*/i, '').trim();
+  result = result.replace(/\s*\[(?:hình ảnh|hinh anh|ảnh|anh|image|photo)\]$/i, '').trim();
 
   // Trường hợp 1: @Bot ở đầu câu (ví dụ: "@Bot /dashboard", "@Bot: nợ a 100k")
   const startRegex = new RegExp(`^@(?:${namePattern})\\b[\\s,:.-]*`, 'i');
@@ -40,6 +42,10 @@ export function cleanBotMention(text: string, botName = 'Bot'): string {
   // Trường hợp độc lập ở giữa câu
   const inlineRegex = new RegExp(`\\s*@(?:${namePattern})\\b[:,-]?`, 'gi');
   result = result.replace(inlineRegex, ' ').replace(/\s+/g, ' ').trim();
+
+  // Loại bỏ lại lần nữa nếu tiền tố/hậu tố ảnh nằm sau hoặc trước bot mention
+  result = result.replace(/^\[(?:hình ảnh|hinh anh|ảnh|anh|image|photo)\]\s*/i, '').trim();
+  result = result.replace(/\s*\[(?:hình ảnh|hinh anh|ảnh|anh|image|photo)\]$/i, '').trim();
 
   return result;
 }

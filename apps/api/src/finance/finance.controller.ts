@@ -11,7 +11,6 @@ import {
   Query,
   Req,
   Res,
-  StreamableFile,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -20,7 +19,6 @@ import type { AnalyticsGrain } from '@zalobot/contracts';
 import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import { FinanceService } from './finance.service';
-import { ReceiptImageStorageService } from '../receipt-storage/receipt-image-storage.service';
 
 type RecordBody = Record<string, unknown>;
 
@@ -54,7 +52,6 @@ export class FinanceController {
   constructor(
     private readonly finance: FinanceService,
     private readonly tokens: ReportsTokenService,
-    private readonly receiptStorage: ReceiptImageStorageService,
   ) {}
 
   @Get('finance/analytics')
@@ -78,22 +75,6 @@ export class FinanceController {
   @Get('transactions/:id')
   async getTransaction(@Req() req: Request, @Param('id') id: string) {
     return { data: await this.required(this.finance.getTransaction(this.userId(req), id)) };
-  }
-
-  @Get('receipts/:receiptId')
-  async getReceipt(
-    @Req() req: Request,
-    @Param('receiptId') receiptId: string,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const userId = this.userId(req);
-    const receiptUrl = `/api/receipts/${receiptId}`;
-    const transaction = await this.finance.findReceiptTransaction(userId, receiptUrl);
-    if (!transaction) throw new NotFoundException();
-    const image = await this.receiptStorage.read(userId, receiptUrl);
-    res.setHeader('Content-Type', 'image/jpeg');
-    res.setHeader('Cache-Control', 'private, max-age=3600');
-    return new StreamableFile(image);
   }
 
   @Post('transactions')

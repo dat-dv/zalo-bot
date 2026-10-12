@@ -11,7 +11,6 @@ import { UserEntity } from '../database/entities/user.entity';
 import { FinanceService } from './finance.service';
 import { FinanceController } from './finance.controller';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
-import { ReceiptStorageModule } from '../receipt-storage/receipt-storage.module';
 
 @Module({
   imports: [
@@ -26,7 +25,6 @@ import { ReceiptStorageModule } from '../receipt-storage/receipt-storage.module'
       UserEntity,
     ]),
     DashboardAuthModule,
-    ReceiptStorageModule,
   ],
   controllers: [FinanceController],
   providers: [FinanceService],

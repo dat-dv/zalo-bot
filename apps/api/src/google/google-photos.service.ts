@@ -321,4 +321,27 @@ export class GooglePhotosService {
       userId,
     );
   }
+
+  /**
+   * Lấy productUrl (link web) của album Google Photos theo tiêu đề.
+   * Trả về null nếu chưa tồn tại hoặc chưa được uỷ quyền.
+   */
+  public async getAlbumLink(
+    albumTitle: string,
+    userId?: number | string,
+  ): Promise<string | null> {
+    try {
+      const accessToken = await this.getAccessToken(userId);
+      const listRes = await fetch(
+        `${this.baseUrl}/albums?pageSize=50&excludeNonAppCreatedData=true`,
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      if (!listRes.ok) return null;
+      const listData = (await listRes.json()) as { albums?: GooglePhotosAlbum[] };
+      const album = listData.albums?.find((a) => a.title?.trim() === albumTitle.trim());
+      return album?.productUrl ?? null;
+    } catch {
+      return null;
+    }
+  }
 }

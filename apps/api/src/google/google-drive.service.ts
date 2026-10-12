@@ -288,4 +288,20 @@ export class GoogleDriveService {
       userId,
     );
   }
+
+  /**
+   * Lấy webViewLink của folder theo đường dẫn (ví dụ: zalobot/bill)
+   * Trả về https://drive.google.com/drive/folders/{folderId}
+   */
+  public async getFolderWebLink(
+    folderPath: string,
+    userId?: number | string,
+  ): Promise<string | null> {
+    try {
+      const folderId = await this.ensureFolderPath(folderPath, userId);
+      return `https://drive.google.com/drive/folders/${folderId}`;
+    } catch {
+      return null;
+    }
+  }
 }

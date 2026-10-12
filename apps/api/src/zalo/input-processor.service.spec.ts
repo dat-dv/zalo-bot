@@ -319,6 +319,18 @@ void test('InputProcessor handles image messages with and without caption', asyn
   });
   assert.equal(sentMessages.length, 2);
   assert.match(sentMessages[1].text, /Pong!/);
+
+  // With caption containing only bot mention -> does not forward empty text to processText
+  await processor.process({
+    type: 'image',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    imageUrl: 'https://photo.zalo.me/bill.jpg',
+    caption: '[Hình ảnh] @Bot Finance Assistant',
+  });
+  assert.equal(sentMessages.length, 3);
+  assert.match(sentMessages[2].text, /Đã nhận ảnh từ bạn/);
 });
 
 void test('InputProcessor handles voice, sticker, system events and unsupported inputs', async () => {
