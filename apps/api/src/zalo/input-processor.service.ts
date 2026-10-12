@@ -240,7 +240,8 @@ export class InputProcessor implements OnModuleDestroy {
     this.logger.debug(`Received unsupported message event from ${input.senderId}`);
     await this.zaloService.sendMessage(
       targetChatId,
-      'Tin nhắn của bạn hiện chưa được hỗ trợ xử lý trên hệ thống trợ lý.',
+      '⚠️ Định dạng này hiện chưa được hỗ trợ (Zalo Bot hiện chỉ hỗ trợ nhận tin nhắn văn bản và hình ảnh, phía Zalo chưa mở tính năng nhận video hoặc file đính kèm cho Bot).\n\n' +
+        '💡 Bạn có thể gửi hình ảnh hóa đơn/chứng từ, hoặc gõ "link video" / "link kho" để lấy đường dẫn thư mục Google Drive dùng chung và tải video lên nhé!',
     );
   }
 }
