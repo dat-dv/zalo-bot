@@ -25,6 +25,7 @@ ENV NODE_ENV=production
 EXPOSE 3000
 
 COPY package.json package-lock.json ./
+COPY CHANGELOG.md* ./
 COPY apps/api/package.json apps/api/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 

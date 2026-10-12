@@ -1,6 +1,6 @@
 {
   "name": "zalobot-monorepo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -33,7 +33,11 @@
     "tunnel": "bash scripts/tunnel.sh",
     "tunnel:bg": "bash scripts/tunnel.sh bg",
     "tunnel:stop": "bash scripts/tunnel.sh stop",
-    "zalo:tunnel": "bash scripts/tunnel.sh"
+    "zalo:tunnel": "bash scripts/tunnel.sh",
+    "release": "node scripts/release.mjs patch",
+    "release:patch": "node scripts/release.mjs patch",
+    "release:minor": "node scripts/release.mjs minor",
+    "release:major": "node scripts/release.mjs major"
   },
   "devDependencies": {
     "concurrently": "^9.2.4"
