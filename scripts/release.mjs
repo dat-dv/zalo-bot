@@ -203,6 +203,8 @@ async function main() {
   const changelogSection = generateMarkdownSection(newVersion, categories);
   updateChangelog(newVersion, changelogSection);
 
+  const shouldPush = args.includes('--push');
+
   // 3. Git commit & tag
   if (!noGit) {
     try {
@@ -211,14 +213,23 @@ async function main() {
       runCommand(`git commit -m "chore(release): bump version to v${newVersion}"`);
       runCommand(`git tag -a "v${newVersion}" -m "Release v${newVersion}"`);
       console.log(`✅ Đã tạo commit và tag: v${newVersion}`);
+
+      if (shouldPush) {
+        const currentBranch = runCommand('git rev-parse --abbrev-ref HEAD') || 'main';
+        console.log(`\n🚀 Đang đẩy commit và tag lên origin/${currentBranch}...`);
+        execSync(`git push origin ${currentBranch} --follow-tags`, { cwd: rootDir, stdio: 'inherit' });
+        console.log(`✅ Đã đẩy thành công lên remote!`);
+      }
     } catch (err) {
-      console.warn(`⚠️ Không thể tạo git tag/commit tự động: ${err.message}`);
+      console.warn(`⚠️ Không thể tạo git tag/commit hoặc push tự động: ${err.message}`);
     }
   }
 
-  console.log(`\n🎉 HOÀN TẤT BUMP VERSION: v${newVersion}`);
-  console.log(`💡 Để đẩy lên GitHub/server, chạy lệnh:`);
-  console.log(`   git push origin main --tags\n`);
+  console.log(`\n🎉 HOÀN TẤT PHÁT HÀNH: v${newVersion}`);
+  if (!shouldPush) {
+    console.log(`💡 Để đẩy lên GitHub/server, chạy lệnh:`);
+    console.log(`   git push origin main --follow-tags\n`);
+  }
 }
 
 main().catch((err) => {

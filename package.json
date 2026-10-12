@@ -7,7 +7,6 @@
     "packages/*"
   ],
   "scripts": {
-    "prepare": "git config core.hooksPath .githooks || true",
     "predev": "npm run build --workspace @zalobot/contracts",
     "dev": "concurrently -k --names api,web --prefix-colors blue,green \"npm run dev:api\" \"npm run dev:web\"",
     "kill:ports": "lsof -ti:3005,5173,3000,3009 | xargs kill -9 2>/dev/null || true",
@@ -35,10 +34,11 @@
     "tunnel:bg": "bash scripts/tunnel.sh bg",
     "tunnel:stop": "bash scripts/tunnel.sh stop",
     "zalo:tunnel": "bash scripts/tunnel.sh",
-    "release": "node scripts/release.mjs patch",
-    "release:patch": "node scripts/release.mjs patch",
-    "release:minor": "node scripts/release.mjs minor",
-    "release:major": "node scripts/release.mjs major",
+    "release": "node scripts/release.mjs patch --push",
+    "release:patch": "node scripts/release.mjs patch --push",
+    "release:minor": "node scripts/release.mjs minor --push",
+    "release:major": "node scripts/release.mjs major --push",
+    "release:local": "node scripts/release.mjs patch",
     "changelog": "node scripts/update-changelog.mjs"
   },
   "devDependencies": {
