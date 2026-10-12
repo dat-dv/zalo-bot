@@ -210,7 +210,9 @@ async function main() {
     try {
       console.log(`\n🔖 Đang tạo Git Commit và Tag cho v${newVersion}...`);
       runCommand(`git add ${PACKAGE_PATHS.join(' ')} CHANGELOG.md`);
-      runCommand(`git commit -m "chore(release): bump version to v${newVersion}"`);
+      runCommand(`git commit -m "chore(release): bump version to v${newVersion}"`, {
+        env: { ...process.env, SKIP_BUMP: '1' },
+      });
       runCommand(`git tag -a "v${newVersion}" -m "Release v${newVersion}"`);
       console.log(`✅ Đã tạo commit và tag: v${newVersion}`);
 

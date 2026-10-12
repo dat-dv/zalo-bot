@@ -2,6 +2,19 @@
 
 Tất cả các thay đổi đáng chú ý của dự án Zalo Bot sẽ được ghi lại trong tài liệu này.
 
+## [v1.0.4] - 2026-10-12
+
+### 🚀 Tính năng mới (Features)
+- feat(google): add dual upload to Google Drive & Photos with admin-only shared OAuth (e10d3b5)
+- feat(zalo): support multi-action tool calls and independent place confirmations (7e5170e)
+
+### 🐛 Sửa lỗi (Bug Fixes)
+- fix(test): resolve TypeScript types and AgentInput interface in spec files (ab15cc0)
+
+
+
+Tất cả các thay đổi đáng chú ý của dự án Zalo Bot sẽ được ghi lại trong tài liệu này.
+
 ## [v1.0.2] - 2026-10-12
 
 ### 🚀 Tính năng mới (Features)
