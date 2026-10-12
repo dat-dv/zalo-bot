@@ -402,3 +402,18 @@ void test('InputProcessor ignores input without senderId for non-events', async 
 
   assert.equal(sentMessages.length, 0);
 });
+
+void test('InputProcessor handles video input message', async () => {
+  const { processor, sentMessages } = createMockSetup();
+
+  await processor.process({
+    type: 'video',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    videoUrl: 'https://video.zalo.me/test.mp4',
+  });
+
+  assert.equal(sentMessages.length, 1);
+  assert.match(sentMessages[0].text, /Đã nhận video từ bạn/);
+});

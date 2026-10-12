@@ -25,6 +25,8 @@ export class ZaloMessageParser {
       type = 'event';
     } else if (normalized.isUnsupported) {
       type = 'unsupported';
+    } else if (normalized.videoUrl) {
+      type = 'video';
     } else if (normalized.imageUrl) {
       type = 'image';
     } else if (normalized.voiceUrl) {
@@ -43,6 +45,8 @@ export class ZaloMessageParser {
       text: normalized.text,
       imageUrl: normalized.imageUrl,
       imageUrls: normalized.imageUrls,
+      videoUrl: normalized.videoUrl,
+      videoUrls: normalized.videoUrls,
       voiceUrl: normalized.voiceUrl,
       stickerUrl: normalized.stickerUrl,
       caption: normalized.caption,

@@ -6,6 +6,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export enum ZaloWebhookEventName {
   MESSAGE_TEXT_RECEIVED = 'message.text.received',
   MESSAGE_IMAGE_RECEIVED = 'message.image.received',
+  MESSAGE_VIDEO_RECEIVED = 'message.video.received',
   MESSAGE_STICKER_RECEIVED = 'message.sticker.received',
   MESSAGE_VOICE_RECEIVED = 'message.voice.received',
   MESSAGE_UNSUPPORTED_RECEIVED = 'message.unsupported.received',
@@ -14,6 +15,7 @@ export enum ZaloWebhookEventName {
   UNFOLLOW = 'unfollow',
   USER_SEND_TEXT = 'user_send_text',
   USER_SEND_IMAGE = 'user_send_image',
+  USER_SEND_VIDEO = 'user_send_video',
 }
 
 /**
@@ -133,6 +135,18 @@ export class ZaloMessageDto {
     example: 'https://voice.zalo.me/...',
   })
   voice_url?: string;
+
+  @ApiPropertyOptional({
+    description: 'Đường dẫn tệp video (video)',
+    example: 'https://video.zalo.me/...',
+  })
+  video_url?: string;
+
+  @ApiPropertyOptional({
+    description: 'Đường dẫn video (đặc tả Zalo)',
+    example: 'https://video.zalo.me/...',
+  })
+  video?: string;
 
   @ApiPropertyOptional({
     description:
@@ -270,6 +284,8 @@ export interface NormalizedZaloEvent {
   imageUrl?: string;
   /** Tất cả ảnh khi user gửi nhiều ảnh (multi-image). Phần tử đầu tiên trùng với imageUrl. */
   imageUrls?: string[];
+  videoUrl?: string;
+  videoUrls?: string[];
   voiceUrl?: string;
   stickerUrl?: string;
   caption?: string;
@@ -330,6 +346,17 @@ export function normalizeZaloWebhookPayload(payload: ZaloWebhookPayloadDto): Nor
 
   const imageUrl = imageUrls[0]; // URL ảnh đầu tiên (tương thích ngược)
 
+  // Trích xuất URL video
+  let videoUrl = message?.video_url || message?.video;
+  const isVideoEvent =
+    eventName === (ZaloWebhookEventName.MESSAGE_VIDEO_RECEIVED as string) ||
+    eventName === (ZaloWebhookEventName.USER_SEND_VIDEO as string) ||
+    (message as Record<string, unknown>)?.message_type === 'CHAT_VIDEO';
+
+  if (!videoUrl && isVideoEvent && message?.url) {
+    videoUrl = message.url;
+  }
+
   return {
     eventName,
     message,
@@ -339,6 +366,7 @@ export function normalizeZaloWebhookPayload(payload: ZaloWebhookPayloadDto): Nor
     text,
     imageUrl,
     imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
+    videoUrl,
     voiceUrl,
     stickerUrl,
     caption,

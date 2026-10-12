@@ -1,4 +1,5 @@
-export type AgentInputType = 'text' | 'image' | 'voice' | 'sticker' | 'event' | 'unsupported';
+export type AgentInputType =
+  'text' | 'image' | 'video' | 'voice' | 'sticker' | 'event' | 'unsupported';
 
 export interface AgentInput {
   type: AgentInputType;
@@ -9,6 +10,8 @@ export interface AgentInput {
   imageUrl?: string;
   /** Tất cả ảnh khi user gửi nhiều ảnh (multi-image). Phần tử đầu tiên trùng với imageUrl. */
   imageUrls?: string[];
+  videoUrl?: string;
+  videoUrls?: string[];
   voiceUrl?: string;
   stickerUrl?: string;
   caption?: string;

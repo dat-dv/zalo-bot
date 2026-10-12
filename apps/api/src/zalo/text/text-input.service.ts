@@ -12,6 +12,11 @@ import { PendingImageActionService } from '../pending-image-action.service';
 import { OcrService } from '../../ocr/ocr.service';
 import { MediaStorageService } from '../../receipt-storage/media-storage.service';
 
+import { PendingImageActionDispatcher } from '../pending-image/pending-image-dispatcher.service';
+import { CancelPendingImageStrategy } from '../pending-image/strategies/cancel-pending-image.strategy';
+import { StorageUploadPendingImageStrategy } from '../pending-image/strategies/storage-upload-pending-image.strategy';
+import { CreateBillPendingImageStrategy } from '../pending-image/strategies/create-bill-pending-image.strategy';
+
 @Injectable()
 export class TextInputService {
   private readonly logger = new Logger(TextInputService.name);
@@ -25,7 +30,35 @@ export class TextInputService {
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
     @Optional() private readonly ocrService?: OcrService,
     @Optional() private readonly mediaStorageService?: MediaStorageService,
-  ) {}
+    @Optional() private pendingImageDispatcher?: PendingImageActionDispatcher,
+  ) {
+    if (!this.pendingImageDispatcher && this.pendingImageActionService) {
+      // Auto-wire default strategies when dispatcher is not injected (e.g. in standalone tests)
+      const cancelStrategy = new CancelPendingImageStrategy(
+        this.zaloService,
+        this.pendingImageActionService,
+      );
+      const storageStrategy = new StorageUploadPendingImageStrategy(
+        this.zaloService,
+        this.pendingImageActionService,
+        this.mediaStorageService,
+      );
+      const billStrategy = new CreateBillPendingImageStrategy(
+        this.zaloService,
+        this.pendingImageActionService,
+        this.llmService,
+        this.toolFactory,
+        this.ocrService,
+        this.mediaStorageService,
+      );
+      this.pendingImageDispatcher = new PendingImageActionDispatcher(
+        cancelStrategy,
+        storageStrategy,
+        billStrategy,
+        this.pendingImageActionService,
+      );
+    }
+  }
 
   public async process(input: AgentInput, toolTypeOverride?: TextToolType): Promise<void> {
     const rawText = input.text?.trim() || '';
@@ -71,9 +104,9 @@ export class TextInputService {
       return;
     }
 
-    // 3. Pending Image Action ("1", "1 ghi chú", "2", "hủy")
-    if (this.pendingImageActionService) {
-      const handledImage = await this.handlePendingImageAction(
+    // 3. Pending Image Action ("1", "1 ghi chú", "2", "hủy") via Strategy Dispatcher
+    if (this.pendingImageDispatcher) {
+      const handledImage = await this.pendingImageDispatcher.dispatch(
         input,
         senderId,
         chatId,
@@ -197,190 +230,6 @@ export class TextInputService {
     }
   }
 
-  private async handlePendingImageAction(
-    input: AgentInput,
-    senderId: string,
-    chatId: string,
-    displayName: string | undefined,
-    text: string,
-  ): Promise<boolean> {
-    if (!this.pendingImageActionService) return false;
-
-    const pending = await this.pendingImageActionService.getPending(senderId);
-    if (!pending) return false;
-
-    const trimmed = text.trim();
-
-    // 1. Kiểm tra lệnh hủy (hỗ trợ cả hủy và huỷ)
-    if (
-      /^(?:hủy|huỷ|huy|cancel|bỏ\s*qua|bo\s*qua|dừng|dung|không|khong|ko)(?:\s+(?:ảnh|anh|nhé|nhe|ạ|a))?$/i.test(
-        trimmed,
-      )
-    ) {
-      await this.pendingImageActionService.clearPending(senderId);
-      await this.zaloService.sendMessage(chatId, '❌ Đã hủy yêu cầu xử lý hình ảnh.');
-      return true;
-    }
-
-    // 2. Kiểm tra Option 2: Lưu lên Drive & Photos
-    if (
-      /^(?:2|lưu\s*(?:drive|ảnh|anh|photo|lên\s*drive)|luu\s*(?:drive|anh|photo|len\s*drive))(?:\s+.*)?$/i.test(
-        trimmed,
-      )
-    ) {
-      await this.pendingImageActionService.clearPending(senderId);
-
-      if (this.mediaStorageService) {
-        try {
-          const urls = pending.receiptUrls?.length ? pending.receiptUrls : [pending.receiptUrl];
-          const total = urls.length;
-
-          await this.zaloService.sendMessage(
-            chatId,
-            total > 1
-              ? `⏳ Đang tải ${total} ảnh lên Google Drive & Google Photos dùng chung...`
-              : '⏳ Đang tải ảnh lên Google Drive & Google Photos dùng chung...',
-          );
-
-          for (let i = 0; i < urls.length; i++) {
-            const url = urls[i];
-            const buffer = await this.getImageBuffer(url);
-            const dualResult = await this.mediaStorageService.uploadImage(senderId, buffer);
-            const summary = this.mediaStorageService.formatUploadSummary(dualResult, 'image');
-            const prefix = total > 1 ? `[Ảnh ${i + 1}/${total}]\n` : '';
-            await this.zaloService.sendMessage(chatId, `${prefix}${summary}`);
-          }
-          return true;
-        } catch (err) {
-          this.logger.error(`Failed to dual upload image: ${(err as Error).message}`);
-          await this.zaloService.sendMessage(
-            chatId,
-            `⚠️ Không thể lưu trữ ảnh lên Google: ${(err as Error).message}`,
-          );
-          return true;
-        }
-      }
-
-      await this.zaloService.sendMessage(
-        chatId,
-        '☁️ Tính năng lưu trữ ảnh lên Google Drive đang được phát triển.',
-      );
-      return true;
-    }
-
-    // 3. Kiểm tra Option 1: Tạo bill
-    const option1Match = /^(?:1|tạo\s*bill|tao\s*bill)(?:\s+([\s\S]*))?$/i.exec(trimmed);
-    if (option1Match) {
-      const userNote = option1Match[1]?.trim() || '';
-      await this.zaloService.sendMessage(
-        chatId,
-        '🔍 Đang quét và bóc tách thông tin hóa đơn bằng Tesseract OCR...',
-      );
-
-      let ocrText = '';
-      let activeReceiptUrl = pending.receiptUrl;
-
-      try {
-        const buffer = await this.getImageBuffer(pending.receiptUrl);
-        if (this.ocrService) {
-          ocrText = await this.ocrService.extractTextFromBuffer(buffer);
-        }
-
-        if (this.mediaStorageService) {
-          try {
-            const uploadResult = await this.mediaStorageService.uploadBill(senderId, buffer, {
-              note: userNote,
-            });
-            if (uploadResult.drive?.webViewLink) {
-              activeReceiptUrl = uploadResult.drive.webViewLink;
-            }
-          } catch (upErr) {
-            this.logger.warn(
-              `Could not upload bill to Google Drive/Photos: ${(upErr as Error).message}`,
-            );
-          }
-        }
-      } catch (err) {
-        this.logger.warn(`Failed to read/OCR receipt image: ${(err as Error).message}`);
-      }
-
-      const now = new Date().toISOString();
-      const prompt =
-        `Người dùng tải lên một ảnh hóa đơn và chọn [1] TẠO BILL / GHI NHẬN CHI TIÊU.\n` +
-        `Ảnh hóa đơn đã được lưu tại: ${activeReceiptUrl}\n` +
-        `Ghi chú bổ sung từ người dùng: ${userNote ? `"${userNote}"` : '(không có ghi chú thêm)'}\n\n` +
-        `Nội dung văn bản bóc tách từ hóa đơn qua Tesseract OCR:\n` +
-        `"""\n` +
-        `${ocrText || '(Không nhận diện được nội dung chữ rõ ràng từ ảnh)'}\n` +
-        `"""\n\n` +
-        `Nhiệm vụ của bạn:\n` +
-        `- Phân tích nội dung hóa đơn kết hợp ghi chú của người dùng để gọi công cụ RECORD_TRANSACTION.\n` +
-        `- Trích xuất: type ('expense'), amount (tổng số tiền thanh toán từ bill hoặc ghi chú, kiểu number), ` +
-        `category (Ăn uống, Mua sắm, Đi lại, Nhà cửa, Sức khỏe, Khác...), ` +
-        `note (chi tiết món ăn/nội dung chi tiêu kết hợp ghi chú người dùng), ` +
-        `placeName (tên quán/cửa hàng/siêu thị nếu có trên bill), ` +
-        `occurredAt (thời gian ghi trên hóa đơn nếu có, quy đổi sang ISO 8601 dựa trên mốc hiện tại ${now}).\n` +
-        `- Gán trường receiptUrl: "${activeReceiptUrl}".\n` +
-        `- Gọi công cụ RECORD_TRANSACTION với các tham số trên để tạo yêu cầu xác nhận.`;
-
-      const systemInstruction =
-        `Bạn là trợ lý cá nhân thông minh trên Zalo. Thời gian hiện tại là: ${now}.\n` +
-        `Nhiệm vụ: Phân tích hóa đơn đã OCR để gọi công cụ RECORD_TRANSACTION chính xác.\n` +
-        `QUY TẮC: Mọi tham số truyền vào arguments PHẢI là giá trị phẳng (primitive: string, number). Luôn truyền đúng receiptUrl: "${activeReceiptUrl}".`;
-
-      try {
-        const response = await this.zaloService.withChatAction(chatId, () =>
-          this.llmService.generate(prompt, ZALO_TOOL_DEFINITIONS, systemInstruction),
-        );
-
-        const toolCall = response.toolCall;
-        if (toolCall && toolCall.name === (TextToolType.RECORD_TRANSACTION as string)) {
-          if (!toolCall.args.receiptUrl) {
-            toolCall.args.receiptUrl = pending.receiptUrl;
-          }
-          if (userNote && !toolCall.args.note) {
-            toolCall.args.note = userNote;
-          }
-
-          const strategy = this.toolFactory.getStrategy(TextToolType.RECORD_TRANSACTION);
-          await strategy.execute({
-            input,
-            chatId,
-            senderId,
-            displayName,
-            text,
-            toolArgs: toolCall.args,
-          });
-
-          await this.pendingImageActionService.clearPending(senderId);
-          return true;
-        }
-
-        // Nếu LLM không gọi được RECORD_TRANSACTION (do OCR mờ hoặc thiếu thông tin)
-        await this.zaloService.sendMessage(
-          chatId,
-          response.text ||
-            '⚠️ Không thể trích xuất chính xác số tiền từ hóa đơn. Bạn vui lòng nhắn lại thông tin chi tiêu (Ví dụ: "Ăn trưa 85k").',
-        );
-        await this.pendingImageActionService.clearPending(senderId);
-        return true;
-      } catch (err) {
-        this.logger.error(`Error processing OCR with LLM: ${(err as Error).message}`);
-        await this.zaloService.sendMessage(
-          chatId,
-          '⚠️ Có lỗi xảy ra trong quá trình phân tích hóa đơn. Vui lòng thử lại.',
-        );
-        await this.pendingImageActionService.clearPending(senderId);
-        return true;
-      }
-    }
-
-    // Nếu người dùng nhắn nội dung khác (không chọn 1, 2 hay lệnh hủy):
-    // Tự động xóa pending ảnh và cho người dùng làm tiếp cuộc trò chuyện bình thường.
-    await this.pendingImageActionService.clearPending(senderId);
-    return false;
-  }
-
   public async handleEditPendingAction(
     input: AgentInput,
     pending: PendingAction,
@@ -470,24 +319,5 @@ export class TextInputService {
         `⚠️ Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu: ${(err as Error).message}`,
       );
     }
-  }
-
-  private async getImageBuffer(url: string): Promise<Buffer> {
-    if (!url) {
-      throw new Error('Đường dẫn ảnh không tồn tại.');
-    }
-    if (url.startsWith('data:')) {
-      const base64Data = url.split(',')[1] || url;
-      return Buffer.from(base64Data, 'base64');
-    }
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`Tải ảnh thất bại: HTTP ${res.status}`);
-      }
-      const arrayBuffer = await res.arrayBuffer();
-      return Buffer.from(arrayBuffer);
-    }
-    return Buffer.from(url);
   }
 }

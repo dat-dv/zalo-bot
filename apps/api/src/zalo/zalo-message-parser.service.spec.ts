@@ -97,3 +97,22 @@ void test('ZaloMessageParser handles unsupported messages', () => {
   });
   assert.equal(unsupportedInput.type, 'unsupported');
 });
+
+void test('ZaloMessageParser parses video messages correctly', () => {
+  const parser = new ZaloMessageParser();
+
+  const videoInput = parser.parse({
+    event_name: ZaloWebhookEventName.MESSAGE_VIDEO_RECEIVED,
+    message: {
+      message_id: '6',
+      date: 123456,
+      chat: { id: 'c1' },
+      from: { id: 'u1', display_name: 'Đạt' },
+      video_url: 'https://video.zalo.me/clip.mp4',
+      caption: 'quay video ngắn',
+    },
+  });
+  assert.equal(videoInput.type, 'video');
+  assert.equal(videoInput.videoUrl, 'https://video.zalo.me/clip.mp4');
+  assert.equal(videoInput.caption, 'quay video ngắn');
+});

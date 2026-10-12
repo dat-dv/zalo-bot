@@ -58,6 +58,13 @@ import { PendingImageActionService } from './pending-image-action.service';
 import { InitialAdminBootstrapGuard } from './guards/initial-admin-bootstrap.guard';
 import { GrantAccessGuard } from './guards/grant-access.guard';
 
+// Pending Image Action Strategies & Batching
+import { CancelPendingImageStrategy } from './pending-image/strategies/cancel-pending-image.strategy';
+import { StorageUploadPendingImageStrategy } from './pending-image/strategies/storage-upload-pending-image.strategy';
+import { CreateBillPendingImageStrategy } from './pending-image/strategies/create-bill-pending-image.strategy';
+import { PendingImageActionDispatcher } from './pending-image/pending-image-dispatcher.service';
+import { ImageBatchHandler } from './pending-image/image-batch-handler.service';
+
 @Module({
   imports: [
     UsersModule,
@@ -113,6 +120,11 @@ import { GrantAccessGuard } from './guards/grant-access.guard';
     DeleteTransactionToolStrategy,
     CreatePlaceToolStrategy,
     GetStorageLinksToolStrategy,
+    CancelPendingImageStrategy,
+    StorageUploadPendingImageStrategy,
+    CreateBillPendingImageStrategy,
+    PendingImageActionDispatcher,
+    ImageBatchHandler,
   ],
   exports: [
     ZaloService,
@@ -124,6 +136,8 @@ import { GrantAccessGuard } from './guards/grant-access.guard';
     TextInputService,
     TransactionConfirmationService,
     TextToolFactory,
+    PendingImageActionDispatcher,
+    ImageBatchHandler,
   ],
 })
 export class ZaloModule {}

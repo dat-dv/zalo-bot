@@ -11,17 +11,16 @@ import { InitialAdminBootstrapGuard } from './guards/initial-admin-bootstrap.gua
 import { GrantAccessGuard } from './guards/grant-access.guard';
 import { PendingImageActionService } from './pending-image-action.service';
 import { cleanBotMention } from './text/bot-mention.util';
+import { ImageBatchHandler } from './pending-image/image-batch-handler.service';
+import { MediaStorageService } from '../receipt-storage/media-storage.service';
+import { fetchImageBuffer } from '../common/utils/image-fetcher.util';
 
 @Injectable()
 export class InputProcessor implements OnModuleDestroy {
   private readonly logger = new Logger(InputProcessor.name);
-  private readonly imageDebounceTimers = new Map<string, NodeJS.Timeout>();
 
   public onModuleDestroy(): void {
-    for (const timer of this.imageDebounceTimers.values()) {
-      clearTimeout(timer);
-    }
-    this.imageDebounceTimers.clear();
+    this.imageBatchHandler?.onModuleDestroy();
   }
 
   constructor(
@@ -32,7 +31,16 @@ export class InputProcessor implements OnModuleDestroy {
     @Optional() private usersService?: UsersService,
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
     @Optional() private readonly configService?: ConfigService,
+    @Optional() private imageBatchHandler?: ImageBatchHandler,
+    @Optional() private readonly mediaStorageService?: MediaStorageService,
   ) {
+    if (!this.imageBatchHandler) {
+      this.imageBatchHandler = new ImageBatchHandler(
+        this.zaloService,
+        this.pendingImageActionService,
+      );
+    }
+
     // Gracefully handle legacy test calls passing usersService as 3rd parameter
     if (
       adminBootstrapGuard &&
@@ -100,6 +108,9 @@ export class InputProcessor implements OnModuleDestroy {
       case 'image':
         return this.processImage(input);
 
+      case 'video':
+        return this.processVideo(input);
+
       case 'voice':
         return this.processVoice(input);
 
@@ -116,14 +127,6 @@ export class InputProcessor implements OnModuleDestroy {
     const targetChatId = input.chatId || input.senderId;
     this.logger.log(`Received image from ${input.senderId}: ${input.imageUrl}`);
 
-    const incomingUrls: string[] = input.imageUrls?.length
-      ? input.imageUrls
-      : input.imageUrl
-        ? [input.imageUrl]
-        : [];
-
-    const primaryReceiptUrl = incomingUrls[0] || input.imageUrl;
-
     const botName =
       this.configService?.get<string>('zalo.botName') ||
       process.env.BOT_NAME ||
@@ -132,70 +135,67 @@ export class InputProcessor implements OnModuleDestroy {
     const rawCaption = input.caption || input.text || '';
     const cleanedCaption = cleanBotMention(rawCaption, botName);
 
-    if (primaryReceiptUrl && this.pendingImageActionService && input.senderId) {
-      for (const url of incomingUrls) {
-        await this.pendingImageActionService.addPendingImage(input.senderId, {
-          userId: input.senderId,
-          chatId: targetChatId,
-          receiptUrl: url,
-        });
-      }
-
-      if (cleanedCaption) {
-        const existingTimer = this.imageDebounceTimers.get(input.senderId);
-        if (existingTimer) {
-          clearTimeout(existingTimer);
-          this.imageDebounceTimers.delete(input.senderId);
-        }
-        return this.textInputService.process({
-          ...input,
-          text: cleanedCaption,
-        });
-      }
-
-      // Debounce: Nếu người dùng gửi nhiều ảnh cùng lúc, Zalo sẽ bắn N webhook riêng lẻ cách nhau ~100-200ms.
-      // Gom tất cả ảnh vào 1 batch và chỉ gửi ĐÚNG 1 thông báo sau 1000ms.
-      const existingTimer = this.imageDebounceTimers.get(input.senderId);
-      if (existingTimer) {
-        clearTimeout(existingTimer);
-      }
-
-      const timer = setTimeout(async () => {
-        this.imageDebounceTimers.delete(input.senderId);
-        const pending = await this.pendingImageActionService?.getPending(input.senderId);
-        if (!pending) return;
-
-        const count = pending.receiptUrls?.length || 1;
-        const countText = count > 1 ? ` (${count} ảnh)` : '';
-
-        await this.zaloService.sendMessage(
-          targetChatId,
-          `📸 Tôi đã nhận được hình ảnh${countText} của bạn! Bạn muốn xử lý ảnh như thế nào?
-
-1️⃣ Tạo bill / Ghi nhận chi tiêu (nếu đây là hóa đơn)
-   👉 Trả lời: "1" hoặc "1 <ghi chú>" (Ví dụ: "1 Ăn trưa Highlands")
-2️⃣ Lưu trữ ảnh lên Google Drive & Google Photos
-   👉 Trả lời: "2"
-
-💡 Bạn có thể tiếp tục trò chuyện bình thường hoặc gõ "hủy" để bỏ qua ảnh.`,
-        );
-      }, 1000);
-      timer.unref();
-      this.imageDebounceTimers.set(input.senderId, timer);
-      return;
-    }
-
     if (cleanedCaption) {
+      if (this.imageBatchHandler) {
+        await this.imageBatchHandler.addImages(input, targetChatId);
+        this.imageBatchHandler.cancelDebounce(input.senderId);
+      }
       return this.textInputService.process({
         ...input,
         text: cleanedCaption,
       });
     }
 
+    if (this.imageBatchHandler) {
+      return this.imageBatchHandler.handle(input, targetChatId);
+    }
+
     await this.zaloService.sendMessage(
       targetChatId,
       '📸 Đã nhận ảnh từ bạn. Bạn có thể tiếp tục trò chuyện hoặc gửi thêm yêu cầu!',
     );
+  }
+
+  private async processVideo(input: AgentInput): Promise<void> {
+    const targetChatId = input.chatId || input.senderId;
+    this.logger.log(`Received video from ${input.senderId}: ${input.videoUrl}`);
+
+    if (!input.videoUrl) {
+      await this.zaloService.sendMessage(
+        targetChatId,
+        '📹 Đã nhận video từ bạn, nhưng không tìm thấy đường dẫn video.',
+      );
+      return;
+    }
+
+    if (!this.mediaStorageService) {
+      await this.zaloService.sendMessage(
+        targetChatId,
+        '📹 Đã nhận video từ bạn. Tính năng lưu trữ video lên Google Drive & Google Photos đang được kích hoạt.',
+      );
+      return;
+    }
+
+    try {
+      await this.zaloService.sendMessage(
+        targetChatId,
+        '⏳ Đang tải video lên Google Drive & Google Photos dùng chung...',
+      );
+
+      const buffer = await fetchImageBuffer(input.videoUrl);
+      const note = input.caption || input.text || '';
+      const dualResult = await this.mediaStorageService.uploadVideo(input.senderId, buffer, {
+        note,
+      });
+      const summary = this.mediaStorageService.formatUploadSummary(dualResult, 'video');
+      await this.zaloService.sendMessage(targetChatId, summary);
+    } catch (err) {
+      this.logger.error(`Failed to upload video: ${(err as Error).message}`);
+      await this.zaloService.sendMessage(
+        targetChatId,
+        `⚠️ Không thể lưu trữ video lên Google: ${(err as Error).message}`,
+      );
+    }
   }
 
   private async processVoice(input: AgentInput): Promise<void> {
