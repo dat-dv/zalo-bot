@@ -50,6 +50,8 @@ import { GoogleModule } from '../google/google.module';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 import { ReceiptStorageModule } from '../receipt-storage/receipt-storage.module';
 import { AuditModule } from '../audit/audit.module';
+import { OcrModule } from '../ocr/ocr.module';
+import { PendingImageActionService } from './pending-image-action.service';
 
 import { InitialAdminBootstrapGuard } from './guards/initial-admin-bootstrap.guard';
 import { GrantAccessGuard } from './guards/grant-access.guard';
@@ -64,12 +66,14 @@ import { GrantAccessGuard } from './guards/grant-access.guard';
     DashboardAuthModule,
     ReceiptStorageModule,
     AuditModule,
+    OcrModule,
   ],
   controllers: [ZaloController],
   providers: [
     ZaloService,
     ZaloMessageParser,
     InputProcessor,
+    PendingImageActionService,
     InitialAdminBootstrapGuard,
     GrantAccessGuard,
     TextInputService,
@@ -110,6 +114,7 @@ import { GrantAccessGuard } from './guards/grant-access.guard';
     ZaloService,
     ZaloMessageParser,
     InputProcessor,
+    PendingImageActionService,
     InitialAdminBootstrapGuard,
     GrantAccessGuard,
     TextInputService,

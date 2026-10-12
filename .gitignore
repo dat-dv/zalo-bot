@@ -59,4 +59,7 @@ scripts/agent-system/
 
 */.next
 
+# Tesseract traineddata
+*.traineddata
+
 

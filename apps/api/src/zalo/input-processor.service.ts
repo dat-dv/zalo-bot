@@ -8,6 +8,8 @@ import { ZaloWebhookEventName } from './dto/zalo-webhook.dto';
 import { UsersService } from '../users/users.service';
 import { InitialAdminBootstrapGuard } from './guards/initial-admin-bootstrap.guard';
 import { GrantAccessGuard } from './guards/grant-access.guard';
+import { PendingImageActionService } from './pending-image-action.service';
+import { ReceiptImageStorageService } from '../receipt-storage/receipt-image-storage.service';
 
 @Injectable()
 export class InputProcessor {
@@ -19,6 +21,8 @@ export class InputProcessor {
     @Optional() private readonly adminBootstrapGuard?: InitialAdminBootstrapGuard,
     @Optional() private readonly grantAccessGuard?: GrantAccessGuard,
     @Optional() private usersService?: UsersService,
+    @Optional() private readonly pendingImageActionService?: PendingImageActionService,
+    @Optional() private readonly receiptStorageService?: ReceiptImageStorageService,
   ) {
     // Gracefully handle legacy test calls passing usersService as 3rd parameter
     if (
@@ -98,6 +102,49 @@ export class InputProcessor {
   private async processImage(input: AgentInput): Promise<void> {
     const targetChatId = input.chatId || input.senderId;
     this.logger.log(`Received image from ${input.senderId}: ${input.imageUrl}`);
+
+    let receiptUrl: string | undefined;
+    if (this.receiptStorageService && input.imageUrl && input.senderId) {
+      try {
+        const res = await fetch(input.imageUrl);
+        if (res.ok) {
+          const arrayBuffer = await res.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+          receiptUrl = await this.receiptStorageService.store(input.senderId, buffer);
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to download and store receipt image: ${(err as Error).message}`);
+      }
+    }
+
+    if (receiptUrl && this.pendingImageActionService && input.senderId) {
+      await this.pendingImageActionService.setPending(input.senderId, {
+        userId: input.senderId,
+        chatId: targetChatId,
+        receiptUrl,
+      });
+
+      if (input.caption?.trim()) {
+        return this.textInputService.process({
+          ...input,
+          text: input.caption.trim(),
+        });
+      }
+
+      await this.zaloService.sendMessage(
+        targetChatId,
+        `📸 Tôi đã nhận được hình ảnh của bạn! Bạn muốn xử lý như thế nào?
+
+1️⃣ Tạo bill / Ghi nhận chi tiêu từ hóa đơn này
+   👉 Trả lời: "1" hoặc "1 <ghi chú>" (Ví dụ: "1 Ăn trưa Highlands")
+2️⃣ Lưu trữ ảnh lên Google Drive
+   👉 Trả lời: "2"
+
+💡 Bạn cũng có thể gõ "hủy" để bỏ qua ảnh này.`,
+      );
+      return;
+    }
+
     if (input.caption) {
       return this.textInputService.process({
         ...input,

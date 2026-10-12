@@ -85,6 +85,10 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           description:
             'Phương thức thanh toán nếu có đề cập (ví dụ: tiền mặt, chuyển khoản, thẻ, ví MoMo)',
         },
+        receiptUrl: {
+          type: 'STRING',
+          description: 'Đường dẫn ảnh hóa đơn chứng từ đính kèm (ví dụ: /api/receipts/...)',
+        },
       },
       required: ['type', 'amount'],
     },

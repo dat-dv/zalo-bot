@@ -8,6 +8,9 @@ import { LlmService } from '../../llm/llm.service';
 import { ZaloService } from '../zalo.service';
 import { TransactionConfirmationService } from '../transaction-confirmation.service';
 import { cleanBotMention } from './bot-mention.util';
+import { PendingImageActionService } from '../pending-image-action.service';
+import { OcrService } from '../../ocr/ocr.service';
+import { ReceiptImageStorageService } from '../../receipt-storage/receipt-image-storage.service';
 
 @Injectable()
 export class TextInputService {
@@ -19,6 +22,9 @@ export class TextInputService {
     private readonly zaloService: ZaloService,
     private readonly confirmationService: TransactionConfirmationService,
     @Optional() private readonly configService?: ConfigService,
+    @Optional() private readonly pendingImageActionService?: PendingImageActionService,
+    @Optional() private readonly ocrService?: OcrService,
+    @Optional() private readonly receiptStorageService?: ReceiptImageStorageService,
   ) {}
 
   public async process(input: AgentInput, toolTypeOverride?: TextToolType): Promise<void> {
@@ -55,6 +61,20 @@ export class TextInputService {
     );
     if (handledConfirmation) {
       return;
+    }
+
+    // 3. Pending Image Action ("1", "1 ghi chú", "2", "hủy")
+    if (this.pendingImageActionService) {
+      const handledImage = await this.handlePendingImageAction(
+        input,
+        senderId,
+        chatId,
+        displayName,
+        text,
+      );
+      if (handledImage) {
+        return;
+      }
     }
 
     // 2. Fast-path for deterministic commands (/start, /help, /echo, /ping, /reset)
@@ -148,5 +168,134 @@ export class TextInputService {
         text,
       });
     }
+  }
+
+  private async handlePendingImageAction(
+    input: AgentInput,
+    senderId: string,
+    chatId: string,
+    displayName: string | undefined,
+    text: string,
+  ): Promise<boolean> {
+    if (!this.pendingImageActionService) return false;
+
+    const pending = await this.pendingImageActionService.getPending(senderId);
+    if (!pending) return false;
+
+    const trimmed = text.trim();
+
+    // 1. Kiểm tra lệnh hủy
+    if (/^(?:hủy|huy|cancel|bỏ\s*qua|bo\s*qua)$/i.test(trimmed)) {
+      await this.pendingImageActionService.clearPending(senderId);
+      await this.zaloService.sendMessage(chatId, '❌ Đã hủy yêu cầu xử lý hình ảnh hóa đơn.');
+      return true;
+    }
+
+    // 2. Kiểm tra Option 2: Lưu lên Drive
+    if (/^(?:2|lưu\s*drive|luu\s*drive)(?:\s+.*)?$/i.test(trimmed)) {
+      await this.pendingImageActionService.clearPending(senderId);
+      await this.zaloService.sendMessage(
+        chatId,
+        '☁️ Tính năng lưu trữ ảnh lên Google Drive đang được phát triển.',
+      );
+      return true;
+    }
+
+    // 3. Kiểm tra Option 1: Tạo bill
+    const option1Match = /^(?:1|tạo\s*bill|tao\s*bill)(?:\s+([\s\S]*))?$/i.exec(trimmed);
+    if (option1Match) {
+      const userNote = option1Match[1]?.trim() || '';
+      await this.zaloService.sendMessage(
+        chatId,
+        '🔍 Đang quét và bóc tách thông tin hóa đơn bằng Tesseract OCR...',
+      );
+
+      let ocrText = '';
+      if (this.receiptStorageService && this.ocrService) {
+        try {
+          const buffer = await this.receiptStorageService.read(senderId, pending.receiptUrl);
+          ocrText = await this.ocrService.extractTextFromBuffer(buffer);
+        } catch (err) {
+          this.logger.warn(`Failed to read/OCR receipt image: ${(err as Error).message}`);
+        }
+      }
+
+      const now = new Date().toISOString();
+      const prompt =
+        `Người dùng tải lên một ảnh hóa đơn và chọn [1] TẠO BILL / GHI NHẬN CHI TIÊU.\n` +
+        `Ảnh hóa đơn đã được lưu tại: ${pending.receiptUrl}\n` +
+        `Ghi chú bổ sung từ người dùng: ${userNote ? `"${userNote}"` : '(không có ghi chú thêm)'}\n\n` +
+        `Nội dung văn bản bóc tách từ hóa đơn qua Tesseract OCR:\n` +
+        `"""\n` +
+        `${ocrText || '(Không nhận diện được nội dung chữ rõ ràng từ ảnh)'}\n` +
+        `"""\n\n` +
+        `Nhiệm vụ của bạn:\n` +
+        `- Phân tích nội dung hóa đơn kết hợp ghi chú của người dùng để gọi công cụ RECORD_TRANSACTION.\n` +
+        `- Trích xuất: type ('expense'), amount (tổng số tiền thanh toán từ bill hoặc ghi chú, kiểu number), ` +
+        `category (Ăn uống, Mua sắm, Đi lại, Nhà cửa, Sức khỏe, Khác...), ` +
+        `note (chi tiết món ăn/nội dung chi tiêu kết hợp ghi chú người dùng), ` +
+        `placeName (tên quán/cửa hàng/siêu thị nếu có trên bill), ` +
+        `occurredAt (thời gian ghi trên hóa đơn nếu có, quy đổi sang ISO 8601 dựa trên mốc hiện tại ${now}).\n` +
+        `- Gán trường receiptUrl: "${pending.receiptUrl}".\n` +
+        `- Gọi công cụ RECORD_TRANSACTION với các tham số trên để tạo yêu cầu xác nhận.`;
+
+      const systemInstruction =
+        `Bạn là trợ lý cá nhân thông minh trên Zalo. Thời gian hiện tại là: ${now}.\n` +
+        `Nhiệm vụ: Phân tích hóa đơn đã OCR để gọi công cụ RECORD_TRANSACTION chính xác.\n` +
+        `QUY TẮC: Mọi tham số truyền vào arguments PHẢI là giá trị phẳng (primitive: string, number). Luôn truyền đúng receiptUrl: "${pending.receiptUrl}".`;
+
+      try {
+        const response = await this.zaloService.withChatAction(chatId, () =>
+          this.llmService.generate(prompt, ZALO_TOOL_DEFINITIONS, systemInstruction),
+        );
+
+        const toolCall = response.toolCall;
+        if (toolCall && toolCall.name === TextToolType.RECORD_TRANSACTION) {
+          if (!toolCall.args.receiptUrl) {
+            toolCall.args.receiptUrl = pending.receiptUrl;
+          }
+          if (userNote && !toolCall.args.note) {
+            toolCall.args.note = userNote;
+          }
+
+          const strategy = this.toolFactory.getStrategy(TextToolType.RECORD_TRANSACTION);
+          await strategy.execute({
+            input,
+            chatId,
+            senderId,
+            displayName,
+            text,
+            toolArgs: toolCall.args,
+          });
+
+          await this.pendingImageActionService.clearPending(senderId);
+          return true;
+        }
+
+        // Nếu LLM không gọi được RECORD_TRANSACTION (do OCR mờ hoặc thiếu thông tin)
+        await this.zaloService.sendMessage(
+          chatId,
+          response.text ||
+            '⚠️ Không thể trích xuất chính xác số tiền từ hóa đơn. Bạn vui lòng nhắn lại thông tin chi tiêu (Ví dụ: "Ăn trưa 85k").',
+        );
+        await this.pendingImageActionService.clearPending(senderId);
+        return true;
+      } catch (err) {
+        this.logger.error(`Error processing OCR with LLM: ${(err as Error).message}`);
+        await this.zaloService.sendMessage(
+          chatId,
+          '⚠️ Có lỗi xảy ra trong quá trình phân tích hóa đơn. Vui lòng thử lại.',
+        );
+        await this.pendingImageActionService.clearPending(senderId);
+        return true;
+      }
+    }
+
+    // Nếu người dùng nhắn text bất kỳ mà không phải 1, 2, hủy
+    await this.zaloService.sendMessage(
+      chatId,
+      `⚠️ Bạn đang có 1 ảnh hóa đơn chờ xử lý:\n\n1️⃣ Tạo bill (Gõ: "1" hoặc "1 <ghi chú>")\n2️⃣ Lưu Google Drive (Gõ: "2")\n\n👉 Hoặc gõ "hủy" để tiếp tục cuộc trò chuyện bình thường.`,
+    );
+    return true;
   }
 }

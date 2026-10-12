@@ -22,11 +22,18 @@ import { LlmService } from '../../llm/llm.service';
 import { LlmResponse } from '../../llm/types/llm.types';
 import { TransactionConfirmationService } from '../transaction-confirmation.service';
 
+import { PendingImageActionService } from '../pending-image-action.service';
+import { OcrService } from '../../ocr/ocr.service';
+import { ReceiptImageStorageService } from '../../receipt-storage/receipt-image-storage.service';
+
 interface SetupOptions {
   allowedUserIds?: string[];
   isAllowed?: boolean;
   cooldownAllowed?: boolean;
   llmResponse?: LlmResponse;
+  pendingImageActionService?: PendingImageActionService;
+  ocrService?: OcrService;
+  receiptStorageService?: ReceiptImageStorageService;
 }
 
 function createTextInputService(options?: SetupOptions) {
@@ -156,6 +163,10 @@ function createTextInputService(options?: SetupOptions) {
     mockLlmService,
     mockZaloService,
     confirmationService,
+    undefined,
+    options?.pendingImageActionService,
+    options?.ocrService,
+    options?.receiptStorageService,
   );
 
   return {
@@ -419,4 +430,158 @@ void test('TextInputService handles string amounts like 15k in RECORD_TRANSACTIO
 
   assert.equal(sentMessages.length, 1);
   assert.match(sentMessages[0].text, /15\.000 đ/);
+});
+
+void test('TextInputService handles pending image action option 1: OCR -> LLM RECORD_TRANSACTION -> Confirmation Card -> User confirms with yes', async () => {
+  const pendingImageService = new PendingImageActionService();
+  await pendingImageService.setPending('u1', {
+    userId: 'u1',
+    chatId: 'c1',
+    receiptUrl: '/api/receipts/bill-123',
+  });
+
+  const mockOcrService = {
+    extractTextFromBuffer: () => Promise.resolve('HIGHLANDS COFFEE\nTong cong: 85,000 VND'),
+  } as unknown as OcrService;
+
+  const mockReceiptStorage = {
+    read: () => Promise.resolve(Buffer.from('fake-image-bytes')),
+  } as unknown as ReceiptImageStorageService;
+
+  const { service, sentMessages, confirmationService } = createTextInputService({
+    pendingImageActionService: pendingImageService,
+    ocrService: mockOcrService,
+    receiptStorageService: mockReceiptStorage,
+    llmResponse: {
+      toolCall: {
+        name: TextToolType.RECORD_TRANSACTION,
+        args: {
+          type: 'expense',
+          amount: 85000,
+          category: 'Ăn uống',
+          note: 'Highlands Coffee',
+          placeName: 'Highlands Coffee',
+          receiptUrl: '/api/receipts/bill-123',
+        },
+      },
+    },
+  });
+
+  // User sends "1 Ăn trưa Highlands"
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: '1 Ăn trưa Highlands',
+  });
+
+  // 1st message: Scanning status
+  assert.ok(sentMessages.some((m) => m.text.includes('Tesseract OCR')));
+
+  // 2nd message: Confirmation card
+  const confirmCard = sentMessages.find((m) => m.text.includes('xác nhận'));
+  assert.ok(confirmCard, 'Must send confirmation card to user');
+  assert.match(confirmCard.text, /85\.000 đ/);
+  assert.match(confirmCard.text, /Highlands Coffee/);
+  assert.match(confirmCard.text, /bill-123/);
+
+  // Pending image should be cleared
+  const pendingAfter = await pendingImageService.getPending('u1');
+  assert.strictEqual(pendingAfter, undefined);
+
+  // User confirms with "yes"
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'yes',
+  });
+
+  // 3rd message: Transaction saved successfully
+  const savedMsg = sentMessages[sentMessages.length - 1];
+  assert.match(savedMsg.text, /Đã xác nhận và lưu/);
+});
+
+void test('TextInputService handles pending image action option 2: Google Drive message', async () => {
+  const pendingImageService = new PendingImageActionService();
+  await pendingImageService.setPending('u1', {
+    userId: 'u1',
+    chatId: 'c1',
+    receiptUrl: '/api/receipts/bill-456',
+  });
+
+  const { service, sentMessages } = createTextInputService({
+    pendingImageActionService: pendingImageService,
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: '2',
+  });
+
+  assert.equal(sentMessages.length, 1);
+  assert.match(sentMessages[0].text, /Google Drive đang được phát triển/);
+
+  const pendingAfter = await pendingImageService.getPending('u1');
+  assert.strictEqual(pendingAfter, undefined);
+});
+
+void test('TextInputService handles pending image action cancel command', async () => {
+  const pendingImageService = new PendingImageActionService();
+  await pendingImageService.setPending('u1', {
+    userId: 'u1',
+    chatId: 'c1',
+    receiptUrl: '/api/receipts/bill-789',
+  });
+
+  const { service, sentMessages } = createTextInputService({
+    pendingImageActionService: pendingImageService,
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'hủy',
+  });
+
+  assert.equal(sentMessages.length, 1);
+  assert.match(sentMessages[0].text, /Đã hủy yêu cầu xử lý hình ảnh/);
+
+  const pendingAfter = await pendingImageService.getPending('u1');
+  assert.strictEqual(pendingAfter, undefined);
+});
+
+void test('TextInputService prompts user with options when image is pending and invalid input is sent', async () => {
+  const pendingImageService = new PendingImageActionService();
+  await pendingImageService.setPending('u1', {
+    userId: 'u1',
+    chatId: 'c1',
+    receiptUrl: '/api/receipts/bill-abc',
+  });
+
+  const { service, sentMessages } = createTextInputService({
+    pendingImageActionService: pendingImageService,
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'xin chào',
+  });
+
+  assert.equal(sentMessages.length, 1);
+  assert.match(sentMessages[0].text, /Bạn đang có 1 ảnh hóa đơn chờ xử lý/);
+
+  // Pending image should still be kept
+  const pendingAfter = await pendingImageService.getPending('u1');
+  assert.ok(pendingAfter);
 });

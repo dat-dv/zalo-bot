@@ -78,6 +78,14 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
         ? rawPaymentMethod.trim()
         : undefined;
 
+    const rawReceiptUrl =
+      typeof args.receiptUrl === 'object' && args.receiptUrl !== null
+        ? ((args.receiptUrl as Record<string, unknown>).receiptUrl ??
+          (args.receiptUrl as Record<string, unknown>).value)
+        : args.receiptUrl;
+    const receiptUrl =
+      typeof rawReceiptUrl === 'string' && rawReceiptUrl.trim() ? rawReceiptUrl.trim() : undefined;
+
     if (amount <= 0) {
       await this.zaloService.sendMessage(
         context.chatId,
@@ -99,6 +107,7 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
           occurredAt: occurredAtStr,
           placeName,
           paymentMethod,
+          receiptUrl,
         },
       });
     } catch (err) {
