@@ -34,6 +34,7 @@ import { CompleteTaskToolStrategy } from './strategies/complete-task-tool.strate
 import { LoginGoogleToolStrategy } from './strategies/login-google-tool.strategy';
 import { DeleteTransactionToolStrategy } from './strategies/delete-transaction-tool.strategy';
 import { CreatePlaceToolStrategy } from './strategies/create-place-tool.strategy';
+import { GetStorageLinksToolStrategy } from './strategies/get-storage-links-tool.strategy';
 
 @Injectable()
 export class TextToolFactory {
@@ -71,6 +72,7 @@ export class TextToolFactory {
     loginGoogleStrategy?: LoginGoogleToolStrategy,
     deleteTransactionStrategy?: DeleteTransactionToolStrategy,
     createPlaceStrategy?: CreatePlaceToolStrategy,
+    getStorageLinksStrategy?: GetStorageLinksToolStrategy,
     @Optional() private readonly configService?: ConfigService,
   ) {
     if (startStrategy) this.strategyMap.set(TextToolType.START, startStrategy);
@@ -111,6 +113,8 @@ export class TextToolFactory {
       this.strategyMap.set(TextToolType.COMPLETE_TASK, completeTaskStrategy);
     if (loginGoogleStrategy) this.strategyMap.set(TextToolType.LOGIN_GOOGLE, loginGoogleStrategy);
     if (createPlaceStrategy) this.strategyMap.set(TextToolType.CREATE_PLACE, createPlaceStrategy);
+    if (getStorageLinksStrategy)
+      this.strategyMap.set(TextToolType.GET_STORAGE_LINKS, getStorageLinksStrategy);
   }
 
   public resolveFastPathToolType(text: string, customBotName?: string): TextToolType | null {
@@ -259,6 +263,15 @@ export class TextToolFactory {
     // 16. Admin commands: /users, /ban
     if (trimmed === '/users' || trimmed.startsWith('/users ')) return TextToolType.USERS;
     if (trimmed.startsWith('/ban')) return TextToolType.BAN;
+
+    // 17. /drive, /storage, /kho, /folder, /album — xem link kho lưu trữ
+    if (
+      ['/drive', '/storage', '/kho', '/folder', '/album'].some((command) =>
+        trimmed.startsWith(command),
+      )
+    ) {
+      return TextToolType.GET_STORAGE_LINKS;
+    }
 
     return null;
   }

@@ -290,7 +290,9 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
     name: TextToolType.LOGIN_GOOGLE,
     description:
       'Tạo đường dẫn đăng nhập kết nối tài khoản Google Workspace cá nhân (Calendar & Tasks). ' +
-      'Ví dụ: "kết nối google", "đăng nhập google", "liên kết calendar", "đổi tài khoản gmail".',
+      'CHỈ dùng khi người dùng nói rõ muốn đăng nhập, kết nối, liên kết tài khoản Google hoặc đổi tài khoản Gmail. ' +
+      'Ví dụ: "kết nối google", "đăng nhập google", "liên kết calendar", "đổi tài khoản gmail". ' +
+      'KHÔNG dùng tool này khi người dùng hỏi về đường dẫn, link xem ảnh, link folder, hay kho lưu trữ.',
     parameters: {
       type: 'OBJECT',
       properties: {},

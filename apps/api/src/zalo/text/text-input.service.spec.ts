@@ -25,7 +25,7 @@ import { CreatePlaceToolStrategy } from './strategies/create-place-tool.strategy
 
 import { PendingImageActionService } from '../pending-image-action.service';
 import { OcrService } from '../../ocr/ocr.service';
-import { ReceiptImageStorageService } from '../../receipt-storage/receipt-image-storage.service';
+import { MediaStorageService } from '../../receipt-storage/media-storage.service';
 
 interface SetupOptions {
   allowedUserIds?: string[];
@@ -34,7 +34,7 @@ interface SetupOptions {
   llmResponse?: LlmResponse;
   pendingImageActionService?: PendingImageActionService;
   ocrService?: OcrService;
-  receiptStorageService?: ReceiptImageStorageService;
+  mediaStorageService?: MediaStorageService;
   enablePlaceCheck?: boolean;
   existingPlaces?: string[];
 }
@@ -208,7 +208,7 @@ function createTextInputService(options?: SetupOptions) {
     undefined,
     options?.pendingImageActionService,
     options?.ocrService,
-    options?.receiptStorageService,
+    options?.mediaStorageService,
   );
 
   return {
@@ -486,14 +486,9 @@ void test('TextInputService handles pending image action option 1: OCR -> LLM RE
     extractTextFromBuffer: () => Promise.resolve('HIGHLANDS COFFEE\nTong cong: 85,000 VND'),
   } as unknown as OcrService;
 
-  const mockReceiptStorage = {
-    read: () => Promise.resolve(Buffer.from('fake-image-bytes')),
-  } as unknown as ReceiptImageStorageService;
-
   const { service, sentMessages } = createTextInputService({
     pendingImageActionService: pendingImageService,
     ocrService: mockOcrService,
-    receiptStorageService: mockReceiptStorage,
     llmResponse: {
       toolCall: {
         name: TextToolType.RECORD_TRANSACTION,

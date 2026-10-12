@@ -12,10 +12,11 @@ async function bootstrap() {
   // Load environment variables
   loadEnvironment();
 
-  // Initialize NestJS Application
+  // Initialize NestJS Application với rawBody option để có thể debug webhook payload gốc
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+    rawBody: true,
   });
 
   // Security & Performance Middlewares
@@ -32,8 +33,9 @@ async function bootstrap() {
     new ValidationPipe({
       // 1. Tự động loại bỏ các field thừa không được khai báo trong DTO (Chống Mass Assignment Attack)
       whitelist: true,
-      // 2. Chặn đứng & ném lỗi 400 Bad Request ngay lập tức nếu client gửi field lạ không có trong DTO
-      forbidNonWhitelisted: true,
+      // 2. KHÔNG ném lỗi 400 khi có field lạ — cần thiết cho Zalo webhook có thể gửi field không tài liệu hoá
+      //    (ví dụ: attachments, medias, urls khi gửi nhiều ảnh)
+      forbidNonWhitelisted: false,
       // 3. Tự động ép kiểu dữ liệu payload về đúng kiểu khai báo trong DTO (VD: string '123' -> number 123)
       transform: true,
     }),

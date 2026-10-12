@@ -8,9 +8,12 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  Req,
 } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags, ApiHeader, ApiBody } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { RawBodyRequest } from '@nestjs/common';
+import { Request } from 'express';
 import { InputProcessor } from './input-processor.service';
 import { ZaloMessageParser } from './zalo-message-parser.service';
 import { ZaloWebhookPayload, ZaloWebhookPayloadDto } from './dto/zalo-webhook.dto';
@@ -63,13 +66,28 @@ export class ZaloController {
   })
   @ApiResponse({ status: 200, description: 'Đã nhận và xử lý sự kiện webhook' })
   public handleWebhook(
+    @Req() req: RawBodyRequest<Request>,
     @Body() payload: ZaloWebhookPayload,
     @Headers('x-bot-api-secret-token') secretToken?: string,
   ): { ok: boolean } {
+    // Log RAW body (trước khi ValidationPipe strip) để debug khi Zalo gửi fields không khai báo trong DTO
+    const rawBody = req.rawBody?.toString('utf-8');
+    if (rawBody) {
+      try {
+        const rawParsed: unknown = JSON.parse(rawBody);
+        this.logger.debug(
+          `[RAW] Zalo webhook payload (before pipe):\n${JSON.stringify(rawParsed, null, 2)}`,
+        );
+      } catch {
+        this.logger.debug(`[RAW] Zalo webhook payload (before pipe, non-JSON):\n${rawBody}`);
+      }
+    }
+
+    // Log payload sau khi ValidationPipe xử lý để so sánh
     this.logger.debug(
-      'Received webhook payload from Zalo Bot : \n',
-      JSON.stringify(payload, null, 2),
+      `[PARSED] Zalo webhook payload (after pipe):\n${JSON.stringify(payload, null, 2)}`,
     );
+
     const configuredSecretToken = this.configService.get<string>('zalo.secretToken');
 
     if (configuredSecretToken && secretToken !== configuredSecretToken) {

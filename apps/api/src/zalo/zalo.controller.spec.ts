@@ -1,11 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ConfigService } from '@nestjs/config';
+import { RawBodyRequest } from '@nestjs/common';
+import { Request } from 'express';
 import { ZaloController } from './zalo.controller';
 import { InputProcessor } from './input-processor.service';
 import { ZaloMessageParser } from './zalo-message-parser.service';
 import { ZaloWebhookPayloadDto } from './dto/zalo-webhook.dto';
 import { AgentInput } from './types/agent-input.type';
+
+/** Helper: tạo mock RawBodyRequest không có rawBody (test không cần raw body) */
+function mockRawReq(): RawBodyRequest<Request> {
+  return { rawBody: undefined } as unknown as RawBodyRequest<Request>;
+}
 
 void test('ZaloController GET webhook returns challenge verification or status', () => {
   const controller = new ZaloController(
@@ -54,7 +61,7 @@ void test('ZaloController POST webhook forwards parsed input to InputProcessor',
     },
   };
 
-  const result = controller.handleWebhook(payload);
+  const result = controller.handleWebhook(mockRawReq(), payload);
 
   assert.deepEqual(result, { ok: true });
   assert.equal(receivedInput?.text, 'Hello');
@@ -94,7 +101,7 @@ void test('ZaloController POST webhook rejects invalid secret token', () => {
     },
   };
 
-  const result = controller.handleWebhook(payload, 'wrong_token');
+  const result = controller.handleWebhook(mockRawReq(), payload, 'wrong_token');
 
   assert.deepEqual(result, { ok: false });
   assert.equal(processed, false);

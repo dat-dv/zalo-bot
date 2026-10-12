@@ -134,6 +134,51 @@ export class ZaloMessageDto {
   })
   voice_url?: string;
 
+  @ApiPropertyOptional({
+    description:
+      'Danh sách ảnh đính kèm (khi gửi nhiều ảnh hoặc multi-image trong nhóm). ' +
+      'Mỗi phần tử có thể có các field: photo_url, photo, caption, thumb, ...',
+    example: [{ photo_url: 'https://photo.zalo.me/...', caption: '' }],
+    isArray: true,
+  })
+  attachments?: Array<{
+    photo_url?: string;
+    photo?: string;
+    caption?: string;
+    thumb?: string;
+    url?: string;
+    [key: string]: unknown;
+  }>;
+
+  @ApiPropertyOptional({
+    description: 'Danh sách media (định dạng thay thế của attachments trong một số version Zalo)',
+    isArray: true,
+  })
+  medias?: Array<{
+    photo_url?: string;
+    photo?: string;
+    caption?: string;
+    url?: string;
+    [key: string]: unknown;
+  }>;
+
+  @ApiPropertyOptional({
+    description: 'Thumbnail URL ảnh (dùng với một số loại tin nhắn hình ảnh)',
+    example: 'https://photo.zalo.me/...',
+  })
+  thumb?: string;
+
+  @ApiPropertyOptional({
+    description: 'Message quota hoặc quota info (metadata từ Zalo)',
+  })
+  quota?: unknown;
+
+  @ApiPropertyOptional({
+    description: 'Message ID hash hoặc tham chiếu tin nhắn',
+    example: 'abc123hash',
+  })
+  mid_hash?: string;
+
   [key: string]: unknown;
 }
 
@@ -223,6 +268,8 @@ export interface NormalizedZaloEvent {
   displayName: string;
   text?: string;
   imageUrl?: string;
+  /** Tất cả ảnh khi user gửi nhiều ảnh (multi-image). Phần tử đầu tiên trùng với imageUrl. */
+  imageUrls?: string[];
   voiceUrl?: string;
   stickerUrl?: string;
   caption?: string;
@@ -246,12 +293,42 @@ export function normalizeZaloWebhookPayload(payload: ZaloWebhookPayloadDto): Nor
 
   const displayName = message?.from?.display_name || 'bạn';
   const text = message?.text?.trim();
-  const imageUrl = message?.photo_url || message?.photo;
   const voiceUrl = message?.voice_url;
   const stickerUrl = message?.url || message?.sticker;
   const caption = message?.caption;
   const isBot = Boolean(message?.from?.is_bot);
   const isUnsupported = eventName === (ZaloWebhookEventName.MESSAGE_UNSUPPORTED_RECEIVED as string);
+
+  // Trích xuất tất cả URL ảnh — hỗ trợ single image, attachments[] và medias[]
+  const imageUrls: string[] = [];
+
+  // Single image trực tiếp
+  const directImageUrl = message?.photo_url || message?.photo || message?.thumb;
+  if (directImageUrl) {
+    imageUrls.push(directImageUrl);
+  }
+
+  // Multi-image qua attachments[]
+  if (Array.isArray(message?.attachments)) {
+    for (const att of message.attachments) {
+      const url = att.photo_url || att.photo || att.url;
+      if (url && !imageUrls.includes(url)) {
+        imageUrls.push(url);
+      }
+    }
+  }
+
+  // Multi-image qua medias[]
+  if (Array.isArray(message?.medias)) {
+    for (const media of message.medias) {
+      const url = media.photo_url || media.photo || media.url;
+      if (url && !imageUrls.includes(url)) {
+        imageUrls.push(url);
+      }
+    }
+  }
+
+  const imageUrl = imageUrls[0]; // URL ảnh đầu tiên (tương thích ngược)
 
   return {
     eventName,
@@ -261,6 +338,7 @@ export function normalizeZaloWebhookPayload(payload: ZaloWebhookPayloadDto): Nor
     displayName,
     text,
     imageUrl,
+    imageUrls: imageUrls.length > 0 ? imageUrls : undefined,
     voiceUrl,
     stickerUrl,
     caption,

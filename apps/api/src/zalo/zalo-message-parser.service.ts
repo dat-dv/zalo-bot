@@ -42,6 +42,7 @@ export class ZaloMessageParser {
       displayName: normalized.displayName,
       text: normalized.text,
       imageUrl: normalized.imageUrl,
+      imageUrls: normalized.imageUrls,
       voiceUrl: normalized.voiceUrl,
       stickerUrl: normalized.stickerUrl,
       caption: normalized.caption,
