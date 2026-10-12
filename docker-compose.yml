@@ -54,8 +54,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    volumes:
-      - zalobot-receipts:/app/data
     healthcheck:
       test: ['CMD-SHELL', 'curl -f http://localhost:$${BE_PORT:-3005}/health || exit 1']
       interval: 10s
@@ -87,4 +85,3 @@ services:
 volumes:
   zalobot-postgres:
   zalobot-redis:
-  zalobot-receipts:

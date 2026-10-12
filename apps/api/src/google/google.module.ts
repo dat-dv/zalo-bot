@@ -10,6 +10,9 @@ import { GoogleResourcesController } from './google-resources.controller';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 import { ZaloModule } from '../zalo/zalo.module';
 
+import { GoogleDriveService } from './google-drive.service';
+import { GooglePhotosService } from './google-photos.service';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([UserTokenEntity]),
@@ -17,7 +20,20 @@ import { ZaloModule } from '../zalo/zalo.module';
     forwardRef(() => ZaloModule),
   ],
   controllers: [GoogleAuthController, GoogleResourcesController],
-  providers: [GoogleAuthService, GoogleCalendarService, GoogleTasksService, TokenEncryptionService],
-  exports: [GoogleAuthService, GoogleCalendarService, GoogleTasksService],
+  providers: [
+    GoogleAuthService,
+    GoogleCalendarService,
+    GoogleTasksService,
+    GoogleDriveService,
+    GooglePhotosService,
+    TokenEncryptionService,
+  ],
+  exports: [
+    GoogleAuthService,
+    GoogleCalendarService,
+    GoogleTasksService,
+    GoogleDriveService,
+    GooglePhotosService,
+  ],
 })
 export class GoogleModule {}

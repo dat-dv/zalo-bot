@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
+import { UsersService } from '../../../users/users.service';
 
 @Injectable()
 export class LoginToolStrategy implements TextToolStrategy {
@@ -12,24 +13,42 @@ export class LoginToolStrategy implements TextToolStrategy {
   constructor(
     private readonly zaloService: ZaloService,
     private readonly googleAuthService: GoogleAuthService,
+    @Optional() private readonly usersService?: UsersService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
+    const isAdmin = Boolean(this.usersService?.isAdmin(context.senderId));
+
+    if (!isAdmin) {
+      const reply =
+        `⛔ QUYỀN TRUY CẬP BỊ GIỚI HẠN\n\n` +
+        `Chỉ Quản trị viên (Admin) mới có quyền kết nối tài khoản Google cho hệ thống.\n\n` +
+        `Tài khoản Google sau khi Quản trị viên kết nối sẽ được kích hoạt dùng chung cho toàn bộ thành viên (Calendar, Tasks, Google Drive & Google Photos).\n\n` +
+        `💡 Vui lòng liên hệ Quản trị viên để kết nối tài khoản. Bạn có thể gõ /status để kiểm tra trạng thái hệ thống.`;
+      await this.zaloService.sendMessage(context.chatId, reply);
+      return;
+    }
+
     try {
       const authUrl = this.googleAuthService.generateAuthUrl(context.senderId);
-      const isConnected = this.googleAuthService.isAuthorized(context.senderId);
+      const isConnected = this.googleAuthService.isSharedAuthorized();
 
       const statusNote = isConnected
-        ? '💡 (Hiện tại bạn ĐÃ kết nối Google. Nếu muốn đổi tài khoản, bạn chỉ cần liên kết lại tài khoản mới)'
-        : '⚠️ (Hiện tại bạn CHƯA kết nối tài khoản Google)';
+        ? '💡 (Hệ thống ĐÃ kết nối Google dùng chung. Bạn có thể cấp quyền lại nếu muốn đổi sang tài khoản Gmail mới)'
+        : '⚠️ (Hệ thống CHƯA kết nối tài khoản Google dùng chung)';
 
       const reply =
-        `🔐 KẾT NỐI TÀI KHOẢN GOOGLE WORKSPACE\n\n` +
+        `🔐 KẾT NỐI TÀI KHOẢN GOOGLE HỆ THỐNG (DÙNG CHUNG)\n\n` +
         `${statusNote}\n\n` +
-        `Để trợ lý có thể quản lý Google Calendar (Lịch) & Google Tasks (Việc cần làm), bạn thực hiện:\n\n` +
+        `Tài khoản này sẽ được dùng chung cho toàn bộ thành viên trong bot để:\n` +
+        `• 📅 Quản lý Lịch trình (Google Calendar)\n` +
+        `• 📝 Việc cần làm (Google Tasks)\n` +
+        `• 📁 Lưu trữ hóa đơn, ảnh & video (Google Drive: zalobot/bills, images, videos)\n` +
+        `• 📸 Tự động tạo Album & đẩy ảnh (Google Photos: ZaloBot)\n\n` +
+        `Các bước thực hiện:\n` +
         `1️⃣ Mở đường dẫn sau trên trình duyệt:\n` +
         `👉 ${authUrl}\n\n` +
-        `2️⃣ Đăng nhập Gmail và bấm "Cho phép" (Allow).\n` +
+        `2️⃣ Đăng nhập Gmail và bấm "Cho phép" (Allow) các quyền.\n` +
         `3️⃣ Sau khi cấp quyền thành công, nếu cần bạn có thể gửi lại mã xác thực qua cú pháp:\n` +
         `/code <mã_xác_thực>`;
 

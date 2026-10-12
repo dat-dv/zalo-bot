@@ -11,6 +11,7 @@ import { cleanBotMention } from './bot-mention.util';
 import { PendingImageActionService } from '../pending-image-action.service';
 import { OcrService } from '../../ocr/ocr.service';
 import { ReceiptImageStorageService } from '../../receipt-storage/receipt-image-storage.service';
+import { MediaStorageService } from '../../receipt-storage/media-storage.service';
 
 @Injectable()
 export class TextInputService {
@@ -25,6 +26,7 @@ export class TextInputService {
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
     @Optional() private readonly ocrService?: OcrService,
     @Optional() private readonly receiptStorageService?: ReceiptImageStorageService,
+    @Optional() private readonly mediaStorageService?: MediaStorageService,
   ) {}
 
   public async process(input: AgentInput, toolTypeOverride?: TextToolType): Promise<void> {
@@ -207,9 +209,35 @@ export class TextInputService {
       return true;
     }
 
-    // 2. Kiểm tra Option 2: Lưu lên Drive
-    if (/^(?:2|lưu\s*drive|luu\s*drive)(?:\s+.*)?$/i.test(trimmed)) {
+    // 2. Kiểm tra Option 2: Lưu lên Drive & Photos
+    if (
+      /^(?:2|lưu\s*(?:drive|ảnh|anh|photo|lên\s*drive)|luu\s*(?:drive|anh|photo|len\s*drive))(?:\s+.*)?$/i.test(
+        trimmed,
+      )
+    ) {
       await this.pendingImageActionService.clearPending(senderId);
+
+      if (this.receiptStorageService && this.mediaStorageService) {
+        try {
+          await this.zaloService.sendMessage(
+            chatId,
+            '⏳ Đang tải ảnh lên Google Drive & Google Photos dùng chung...',
+          );
+          const buffer = await this.receiptStorageService.read(senderId, pending.receiptUrl);
+          const dualResult = await this.mediaStorageService.uploadImage(senderId, buffer);
+          const summary = this.mediaStorageService.formatUploadSummary(dualResult, 'image');
+          await this.zaloService.sendMessage(chatId, summary);
+          return true;
+        } catch (err) {
+          this.logger.error(`Failed to dual upload image: ${(err as Error).message}`);
+          await this.zaloService.sendMessage(
+            chatId,
+            `⚠️ Không thể lưu trữ ảnh lên Google: ${(err as Error).message}`,
+          );
+          return true;
+        }
+      }
+
       await this.zaloService.sendMessage(
         chatId,
         '☁️ Tính năng lưu trữ ảnh lên Google Drive đang được phát triển.',
@@ -227,10 +255,29 @@ export class TextInputService {
       );
 
       let ocrText = '';
-      if (this.receiptStorageService && this.ocrService) {
+      let activeReceiptUrl = pending.receiptUrl;
+
+      if (this.receiptStorageService) {
         try {
           const buffer = await this.receiptStorageService.read(senderId, pending.receiptUrl);
-          ocrText = await this.ocrService.extractTextFromBuffer(buffer);
+          if (this.ocrService) {
+            ocrText = await this.ocrService.extractTextFromBuffer(buffer);
+          }
+
+          if (this.mediaStorageService) {
+            try {
+              const uploadResult = await this.mediaStorageService.uploadBill(senderId, buffer, {
+                note: userNote,
+              });
+              if (uploadResult.drive?.webViewLink) {
+                activeReceiptUrl = uploadResult.drive.webViewLink;
+              }
+            } catch (upErr) {
+              this.logger.warn(
+                `Could not upload bill to Google Drive/Photos: ${(upErr as Error).message}`,
+              );
+            }
+          }
         } catch (err) {
           this.logger.warn(`Failed to read/OCR receipt image: ${(err as Error).message}`);
         }
@@ -239,7 +286,7 @@ export class TextInputService {
       const now = new Date().toISOString();
       const prompt =
         `Người dùng tải lên một ảnh hóa đơn và chọn [1] TẠO BILL / GHI NHẬN CHI TIÊU.\n` +
-        `Ảnh hóa đơn đã được lưu tại: ${pending.receiptUrl}\n` +
+        `Ảnh hóa đơn đã được lưu tại: ${activeReceiptUrl}\n` +
         `Ghi chú bổ sung từ người dùng: ${userNote ? `"${userNote}"` : '(không có ghi chú thêm)'}\n\n` +
         `Nội dung văn bản bóc tách từ hóa đơn qua Tesseract OCR:\n` +
         `"""\n` +
@@ -252,13 +299,13 @@ export class TextInputService {
         `note (chi tiết món ăn/nội dung chi tiêu kết hợp ghi chú người dùng), ` +
         `placeName (tên quán/cửa hàng/siêu thị nếu có trên bill), ` +
         `occurredAt (thời gian ghi trên hóa đơn nếu có, quy đổi sang ISO 8601 dựa trên mốc hiện tại ${now}).\n` +
-        `- Gán trường receiptUrl: "${pending.receiptUrl}".\n` +
+        `- Gán trường receiptUrl: "${activeReceiptUrl}".\n` +
         `- Gọi công cụ RECORD_TRANSACTION với các tham số trên để tạo yêu cầu xác nhận.`;
 
       const systemInstruction =
         `Bạn là trợ lý cá nhân thông minh trên Zalo. Thời gian hiện tại là: ${now}.\n` +
         `Nhiệm vụ: Phân tích hóa đơn đã OCR để gọi công cụ RECORD_TRANSACTION chính xác.\n` +
-        `QUY TẮC: Mọi tham số truyền vào arguments PHẢI là giá trị phẳng (primitive: string, number). Luôn truyền đúng receiptUrl: "${pending.receiptUrl}".`;
+        `QUY TẮC: Mọi tham số truyền vào arguments PHẢI là giá trị phẳng (primitive: string, number). Luôn truyền đúng receiptUrl: "${activeReceiptUrl}".`;
 
       try {
         const response = await this.zaloService.withChatAction(chatId, () =>

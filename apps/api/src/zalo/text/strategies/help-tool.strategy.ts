@@ -26,7 +26,7 @@ export class HelpToolStrategy implements TextToolStrategy {
       `📖 HƯỚNG DẪN SỬ DỤNG TRỢ LÝ ZALO - Danh sách lệnh hỗ trợ:\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
       `1️⃣ KẾT NỐI TÀI KHOẢN GOOGLE:\n` +
-      `• /login hoặc /auth - Lấy link đăng nhập Google Calendar & Tasks\n` +
+      `• /login hoặc /auth - Đăng nhập Google (Admin: Calendar, Tasks, Drive & Photos dùng chung)\n` +
       `• /code <mã> - Xác thực mã sau khi cấp quyền Google\n` +
       `• /status - Xem trạng thái tài khoản & kết nối Google\n\n` +
       `2️⃣ LỊCH TRÌNH & CÔNG VIỆC:\n` +

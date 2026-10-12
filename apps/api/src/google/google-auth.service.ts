@@ -19,12 +19,20 @@ export const GOOGLE_SCOPES = [
 
   // 3. Google Tasks (quản lý To-Do list & công việc)
   'https://www.googleapis.com/auth/tasks',
+
+  // 4. Google Drive (quản lý và lưu trữ file/thư mục bill, ảnh, video do app tạo)
+  'https://www.googleapis.com/auth/drive.file',
+
+  // 5. Google Photos (tạo album và upload ảnh/video)
+  'https://www.googleapis.com/auth/photoslibrary.appendonly',
 ];
 
 @Injectable()
 export class GoogleAuthService implements OnModuleInit {
   private readonly logger = new Logger(GoogleAuthService.name);
   private userClients: Map<string, OAuth2Client> = new Map();
+  private sharedUserId?: string;
+  private sharedEmailCache?: string;
 
   constructor(
     private readonly configService: ConfigService,
@@ -63,6 +71,9 @@ export class GoogleAuthService implements OnModuleInit {
               void this.saveTokensForUser(numUserId, refreshed);
             });
             this.userClients.set(t.userId, client);
+            if (!this.sharedUserId) {
+              this.sharedUserId = t.userId;
+            }
           }
         }
       }
@@ -90,10 +101,27 @@ export class GoogleAuthService implements OnModuleInit {
     return new google.auth.OAuth2(keys.clientId, keys.clientSecret, keys.redirectUri);
   }
 
+  public getSharedOAuth2Client(): OAuth2Client | null {
+    if (this.sharedUserId && this.userClients.has(this.sharedUserId)) {
+      return this.userClients.get(this.sharedUserId) || null;
+    }
+    for (const [id, client] of this.userClients.entries()) {
+      const creds = client.credentials;
+      if (creds && (creds.access_token || creds.refresh_token)) {
+        this.sharedUserId = id;
+        return client;
+      }
+    }
+    return null;
+  }
+
   public getOAuth2Client(userId?: string | number): OAuth2Client | null {
-    if (userId === undefined) return null;
-    const strId = String(userId);
-    return this.userClients.get(strId) || null;
+    if (userId !== undefined) {
+      const strId = String(userId);
+      const specific = this.userClients.get(strId);
+      if (specific) return specific;
+    }
+    return this.getSharedOAuth2Client();
   }
 
   public isAuthorized(userId?: string | number): boolean {
@@ -101,6 +129,30 @@ export class GoogleAuthService implements OnModuleInit {
     if (!client) return false;
     const creds = client.credentials;
     return !!(creds && (creds.access_token || creds.refresh_token));
+  }
+
+  public isSharedAuthorized(): boolean {
+    const client = this.getSharedOAuth2Client();
+    if (!client) return false;
+    const creds = client.credentials;
+    return !!(creds && (creds.access_token || creds.refresh_token));
+  }
+
+  public async getSharedAccountEmail(): Promise<string | null> {
+    if (this.sharedEmailCache) return this.sharedEmailCache;
+    const client = this.getSharedOAuth2Client();
+    if (!client) return null;
+    try {
+      const oauth2 = google.oauth2({ version: 'v2', auth: client });
+      const res = await oauth2.userinfo.get();
+      if (res.data?.email) {
+        this.sharedEmailCache = res.data.email;
+        return res.data.email;
+      }
+    } catch (err) {
+      this.logger.debug(`Could not retrieve shared account email: ${(err as Error).message}`);
+    }
+    return null;
   }
 
   public isAuthError(error: unknown): boolean {
@@ -220,6 +272,8 @@ export class GoogleAuthService implements OnModuleInit {
           expiry_date: dbToken.expiryDate ? Number(dbToken.expiryDate) : undefined,
         });
       }
+      this.sharedUserId = strId;
+      this.sharedEmailCache = undefined;
       this.logger.log(`Saved OAuth tokens for user ${userId} to PostgreSQL.`);
     } catch (err) {
       const error = err as Error;
@@ -232,6 +286,10 @@ export class GoogleAuthService implements OnModuleInit {
     try {
       await this.tokenRepo.delete({ userId: strId });
       this.userClients.delete(strId);
+      if (this.sharedUserId === strId) {
+        this.sharedUserId = undefined;
+        this.sharedEmailCache = undefined;
+      }
       this.logger.log(
         `Revoked and deleted Google OAuth tokens for user ${userId} from PostgreSQL.`,
       );

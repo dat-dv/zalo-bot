@@ -63,7 +63,6 @@ export function validateEnvironment(): EnvValidationResult {
     'GOOGLE_CLIENT_SECRET',
     'DASHBOARD_ACCESS_TOKEN_SECRET',
     'DASHBOARD_REFRESH_TOKEN_SECRET',
-    'RECEIPT_STORAGE_DIR',
   ];
   for (const key of requiredKeys) {
     if (!readEnv(key))

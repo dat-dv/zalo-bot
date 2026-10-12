@@ -137,7 +137,7 @@ export class InputProcessor {
 
 1️⃣ Tạo bill / Ghi nhận chi tiêu (nếu đây là hóa đơn)
    👉 Trả lời: "1" hoặc "1 <ghi chú>" (Ví dụ: "1 Ăn trưa Highlands")
-2️⃣ Lưu trữ ảnh lên Google Drive
+2️⃣ Lưu trữ ảnh lên Google Drive & Google Photos
    👉 Trả lời: "2"
 
 💡 Bạn có thể tiếp tục trò chuyện bình thường hoặc gõ "hủy" để bỏ qua ảnh.`,
