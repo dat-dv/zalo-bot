@@ -22,6 +22,7 @@ export interface LlmToolCall {
 export interface LlmResponse {
   text?: string;
   toolCall?: LlmToolCall;
+  toolCalls?: LlmToolCall[];
 }
 
 export interface ILlmProvider {
