@@ -296,4 +296,20 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
       properties: {},
     },
   },
+  {
+    name: TextToolType.CREATE_PLACE,
+    description:
+      'Tạo hoặc ghi nhận một địa điểm, nơi chốn mới (quán ăn, cửa hàng, siêu thị, trung tâm thương mại...). ' +
+      'Ví dụ: "tạo nơi chốn Aeon", "thêm địa điểm chợ Bến Thành", "lưu nơi chốn Highlands Coffee".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        name: {
+          type: 'STRING',
+          description: 'Tên nơi chốn / địa điểm (ví dụ: Bến Thành, Aeon, Highlands Coffee)',
+        },
+      },
+      required: ['name'],
+    },
+  },
 ];

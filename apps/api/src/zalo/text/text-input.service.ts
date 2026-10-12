@@ -111,9 +111,11 @@ export class TextInputService {
       '- Về việc cần làm ("thêm việc nộp báo cáo", "cần mua sữa chua"): gọi CREATE_TASK, xác định title, due, notes.\n' +
       '- Về tra cứu việc cần làm ("danh sách việc cần làm", "còn việc gì chưa xong"): gọi LIST_TASKS.\n' +
       '- Về hoàn thành việc ("đã xong việc nộp báo cáo"): gọi COMPLETE_TASK.\n' +
+      '- Về tạo địa điểm / nơi chốn ("tạo nơi chốn Landmark 81", "thêm địa điểm aeon", "lưu nơi chốn Bến Thành"): gọi CREATE_PLACE, xác định name.\n' +
       '- Về kết nối Google ("kết nối google", "đăng nhập google"): gọi LOGIN_GOOGLE.\n' +
       '- Nếu người dùng chỉ chào hỏi hoặc trò chuyện, hãy trả lời tự nhiên, ngắn gọn, thân thiện bằng tiếng Việt.\n\n' +
       'QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n' +
+      '- TÁCH CÁC HÀNH ĐỘNG ĐỘC LẬP: Khi người dùng đưa ra một câu chứa NHIỀU YÊU CẦU / NHIỀU HÀNH ĐỘNG ĐỘC LẬP (ví dụ: "tối nay đi ăn tối hết 80k ở bến thành sau đó đi uống nước 90k ở aeon", hoặc vừa ăn uống vừa tạo lịch, nhiều khoản chi tiêu trong cùng 1 câu), bạn PHẢI gọi đồng thời NHIỀU TOOL CALLS tương ứng cho từng hành động riêng biệt. Tuyệt đối không gộp chung vào 1 tool hay bỏ sót bất kỳ hành động nào.\n' +
       '- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object (ví dụ đúng: {"amount": 15000, "category": "Ăn uống", "type": "expense", "note": "uống cà phê"}, KHÔNG ĐƯỢC: {"amount": {"amount": 15000}}).';
 
     try {
@@ -121,31 +123,38 @@ export class TextInputService {
         this.llmService.generate(text, ZALO_TOOL_DEFINITIONS, systemInstruction),
       );
 
-      const toolCall = response.toolCall;
+      const toolCalls =
+        response.toolCalls && response.toolCalls.length > 0
+          ? response.toolCalls
+          : response.toolCall
+            ? [response.toolCall]
+            : [];
 
-      if (toolCall) {
-        this.logger.log(
-          `LLM resolved tool "${toolCall.name}" with args: ${JSON.stringify(toolCall.args)}`,
-        );
-
-        let strategy;
-        try {
-          strategy = this.toolFactory.getStrategy(toolCall.name as TextToolType);
-        } catch {
-          this.logger.warn(
-            `Strategy for tool "${toolCall.name}" not found. Falling back to CONVERSATION.`,
+      if (toolCalls.length > 0) {
+        for (const toolCall of toolCalls) {
+          this.logger.log(
+            `LLM resolved tool "${toolCall.name}" with args: ${JSON.stringify(toolCall.args)}`,
           );
-          strategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
-        }
 
-        await strategy.execute({
-          input,
-          chatId,
-          senderId,
-          displayName,
-          text,
-          toolArgs: toolCall.args,
-        });
+          let strategy;
+          try {
+            strategy = this.toolFactory.getStrategy(toolCall.name as TextToolType);
+          } catch {
+            this.logger.warn(
+              `Strategy for tool "${toolCall.name}" not found. Falling back to CONVERSATION.`,
+            );
+            strategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
+          }
+
+          await strategy.execute({
+            input,
+            chatId,
+            senderId,
+            displayName,
+            text,
+            toolArgs: toolCall.args,
+          });
+        }
         return;
       }
 

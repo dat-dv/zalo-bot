@@ -27,6 +27,8 @@ import {
   DeleteCalendarEventDto,
   BAN_USER_DESCRIPTOR,
   BanUserDto,
+  CreatePlaceDto,
+  PLACE_DESCRIPTOR,
 } from './confirmation/dto-descriptor.util';
 
 export type PendingActionType =
@@ -39,6 +41,7 @@ export type PendingActionType =
   | 'CREATE_CALENDAR_EVENT'
   | 'DELETE_CALENDAR_EVENT'
   | 'BAN_USER'
+  | 'CREATE_PLACE'
   | 'create'
   | 'delete';
 
@@ -60,6 +63,16 @@ export interface PendingAction {
 
 /** Alias to maintain backward compatibility */
 export type PendingTransaction = PendingAction;
+
+export function normalizePlaceName(val: string): string {
+  return (val || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('vi-VN')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
 
 @Injectable()
 export class TransactionConfirmationService implements OnModuleDestroy {
@@ -105,26 +118,98 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     return this.pendingMap.get(code);
   }
 
-  public async getPendingForUser(userId: string): Promise<PendingAction | undefined> {
+  public async getPendingListForUser(userId: string): Promise<PendingAction[]> {
     if (this.redisService) {
-      const code = await this.redisService.get(`pending:tx:user:${userId}`);
-      if (code) {
-        const item = await this.getPendingByCode(code);
-        if (item) return item;
+      const key = `pending:tx:user-codes:${userId}`;
+      const raw = await this.redisService.get(key);
+      if (raw) {
+        try {
+          const codes = JSON.parse(raw) as string[];
+          const list: PendingAction[] = [];
+          for (const code of codes) {
+            const p = await this.getPendingByCode(code);
+            if (p) list.push(p);
+          }
+          if (list.length > 0) {
+            return list;
+          }
+        } catch {
+          // fallback to memory
+        }
       }
     }
-    const list = Array.from(this.pendingMap.values()).filter((p) => p.userId === userId);
+    return Array.from(this.pendingMap.values())
+      .filter((p) => p.userId === userId)
+      .sort((a, b) => a.createdAt - b.createdAt);
+  }
+
+  public async getPendingForUser(userId: string): Promise<PendingAction | undefined> {
+    const list = await this.getPendingListForUser(userId);
     return list[list.length - 1];
   }
 
-  private async deletePending(code: string, userId?: string): Promise<void> {
+  public async hasPendingPlace(userId: string, placeName: string): Promise<boolean> {
+    const norm = normalizePlaceName(placeName);
+    if (!norm) return false;
+    const list = await this.getPendingListForUser(userId);
+    return list.some(
+      (p) =>
+        p.actionType === 'CREATE_PLACE' &&
+        normalizePlaceName((p.payload?.name as string) || '') === norm,
+    );
+  }
+
+  private async addUserPendingCode(userId: string, code: string): Promise<void> {
     if (this.redisService) {
-      await this.redisService.del(`pending:tx:code:${code}`);
-      if (userId) {
-        await this.redisService.del(`pending:tx:user:${userId}`);
+      const key = `pending:tx:user-codes:${userId}`;
+      const raw = await this.redisService.get(key);
+      let codes: string[] = [];
+      if (raw) {
+        try {
+          codes = JSON.parse(raw) as string[];
+        } catch {
+          codes = [];
+        }
+      }
+      if (!codes.includes(code)) {
+        codes.push(code);
+      }
+      const ttl = Math.ceil(this.timeoutMs / 1000);
+      await this.redisService.set(key, JSON.stringify(codes), ttl);
+    }
+  }
+
+  private async removeUserPendingCode(userId: string, code: string): Promise<void> {
+    if (this.redisService) {
+      const key = `pending:tx:user-codes:${userId}`;
+      const raw = await this.redisService.get(key);
+      if (raw) {
+        try {
+          let codes = JSON.parse(raw) as string[];
+          codes = codes.filter((c) => c !== code);
+          if (codes.length > 0) {
+            const ttl = Math.ceil(this.timeoutMs / 1000);
+            await this.redisService.set(key, JSON.stringify(codes), ttl);
+          } else {
+            await this.redisService.del(key);
+          }
+        } catch {
+          // ignore
+        }
       }
     }
+  }
+
+  private async deletePending(code: string, userId?: string): Promise<void> {
     const local = this.pendingMap.get(code);
+    const targetUserId = userId || local?.userId;
+    if (this.redisService) {
+      await this.redisService.del(`pending:tx:code:${code}`);
+      if (targetUserId) {
+        await this.redisService.del(`pending:tx:user:${targetUserId}`);
+        await this.removeUserPendingCode(targetUserId, code);
+      }
+    }
     if (local) {
       if (local.timer) {
         clearTimeout(local.timer);
@@ -189,6 +274,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       });
       await this.redisService.set(`pending:tx:code:${code}`, serialized, ttlSeconds);
       await this.redisService.set(`pending:tx:user:${params.userId}`, code, ttlSeconds);
+      await this.addUserPendingCode(params.userId, code);
     }
 
     // Thiết lập timer thông báo hết hạn sau 1 phút
@@ -401,6 +487,26 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     });
   }
 
+  /**
+   * Tạo yêu cầu xác nhận tạo nơi chốn mới.
+   */
+  public async createPendingPlace(params: {
+    userId: string;
+    chatId: string;
+    payload: CreatePlaceDto;
+    rawPrompt?: string;
+  }): Promise<PendingAction> {
+    return this.createPendingAction({
+      userId: params.userId,
+      chatId: params.chatId,
+      actionType: 'CREATE_PLACE',
+      title: `tạo nơi chốn "${params.payload.name}"`,
+      payload: params.payload,
+      descriptor: PLACE_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
+    });
+  }
+
   public async handleTimeout(code: string): Promise<void> {
     const pending = await this.getPendingByCode(code);
     if (!pending) return;
@@ -422,6 +528,9 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     } else if (pending.actionType === 'BAN_USER') {
       const targetUserId = typeof payload.targetUserId === 'string' ? payload.targetUserId : '';
       title = `Yêu cầu khóa tài khoản "${targetUserId}"`;
+    } else if (pending.actionType === 'CREATE_PLACE') {
+      const placeName = typeof payload.name === 'string' ? payload.name : '';
+      title = `Yêu cầu tạo nơi chốn "${placeName}"`;
     }
 
     const note =
@@ -446,7 +555,23 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     const trimmed = text.trim();
     if (!trimmed) return false;
 
-    // Khớp xác nhận: yes, y, ok, xác nhận, xac nhan (+ mã tùy chọn)
+    // 1. Khớp xác nhận tất cả: yes all, ok all, y all, xác nhận tất cả, xac nhan tat ca, xác nhận hết, đồng ý tất cả
+    const confirmAllMatch = trimmed.match(
+      /^(?:yes|y|ok|xác\s*nhận|xac\s*nhan|đồng\s*ý|dong\s*y)\s+(?:all|tất\s*cả|tat\s*ca|hết|het)$/i,
+    );
+    if (confirmAllMatch) {
+      return this.processConfirmAll(userId, chatId);
+    }
+
+    // 2. Khớp hủy tất cả: cancel all, no all, hủy tất cả, huỷ tất cả, huy tat ca, bỏ qua tất cả
+    const cancelAllMatch = trimmed.match(
+      /^(?:cancel|no|hủy|huỷ|huy|bỏ\s*qua|bo\s*qua)\s+(?:all|tất\s*cả|tat\s*ca|hết|het)$/i,
+    );
+    if (cancelAllMatch) {
+      return this.processCancelAll(userId, chatId);
+    }
+
+    // 3. Khớp xác nhận: yes, y, ok, xác nhận, xac nhan (+ mã tùy chọn)
     const confirmMatch = trimmed.match(
       /^(?:yes|y|ok|xác\s*nhận|xac\s*nhan)(?:\s+([a-zA-Z0-9]{3,6}))?$/i,
     );
@@ -455,7 +580,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       return this.processConfirm(userId, chatId, code);
     }
 
-    // Khớp hủy: cancel, no, hủy, huỷ, huy (+ mã tùy chọn)
+    // 4. Khớp hủy: cancel, no, hủy, huỷ, huy (+ mã tùy chọn)
     const cancelMatch = trimmed.match(
       /^(?:cancel|no|hủy|huỷ|huy|bỏ\s*qua|bo\s*qua)(?:\s+([a-zA-Z0-9]{3,6}))?$/i,
     );
@@ -569,30 +694,81 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     return true;
   }
 
-  private async processConfirm(userId: string, chatId: string, code?: string): Promise<boolean> {
+  public async processConfirmAll(userId: string, chatId: string): Promise<boolean> {
+    const list = await this.getPendingListForUser(userId);
+    if (list.length === 0) {
+      await this.zaloService.sendMessage(chatId, 'ℹ️ Không có yêu cầu nào đang chờ xác nhận.');
+      return true;
+    }
+
+    let successCount = 0;
+    for (const pending of list) {
+      const ok = await this.processConfirm(userId, chatId, pending.code, true);
+      if (ok) successCount++;
+    }
+
+    await this.zaloService.sendMessage(
+      chatId,
+      `🎉 Đã xác nhận thành công tất cả (${successCount}/${list.length}) yêu cầu!`,
+    );
+    return true;
+  }
+
+  public async processCancelAll(userId: string, chatId: string): Promise<boolean> {
+    const list = await this.getPendingListForUser(userId);
+    if (list.length === 0) {
+      await this.zaloService.sendMessage(
+        chatId,
+        'ℹ️ Không có yêu cầu nào đang chờ xác nhận để hủy.',
+      );
+      return true;
+    }
+
+    for (const pending of list) {
+      await this.deletePending(pending.code, pending.userId);
+    }
+
+    await this.zaloService.sendMessage(
+      chatId,
+      `🚫 Đã hủy tất cả (${list.length}) yêu cầu chờ xác nhận của bạn.`,
+    );
+    return true;
+  }
+
+  private async processConfirm(
+    userId: string,
+    chatId: string,
+    code?: string,
+    silent = false,
+  ): Promise<boolean> {
     let pending: PendingAction | undefined;
 
     if (code) {
       pending = await this.getPendingByCode(code);
       if (!pending) {
-        await this.zaloService.sendMessage(
-          chatId,
-          `⚠️ Không tìm thấy yêu cầu chờ xác nhận với mã "${code}". Vui lòng kiểm tra lại.`,
-        );
+        if (!silent) {
+          await this.zaloService.sendMessage(
+            chatId,
+            `⚠️ Không tìm thấy yêu cầu chờ xác nhận với mã "${code}". Vui lòng kiểm tra lại.`,
+          );
+        }
         return true;
       }
       if (pending.userId !== userId && pending.chatId !== chatId) {
-        await this.zaloService.sendMessage(
-          chatId,
-          `⚠️ Bạn không có quyền xác nhận yêu cầu mã "${code}".`,
-        );
+        if (!silent) {
+          await this.zaloService.sendMessage(
+            chatId,
+            `⚠️ Bạn không có quyền xác nhận yêu cầu mã "${code}".`,
+          );
+        }
         return true;
       }
     } else {
-      pending = await this.getPendingForUser(userId);
-      if (!pending) {
+      const pendingList = await this.getPendingListForUser(userId);
+      if (pendingList.length === 0) {
         return false;
       }
+      pending = pendingList[0];
     }
 
     if (Date.now() > pending.expiresAt) {
@@ -627,8 +803,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             },
             FINANCE_TRANSACTION_DESCRIPTOR,
           );
-          const reply = `✅ Đã xác nhận và lưu ${typeLabel.toLowerCase()} thành công!\n\n${cardContent}`;
-          await this.zaloService.sendMessage(chatId, reply);
+          if (!silent) {
+            const reply = `✅ Đã xác nhận và lưu ${typeLabel.toLowerCase()} thành công!\n\n${cardContent}`;
+            await this.zaloService.sendMessage(chatId, reply);
+          }
           break;
         }
         case 'DELETE_TRANSACTION':
@@ -640,44 +818,50 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             payload.transactionId,
           );
           if (success) {
-            const typeLabel = payload.type === 'income' ? 'khoản thu' : 'khoản chi';
-            const cardContent = renderDtoConfirmationCard(payload, DELETE_TRANSACTION_DESCRIPTOR);
-            await this.zaloService.sendMessage(
-              chatId,
-              `🗑️ Đã xóa ${typeLabel} thành công!\n\n${cardContent}`,
-            );
+            if (!silent) {
+              const typeLabel = payload.type === 'income' ? 'khoản thu' : 'khoản chi';
+              const cardContent = renderDtoConfirmationCard(payload, DELETE_TRANSACTION_DESCRIPTOR);
+              await this.zaloService.sendMessage(
+                chatId,
+                `🗑️ Đã xóa ${typeLabel} thành công!\n\n${cardContent}`,
+              );
+            }
           } else {
-            await this.zaloService.sendMessage(
-              chatId,
-              `⚠️ Không tìm thấy giao dịch hoặc bạn không có quyền xóa giao dịch này.`,
-            );
+            if (!silent) {
+              await this.zaloService.sendMessage(
+                chatId,
+                `⚠️ Không tìm thấy giao dịch hoặc bạn không có quyền xóa giao dịch này.`,
+              );
+            }
           }
           break;
         }
         case 'MANAGE_DEBT': {
           const payload = pending.payload as unknown as CreateDebtDto;
           const debt = await this.financeService.createDebt(payload);
-          const cardContent = renderDtoConfirmationCard(
-            {
-              ...payload,
-              amount: debt?.originalAmount ?? payload.amount,
-              counterparty: debt?.counterparty ?? payload.counterparty,
-              note: debt?.note ?? payload.note,
-              occurredAt: debt?.occurredAt
-                ? debt.occurredAt instanceof Date
-                  ? debt.occurredAt.toISOString()
-                  : String(debt.occurredAt)
-                : payload.occurredAt,
-              dueAt: debt?.dueAt
-                ? debt.dueAt instanceof Date
-                  ? debt.dueAt.toISOString()
-                  : String(debt.dueAt)
-                : payload.dueAt,
-            },
-            DEBT_DESCRIPTOR,
-          );
-          const reply = `✅ Đã xác nhận và ghi nhận khoản nợ thành công!\n\n${cardContent}`;
-          await this.zaloService.sendMessage(chatId, reply);
+          if (!silent) {
+            const cardContent = renderDtoConfirmationCard(
+              {
+                ...payload,
+                amount: debt?.originalAmount ?? payload.amount,
+                counterparty: debt?.counterparty ?? payload.counterparty,
+                note: debt?.note ?? payload.note,
+                occurredAt: debt?.occurredAt
+                  ? debt.occurredAt instanceof Date
+                    ? debt.occurredAt.toISOString()
+                    : String(debt.occurredAt)
+                  : payload.occurredAt,
+                dueAt: debt?.dueAt
+                  ? debt.dueAt instanceof Date
+                    ? debt.dueAt.toISOString()
+                    : String(debt.dueAt)
+                  : payload.dueAt,
+              },
+              DEBT_DESCRIPTOR,
+            );
+            const reply = `✅ Đã xác nhận và ghi nhận khoản nợ thành công!\n\n${cardContent}`;
+            await this.zaloService.sendMessage(chatId, reply);
+          }
           break;
         }
         case 'SET_REMINDER': {
@@ -686,16 +870,18 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           }
           const payload = pending.payload as unknown as CreateReminderDto;
           const reminder = await this.remindersService.createReminder(payload);
-          const cardContent = renderDtoConfirmationCard(
-            {
-              ...payload,
-              title: reminder?.title ?? payload.title,
-              remindAt: reminder?.remindAt ?? payload.remindAt,
-            },
-            REMINDER_DESCRIPTOR,
-          );
-          const reply = `⏰ Đã xác nhận và đặt lịch nhắc thành công!\n\n${cardContent}`;
-          await this.zaloService.sendMessage(chatId, reply);
+          if (!silent) {
+            const cardContent = renderDtoConfirmationCard(
+              {
+                ...payload,
+                title: reminder?.title ?? payload.title,
+                remindAt: reminder?.remindAt ?? payload.remindAt,
+              },
+              REMINDER_DESCRIPTOR,
+            );
+            const reply = `⏰ Đã xác nhận và đặt lịch nhắc thành công!\n\n${cardContent}`;
+            await this.zaloService.sendMessage(chatId, reply);
+          }
           break;
         }
         case 'CREATE_TASK': {
@@ -704,18 +890,20 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           }
           const payload = pending.payload as unknown as CreateTaskOptions;
           const task = await this.googleTasksService.createTask(payload, pending.userId);
-          const cardContent = renderDtoConfirmationCard(
-            {
-              ...payload,
-              title: task?.title ?? payload.title,
-            },
-            TASK_DESCRIPTOR,
-          );
-          const reply =
-            `✅ ĐÃ XÁC NHẬN VÀ THÊM VIỆC CẦN LÀM VÀO GOOGLE TASKS!\n\n` +
-            cardContent +
-            `\n\n💡 Gõ /tasks để xem toàn bộ danh sách việc cần làm.`;
-          await this.zaloService.sendMessage(chatId, reply);
+          if (!silent) {
+            const cardContent = renderDtoConfirmationCard(
+              {
+                ...payload,
+                title: task?.title ?? payload.title,
+              },
+              TASK_DESCRIPTOR,
+            );
+            const reply =
+              `✅ ĐÃ XÁC NHẬN VÀ THÊM VIỆC CẦN LÀM VÀO GOOGLE TASKS!\n\n` +
+              cardContent +
+              `\n\n💡 Gõ /tasks để xem toàn bộ danh sách việc cần làm.`;
+            await this.zaloService.sendMessage(chatId, reply);
+          }
           break;
         }
         case 'COMPLETE_TASK': {
@@ -724,12 +912,14 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           }
           const payload = pending.payload as unknown as CompleteTaskDto;
           await this.googleTasksService.completeTask(payload.taskId, '@default', pending.userId);
-          const cardContent = renderDtoConfirmationCard(payload, COMPLETE_TASK_DESCRIPTOR);
-          const reply =
-            `🎉 ĐÃ XÁC NHẬN VÀ HOÀN THÀNH CÔNG VIỆC TRÊN GOOGLE TASKS!\n\n` +
-            cardContent +
-            `\n\n💡 Gõ /tasks để xem danh sách việc cần làm còn lại.`;
-          await this.zaloService.sendMessage(chatId, reply);
+          if (!silent) {
+            const cardContent = renderDtoConfirmationCard(payload, COMPLETE_TASK_DESCRIPTOR);
+            const reply =
+              `🎉 ĐÃ XÁC NHẬN VÀ HOÀN THÀNH CÔNG VIỆC TRÊN GOOGLE TASKS!\n\n` +
+              cardContent +
+              `\n\n💡 Gõ /tasks để xem danh sách việc cần làm còn lại.`;
+            await this.zaloService.sendMessage(chatId, reply);
+          }
           break;
         }
         case 'CREATE_CALENDAR_EVENT': {
@@ -738,12 +928,14 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           }
           const payload = pending.payload as unknown as CreateEventOptions;
           await this.googleCalendarService.createEvent(payload, pending.userId);
-          const cardContent = renderDtoConfirmationCard(payload, CALENDAR_EVENT_DESCRIPTOR);
-          const reply =
-            `✅ ĐÃ XÁC NHẬN VÀ TẠO SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG!\n\n` +
-            cardContent +
-            `\n\n🔗 Sự kiện đã được đồng bộ lên Google Calendar của bạn.`;
-          await this.zaloService.sendMessage(chatId, reply);
+          if (!silent) {
+            const cardContent = renderDtoConfirmationCard(payload, CALENDAR_EVENT_DESCRIPTOR);
+            const reply =
+              `✅ ĐÃ XÁC NHẬN VÀ TẠO SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG!\n\n` +
+              cardContent +
+              `\n\n🔗 Sự kiện đã được đồng bộ lên Google Calendar của bạn.`;
+            await this.zaloService.sendMessage(chatId, reply);
+          }
           break;
         }
         case 'DELETE_CALENDAR_EVENT': {
@@ -752,10 +944,15 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           }
           const payload = pending.payload as unknown as DeleteCalendarEventDto;
           await this.googleCalendarService.deleteEvent(payload.eventId, pending.userId);
-          const cardContent = renderDtoConfirmationCard(payload, DELETE_CALENDAR_EVENT_DESCRIPTOR);
-          const reply =
-            `🗑️ ĐÃ XÁC NHẬN VÀ XÓA SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG!\n\n` + cardContent;
-          await this.zaloService.sendMessage(chatId, reply);
+          if (!silent) {
+            const cardContent = renderDtoConfirmationCard(
+              payload,
+              DELETE_CALENDAR_EVENT_DESCRIPTOR,
+            );
+            const reply =
+              `🗑️ ĐÃ XÁC NHẬN VÀ XÓA SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG!\n\n` + cardContent;
+            await this.zaloService.sendMessage(chatId, reply);
+          }
           break;
         }
         case 'BAN_USER': {
@@ -766,21 +963,55 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           if (this.googleAuthService) {
             await this.googleAuthService.revokeUserTokens(payload.targetUserId);
           }
-          const cardContent = renderDtoConfirmationCard(payload, BAN_USER_DESCRIPTOR);
-          const reply =
-            `⛔ ĐÃ XÁC NHẬN VÀ KHÓA TÀI KHOẢN NGƯỜI DÙNG THÀNH CÔNG!\n\n` +
-            cardContent +
-            `\n\nToàn bộ quyền truy cập và Token Google của tài khoản đã bị thu hồi.`;
-          await this.zaloService.sendMessage(chatId, reply);
+          if (!silent) {
+            const cardContent = renderDtoConfirmationCard(payload, BAN_USER_DESCRIPTOR);
+            const reply =
+              `⛔ ĐÃ XÁC NHẬN VÀ KHÓA TÀI KHOẢN NGƯỜI DÙNG THÀNH CÔNG!\n\n` +
+              cardContent +
+              `\n\nToàn bộ quyền truy cập và Token Google của tài khoản đã bị thu hồi.`;
+            await this.zaloService.sendMessage(chatId, reply);
+          }
+          break;
+        }
+        case 'CREATE_PLACE': {
+          const payload = pending.payload as unknown as CreatePlaceDto;
+          const place = await this.financeService.resolveOrCreatePlace(
+            pending.userId,
+            payload.name,
+          );
+          if (!silent) {
+            const cardContent = renderDtoConfirmationCard(
+              {
+                userId: pending.userId,
+                name: place?.name || payload.name,
+              },
+              PLACE_DESCRIPTOR,
+            );
+            const reply = `✅ Đã xác nhận và tạo nơi chốn "${place?.name || payload.name}" thành công!\n\n${cardContent}`;
+            await this.zaloService.sendMessage(chatId, reply);
+          }
           break;
         }
         default: {
           const payload = pending.payload as unknown as CreateFinanceTransactionDto;
           await this.financeService.createTransaction(payload);
-          await this.zaloService.sendMessage(chatId, '✅ Đã xác nhận thao tác thành công!');
+          if (!silent) {
+            await this.zaloService.sendMessage(chatId, '✅ Đã xác nhận thao tác thành công!');
+          }
           break;
         }
       }
+
+      if (!silent) {
+        const remainingList = await this.getPendingListForUser(userId);
+        if (remainingList.length > 0) {
+          await this.zaloService.sendMessage(
+            chatId,
+            `💡 Bạn còn ${remainingList.length} yêu cầu chờ xác nhận. Soạn "yes all" để duyệt tất cả hoặc "yes <mã>".`,
+          );
+        }
+      }
+
       return true;
     } catch (err) {
       this.logger.error(`Failed to execute confirmed action: ${(err as Error).message}`);
@@ -838,6 +1069,9 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     } else if (pending.actionType === 'BAN_USER') {
       const targetUserId = typeof payload.targetUserId === 'string' ? payload.targetUserId : '';
       actionDesc = `khóa tài khoản "${targetUserId}"`;
+    } else if (pending.actionType === 'CREATE_PLACE') {
+      const placeName = typeof payload.name === 'string' ? payload.name : '';
+      actionDesc = `tạo nơi chốn "${placeName}"`;
     }
 
     const note =
@@ -851,6 +1085,16 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       chatId,
       `❌ Đã hủy ${actionDesc.toLowerCase()}${noteSuffix} (mã: ${pending.code}). Yêu cầu chưa được lưu.`,
     );
+
+    if (!code) {
+      const remainingList = await this.getPendingListForUser(userId);
+      if (remainingList.length > 0) {
+        await this.zaloService.sendMessage(
+          chatId,
+          `💡 Bạn còn ${remainingList.length} yêu cầu chờ xác nhận. Soạn "cancel all" để hủy tất cả hoặc "cancel <mã>".`,
+        );
+      }
+    }
     return true;
   }
 }

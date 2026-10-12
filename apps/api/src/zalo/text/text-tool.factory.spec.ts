@@ -39,6 +39,7 @@ function createFactory(): TextToolFactory {
     createDummyStrategy(TextToolType.COMPLETE_TASK),
     createDummyStrategy(TextToolType.LOGIN_GOOGLE),
     createDummyStrategy(TextToolType.DELETE_TRANSACTION),
+    createDummyStrategy(TextToolType.CREATE_PLACE),
   );
 }
 

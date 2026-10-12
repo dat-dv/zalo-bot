@@ -40,6 +40,7 @@ import { ListTasksToolStrategy } from './text/strategies/list-tasks-tool.strateg
 import { CompleteTaskToolStrategy } from './text/strategies/complete-task-tool.strategy';
 import { LoginGoogleToolStrategy } from './text/strategies/login-google-tool.strategy';
 import { DeleteTransactionToolStrategy } from './text/strategies/delete-transaction-tool.strategy';
+import { CreatePlaceToolStrategy } from './text/strategies/create-place-tool.strategy';
 
 // Related Domain Modules
 import { UsersModule } from '../users/users.module';
@@ -109,6 +110,7 @@ import { GrantAccessGuard } from './guards/grant-access.guard';
     CompleteTaskToolStrategy,
     LoginGoogleToolStrategy,
     DeleteTransactionToolStrategy,
+    CreatePlaceToolStrategy,
   ],
   exports: [
     ZaloService,

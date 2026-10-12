@@ -33,6 +33,7 @@ import { ListTasksToolStrategy } from './strategies/list-tasks-tool.strategy';
 import { CompleteTaskToolStrategy } from './strategies/complete-task-tool.strategy';
 import { LoginGoogleToolStrategy } from './strategies/login-google-tool.strategy';
 import { DeleteTransactionToolStrategy } from './strategies/delete-transaction-tool.strategy';
+import { CreatePlaceToolStrategy } from './strategies/create-place-tool.strategy';
 
 @Injectable()
 export class TextToolFactory {
@@ -69,6 +70,7 @@ export class TextToolFactory {
     completeTaskStrategy?: CompleteTaskToolStrategy,
     loginGoogleStrategy?: LoginGoogleToolStrategy,
     deleteTransactionStrategy?: DeleteTransactionToolStrategy,
+    createPlaceStrategy?: CreatePlaceToolStrategy,
     @Optional() private readonly configService?: ConfigService,
   ) {
     if (startStrategy) this.strategyMap.set(TextToolType.START, startStrategy);
@@ -108,6 +110,7 @@ export class TextToolFactory {
     if (completeTaskStrategy)
       this.strategyMap.set(TextToolType.COMPLETE_TASK, completeTaskStrategy);
     if (loginGoogleStrategy) this.strategyMap.set(TextToolType.LOGIN_GOOGLE, loginGoogleStrategy);
+    if (createPlaceStrategy) this.strategyMap.set(TextToolType.CREATE_PLACE, createPlaceStrategy);
   }
 
   public resolveFastPathToolType(text: string, customBotName?: string): TextToolType | null {

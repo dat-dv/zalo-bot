@@ -82,14 +82,19 @@ export class GeminiProvider implements ILlmProvider {
 
       const parts = data.candidates?.[0]?.content?.parts || [];
 
-      // Check if model called a tool
-      const functionCallPart = parts.find((p) => p.functionCall);
-      if (functionCallPart?.functionCall) {
+      // Check if model called any tools
+      const functionCallParts = parts.filter(
+        (p): p is typeof p & { functionCall: { name: string; args?: Record<string, unknown> } } =>
+          Boolean(p.functionCall),
+      );
+      if (functionCallParts.length > 0) {
+        const toolCalls = functionCallParts.map((p) => ({
+          name: p.functionCall.name,
+          args: p.functionCall.args || {},
+        }));
         return {
-          toolCall: {
-            name: functionCallPart.functionCall.name,
-            args: functionCallPart.functionCall.args || {},
-          },
+          toolCall: toolCalls[0],
+          toolCalls,
         };
       }
 

@@ -81,19 +81,25 @@ export class OpenAiProvider implements ILlmProvider {
       const message = data.choices?.[0]?.message;
 
       if (message?.tool_calls && message.tool_calls.length > 0) {
-        const toolCall = message.tool_calls[0];
-        let parsedArgs: Record<string, unknown> = {};
-        try {
-          parsedArgs = JSON.parse(toolCall.function?.arguments || '{}') as Record<string, unknown>;
-        } catch {
-          parsedArgs = {};
-        }
-
-        return {
-          toolCall: {
+        const toolCalls = message.tool_calls.map((toolCall) => {
+          let parsedArgs: Record<string, unknown> = {};
+          try {
+            parsedArgs = JSON.parse(toolCall.function?.arguments || '{}') as Record<
+              string,
+              unknown
+            >;
+          } catch {
+            parsedArgs = {};
+          }
+          return {
             name: toolCall.function?.name || '',
             args: cleanToolArguments(parsedArgs),
-          },
+          };
+        });
+
+        return {
+          toolCall: toolCalls[0],
+          toolCalls,
         };
       }
 

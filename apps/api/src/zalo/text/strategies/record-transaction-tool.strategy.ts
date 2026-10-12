@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { TransactionConfirmationService } from '../../transaction-confirmation.service';
+import { FinanceService } from '../../../finance/finance.service';
 import { parseAmount } from '../../../llm/utils/tool-arguments.util';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
   constructor(
     private readonly zaloService: ZaloService,
     private readonly confirmationService: TransactionConfirmationService,
+    @Optional() private readonly financeService?: FinanceService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
@@ -92,6 +94,33 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
         '⚠️ Không thể ghi nhận giao dịch với số tiền không hợp lệ.',
       );
       return;
+    }
+
+    if (placeName && this.financeService) {
+      try {
+        const existingPlaces = await this.financeService.resolvePlaces(context.senderId, placeName);
+        if (existingPlaces.length === 0) {
+          const isPending = await this.confirmationService.hasPendingPlace(
+            context.senderId,
+            placeName,
+          );
+          if (!isPending) {
+            await this.confirmationService.createPendingPlace({
+              userId: context.senderId,
+              chatId: context.chatId,
+              payload: {
+                userId: context.senderId,
+                name: placeName,
+              },
+              rawPrompt: context.text,
+            });
+          }
+        }
+      } catch (placeErr) {
+        this.logger.warn(
+          `Lỗi khi kiểm tra hoặc tạo pending nơi chốn: ${(placeErr as Error).message}`,
+        );
+      }
     }
 
     try {

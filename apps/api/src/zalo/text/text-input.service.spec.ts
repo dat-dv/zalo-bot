@@ -21,6 +21,7 @@ import { RemindersService } from '../../reminders/reminders.service';
 import { LlmService } from '../../llm/llm.service';
 import { LlmResponse } from '../../llm/types/llm.types';
 import { TransactionConfirmationService } from '../transaction-confirmation.service';
+import { CreatePlaceToolStrategy } from './strategies/create-place-tool.strategy';
 
 import { PendingImageActionService } from '../pending-image-action.service';
 import { OcrService } from '../../ocr/ocr.service';
@@ -34,6 +35,8 @@ interface SetupOptions {
   pendingImageActionService?: PendingImageActionService;
   ocrService?: OcrService;
   receiptStorageService?: ReceiptImageStorageService;
+  enablePlaceCheck?: boolean;
+  existingPlaces?: string[];
 }
 
 function createTextInputService(options?: SetupOptions) {
@@ -102,6 +105,18 @@ function createTextInputService(options?: SetupOptions) {
         expense: 2000000,
         balance: 3000000,
       } as never),
+    resolvePlaces: (_userId: string | number, name: string) => {
+      if (options?.existingPlaces) {
+        const norm = name.trim().toLowerCase();
+        const found = options.existingPlaces.filter((p: string) => p.trim().toLowerCase() === norm);
+        return Promise.resolve(
+          found.map((n: string) => ({ id: 'pl_1', name: n, normalizedName: n })),
+        );
+      }
+      return Promise.resolve([]);
+    },
+    resolveOrCreatePlace: (_userId: string | number, name: string) =>
+      Promise.resolve({ id: 'pl_1', name, normalizedName: name }),
   } as unknown as FinanceService;
 
   const _mockRemindersService = {
@@ -141,9 +156,15 @@ function createTextInputService(options?: SetupOptions) {
   const recordTransactionStrategy = new RecordTransactionToolStrategy(
     mockZaloService,
     confirmationService,
+    options?.enablePlaceCheck ? mockFinanceService : undefined,
   );
   const setReminderStrategy = new SetReminderToolStrategy(mockZaloService, confirmationService);
   const getReportStrategy = new GetReportToolStrategy(mockZaloService, mockFinanceService);
+  const createPlaceStrategy = new CreatePlaceToolStrategy(
+    mockZaloService,
+    confirmationService,
+    mockFinanceService,
+  );
 
   const factory = new TextToolFactory(
     startStrategy,
@@ -156,6 +177,27 @@ function createTextInputService(options?: SetupOptions) {
     recordTransactionStrategy,
     setReminderStrategy,
     getReportStrategy,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    createPlaceStrategy,
   );
 
   const service = new TextInputService(
@@ -668,6 +710,224 @@ void test('TextInputService handles "edit <mã> <nội dung>" by feeding context
   assert.equal(sentMessages.length, 2);
   assert.match(sentMessages[1].text, /60\.000 đ/);
   assert.match(sentMessages[1].text, /ăn bún bò/);
+
+  confirmationService.clearAll();
+});
+
+void test('TextInputService handles compound request with 2 expenses and 2 new places, sending exactly 4 confirmation messages (2 places + 2 expenses)', async () => {
+  const { service, sentMessages, confirmationService } = createTextInputService({
+    enablePlaceCheck: true,
+    existingPlaces: [], // Neither place exists
+    llmResponse: {
+      toolCalls: [
+        {
+          name: TextToolType.RECORD_TRANSACTION,
+          args: {
+            type: 'expense',
+            amount: 80000,
+            category: 'Ăn uống',
+            note: 'ăn tối',
+            placeName: 'Bến Thành',
+          },
+        },
+        {
+          name: TextToolType.RECORD_TRANSACTION,
+          args: {
+            type: 'expense',
+            amount: 90000,
+            category: 'Ăn uống',
+            note: 'uống nước',
+            placeName: 'Aeon',
+          },
+        },
+      ],
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'tối nay đi ăn tối hết 80k ở bến thành m sau đó đi uống nước 90k ở aeon',
+  });
+
+  // Exactly 4 confirmation messages sent: 2 places + 2 transactions
+  assert.equal(sentMessages.length, 4);
+
+  // Message 1: Nơi chốn Bến Thành
+  assert.match(sentMessages[0].text, /tạo nơi chốn/);
+  assert.match(sentMessages[0].text, /Bến Thành/);
+
+  // Message 2: Khoản chi ăn tối 80k
+  assert.match(sentMessages[1].text, /Khoản chi/);
+  assert.match(sentMessages[1].text, /80\.000 đ/);
+  assert.match(sentMessages[1].text, /ăn tối/);
+
+  // Message 3: Nơi chốn Aeon
+  assert.match(sentMessages[2].text, /tạo nơi chốn/);
+  assert.match(sentMessages[2].text, /Aeon/);
+
+  // Message 4: Khoản chi uống nước 90k
+  assert.match(sentMessages[3].text, /Khoản chi/);
+  assert.match(sentMessages[3].text, /90\.000 đ/);
+  assert.match(sentMessages[3].text, /uống nước/);
+
+  // User confirms all with "yes all"
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'yes all',
+  });
+
+  assert.equal(sentMessages.length, 5);
+  assert.match(sentMessages[4].text, /Đã xác nhận thành công tất cả \(4\/4\) yêu cầu/);
+
+  const pendingRemaining = await confirmationService.getPendingListForUser('u1');
+  assert.equal(pendingRemaining.length, 0);
+
+  confirmationService.clearAll();
+});
+
+void test('TextInputService deduces (giản lược) place confirmations when places already exist in DB, sending minimum 2 confirmation messages', async () => {
+  const { service, sentMessages, confirmationService } = createTextInputService({
+    enablePlaceCheck: true,
+    existingPlaces: ['bến thành', 'aeon'], // Both places already exist!
+    llmResponse: {
+      toolCalls: [
+        {
+          name: TextToolType.RECORD_TRANSACTION,
+          args: {
+            type: 'expense',
+            amount: 80000,
+            category: 'Ăn uống',
+            note: 'ăn tối',
+            placeName: 'Bến Thành',
+          },
+        },
+        {
+          name: TextToolType.RECORD_TRANSACTION,
+          args: {
+            type: 'expense',
+            amount: 90000,
+            category: 'Ăn uống',
+            note: 'uống nước',
+            placeName: 'Aeon',
+          },
+        },
+      ],
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'tối nay đi ăn tối hết 80k ở bến thành m sau đó đi uống nước 90k ở aeon',
+  });
+
+  // Places already exist -> simplified/deduced (giản lược) -> exactly 2 transaction cards sent!
+  assert.equal(sentMessages.length, 2);
+  assert.match(sentMessages[0].text, /80\.000 đ/);
+  assert.match(sentMessages[1].text, /90\.000 đ/);
+
+  confirmationService.clearAll();
+});
+
+void test('TextInputService sends 3 confirmation messages when 1 place exists and 1 is new', async () => {
+  const { service, sentMessages, confirmationService } = createTextInputService({
+    enablePlaceCheck: true,
+    existingPlaces: ['bến thành'], // Bến Thành exists, Aeon is new
+    llmResponse: {
+      toolCalls: [
+        {
+          name: TextToolType.RECORD_TRANSACTION,
+          args: {
+            type: 'expense',
+            amount: 80000,
+            category: 'Ăn uống',
+            note: 'ăn tối',
+            placeName: 'Bến Thành',
+          },
+        },
+        {
+          name: TextToolType.RECORD_TRANSACTION,
+          args: {
+            type: 'expense',
+            amount: 90000,
+            category: 'Ăn uống',
+            note: 'uống nước',
+            placeName: 'Aeon',
+          },
+        },
+      ],
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'tối nay đi ăn tối hết 80k ở bến thành m sau đó đi uống nước 90k ở aeon',
+  });
+
+  // Exactly 3 confirmation messages sent: 1 place (Aeon) + 2 transactions (80k, 90k)
+  assert.equal(sentMessages.length, 3);
+  assert.match(sentMessages[0].text, /80\.000 đ/); // Bến Thành tx (no place card for Bến Thành)
+  assert.match(sentMessages[1].text, /tạo nơi chốn/); // Aeon place card
+  assert.match(sentMessages[1].text, /Aeon/);
+  assert.match(sentMessages[2].text, /90\.000 đ/); // Aeon tx
+
+  confirmationService.clearAll();
+});
+
+void test('TextInputService cancels all pending actions when user sends "cancel all"', async () => {
+  const { service, sentMessages, confirmationService } = createTextInputService({
+    enablePlaceCheck: true,
+    existingPlaces: [],
+    llmResponse: {
+      toolCalls: [
+        {
+          name: TextToolType.RECORD_TRANSACTION,
+          args: {
+            type: 'expense',
+            amount: 80000,
+            category: 'Ăn uống',
+            note: 'ăn tối',
+            placeName: 'Bến Thành',
+          },
+        },
+      ],
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'ăn tối 80k ở Bến Thành',
+  });
+
+  assert.equal(sentMessages.length, 2); // 1 place + 1 tx
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'cancel all',
+  });
+
+  assert.equal(sentMessages.length, 3);
+  assert.match(sentMessages[2].text, /Đã hủy tất cả \(2\) yêu cầu/);
+
+  const pendingRemaining = await confirmationService.getPendingListForUser('u1');
+  assert.equal(pendingRemaining.length, 0);
 
   confirmationService.clearAll();
 });

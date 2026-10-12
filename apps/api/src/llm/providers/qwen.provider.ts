@@ -112,25 +112,29 @@ export class QwenProvider implements ILlmProvider {
 
       // 1. Check native tool calls from Ollama or OpenAI format
       if (message?.tool_calls && message.tool_calls.length > 0) {
-        const toolCall = message.tool_calls[0];
-        let parsedArgs: Record<string, unknown> = {};
-        const rawArgs = toolCall.function?.arguments;
+        const toolCalls = message.tool_calls.map((toolCall) => {
+          let parsedArgs: Record<string, unknown> = {};
+          const rawArgs = toolCall.function?.arguments;
 
-        if (typeof rawArgs === 'string') {
-          try {
-            parsedArgs = JSON.parse(rawArgs) as Record<string, unknown>;
-          } catch {
-            parsedArgs = {};
+          if (typeof rawArgs === 'string') {
+            try {
+              parsedArgs = JSON.parse(rawArgs) as Record<string, unknown>;
+            } catch {
+              parsedArgs = {};
+            }
+          } else if (typeof rawArgs === 'object' && rawArgs !== null) {
+            parsedArgs = rawArgs as Record<string, unknown>;
           }
-        } else if (typeof rawArgs === 'object' && rawArgs !== null) {
-          parsedArgs = rawArgs as Record<string, unknown>;
-        }
 
-        return {
-          toolCall: {
+          return {
             name: toolCall.function?.name || '',
             args: cleanToolArguments(parsedArgs),
-          },
+          };
+        });
+
+        return {
+          toolCall: toolCalls[0],
+          toolCalls,
         };
       }
 
@@ -138,8 +142,10 @@ export class QwenProvider implements ILlmProvider {
 
       // 2. Fallback: Parse <tool_call> tags if Qwen outputs raw tags in text
       if (content.includes('<tool_call>')) {
-        const match = content.match(/<tool_call>\s*({[\s\S]*?})\s*<\/tool_call>/);
-        if (match) {
+        const toolCallRegex = /<tool_call>\s*({[\s\S]*?})\s*<\/tool_call>/g;
+        const matches = [...content.matchAll(toolCallRegex)];
+        const toolCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+        for (const match of matches) {
           try {
             const parsed = JSON.parse(match[1]) as {
               name?: string;
@@ -147,16 +153,20 @@ export class QwenProvider implements ILlmProvider {
               args?: Record<string, unknown>;
             };
             if (parsed.name) {
-              return {
-                toolCall: {
-                  name: parsed.name,
-                  args: cleanToolArguments(parsed.arguments || parsed.args || {}),
-                },
-              };
+              toolCalls.push({
+                name: parsed.name,
+                args: cleanToolArguments(parsed.arguments || parsed.args || {}),
+              });
             }
           } catch {
-            // Ignore parse failure, return text
+            // Ignore parse failure
           }
+        }
+        if (toolCalls.length > 0) {
+          return {
+            toolCall: toolCalls[0],
+            toolCalls,
+          };
         }
       }
 

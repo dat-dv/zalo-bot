@@ -412,6 +412,26 @@ export const BAN_USER_DESCRIPTOR: DtoDescriptor<BanUserDto> = {
 };
 
 /**
+ * DTO đại diện cho việc tạo mới nơi chốn (FinancePlace).
+ */
+export interface CreatePlaceDto {
+  userId: string;
+  name: string;
+}
+
+/**
+ * Strict Descriptor cho CreatePlaceDto.
+ */
+export const PLACE_DESCRIPTOR: DtoDescriptor<CreatePlaceDto> = {
+  userId: { label: 'Người dùng', hidden: true },
+  name: {
+    label: 'Tên nơi chốn / địa điểm',
+    order: 1,
+    format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
+  },
+};
+
+/**
  * Render thẻ xác nhận dựa trên DTO và Descriptor tương ứng.
  * Mọi field hiển thị nếu không có giá trị sẽ tự động điền "(trống)".
  */

@@ -31,6 +31,7 @@ export enum TextToolType {
   LIST_TASKS = 'LIST_TASKS',
   COMPLETE_TASK = 'COMPLETE_TASK',
   LOGIN_GOOGLE = 'LOGIN_GOOGLE',
+  CREATE_PLACE = 'CREATE_PLACE',
 
   // Conversational response
   CONVERSATION = 'CONVERSATION',
