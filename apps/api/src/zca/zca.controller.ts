@@ -8,6 +8,7 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Response } from 'express';
@@ -16,6 +17,8 @@ import { ZcaService, type AvailableThread } from './zca.service';
 @ApiTags('zca')
 @Controller('zca')
 export class ZcaController {
+  private readonly logger = new Logger(ZcaController.name);
+
   constructor(private readonly zcaService: ZcaService) {}
 
   @Get('status')
@@ -29,6 +32,7 @@ export class ZcaController {
         isListening: this.zcaService.isListenerActive(),
         listenedCount: this.zcaService.getListenedThreadIds().length,
         proxyEnabled: Boolean(process.env.ZCA_PROXY_URL),
+        qrStatus: this.zcaService.getQrLoginStatus(),
       },
     };
   }
@@ -50,22 +54,45 @@ export class ZcaController {
   @Post('login-qr')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Bắt đầu luồng đăng nhập qua mã QR' })
-  public async loginQr(): Promise<{
+  public async loginQr(@Body() body?: { forceNew?: boolean }): Promise<{
     data: { message: string; qrUrl: string; code: string | null };
   }> {
-    // Start QR login in background flow if not already running
+    this.logger.log(`[ZcaController] Nhận yêu cầu POST /api/zca/login-qr (forceNew: ${Boolean(body?.forceNew)})...`);
     let _generatedQrUrl = '';
     let generatedCode: string | null = null;
 
     // Trigger QR creation with callback
     void this.zcaService
-      .startQrLogin({
-        onQrGenerated: (url, code) => {
-          _generatedQrUrl = url;
-          generatedCode = code;
+      .startQrLogin(
+        {
+          onQrGenerated: (url, code) => {
+            this.logger.log(`[ZcaController] ✅ Mã QR đã sẵn sàng: ${url}`);
+            _generatedQrUrl = url;
+            generatedCode = code;
+          },
+          onScanned: (name) => {
+            this.logger.log(`[ZcaController] 📱 Người dùng "${name}" đã quét mã QR trên điện thoại!`);
+          },
+          onExpired: () => {
+            this.logger.warn('[ZcaController] ⏰ Mã QR đã hết hạn. Đang tự động làm mới...');
+          },
+          onDeclined: () => {
+            this.logger.warn('[ZcaController] ❌ Người dùng đã từ chối xác nhận đăng nhập trên điện thoại.');
+          },
+          onSuccess: (ownId) => {
+            this.logger.log(`[ZcaController] 🎉 Đăng nhập thành công với tài khoản ID: ${ownId}`);
+          },
+          onError: (errMsg) => {
+            this.logger.error(`[ZcaController] 💥 Đăng nhập thất bại: ${errMsg}`);
+          },
         },
-      })
-      .catch(() => {});
+        { forceNew: Boolean(body?.forceNew) },
+      )
+      .catch((err) => {
+        this.logger.error(
+          `[ZcaController] Lỗi không xử lý được khi chạy startQrLogin: ${err instanceof Error ? err.stack || err.message : String(err)}`,
+        );
+      });
 
     // Small wait to allow QR generation
     for (let i = 0; i < 20; i++) {

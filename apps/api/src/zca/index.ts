@@ -2,6 +2,7 @@ import { Zalo, type API, type ImageMetadataGetter, GroupEventType, ThreadType } 
 import { HttpProxyAgent } from 'http-proxy-agent';
 import nodefetch from 'node-fetch';
 import { createSharpImageMetadataGetter } from './zca-metadata.util';
+import { createFetchPolyfill } from './utils';
 import {
   WelcomeGroupEventStrategy,
   type WelcomeStrategyOptions,
@@ -46,8 +47,7 @@ export function createZcaClient(options?: CreateZcaClientOptions): Zalo {
 
   return new Zalo({
     agent,
-    // @ts-expect-error polyfill: nodefetch
-    polyfill: nodefetch,
+    polyfill: createFetchPolyfill(agent),
     selfListen: options?.selfListen,
     checkUpdate: options?.checkUpdate,
     logging: options?.logging,

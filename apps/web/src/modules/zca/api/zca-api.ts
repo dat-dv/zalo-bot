@@ -1,12 +1,33 @@
 import { API_ROUTES, type IApiResponse } from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
+export interface ZcaQrStatus {
+  phase:
+    | 'idle'
+    | 'generating'
+    | 'qr_ready'
+    | 'scanned'
+    | 'confirmed'
+    | 'logging_in'
+    | 'success'
+    | 'failed'
+    | 'expired'
+    | 'declined';
+  message: string;
+  scannedBy?: string;
+  scannedAvatar?: string;
+  code?: string;
+  error?: string;
+  updatedAt: number;
+}
+
 export interface ZcaStatus {
   loggedIn: boolean;
   ownId: string | null;
   isListening: boolean;
   listenedCount: number;
   proxyEnabled: boolean;
+  qrStatus?: ZcaQrStatus;
 }
 
 export interface ZcaThread {
@@ -30,10 +51,13 @@ export async function getZcaStatus(signal?: AbortSignal): Promise<ZcaStatus> {
   return response.data.data;
 }
 
-export async function loginZcaQr(signal?: AbortSignal): Promise<ZcaLoginQrResult> {
+export async function loginZcaQr(
+  options?: { forceNew?: boolean },
+  signal?: AbortSignal,
+): Promise<ZcaLoginQrResult> {
   const response = await httpClient.post<IApiResponse<ZcaLoginQrResult>>(
     API_ROUTES.zcaLoginQr,
-    undefined,
+    options,
     { signal },
   );
   return response.data.data;

@@ -17,8 +17,9 @@ export class HelpToolStrategy implements TextToolStrategy {
     const reply =
       `📖 HƯỚNG DẪN SỬ DỤNG TRỢ LÝ ZALO - Danh sách lệnh hỗ trợ:\n` +
       `━━━━━━━━━━━━━━━━━━━━\n\n` +
-      `1️⃣ KẾT NỐI TÀI KHOẢN GOOGLE:\n` +
+      `1️⃣ KẾT NỐI TÀI KHOẢN & DỊCH VỤ:\n` +
       `• /login hoặc /auth - Đăng nhập Google (Admin: Calendar, Tasks, Drive & Photos dùng chung)\n` +
+      `• /zalo-login (hoặc /zca-login, /zlogin) - Đăng nhập Zalo cá nhân (ZCA) qua mã QR (Admin)\n` +
       `• /status - Xem trạng thái tài khoản & kết nối Google\n\n` +
       `2️⃣ LỊCH TRÌNH & CÔNG VIỆC:\n` +
       `• /today - Tổng hợp lịch hẹn & việc cần làm hôm nay\n` +
@@ -35,6 +36,7 @@ export class HelpToolStrategy implements TextToolStrategy {
       `• /echo <nội dung> - Bot lặp lại nội dung\n` +
       `• /reset hoặc /clear - Làm mới phiên hội thoại\n` +
       `👑 LỆNH DÀNH CHO QUẢN TRỊ VIÊN:\n` +
+      `• /zalo-login (hoặc /zca-login, /zlogin) - Khởi tạo đăng nhập Zalo cá nhân (ZCA) bằng mã QR\n` +
       `• /users - Xem danh sách người dùng & trạng thái Google\n` +
       `• /ban <id> - Thu hồi quyền & hủy token Google của người dùng\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +

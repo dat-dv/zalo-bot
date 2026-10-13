@@ -44,7 +44,7 @@ export function useZcaListenedThreadsQuery() {
 export function useLoginZcaQrMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => loginZcaQr(),
+    mutationFn: (variables?: { forceNew?: boolean }) => loginZcaQr(variables),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.status() });
     },

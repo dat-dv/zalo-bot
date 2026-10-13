@@ -50,10 +50,10 @@ import {
   type UndoResponse,
 } from './shapes';
 import { HttpProxyAgent } from 'http-proxy-agent';
-import nodefetch from 'node-fetch';
 import { ZCA_DEFAULT_USER_AGENT, ZCA_MODULE_OPTIONS } from './zca.constants';
 import type { ZcaModuleOptions, ZcaPlugin } from './zca.interfaces';
 import { createSharpImageMetadataGetter } from './zca-metadata.util';
+import { createFetchPolyfill } from './utils';
 import { GroupEventDispatcher } from './group-event-dispatcher.service';
 import {
   WelcomeGroupEventStrategy,
@@ -68,6 +68,28 @@ function formatErrorMessage(err: unknown): string {
     return err;
   }
   return JSON.stringify(err);
+}
+
+export type QrLoginPhase =
+  | 'idle'
+  | 'generating'
+  | 'qr_ready'
+  | 'scanned'
+  | 'confirmed'
+  | 'logging_in'
+  | 'success'
+  | 'failed'
+  | 'expired'
+  | 'declined';
+
+export interface QrLoginStatusInfo {
+  phase: QrLoginPhase;
+  message: string;
+  scannedBy?: string;
+  scannedAvatar?: string;
+  code?: string;
+  error?: string;
+  updatedAt: number;
 }
 
 export interface AvailableThread {
@@ -92,7 +114,24 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   private latestQrCode: string | null = null;
   private listenedThreadIds = new Set<string>();
 
+  private qrLoginStatus: QrLoginStatusInfo = {
+    phase: 'idle',
+    message: 'Chưa có yêu cầu đăng nhập QR nào',
+    updatedAt: Date.now(),
+  };
+
+  private activeQrLoginPromise: Promise<API> | null = null;
+  private activeQrCallbacks: {
+    onQrGenerated?: (qrUrl: string, code: string) => void;
+    onScanned?: (name: string) => void;
+    onExpired?: () => void;
+    onDeclined?: () => void;
+    onSuccess?: (ownId: string) => void;
+    onError?: (err: string) => void;
+  }[] = [];
+
   private readonly whitelistFilePath = path.resolve(process.cwd(), '.zca-listened-threads.json');
+  private readonly sessionFilePath = path.resolve(process.cwd(), '.zca-session.json');
 
   constructor(
     private readonly configService: ConfigService,
@@ -123,7 +162,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       false;
 
     const logging =
-      this.moduleOptions?.logging ?? this.configService.get<boolean>('zca.logging') ?? false;
+      this.moduleOptions?.logging ?? this.configService.get<boolean>('zca.logging') ?? true;
 
     let imageMetadataGetter: ImageMetadataGetter | undefined =
       this.moduleOptions?.imageMetadataGetter;
@@ -142,8 +181,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     this.client = new Zalo({
       agent,
-      // @ts-expect-error polyfill node-fetch for proxy compatibility in Node.js
-      polyfill: nodefetch,
+      polyfill: createFetchPolyfill(agent),
       selfListen,
       checkUpdate,
       logging,
@@ -153,6 +191,54 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     if (this.moduleOptions?.plugins?.length) {
       this.registerPlugins(this.moduleOptions.plugins);
     }
+  }
+
+  public getQrLoginStatus(): QrLoginStatusInfo {
+    return this.qrLoginStatus;
+  }
+
+  private setQrStatus(
+    phase: QrLoginPhase,
+    message: string,
+    extra?: Partial<QrLoginStatusInfo>,
+  ): void {
+    this.qrLoginStatus = {
+      phase,
+      message,
+      scannedBy: extra?.scannedBy ?? this.qrLoginStatus.scannedBy,
+      scannedAvatar: extra?.scannedAvatar ?? this.qrLoginStatus.scannedAvatar,
+      code: extra?.code ?? this.qrLoginStatus.code,
+      error: extra?.error,
+      updatedAt: Date.now(),
+    };
+  }
+
+  private saveSessionToFile(session: { imei: string; cookie: unknown; userAgent: string }): void {
+    try {
+      fs.writeFileSync(
+        this.sessionFilePath,
+        JSON.stringify({ ...session, savedAt: new Date().toISOString() }, null, 2),
+        'utf-8',
+      );
+      this.logger.log(`[ZCA] Đã lưu thông tin phiên ZCA vào file: ${this.sessionFilePath}`);
+    } catch (err) {
+      this.logger.warn(`[ZCA] Không thể lưu file session: ${formatErrorMessage(err)}`);
+    }
+  }
+
+  private loadSessionFromFile(): { imei: string; cookie: Credentials['cookie']; userAgent: string } | null {
+    try {
+      if (fs.existsSync(this.sessionFilePath)) {
+        const raw = fs.readFileSync(this.sessionFilePath, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed.imei && parsed.cookie) {
+          return parsed;
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`[ZCA] Không thể đọc file session: ${formatErrorMessage(err)}`);
+    }
+    return null;
   }
 
   public async onModuleInit(): Promise<void> {
@@ -177,6 +263,18 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         await this.login();
       } catch (err) {
         this.logger.error(`ZCA auto-login failed: ${formatErrorMessage(err)}`);
+      }
+    } else {
+      const savedSession = this.loadSessionFromFile();
+      if (savedSession) {
+        this.logger.log(
+          `Tìm thấy phiên ZCA đã lưu (${this.sessionFilePath}). Tự động khôi phục kết nối...`,
+        );
+        try {
+          await this.login();
+        } catch (err) {
+          this.logger.warn(`Không thể tự khôi phục phiên đã lưu: ${formatErrorMessage(err)}`);
+        }
       }
     }
   }
@@ -272,19 +370,19 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
    * Log in to Zalo using session credentials (cookies, imei, userAgent).
    */
   public async login(credentials?: Partial<Credentials>): Promise<API> {
-    const rawCookie =
+    let rawCookie =
       credentials?.cookie ??
       this.moduleOptions?.cookie ??
       this.configService.get<string>('zca.cookie') ??
       process.env.ZCA_COOKIE;
 
-    const imei =
+    let imei =
       credentials?.imei ??
       this.moduleOptions?.imei ??
       this.configService.get<string>('zca.imei') ??
       process.env.ZCA_IMEI;
 
-    const userAgent =
+    let userAgent =
       credentials?.userAgent ??
       this.moduleOptions?.userAgent ??
       this.configService.get<string>('zca.userAgent') ??
@@ -296,6 +394,16 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       this.moduleOptions?.language ??
       this.configService.get<string>('zca.language') ??
       process.env.ZCA_LANGUAGE;
+
+    if (!imei || !rawCookie) {
+      const savedSession = this.loadSessionFromFile();
+      if (savedSession) {
+        this.logger.log(`[ZCA] Đọc phiên đăng nhập từ file đã lưu: ${this.sessionFilePath}`);
+        imei = imei || savedSession.imei;
+        rawCookie = rawCookie || (savedSession.cookie as unknown as string);
+        userAgent = userAgent || savedSession.userAgent;
+      }
+    }
 
     if (!imei) {
       throw new Error('ZCA login failed: IMEI is required (configure ZCA_IMEI).');
@@ -335,17 +443,52 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   /**
    * Starts a QR login flow with callbacks for generated QR URL, scan status, and success.
    */
-  public async startQrLogin(callbacks?: {
-    onQrGenerated?: (qrUrl: string, code: string) => void;
-    onScanned?: (name: string) => void;
-    onExpired?: () => void;
-    onDeclined?: () => void;
-    onSuccess?: (ownId: string) => void;
-    onError?: (err: string) => void;
-  }): Promise<API> {
+  public async startQrLogin(
+    callbacks?: {
+      onQrGenerated?: (qrUrl: string, code: string) => void;
+      onScanned?: (name: string) => void;
+      onExpired?: () => void;
+      onDeclined?: () => void;
+      onSuccess?: (ownId: string) => void;
+      onError?: (err: string) => void;
+    },
+    options?: { forceNew?: boolean },
+  ): Promise<API> {
     const appUrl =
       this.configService.get<string>('appUrl') || process.env.APP_URL || 'http://localhost:3005';
     const qrEndpointUrl = `${appUrl.replace(/\/+$/, '')}/api/zca/qr`;
+
+    if (this.isLoggedIn()) {
+      const ownId = this.getOwnId() || 'unknown';
+      this.logger.log(`[ZCA QR] Tài khoản đã đăng nhập trước đó (Own ID: ${ownId}).`);
+      this.setQrStatus('success', `Đã đăng nhập thành công với tài khoản: ${ownId}`);
+      callbacks?.onSuccess?.(ownId);
+      return this.api!;
+    }
+
+    if (callbacks) {
+      this.activeQrCallbacks.push(callbacks);
+    }
+
+    // Reuse active promise if one is already running and not failed/expired, unless forceNew requested
+    if (
+      this.activeQrLoginPromise &&
+      !options?.forceNew &&
+      this.qrLoginStatus.phase !== 'failed' &&
+      this.qrLoginStatus.phase !== 'expired' &&
+      this.qrLoginStatus.phase !== 'declined'
+    ) {
+      this.logger.log(
+        `[ZCA QR] Tái sử dụng tiến trình đăng nhập QR đang chạy (Trạng thái: ${this.qrLoginStatus.phase})...`,
+      );
+      if (this.latestQrCode) {
+        callbacks?.onQrGenerated?.(qrEndpointUrl, this.latestQrCode);
+      }
+      if (this.qrLoginStatus.scannedBy) {
+        callbacks?.onScanned?.(this.qrLoginStatus.scannedBy);
+      }
+      return this.activeQrLoginPromise;
+    }
 
     const userAgent =
       this.moduleOptions?.userAgent ??
@@ -353,55 +496,140 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       process.env.ZCA_USER_AGENT ??
       ZCA_DEFAULT_USER_AGENT;
 
-    this.logger.log('Initiating ZCA QR code login flow...');
+    this.logger.log('='.repeat(65));
+    this.logger.log('           [ZCA QR LOGIN] BẮT ĐẦU LUỒNG ĐĂNG NHẬP MÃ QR           ');
+    this.logger.log('='.repeat(65));
+    this.logger.log(`[ZCA QR] User-Agent: ${userAgent}`);
+    this.logger.log(`[ZCA QR] Proxy: ${this.proxyUrl || 'Không sử dụng (Direct connection)'}`);
+    this.logger.log(`[ZCA QR] Endpoint ảnh QR: ${qrEndpointUrl}`);
 
-    try {
-      const api = await this.client.loginQR({ userAgent }, (event: LoginQRCallbackEvent) => {
-        switch (event.type) {
-          case LoginQRCallbackEventType.QRCodeGenerated: {
-            this.latestQrImageBase64 = event.data.image;
-            this.latestQrCode = event.data.code;
-            this.logger.log(`ZCA QR code generated. Endpoint URL: ${qrEndpointUrl}`);
-            callbacks?.onQrGenerated?.(qrEndpointUrl, event.data.code);
-            break;
+    this.setQrStatus('generating', 'Đang kết nối Zalo để tạo mã QR đăng nhập...');
+
+    const loginPromise = (async () => {
+      try {
+        const api = await this.client.loginQR({ userAgent }, (event: LoginQRCallbackEvent) => {
+          switch (event.type) {
+            case LoginQRCallbackEventType.QRCodeGenerated: {
+              this.latestQrImageBase64 = event.data.image;
+              this.latestQrCode = event.data.code;
+              this.setQrStatus(
+                'qr_ready',
+                'Mã QR đã sẵn sàng. Vui lòng quét mã trên ứng dụng Zalo điện thoại.',
+                { code: event.data.code },
+              );
+              this.logger.log(`[ZCA QR] [Bước 1/3] ✅ Mã QR đã được tạo thành công!`);
+              this.logger.log(`[ZCA QR] 👉 URL xem ảnh: ${qrEndpointUrl}`);
+              this.logger.log(`[ZCA QR] 👉 Raw Code URL: ${event.data.code}`);
+              this.logger.log(`[ZCA QR] 📱 Vui lòng mở ứng dụng Zalo điện thoại -> Quét mã QR.`);
+              for (const cb of this.activeQrCallbacks) {
+                cb.onQrGenerated?.(qrEndpointUrl, event.data.code);
+              }
+              break;
+            }
+            case LoginQRCallbackEventType.QRCodeScanned: {
+              this.setQrStatus(
+                'scanned',
+                `Đã quét bởi "${event.data.display_name}". Vui lòng bấm "Xác nhận đăng nhập" trên điện thoại.`,
+                {
+                  scannedBy: event.data.display_name,
+                  scannedAvatar: event.data.avatar,
+                },
+              );
+              this.logger.log('='.repeat(65));
+              this.logger.log(`[ZCA QR] [Bước 2/3] 📱 ĐÃ QUÉT MÃ QR THÀNH CÔNG!`);
+              this.logger.log(`[ZCA QR] 👉 Tên người dùng: ${event.data.display_name}`);
+              if (event.data.avatar) {
+                this.logger.log(`[ZCA QR] 👉 Avatar: ${event.data.avatar}`);
+              }
+              this.logger.log(
+                `[ZCA QR] ⏳ VUI LÒNG BẤM "XÁC NHẬN ĐĂNG NHẬP" (HOẶC "ĐĂNG NHẬP") TRÊN ỨNG DỤNG ZALO ĐIỆN THOẠI...`,
+              );
+              this.logger.log('='.repeat(65));
+              for (const cb of this.activeQrCallbacks) {
+                cb.onScanned?.(event.data.display_name);
+              }
+              break;
+            }
+            case LoginQRCallbackEventType.QRCodeExpired: {
+              this.setQrStatus('expired', 'Mã QR đã hết hạn. Hệ thống đang tự động tạo lại mã mới...');
+              this.logger.warn(`[ZCA QR] ⏰ Mã QR đã hết hạn (sau 100s). Đang tự động tạo lại mã mới...`);
+              for (const cb of this.activeQrCallbacks) {
+                cb.onExpired?.();
+              }
+              event.actions.retry();
+              break;
+            }
+            case LoginQRCallbackEventType.QRCodeDeclined: {
+              this.setQrStatus('declined', 'Đăng nhập đã bị từ chối trên thiết bị di động.');
+              this.logger.warn(`[ZCA QR] ❌ Yêu cầu đăng nhập đã bị TỪ CHỐI trên điện thoại.`);
+              for (const cb of this.activeQrCallbacks) {
+                cb.onDeclined?.();
+              }
+              break;
+            }
+            case LoginQRCallbackEventType.GotLoginInfo: {
+              this.setQrStatus(
+                'logging_in',
+                'Đã nhận thông tin xác thực từ điện thoại. Đang thiết lập phiên làm việc Zalo...',
+              );
+              this.logger.log('='.repeat(65));
+              this.logger.log(`[ZCA QR] [Bước 3/3] 🔑 ĐÃ NHẬN THÔNG TIN ĐĂNG NHẬP (GotLoginInfo)!`);
+              this.logger.log(`[ZCA QR] 👉 IMEI: ${event.data.imei}`);
+              this.logger.log(`[ZCA QR] 👉 UserAgent: ${event.data.userAgent}`);
+              const cookieCount = Array.isArray(event.data.cookie)
+                ? event.data.cookie.length
+                : event.data.cookie
+                  ? Object.keys(event.data.cookie).length
+                  : 0;
+              this.logger.log(`[ZCA QR] 👉 Số lượng Cookie: ${cookieCount}`);
+              this.logger.log('='.repeat(65));
+
+              this.saveSessionToFile({
+                imei: event.data.imei,
+                cookie: event.data.cookie,
+                userAgent: event.data.userAgent,
+              });
+              break;
+            }
           }
-          case LoginQRCallbackEventType.QRCodeScanned: {
-            this.logger.log(`ZCA QR code scanned by: ${event.data.display_name}`);
-            callbacks?.onScanned?.(event.data.display_name);
-            break;
-          }
-          case LoginQRCallbackEventType.QRCodeExpired: {
-            this.logger.warn('ZCA QR code expired. Retrying generation...');
-            callbacks?.onExpired?.();
-            event.actions.retry();
-            break;
-          }
-          case LoginQRCallbackEventType.QRCodeDeclined: {
-            this.logger.warn('ZCA QR login was declined on mobile device.');
-            callbacks?.onDeclined?.();
-            break;
-          }
-          case LoginQRCallbackEventType.GotLoginInfo: {
-            this.logger.log(`ZCA login credentials captured for IMEI: ${event.data.imei}`);
-            break;
-          }
+        });
+
+        this.api = api;
+        const ownId = typeof api.getOwnId === 'function' ? api.getOwnId() : 'unknown';
+        this.setQrStatus('success', `Đăng nhập thành công! Tài khoản ID: ${ownId}`);
+        this.logger.log('='.repeat(65));
+        this.logger.log(`[ZCA QR] 🎉🎉🎉 ĐĂNG NHẬP ZALO CÁ NHÂN HOÀN TẤT THÀNH CÔNG! 🎉🎉🎉`);
+        this.logger.log(`[ZCA QR] 👉 ID tài khoản ZCA: ${ownId}`);
+        this.logger.log(`[ZCA QR] 👉 Đã kích hoạt lắng nghe tin nhắn & sự kiện nhóm.`);
+        this.logger.log('='.repeat(65));
+        for (const cb of this.activeQrCallbacks) {
+          cb.onSuccess?.(ownId);
         }
-      });
 
-      this.api = api;
-      const ownId = typeof api.getOwnId === 'function' ? api.getOwnId() : 'unknown';
-      this.logger.log(`ZCA login successful! Logged in as: ${ownId}`);
-      callbacks?.onSuccess?.(ownId);
+        await this.initPlugins(api);
+        this.startListener();
+        return api;
+      } catch (err: unknown) {
+        const errMsg = formatErrorMessage(err);
+        this.setQrStatus('failed', `Đăng nhập thất bại: ${errMsg}`, { error: errMsg });
+        this.logger.error('='.repeat(65));
+        this.logger.error(`[ZCA QR] 💥 LỖI ĐĂNG NHẬP ZCA: ${errMsg}`);
+        if (err instanceof Error && err.stack) {
+          this.logger.error(`[ZCA QR] Chi tiết lỗi:\n${err.stack}`);
+        }
+        this.logger.error('='.repeat(65));
+        for (const cb of this.activeQrCallbacks) {
+          cb.onError?.(errMsg);
+        }
+        throw err;
+      } finally {
+        this.activeQrLoginPromise = null;
+        this.activeQrCallbacks = [];
+      }
+    })();
 
-      await this.initPlugins(api);
-      this.startListener();
-      return api;
-    } catch (err: unknown) {
-      const errMsg = formatErrorMessage(err);
-      this.logger.error(`ZCA QR login failed: ${errMsg}`);
-      callbacks?.onError?.(errMsg);
-      throw err;
-    }
+    this.activeQrLoginPromise = loginPromise;
+    return loginPromise;
   }
 
   /**

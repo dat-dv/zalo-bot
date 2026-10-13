@@ -61,11 +61,11 @@ export function ZcaScreen() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleOpenQrLogin = async () => {
+  const handleOpenQrLogin = async (forceNew = false) => {
     setIsQrModalOpen(true);
     setQrTimestamp(Date.now());
     try {
-      const res = await loginQrMutation.mutateAsync();
+      const res = await loginQrMutation.mutateAsync({ forceNew });
       setQrCodeString(res.code);
       setQrTimestamp(Date.now());
     } catch {
@@ -165,7 +165,7 @@ export function ZcaScreen() {
           </button>
           <button
             className="inline-flex items-center gap-1.5 rounded-[4px] bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none"
-            onClick={handleOpenQrLogin}
+            onClick={() => void handleOpenQrLogin(false)}
             type="button"
           >
             <QrIcon />
@@ -549,12 +549,67 @@ export function ZcaScreen() {
                 />
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="size-2 rounded-full bg-amber-500 animate-ping" />
-                <span className="text-[11px] text-slate-500">
-                  Đang chờ quét và xác nhận trên điện thoại...
-                </span>
-              </div>
+              {/* Dynamic QR Scan Status Banner */}
+              {status?.qrStatus?.phase === 'scanned' ? (
+                <div className="w-full flex items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-300">
+                  <span className="size-2 rounded-full bg-blue-500 animate-ping" />
+                  <span>
+                    📱 Đã quét bởi <strong>{status.qrStatus.scannedBy || 'bạn'}</strong>! Vui lòng bấm <strong>Xác nhận đăng nhập</strong> trên điện thoại.
+                  </span>
+                </div>
+              ) : status?.qrStatus?.phase === 'confirmed' || status?.qrStatus?.phase === 'logging_in' ? (
+                <div className="w-full flex items-center justify-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300">
+                  <span className="size-2 rounded-full bg-indigo-500 animate-ping" />
+                  <span>🔄 Đã xác nhận trên điện thoại! Đang hoàn tất thiết lập kết nối...</span>
+                </div>
+              ) : status?.qrStatus?.phase === 'expired' ? (
+                <div className="w-full flex flex-col items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full bg-amber-500" />
+                    <span>⏰ Mã QR đã hết hạn.</span>
+                  </div>
+                  <button
+                    className="mt-1 font-semibold underline hover:text-amber-900 dark:hover:text-amber-100"
+                    onClick={() => void handleOpenQrLogin(true)}
+                    type="button"
+                  >
+                    Tạo mã mới ngay
+                  </button>
+                </div>
+              ) : status?.qrStatus?.phase === 'declined' ? (
+                <div className="w-full flex flex-col items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300">
+                  <span>❌ Yêu cầu đăng nhập đã bị từ chối trên điện thoại.</span>
+                  <button
+                    className="mt-1 font-semibold underline hover:text-rose-900 dark:hover:text-rose-100"
+                    onClick={() => void handleOpenQrLogin(true)}
+                    type="button"
+                  >
+                    Thử lại mã mới
+                  </button>
+                </div>
+              ) : status?.qrStatus?.phase === 'failed' ? (
+                <div className="w-full flex flex-col items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300">
+                  <span>⚠️ Đăng nhập thất bại: {status.qrStatus.error || status.qrStatus.message}</span>
+                  <button
+                    className="mt-1 font-semibold underline hover:text-rose-900 dark:hover:text-rose-100"
+                    onClick={() => void handleOpenQrLogin(true)}
+                    type="button"
+                  >
+                    Thử tạo lại mã QR
+                  </button>
+                </div>
+              ) : status?.qrStatus?.phase === 'success' ? (
+                <div className="w-full flex items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300">
+                  <span>✅ Đăng nhập thành công! Đang đồng bộ dữ liệu...</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="size-2 rounded-full bg-amber-500 animate-ping" />
+                  <span className="text-[11px] text-slate-500">
+                    Đang chờ quét và xác nhận trên điện thoại...
+                  </span>
+                </div>
+              )}
 
               {qrCodeString && (
                 <div className="w-full rounded bg-slate-100 p-2 text-[10px] font-mono break-all dark:bg-slate-800 text-slate-600 dark:text-slate-300">
@@ -566,7 +621,7 @@ export function ZcaScreen() {
             <div className="flex justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
               <button
                 className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-                onClick={() => setQrTimestamp(Date.now())}
+                onClick={() => void handleOpenQrLogin(true)}
                 type="button"
               >
                 Làm mới mã QR

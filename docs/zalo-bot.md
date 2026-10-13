@@ -109,6 +109,7 @@ sequenceDiagram
 
 | Lệnh | Mô Tả Chức Năng |
 | :--- | :--- |
+| `/zalo-login` (hoặc `/zca-login`, `/zlogin`) | Khởi tạo đăng nhập Zalo cá nhân (ZCA) bằng mã QR để bot lắng nghe tin nhắn & nhóm. |
 | `/users` | Xem danh sách người dùng & trạng thái Google. |
 | `/ban <zalo_id>` | Thu hồi quyền & hủy token Google của người dùng. |
 
