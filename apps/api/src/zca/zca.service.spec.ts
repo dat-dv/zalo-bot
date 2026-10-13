@@ -130,3 +130,57 @@ void test('ZcaService gracefully catches errors in plugins without affecting oth
   await service.dispatchMessage({ msgId: '456' } as unknown as Message);
   assert.strictEqual(secondPluginRan, true, 'Second plugin should run even if first plugin throws');
 });
+
+void test('ZcaService startListener registers on message listener and filters threads correctly', async () => {
+  const mockConfigService = {
+    get: (_key: string): undefined => undefined,
+  } as unknown as ConfigService;
+
+  const service = new ZcaService(mockConfigService);
+  const registeredListeners: Record<string, (arg: unknown) => void> = {};
+
+  const mockListener = {
+    on: (event: string, cb: (arg: unknown) => void) => {
+      registeredListeners[event] = cb;
+    },
+    start: () => {},
+    stop: () => {},
+  };
+
+  (service as unknown as { api: { listener: typeof mockListener } }).api = {
+    listener: mockListener,
+  };
+
+  let dispatchedMessage: Message | null = null;
+  const testPlugin: ZcaPlugin = {
+    name: 'test-listener-plugin',
+    onMessage: (msg) => {
+      dispatchedMessage = msg;
+    },
+  };
+  service.registerPlugin(testPlugin);
+
+  await service.setListenedThreadIds(['thread-123']);
+  service.startListener();
+
+  assert.ok(registeredListeners['message'], 'message listener should be registered');
+
+  // Ignored message (thread not in listened list)
+  registeredListeners['message']({
+    threadId: 'thread-999',
+    type: 0,
+    isSelf: false,
+    data: { content: 'hello from ignored thread', dName: 'User B', uidFrom: 'u2' },
+  });
+  assert.strictEqual(dispatchedMessage, null, 'Ignored thread message should not be dispatched');
+
+  // Allowed message (thread in listened list)
+  const allowedMsg = {
+    threadId: 'thread-123',
+    type: 1,
+    isSelf: false,
+    data: { content: 'hello from allowed thread', dName: 'User A', uidFrom: 'u1' },
+  } as unknown as Message;
+  registeredListeners['message'](allowedMsg);
+  assert.strictEqual(dispatchedMessage, allowedMsg, 'Allowed thread message should be dispatched');
+});

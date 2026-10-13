@@ -70,6 +70,14 @@ function formatErrorMessage(err: unknown): string {
   return JSON.stringify(err);
 }
 
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch (err) {
+    return `[Unstringifiable payload: ${formatErrorMessage(err)}]`;
+  }
+}
+
 export type QrLoginPhase =
   | 'idle'
   | 'generating'
@@ -226,7 +234,11 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     }
   }
 
-  private loadSessionFromFile(): { imei: string; cookie: Credentials['cookie']; userAgent: string } | null {
+  private loadSessionFromFile(): {
+    imei: string;
+    cookie: Credentials['cookie'];
+    userAgent: string;
+  } | null {
     try {
       if (fs.existsSync(this.sessionFilePath)) {
         const raw = fs.readFileSync(this.sessionFilePath, 'utf-8');
@@ -400,7 +412,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       if (savedSession) {
         this.logger.log(`[ZCA] Đọc phiên đăng nhập từ file đã lưu: ${this.sessionFilePath}`);
         imei = imei || savedSession.imei;
-        rawCookie = rawCookie || (savedSession.cookie as unknown as string);
+        rawCookie = rawCookie || savedSession.cookie;
         userAgent = userAgent || savedSession.userAgent;
       }
     }
@@ -463,7 +475,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       this.logger.log(`[ZCA QR] Tài khoản đã đăng nhập trước đó (Own ID: ${ownId}).`);
       this.setQrStatus('success', `Đã đăng nhập thành công với tài khoản: ${ownId}`);
       callbacks?.onSuccess?.(ownId);
-      return this.api!;
+      return this.api;
     }
 
     if (callbacks) {
@@ -472,7 +484,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     // Reuse active promise if one is already running and not failed/expired, unless forceNew requested
     if (
-      this.activeQrLoginPromise &&
+      this.activeQrLoginPromise !== null &&
       !options?.forceNew &&
       this.qrLoginStatus.phase !== 'failed' &&
       this.qrLoginStatus.phase !== 'expired' &&
@@ -551,8 +563,13 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
               break;
             }
             case LoginQRCallbackEventType.QRCodeExpired: {
-              this.setQrStatus('expired', 'Mã QR đã hết hạn. Hệ thống đang tự động tạo lại mã mới...');
-              this.logger.warn(`[ZCA QR] ⏰ Mã QR đã hết hạn (sau 100s). Đang tự động tạo lại mã mới...`);
+              this.setQrStatus(
+                'expired',
+                'Mã QR đã hết hạn. Hệ thống đang tự động tạo lại mã mới...',
+              );
+              this.logger.warn(
+                `[ZCA QR] ⏰ Mã QR đã hết hạn (sau 100s). Đang tự động tạo lại mã mới...`,
+              );
               for (const cb of this.activeQrCallbacks) {
                 cb.onExpired?.();
               }
@@ -833,13 +850,37 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     // 1. Message listener (UserMessage | GroupMessage)
     listener.on('message', (message: Message) => {
-      if (this.listenedThreadIds.size > 0 && !this.listenedThreadIds.has(message.threadId)) {
-        this.logger.debug(`Message from thread ${message.threadId} ignored (not in listened list)`);
+      const threadId = message?.threadId ?? 'unknown';
+      const isListened = this.listenedThreadIds.size === 0 || this.listenedThreadIds.has(threadId);
+      const isGroup = message?.type === ThreadType.Group;
+      const typeLabel = isGroup ? 'Group' : 'User (Direct)';
+      const senderName = message?.data?.dName || 'Unknown';
+      const senderId = message?.data?.uidFrom || 'Unknown';
+      const msgType = message?.data?.msgType || 'chat';
+      const content =
+        typeof message?.data?.content === 'string'
+          ? message.data.content
+          : safeStringify(message?.data?.content ?? '');
+
+      this.logger.log(
+        `📩 [ZCA on('message')] Nhận tin nhắn mới:\n` +
+          `  • Thread ID: ${threadId} (${typeLabel})\n` +
+          `  • Người gửi: ${senderName} (UID: ${senderId})\n` +
+          `  • Loại tin nhắn: ${msgType}\n` +
+          `  • Nội dung: ${content}\n` +
+          `  • Gửi bởi bot (isSelf): ${Boolean(message?.isSelf)}\n` +
+          `  • Listened: ${isListened ? 'Có' : 'Không (Bỏ qua do không nằm trong danh sách lắng nghe)'}`,
+      );
+
+      this.logger.log(`📦 [ZCA on('message') RAW PAYLOAD]:\n${safeStringify(message)}`);
+
+      if (!isListened) {
+        this.logger.warn(
+          `⚠️ [ZCA on('message')] Bỏ qua tin nhắn từ thread ${threadId} vì không nằm trong danh sách lắng nghe (${Array.from(this.listenedThreadIds).join(', ') || 'trống'}).`,
+        );
         return;
       }
-      this.logger.log(
-        `[ZCA Message] threadId: ${message.threadId}, type: ${message.type}, isSelf: ${message.isSelf}`,
-      );
+
       void this.dispatchMessage(message);
     });
 
@@ -1046,9 +1087,19 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   public async dispatchMessage(message: Message): Promise<void> {
     if (!this.api) return;
 
+    if (this.plugins.length === 0) {
+      this.logger.debug(
+        `[ZCA dispatchMessage] Đã nhận tin nhắn từ thread ${message?.threadId ?? 'unknown'} nhưng chưa có ZcaPlugin nào được đăng ký để xử lý.`,
+      );
+      return;
+    }
+
     for (const plugin of this.plugins) {
       if (plugin.onMessage) {
         try {
+          this.logger.debug(
+            `[ZCA dispatchMessage] Chuyển tiếp tin nhắn tới plugin "${plugin.name}"...`,
+          );
           await plugin.onMessage(message, this.api);
         } catch (err) {
           this.logger.error(
