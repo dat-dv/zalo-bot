@@ -155,9 +155,9 @@ cleanup() {
 # QUAN TRỌNG: Chỉ trap SIGINT (Ctrl+C) và SIGTERM, KHÔNG trap EXIT để không bị tự tắt
 trap cleanup INT TERM
 
-# Khởi chạy Cloudflare Tunnel với cờ --config /dev/null để bỏ qua file config.yml cũ ở ~/.cloudflared
+# Khởi chạy Cloudflare Tunnel với giao thức http2 (ổn định hơn QUIC trên các ISP Việt Nam)
 echo "🚀 Đang khởi chạy Cloudflare Tunnel..."
-$CLOUDFLARED_BIN tunnel --config /dev/null --url "http://${TARGET_HOST}:${PORT}" > "$LOG_FILE" 2>&1 &
+$CLOUDFLARED_BIN tunnel --config /dev/null --protocol http2 --url "http://${TARGET_HOST}:${PORT}" > "$LOG_FILE" 2>&1 &
 CF_PID=$!
 echo "$CF_PID" > "$PID_FILE"
 
@@ -183,6 +183,14 @@ if [ -z "$TUNNEL_URL" ]; then
   cat "$LOG_FILE"
   exit 1
 fi
+
+# Chờ Cloudflare edge xác nhận đăng ký kết nối thực sự
+for i in {1..15}; do
+  if grep -q "Registered tunnel connection" "$LOG_FILE" 2>/dev/null; then
+    break
+  fi
+  sleep 1
+done
 
 FULL_WEBHOOK_URL="${TUNNEL_URL}${WEBHOOK_PATH}"
 echo "✅ Đã tạo Tunnel thành công: ${TUNNEL_URL}"
@@ -218,14 +226,15 @@ fi
 echo ""
 echo "⏳ Đang kiểm tra kết nối từ Internet tới tunnel..."
 TUNNEL_READY=false
-for i in {1..20}; do
-  HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 -m 5 "${FULL_WEBHOOK_URL}" 2>/dev/null || echo "000")
+for i in {1..10}; do
+  HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 -m 4 "${FULL_WEBHOOK_URL}" 2>/dev/null)
+  HTTP_STATUS="${HTTP_STATUS:-000}"
   if [ "$HTTP_STATUS" = "200" ]; then
     TUNNEL_READY=true
     echo "✅ Tunnel đã thông mạng Internet và trả về HTTP 200 OK!"
     break
   fi
-  echo "   [Thử $i/20] Đang chờ định tuyến (Mã phản hồi: ${HTTP_STATUS}). Thử lại sau 1s..."
+  echo "   [Thử $i/10] Đang chờ định tuyến (Mã phản hồi: ${HTTP_STATUS}). Thử lại sau 1s..."
   sleep 1
 done
 
