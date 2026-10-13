@@ -57,7 +57,9 @@ export class ZcaController {
   public async loginQr(@Body() body?: { forceNew?: boolean }): Promise<{
     data: { message: string; qrUrl: string; code: string | null };
   }> {
-    this.logger.log(`[ZcaController] Nhận yêu cầu POST /api/zca/login-qr (forceNew: ${Boolean(body?.forceNew)})...`);
+    this.logger.log(
+      `[ZcaController] Nhận yêu cầu POST /api/zca/login-qr (forceNew: ${Boolean(body?.forceNew)})...`,
+    );
     let _generatedQrUrl = '';
     let generatedCode: string | null = null;
 
@@ -71,13 +73,17 @@ export class ZcaController {
             generatedCode = code;
           },
           onScanned: (name) => {
-            this.logger.log(`[ZcaController] 📱 Người dùng "${name}" đã quét mã QR trên điện thoại!`);
+            this.logger.log(
+              `[ZcaController] 📱 Người dùng "${name}" đã quét mã QR trên điện thoại!`,
+            );
           },
           onExpired: () => {
             this.logger.warn('[ZcaController] ⏰ Mã QR đã hết hạn. Đang tự động làm mới...');
           },
           onDeclined: () => {
-            this.logger.warn('[ZcaController] ❌ Người dùng đã từ chối xác nhận đăng nhập trên điện thoại.');
+            this.logger.warn(
+              '[ZcaController] ❌ Người dùng đã từ chối xác nhận đăng nhập trên điện thoại.',
+            );
           },
           onSuccess: (ownId) => {
             this.logger.log(`[ZcaController] 🎉 Đăng nhập thành công với tài khoản ID: ${ownId}`);
