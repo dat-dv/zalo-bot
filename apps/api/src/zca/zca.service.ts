@@ -242,9 +242,17 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     try {
       if (fs.existsSync(this.sessionFilePath)) {
         const raw = fs.readFileSync(this.sessionFilePath, 'utf-8');
-        const parsed = JSON.parse(raw);
-        if (parsed.imei && parsed.cookie) {
-          return parsed;
+        const parsed = JSON.parse(raw) as {
+          imei?: string;
+          cookie?: Credentials['cookie'];
+          userAgent?: string;
+        };
+        if (parsed?.imei && parsed?.cookie) {
+          return {
+            imei: parsed.imei,
+            cookie: parsed.cookie,
+            userAgent: parsed.userAgent ?? ZCA_DEFAULT_USER_AGENT,
+          };
         }
       }
     } catch (err) {
