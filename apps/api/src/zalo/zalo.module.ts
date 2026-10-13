@@ -41,6 +41,8 @@ import { LoginGoogleToolStrategy } from './text/strategies/login-google-tool.str
 import { DeleteTransactionToolStrategy } from './text/strategies/delete-transaction-tool.strategy';
 import { CreatePlaceToolStrategy } from './text/strategies/create-place-tool.strategy';
 import { GetStorageLinksToolStrategy } from './text/strategies/get-storage-links-tool.strategy';
+import { ZaloLoginToolStrategy } from './text/strategies/zalo-login-tool.strategy';
+import { ZcaModule } from '../zca/zca.module';
 
 // Related Domain Modules
 import { UsersModule } from '../users/users.module';
@@ -75,6 +77,7 @@ import { ImageBatchHandler } from './pending-image/image-batch-handler.service';
     ReceiptStorageModule,
     AuditModule,
     OcrModule,
+    forwardRef(() => ZcaModule),
   ],
   controllers: [ZaloController],
   providers: [
@@ -118,6 +121,7 @@ import { ImageBatchHandler } from './pending-image/image-batch-handler.service';
     DeleteTransactionToolStrategy,
     CreatePlaceToolStrategy,
     GetStorageLinksToolStrategy,
+    ZaloLoginToolStrategy,
     CancelPendingImageStrategy,
     StorageUploadPendingImageStrategy,
     CreateBillPendingImageStrategy,

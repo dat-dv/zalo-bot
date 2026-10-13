@@ -17,6 +17,17 @@ export interface AppConfig {
     webhookUrl: string;
     secretToken?: string;
   };
+  zca: {
+    proxyUrl?: string;
+    imei?: string;
+    cookie?: string;
+    userAgent?: string;
+    language?: string;
+    selfListen?: boolean;
+    checkUpdate?: boolean;
+    logging?: boolean;
+    autoLogin?: boolean;
+  };
   timezone: string;
   google: {
     clientId: string;
@@ -93,6 +104,17 @@ export default (): AppConfig => {
       botName: readEnv('BOT_NAME', readEnv('ZALO_BOT_NAME', 'Bot')),
       webhookUrl: readEnv('ZALO_WEBHOOK_URL', readEnv('WEBHOOK_URL')),
       secretToken: readOptionalEnv('ZALO_WEBHOOK_SECRET_TOKEN'),
+    },
+    zca: {
+      proxyUrl: readOptionalEnv('ZCA_PROXY_URL'),
+      imei: readOptionalEnv('ZCA_IMEI'),
+      cookie: readOptionalEnv('ZCA_COOKIE'),
+      userAgent: readOptionalEnv('ZCA_USER_AGENT'),
+      language: readOptionalEnv('ZCA_LANGUAGE'),
+      selfListen: readBooleanEnv('ZCA_SELF_LISTEN', false),
+      checkUpdate: readBooleanEnv('ZCA_CHECK_UPDATE', true),
+      logging: readBooleanEnv('ZCA_LOGGING', false),
+      autoLogin: readBooleanEnv('ZCA_AUTO_LOGIN', false),
     },
     timezone: readEnv('DEFAULT_TIMEZONE', 'Asia/Ho_Chi_Minh'),
     google: {

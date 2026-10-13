@@ -1,6 +1,6 @@
 {
   "name": "@zalobot/api",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Personal Assistant Zalo Bot with NestJS and Google Workspace",
   "author": "",
   "private": true,
@@ -19,6 +19,7 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main.js",
     "auth": "tsx scripts/auth.ts",
+    "zca:login": "tsx scripts/zca-login.ts",
     "zalo:webhook:status": "tsx scripts/zalo-webhook.ts status",
     "zalo:webhook:set": "tsx scripts/zalo-webhook.ts set",
     "zalo:webhook:test": "tsx scripts/zalo-webhook.ts test",
@@ -47,14 +48,17 @@
     "google-auth-library": "^9.15.1",
     "googleapis": "^144.0.0",
     "helmet": "^8.3.0",
+    "http-proxy-agent": "^7.0.2",
     "ioredis": "^5.11.1",
+    "node-fetch": "^2.7.0",
     "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "sharp": "^0.34.5",
     "swagger-ui-express": "^5.0.1",
     "tesseract.js": "^7.0.0",
-    "typeorm": "^1.1.0"
+    "typeorm": "^1.1.0",
+    "zca-js": "^2.2.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.9",
@@ -63,6 +67,7 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.0",
     "@types/node": "^26.6.4",
+    "@types/node-fetch": "^2.6.13",
     "@types/swagger-ui-express": "^4.1.8",
     "@typescript-eslint/eslint-plugin": "^8.67.0",
     "@typescript-eslint/parser": "^8.67.0",

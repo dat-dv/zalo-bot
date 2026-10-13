@@ -40,6 +40,7 @@ function createFactory(): TextToolFactory {
     createDummyStrategy(TextToolType.DELETE_TRANSACTION),
     createDummyStrategy(TextToolType.CREATE_PLACE),
     createDummyStrategy(TextToolType.GET_STORAGE_LINKS),
+    createDummyStrategy(TextToolType.ZALO_LOGIN),
   );
 }
 

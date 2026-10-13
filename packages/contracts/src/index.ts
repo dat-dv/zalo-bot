@@ -27,6 +27,12 @@ export const API_ROUTES = {
     `/api/transactions/${txId}/allocations/${allocId}`,
   healthDeploy: '/health/deploy',
   deployNotify: '/api/deploy/notify',
+  zcaStatus: '/api/zca/status',
+  zcaQr: '/api/zca/qr',
+  zcaLoginQr: '/api/zca/login-qr',
+  zcaThreads: '/api/zca/threads',
+  zcaListenedThreads: '/api/zca/listened-threads',
+  zcaListenedThreadsToggle: '/api/zca/listened-threads/toggle',
 } as const;
 
 export const APP_ROUTES = {
@@ -53,6 +59,7 @@ export const APP_ROUTES = {
   contacts: '/contacts',
   places: '/places',
   users: '/users',
+  zca: '/zca',
   settings: '/settings',
 } as const;
 
@@ -104,6 +111,7 @@ const messages = {
     'nav.reports': 'Tài chính',
     'nav.settings': 'Cài đặt',
     'nav.users': 'Người dùng',
+    'nav.zca': 'Tài khoản ZCA',
     'nav.personalSpace': 'Cá nhân',
     'nav.section.overview': 'TỔNG QUAN',
     'nav.section.finance': 'TÀI CHÍNH',
@@ -729,6 +737,7 @@ const messages = {
     'nav.reports': 'Finance',
     'nav.settings': 'Settings',
     'nav.users': 'Users',
+    'nav.zca': 'ZCA Account',
     'nav.personalSpace': 'Personal',
     'nav.section.overview': 'OVERVIEW',
     'nav.section.finance': 'FINANCE',

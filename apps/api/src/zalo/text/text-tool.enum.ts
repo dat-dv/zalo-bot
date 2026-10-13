@@ -16,6 +16,7 @@ export enum TextToolType {
   DASHBOARD = 'DASHBOARD',
   USERS = 'USERS',
   BAN = 'BAN',
+  ZALO_LOGIN = 'ZALO_LOGIN',
 
   // Business & AI Tools (Resolved via LLM Function Calling)
   MANAGE_DEBT = 'MANAGE_DEBT',

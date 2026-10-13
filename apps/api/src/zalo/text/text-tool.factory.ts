@@ -34,6 +34,7 @@ import { LoginGoogleToolStrategy } from './strategies/login-google-tool.strategy
 import { DeleteTransactionToolStrategy } from './strategies/delete-transaction-tool.strategy';
 import { CreatePlaceToolStrategy } from './strategies/create-place-tool.strategy';
 import { GetStorageLinksToolStrategy } from './strategies/get-storage-links-tool.strategy';
+import { ZaloLoginToolStrategy } from './strategies/zalo-login-tool.strategy';
 
 @Injectable()
 export class TextToolFactory {
@@ -71,6 +72,7 @@ export class TextToolFactory {
     deleteTransactionStrategy?: DeleteTransactionToolStrategy,
     createPlaceStrategy?: CreatePlaceToolStrategy,
     getStorageLinksStrategy?: GetStorageLinksToolStrategy,
+    zaloLoginStrategy?: ZaloLoginToolStrategy,
     private readonly configService?: ConfigService,
   ) {
     if (startStrategy) this.strategyMap.set(TextToolType.START, startStrategy);
@@ -112,6 +114,7 @@ export class TextToolFactory {
     if (createPlaceStrategy) this.strategyMap.set(TextToolType.CREATE_PLACE, createPlaceStrategy);
     if (getStorageLinksStrategy)
       this.strategyMap.set(TextToolType.GET_STORAGE_LINKS, getStorageLinksStrategy);
+    if (zaloLoginStrategy) this.strategyMap.set(TextToolType.ZALO_LOGIN, zaloLoginStrategy);
   }
 
   public resolveFastPathToolType(text: string, customBotName?: string): TextToolType | null {
@@ -158,7 +161,19 @@ export class TextToolFactory {
       return TextToolType.RESET;
     }
 
-    // 6. /login or /auth
+    // 6. /zalo-login, /zca-login, /zlogin
+    if (
+      trimmed === '/zalo-login' ||
+      trimmed.startsWith('/zalo-login ') ||
+      trimmed === '/zca-login' ||
+      trimmed.startsWith('/zca-login ') ||
+      trimmed === '/zlogin' ||
+      trimmed.startsWith('/zlogin ')
+    ) {
+      return TextToolType.ZALO_LOGIN;
+    }
+
+    // 6b. /login or /auth
     if (
       trimmed === '/login' ||
       trimmed.startsWith('/login ') ||

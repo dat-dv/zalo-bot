@@ -196,7 +196,6 @@ function createTextInputService(options?: SetupOptions) {
     undefined,
     undefined,
     undefined,
-    undefined,
     createPlaceStrategy,
   );
 

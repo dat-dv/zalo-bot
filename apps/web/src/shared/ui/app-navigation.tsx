@@ -18,6 +18,7 @@ export type NavigationPage =
   | 'contacts'
   | 'places'
   | 'users'
+  | 'zca'
   | 'settings';
 
 type NavigationIcon =
@@ -31,6 +32,7 @@ type NavigationIcon =
   | 'contacts'
   | 'places'
   | 'users'
+  | 'zca'
   | 'settings';
 
 interface NavItem {
@@ -111,6 +113,12 @@ const navSections: readonly NavSection[] = [
         href: APP_ROUTES.users,
         labelKey: 'nav.users',
         icon: 'users',
+      },
+      {
+        page: 'zca',
+        href: APP_ROUTES.zca,
+        labelKey: 'nav.zca',
+        icon: 'zca',
       },
       {
         page: 'settings',
@@ -397,6 +405,15 @@ function NavigationItemIcon({ icon }: { icon: NavigationIcon }) {
         <circle cx="9" cy="7" r="4" />
         <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
         <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    );
+  }
+  if (icon === 'zca') {
+    return (
+      <svg {...sharedProps}>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        <path d="M8 9h8" />
+        <path d="M8 13h5" />
       </svg>
     );
   }
