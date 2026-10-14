@@ -56,13 +56,13 @@ const nextConfig: NextConfig = {
   ...(isStaticExport
     ? {}
     : {
-        async rewrites() {
-          return [
+        rewrites() {
+          return Promise.resolve([
             {
               source: '/api/:path*',
               destination: `${apiOrigin}/api/:path*`,
             },
-          ];
+          ]);
         },
       }),
 };

@@ -98,7 +98,10 @@ export function useZcaThreadConfigsQuery() {
 export function useZcaThreadConfigQuery(threadId: string | null | undefined) {
   return useQuery<ThreadBotConfig>({
     queryKey: threadId ? zcaQueryKeys.config(threadId) : ['zca', 'config', 'null'],
-    queryFn: ({ signal }) => getZcaThreadConfig(threadId!, signal),
+    queryFn: ({ signal }) => {
+      if (!threadId) throw new Error('threadId is required');
+      return getZcaThreadConfig(threadId, signal);
+    },
     enabled: Boolean(threadId),
   });
 }

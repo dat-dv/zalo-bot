@@ -50,7 +50,10 @@ httpClient.interceptors.request.use((config) => {
 });
 
 httpClient.interceptors.response.use(undefined, async (error: unknown) => {
-  if (!axios.isAxiosError(error) || error.response?.status !== 401) return Promise.reject(error);
+  const normalizedError = error instanceof Error ? error : new Error(String(error));
+  if (!axios.isAxiosError(error) || error.response?.status !== 401) {
+    return Promise.reject(normalizedError);
+  }
   const request = error.config as
     (InternalAxiosRequestConfig & { _dashboardRetried?: boolean }) | undefined;
   if (!request || request._dashboardRetried || request.url === API_ROUTES.dashboardRefresh)
@@ -75,6 +78,8 @@ httpClient.interceptors.response.use(undefined, async (error: unknown) => {
     return httpClient(request);
   } catch (refreshError) {
     clearAccessToken();
-    return Promise.reject(refreshError);
+    const normalizedRefreshError =
+      refreshError instanceof Error ? refreshError : new Error(String(refreshError));
+    return Promise.reject(normalizedRefreshError);
   }
 });

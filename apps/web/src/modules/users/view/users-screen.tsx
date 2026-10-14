@@ -28,7 +28,7 @@ export function UsersScreen() {
   const [formError, setFormError] = useState('');
 
   const copyToClipboard = (id: string) => {
-    navigator.clipboard.writeText(id);
+    void navigator.clipboard.writeText(id);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   };

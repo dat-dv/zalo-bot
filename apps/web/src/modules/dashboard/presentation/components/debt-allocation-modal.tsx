@@ -112,8 +112,7 @@ export function DebtAllocationModal({
       if (next.has(debt.id)) {
         next.delete(debt.id);
         setAllocatedAmounts((prevAmounts) => {
-          const nextAmounts = { ...prevAmounts };
-          delete nextAmounts[debt.id];
+          const { [debt.id]: _removed, ...nextAmounts } = prevAmounts;
           return nextAmounts;
         });
       } else {
