@@ -1,6 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { GoogleDriveService, DriveUploadResult } from '../google/google-drive.service';
 import { GooglePhotosService, PhotosUploadResult } from '../google/google-photos.service';
+import { getChannelDriveFolderPath } from '../google/channel-storage.util';
 
 export interface DualUploadResult {
   drive?: DriveUploadResult;
@@ -19,18 +20,29 @@ export class MediaStorageService {
   ) {}
 
   /**
-   * Lưu hóa đơn / bill lên cả Google Drive (zalobot/bill/YYYY-MM) và Google Photos (Album ZaloBot - Hóa đơn)
+   * Lưu hóa đơn / bill lên cả Google Drive (zalobot/<channelId>/bill/YYYY-MM) và Google Photos (Album ZaloBot - Hóa đơn)
    */
   public async uploadBill(
     senderId: string,
     buffer: Buffer,
-    options?: { note?: string; occurredAt?: Date; extension?: string },
+    options?: {
+      note?: string;
+      occurredAt?: Date;
+      extension?: string;
+      folderPath?: string;
+      suffix?: string;
+      channelId?: string;
+    },
   ): Promise<DualUploadResult> {
     const result: DualUploadResult = {};
+    const folderPath =
+      options?.folderPath ||
+      (options?.channelId ? getChannelDriveFolderPath(options.channelId, 'bill') : undefined);
+    const driveOptions = { ...options, folderPath };
 
     const [drivePromise, photosPromise] = await Promise.allSettled([
       this.driveService
-        ? this.driveService.uploadReceipt(buffer, senderId, options)
+        ? this.driveService.uploadReceipt(buffer, senderId, driveOptions)
         : Promise.reject(new Error('GoogleDriveService chưa được khởi tạo.')),
       this.photosService
         ? this.photosService.uploadBillPhoto(buffer, senderId, options)
@@ -55,7 +67,7 @@ export class MediaStorageService {
   }
 
   /**
-   * Lưu ảnh lên cả Google Drive (zalobot/image/YYYY-MM) và Google Photos (Album ZaloBot - Hình ảnh)
+   * Lưu ảnh lên cả Google Drive (zalobot/<channelId>/image/YYYY-MM) và Google Photos (Album ZaloBot - Hình ảnh)
    */
   public async uploadImage(
     senderId: string,
@@ -65,13 +77,18 @@ export class MediaStorageService {
       extension?: string;
       folderPath?: string;
       suffix?: string;
+      channelId?: string;
     },
   ): Promise<DualUploadResult> {
     const result: DualUploadResult = {};
+    const folderPath =
+      options?.folderPath ||
+      (options?.channelId ? getChannelDriveFolderPath(options.channelId, 'image') : undefined);
+    const driveOptions = { ...options, folderPath };
 
     const [drivePromise, photosPromise] = await Promise.allSettled([
       this.driveService
-        ? this.driveService.uploadImage(buffer, senderId, options)
+        ? this.driveService.uploadImage(buffer, senderId, driveOptions)
         : Promise.reject(new Error('GoogleDriveService chưa được khởi tạo.')),
       this.photosService
         ? this.photosService.uploadGeneralPhoto(buffer, senderId, options)
@@ -96,7 +113,7 @@ export class MediaStorageService {
   }
 
   /**
-   * Lưu video lên cả Google Drive (zalobot/video/YYYY-MM) và Google Photos (Album ZaloBot - Video)
+   * Lưu video lên cả Google Drive (zalobot/<channelId>/video/YYYY-MM) và Google Photos (Album ZaloBot - Video)
    */
   public async uploadVideo(
     senderId: string,
@@ -106,13 +123,18 @@ export class MediaStorageService {
       extension?: string;
       folderPath?: string;
       suffix?: string;
+      channelId?: string;
     },
   ): Promise<DualUploadResult> {
     const result: DualUploadResult = {};
+    const folderPath =
+      options?.folderPath ||
+      (options?.channelId ? getChannelDriveFolderPath(options.channelId, 'video') : undefined);
+    const driveOptions = { ...options, folderPath };
 
     const [drivePromise, photosPromise] = await Promise.allSettled([
       this.driveService
-        ? this.driveService.uploadVideo(buffer, senderId, options)
+        ? this.driveService.uploadVideo(buffer, senderId, driveOptions)
         : Promise.reject(new Error('GoogleDriveService chưa được khởi tạo.')),
       this.photosService
         ? this.photosService.uploadVideo(buffer, senderId, options)

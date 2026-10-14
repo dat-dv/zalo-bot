@@ -74,3 +74,33 @@ void test('MediaStorageService handles partial failure gracefully if Photos fail
   assert.match(summary, /Google Drive/);
   assert.match(summary, /Lỗi lưu trữ/);
 });
+
+void test('MediaStorageService routes uploads to channel folders when channelId is passed', async () => {
+  let capturedBillFolder: string | undefined;
+  let capturedImageFolder: string | undefined;
+  let capturedVideoFolder: string | undefined;
+
+  const mockDriveService = {
+    uploadReceipt: async (_buf: Buffer, _sender: string, options?: { folderPath?: string }) => {
+      capturedBillFolder = options?.folderPath;
+      return { fileId: 'b1', name: 'bill.jpg', folderPath: capturedBillFolder || '' };
+    },
+    uploadImage: async (_buf: Buffer, _sender: string, options?: { folderPath?: string }) => {
+      capturedImageFolder = options?.folderPath;
+      return { fileId: 'i1', name: 'img.jpg', folderPath: capturedImageFolder || '' };
+    },
+    uploadVideo: async (_buf: Buffer, _sender: string, options?: { folderPath?: string }) => {
+      capturedVideoFolder = options?.folderPath;
+      return { fileId: 'v1', name: 'vid.mp4', folderPath: capturedVideoFolder || '' };
+    },
+  } as unknown as GoogleDriveService;
+
+  const service = new MediaStorageService(mockDriveService);
+  await service.uploadBill('user_1', Buffer.from('test'), { channelId: 'g-12345' });
+  await service.uploadImage('user_1', Buffer.from('test'), { channelId: 'g-12345' });
+  await service.uploadVideo('user_1', Buffer.from('test'), { channelId: 'g-12345' });
+
+  assert.equal(capturedBillFolder, 'zalobot/g-12345/bill');
+  assert.equal(capturedImageFolder, 'zalobot/g-12345/image');
+  assert.equal(capturedVideoFolder, 'zalobot/g-12345/video');
+});
