@@ -34,6 +34,8 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      args:
+        BE_PORT: ${BE_PORT:-3005}
     restart: unless-stopped
     ports:
       - '${BE_PORT:-3005}:${BE_PORT:-3005}'
@@ -43,9 +45,10 @@ services:
       - path: .env.production
         required: false
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-zalobot}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zalobot}
-      DATABASE_SSL: 'false'
-      REDIS_URL: redis://redis:6379
+      BE_PORT: ${BE_PORT:-3005}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-zalobot}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zalobot}}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       TYPEORM_SYNCHRONIZE: ${TYPEORM_SYNCHRONIZE:-false}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
