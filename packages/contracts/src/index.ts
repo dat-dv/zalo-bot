@@ -35,6 +35,7 @@ export const API_ROUTES = {
   zcaListenedThreadsToggle: '/api/zca/listened-threads/toggle',
   zcaThreadConfigs: '/api/zca/thread-configs',
   zcaThreadConfig: (threadId: string) => `/api/zca/thread-configs/${threadId}`,
+  driveFolderLink: '/api/drive/folder-link',
 } as const;
 
 export const APP_ROUTES = {
@@ -1956,6 +1957,9 @@ export interface ThreadBotConfig {
   threadName?: string;
   threadType?: 'user' | 'group';
   isListened: boolean;
+  driveFolderId?: string;
+  driveFolderUrl?: string;
+  driveFolderPath?: string;
   directInteraction: ThreadDirectInteractionConfig;
   mediaBackup: ThreadMediaBackupConfig;
   expenseTracking: ThreadExpenseConfig;
@@ -1968,6 +1972,9 @@ export type UpdateThreadBotConfigDto = Partial<{
   threadName: string;
   threadType: 'user' | 'group';
   isListened: boolean;
+  driveFolderId: string;
+  driveFolderUrl: string;
+  driveFolderPath: string;
   directInteraction: Partial<ThreadDirectInteractionConfig>;
   mediaBackup: Partial<ThreadMediaBackupConfig>;
   expenseTracking: Partial<ThreadExpenseConfig>;

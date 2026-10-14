@@ -9,6 +9,7 @@ import { GoogleTasksService } from './google-tasks.service';
 import { GoogleAuthService } from './google-auth.service';
 import { GoogleDriveService } from './google-drive.service';
 import { ReportsTokenService } from '../reports/reports-token.service';
+import type { ThreadConfigService } from '../zca/thread-config.service';
 
 function createMockRequest(userId = 'test-user'): Request {
   return {
@@ -293,4 +294,62 @@ void test('GoogleResourcesController shareDrive successfully shares channel fold
   assert.equal(sharedFolder, 'zalobot/g-123');
   assert.equal(sharedEmail, 'test@gmail.com');
   assert.equal(res.webViewLink, 'https://drive.mock/zalobot/g-123');
+});
+
+void test('GoogleResourcesController getDriveFolderLink returns root zalobot link when channelId is not provided', async () => {
+  const mockDrive = {
+    getFolderWebLink: (folder: string) => Promise.resolve(`https://drive.mock/${folder}`),
+  } as unknown as GoogleDriveService;
+
+  const controller = new GoogleResourcesController(
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as GoogleTasksService,
+    {} as unknown as ReportsTokenService,
+    {} as unknown as GoogleAuthService,
+    mockDrive,
+  );
+
+  const res = await controller.getDriveFolderLink();
+  assert.deepEqual(res, {
+    data: {
+      folderPath: 'zalobot',
+      webViewLink: 'https://drive.mock/zalobot',
+    },
+  });
+});
+
+void test('GoogleResourcesController getDriveFolderLink returns channel folder link when channelId is provided', async () => {
+  let savedThreadId = '';
+  let savedInfo: unknown = null;
+  const mockThreadConfigService = {
+    saveDriveFolderInfo: (tId: string, info: unknown) => {
+      savedThreadId = tId;
+      savedInfo = info;
+      return Promise.resolve();
+    },
+  } as unknown as ThreadConfigService;
+
+  const mockDrive = {
+    getFolderWebLink: (folder: string) => Promise.resolve(`https://drive.mock/${folder}`),
+  } as unknown as GoogleDriveService;
+
+  const controller = new GoogleResourcesController(
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as GoogleTasksService,
+    {} as unknown as ReportsTokenService,
+    {} as unknown as GoogleAuthService,
+    mockDrive,
+    undefined,
+    mockThreadConfigService,
+  );
+
+  const res = await controller.getDriveFolderLink('g-team-channel');
+  assert.deepEqual(res, {
+    data: {
+      folderPath: 'zalobot/g-team-channel',
+      webViewLink: 'https://drive.mock/zalobot/g-team-channel',
+    },
+  });
+  assert.equal(savedThreadId, 'g-team-channel');
+  assert.ok(savedInfo);
 });

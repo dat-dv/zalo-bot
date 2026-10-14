@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import type { ThreadBotConfig, UpdateThreadBotConfigDto } from '@zalobot/contracts';
-import { useUpdateZcaThreadConfigMutation, useZcaThreadConfigQuery } from '../api/zca-query';
+import {
+  useUpdateZcaThreadConfigMutation,
+  useZcaThreadConfigQuery,
+  useGoogleDriveFolderLinkQuery,
+} from '../api/zca-query';
 
 interface ThreadConfigModalProps {
   threadId: string;
@@ -20,6 +24,7 @@ export function ThreadConfigModal({
   onClose,
 }: ThreadConfigModalProps) {
   const { data: config, isLoading } = useZcaThreadConfigQuery(isOpen ? threadId : null);
+  const { data: driveLinkData } = useGoogleDriveFolderLinkQuery(isOpen ? threadId : undefined);
   const updateMutation = useUpdateZcaThreadConfigMutation();
 
   const [form, setForm] = useState<ThreadBotConfig | null>(null);
@@ -30,6 +35,9 @@ export function ThreadConfigModal({
       setForm({
         ...config,
         isListened: config.isListened ?? false,
+        driveFolderId: config.driveFolderId,
+        driveFolderUrl: config.driveFolderUrl,
+        driveFolderPath: config.driveFolderPath,
         directInteraction: {
           enabled: config.directInteraction?.enabled ?? false,
           requireMention: config.directInteraction?.requireMention ?? true,
@@ -74,6 +82,9 @@ export function ThreadConfigModal({
       threadName,
       threadType,
       isListened: form.isListened,
+      driveFolderId: form.driveFolderId,
+      driveFolderUrl: form.driveFolderUrl,
+      driveFolderPath: form.driveFolderPath,
       directInteraction: form.directInteraction,
       mediaBackup: form.mediaBackup,
       expenseTracking: form.expenseTracking,
@@ -363,6 +374,35 @@ export function ThreadConfigModal({
 
               {form.mediaBackup.enabled && (
                 <div className="mt-3.5 flex flex-col gap-3.5 pl-7">
+                  {/* Google Drive Link Box */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50/60 p-2.5 dark:border-blue-900/50 dark:bg-blue-950/30">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">📁</span>
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                            Thư mục Drive:
+                          </span>
+                          <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] font-medium text-blue-700 border border-blue-200 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300">
+                            {form.driveFolderPath || form.mediaBackup.customFolder || `zalobot/${threadId}`}
+                          </code>
+                        </div>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                          Tất cả hình ảnh, video, tệp tin từ cuộc trò chuyện này sẽ được lưu tại đây
+                        </p>
+                      </div>
+                    </div>
+                    <a
+                      className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 transition-colors"
+                      href={form.driveFolderUrl || (driveLinkData?.webViewLink || 'https://drive.google.com')}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      <span>Mở Google Drive</span>
+                      <span>↗</span>
+                    </a>
+                  </div>
+
                   <div>
                     <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                       Loại tài nguyên tự động lưu (Mặc định tắt):

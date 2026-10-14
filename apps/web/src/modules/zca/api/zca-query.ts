@@ -11,8 +11,10 @@ import {
   getZcaThreadConfigs,
   getZcaThreadConfig,
   updateZcaThreadConfig,
+  getGoogleDriveFolderLink,
   type ZcaStatus,
   type ZcaThread,
+  type DriveFolderLinkResult,
 } from './zca-api';
 import type { ThreadBotConfig, UpdateThreadBotConfigDto } from '@zalobot/contracts';
 
@@ -23,6 +25,7 @@ export const zcaQueryKeys = {
   listened: () => ['zca', 'listened'] as const,
   configs: () => ['zca', 'configs'] as const,
   config: (threadId: string) => ['zca', 'config', threadId] as const,
+  driveLink: (channelId?: string) => ['zca', 'drive-link', channelId || 'root'] as const,
 };
 
 export function useZcaStatusQuery(options?: { refetchInterval?: number | false }) {
@@ -117,3 +120,12 @@ export function useUpdateZcaThreadConfigMutation() {
     },
   });
 }
+
+export function useGoogleDriveFolderLinkQuery(channelId?: string) {
+  return useQuery<DriveFolderLinkResult>({
+    queryKey: zcaQueryKeys.driveLink(channelId),
+    queryFn: ({ signal }) => getGoogleDriveFolderLink(channelId, signal),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+

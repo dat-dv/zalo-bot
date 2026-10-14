@@ -9,6 +9,7 @@ import {
   useSetZcaListenedThreadsMutation,
   useToggleZcaListenedThreadMutation,
   useZcaThreadConfigsQuery,
+  useGoogleDriveFolderLinkQuery,
 } from '../api/zca-query';
 import type { ZcaThread } from '../api/zca-api';
 import { ThreadConfigModal } from './thread-config-modal';
@@ -62,6 +63,7 @@ export function ZcaScreen() {
     refetch: refetchThreads,
   } = useZcaThreadsQuery();
   const { data: threadConfigs = [] } = useZcaThreadConfigsQuery();
+  const { data: driveRootData } = useGoogleDriveFolderLinkQuery();
 
   const refreshThreadsMutation = useRefreshZcaThreadsMutation();
   const loginQrMutation = useLoginZcaQrMutation();
@@ -363,7 +365,7 @@ export function ZcaScreen() {
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-3">
           {/* Header & Quick Action Buttons */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
                 Danh sách cuộc trò chuyện & Whitelist
@@ -372,6 +374,21 @@ export function ZcaScreen() {
                 Chỉ những nhóm chat hoặc người dùng được bật ở danh sách bên dưới mới được bot tiếp
                 nhận tin nhắn và xử lý các tính năng (thu chi, sao lưu, lịch hẹn...).
               </p>
+            </div>
+
+            {/* Quick Action: Google Drive Link */}
+            <div className="flex items-center gap-2">
+              <a
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400"
+                href={driveRootData?.webViewLink || 'https://drive.google.com'}
+                rel="noopener noreferrer"
+                target="_blank"
+                title="Mở thư mục kho lưu trữ zalobot trên Google Drive"
+              >
+                <GoogleDriveIcon className="size-4 shrink-0" />
+                <span>Kho Google Drive</span>
+                <ExternalLinkIcon className="size-3 text-slate-400" />
+              </a>
             </div>
           </div>
 
@@ -523,7 +540,7 @@ export function ZcaScreen() {
                   <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300 text-center w-40">
                     Trạng thái lắng nghe
                   </th>
-                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300 text-right w-36">
+                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300 text-right w-52">
                     Thao tác
                   </th>
                 </tr>
@@ -672,12 +689,19 @@ export function ZcaScreen() {
                               </span>
                             )}
                             {configMap.get(thread.id)?.mediaBackup.enabled && (
-                              <span
-                                className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                                title={`Drive Folder: ${configMap.get(thread.id)?.mediaBackup.customFolder || 'Mặc định'}`}
+                              <a
+                                className="inline-flex items-center gap-0.5 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900 transition-colors"
+                                href={
+                                  configMap.get(thread.id)?.driveFolderUrl ||
+                                  driveRootData?.webViewLink ||
+                                  'https://drive.google.com'
+                                }
+                                rel="noopener noreferrer"
+                                target="_blank"
+                                title={`Mở thư mục Google Drive: ${configMap.get(thread.id)?.driveFolderPath || configMap.get(thread.id)?.mediaBackup.customFolder || `zalobot/${thread.id}`}`}
                               >
-                                📁 Drive
-                              </span>
+                                📁 Drive ↗
+                              </a>
                             )}
                             {configMap.get(thread.id)?.expenseTracking.enabled && (
                               <span className="inline-flex items-center rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
@@ -693,9 +717,23 @@ export function ZcaScreen() {
                         )}
                       </td>
 
-                      {/* Cột Thao tác (Cấu hình tính năng & Toggle switch button) */}
+                      {/* Cột Thao tác (Google Drive, Cấu hình tính năng & Toggle switch button) */}
                       <td className="px-3.5 py-2.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
+                          <a
+                            className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400 transition-colors"
+                            href={
+                              configMap.get(thread.id)?.driveFolderUrl ||
+                              driveRootData?.webViewLink ||
+                              'https://drive.google.com'
+                            }
+                            rel="noopener noreferrer"
+                            target="_blank"
+                            title={`Mở thư mục Google Drive (${configMap.get(thread.id)?.driveFolderPath || `zalobot/${thread.id}`})`}
+                          >
+                            <GoogleDriveIcon className="size-3.5 shrink-0" />
+                            <span>Drive</span>
+                          </a>
                           <button
                             className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                             onClick={() => setSelectedThreadForConfig(thread)}
@@ -971,6 +1009,55 @@ function CopyIcon() {
     >
       <rect height="13" rx="2" ry="2" width="13" x="9" y="9" />
       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function GoogleDriveIcon({ className = 'size-4' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
+      <path
+        d="m6.6 66.85 3.85 6.65c.8 1.4 1.9 2.5 3.2 3.3l12.3-21.3-6.75-11.75-12.6 21.85c-.45.75-.45 1.55 0 2.25z"
+        fill="#0066da"
+      />
+      <path
+        d="m43.65 25-12.3-21.3c-1.3.8-2.4 1.9-3.2 3.3l-21.55 37.35 12.6-21.85 12.3-21.3z"
+        fill="#00ac47"
+      />
+      <path
+        d="m73.55 76.8c1.3-.8 2.4-1.9 3.2-3.3l1.6-2.75 3.85-6.65c.45-.7.45-1.5 0-2.25l-20.05-34.75-12.3 21.3 11.4 19.75 12.3 8.65z"
+        fill="#ea4335"
+      />
+      <path
+        d="m43.65 25 12.3-21.3c-1.3-.8-2.9-1.2-4.5-1.2h-15.6c-1.6 0-3.2.4-4.5 1.2z"
+        fill="#00832d"
+      />
+      <path
+        d="m59.8 53.5h-32.3l-12.3 21.3c1.3.8 2.9 1.2 4.5 1.2h47.9c1.6 0 3.2-.4 4.5-1.2z"
+        fill="#2684fc"
+      />
+      <path
+        d="m73.55 76.8-12.3-21.3h-24.6l-6.75 11.7 11.4 19.75c1.3-.8 2.4-1.9 3.2-3.3z"
+        fill="#ffba00"
+      />
+    </svg>
+  );
+}
+
+function ExternalLinkIcon({ className = 'size-3' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
+    >
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" x2="21" y1="14" y2="3" />
     </svg>
   );
 }

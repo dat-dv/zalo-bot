@@ -23,7 +23,7 @@ import { ReportsTokenService } from '../reports/reports-token.service';
 import { GoogleCalendarService } from './google-calendar.service';
 import { GoogleTasksService } from './google-tasks.service';
 import { GoogleAuthService } from './google-auth.service';
-import { GoogleDriveService } from './google-drive.service';
+import { GoogleDriveService, GG_DRIVE_ROOT_FOLDER } from './google-drive.service';
 import { UsersService } from '../users/users.service';
 import { ThreadConfigService } from '../zca/thread-config.service';
 import { ShareDriveDto } from './dto/share-drive.dto';
@@ -98,6 +98,52 @@ export class GoogleResourcesController {
       webViewLink,
       permissionId: shareResult.permissionId,
     };
+  }
+
+  @Get('drive/folder-link')
+  @ApiOperation({ summary: 'Lấy đường link xem thư mục Google Drive (root hoặc channel)' })
+  async getDriveFolderLink(@Query('channelId') channelId?: string) {
+    if (!this.driveService) {
+      return {
+        data: {
+          folderPath: 'zalobot',
+          webViewLink: 'https://drive.google.com',
+        },
+      };
+    }
+    const folderPath = channelId ? getChannelDriveFolderPath(channelId) : GG_DRIVE_ROOT_FOLDER;
+    try {
+      const webViewLink = await this.driveService.getFolderWebLink(folderPath);
+      if (channelId && webViewLink) {
+        if (channelId.startsWith('g-') || channelId.length > 10) {
+          if (this.threadConfigService) {
+            void this.threadConfigService.saveDriveFolderInfo(channelId, {
+              folderUrl: webViewLink,
+              folderPath,
+            });
+          }
+        }
+        if (this.usersService) {
+          void this.usersService.saveDriveFolderInfo(channelId, {
+            folderUrl: webViewLink,
+            folderPath,
+          });
+        }
+      }
+      return {
+        data: {
+          folderPath,
+          webViewLink: webViewLink || 'https://drive.google.com',
+        },
+      };
+    } catch {
+      return {
+        data: {
+          folderPath,
+          webViewLink: 'https://drive.google.com',
+        },
+      };
+    }
   }
 
   @Get('calendar/events')

@@ -79,6 +79,9 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
     threadName: entity.threadName || undefined,
     threadType: entity.threadType || 'user',
     isListened: Boolean(entity.isListened),
+    driveFolderId: entity.driveFolderId || undefined,
+    driveFolderUrl: entity.driveFolderUrl || undefined,
+    driveFolderPath: entity.driveFolderPath || undefined,
     directInteraction: {
       enabled: entity.directInteraction?.enabled ?? false,
       requireMention:
@@ -355,6 +358,18 @@ export class ThreadConfigService implements OnModuleInit {
       config.isListened = Boolean(update.isListened);
     }
 
+    if (update.driveFolderId !== undefined) {
+      config.driveFolderId = update.driveFolderId;
+    }
+
+    if (update.driveFolderUrl !== undefined) {
+      config.driveFolderUrl = update.driveFolderUrl;
+    }
+
+    if (update.driveFolderPath !== undefined) {
+      config.driveFolderPath = update.driveFolderPath;
+    }
+
     if (update.directInteraction) {
       config.directInteraction = {
         ...config.directInteraction,
@@ -453,6 +468,9 @@ export class ThreadConfigService implements OnModuleInit {
           expenseTracking: config.expenseTracking,
           calendarExtraction: config.calendarExtraction,
           confirmationRules: config.confirmationRules,
+          driveFolderId: config.driveFolderId,
+          driveFolderUrl: config.driveFolderUrl,
+          driveFolderPath: config.driveFolderPath,
           updatedAt: new Date(config.updatedAt || Date.now()),
         },
         ['threadId'],
@@ -546,6 +564,13 @@ export class ThreadConfigService implements OnModuleInit {
         if (folderInfo.folderUrl !== undefined) entity.driveFolderUrl = folderInfo.folderUrl;
         if (folderInfo.folderPath !== undefined) entity.driveFolderPath = folderInfo.folderPath;
         await this.threadConfigRepo.save(entity);
+      }
+      const config = this.configsMap.get(threadId);
+      if (config) {
+        if (folderInfo.folderId !== undefined) config.driveFolderId = folderInfo.folderId;
+        if (folderInfo.folderUrl !== undefined) config.driveFolderUrl = folderInfo.folderUrl;
+        if (folderInfo.folderPath !== undefined) config.driveFolderPath = folderInfo.folderPath;
+        await this.cacheConfigToRedis(config);
       }
     } catch (err) {
       this.logger.warn(

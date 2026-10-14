@@ -146,3 +146,27 @@ export async function updateZcaThreadConfig(
   );
   return response.data.data.config;
 }
+
+export interface DriveFolderLinkResult {
+  folderPath?: string;
+  webViewLink: string;
+}
+
+export async function getGoogleDriveFolderLink(
+  channelId?: string,
+  signal?: AbortSignal,
+): Promise<DriveFolderLinkResult> {
+  try {
+    const response = await httpClient.get<IApiResponse<DriveFolderLinkResult>>(
+      API_ROUTES.driveFolderLink,
+      {
+        params: channelId ? { channelId } : undefined,
+        signal,
+      },
+    );
+    return response.data.data;
+  } catch {
+    return { folderPath: 'zalobot', webViewLink: 'https://drive.google.com' };
+  }
+}
+
