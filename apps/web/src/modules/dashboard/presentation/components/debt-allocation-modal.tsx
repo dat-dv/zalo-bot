@@ -111,10 +111,9 @@ export function DebtAllocationModal({
       const next = new Set(prev);
       if (next.has(debt.id)) {
         next.delete(debt.id);
-        setAllocatedAmounts((prevAmounts) => {
-          const { [debt.id]: _removed, ...nextAmounts } = prevAmounts;
-          return nextAmounts;
-        });
+        setAllocatedAmounts((prevAmounts) =>
+          Object.fromEntries(Object.entries(prevAmounts).filter(([id]) => id !== debt.id)),
+        );
       } else {
         next.add(debt.id);
         // Default allocate remaining unallocated or debt remaining amount
