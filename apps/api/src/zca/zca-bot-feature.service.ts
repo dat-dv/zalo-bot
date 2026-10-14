@@ -1,5 +1,6 @@
 import { Injectable, Logger, Optional, Inject, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { ThreadConfigService } from './thread-config.service';
 import type { TransactionConfirmationService } from '../zalo/transaction-confirmation.service';
 import { MediaStorageService } from '../receipt-storage/media-storage.service';
@@ -62,6 +63,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
     @Optional() @Inject(ModuleRef) private readonly moduleRef?: ModuleRef,
     @Optional() confirmationService?: TransactionConfirmationService,
     @Optional() textInputService?: TextInputService,
+    @Optional() private configService?: ConfigService,
   ) {
     if (mediaStorageServiceOrConfirmation) {
       if ('handleReaction' in mediaStorageServiceOrConfirmation) {
@@ -88,6 +90,17 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
 
   public setZcaService(service: ZcaService): void {
     this.zcaService = service;
+  }
+
+  public setConfigService(service: ConfigService): void {
+    this.configService = service;
+  }
+
+  private isSelfListenEnabled(): boolean {
+    return (
+      this.configService?.get<boolean>('zca.selfListen') === true ||
+      process.env.ZCA_SELF_LISTEN?.toLowerCase() === 'true'
+    );
   }
 
   public async onModuleInit(): Promise<void> {
@@ -121,6 +134,14 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
           this.logger.debug(`Could not resolve ZcaService via ModuleRef: ${String(err)}`);
         }
       }
+      if (!this.configService) {
+        try {
+          const { ConfigService } = await import('@nestjs/config');
+          this.configService = this.moduleRef.get(ConfigService, { strict: false });
+        } catch (err) {
+          this.logger.debug(`Could not resolve ConfigService via ModuleRef: ${String(err)}`);
+        }
+      }
     }
   }
 
@@ -142,7 +163,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
     };
 
     if (message.isSelf) {
-      if (!directConfig.allowSelf) {
+      if (!directConfig.allowSelf && !this.isSelfListenEnabled()) {
         this.logger.debug(
           `[ZcaBotFeature] Ignored self message (allowSelf is disabled) in thread ${threadId}`,
         );
@@ -212,30 +233,46 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
     // 3. Text Message Processing (Direct Bot Interaction / Finance Transaction / Calendar Event extraction)
     if (text && this.textInputService) {
       const isGroup = message.type === ThreadType.Group;
+      const ownId = (api as unknown as { getOwnId?: () => string })?.getOwnId?.() || '';
+      const botName =
+        this.configService?.get<string>('zalo.botName') ||
+        process.env.BOT_NAME ||
+        process.env.ZALO_BOT_NAME ||
+        'Bot';
+      const cleanBotName = (botName || 'Bot').replace(/^@/, '').trim();
+      const botNames = [cleanBotName, 'Bot Finance Assistant', 'Finance Assistant', 'Bot', 'bot'];
+      const botNamePattern = Array.from(new Set(botNames.filter(Boolean)))
+        .map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('|');
+      const botNameRegex = new RegExp(`@(?:bot|zalo|finance|trợ lý|${botNamePattern})`, 'i');
+      const hasMention = (ownId && isMentioned(message, ownId)) || botNameRegex.test(text);
+      const hasPrefix = Boolean(
+        directConfig.triggerPrefix && text.trim().startsWith(directConfig.triggerPrefix),
+      );
+
+      // In group chats: check whether this is a direct interaction call to the bot
+      let isDirectTriggered = !isGroup;
+      if (isGroup) {
+        if (directConfig.enabled) {
+          if (!directConfig.requireMention) {
+            isDirectTriggered = true;
+          } else {
+            isDirectTriggered = Boolean(hasMention || hasPrefix);
+          }
+        } else if (hasMention || (directConfig.triggerPrefix && hasPrefix)) {
+          // Fallback: If thread is listened and user explicitly tagged @bot or prefix, treat as direct interaction
+          isDirectTriggered = true;
+        }
+      }
 
       // Check if all text features are disabled
       if (
         !directConfig.enabled &&
+        !isDirectTriggered &&
         !config.expenseTracking.enabled &&
         !config.calendarExtraction.enabled
       ) {
         return;
-      }
-
-      // In group chats: check whether this is a direct interaction call to the bot
-      let isDirectTriggered = !isGroup;
-      if (isGroup && directConfig.enabled) {
-        if (!directConfig.requireMention) {
-          isDirectTriggered = true;
-        } else {
-          const ownId = (api as unknown as { getOwnId?: () => string })?.getOwnId?.() || '';
-          const hasMention =
-            (ownId && isMentioned(message, ownId)) || /@(?:bot|zalo|finance|trợ lý)/i.test(text);
-          const hasPrefix = Boolean(
-            directConfig.triggerPrefix && text.trim().startsWith(directConfig.triggerPrefix),
-          );
-          isDirectTriggered = Boolean(hasMention || hasPrefix);
-        }
       }
 
       // If in group chat and not direct-triggered, only proceed if passive tracking is enabled
@@ -275,7 +312,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
       return;
     }
 
-    if (reaction.isSelf && !config.directInteraction?.allowSelf) {
+    if (reaction.isSelf && !config.directInteraction?.allowSelf && !this.isSelfListenEnabled()) {
       return;
     }
 

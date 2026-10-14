@@ -239,3 +239,104 @@ void test('ZcaBotFeatureService drops isSelf message when allowSelf is true but 
   await service.onMessage(message, {} as unknown as API);
   assert.equal(processedInput, null, 'Message should have been dropped to prevent infinite loop');
 });
+
+void test('ZcaBotFeatureService processes isSelf message when ZCA_SELF_LISTEN env is true even if thread allowSelf is false', async () => {
+  const previousEnv = process.env.ZCA_SELF_LISTEN;
+  process.env.ZCA_SELF_LISTEN = 'true';
+  try {
+    const configService = new ThreadConfigService();
+    const threadId = 'self-thread-env-override';
+    await configService.updateConfig(threadId, {
+      isListened: true,
+      directInteraction: {
+        enabled: true,
+        requireMention: false,
+        allowSelf: false, // thread config is false, but env is true!
+      },
+    });
+
+    let processedInput: AgentInput | null = null;
+    const mockTextInputService = {
+      process: (input: AgentInput) => {
+        processedInput = input;
+        return Promise.resolve();
+      },
+    } as unknown as TextInputService;
+
+    const mockZcaService = {
+      isBotSentMessage: () => false,
+    } as unknown as ZcaService;
+
+    const service = new ZcaBotFeatureService(configService);
+    service.setTextInputService(mockTextInputService);
+    service.setZcaService(mockZcaService);
+
+    const message = {
+      threadId,
+      isSelf: true,
+      type: ThreadType.User,
+      data: {
+        content: '@Bot nợ a 50k',
+        uidFrom: 'owner-id',
+        dName: 'Chủ Bot',
+        msgType: 'chat',
+      },
+    } as unknown as Message;
+
+    await service.onMessage(message, {} as unknown as API);
+    assert.ok(
+      processedInput,
+      'Message should have been processed because ZCA_SELF_LISTEN env is true',
+    );
+    assert.equal(processedInput.text, '@Bot nợ a 50k');
+  } finally {
+    if (previousEnv !== undefined) {
+      process.env.ZCA_SELF_LISTEN = previousEnv;
+    } else {
+      delete process.env.ZCA_SELF_LISTEN;
+    }
+  }
+});
+
+void test('ZcaBotFeatureService processes @bot mention in listened group even if directConfig.enabled is false', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-thread-disabled-direct';
+  await configService.updateConfig(threadId, {
+    isListened: true,
+    directInteraction: {
+      enabled: false, // directInteraction is disabled
+      requireMention: true,
+      allowSelf: false,
+    },
+  });
+
+  let processedInput: AgentInput | null = null;
+  const mockTextInputService = {
+    process: (input: AgentInput) => {
+      processedInput = input;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setTextInputService(mockTextInputService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.Group,
+    data: {
+      content: '@Bot xin chào bạn',
+      uidFrom: 'member-123',
+      dName: 'Thành viên nhóm',
+      msgType: 'chat',
+    },
+  } as unknown as Message;
+
+  await service.onMessage(message, {} as unknown as API);
+  assert.ok(
+    processedInput,
+    'Message should have been processed because user explicitly called @Bot in listened group',
+  );
+  assert.equal(processedInput.text, '@Bot xin chào bạn');
+});

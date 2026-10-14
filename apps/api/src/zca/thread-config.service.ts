@@ -372,13 +372,28 @@ export class ThreadConfigService implements OnModuleInit {
   }
 
   public async setListened(threadId: string, isListened: boolean): Promise<ThreadBotConfig> {
-    return this.updateConfig(threadId, { isListened });
+    const config = await this.getConfig(threadId);
+    const directInteraction =
+      isListened && !config.directInteraction?.enabled
+        ? {
+            enabled: true,
+            requireMention: config.threadType === 'group',
+            triggerPrefix: config.directInteraction?.triggerPrefix || '',
+            allowAiChat: true,
+            allowSelf: config.directInteraction?.allowSelf ?? false,
+          }
+        : undefined;
+
+    return this.updateConfig(threadId, {
+      isListened,
+      ...(directInteraction ? { directInteraction } : {}),
+    });
   }
 
   public async toggleListened(threadId: string): Promise<boolean> {
     const config = await this.getConfig(threadId);
     const newStatus = !config.isListened;
-    await this.updateConfig(threadId, { isListened: newStatus });
+    await this.setListened(threadId, newStatus);
     return newStatus;
   }
 

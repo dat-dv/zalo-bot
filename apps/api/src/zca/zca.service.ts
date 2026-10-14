@@ -823,6 +823,11 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   public async setListenedThreadIds(ids: string[]): Promise<void> {
     this.listenedThreadIds = new Set(ids.map(String).filter(Boolean));
     await this.saveListenedThreads();
+    if (this.threadConfigService) {
+      for (const id of this.listenedThreadIds) {
+        await this.threadConfigService.setListened(id, true);
+      }
+    }
     this.cachedAvailableThreads = this.cachedAvailableThreads.map((t) => ({
       ...t,
       isListened: this.listenedThreadIds.has(t.id),
