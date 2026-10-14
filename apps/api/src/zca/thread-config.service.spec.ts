@@ -44,7 +44,7 @@ void test('createDefaultThreadConfig creates sensible defaults for group vs user
   assert.equal(userConfig.threadType, 'user');
   assert.equal(userConfig.confirmationRules.requiredHearts, 1);
   assert.equal(userConfig.directInteraction.enabled, false);
-  assert.equal(userConfig.directInteraction.requireMention, false);
+  assert.equal(userConfig.directInteraction.requireMention, true);
   assert.equal(userConfig.expenseTracking.enabled, false);
   assert.equal(userConfig.calendarExtraction.enabled, false);
   assert.equal(userConfig.confirmationRules.allowReactions, false);

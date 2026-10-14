@@ -19,7 +19,10 @@ export function cleanBotMention(text: string, botName = 'Bot', triggerPrefix?: s
   if (triggerPrefix && triggerPrefix.trim()) {
     const tp = triggerPrefix.trim();
     if (result.startsWith(tp)) {
-      result = result.slice(tp.length).trim();
+      result = result
+        .slice(tp.length)
+        .replace(/^[\s,:.-]+/, '')
+        .trim();
     }
   }
 
@@ -59,7 +62,10 @@ export function cleanBotMention(text: string, botName = 'Bot', triggerPrefix?: s
   if (triggerPrefix && triggerPrefix.trim()) {
     const tp = triggerPrefix.trim();
     if (result.startsWith(tp)) {
-      result = result.slice(tp.length).trim();
+      result = result
+        .slice(tp.length)
+        .replace(/^[\s,:.-]+/, '')
+        .trim();
     }
   }
 

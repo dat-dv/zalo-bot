@@ -506,3 +506,146 @@ void test('ZcaBotFeatureService sets passiveOnly=false when message uses custom 
   assert.equal(processedInputs[0].triggerPrefix, '!');
   assert.equal(processedInputs[1].passiveOnly, false);
 });
+
+void test('ZcaBotFeatureService ignores 1-1 User message without @bot or prefix when requireMention is true (default)', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'user-direct-no-mention-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'user',
+    isListened: true,
+    directInteraction: {
+      enabled: true,
+      requireMention: true,
+      triggerPrefix: '!bot',
+      allowAiChat: true,
+    },
+    expenseTracking: {
+      enabled: false,
+      requireConfirm: false,
+    },
+    calendarExtraction: {
+      enabled: false,
+      requireConfirm: false,
+    },
+  });
+
+  let processedInput: AgentInput | null = null;
+  const mockTextInputService = {
+    process: (input: AgentInput) => {
+      processedInput = input;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setTextInputService(mockTextInputService);
+
+  // Message "ê bot ơi" has no @bot and does not start with "!bot" -> should be ignored
+  await service.onMessage(
+    {
+      threadId,
+      isSelf: false,
+      type: ThreadType.User,
+      data: {
+        content: 'ê bot ơi',
+        uidFrom: 'u123',
+        dName: 'User Direct',
+        msgType: 'chat',
+      },
+    } as unknown as Message,
+    {} as unknown as API,
+  );
+
+  assert.equal(processedInput, null, 'Message without @bot or prefix in 1-1 chat must be ignored');
+});
+
+void test('ZcaBotFeatureService processes 1-1 User message with @bot even when custom triggerPrefix is configured', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'user-direct-at-bot-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'user',
+    isListened: true,
+    directInteraction: {
+      enabled: true,
+      requireMention: true,
+      triggerPrefix: '!bot',
+      allowAiChat: true,
+    },
+  });
+
+  let processedInput: AgentInput | null = null;
+  const mockTextInputService = {
+    process: (input: AgentInput) => {
+      processedInput = input;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setTextInputService(mockTextInputService);
+
+  // Message "@bot xin chào" should trigger because @bot is always supported by default
+  await service.onMessage(
+    {
+      threadId,
+      isSelf: false,
+      type: ThreadType.User,
+      data: {
+        content: '@bot xin chào',
+        uidFrom: 'u123',
+        dName: 'User Direct',
+        msgType: 'chat',
+      },
+    } as unknown as Message,
+    {} as unknown as API,
+  );
+
+  assert.ok(processedInput, 'Message with @bot in 1-1 chat must be processed');
+  assert.equal(processedInput.passiveOnly, false);
+});
+
+void test('ZcaBotFeatureService processes 1-1 User message with custom triggerPrefix (!bot)', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'user-direct-prefix-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'user',
+    isListened: true,
+    directInteraction: {
+      enabled: true,
+      requireMention: true,
+      triggerPrefix: '!bot',
+      allowAiChat: true,
+    },
+  });
+
+  let processedInput: AgentInput | null = null;
+  const mockTextInputService = {
+    process: (input: AgentInput) => {
+      processedInput = input;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setTextInputService(mockTextInputService);
+
+  // Message "!bot hôm nay chi tiêu 50k" should trigger via prefix
+  await service.onMessage(
+    {
+      threadId,
+      isSelf: false,
+      type: ThreadType.User,
+      data: {
+        content: '!bot hôm nay chi tiêu 50k',
+        uidFrom: 'u123',
+        dName: 'User Direct',
+        msgType: 'chat',
+      },
+    } as unknown as Message,
+    {} as unknown as API,
+  );
+
+  assert.ok(processedInput, 'Message with !bot prefix in 1-1 chat must be processed');
+  assert.equal(processedInput.passiveOnly, false);
+  assert.equal(processedInput.triggerPrefix, '!bot');
+});

@@ -156,7 +156,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
 
     const directConfig: ThreadDirectInteractionConfig = config.directInteraction ?? {
       enabled: true,
-      requireMention: message.type === ThreadType.Group,
+      requireMention: true,
       triggerPrefix: '',
       allowAiChat: true,
       allowSelf: false,
@@ -250,7 +250,6 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
 
     // 3. Text Message Processing (Direct Bot Interaction / Finance Transaction / Calendar Event extraction)
     if (text && this.textInputService) {
-      const isGroup = message.type === ThreadType.Group;
       const ownId = (api as unknown as { getOwnId?: () => string })?.getOwnId?.() || '';
       const botName =
         this.configService?.get<string>('zalo.botName') ||
@@ -268,21 +267,19 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
         directConfig.triggerPrefix && text.trim().startsWith(directConfig.triggerPrefix),
       );
 
-      // In group chats: check whether this is a direct interaction call to the bot
-      let isDirectTriggered = !isGroup;
-      if (isGroup) {
-        const requireMention =
-          directConfig.requireMention !== undefined ? directConfig.requireMention : true;
-        if (directConfig.enabled) {
-          if (!requireMention) {
-            isDirectTriggered = true;
-          } else {
-            isDirectTriggered = Boolean(hasMention || hasPrefix);
-          }
-        } else if (hasMention || (directConfig.triggerPrefix && hasPrefix)) {
-          // Fallback: If thread is listened and user explicitly tagged @bot or prefix, treat as direct interaction
+      // Check whether this is a direct interaction call to the bot (in both Group and 1-1 User chat)
+      const requireMention =
+        directConfig.requireMention !== undefined ? directConfig.requireMention : true;
+      let isDirectTriggered = false;
+      if (directConfig.enabled) {
+        if (!requireMention) {
           isDirectTriggered = true;
+        } else {
+          isDirectTriggered = Boolean(hasMention || hasPrefix);
         }
+      } else if (hasMention || (directConfig.triggerPrefix && hasPrefix)) {
+        // Fallback: If thread is listened and user explicitly tagged @bot or prefix, treat as direct interaction
+        isDirectTriggered = true;
       }
 
       // Check if all text features are disabled
@@ -295,9 +292,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
         return;
       }
 
-      // If in group chat and not direct-triggered, only proceed if passive tracking is enabled
+      // If not direct-triggered, only proceed if passive tracking is enabled
       if (
-        isGroup &&
         !isDirectTriggered &&
         !config.expenseTracking.enabled &&
         !config.calendarExtraction.enabled
@@ -312,7 +308,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
         displayName,
         text,
         isBot: false,
-        passiveOnly: isGroup && !isDirectTriggered,
+        passiveOnly: !isDirectTriggered,
         allowAiChat: directConfig.allowAiChat ?? true,
         triggerPrefix: directConfig.triggerPrefix || undefined,
       };

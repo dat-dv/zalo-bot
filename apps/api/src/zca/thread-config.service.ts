@@ -40,7 +40,7 @@ export function createDefaultThreadConfig(
     isListened: params?.isListened ?? false,
     directInteraction: {
       enabled: false,
-      requireMention: isGroup,
+      requireMention: true,
       triggerPrefix: '',
       allowAiChat: false,
       allowSelf: false,
@@ -70,7 +70,6 @@ export function createDefaultThreadConfig(
 }
 
 export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
-  const isGroup = entity.threadType === 'group' || entity.threadId.startsWith('g-');
   return {
     threadId: entity.threadId,
     threadName: entity.threadName || undefined,
@@ -81,7 +80,7 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
       requireMention:
         entity.directInteraction?.requireMention !== undefined
           ? entity.directInteraction.requireMention
-          : isGroup,
+          : true,
       triggerPrefix: entity.directInteraction?.triggerPrefix || '',
       allowAiChat: entity.directInteraction?.allowAiChat ?? false,
       allowSelf: entity.directInteraction?.allowSelf ?? false,
@@ -381,7 +380,10 @@ export class ThreadConfigService implements OnModuleInit {
       isListened && !config.directInteraction?.enabled
         ? {
             enabled: true,
-            requireMention: config.threadType === 'group',
+            requireMention:
+              config.directInteraction?.requireMention !== undefined
+                ? config.directInteraction.requireMention
+                : true,
             triggerPrefix: config.directInteraction?.triggerPrefix || '',
             allowAiChat: true,
             allowSelf: config.directInteraction?.allowSelf ?? false,
