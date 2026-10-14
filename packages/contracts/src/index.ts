@@ -1920,6 +1920,9 @@ export interface ThreadMediaBackupConfig {
   enabled: boolean;
   uploadImages: boolean;
   uploadVideos: boolean;
+  uploadFiles?: boolean;
+  uploadAudios?: boolean;
+  notifyInThread?: boolean;
   customFolder?: string;
   fileSuffix?: string;
 }
