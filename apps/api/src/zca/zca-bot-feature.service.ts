@@ -1,10 +1,10 @@
 import { Injectable, Logger, Optional, Inject, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ThreadConfigService } from './thread-config.service';
-import { TransactionConfirmationService } from '../zalo/transaction-confirmation.service';
+import type { TransactionConfirmationService } from '../zalo/transaction-confirmation.service';
 import { MediaStorageService } from '../receipt-storage/media-storage.service';
-import { TextInputService } from '../zalo/text/text-input.service';
-import { ZcaService } from './zca.service';
+import type { TextInputService } from '../zalo/text/text-input.service';
+import type { ZcaService } from './zca.service';
 import type { ZcaPlugin } from './zca.interfaces';
 import {
   ThreadType,
@@ -16,6 +16,7 @@ import {
 } from './shapes';
 import { fetchImageBuffer } from '../common/utils/image-fetcher.util';
 import type { AgentInput } from '../zalo/types/agent-input.type';
+import type { ThreadBotConfig, ThreadDirectInteractionConfig } from '@zalobot/contracts';
 
 export function extractMediaUrl(content: unknown): string | null {
   if (!content) return null;
@@ -89,10 +90,12 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
     this.zcaService = service;
   }
 
-  public onModuleInit(): void {
+  public async onModuleInit(): Promise<void> {
     if (this.moduleRef) {
       if (!this.confirmationService) {
         try {
+          const { TransactionConfirmationService } =
+            await import('../zalo/transaction-confirmation.service');
           this.confirmationService = this.moduleRef.get(TransactionConfirmationService, {
             strict: false,
           });
@@ -104,6 +107,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
       }
       if (!this.textInputService) {
         try {
+          const { TextInputService } = await import('../zalo/text/text-input.service');
           this.textInputService = this.moduleRef.get(TextInputService, { strict: false });
         } catch (err) {
           this.logger.debug(`Could not resolve TextInputService via ModuleRef: ${String(err)}`);
@@ -111,6 +115,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
       }
       if (!this.zcaService) {
         try {
+          const { ZcaService } = await import('./zca.service');
           this.zcaService = this.moduleRef.get(ZcaService, { strict: false });
         } catch (err) {
           this.logger.debug(`Could not resolve ZcaService via ModuleRef: ${String(err)}`);
@@ -121,14 +126,14 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
 
   public async onMessage(message: Message, api: API): Promise<void> {
     const threadId = message.threadId;
-    const config = await this.threadConfigService.getConfig(threadId);
+    const config: ThreadBotConfig = await this.threadConfigService.getConfig(threadId);
 
     if (!config.isListened) {
       this.logger.debug(`[ZcaBotFeature] Ignored message from unlistened thread: ${threadId}`);
       return;
     }
 
-    const directConfig = config.directInteraction ?? {
+    const directConfig: ThreadDirectInteractionConfig = config.directInteraction ?? {
       enabled: true,
       requireMention: message.type === ThreadType.Group,
       triggerPrefix: '',
@@ -264,7 +269,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
 
   public async onReaction(reaction: Reaction, api: API): Promise<void> {
     const threadId = reaction.threadId;
-    const config = await this.threadConfigService.getConfig(threadId);
+    const config: ThreadBotConfig = await this.threadConfigService.getConfig(threadId);
 
     if (!config.isListened || !config.confirmationRules.allowReactions) {
       return;
