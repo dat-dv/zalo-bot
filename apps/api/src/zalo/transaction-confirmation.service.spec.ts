@@ -780,3 +780,128 @@ void test('TransactionConfirmationService confirms pending action via HEART reac
 
   service.clearAll();
 });
+
+void test('TransactionConfirmationService preserves pending action if edit is called without onEdit handler', async () => {
+  const { service, sentMessages } = createTestContext();
+
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 45000,
+      category: 'Ăn uống',
+      note: 'ăn trưa',
+    },
+  });
+
+  const handled = await service.handleCommand('u1', 'c1', `edit ${pending.code} đổi thành 60k`);
+  assert.equal(handled, true);
+
+  // Pending should NOT be deleted if onEdit is not available
+  const lookup = await service.getPendingByCode(pending.code);
+  assert.ok(lookup, 'Pending action must be preserved when onEdit is missing');
+  assert.equal(lookup.code, pending.code);
+
+  const lastMsg = sentMessages[sentMessages.length - 1];
+  assert.match(lastMsg.text, new RegExp(`chưa hỗ trợ tự động điều chỉnh.*${pending.code}`));
+
+  service.clearAll();
+});
+
+void test('TransactionConfirmationService preserves pending action if onEdit throws an error', async () => {
+  const { service, sentMessages } = createTestContext();
+
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 45000,
+      category: 'Ăn uống',
+      note: 'ăn trưa',
+    },
+  });
+
+  const handled = await service.handleCommand(
+    'u1',
+    'c1',
+    `edit ${pending.code} đổi thành 60k`,
+    () => Promise.reject(new Error('AI parsing failed')),
+  );
+  assert.equal(handled, true);
+
+  // Pending should NOT be deleted if onEdit fails
+  const lookup = await service.getPendingByCode(pending.code);
+  assert.ok(lookup, 'Pending action must be preserved when onEdit throws');
+
+  const lastMsg = sentMessages[sentMessages.length - 1];
+  assert.match(lastMsg.text, /Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu.*AI parsing failed/);
+
+  service.clearAll();
+});
+
+void test('TransactionConfirmationService captures messageId from sendMessageWithResult and matches reaction by msgId', async () => {
+  const sentMessages: Array<{ chatId: string | number; text: string }> = [];
+  const createdTransactions: CreateFinanceTransactionDto[] = [];
+
+  const mockZaloService = {
+    sendMessage: (chatId: string | number, text: string) => {
+      sentMessages.push({ chatId, text });
+      return Promise.resolve(true);
+    },
+    sendMessageWithResult: (chatId: string | number, text: string) => {
+      sentMessages.push({ chatId, text });
+      return Promise.resolve({ success: true, msgId: 'bot-msg-888' });
+    },
+  } as unknown as ZaloService;
+
+  const mockFinanceService = {
+    createTransaction: (dto: CreateFinanceTransactionDto) => {
+      createdTransactions.push(dto);
+      return Promise.resolve({ id: 'tx_1', ...dto });
+    },
+  } as unknown as FinanceService;
+
+  const service = new TransactionConfirmationService(
+    mockZaloService,
+    mockFinanceService,
+    {} as unknown as RemindersService,
+    {} as unknown as GoogleTasksService,
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as UsersService,
+    {} as unknown as GoogleAuthService,
+  );
+
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 50000,
+      category: 'Ăn uống',
+      note: 'cơm trưa',
+    },
+  });
+
+  // Check messageId was captured
+  assert.equal(pending.messageId, 'bot-msg-888');
+
+  // React to the message using targetMsgId matching bot-msg-888
+  const reactionResult = await service.handleReaction({
+    chatId: 'c1',
+    userId: 'u1',
+    reactionIcon: '/-heart',
+    msgId: 'bot-msg-888',
+  });
+
+  assert.equal(reactionResult.handled, true);
+  assert.equal(reactionResult.status, 'confirmed');
+  assert.equal(createdTransactions.length, 1);
+  assert.equal(createdTransactions[0].amount, 50000);
+
+  service.clearAll();
+});

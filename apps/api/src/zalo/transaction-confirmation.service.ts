@@ -313,7 +313,14 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       `\n👉 Soạn: edit ${code} <nội dung sửa> (để điều chỉnh)` +
       `\n⏱️ Tự động hết hạn sau 5 phút.`;
 
-    await this.zaloService.sendMessage(params.chatId, msg);
+    if (this.zaloService.sendMessageWithResult) {
+      const sendResult = await this.zaloService.sendMessageWithResult(params.chatId, msg);
+      if (sendResult?.msgId) {
+        await this.setMessageId(code, sendResult.msgId);
+      }
+    } else {
+      await this.zaloService.sendMessage(params.chatId, msg);
+    }
     return pending;
   }
 
@@ -359,9 +366,17 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     }
 
     if (!pending) {
-      // Fallback: pending gần nhất trong chatId
+      // Fallback 1: pending gần nhất trong chatId từ memory
       const list = Array.from(this.pendingMap.values()).filter((p) => p.chatId === params.chatId);
       pending = list[list.length - 1];
+    }
+
+    if (!pending && this.redisService) {
+      // Fallback 2: pending gần nhất của user từ Redis nếu memory trống
+      const userPending = await this.getPendingForUser(params.userId);
+      if (userPending && userPending.chatId === params.chatId) {
+        pending = userPending;
+      }
     }
 
     if (!pending) {
@@ -389,6 +404,14 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       }
       if (!pending.heartUsers.includes(params.userId)) {
         pending.heartUsers.push(params.userId);
+        if (this.redisService) {
+          const ttlSeconds = Math.max(1, Math.ceil((pending.expiresAt - Date.now()) / 1000));
+          await this.redisService.set(
+            `pending:tx:code:${pending.code}`,
+            JSON.stringify(pending),
+            ttlSeconds,
+          );
+        }
       }
 
       const req = pending.requiredHearts || 1;
@@ -776,7 +799,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       await this.deletePending(pending.code, pending.userId);
       await this.zaloService.sendMessage(
         chatId,
-        `⏰ Yêu cầu mã "${pending.code}" đã hết hạn xác nhận (quá 1 phút) và chưa được thực hiện.`,
+        `⏰ Yêu cầu mã "${pending.code}" đã hết hạn xác nhận (quá 5 phút) và chưa được thực hiện.`,
       );
       return true;
     }
@@ -790,25 +813,24 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       return true;
     }
 
-    await this.deletePending(pending.code, pending.userId);
-
-    if (onEdit) {
-      try {
-        await onEdit(pending, trimmedInstruction);
-      } catch (err) {
-        this.logger.error(`Lỗi khi xử lý edit pending action: ${(err as Error).message}`);
-        await this.zaloService.sendMessage(
-          chatId,
-          `⚠️ Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu: ${(err as Error).message}`,
-        );
-      }
+    if (!onEdit) {
+      await this.zaloService.sendMessage(
+        chatId,
+        `⚠️ Hệ thống hiện chưa hỗ trợ tự động điều chỉnh cho yêu cầu mã "${pending.code}". Bạn có thể soạn: yes ${pending.code} (để xác nhận) hoặc: cancel ${pending.code} (để hủy bỏ và tạo lại).`,
+      );
       return true;
     }
 
-    await this.zaloService.sendMessage(
-      chatId,
-      `✏️ Đã nhận yêu cầu điều chỉnh cho mã "${pending.code}": "${trimmedInstruction}".`,
-    );
+    try {
+      await onEdit(pending, trimmedInstruction);
+      await this.deletePending(pending.code, pending.userId);
+    } catch (err) {
+      this.logger.error(`Lỗi khi xử lý edit pending action: ${(err as Error).message}`);
+      await this.zaloService.sendMessage(
+        chatId,
+        `⚠️ Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu: ${(err as Error).message}`,
+      );
+    }
     return true;
   }
 

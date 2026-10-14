@@ -28,24 +28,30 @@ export class ZaloService implements OnModuleInit {
     }
   }
 
-  public async sendMessage(chatId: string | number, text: string): Promise<boolean> {
+  public async sendMessageWithResult(
+    chatId: string | number,
+    text: string,
+  ): Promise<{ success: boolean; msgId?: string }> {
     const targetChatId = String(chatId);
 
     if (!this.token) {
       if (this.zcaService?.isLoggedIn()) {
         try {
-          await this.zcaService.sendMessage(text, targetChatId);
-          this.logger.log(`Successfully sent message via ZCA to chat ${targetChatId}`);
-          return true;
+          const res = await this.zcaService.sendMessage(text, targetChatId);
+          const msgId = res?.message?.msgId ? String(res.message.msgId) : undefined;
+          this.logger.log(
+            `Successfully sent message via ZCA to chat ${targetChatId}${msgId ? ` (msgId: ${msgId})` : ''}`,
+          );
+          return { success: true, msgId };
         } catch (zcaErr) {
           this.logger.error(
             `Failed to send message via ZCA to ${targetChatId}: ${zcaErr instanceof Error ? zcaErr.message : String(zcaErr)}`,
           );
-          return false;
+          return { success: false };
         }
       }
       this.logger.warn(`Zalo token not configured. Outgoing message to ${targetChatId}: "${text}"`);
-      return false;
+      return { success: false };
     }
 
     const entrypoint = ZALO_API_URLS.BOT_SEND_MESSAGE(this.token);
@@ -72,14 +78,17 @@ export class ZaloService implements OnModuleInit {
         error?: number;
         message?: string;
         description?: string;
+        data?: { message_id?: string | number };
+        message_id?: string | number;
       } | null;
 
       if (!response.ok || data?.ok === false || (data?.error !== 0 && data?.error !== undefined)) {
         if (this.zcaService?.isLoggedIn()) {
           try {
-            await this.zcaService.sendMessage(text, targetChatId);
+            const res = await this.zcaService.sendMessage(text, targetChatId);
+            const msgId = res?.message?.msgId ? String(res.message.msgId) : undefined;
             this.logger.log(`Fallback: Successfully sent message via ZCA to chat ${targetChatId}`);
-            return true;
+            return { success: true, msgId };
           } catch {
             // Keep original error log below
           }
@@ -87,15 +96,21 @@ export class ZaloService implements OnModuleInit {
         this.logger.error(
           `Failed to send Zalo message to ${targetChatId}: ${JSON.stringify(data || response.statusText)}`,
         );
-        return false;
+        return { success: false };
       }
 
+      const msgId = data?.data?.message_id ?? data?.message_id;
       this.logger.log(`Successfully sent message to Zalo chat ${targetChatId}`);
-      return true;
+      return { success: true, msgId: msgId !== undefined ? String(msgId) : undefined };
     } catch (err) {
       this.logger.error(`Error sending Zalo message to ${targetChatId}: ${(err as Error).message}`);
-      return false;
+      return { success: false };
     }
+  }
+
+  public async sendMessage(chatId: string | number, text: string): Promise<boolean> {
+    const res = await this.sendMessageWithResult(chatId, text);
+    return res.success;
   }
 
   public async sendChatAction(

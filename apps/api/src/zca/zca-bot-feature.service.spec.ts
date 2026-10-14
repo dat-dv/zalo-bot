@@ -340,3 +340,59 @@ void test('ZcaBotFeatureService processes @bot mention in listened group even if
   );
   assert.equal(processedInput.text, '@Bot xin chào bạn');
 });
+
+void test('ZcaBotFeatureService passes onEdit handler to confirmationService.handleCommand', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'thread-edit-test';
+  await configService.updateConfig(threadId, {
+    isListened: true,
+  });
+
+  let editCalledWithPending: unknown = null;
+  let editCalledWithInstruction = '';
+  const mockTextInputService = {
+    handleEditPendingAction: (_input: AgentInput, pending: unknown, instruction: string) => {
+      editCalledWithPending = pending;
+      editCalledWithInstruction = instruction;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  let passedOnEdit: ((pending: unknown, instruction: string) => Promise<void>) | undefined;
+  const mockConfirmationService = {
+    handleReaction: () => Promise.resolve({ handled: false }),
+    handleCommand: (
+      _senderId: string,
+      _chatId: string,
+      _text: string,
+      onEdit?: (pending: unknown, instruction: string) => Promise<void>,
+    ) => {
+      passedOnEdit = onEdit;
+      return Promise.resolve(true);
+    },
+  } as unknown as TransactionConfirmationService;
+
+  const service = new ZcaBotFeatureService(configService, mockConfirmationService);
+  service.setTextInputService(mockTextInputService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.User,
+    data: {
+      content: 'edit 123 change location to Office',
+      uidFrom: 'user-1',
+      dName: 'User One',
+      msgType: 'chat',
+    },
+  } as unknown as Message;
+
+  await service.onMessage(message, {} as unknown as API);
+  assert.ok(passedOnEdit, 'onEdit should be provided to confirmationService.handleCommand');
+
+  // Invoke the passed onEdit and verify it delegates to textInputService.handleEditPendingAction
+  const fakePending = { code: '123' };
+  await passedOnEdit(fakePending, 'change location to Office');
+  assert.equal(editCalledWithPending, fakePending);
+  assert.equal(editCalledWithInstruction, 'change location to Office');
+});

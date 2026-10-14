@@ -184,7 +184,24 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
 
     // 1. Fast-path: Check if user is confirming or canceling a pending action via text command ("yes 123", "cancel 123", "edit 123 ...")
     if (text && this.confirmationService) {
-      const handled = await this.confirmationService.handleCommand(senderId, threadId, text);
+      const handled = await this.confirmationService.handleCommand(
+        senderId,
+        threadId,
+        text,
+        this.textInputService
+          ? async (pending, instruction) => {
+              const agentInput: AgentInput = {
+                type: 'text',
+                senderId,
+                chatId: threadId,
+                displayName,
+                text,
+                isBot: false,
+              };
+              await this.textInputService.handleEditPendingAction(agentInput, pending, instruction);
+            }
+          : undefined,
+      );
       if (handled) {
         this.logger.log(
           `[ZcaBotFeature] Handled pending confirmation text command: "${text}" in thread ${threadId}`,
