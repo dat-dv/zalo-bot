@@ -33,6 +33,15 @@ export class UserEntity {
   @Column({ type: 'varchar', default: 'active' })
   status: 'active' | 'suspended';
 
+  @Column({ name: 'drive_folder_id', type: 'varchar', nullable: true })
+  driveFolderId?: string;
+
+  @Column({ name: 'drive_folder_url', type: 'varchar', nullable: true })
+  driveFolderUrl?: string;
+
+  @Column({ name: 'drive_folder_path', type: 'varchar', nullable: true })
+  driveFolderPath?: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

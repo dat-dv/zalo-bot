@@ -480,4 +480,30 @@ export class ThreadConfigService implements OnModuleInit {
       );
     }
   }
+
+  public async saveDriveFolderInfo(
+    threadId: string,
+    folderInfo: { folderId?: string; folderUrl?: string; folderPath?: string },
+  ): Promise<void> {
+    try {
+      if (this.threadConfigRepo) {
+        let entity = await this.threadConfigRepo.findOne({ where: { threadId } });
+        if (!entity) {
+          entity = this.threadConfigRepo.create({
+            threadId,
+            threadType: threadId.startsWith('g-') ? 'group' : 'user',
+            isListened: false,
+          });
+        }
+        if (folderInfo.folderId !== undefined) entity.driveFolderId = folderInfo.folderId;
+        if (folderInfo.folderUrl !== undefined) entity.driveFolderUrl = folderInfo.folderUrl;
+        if (folderInfo.folderPath !== undefined) entity.driveFolderPath = folderInfo.folderPath;
+        await this.threadConfigRepo.save(entity);
+      }
+    } catch (err) {
+      this.logger.warn(
+        `[ThreadConfigService] Could not save Drive folder info for thread ${threadId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
 }

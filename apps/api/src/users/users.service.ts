@@ -436,4 +436,27 @@ export class UsersService implements OnModuleInit {
       grantAccess: role === UserRole.ADMIN ? GrantAccessStatus.GRANTED : user.grantAccess,
     });
   }
+
+  public async saveDriveFolderInfo(
+    userId: string | number,
+    folderInfo: { folderId?: string; folderUrl?: string; folderPath?: string },
+  ): Promise<void> {
+    try {
+      const strId = userId.toString();
+      let user = await this.userRepo.findOne({ where: { id: strId } });
+      if (!user) {
+        user = this.userRepo.create({
+          id: strId,
+          role: UserRole.USER,
+          grantAccess: GrantAccessStatus.DENIED,
+        });
+      }
+      if (folderInfo.folderId !== undefined) user.driveFolderId = folderInfo.folderId;
+      if (folderInfo.folderUrl !== undefined) user.driveFolderUrl = folderInfo.folderUrl;
+      if (folderInfo.folderPath !== undefined) user.driveFolderPath = folderInfo.folderPath;
+      await this.userRepo.save(user);
+    } catch (err) {
+      this.logger.warn(`Could not save Drive folder info for user ${userId}: ${(err as Error).message}`);
+    }
+  }
 }
