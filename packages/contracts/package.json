@@ -1,6 +1,6 @@
 {
   "name": "@zalobot/contracts",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -15,6 +15,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint \"src/**/*.ts\" --fix",
+    "lint:check": "eslint \"src/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.ts\" \"*.json\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"*.json\""
   },
