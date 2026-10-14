@@ -35,6 +35,7 @@ import { DeleteTransactionToolStrategy } from './strategies/delete-transaction-t
 import { CreatePlaceToolStrategy } from './strategies/create-place-tool.strategy';
 import { GetStorageLinksToolStrategy } from './strategies/get-storage-links-tool.strategy';
 import { ZaloLoginToolStrategy } from './strategies/zalo-login-tool.strategy';
+import { ShareDriveToolStrategy } from './strategies/share-drive-tool.strategy';
 
 @Injectable()
 export class TextToolFactory {
@@ -73,6 +74,7 @@ export class TextToolFactory {
     createPlaceStrategy?: CreatePlaceToolStrategy,
     getStorageLinksStrategy?: GetStorageLinksToolStrategy,
     zaloLoginStrategy?: ZaloLoginToolStrategy,
+    shareDriveStrategy?: ShareDriveToolStrategy,
     private readonly configService?: ConfigService,
   ) {
     if (startStrategy) this.strategyMap.set(TextToolType.START, startStrategy);
@@ -115,6 +117,7 @@ export class TextToolFactory {
     if (getStorageLinksStrategy)
       this.strategyMap.set(TextToolType.GET_STORAGE_LINKS, getStorageLinksStrategy);
     if (zaloLoginStrategy) this.strategyMap.set(TextToolType.ZALO_LOGIN, zaloLoginStrategy);
+    if (shareDriveStrategy) this.strategyMap.set(TextToolType.SHARE_DRIVE, shareDriveStrategy);
   }
 
   public resolveFastPathToolType(text: string, customBotName?: string): TextToolType | null {
@@ -274,6 +277,19 @@ export class TextToolFactory {
       )
     ) {
       return TextToolType.GET_STORAGE_LINKS;
+    }
+
+    // 18. /share, /share-drive, /sharedrive, @bot share <email>
+    if (
+      trimmed === '/share' ||
+      trimmed.startsWith('/share ') ||
+      trimmed === '/share-drive' ||
+      trimmed.startsWith('/share-drive ') ||
+      trimmed === '/sharedrive' ||
+      trimmed.startsWith('/sharedrive ') ||
+      lower.startsWith('share ')
+    ) {
+      return TextToolType.SHARE_DRIVE;
     }
 
     return null;
