@@ -37,12 +37,15 @@ export function ThreadConfigModal({
           allowAiChat: config.directInteraction?.allowAiChat ?? false,
           allowSelf: config.directInteraction?.allowSelf ?? false,
         },
-        mediaBackup: config.mediaBackup || {
-          enabled: false,
-          uploadImages: false,
-          uploadVideos: false,
-          customFolder: '',
-          fileSuffix: '',
+        mediaBackup: {
+          enabled: config.mediaBackup?.enabled ?? false,
+          uploadImages: config.mediaBackup?.uploadImages ?? false,
+          uploadVideos: config.mediaBackup?.uploadVideos ?? false,
+          uploadFiles: config.mediaBackup?.uploadFiles ?? false,
+          uploadAudios: config.mediaBackup?.uploadAudios ?? false,
+          notifyInThread: config.mediaBackup?.notifyInThread ?? false,
+          customFolder: config.mediaBackup?.customFolder || '',
+          fileSuffix: config.mediaBackup?.fileSuffix || '',
         },
         expenseTracking: config.expenseTracking || {
           enabled: false,
@@ -359,41 +362,109 @@ export function ThreadConfigModal({
               </div>
 
               {form.mediaBackup.enabled && (
-                <div className="mt-3.5 flex flex-col gap-3 pl-7">
-                  <div className="flex items-center gap-6">
-                    <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
-                      <input
-                        checked={form.mediaBackup.uploadImages}
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            mediaBackup: {
-                              ...form.mediaBackup,
-                              uploadImages: e.target.checked,
-                            },
-                          })
-                        }
-                        type="checkbox"
-                      />
-                      Lưu hình ảnh (.jpg, .png)
+                <div className="mt-3.5 flex flex-col gap-3.5 pl-7">
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                      Loại tài nguyên tự động lưu (Mặc định tắt):
                     </label>
-                    <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                    <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                        <input
+                          checked={form.mediaBackup.uploadImages ?? false}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              mediaBackup: {
+                                ...form.mediaBackup,
+                                uploadImages: e.target.checked,
+                              },
+                            })
+                          }
+                          type="checkbox"
+                        />
+                        📸 Lưu hình ảnh (.jpg, .png)
+                      </label>
+                      <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                        <input
+                          checked={form.mediaBackup.uploadVideos ?? false}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              mediaBackup: {
+                                ...form.mediaBackup,
+                                uploadVideos: e.target.checked,
+                              },
+                            })
+                          }
+                          type="checkbox"
+                        />
+                        🎥 Lưu video (.mp4)
+                      </label>
+                      <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                        <input
+                          checked={form.mediaBackup.uploadFiles ?? false}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              mediaBackup: {
+                                ...form.mediaBackup,
+                                uploadFiles: e.target.checked,
+                              },
+                            })
+                          }
+                          type="checkbox"
+                        />
+                        📄 Lưu tài liệu & tệp tin (.pdf, .docx, .xlsx, .zip...)
+                      </label>
+                      <label className="flex items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                        <input
+                          checked={form.mediaBackup.uploadAudios ?? false}
+                          className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              mediaBackup: {
+                                ...form.mediaBackup,
+                                uploadAudios: e.target.checked,
+                              },
+                            })
+                          }
+                          type="checkbox"
+                        />
+                        🎙️ Lưu tin nhắn thoại & âm thanh (.mp3, .aac, .m4a...)
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Toggle: Gửi thông báo trong nhóm */}
+                  <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-2.5">
+                    <div>
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                        Gửi tin nhắn thông báo vào nhóm sau khi lưu
+                      </span>
+                      <p className="text-[10px] text-slate-400">
+                        Mặc định tắt để tránh làm loãng hoặc spam cuộc trò chuyện trong nhóm.
+                      </p>
+                    </div>
+                    <label className="relative inline-flex cursor-pointer items-center">
                       <input
-                        checked={form.mediaBackup.uploadVideos}
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        checked={form.mediaBackup.notifyInThread ?? false}
+                        className="peer sr-only"
                         onChange={(e) =>
                           setForm({
                             ...form,
                             mediaBackup: {
                               ...form.mediaBackup,
-                              uploadVideos: e.target.checked,
+                              notifyInThread: e.target.checked,
                             },
                           })
                         }
                         type="checkbox"
                       />
-                      Lưu video (.mp4)
+                      <div className="peer h-5 w-9 rounded-full bg-slate-300 peer-checked:bg-blue-600 peer-focus:outline-none dark:bg-slate-700 after:absolute after:top-[2px] after:left-[2px] after:size-4 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full" />
                     </label>
                   </div>
 

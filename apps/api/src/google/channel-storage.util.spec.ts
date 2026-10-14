@@ -16,6 +16,8 @@ void test('getChannelDriveFolderPath returns correct subfolder paths using only 
   assert.equal(getChannelDriveFolderPath('g-123', 'bill'), 'zalobot/g-123/bill');
   assert.equal(getChannelDriveFolderPath('g-123', 'image'), 'zalobot/g-123/image');
   assert.equal(getChannelDriveFolderPath('g-123', 'video'), 'zalobot/g-123/video');
+  assert.equal(getChannelDriveFolderPath('g-123', 'file'), 'zalobot/g-123/file');
+  assert.equal(getChannelDriveFolderPath('g-123', 'audio'), 'zalobot/g-123/audio');
   assert.equal(getChannelDriveFolderPath('g-123'), 'zalobot/g-123');
 });
 

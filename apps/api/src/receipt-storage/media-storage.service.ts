@@ -159,10 +159,55 @@ export class MediaStorageService {
   }
 
   /**
+   * Lưu tệp tài liệu / âm thanh lên Google Drive (zalobot/<channelId>/file/YYYY-MM)
+   */
+  public async uploadFile(
+    senderId: string,
+    buffer: Buffer,
+    options?: {
+      note?: string;
+      filename?: string;
+      extension?: string;
+      mimeType?: string;
+      folderPath?: string;
+      suffix?: string;
+      channelId?: string;
+    },
+  ): Promise<DualUploadResult> {
+    const result: DualUploadResult = {};
+    const folderPath =
+      options?.folderPath ||
+      (options?.channelId ? getChannelDriveFolderPath(options.channelId, 'file') : undefined);
+    const driveOptions = { ...options, folderPath };
+
+    if (this.driveService) {
+      try {
+        result.drive = await this.driveService.uploadDocument(buffer, senderId, driveOptions);
+      } catch (err) {
+        result.driveError = (err as Error).message;
+        this.logger.warn(`Failed to upload file to Google Drive: ${result.driveError}`);
+      }
+    }
+    return result;
+  }
+
+  /**
    * Định dạng tin nhắn tóm tắt kết quả lưu trữ Google Drive & Photos cho Zalo
    */
-  public formatUploadSummary(result: DualUploadResult, type: 'bill' | 'image' | 'video'): string {
-    const typeLabel = type === 'bill' ? 'Hóa đơn' : type === 'video' ? 'Video' : 'Hình ảnh';
+  public formatUploadSummary(
+    result: DualUploadResult,
+    type: 'bill' | 'image' | 'video' | 'file' | 'audio',
+  ): string {
+    const typeLabel =
+      type === 'bill'
+        ? 'Hóa đơn'
+        : type === 'video'
+          ? 'Video'
+          : type === 'file'
+            ? 'Tệp tin'
+            : type === 'audio'
+              ? 'Âm thanh'
+              : 'Hình ảnh';
 
     const lines: string[] = [`☁️ ĐÃ LƯU TRỮ ${typeLabel.toUpperCase()} LÊN GOOGLE:`];
 

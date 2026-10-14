@@ -29,6 +29,9 @@ void test('createDefaultThreadConfig creates sensible defaults for group vs user
   assert.equal(groupConfig.mediaBackup.enabled, false);
   assert.equal(groupConfig.mediaBackup.uploadImages, false);
   assert.equal(groupConfig.mediaBackup.uploadVideos, false);
+  assert.equal(groupConfig.mediaBackup.uploadFiles, false);
+  assert.equal(groupConfig.mediaBackup.uploadAudios, false);
+  assert.equal(groupConfig.mediaBackup.notifyInThread, false);
   assert.equal(groupConfig.expenseTracking.enabled, false);
   assert.equal(groupConfig.expenseTracking.requireConfirm, false);
   assert.equal(groupConfig.calendarExtraction.enabled, false);

@@ -20,7 +20,7 @@ export function buildChannelFolder(channelId: string): string {
 
 export function getChannelDriveFolderPath(
   channelId: string,
-  category?: 'bill' | 'image' | 'video',
+  category?: 'bill' | 'image' | 'video' | 'file' | 'audio',
 ): string {
   const channelFolder = buildChannelFolder(channelId);
   if (!category) {

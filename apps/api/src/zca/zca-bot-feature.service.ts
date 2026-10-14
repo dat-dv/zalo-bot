@@ -19,28 +19,44 @@ import { fetchImageBuffer } from '../common/utils/image-fetcher.util';
 import type { AgentInput } from '../zalo/types/agent-input.type';
 import type { ThreadBotConfig, ThreadDirectInteractionConfig } from '@zalobot/contracts';
 
-export function extractMediaUrl(content: unknown): string | null {
-  if (!content) return null;
+export function extractMediaMeta(content: unknown): { url: string | null; filename?: string } {
+  if (!content) return { url: null };
   if (typeof content === 'string') {
     try {
       const parsed: unknown = JSON.parse(content);
-      return extractMediaUrl(parsed);
+      return extractMediaMeta(parsed);
     } catch {
       if (content.startsWith('http://') || content.startsWith('https://')) {
-        return content;
+        return { url: content };
       }
-      return null;
+      return { url: null };
     }
   }
   if (typeof content === 'object') {
     const obj = content as Record<string, unknown>;
-    if (typeof obj.href === 'string') return obj.href;
-    if (typeof obj.url === 'string') return obj.url;
-    if (typeof obj.hdUrl === 'string') return obj.hdUrl;
-    if (typeof obj.thumb === 'string') return obj.thumb;
-    if (typeof obj.link === 'string') return obj.link;
+    const url =
+      (typeof obj.href === 'string' && obj.href) ||
+      (typeof obj.url === 'string' && obj.url) ||
+      (typeof obj.hdUrl === 'string' && obj.hdUrl) ||
+      (typeof obj.thumb === 'string' && obj.thumb) ||
+      (typeof obj.link === 'string' && obj.link) ||
+      (typeof obj.voiceUrl === 'string' && obj.voiceUrl) ||
+      (typeof obj.fileUrl === 'string' && obj.fileUrl) ||
+      null;
+
+    const filename =
+      (typeof obj.title === 'string' && obj.title) ||
+      (typeof obj.fileName === 'string' && obj.fileName) ||
+      (typeof obj.name === 'string' && obj.name) ||
+      undefined;
+
+    return { url, filename };
   }
-  return null;
+  return { url: null };
+}
+
+export function extractMediaUrl(content: unknown): string | null {
+  return extractMediaMeta(content).url;
 }
 
 @Injectable()
@@ -213,31 +229,60 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
     // 2. Feature: Auto Media Backup to Google Drive
     const isImage = msgType === 'chat.photo';
     const isVideo = msgType === 'chat.video.msg';
+    const isFile = msgType === 'sharefile';
+    const isAudio = msgType === 'chat.voice';
 
-    if (
+    const shouldBackup =
       config.mediaBackup.enabled &&
-      ((isImage && config.mediaBackup.uploadImages) || (isVideo && config.mediaBackup.uploadVideos))
-    ) {
-      const mediaUrl = extractMediaUrl(message.data?.content);
+      ((isImage && config.mediaBackup.uploadImages) ||
+        (isVideo && config.mediaBackup.uploadVideos) ||
+        (isFile && config.mediaBackup.uploadFiles) ||
+        (isAudio && config.mediaBackup.uploadAudios));
+
+    if (shouldBackup) {
+      const { url: mediaUrl, filename: originalFilename } = extractMediaMeta(message.data?.content);
       if (mediaUrl && this.mediaStorageService) {
         try {
+          const mediaLabel = isImage
+            ? 'ảnh'
+            : isVideo
+              ? 'video'
+              : isFile
+                ? 'tài liệu/tệp tin'
+                : 'tin nhắn thoại/âm thanh';
+
           this.logger.log(
-            `[ZcaBotFeature] Auto uploading ${isImage ? 'image' : 'video'} to Google Drive with suffix "${config.mediaBackup.fileSuffix || ''}" and folder "${config.mediaBackup.customFolder || ''}"...`,
+            `[ZcaBotFeature] Auto uploading ${mediaLabel} to Google Drive with suffix "${config.mediaBackup.fileSuffix || ''}" and folder "${config.mediaBackup.customFolder || ''}"...`,
           );
           const buffer = await fetchImageBuffer(mediaUrl);
           const uploadOptions = {
             folderPath: config.mediaBackup.customFolder || undefined,
             suffix: config.mediaBackup.fileSuffix || undefined,
             channelId: threadId,
+            filename: originalFilename,
             note: `Tự động sao lưu từ ${displayName || senderId} trong nhóm ${config.threadName || threadId}`,
           };
 
-          const dualResult = isImage
-            ? await this.mediaStorageService.uploadImage(senderId, buffer, uploadOptions)
-            : await this.mediaStorageService.uploadVideo(senderId, buffer, uploadOptions);
+          let dualResult;
+          if (isImage) {
+            dualResult = await this.mediaStorageService.uploadImage(
+              senderId,
+              buffer,
+              uploadOptions,
+            );
+          } else if (isVideo) {
+            dualResult = await this.mediaStorageService.uploadVideo(
+              senderId,
+              buffer,
+              uploadOptions,
+            );
+          } else {
+            dualResult = await this.mediaStorageService.uploadFile(senderId, buffer, uploadOptions);
+          }
 
-          if (dualResult.drive?.webViewLink) {
-            const summary = `📁 Đã tự động lưu trữ ${isImage ? 'ảnh' : 'video'} lên Google Drive!\n👉 Xem tại: ${dualResult.drive.webViewLink}`;
+          // Chỉ gửi thông báo vào nhóm nếu notifyInThread được bật (mặc định tắt)
+          if (config.mediaBackup.notifyInThread && dualResult.drive?.webViewLink) {
+            const summary = `📁 Đã tự động lưu trữ ${mediaLabel} lên Google Drive!\n👉 Xem tại: ${dualResult.drive.webViewLink}`;
             await api.sendMessage(summary, threadId, message.type);
           }
         } catch (err) {

@@ -332,6 +332,47 @@ export class GoogleDriveService {
   }
 
   /**
+   * Tải tệp tin / tài liệu lên Google Drive (zalobot/file/YYYY-MM)
+   */
+  public async uploadDocument(
+    buffer: Buffer,
+    senderId: string,
+    options?: {
+      filename?: string;
+      mimeType?: string;
+      extension?: string;
+      folderPath?: string;
+      suffix?: string;
+      note?: string;
+    },
+    userId?: number | string,
+  ): Promise<DriveUploadResult> {
+    const now = new Date();
+    const ym = this.getYearMonthString(now);
+    const ts = this.getFormattedTimestamp(now);
+    const ext = (options?.extension || 'bin').replace(/^\./, '');
+    const suffix = options?.suffix ? `_${options.suffix.replace(/^_/, '')}` : '';
+    const filename = options?.filename || `file_${ts}_${senderId}${suffix}.${ext}`;
+    const folderPath = options?.folderPath
+      ? options.folderPath.includes(ym)
+        ? options.folderPath
+        : `${options.folderPath}/${ym}`
+      : `${this.rootFolderName}/file/${ym}`;
+
+    return this.uploadFile(
+      {
+        filename,
+        mimeType: options?.mimeType || 'application/octet-stream',
+        content: buffer,
+        folderPath,
+        description: options?.note || `File tài liệu từ người dùng Zalo ID: ${senderId}`,
+        makePublic: true,
+      },
+      userId,
+    );
+  }
+
+  /**
    * Lấy webViewLink của folder theo đường dẫn (ví dụ: zalobot/bill)
    * Trả về https://drive.google.com/drive/folders/{folderId}
    */

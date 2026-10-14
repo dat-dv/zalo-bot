@@ -34,7 +34,7 @@ export class ZcaThreadConfigEntity {
     name: 'media_backup',
     type: 'jsonb',
     default: () =>
-      '\'{"enabled": false, "uploadImages": false, "uploadVideos": false, "customFolder": "", "fileSuffix": ""}\'',
+      '\'{"enabled": false, "uploadImages": false, "uploadVideos": false, "uploadFiles": false, "uploadAudios": false, "notifyInThread": false, "customFolder": "", "fileSuffix": ""}\'',
   })
   mediaBackup: ThreadMediaBackupConfig;
 
