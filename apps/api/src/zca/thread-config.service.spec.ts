@@ -1,17 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import type { Repository } from 'typeorm';
+import type { RedisService } from '../redis/redis.service';
+import type { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 import {
   ThreadConfigService,
   createDefaultThreadConfig,
   sanitizePathSegment,
 } from './thread-config.service';
 
-test('sanitizePathSegment cleans Vietnamese diacritics and special characters', () => {
+void test('sanitizePathSegment cleans Vietnamese diacritics and special characters', () => {
   assert.equal(sanitizePathSegment('Nhóm Kế Toán & Thu Chi'), 'nhom_ke_toan_thu_chi');
   assert.equal(sanitizePathSegment('Đoàn Trí (Gia Đình)'), 'doan_tri_gia_dinh');
 });
 
-test('createDefaultThreadConfig creates sensible defaults for group vs user', () => {
+void test('createDefaultThreadConfig creates sensible defaults for group vs user', () => {
   const groupConfig = createDefaultThreadConfig('g-123456', {
     threadName: 'Team Dev',
     threadType: 'group',
@@ -45,7 +48,7 @@ test('createDefaultThreadConfig creates sensible defaults for group vs user', ()
   assert.equal(userConfig.confirmationRules.allowReactions, false);
 });
 
-test('ThreadConfigService updates and retrieves thread configs', async () => {
+void test('ThreadConfigService updates and retrieves thread configs', async () => {
   const service = new ThreadConfigService();
   const threadId = `test-${Date.now()}`;
 
@@ -86,38 +89,38 @@ test('ThreadConfigService updates and retrieves thread configs', async () => {
   assert.ok(listenedIds.includes(threadId));
 });
 
-test('ThreadConfigService persists to DB repo and syncs to Redis', async () => {
-  const upserted: any[] = [];
+void test('ThreadConfigService persists to DB repo and syncs to Redis', async () => {
+  const upserted: Partial<ZcaThreadConfigEntity>[] = [];
   const redisSetMap = new Map<string, string>();
   const redisMembers = new Set<string>();
 
   const mockRepo = {
-    find: async (): Promise<any[]> => [],
-    findOneBy: async (): Promise<any | null> => null,
-    upsert: async (entity: any): Promise<any> => {
+    find: () => Promise.resolve([] as ZcaThreadConfigEntity[]),
+    findOneBy: () => Promise.resolve(null),
+    upsert: (entity: Partial<ZcaThreadConfigEntity>) => {
       upserted.push(entity);
-      return { identifiers: [] as any[], generatedMaps: [] as any[], raw: [] as any[] };
+      return Promise.resolve({ identifiers: [], generatedMaps: [], raw: [] });
     },
-  } as any;
+  } as unknown as Repository<ZcaThreadConfigEntity>;
 
   const mockRedis = {
     isReady: true,
-    get: async (key: string) => redisSetMap.get(key) || null,
-    set: async (key: string, val: string) => {
+    get: (key: string) => Promise.resolve(redisSetMap.get(key) ?? null),
+    set: (key: string, val: string) => {
       redisSetMap.set(key, val);
-      return true;
+      return Promise.resolve(true);
     },
-    sadd: async (_key: string, ...members: string[]) => {
+    sadd: (_key: string, ...members: string[]) => {
       members.forEach((m) => redisMembers.add(m));
-      return true;
+      return Promise.resolve(members.length);
     },
-    srem: async (_key: string, ...members: string[]) => {
+    srem: (_key: string, ...members: string[]) => {
       members.forEach((m) => redisMembers.delete(m));
-      return true;
+      return Promise.resolve(members.length);
     },
-    smembers: async () => Array.from(redisMembers),
-    sismember: async (_key: string, member: string) => redisMembers.has(member),
-  } as any;
+    smembers: () => Promise.resolve(Array.from(redisMembers)),
+    sismember: (_key: string, member: string) => Promise.resolve(redisMembers.has(member)),
+  } as unknown as RedisService;
 
   const service = new ThreadConfigService(mockRepo, mockRedis);
   await service.onModuleInit();

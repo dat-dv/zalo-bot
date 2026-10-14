@@ -146,4 +146,3 @@ export async function updateZcaThreadConfig(
   );
   return response.data.data.config;
 }
-

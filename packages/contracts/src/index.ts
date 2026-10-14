@@ -1970,4 +1970,3 @@ export type UpdateThreadBotConfigDto = Partial<{
   calendarExtraction: Partial<ThreadCalendarConfig>;
   confirmationRules: Partial<ThreadConfirmationConfig>;
 }>;
-

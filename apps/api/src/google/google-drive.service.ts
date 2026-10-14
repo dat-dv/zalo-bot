@@ -235,7 +235,9 @@ export class GoogleDriveService {
     const suffix = options?.suffix ? `_${options.suffix.replace(/^_/, '')}` : '';
     const filename = `bill_${ts}_${senderId}${suffix}.${ext}`;
     const folderPath = options?.folderPath
-      ? (options.folderPath.includes(ym) ? options.folderPath : `${options.folderPath}/${ym}`)
+      ? options.folderPath.includes(ym)
+        ? options.folderPath
+        : `${options.folderPath}/${ym}`
       : `${this.rootFolderName}/bill/${ym}`;
 
     return this.uploadFile(
@@ -272,7 +274,9 @@ export class GoogleDriveService {
     const suffix = options?.suffix ? `_${options.suffix.replace(/^_/, '')}` : '';
     const filename = `image_${ts}_${senderId}${suffix}.${ext}`;
     const folderPath = options?.folderPath
-      ? (options.folderPath.includes(ym) ? options.folderPath : `${options.folderPath}/${ym}`)
+      ? options.folderPath.includes(ym)
+        ? options.folderPath
+        : `${options.folderPath}/${ym}`
       : `${this.rootFolderName}/image/${ym}`;
 
     return this.uploadFile(
@@ -309,7 +313,9 @@ export class GoogleDriveService {
     const suffix = options?.suffix ? `_${options.suffix.replace(/^_/, '')}` : '';
     const filename = `video_${ts}_${senderId}${suffix}.${ext}`;
     const folderPath = options?.folderPath
-      ? (options.folderPath.includes(ym) ? options.folderPath : `${options.folderPath}/${ym}`)
+      ? options.folderPath.includes(ym)
+        ? options.folderPath
+        : `${options.folderPath}/${ym}`
       : `${this.rootFolderName}/video/${ym}`;
 
     return this.uploadFile(

@@ -106,17 +106,11 @@ export function useZcaThreadConfigQuery(threadId: string | null | undefined) {
 export function useUpdateZcaThreadConfigMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({
-      threadId,
-      data,
-    }: {
-      threadId: string;
-      data: UpdateThreadBotConfigDto;
-    }) => updateZcaThreadConfig(threadId, data),
+    mutationFn: ({ threadId, data }: { threadId: string; data: UpdateThreadBotConfigDto }) =>
+      updateZcaThreadConfig(threadId, data),
     onSuccess: (_, variables) => {
       void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.all() });
       void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.config(variables.threadId) });
     },
   });
 }
-

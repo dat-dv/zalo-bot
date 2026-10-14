@@ -1,8 +1,9 @@
+import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { Zalo, LoginQRCallbackEventType, type LoginQRCallbackEvent } from 'zca-js';
 import { HttpProxyAgent } from 'http-proxy-agent';
-import nodefetch from 'node-fetch';
+import { createFetchPolyfill } from '../src/zca/utils';
 import { projectRoot } from '../src/config/project-root';
 
 dotenv.config({ path: path.resolve(projectRoot(), '.env.local') });
@@ -21,21 +22,7 @@ async function main(): Promise<void> {
     console.log('Direct connection (no proxy configured)');
   }
 
-  const fetchPolyfill = (url: any, opts: any) => {
-    if (agent) {
-      return nodefetch(url, opts).then((res) => {
-        if (
-          typeof (res.headers as any).getSetCookie !== 'function' &&
-          typeof (res.headers as any).raw === 'function'
-        ) {
-          (res.headers as any).getSetCookie = () =>
-            (res.headers as any).raw()['set-cookie'] || [];
-        }
-        return res;
-      });
-    }
-    return globalThis.fetch(url, opts);
-  };
+  const fetchPolyfill = createFetchPolyfill(agent);
 
   const userAgent =
     process.env.ZCA_USER_AGENT ||
@@ -43,7 +30,6 @@ async function main(): Promise<void> {
 
   const zalo = new Zalo({
     agent,
-    // @ts-expect-error polyfill: custom fetch polyfill ensuring getSetCookie
     polyfill: fetchPolyfill,
     selfListen: false,
     checkUpdate: false,
@@ -90,7 +76,6 @@ async function main(): Promise<void> {
             // Auto-save session to .zca-session.json
             try {
               const sessionPath = path.resolve(process.cwd(), '.zca-session.json');
-              const fs = require('fs');
               fs.writeFileSync(
                 sessionPath,
                 JSON.stringify(

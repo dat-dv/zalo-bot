@@ -136,7 +136,10 @@ export function ThreadConfigModal({
             Đang tải thông tin cấu hình...
           </div>
         ) : (
-          <form className="flex flex-col gap-5 p-5 max-h-[75vh] overflow-y-auto" onSubmit={handleSave}>
+          <form
+            className="flex flex-col gap-5 p-5 max-h-[75vh] overflow-y-auto"
+            onSubmit={handleSave}
+          >
             {/* Master Toggle */}
             <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
               <div>
@@ -144,16 +147,15 @@ export function ThreadConfigModal({
                   Kích hoạt Bot lắng nghe (Master Toggle)
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Khi bật, tài khoản Zalo cá nhân sẽ đóng vai trò Bot tiếp nhận và xử lý tin nhắn trong hội thoại này.
+                  Khi bật, tài khoản Zalo cá nhân sẽ đóng vai trò Bot tiếp nhận và xử lý tin nhắn
+                  trong hội thoại này.
                 </p>
               </div>
               <label className="relative inline-flex cursor-pointer items-center">
                 <input
                   checked={form.isListened}
                   className="peer sr-only"
-                  onChange={(e) =>
-                    setForm({ ...form, isListened: e.target.checked })
-                  }
+                  onChange={(e) => setForm({ ...form, isListened: e.target.checked })}
                   type="checkbox"
                 />
                 <div className="peer h-6 w-11 rounded-full bg-slate-300 peer-checked:bg-emerald-600 peer-focus:outline-none dark:bg-slate-700 after:absolute after:top-[2px] after:left-[2px] after:size-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full" />
@@ -170,7 +172,8 @@ export function ThreadConfigModal({
                       Tương tác Bot trực tiếp (AI Trợ lý & Lệnh bot)
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Cho phép trò chuyện, hỏi đáp AI, thực hiện lệnh tra cứu và xử lý yêu cầu trực tiếp
+                      Cho phép trò chuyện, hỏi đáp AI, thực hiện lệnh tra cứu và xử lý yêu cầu trực
+                      tiếp
                     </p>
                   </div>
                 </div>
@@ -235,7 +238,8 @@ export function ThreadConfigModal({
                         Cho phép AI trò chuyện tự do (Chit-chat)
                       </span>
                       <p className="text-[10px] text-slate-400">
-                        AI sẽ phản hồi tự nhiên cho các câu hỏi tổng quát ngoài các tác vụ tài chính/lịch
+                        AI sẽ phản hồi tự nhiên cho các câu hỏi tổng quát ngoài các tác vụ tài
+                        chính/lịch
                       </p>
                     </div>
                     <label className="relative inline-flex cursor-pointer items-center">
@@ -265,7 +269,8 @@ export function ThreadConfigModal({
                         Phản hồi tin nhắn tự gửi (Self-listen / isSelf)
                       </span>
                       <p className="text-[10px] text-slate-400">
-                        Cho phép bot phản hồi tin nhắn gửi từ chính tài khoản Zalo của bot (hữu ích khi bạn tự nhắn tin để test bot)
+                        Cho phép bot phản hồi tin nhắn gửi từ chính tài khoản Zalo của bot (hữu ích
+                        khi bạn tự nhắn tin để test bot)
                       </p>
                     </div>
                     <label className="relative inline-flex cursor-pointer items-center">
@@ -513,7 +518,8 @@ export function ThreadConfigModal({
                       Phân tích tin nhắn tạo lịch hẹn (Calendar)
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Tự động phát hiện cuộc hẹn, deadline, lịch họp và gợi ý thêm vào Google Calendar
+                      Tự động phát hiện cuộc hẹn, deadline, lịch họp và gợi ý thêm vào Google
+                      Calendar
                     </p>
                   </div>
                 </div>

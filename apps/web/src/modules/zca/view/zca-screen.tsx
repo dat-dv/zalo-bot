@@ -144,26 +144,6 @@ export function ZcaScreen() {
     void refetchStatus();
   };
 
-  const handleSelectAllVisible = async (visibleThreadIds: string[]) => {
-    const currentListened = new Set(threads.filter((t) => t.isListened).map((t) => t.id));
-    for (const id of visibleThreadIds) {
-      currentListened.add(id);
-    }
-    await setListenedMutation.mutateAsync(Array.from(currentListened));
-    void refetchStatus();
-  };
-
-  const handleDeselectAll = async () => {
-    if (
-      confirm(
-        'Bạn có chắc chắn muốn bỏ chọn tất cả? Bot sẽ tạm thời lắng nghe mọi tin nhắn nếu danh sách trống.',
-      )
-    ) {
-      await setListenedMutation.mutateAsync([]);
-      void refetchStatus();
-    }
-  };
-
   const handleAddManualId = async (e: React.FormEvent) => {
     e.preventDefault();
     const id = manualId.trim();

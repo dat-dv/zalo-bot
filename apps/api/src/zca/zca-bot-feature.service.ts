@@ -1,13 +1,13 @@
 import { Injectable, Logger, Optional, Inject, OnModuleInit } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ThreadConfigService } from './thread-config.service';
-import type { TransactionConfirmationService } from '../zalo/transaction-confirmation.service';
+import { TransactionConfirmationService } from '../zalo/transaction-confirmation.service';
 import { MediaStorageService } from '../receipt-storage/media-storage.service';
-import type { TextInputService } from '../zalo/text/text-input.service';
+import { TextInputService } from '../zalo/text/text-input.service';
+import { ZcaService } from './zca.service';
 import type { ZcaPlugin } from './zca.interfaces';
 import {
   ThreadType,
-  Reactions,
   type API,
   type Message,
   type Reaction,
@@ -21,7 +21,7 @@ export function extractMediaUrl(content: unknown): string | null {
   if (!content) return null;
   if (typeof content === 'string') {
     try {
-      const parsed = JSON.parse(content);
+      const parsed: unknown = JSON.parse(content);
       return extractMediaUrl(parsed);
     } catch {
       if (content.startsWith('http://') || content.startsWith('https://')) {
@@ -51,7 +51,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
   private readonly mediaStorageService?: MediaStorageService;
   private confirmationService?: TransactionConfirmationService;
   private textInputService?: TextInputService;
-  private zcaService?: any;
+  private zcaService?: ZcaService;
 
   constructor(
     private readonly threadConfigService: ThreadConfigService,
@@ -85,7 +85,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
     this.textInputService = service;
   }
 
-  public setZcaService(service: any): void {
+  public setZcaService(service: ZcaService): void {
     this.zcaService = service;
   }
 
@@ -93,32 +93,27 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
     if (this.moduleRef) {
       if (!this.confirmationService) {
         try {
-          const {
-            TransactionConfirmationService,
-          } = require('../zalo/transaction-confirmation.service');
           this.confirmationService = this.moduleRef.get(TransactionConfirmationService, {
             strict: false,
           });
         } catch (err) {
           this.logger.debug(
-            `Could not resolve TransactionConfirmationService via ModuleRef: ${err}`,
+            `Could not resolve TransactionConfirmationService via ModuleRef: ${String(err)}`,
           );
         }
       }
       if (!this.textInputService) {
         try {
-          const { TextInputService } = require('../zalo/text/text-input.service');
           this.textInputService = this.moduleRef.get(TextInputService, { strict: false });
         } catch (err) {
-          this.logger.debug(`Could not resolve TextInputService via ModuleRef: ${err}`);
+          this.logger.debug(`Could not resolve TextInputService via ModuleRef: ${String(err)}`);
         }
       }
       if (!this.zcaService) {
         try {
-          const { ZcaService } = require('./zca.service');
           this.zcaService = this.moduleRef.get(ZcaService, { strict: false });
         } catch (err) {
-          this.logger.debug(`Could not resolve ZcaService via ModuleRef: ${err}`);
+          this.logger.debug(`Could not resolve ZcaService via ModuleRef: ${String(err)}`);
         }
       }
     }
@@ -148,7 +143,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
         );
         return;
       }
-      if (this.zcaService?.isBotSentMessage?.(message)) {
+      if (this.zcaService?.isBotSentMessage(message)) {
         this.logger.debug(
           `[ZcaBotFeature] Ignored message originated by bot backend itself in thread ${threadId}`,
         );

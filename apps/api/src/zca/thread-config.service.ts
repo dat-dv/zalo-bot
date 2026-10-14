@@ -100,8 +100,7 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
     confirmationRules: {
       allowReactions: entity.confirmationRules?.allowReactions ?? false,
       requiredHearts:
-        entity.confirmationRules?.requiredHearts ??
-        (entity.threadType === 'group' ? 5 : 1),
+        entity.confirmationRules?.requiredHearts ?? (entity.threadType === 'group' ? 5 : 1),
       timeoutMinutes: entity.confirmationRules?.timeoutMinutes ?? 5,
     },
     updatedAt: entity.updatedAt ? new Date(entity.updatedAt).getTime() : Date.now(),

@@ -710,7 +710,7 @@ void test('TransactionConfirmationService cancels pending action via ANGRY react
 });
 
 void test('TransactionConfirmationService confirms pending action via HEART reactions threshold', async () => {
-  const { service, createdTransactions, sentMessages } = createTestContext();
+  const { service, createdTransactions } = createTestContext();
 
   const pending = await service.createPendingAction({
     userId: 'u1',

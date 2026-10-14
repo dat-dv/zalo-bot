@@ -55,8 +55,7 @@ export class ZcaThreadConfigEntity {
   @Column({
     name: 'confirmation_rules',
     type: 'jsonb',
-    default: () =>
-      '\'{"allowReactions": false, "requiredHearts": 1, "timeoutMinutes": 5}\'',
+    default: () => '\'{"allowReactions": false, "requiredHearts": 1, "timeoutMinutes": 5}\'',
   })
   confirmationRules: ThreadConfirmationConfig;
 

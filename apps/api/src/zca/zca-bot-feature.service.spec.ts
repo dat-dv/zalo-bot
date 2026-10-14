@@ -2,9 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ZcaBotFeatureService, extractMediaUrl } from './zca-bot-feature.service';
 import { ThreadConfigService } from './thread-config.service';
-import { ThreadType } from './shapes';
+import { ThreadType, type API, type Message, type Reaction } from './shapes';
+import type { TransactionConfirmationService } from '../zalo/transaction-confirmation.service';
+import type { TextInputService } from '../zalo/text/text-input.service';
+import type { ZcaService } from './zca.service';
+import type { AgentInput } from '../zalo/types/agent-input.type';
 
-test('extractMediaUrl extracts url correctly from string or json or object', () => {
+void test('extractMediaUrl extracts url correctly from string or json or object', () => {
   assert.equal(extractMediaUrl('https://example.com/image.png'), 'https://example.com/image.png');
   assert.equal(
     extractMediaUrl(JSON.stringify({ href: 'https://example.com/parsed.jpg' })),
@@ -17,19 +21,19 @@ test('extractMediaUrl extracts url correctly from string or json or object', () 
   assert.equal(extractMediaUrl(null), null);
 });
 
-test('ZcaBotFeatureService ignores messages from unlistened threads', async () => {
+void test('ZcaBotFeatureService ignores messages from unlistened threads', async () => {
   const configService = new ThreadConfigService();
   const service = new ZcaBotFeatureService(configService);
 
   let sentMessage = '';
   const mockApi = {
-    sendMessage: (content: any) => {
+    sendMessage: (content: string | { msg: string }) => {
       sentMessage = typeof content === 'string' ? content : content.msg;
       return Promise.resolve({ message: { msgId: 1 }, attachment: [] });
     },
-  };
+  } as unknown as API;
 
-  const message: any = {
+  const message = {
     threadId: 'unlistened-123',
     isSelf: false,
     type: ThreadType.Group,
@@ -38,13 +42,13 @@ test('ZcaBotFeatureService ignores messages from unlistened threads', async () =
       uidFrom: 'u1',
       msgType: 'chat',
     },
-  };
+  } as unknown as Message;
 
-  await service.onMessage(message, mockApi as any);
+  await service.onMessage(message, mockApi);
   assert.equal(sentMessage, '');
 });
 
-test('ZcaBotFeatureService dispatches reaction confirmations', async () => {
+void test('ZcaBotFeatureService dispatches reaction confirmations', async () => {
   const configService = new ThreadConfigService();
   const threadId = `reaction-thread-${Date.now()}`;
   await configService.updateConfig(threadId, {
@@ -56,31 +60,37 @@ test('ZcaBotFeatureService dispatches reaction confirmations', async () => {
     },
   });
 
-  let reactionHandledArgs: any = null;
-  const mockConfirmationService: any = {
-    handleReaction: (args: any) => {
+  interface ReactionArgs {
+    chatId: string;
+    userId: string;
+    reactionIcon: string;
+    msgId?: string;
+  }
+  let reactionHandledArgs: ReactionArgs | null = null;
+  const mockConfirmationService = {
+    handleReaction: (args: ReactionArgs) => {
       reactionHandledArgs = args;
       return Promise.resolve({
         handled: true,
-        status: 'heart_added',
+        status: 'heart_added' as const,
         currentHearts: 1,
         requiredHearts: 2,
         code: '555',
       });
     },
-  };
+  } as unknown as TransactionConfirmationService;
 
   const service = new ZcaBotFeatureService(configService, mockConfirmationService);
 
   const sentReplies: string[] = [];
   const mockApi = {
-    sendMessage: (msg: any) => {
+    sendMessage: (msg: string | { msg: string }) => {
       sentReplies.push(typeof msg === 'string' ? msg : msg.msg);
       return Promise.resolve({ message: { msgId: 2 }, attachment: [] });
     },
-  };
+  } as unknown as API;
 
-  const reaction: any = {
+  const reaction = {
     threadId,
     isSelf: false,
     isGroup: true,
@@ -91,9 +101,9 @@ test('ZcaBotFeatureService dispatches reaction confirmations', async () => {
         rMsg: [{ gMsgID: 'msg-999', cMsgID: 'c-999', msgType: 1 }],
       },
     },
-  };
+  } as unknown as Reaction;
 
-  await service.onReaction(reaction, mockApi as any);
+  await service.onReaction(reaction, mockApi);
 
   assert.ok(reactionHandledArgs);
   assert.equal(reactionHandledArgs.chatId, threadId);
@@ -103,7 +113,7 @@ test('ZcaBotFeatureService dispatches reaction confirmations', async () => {
   assert.match(sentReplies[0], /1\/2 lượt thả tim/);
 });
 
-test('ZcaBotFeatureService ignores isSelf message when allowSelf is false', async () => {
+void test('ZcaBotFeatureService ignores isSelf message when allowSelf is false', async () => {
   const configService = new ThreadConfigService();
   const threadId = 'self-thread-1';
   await configService.updateConfig(threadId, {
@@ -115,18 +125,18 @@ test('ZcaBotFeatureService ignores isSelf message when allowSelf is false', asyn
     },
   });
 
-  let processedInput: any = null;
-  const mockTextInputService: any = {
-    process: (input: any) => {
+  let processedInput: AgentInput | null = null;
+  const mockTextInputService = {
+    process: (input: AgentInput) => {
       processedInput = input;
       return Promise.resolve();
     },
-  };
+  } as unknown as TextInputService;
 
   const service = new ZcaBotFeatureService(configService);
   service.setTextInputService(mockTextInputService);
 
-  const message: any = {
+  const message = {
     threadId,
     isSelf: true,
     type: ThreadType.User,
@@ -135,13 +145,13 @@ test('ZcaBotFeatureService ignores isSelf message when allowSelf is false', asyn
       uidFrom: 'owner-id',
       msgType: 'chat',
     },
-  };
+  } as unknown as Message;
 
-  await service.onMessage(message, {} as any);
+  await service.onMessage(message, {} as unknown as API);
   assert.equal(processedInput, null, 'Message should have been ignored because allowSelf is false');
 });
 
-test('ZcaBotFeatureService processes isSelf message when allowSelf is true and message not from bot itself', async () => {
+void test('ZcaBotFeatureService processes isSelf message when allowSelf is true and message not from bot itself', async () => {
   const configService = new ThreadConfigService();
   const threadId = 'self-thread-2';
   await configService.updateConfig(threadId, {
@@ -153,23 +163,23 @@ test('ZcaBotFeatureService processes isSelf message when allowSelf is true and m
     },
   });
 
-  let processedInput: any = null;
-  const mockTextInputService: any = {
-    process: (input: any) => {
+  let processedInput: AgentInput | null = null;
+  const mockTextInputService = {
+    process: (input: AgentInput) => {
       processedInput = input;
       return Promise.resolve();
     },
-  };
+  } as unknown as TextInputService;
 
-  const mockZcaService: any = {
+  const mockZcaService = {
     isBotSentMessage: () => false,
-  };
+  } as unknown as ZcaService;
 
   const service = new ZcaBotFeatureService(configService);
   service.setTextInputService(mockTextInputService);
   service.setZcaService(mockZcaService);
 
-  const message: any = {
+  const message = {
     threadId,
     isSelf: true,
     type: ThreadType.User,
@@ -179,15 +189,15 @@ test('ZcaBotFeatureService processes isSelf message when allowSelf is true and m
       dName: 'Văn Đạt',
       msgType: 'chat',
     },
-  };
+  } as unknown as Message;
 
-  await service.onMessage(message, {} as any);
+  await service.onMessage(message, {} as unknown as API);
   assert.ok(processedInput, 'Message should have been processed because allowSelf is true');
   assert.equal(processedInput.text, '@Bot hi');
   assert.equal(processedInput.displayName, 'Văn Đạt');
 });
 
-test('ZcaBotFeatureService drops isSelf message when allowSelf is true but originated by bot process (loop prevention)', async () => {
+void test('ZcaBotFeatureService drops isSelf message when allowSelf is true but originated by bot process (loop prevention)', async () => {
   const configService = new ThreadConfigService();
   const threadId = 'self-thread-3';
   await configService.updateConfig(threadId, {
@@ -199,23 +209,23 @@ test('ZcaBotFeatureService drops isSelf message when allowSelf is true but origi
     },
   });
 
-  let processedInput: any = null;
-  const mockTextInputService: any = {
-    process: (input: any) => {
+  let processedInput: AgentInput | null = null;
+  const mockTextInputService = {
+    process: (input: AgentInput) => {
       processedInput = input;
       return Promise.resolve();
     },
-  };
+  } as unknown as TextInputService;
 
-  const mockZcaService: any = {
+  const mockZcaService = {
     isBotSentMessage: () => true, // Identified as bot reply
-  };
+  } as unknown as ZcaService;
 
   const service = new ZcaBotFeatureService(configService);
   service.setTextInputService(mockTextInputService);
   service.setZcaService(mockZcaService);
 
-  const message: any = {
+  const message = {
     threadId,
     isSelf: true,
     type: ThreadType.User,
@@ -224,9 +234,8 @@ test('ZcaBotFeatureService drops isSelf message when allowSelf is true but origi
       uidFrom: 'owner-id',
       msgType: 'chat',
     },
-  };
+  } as unknown as Message;
 
-  await service.onMessage(message, {} as any);
+  await service.onMessage(message, {} as unknown as API);
   assert.equal(processedInput, null, 'Message should have been dropped to prevent infinite loop');
 });
-

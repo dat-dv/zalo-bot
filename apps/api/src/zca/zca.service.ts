@@ -876,7 +876,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     }
 
     // 2. Reuse in-flight fetch promise if concurrent requests arrive
-    if (this.pendingThreadsFetchPromise) {
+    if (this.pendingThreadsFetchPromise !== null) {
       const inFlight = await this.pendingThreadsFetchPromise;
       return inFlight.map((t) => ({
         ...t,
@@ -898,21 +898,27 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
             const rawGroups = groups as Record<string, unknown>;
             if (Array.isArray(groups)) {
               groupIds = groups
-                .map((g: Record<string, unknown>) => String(g.groupId ?? g.id ?? ''))
+                .map((g: Record<string, unknown>) => {
+                  const idVal = g.groupId ?? g.id;
+                  return typeof idVal === 'string' || typeof idVal === 'number'
+                    ? String(idVal)
+                    : '';
+                })
                 .filter(Boolean);
             } else if (rawGroups.gridVerMap && typeof rawGroups.gridVerMap === 'object') {
               groupIds = Object.keys(rawGroups.gridVerMap);
             } else {
               groupIds = Object.values(rawGroups)
-                .map((g: unknown) =>
-                  typeof g === 'object' && g
-                    ? String(
-                        (g as Record<string, unknown>).groupId ??
-                          (g as Record<string, unknown>).id ??
-                          '',
-                      )
-                    : '',
-                )
+                .map((g: unknown) => {
+                  if (typeof g === 'object' && g !== null) {
+                    const rec = g as Record<string, unknown>;
+                    const idVal = rec.groupId ?? rec.id;
+                    return typeof idVal === 'string' || typeof idVal === 'number'
+                      ? String(idVal)
+                      : '';
+                  }
+                  return '';
+                })
                 .filter(Boolean);
             }
 
