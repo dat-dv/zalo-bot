@@ -835,7 +835,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
               this.logger.log(`[ZCA QR] 👉 Số lượng Cookie: ${cookieCount}`);
               this.logger.log('='.repeat(65));
 
-              this.saveSessionToFile({
+              void this.saveSessionToFile({
                 imei: event.data.imei,
                 cookie: event.data.cookie,
                 userAgent: event.data.userAgent,
