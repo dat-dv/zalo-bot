@@ -46,9 +46,9 @@ services:
         required: false
     environment:
       BE_PORT: ${BE_PORT:-3005}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-zalobot}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zalobot}}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-zalobot}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zalobot}
       DATABASE_SSL: ${DATABASE_SSL:-false}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      REDIS_URL: redis://redis:6379
       TYPEORM_SYNCHRONIZE: ${TYPEORM_SYNCHRONIZE:-false}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
@@ -58,7 +58,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ['CMD-SHELL', 'curl -f http://localhost:$${BE_PORT:-3005}/health || exit 1']
+      test: ['CMD-SHELL', 'curl -f http://127.0.0.1:${BE_PORT:-3005}/health || exit 1']
       interval: 10s
       timeout: 5s
       retries: 5
