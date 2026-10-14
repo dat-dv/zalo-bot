@@ -228,6 +228,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
           const uploadOptions = {
             folderPath: config.mediaBackup.customFolder || undefined,
             suffix: config.mediaBackup.fileSuffix || undefined,
+            channelId: threadId,
             note: `Tự động sao lưu từ ${displayName || senderId} trong nhóm ${config.threadName || threadId}`,
           };
 
@@ -270,8 +271,10 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
       // In group chats: check whether this is a direct interaction call to the bot
       let isDirectTriggered = !isGroup;
       if (isGroup) {
+        const requireMention =
+          directConfig.requireMention !== undefined ? directConfig.requireMention : true;
         if (directConfig.enabled) {
-          if (!directConfig.requireMention) {
+          if (!requireMention) {
             isDirectTriggered = true;
           } else {
             isDirectTriggered = Boolean(hasMention || hasPrefix);
@@ -309,6 +312,9 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
         displayName,
         text,
         isBot: false,
+        passiveOnly: isGroup && !isDirectTriggered,
+        allowAiChat: directConfig.allowAiChat ?? true,
+        triggerPrefix: directConfig.triggerPrefix || undefined,
       };
 
       try {

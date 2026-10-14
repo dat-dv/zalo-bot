@@ -49,7 +49,9 @@ export class StorageUploadPendingImageStrategy implements PendingImageStrategy {
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
         const buffer = await fetchImageBuffer(url);
-        const dualResult = await this.mediaStorageService.uploadImage(context.senderId, buffer);
+        const dualResult = await this.mediaStorageService.uploadImage(context.senderId, buffer, {
+          channelId: context.chatId,
+        });
         const summary = this.mediaStorageService.formatUploadSummary(dualResult, 'image');
         const prefix = total > 1 ? `[Ảnh ${i + 1}/${total}]\n` : '';
         await this.zaloService.sendMessage(context.chatId, `${prefix}${summary}`);

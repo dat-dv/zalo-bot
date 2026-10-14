@@ -396,3 +396,109 @@ void test('ZcaBotFeatureService passes onEdit handler to confirmationService.han
   assert.equal(editCalledWithPending, fakePending);
   assert.equal(editCalledWithInstruction, 'change location to Office');
 });
+
+void test('ZcaBotFeatureService sets passiveOnly=true for group message without @bot or prefix when expenseTracking is enabled', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-passive-tracking-test';
+  await configService.updateConfig(threadId, {
+    isListened: true,
+    directInteraction: {
+      enabled: false,
+      requireMention: true,
+      triggerPrefix: '!',
+    },
+    expenseTracking: {
+      enabled: true,
+      requireConfirm: false,
+    },
+  });
+
+  let processedInput: AgentInput | null = null;
+  const mockTextInputService = {
+    process: (input: AgentInput) => {
+      processedInput = input;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setTextInputService(mockTextInputService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.Group,
+    data: {
+      content: 'hello bot',
+      uidFrom: 'member-1',
+      dName: 'Thành viên',
+      msgType: 'chat',
+    },
+  } as unknown as Message;
+
+  await service.onMessage(message, {} as unknown as API);
+  assert.ok(processedInput, 'Message should be forwarded for passive expense detection');
+  assert.equal(processedInput.passiveOnly, true, 'passiveOnly must be true so bot will not chit-chat');
+});
+
+void test('ZcaBotFeatureService sets passiveOnly=false when message uses custom prefix or @bot', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-prefix-test';
+  await configService.updateConfig(threadId, {
+    isListened: true,
+    directInteraction: {
+      enabled: true,
+      requireMention: true,
+      triggerPrefix: '!',
+      allowAiChat: true,
+    },
+  });
+
+  let processedInputs: AgentInput[] = [];
+  const mockTextInputService = {
+    process: (input: AgentInput) => {
+      processedInputs.push(input);
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setTextInputService(mockTextInputService);
+
+  // 1. Message with custom prefix "!"
+  await service.onMessage(
+    {
+      threadId,
+      isSelf: false,
+      type: ThreadType.Group,
+      data: {
+        content: '!ăn trưa 50k',
+        uidFrom: 'u1',
+        dName: 'User 1',
+        msgType: 'chat',
+      },
+    } as unknown as Message,
+    {} as unknown as API,
+  );
+
+  // 2. Message with @Bot (even though prefix "!" is configured, @Bot still works!)
+  await service.onMessage(
+    {
+      threadId,
+      isSelf: false,
+      type: ThreadType.Group,
+      data: {
+        content: '@Bot ê',
+        uidFrom: 'u2',
+        dName: 'User 2',
+        msgType: 'chat',
+      },
+    } as unknown as Message,
+    {} as unknown as API,
+  );
+
+  assert.equal(processedInputs.length, 2);
+  assert.equal(processedInputs[0].passiveOnly, false);
+  assert.equal(processedInputs[0].triggerPrefix, '!');
+  assert.equal(processedInputs[1].passiveOnly, false);
+});

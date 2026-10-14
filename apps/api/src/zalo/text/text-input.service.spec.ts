@@ -925,3 +925,69 @@ void test('TextInputService cancels all pending actions when user sends "cancel 
 
   confirmationService.clearAll();
 });
+
+void test('TextInputService remains completely silent when passiveOnly=true and no tool was called', async () => {
+  const { service, sentMessages } = createTextInputService({
+    llmResponse: {
+      text: 'Chào bạn! Mình có thể giúp gì cho bạn hôm nay?',
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'g1',
+    displayName: 'Thành viên',
+    text: 'hello bot',
+    passiveOnly: true,
+  });
+
+  assert.equal(sentMessages.length, 0, 'Bot must not send any message in passive mode when no tool called');
+});
+
+void test('TextInputService executes tool when passiveOnly=true and LLM calls RECORD_TRANSACTION', async () => {
+  const { service, sentMessages } = createTextInputService({
+    llmResponse: {
+      toolCall: {
+        name: TextToolType.RECORD_TRANSACTION,
+        args: {
+          type: 'expense',
+          amount: 45000,
+          category: 'Ăn uống',
+          note: 'ăn phở',
+        },
+      },
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'g1',
+    displayName: 'Thành viên',
+    text: 'ăn phở 45k',
+    passiveOnly: true,
+  });
+
+  assert.equal(sentMessages.length, 1, 'Bot must process expense tool in passive mode');
+  assert.match(sentMessages[0].text, /45\.000/);
+});
+
+void test('TextInputService remains silent when allowAiChat=false and LLM returns conversational response', async () => {
+  const { service, sentMessages } = createTextInputService({
+    llmResponse: {
+      text: 'Tôi là trợ lý AI thông minh!',
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'User',
+    text: 'Bạn là ai?',
+    allowAiChat: false,
+  });
+
+  assert.equal(sentMessages.length, 0, 'Bot must remain silent when allowAiChat is false');
+});

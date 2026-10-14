@@ -23,6 +23,7 @@ void test('createDefaultThreadConfig creates sensible defaults for group vs user
   assert.equal(groupConfig.threadType, 'group');
   assert.equal(groupConfig.isListened, false);
   assert.equal(groupConfig.directInteraction.enabled, false);
+  assert.equal(groupConfig.directInteraction.requireMention, true);
   assert.equal(groupConfig.directInteraction.allowAiChat, false);
   assert.equal(groupConfig.directInteraction.allowSelf, false);
   assert.equal(groupConfig.mediaBackup.enabled, false);
@@ -43,6 +44,7 @@ void test('createDefaultThreadConfig creates sensible defaults for group vs user
   assert.equal(userConfig.threadType, 'user');
   assert.equal(userConfig.confirmationRules.requiredHearts, 1);
   assert.equal(userConfig.directInteraction.enabled, false);
+  assert.equal(userConfig.directInteraction.requireMention, false);
   assert.equal(userConfig.expenseTracking.enabled, false);
   assert.equal(userConfig.calendarExtraction.enabled, false);
   assert.equal(userConfig.confirmationRules.allowReactions, false);

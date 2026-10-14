@@ -186,6 +186,7 @@ export class InputProcessor implements OnModuleDestroy {
       const note = input.caption || input.text || '';
       const dualResult = await this.mediaStorageService.uploadVideo(input.senderId, buffer, {
         note,
+        channelId: targetChatId,
       });
       const summary = this.mediaStorageService.formatUploadSummary(dualResult, 'video');
       await this.zaloService.sendMessage(targetChatId, summary);

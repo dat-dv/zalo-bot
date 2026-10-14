@@ -53,6 +53,7 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
         try {
           const uploadResult = await this.mediaStorageService.uploadBill(context.senderId, buffer, {
             note: userNote,
+            channelId: context.chatId,
           });
           if (uploadResult.drive?.webViewLink) {
             activeReceiptUrl = uploadResult.drive.webViewLink;

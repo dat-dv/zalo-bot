@@ -40,7 +40,7 @@ export function createDefaultThreadConfig(
     isListened: params?.isListened ?? false,
     directInteraction: {
       enabled: false,
-      requireMention: false,
+      requireMention: isGroup,
       triggerPrefix: '',
       allowAiChat: false,
       allowSelf: false,
@@ -70,6 +70,7 @@ export function createDefaultThreadConfig(
 }
 
 export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
+  const isGroup = entity.threadType === 'group' || entity.threadId.startsWith('g-');
   return {
     threadId: entity.threadId,
     threadName: entity.threadName || undefined,
@@ -77,7 +78,10 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
     isListened: Boolean(entity.isListened),
     directInteraction: {
       enabled: entity.directInteraction?.enabled ?? false,
-      requireMention: entity.directInteraction?.requireMention ?? false,
+      requireMention:
+        entity.directInteraction?.requireMention !== undefined
+          ? entity.directInteraction.requireMention
+          : isGroup,
       triggerPrefix: entity.directInteraction?.triggerPrefix || '',
       allowAiChat: entity.directInteraction?.allowAiChat ?? false,
       allowSelf: entity.directInteraction?.allowSelf ?? false,
