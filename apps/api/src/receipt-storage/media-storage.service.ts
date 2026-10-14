@@ -60,7 +60,12 @@ export class MediaStorageService {
   public async uploadImage(
     senderId: string,
     buffer: Buffer,
-    options?: { note?: string; extension?: string },
+    options?: {
+      note?: string;
+      extension?: string;
+      folderPath?: string;
+      suffix?: string;
+    },
   ): Promise<DualUploadResult> {
     const result: DualUploadResult = {};
 
@@ -96,7 +101,12 @@ export class MediaStorageService {
   public async uploadVideo(
     senderId: string,
     buffer: Buffer,
-    options?: { note?: string; extension?: string },
+    options?: {
+      note?: string;
+      extension?: string;
+      folderPath?: string;
+      suffix?: string;
+    },
   ): Promise<DualUploadResult> {
     const result: DualUploadResult = {};
 

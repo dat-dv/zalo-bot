@@ -1,13 +1,19 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ZALO_API_URLS } from './zalo.constants';
+import { ZcaService } from '../zca/zca.service';
 
 @Injectable()
 export class ZaloService implements OnModuleInit {
   private readonly logger = new Logger(ZaloService.name);
   private token: string | null = null;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    @Optional()
+    @Inject(forwardRef(() => ZcaService))
+    private readonly zcaService?: ZcaService,
+  ) {
     this.token = this.configService.get<string>('zalo.botToken') || null;
 
     if (!this.token) {
@@ -26,6 +32,18 @@ export class ZaloService implements OnModuleInit {
     const targetChatId = String(chatId);
 
     if (!this.token) {
+      if (this.zcaService?.isLoggedIn()) {
+        try {
+          await this.zcaService.sendMessage(text, targetChatId);
+          this.logger.log(`Successfully sent message via ZCA to chat ${targetChatId}`);
+          return true;
+        } catch (zcaErr) {
+          this.logger.error(
+            `Failed to send message via ZCA to ${targetChatId}: ${zcaErr instanceof Error ? zcaErr.message : String(zcaErr)}`,
+          );
+          return false;
+        }
+      }
       this.logger.warn(`Zalo token not configured. Outgoing message to ${targetChatId}: "${text}"`);
       return false;
     }
@@ -57,6 +75,15 @@ export class ZaloService implements OnModuleInit {
       } | null;
 
       if (!response.ok || data?.ok === false || (data?.error !== 0 && data?.error !== undefined)) {
+        if (this.zcaService?.isLoggedIn()) {
+          try {
+            await this.zcaService.sendMessage(text, targetChatId);
+            this.logger.log(`Fallback: Successfully sent message via ZCA to chat ${targetChatId}`);
+            return true;
+          } catch {
+            // Keep original error log below
+          }
+        }
         this.logger.error(
           `Failed to send Zalo message to ${targetChatId}: ${JSON.stringify(data || response.statusText)}`,
         );

@@ -12,6 +12,7 @@ import { GoogleTasksService, CreateTaskOptions } from '../google/google-tasks.se
 import { GoogleCalendarService, CreateEventOptions } from '../google/google-calendar.service';
 import { UsersService } from '../users/users.service';
 import { GoogleAuthService } from '../google/google-auth.service';
+import { FINANCE_TRANSACTION_DESCRIPTOR } from './confirmation/dto-descriptor.util';
 
 interface TestContext {
   service: TransactionConfirmationService;
@@ -667,6 +668,115 @@ void test('TransactionConfirmationService rejects edit from another user or wron
   const handledWrongCode = await service.handleCommand('u1', 'c1', 'edit 999 đổi 60k');
   assert.equal(handledWrongCode, true);
   assert.match(sentMessages[2].text, /Không tìm thấy yêu cầu chờ xác nhận với mã "999"/);
+
+  service.clearAll();
+});
+
+void test('TransactionConfirmationService cancels pending action via ANGRY reaction', async () => {
+  const { service, sentMessages } = createTestContext();
+
+  const pending = await service.createPendingAction({
+    userId: 'u1',
+    chatId: 'c1',
+    actionType: 'RECORD_TRANSACTION',
+    title: 'lưu khoản chi',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 50000,
+      category: 'Ăn uống',
+      note: 'Ăn trưa',
+    },
+    descriptor: FINANCE_TRANSACTION_DESCRIPTOR,
+    messageId: 'msg-101',
+  });
+
+  const res = await service.handleReaction({
+    chatId: 'c1',
+    userId: 'u1',
+    reactionIcon: ':-h', // ANGRY
+    msgId: 'msg-101',
+  });
+
+  assert.equal(res.handled, true);
+  assert.equal(res.status, 'cancelled');
+  assert.equal(res.code, pending.code);
+
+  const lookup = await service.getPendingByCode(pending.code);
+  assert.equal(lookup, undefined);
+  assert.match(sentMessages[1].text, /Đã hủy/);
+
+  service.clearAll();
+});
+
+void test('TransactionConfirmationService confirms pending action via HEART reactions threshold', async () => {
+  const { service, createdTransactions, sentMessages } = createTestContext();
+
+  const pending = await service.createPendingAction({
+    userId: 'u1',
+    chatId: 'c1',
+    actionType: 'RECORD_TRANSACTION',
+    title: 'lưu khoản chi',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 100000,
+      category: 'Ăn uống',
+      note: 'Ăn trưa',
+    },
+    descriptor: FINANCE_TRANSACTION_DESCRIPTOR,
+    requiredHearts: 3,
+    messageId: 'msg-202',
+  });
+
+  // 1st heart from user 1
+  const r1 = await service.handleReaction({
+    chatId: 'c1',
+    userId: 'u1',
+    reactionIcon: '/-heart',
+    msgId: 'msg-202',
+  });
+  assert.equal(r1.handled, true);
+  assert.equal(r1.status, 'heart_added');
+  assert.equal(r1.currentHearts, 1);
+  assert.equal(r1.requiredHearts, 3);
+
+  // Duplicate heart from same user does not double count
+  const r1Dup = await service.handleReaction({
+    chatId: 'c1',
+    userId: 'u1',
+    reactionIcon: '/-heart',
+    msgId: 'msg-202',
+  });
+  assert.equal(r1Dup.currentHearts, 1);
+
+  // 2nd heart from user 2
+  const r2 = await service.handleReaction({
+    chatId: 'c1',
+    userId: 'u2',
+    reactionIcon: '/-heart',
+    msgId: 'msg-202',
+  });
+  assert.equal(r2.status, 'heart_added');
+  assert.equal(r2.currentHearts, 2);
+
+  // 3rd heart from user 3 -> reaches threshold (3) -> confirms!
+  const r3 = await service.handleReaction({
+    chatId: 'c1',
+    userId: 'u3',
+    reactionIcon: '/-heart',
+    msgId: 'msg-202',
+  });
+  assert.equal(r3.status, 'confirmed');
+  assert.equal(r3.currentHearts, 3);
+
+  // Transaction should be recorded in financeService
+  assert.equal(createdTransactions.length, 1);
+  assert.equal(createdTransactions[0].amount, 100000);
+
+  // Pending should be cleared
+  const lookup = await service.getPendingByCode(pending.code);
+  assert.equal(lookup, undefined);
 
   service.clearAll();
 });

@@ -13,6 +13,7 @@ import { AuditLogEntity } from './entities/audit-log.entity';
 import { DashboardExchangeTokenEntity } from './entities/dashboard-exchange-token.entity';
 import { UserCategoryEntity } from './entities/user-category.entity';
 import { FinancePlaceEntity } from './entities/finance-place.entity';
+import { ZcaThreadConfigEntity } from './entities/zca-thread-config.entity';
 import { AuditLogSubscriber } from './audit-log.subscriber';
 import { InitSchema1724650000000 } from './migrations/1724650000000-InitSchema';
 import { MigrateLegacyPlaceContacts1724660000000 } from './migrations/1724660000000-MigrateLegacyPlaceContacts';
@@ -23,6 +24,8 @@ import { FixPostgresPlaceAndContactUuidTypes1724700000000 } from './migrations/1
 import { DropInvitesTable1724710000000 } from './migrations/1724710000000-DropInvitesTable';
 import { AddGrantAccessToUsers1724720000000 } from './migrations/1724720000000-AddGrantAccessToUsers';
 import { AddLinkedUserIdToDebtContacts1724730000000 } from './migrations/1724730000000-AddLinkedUserIdToDebtContacts';
+import { CreateZcaThreadConfigs1724740000000 } from './migrations/1724740000000-CreateZcaThreadConfigs';
+import { AddDirectInteractionToZcaThreadConfigs1724750000000 } from './migrations/1724750000000-AddDirectInteractionToZcaThreadConfigs';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -50,6 +53,7 @@ export const AppDataSource = new DataSource({
     DashboardExchangeTokenEntity,
     UserCategoryEntity,
     FinancePlaceEntity,
+    ZcaThreadConfigEntity,
   ],
   subscribers: [AuditLogSubscriber],
   migrations: [
@@ -62,6 +66,8 @@ export const AppDataSource = new DataSource({
     DropInvitesTable1724710000000,
     AddGrantAccessToUsers1724720000000,
     AddLinkedUserIdToDebtContacts1724730000000,
+    CreateZcaThreadConfigs1724740000000,
+    AddDirectInteractionToZcaThreadConfigs1724750000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

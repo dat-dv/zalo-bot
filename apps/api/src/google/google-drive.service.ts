@@ -219,15 +219,24 @@ export class GoogleDriveService {
   public async uploadReceipt(
     buffer: Buffer,
     senderId: string,
-    options?: { note?: string; extension?: string; occurredAt?: Date },
+    options?: {
+      note?: string;
+      extension?: string;
+      occurredAt?: Date;
+      folderPath?: string;
+      suffix?: string;
+    },
     userId?: number | string,
   ): Promise<DriveUploadResult> {
     const date = options?.occurredAt || new Date();
     const ym = this.getYearMonthString(date);
     const ts = this.getFormattedTimestamp(date);
     const ext = (options?.extension || 'jpg').replace(/^\./, '');
-    const filename = `bill_${ts}_${senderId}.${ext}`;
-    const folderPath = `${this.rootFolderName}/bill/${ym}`;
+    const suffix = options?.suffix ? `_${options.suffix.replace(/^_/, '')}` : '';
+    const filename = `bill_${ts}_${senderId}${suffix}.${ext}`;
+    const folderPath = options?.folderPath
+      ? (options.folderPath.includes(ym) ? options.folderPath : `${options.folderPath}/${ym}`)
+      : `${this.rootFolderName}/bill/${ym}`;
 
     return this.uploadFile(
       {
@@ -243,20 +252,28 @@ export class GoogleDriveService {
   }
 
   /**
-   * Lưu ảnh thông thường vào zalobot/image/YYYY-MM
+   * Lưu ảnh thông thường vào zalobot/image/YYYY-MM hoặc folder riêng
    */
   public async uploadImage(
     buffer: Buffer,
     senderId: string,
-    options?: { note?: string; extension?: string },
+    options?: {
+      note?: string;
+      extension?: string;
+      folderPath?: string;
+      suffix?: string;
+    },
     userId?: number | string,
   ): Promise<DriveUploadResult> {
     const now = new Date();
     const ym = this.getYearMonthString(now);
     const ts = this.getFormattedTimestamp(now);
     const ext = (options?.extension || 'jpg').replace(/^\./, '');
-    const filename = `image_${ts}_${senderId}.${ext}`;
-    const folderPath = `${this.rootFolderName}/image/${ym}`;
+    const suffix = options?.suffix ? `_${options.suffix.replace(/^_/, '')}` : '';
+    const filename = `image_${ts}_${senderId}${suffix}.${ext}`;
+    const folderPath = options?.folderPath
+      ? (options.folderPath.includes(ym) ? options.folderPath : `${options.folderPath}/${ym}`)
+      : `${this.rootFolderName}/image/${ym}`;
 
     return this.uploadFile(
       {
@@ -272,20 +289,28 @@ export class GoogleDriveService {
   }
 
   /**
-   * Lưu video vào zalobot/video/YYYY-MM
+   * Lưu video vào zalobot/video/YYYY-MM hoặc folder riêng
    */
   public async uploadVideo(
     buffer: Buffer,
     senderId: string,
-    options?: { note?: string; extension?: string },
+    options?: {
+      note?: string;
+      extension?: string;
+      folderPath?: string;
+      suffix?: string;
+    },
     userId?: number | string,
   ): Promise<DriveUploadResult> {
     const now = new Date();
     const ym = this.getYearMonthString(now);
     const ts = this.getFormattedTimestamp(now);
     const ext = (options?.extension || 'mp4').replace(/^\./, '');
-    const filename = `video_${ts}_${senderId}.${ext}`;
-    const folderPath = `${this.rootFolderName}/video/${ym}`;
+    const suffix = options?.suffix ? `_${options.suffix.replace(/^_/, '')}` : '';
+    const filename = `video_${ts}_${senderId}${suffix}.${ext}`;
+    const folderPath = options?.folderPath
+      ? (options.folderPath.includes(ym) ? options.folderPath : `${options.folderPath}/${ym}`)
+      : `${this.rootFolderName}/video/${ym}`;
 
     return this.uploadFile(
       {

@@ -8,15 +8,21 @@ import {
   getZcaListenedThreads,
   setZcaListenedThreads,
   toggleZcaListenedThread,
+  getZcaThreadConfigs,
+  getZcaThreadConfig,
+  updateZcaThreadConfig,
   type ZcaStatus,
   type ZcaThread,
 } from './zca-api';
+import type { ThreadBotConfig, UpdateThreadBotConfigDto } from '@zalobot/contracts';
 
 export const zcaQueryKeys = {
   all: () => ['zca'] as const,
   status: () => ['zca', 'status'] as const,
   threads: () => ['zca', 'threads'] as const,
   listened: () => ['zca', 'listened'] as const,
+  configs: () => ['zca', 'configs'] as const,
+  config: (threadId: string) => ['zca', 'config', threadId] as const,
 };
 
 export function useZcaStatusQuery(options?: { refetchInterval?: number | false }) {
@@ -30,7 +36,18 @@ export function useZcaStatusQuery(options?: { refetchInterval?: number | false }
 export function useZcaThreadsQuery() {
   return useQuery<ZcaThread[]>({
     queryKey: zcaQueryKeys.threads(),
-    queryFn: ({ signal }) => getZcaThreads(signal),
+    queryFn: ({ signal }) => getZcaThreads(undefined, signal),
+    staleTime: 60_000,
+  });
+}
+
+export function useRefreshZcaThreadsMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => getZcaThreads({ refresh: true }),
+    onSuccess: (freshThreads) => {
+      queryClient.setQueryData(zcaQueryKeys.threads(), freshThreads);
+    },
   });
 }
 
@@ -70,3 +87,36 @@ export function useToggleZcaListenedThreadMutation() {
     },
   });
 }
+
+export function useZcaThreadConfigsQuery() {
+  return useQuery<ThreadBotConfig[]>({
+    queryKey: zcaQueryKeys.configs(),
+    queryFn: ({ signal }) => getZcaThreadConfigs(signal),
+  });
+}
+
+export function useZcaThreadConfigQuery(threadId: string | null | undefined) {
+  return useQuery<ThreadBotConfig>({
+    queryKey: threadId ? zcaQueryKeys.config(threadId) : ['zca', 'config', 'null'],
+    queryFn: ({ signal }) => getZcaThreadConfig(threadId!, signal),
+    enabled: Boolean(threadId),
+  });
+}
+
+export function useUpdateZcaThreadConfigMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      threadId,
+      data,
+    }: {
+      threadId: string;
+      data: UpdateThreadBotConfigDto;
+    }) => updateZcaThreadConfig(threadId, data),
+    onSuccess: (_, variables) => {
+      void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.all() });
+      void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.config(variables.threadId) });
+    },
+  });
+}
+

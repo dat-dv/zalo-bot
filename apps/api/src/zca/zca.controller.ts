@@ -3,6 +3,8 @@ import {
   Get,
   Post,
   Put,
+  Param,
+  Query,
   Body,
   Res,
   HttpCode,
@@ -13,13 +15,18 @@ import {
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { ZcaService, type AvailableThread } from './zca.service';
+import { ThreadConfigService } from './thread-config.service';
+import type { ThreadBotConfig, UpdateThreadBotConfigDto } from '@zalobot/contracts';
 
 @ApiTags('zca')
 @Controller('zca')
 export class ZcaController {
   private readonly logger = new Logger(ZcaController.name);
 
-  constructor(private readonly zcaService: ZcaService) {}
+  constructor(
+    private readonly zcaService: ZcaService,
+    private readonly threadConfigService: ThreadConfigService,
+  ) {}
 
   @Get('status')
   @ApiOperation({ summary: 'Lấy trạng thái kết nối tài khoản Zalo cá nhân (ZCA)' })
@@ -124,8 +131,11 @@ export class ZcaController {
   @ApiOperation({
     summary: 'Lấy danh sách các nhóm và bạn bè để chọn danh sách lắng nghe',
   })
-  public async getThreads(): Promise<{ data: { threads: AvailableThread[] } }> {
-    const threads = await this.zcaService.getAvailableThreads();
+  public async getThreads(
+    @Query('refresh') refresh?: string,
+  ): Promise<{ data: { threads: AvailableThread[] } }> {
+    const forceRefresh = refresh === 'true' || refresh === '1';
+    const threads = await this.zcaService.getAvailableThreads(forceRefresh);
     return { data: { threads } };
   }
 
@@ -168,4 +178,39 @@ export class ZcaController {
       },
     };
   }
+
+  @Get('thread-configs')
+  @ApiOperation({ summary: 'Lấy danh sách cấu hình chi tiết cho các cuộc trò chuyện' })
+  public getThreadConfigs(): { data: { configs: ThreadBotConfig[] } } {
+    return { data: { configs: this.threadConfigService.getAllConfigs() } };
+  }
+
+  @Get('thread-configs/:threadId')
+  @ApiOperation({ summary: 'Lấy cấu hình chi tiết của 1 cuộc trò chuyện cụ thể' })
+  public async getThreadConfig(
+    @Param('threadId') threadId: string,
+  ): Promise<{ data: { config: ThreadBotConfig } }> {
+    const config = await this.threadConfigService.getConfig(threadId);
+    return { data: { config } };
+  }
+
+  @Put('thread-configs/:threadId')
+  @ApiOperation({ summary: 'Cập nhật cấu hình tính năng của 1 cuộc trò chuyện cụ thể' })
+  public async updateThreadConfig(
+    @Param('threadId') threadId: string,
+    @Body() body: UpdateThreadBotConfigDto,
+  ): Promise<{ data: { config: ThreadBotConfig } }> {
+    const config = await this.threadConfigService.updateConfig(threadId, body);
+    if (body.isListened !== undefined) {
+      const currentListened = new Set(this.zcaService.getListenedThreadIds());
+      if (body.isListened) {
+        currentListened.add(threadId);
+      } else {
+        currentListened.delete(threadId);
+      }
+      await this.zcaService.setListenedThreadIds(Array.from(currentListened));
+    }
+    return { data: { config } };
+  }
 }
+

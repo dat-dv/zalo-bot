@@ -4,10 +4,52 @@ import { useState, useMemo, useEffect } from 'react';
 import {
   useZcaStatusQuery,
   useZcaThreadsQuery,
+  useRefreshZcaThreadsMutation,
   useLoginZcaQrMutation,
   useSetZcaListenedThreadsMutation,
   useToggleZcaListenedThreadMutation,
+  useZcaThreadConfigsQuery,
 } from '../api/zca-query';
+import type { ZcaThread } from '../api/zca-api';
+import { ThreadConfigModal } from './thread-config-modal';
+
+function normalizeVietnamese(str: string): string {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+    .trim();
+}
+
+function ThreadAvatar({ thread }: { thread: ZcaThread }) {
+  const [imgError, setImgError] = useState(false);
+
+  if (thread.avatar && !imgError) {
+    return (
+      <img
+        alt={thread.name || 'Avatar'}
+        className="size-9 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700 shrink-0"
+        onError={() => setImgError(true)}
+        referrerPolicy="no-referrer"
+        src={thread.avatar}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+        thread.type === 'group'
+          ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
+          : 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
+      }`}
+    >
+      {thread.name ? thread.name.charAt(0).toUpperCase() : thread.type === 'group' ? '👥' : '👤'}
+    </div>
+  );
+}
 
 export function ZcaScreen() {
   const [pollInterval, setPollInterval] = useState<number | false>(false);
@@ -19,14 +61,28 @@ export function ZcaScreen() {
     isLoading: isThreadsLoading,
     refetch: refetchThreads,
   } = useZcaThreadsQuery();
+  const { data: threadConfigs = [] } = useZcaThreadConfigsQuery();
 
+  const refreshThreadsMutation = useRefreshZcaThreadsMutation();
   const loginQrMutation = useLoginZcaQrMutation();
   const setListenedMutation = useSetZcaListenedThreadsMutation();
   const toggleListenedMutation = useToggleZcaListenedThreadMutation();
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'listened' | 'group' | 'user'>('all');
+  const [sortBy, setSortBy] = useState<
+    'listened_first' | 'name_asc' | 'name_desc' | 'group_first' | 'user_first' | 'members_desc'
+  >('listened_first');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [selectedThreadForConfig, setSelectedThreadForConfig] = useState<ZcaThread | null>(null);
+
+  const configMap = useMemo(
+    () => new Map(threadConfigs.map((c) => [c.threadId, c])),
+    [threadConfigs],
+  );
 
   // QR Modal
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -55,10 +111,19 @@ export function ZcaScreen() {
     }
   }, [isQrModalOpen, status?.loggedIn, refetchThreads]);
 
+  // Reset pagination on filter or search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filter, sortBy, pageSize]);
+
   const copyToClipboard = (id: string) => {
     void navigator.clipboard.writeText(id);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleRefreshAll = async () => {
+    await Promise.all([refetchStatus(), refreshThreadsMutation.mutateAsync()]);
   };
 
   const handleOpenQrLogin = async (forceNew = false) => {
@@ -120,14 +185,31 @@ export function ZcaScreen() {
     }
   };
 
-  // Filtered threads
+  // Filtered threads with Vietnamese normalization and alias search
   const filteredThreads = useMemo(() => {
+    const normSearch = normalizeVietnamese(search);
     return threads.filter((thread) => {
-      const matchesSearch =
-        thread.id.toLowerCase().includes(search.toLowerCase()) ||
-        thread.name.toLowerCase().includes(search.toLowerCase());
+      if (normSearch) {
+        const matchesName = normalizeVietnamese(thread.name || '').includes(normSearch);
+        const matchesDisplayName = normalizeVietnamese(thread.displayName || '').includes(
+          normSearch,
+        );
+        const matchesAlias = normalizeVietnamese(thread.alias || '').includes(normSearch);
+        const matchesZaloName = normalizeVietnamese(thread.zaloName || '').includes(normSearch);
+        const matchesPhone = (thread.phoneNumber || '').toLowerCase().includes(normSearch);
+        const matchesId = thread.id.toLowerCase().includes(normSearch);
 
-      if (!matchesSearch) return false;
+        if (
+          !matchesName &&
+          !matchesDisplayName &&
+          !matchesAlias &&
+          !matchesZaloName &&
+          !matchesPhone &&
+          !matchesId
+        ) {
+          return false;
+        }
+      }
 
       if (filter === 'listened') return thread.isListened;
       if (filter === 'group') return thread.type === 'group';
@@ -137,7 +219,47 @@ export function ZcaScreen() {
     });
   }, [threads, search, filter]);
 
+  // Sorted threads
+  const sortedThreads = useMemo(() => {
+    return [...filteredThreads].sort((a, b) => {
+      if (sortBy === 'listened_first') {
+        if (a.isListened !== b.isListened) return a.isListened ? -1 : 1;
+        return (a.name || '').localeCompare(b.name || '', 'vi');
+      }
+      if (sortBy === 'name_asc') {
+        return (a.name || '').localeCompare(b.name || '', 'vi');
+      }
+      if (sortBy === 'name_desc') {
+        return (b.name || '').localeCompare(a.name || '', 'vi');
+      }
+      if (sortBy === 'group_first') {
+        if (a.type !== b.type) return a.type === 'group' ? -1 : 1;
+        return (a.name || '').localeCompare(b.name || '', 'vi');
+      }
+      if (sortBy === 'user_first') {
+        if (a.type !== b.type) return a.type === 'user' ? -1 : 1;
+        return (a.name || '').localeCompare(b.name || '', 'vi');
+      }
+      if (sortBy === 'members_desc') {
+        const memA = a.totalMembers ?? 0;
+        const memB = b.totalMembers ?? 0;
+        if (memA !== memB) return memB - memA;
+        return (a.name || '').localeCompare(b.name || '', 'vi');
+      }
+      return 0;
+    });
+  }, [filteredThreads, sortBy]);
+
+  // Paginated threads
+  const totalPages = Math.max(1, Math.ceil(sortedThreads.length / pageSize));
+  const paginatedThreads = useMemo(() => {
+    if (pageSize >= sortedThreads.length) return sortedThreads;
+    const startIndex = (currentPage - 1) * pageSize;
+    return sortedThreads.slice(startIndex, startIndex + pageSize);
+  }, [sortedThreads, currentPage, pageSize]);
+
   const listenedCount = status?.listenedCount ?? threads.filter((t) => t.isListened).length;
+  const isRefreshing = refreshThreadsMutation.isPending;
 
   return (
     <div className="flex flex-col gap-4 p-1">
@@ -148,20 +270,20 @@ export function ZcaScreen() {
             Tài khoản Zalo Cá nhân (ZCA)
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Quản lý kết nối tài khoản Zalo cá nhân, mã QR và chọn lọc danh sách lắng nghe tin nhắn.
+            Quản lý kết nối tài khoản Zalo cá nhân, danh bạ bạn bè, nhóm chat và cấu hình lắng nghe
+            tin nhắn.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
-            className="inline-flex items-center gap-1.5 rounded-[4px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-            onClick={() => {
-              void refetchStatus();
-              void refetchThreads();
-            }}
+            className="inline-flex items-center gap-1.5 rounded-[4px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            disabled={isRefreshing}
+            onClick={() => void handleRefreshAll()}
+            title="Làm mới trạng thái và cập nhật lại danh bạ, nhóm từ Zalo"
             type="button"
           >
-            <RefreshIcon />
-            Làm mới
+            <RefreshIcon className={isRefreshing ? 'animate-spin' : ''} />
+            {isRefreshing ? 'Đang tải lại...' : 'Làm mới'}
           </button>
           <button
             className="inline-flex items-center gap-1.5 rounded-[4px] bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none"
@@ -191,7 +313,7 @@ export function ZcaScreen() {
               {status?.loggedIn ? 'Đã kết nối ZCA' : 'Chưa đăng nhập'}
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-slate-400">
+          <p className="mt-1 text-[11px] text-slate-400 truncate">
             {status?.loggedIn
               ? `ID tài khoản: ${status.ownId || 'Đang cập nhật'}`
               : 'Hãy quét mã QR để bắt đầu'}
@@ -237,22 +359,22 @@ export function ZcaScreen() {
           </p>
         </div>
 
-        {/* Card 4: Kết nối Proxy */}
+        {/* Card 4: Tổng số phát hiện */}
         <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Proxy kết nối</p>
-          <div className="mt-2 flex items-center gap-2">
-            <span
-              className={`inline-flex rounded px-1.5 py-0.5 text-xs font-semibold ${
-                status?.proxyEnabled
-                  ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
-                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-              }`}
-            >
-              {status?.proxyEnabled ? 'HTTP Proxy' : 'Kết nối trực tiếp'}
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Tổng danh bạ đã nạp
+          </p>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
+              {threads.length}
+            </span>
+            <span className="text-xs text-slate-500">
+              ({threads.filter((t) => t.type === 'group').length} nhóm,{' '}
+              {threads.filter((t) => t.type === 'user').length} bạn bè)
             </span>
           </div>
           <p className="mt-1 text-[11px] text-slate-400">
-            {status?.proxyEnabled ? 'Bảo vệ IP qua HttpProxyAgent' : 'Chưa cấu hình ZCA_PROXY_URL'}
+            {status?.proxyEnabled ? 'HTTP Proxy đã bật' : 'Kết nối trực tiếp'}
           </p>
         </div>
       </div>
@@ -260,32 +382,16 @@ export function ZcaScreen() {
       {/* Main Section: Whitelist Management */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-3">
-          {/* Header & Description */}
+          {/* Header & Quick Action Buttons */}
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Danh sách lắng nghe (Whitelist Chat / Group)
+                Danh sách cuộc trò chuyện & Whitelist
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Chỉ những nhóm chat hoặc người dùng được bật ở danh sách bên dưới mới được bot tiếp
-                nhận tin nhắn và tự động gửi lời chào mừng (Welcome).
+                nhận tin nhắn và xử lý các tính năng (thu chi, sao lưu, lịch hẹn...).
               </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                onClick={() => handleSelectAllVisible(filteredThreads.map((t) => t.id))}
-                type="button"
-              >
-                Chọn tất cả đang hiển thị
-              </button>
-              <button
-                className="rounded border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-900/50"
-                onClick={handleDeselectAll}
-                type="button"
-              >
-                Bỏ chọn tất cả
-              </button>
             </div>
           </div>
 
@@ -294,11 +400,11 @@ export function ZcaScreen() {
             className="flex flex-wrap items-center gap-2 rounded-md bg-slate-50 p-2.5 dark:bg-slate-800/60"
             onSubmit={handleAddManualId}
           >
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-[220px]">
               <input
                 className="w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                 onChange={(e) => setManualId(e.target.value)}
-                placeholder="Nhập ID Nhóm hoặc ID Người dùng (ví dụ: g-123456 hoặc 987654321)..."
+                placeholder="Nhập ID Nhóm hoặc ID Người dùng thủ công (ví dụ: g-123456 hoặc 987654321)..."
                 type="text"
                 value={manualId}
               />
@@ -312,29 +418,67 @@ export function ZcaScreen() {
             {manualError && <p className="w-full text-xs text-rose-500">{manualError}</p>}
           </form>
 
-          {/* Search & Filters */}
+          {/* Search, Sort & Filters */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <div className="flex items-center gap-1.5">
-              <input
-                className="w-64 rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Tìm kiếm theo tên hoặc ID..."
-                type="text"
-                value={search}
-              />
-              {search && (
-                <button
-                  className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                  onClick={() => setSearch('')}
-                  type="button"
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Search input */}
+              <div className="relative">
+                <input
+                  className="w-64 rounded border border-slate-300 bg-white pl-7 pr-7 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Tìm theo tên, gợi nhớ, SĐT, ID..."
+                  type="text"
+                  value={search}
+                />
+                <span className="absolute left-2.5 top-1.5 text-xs text-slate-400">🔍</span>
+                {search && (
+                  <button
+                    className="absolute right-2 top-1.5 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    onClick={() => setSearch('')}
+                    title="Xóa tìm kiếm"
+                    type="button"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Sort Selector */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-slate-500">Sắp xếp:</span>
+                <select
+                  className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                  onChange={(e) =>
+                    setSortBy(
+                      e.target.value as
+                        | 'listened_first'
+                        | 'name_asc'
+                        | 'name_desc'
+                        | 'group_first'
+                        | 'user_first'
+                        | 'members_desc',
+                    )
+                  }
+                  value={sortBy}
                 >
-                  Xóa
-                </button>
+                  <option value="listened_first">Đang lắng nghe lên đầu</option>
+                  <option value="name_asc">Tên (A → Z)</option>
+                  <option value="name_desc">Tên (Z → A)</option>
+                  <option value="group_first">Nhóm chat trước</option>
+                  <option value="user_first">Bạn bè trước</option>
+                  <option value="members_desc">Nhóm đông thành viên nhất</option>
+                </select>
+              </div>
+
+              {search && (
+                <span className="text-xs text-slate-500">
+                  Tìm thấy <strong>{filteredThreads.length}</strong> kết quả
+                </span>
               )}
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex items-center rounded-md border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800">
+            <div className="flex items-center rounded-md border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800 flex-wrap">
               <button
                 className={`rounded px-2.5 py-1 text-xs font-medium ${
                   filter === 'all'
@@ -377,7 +521,7 @@ export function ZcaScreen() {
                 onClick={() => setFilter('user')}
                 type="button"
               >
-                Người dùng ({threads.filter((t) => t.type === 'user').length})
+                Bạn bè ({threads.filter((t) => t.type === 'user').length})
               </button>
             </div>
           </div>
@@ -387,19 +531,19 @@ export function ZcaScreen() {
             <table className="min-w-full divide-y divide-slate-200 text-left text-xs dark:divide-slate-800">
               <thead className="bg-slate-50 dark:bg-slate-800/50">
                 <tr>
-                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
+                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300 w-20">
                     Loại
                   </th>
                   <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
-                    Tên cuộc trò chuyện
+                    Cuộc trò chuyện / Liên hệ
                   </th>
-                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
+                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300 w-48">
                     ID
                   </th>
-                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300 text-center">
+                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300 text-center w-40">
                     Trạng thái lắng nghe
                   </th>
-                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300 text-right">
+                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300 text-right w-36">
                     Thao tác
                   </th>
                 </tr>
@@ -407,23 +551,26 @@ export function ZcaScreen() {
               <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
                 {isThreadsLoading ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-slate-400" colSpan={5}>
-                      Đang tải danh sách cuộc trò chuyện...
+                    <td className="px-4 py-12 text-center text-slate-400" colSpan={5}>
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <span className="size-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                        <span>Đang tải danh sách nhóm & bạn bè từ Zalo...</span>
+                      </div>
                     </td>
                   </tr>
-                ) : filteredThreads.length === 0 ? (
+                ) : sortedThreads.length === 0 ? (
                   <tr>
                     <td className="px-4 py-8 text-center text-slate-400" colSpan={5}>
                       {threads.length === 0
                         ? 'Chưa có cuộc trò chuyện nào được phát hiện. Vui lòng đăng nhập Zalo hoặc thêm ID thủ công ở trên.'
-                        : 'Không tìm thấy cuộc trò chuyện phù hợp với bộ lọc.'}
+                        : 'Không tìm thấy cuộc trò chuyện phù hợp với từ khóa hoặc bộ lọc.'}
                     </td>
                   </tr>
                 ) : (
-                  filteredThreads.map((thread) => (
+                  paginatedThreads.map((thread) => (
                     <tr
                       className={`hover:bg-slate-50/70 dark:hover:bg-slate-800/40 ${
-                        thread.isListened ? 'bg-emerald-50/30 dark:bg-emerald-950/10' : ''
+                        thread.isListened ? 'bg-emerald-50/20 dark:bg-emerald-950/10' : ''
                       }`}
                       key={thread.id}
                     >
@@ -436,26 +583,63 @@ export function ZcaScreen() {
                               : 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
                           }`}
                         >
-                          {thread.type === 'group' ? 'Nhóm' : 'Người dùng'}
+                          {thread.type === 'group' ? '👥 Nhóm' : '👤 Cá nhân'}
                         </span>
                       </td>
 
-                      {/* Cột Tên */}
-                      <td className="px-3.5 py-2.5 font-medium text-slate-900 dark:text-slate-100">
-                        <div className="flex items-center gap-2">
-                          <div className="flex size-7 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700 dark:bg-slate-700 dark:text-slate-200">
-                            {thread.name ? thread.name.charAt(0).toUpperCase() : '?'}
+                      {/* Cột Tên & Avatar & Thông tin nhận diện */}
+                      <td className="px-3.5 py-2.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative shrink-0">
+                            <ThreadAvatar thread={thread} />
+                            {thread.isListened && (
+                              <span
+                                className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900"
+                                title="Đang trong danh sách lắng nghe (Whitelist)"
+                              />
+                            )}
                           </div>
-                          <span className="truncate max-w-[240px]">
-                            {thread.name || 'Không có tên'}
-                          </span>
+                          <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[280px]">
+                                {thread.name || 'Không có tên'}
+                              </span>
+                              {thread.alias && (
+                                <span className="inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                                  🏷️ Gợi nhớ: {thread.alias}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex-wrap">
+                              {thread.type === 'group' ? (
+                                <span>
+                                  👥{' '}
+                                  {typeof thread.totalMembers === 'number'
+                                    ? `${thread.totalMembers.toLocaleString()} thành viên`
+                                    : 'Nhóm chat'}
+                                </span>
+                              ) : (
+                                <>
+                                  {thread.displayName && thread.displayName !== thread.name && (
+                                    <span>Zalo: {thread.displayName}</span>
+                                  )}
+                                  {thread.phoneNumber && (
+                                    <span className="font-mono text-emerald-600 dark:text-emerald-400">
+                                      📞 {thread.phoneNumber}
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </td>
 
                       {/* Cột ID */}
-                      <td className="px-3.5 py-2.5 font-mono text-slate-600 dark:text-slate-400">
+                      <td className="px-3.5 py-2.5 font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
-                          <span>{thread.id}</span>
+                          <span className="truncate max-w-[150px]">{thread.id}</span>
                           <button
                             className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                             onClick={() => copyToClipboard(thread.id)}
@@ -484,27 +668,109 @@ export function ZcaScreen() {
                         >
                           {thread.isListened ? '● Đang lắng nghe' : '○ Bỏ qua'}
                         </span>
+                        {configMap.get(thread.id) && (
+                          <div className="mt-1 flex flex-wrap items-center justify-center gap-1">
+                            {configMap.get(thread.id)?.mediaBackup.enabled && (
+                              <span
+                                className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300"
+                                title={`Drive Folder: ${configMap.get(thread.id)?.mediaBackup.customFolder || 'Mặc định'}`}
+                              >
+                                📁 Drive
+                              </span>
+                            )}
+                            {configMap.get(thread.id)?.expenseTracking.enabled && (
+                              <span className="inline-flex items-center rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                                💰 Thu chi
+                              </span>
+                            )}
+                            {configMap.get(thread.id)?.calendarExtraction.enabled && (
+                              <span className="inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                                📅 Lịch
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
 
-                      {/* Cột Thao tác (Toggle switch button) */}
+                      {/* Cột Thao tác (Cấu hình tính năng & Toggle switch button) */}
                       <td className="px-3.5 py-2.5 text-right whitespace-nowrap">
-                        <button
-                          className={`rounded px-2.5 py-1 text-xs font-semibold transition-colors ${
-                            thread.isListened
-                              ? 'border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
-                              : 'border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
-                          }`}
-                          onClick={() => handleToggleThread(thread.id)}
-                          type="button"
-                        >
-                          {thread.isListened ? 'Tắt lắng nghe' : 'Bật lắng nghe'}
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            onClick={() => setSelectedThreadForConfig(thread)}
+                            title="Cấu hình tính năng bot cho nhóm hoặc cá nhân này"
+                            type="button"
+                          >
+                            ⚙️ Cấu hình
+                          </button>
+                          <button
+                            className={`rounded px-2.5 py-1 text-xs font-semibold transition-colors ${
+                              thread.isListened
+                                ? 'border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+                                : 'border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                            }`}
+                            onClick={() => handleToggleThread(thread.id)}
+                            type="button"
+                          >
+                            {thread.isListened ? 'Tắt' : 'Bật'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs text-slate-600 dark:text-slate-400">
+            <div className="flex items-center gap-2">
+              <span>Số mục mỗi trang:</span>
+              <select
+                className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                value={pageSize}
+              >
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={10000}>Tất cả</option>
+              </select>
+              <span>
+                Hiển thị{' '}
+                <strong>
+                  {sortedThreads.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} -{' '}
+                  {Math.min(currentPage * pageSize, sortedThreads.length)}
+                </strong>{' '}
+                trên <strong>{sortedThreads.length}</strong> cuộc trò chuyện
+              </span>
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button
+                  className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  type="button"
+                >
+                  ← Trước
+                </button>
+                <span className="px-2 font-medium">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  type="button"
+                >
+                  Sau →
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -554,10 +820,12 @@ export function ZcaScreen() {
                 <div className="w-full flex items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-300">
                   <span className="size-2 rounded-full bg-blue-500 animate-ping" />
                   <span>
-                    📱 Đã quét bởi <strong>{status.qrStatus.scannedBy || 'bạn'}</strong>! Vui lòng bấm <strong>Xác nhận đăng nhập</strong> trên điện thoại.
+                    📱 Đã quét bởi <strong>{status.qrStatus.scannedBy || 'bạn'}</strong>! Vui lòng
+                    bấm <strong>Xác nhận đăng nhập</strong> trên điện thoại.
                   </span>
                 </div>
-              ) : status?.qrStatus?.phase === 'confirmed' || status?.qrStatus?.phase === 'logging_in' ? (
+              ) : status?.qrStatus?.phase === 'confirmed' ||
+                status?.qrStatus?.phase === 'logging_in' ? (
                 <div className="w-full flex items-center justify-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300">
                   <span className="size-2 rounded-full bg-indigo-500 animate-ping" />
                   <span>🔄 Đã xác nhận trên điện thoại! Đang hoàn tất thiết lập kết nối...</span>
@@ -589,7 +857,9 @@ export function ZcaScreen() {
                 </div>
               ) : status?.qrStatus?.phase === 'failed' ? (
                 <div className="w-full flex flex-col items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300">
-                  <span>⚠️ Đăng nhập thất bại: {status.qrStatus.error || status.qrStatus.message}</span>
+                  <span>
+                    ⚠️ Đăng nhập thất bại: {status.qrStatus.error || status.qrStatus.message}
+                  </span>
                   <button
                     className="mt-1 font-semibold underline hover:text-rose-900 dark:hover:text-rose-100"
                     onClick={() => void handleOpenQrLogin(true)}
@@ -637,14 +907,25 @@ export function ZcaScreen() {
           </div>
         </div>
       )}
+
+      {/* Thread Feature Config Modal */}
+      {selectedThreadForConfig && (
+        <ThreadConfigModal
+          isOpen={Boolean(selectedThreadForConfig)}
+          onClose={() => setSelectedThreadForConfig(null)}
+          threadId={selectedThreadForConfig.id}
+          threadName={selectedThreadForConfig.name}
+          threadType={selectedThreadForConfig.type}
+        />
+      )}
     </div>
   );
 }
 
-function RefreshIcon() {
+function RefreshIcon({ className = '' }: { className?: string }) {
   return (
     <svg
-      className="size-3.5"
+      className={`size-3.5 ${className}`}
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"

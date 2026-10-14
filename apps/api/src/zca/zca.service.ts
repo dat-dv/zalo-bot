@@ -11,7 +11,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
-import { ZaloService } from '../zalo/zalo.service';
+import type { ZaloService } from '../zalo/zalo.service';
+import { ThreadConfigService } from './thread-config.service';
+import { ZcaBotFeatureService } from './zca-bot-feature.service';
 import {
   Zalo,
   type API,
@@ -106,6 +108,11 @@ export interface AvailableThread {
   type: 'user' | 'group';
   isListened: boolean;
   avatar?: string;
+  alias?: string;
+  displayName?: string;
+  zaloName?: string;
+  phoneNumber?: string;
+  totalMembers?: number;
 }
 
 @Injectable()
@@ -121,6 +128,9 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   private latestQrImageBase64: string | null = null;
   private latestQrCode: string | null = null;
   private listenedThreadIds = new Set<string>();
+  private cachedAvailableThreads: AvailableThread[] = [];
+  private cachedThreadsExpiresAt = 0;
+  private pendingThreadsFetchPromise: Promise<AvailableThread[]> | null = null;
 
   private qrLoginStatus: QrLoginStatusInfo = {
     phase: 'idle',
@@ -149,8 +159,10 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     @Optional()
     groupEventDispatcher?: GroupEventDispatcher,
     @Optional()
-    @Inject(forwardRef(() => ZaloService))
-    private readonly zaloService?: ZaloService,
+    @Inject(forwardRef(() => ZcaBotFeatureService))
+    private readonly botFeaturePlugin?: ZcaBotFeatureService,
+    @Optional()
+    private readonly threadConfigService?: ThreadConfigService,
   ) {
     this.groupEventDispatcher =
       groupEventDispatcher ??
@@ -198,6 +210,10 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     if (this.moduleOptions?.plugins?.length) {
       this.registerPlugins(this.moduleOptions.plugins);
+    }
+
+    if (this.botFeaturePlugin) {
+      this.registerPlugin(this.botFeaturePlugin);
     }
   }
 
@@ -308,7 +324,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
    * Returns the official ZaloService instance that ZCA depends on.
    */
   public getZaloService(): ZaloService | undefined {
-    return this.zaloService;
+    return undefined;
   }
 
   /**
@@ -717,6 +733,10 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   public async setListenedThreadIds(ids: string[]): Promise<void> {
     this.listenedThreadIds = new Set(ids.map(String).filter(Boolean));
     await this.saveListenedThreads();
+    this.cachedAvailableThreads = this.cachedAvailableThreads.map((t) => ({
+      ...t,
+      isListened: this.listenedThreadIds.has(t.id),
+    }));
     this.logger.log(`Updated listened threads count: ${this.listenedThreadIds.size}`);
   }
 
@@ -725,74 +745,197 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
    */
   public async toggleListenedThread(id: string): Promise<boolean> {
     const strId = String(id).trim();
-    if (!strId) return false;
+    if (!strId || strId === 'thread-123') return false;
     let enabled = false;
     if (this.listenedThreadIds.has(strId)) {
       this.listenedThreadIds.delete(strId);
       enabled = false;
+      if (this.threadConfigService) {
+        await this.threadConfigService.setListened(strId, false);
+      }
     } else {
       this.listenedThreadIds.add(strId);
       enabled = true;
+      if (this.threadConfigService) {
+        await this.threadConfigService.setListened(strId, true);
+      }
     }
     await this.saveListenedThreads();
+    this.cachedAvailableThreads = this.cachedAvailableThreads.map((t) =>
+      t.id === strId ? { ...t, isListened: enabled } : t,
+    );
     this.logger.log(`Toggled listened thread ${strId}: ${enabled ? 'ENABLED' : 'DISABLED'}`);
     return enabled;
   }
 
   /**
    * Returns all available groups & friends with isListened status.
+   * Includes in-memory caching (3 mins TTL) to prevent Zalo rate limit (429).
    */
-  public async getAvailableThreads(): Promise<AvailableThread[]> {
-    const result: AvailableThread[] = [];
-    const seenIds = new Set<string>();
+  public async getAvailableThreads(forceRefresh = false): Promise<AvailableThread[]> {
+    // 1. Return fresh cached copy if still valid and not explicitly forced
+    if (
+      !forceRefresh &&
+      Date.now() < this.cachedThreadsExpiresAt &&
+      this.cachedAvailableThreads.length > 0
+    ) {
+      return this.cachedAvailableThreads.map((t) => ({
+        ...t,
+        isListened: this.listenedThreadIds.has(t.id),
+      }));
+    }
 
-    if (this.api) {
-      try {
-        const groups = await this.api.getAllGroups();
-        if (groups && typeof groups === 'object') {
-          const groupList = Array.isArray(groups) ? groups : Object.values(groups);
-          for (const g of groupList as Record<string, unknown>[]) {
-            const rawId = g.groupId ?? g.id;
-            const groupId =
-              typeof rawId === 'string' ? rawId : typeof rawId === 'number' ? String(rawId) : '';
-            if (groupId && !seenIds.has(groupId)) {
-              seenIds.add(groupId);
-              const rawName = g.groupName ?? g.name;
-              const groupName = typeof rawName === 'string' ? rawName : `Nhóm ${groupId}`;
-              result.push({
-                id: groupId,
-                name: groupName,
-                type: 'group',
-                isListened: this.listenedThreadIds.has(groupId),
-                avatar:
-                  typeof g.avt === 'string'
-                    ? g.avt
-                    : typeof g.avatar === 'string'
-                      ? g.avatar
-                      : undefined,
-              });
+    // 2. Reuse in-flight fetch promise if concurrent requests arrive
+    if (this.pendingThreadsFetchPromise) {
+      const inFlight = await this.pendingThreadsFetchPromise;
+      return inFlight.map((t) => ({
+        ...t,
+        isListened: this.listenedThreadIds.has(t.id),
+      }));
+    }
+
+    // 3. Initiate fetch
+    this.pendingThreadsFetchPromise = (async () => {
+      const result: AvailableThread[] = [];
+      const seenIds = new Set<string>();
+
+      if (this.api) {
+        // --- A. GROUPS ---
+        try {
+          const groups = await this.api.getAllGroups();
+          if (groups && typeof groups === 'object') {
+            let groupIds: string[] = [];
+            const rawGroups = groups as Record<string, unknown>;
+            if (Array.isArray(groups)) {
+              groupIds = groups
+                .map((g: Record<string, unknown>) => String(g.groupId ?? g.id ?? ''))
+                .filter(Boolean);
+            } else if (rawGroups.gridVerMap && typeof rawGroups.gridVerMap === 'object') {
+              groupIds = Object.keys(rawGroups.gridVerMap);
+            } else {
+              groupIds = Object.values(rawGroups)
+                .map((g: unknown) =>
+                  typeof g === 'object' && g
+                    ? String(
+                        (g as Record<string, unknown>).groupId ??
+                          (g as Record<string, unknown>).id ??
+                          '',
+                      )
+                    : '',
+                )
+                .filter(Boolean);
+            }
+
+            if (groupIds.length > 0) {
+              const groupInfoMap: Record<string, Record<string, unknown>> = {};
+              // Fetch detailed info in chunks of 50 to avoid any payload limits
+              for (let i = 0; i < groupIds.length; i += 50) {
+                const batch = groupIds.slice(i, i + 50);
+                try {
+                  const groupInfoRes = (await this.api.getGroupInfo(batch)) as {
+                    gridInfoMap?: Record<string, Record<string, unknown>>;
+                  };
+                  if (groupInfoRes?.gridInfoMap) {
+                    Object.assign(groupInfoMap, groupInfoRes.gridInfoMap);
+                  }
+                } catch (batchErr) {
+                  this.logger.warn(
+                    `Failed to fetch group info batch: ${formatErrorMessage(batchErr)}`,
+                  );
+                }
+              }
+
+              for (const gid of groupIds) {
+                if (seenIds.has(gid)) continue;
+                seenIds.add(gid);
+                const g = groupInfoMap[gid];
+                if (g) {
+                  const rawName = g.name ?? g.groupName;
+                  const groupName = typeof rawName === 'string' ? rawName : `Nhóm ${gid}`;
+                  const avatar =
+                    typeof g.avt === 'string'
+                      ? g.avt
+                      : typeof g.fullAvt === 'string'
+                        ? g.fullAvt
+                        : undefined;
+                  const totalMembers =
+                    typeof g.totalMember === 'number' ? g.totalMember : undefined;
+
+                  result.push({
+                    id: gid,
+                    name: groupName,
+                    type: 'group',
+                    isListened: this.listenedThreadIds.has(gid),
+                    avatar,
+                    totalMembers,
+                  });
+                } else {
+                  result.push({
+                    id: gid,
+                    name: `Nhóm ${gid}`,
+                    type: 'group',
+                    isListened: this.listenedThreadIds.has(gid),
+                  });
+                }
+              }
             }
           }
+        } catch (err: unknown) {
+          this.logger.warn(`Failed to fetch groups from ZCA: ${formatErrorMessage(err)}`);
         }
-      } catch (err: unknown) {
-        this.logger.warn(`Failed to fetch groups from ZCA: ${formatErrorMessage(err)}`);
-      }
 
-      try {
-        const friends = await this.api.getAllFriends();
-        if (friends && typeof friends === 'object') {
-          const friendList = Array.isArray(friends) ? friends : Object.values(friends);
-          for (const f of friendList as Record<string, unknown>[]) {
-            const rawId = f.userId ?? f.id;
-            const userId =
-              typeof rawId === 'string' ? rawId : typeof rawId === 'number' ? String(rawId) : '';
-            if (userId && !seenIds.has(userId)) {
+        // --- B. ALIASES (Tên gợi nhớ do người dùng đặt) ---
+        const aliasMap = new Map<string, string>();
+        try {
+          const aliasRes = (await this.api.getAliasList()) as {
+            items?: { userId?: string; alias?: string }[];
+          };
+          if (Array.isArray(aliasRes?.items)) {
+            for (const item of aliasRes.items) {
+              if (item?.userId && item?.alias) {
+                aliasMap.set(String(item.userId), String(item.alias).trim());
+              }
+            }
+          }
+        } catch (err: unknown) {
+          this.logger.debug(`Could not fetch alias list from ZCA: ${formatErrorMessage(err)}`);
+        }
+
+        // --- C. FRIENDS ---
+        try {
+          const friends = await this.api.getAllFriends();
+          if (friends && typeof friends === 'object') {
+            const friendList = Array.isArray(friends) ? friends : Object.values(friends);
+            for (const f of friendList as Record<string, unknown>[]) {
+              const rawId = f.userId ?? f.id;
+              const userId =
+                typeof rawId === 'string' ? rawId : typeof rawId === 'number' ? String(rawId) : '';
+              if (!userId || seenIds.has(userId)) continue;
               seenIds.add(userId);
-              const rawName = f.displayName ?? f.dName ?? f.name;
-              const userName = typeof rawName === 'string' ? rawName : `Người dùng ${userId}`;
+
+              const alias =
+                aliasMap.get(userId) || (typeof f.alias === 'string' ? f.alias.trim() : undefined);
+              const rawDisplayName = typeof f.displayName === 'string' ? f.displayName.trim() : '';
+              const rawZaloName = typeof f.zaloName === 'string' ? f.zaloName.trim() : '';
+              const phoneNumber =
+                typeof f.phoneNumber === 'string' && f.phoneNumber.trim()
+                  ? f.phoneNumber.trim()
+                  : undefined;
+
+              // Priority: Alias -> Display Name -> Zalo Name -> Placeholder
+              const primaryName = alias || rawDisplayName || rawZaloName || `Người dùng ${userId}`;
+
               result.push({
                 id: userId,
-                name: userName,
+                name: primaryName,
+                displayName:
+                  rawDisplayName && rawDisplayName !== primaryName ? rawDisplayName : undefined,
+                alias: alias && alias !== rawDisplayName ? alias : undefined,
+                zaloName:
+                  rawZaloName && rawZaloName !== primaryName && rawZaloName !== rawDisplayName
+                    ? rawZaloName
+                    : undefined,
+                phoneNumber,
                 type: 'user',
                 isListened: this.listenedThreadIds.has(userId),
                 avatar:
@@ -804,26 +947,61 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
               });
             }
           }
+        } catch (err: unknown) {
+          this.logger.warn(`Failed to fetch friends from ZCA: ${formatErrorMessage(err)}`);
         }
-      } catch (err: unknown) {
-        this.logger.warn(`Failed to fetch friends from ZCA: ${formatErrorMessage(err)}`);
-      }
-    }
 
-    // Always include any saved thread IDs that are in the whitelist
-    for (const id of this.listenedThreadIds) {
-      if (!seenIds.has(id)) {
-        seenIds.add(id);
-        result.push({
-          id,
-          name: `Cuộc trò chuyện ${id}`,
-          type: 'group',
-          isListened: true,
-        });
+        // Include any aliased contacts not in friends list
+        for (const [userId, alias] of aliasMap.entries()) {
+          if (!seenIds.has(userId)) {
+            seenIds.add(userId);
+            result.push({
+              id: userId,
+              name: alias,
+              alias,
+              type: 'user',
+              isListened: this.listenedThreadIds.has(userId),
+            });
+          }
+        }
       }
-    }
 
-    return result;
+      // --- D. WHITELIST FALLBACK (Any configured ID not in contacts) ---
+      for (const id of this.listenedThreadIds) {
+        if (!seenIds.has(id)) {
+          seenIds.add(id);
+          result.push({
+            id,
+            name: `Cuộc trò chuyện ${id}`,
+            type: 'group',
+            isListened: true,
+          });
+        }
+      }
+
+      // If fetch succeeded, update cache
+      if (result.length > 0) {
+        this.cachedAvailableThreads = result;
+        this.cachedThreadsExpiresAt = Date.now() + 180_000; // 3 minutes TTL
+        return result;
+      }
+
+      // If fetch produced nothing (e.g. rate-limit or network glitch), keep existing cache
+      if (this.cachedAvailableThreads.length > 0) {
+        return this.cachedAvailableThreads.map((t) => ({
+          ...t,
+          isListened: this.listenedThreadIds.has(t.id),
+        }));
+      }
+
+      return result;
+    })();
+
+    try {
+      return await this.pendingThreadsFetchPromise;
+    } finally {
+      this.pendingThreadsFetchPromise = null;
+    }
   }
 
   /**
@@ -1269,14 +1447,20 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
   private async loadListenedThreads(): Promise<void> {
     try {
-      if (fs.existsSync(this.whitelistFilePath)) {
+      if (this.threadConfigService) {
+        await this.threadConfigService.loadConfigs();
+        const ids = this.threadConfigService.getListenedThreadIds();
+        this.listenedThreadIds = new Set(ids.filter((id) => id !== 'thread-123'));
+      } else if (fs.existsSync(this.whitelistFilePath)) {
         const content = await fs.promises.readFile(this.whitelistFilePath, 'utf8');
         const parsed = JSON.parse(content) as string[];
         if (Array.isArray(parsed)) {
-          this.listenedThreadIds = new Set(parsed.map(String).filter(Boolean));
-          this.logger.log(`Loaded ${this.listenedThreadIds.size} listened threads from disk.`);
+          this.listenedThreadIds = new Set(
+            parsed.map(String).filter((id) => Boolean(id) && id !== 'thread-123'),
+          );
         }
       }
+      this.logger.log(`Loaded ${this.listenedThreadIds.size} listened threads.`);
     } catch (err: unknown) {
       this.logger.warn(`Could not load listened threads: ${formatErrorMessage(err)}`);
     }
@@ -1284,7 +1468,12 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
   private async saveListenedThreads(): Promise<void> {
     try {
-      const data = Array.from(this.listenedThreadIds);
+      const data = Array.from(this.listenedThreadIds).filter((id) => id !== 'thread-123');
+      if (this.threadConfigService) {
+        for (const id of data) {
+          await this.threadConfigService.setListened(id, true);
+        }
+      }
       await fs.promises.writeFile(this.whitelistFilePath, JSON.stringify(data, null, 2), 'utf8');
     } catch (err: unknown) {
       this.logger.warn(`Could not save listened threads: ${formatErrorMessage(err)}`);

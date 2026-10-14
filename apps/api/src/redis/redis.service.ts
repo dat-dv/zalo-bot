@@ -105,4 +105,47 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   public async delWhitelist(userId: string): Promise<boolean> {
     return this.del(`whitelist:user:${userId}`);
   }
+
+  public async sadd(key: string, ...members: string[]): Promise<boolean> {
+    if (!this.client || !this.isConnected || members.length === 0) return false;
+    try {
+      await this.client.sadd(key, ...members);
+      return true;
+    } catch (err) {
+      this.logger.warn(`Redis SADD failed for key "${key}": ${(err as Error).message}`);
+      return false;
+    }
+  }
+
+  public async srem(key: string, ...members: string[]): Promise<boolean> {
+    if (!this.client || !this.isConnected || members.length === 0) return false;
+    try {
+      await this.client.srem(key, ...members);
+      return true;
+    } catch (err) {
+      this.logger.warn(`Redis SREM failed for key "${key}": ${(err as Error).message}`);
+      return false;
+    }
+  }
+
+  public async smembers(key: string): Promise<string[]> {
+    if (!this.client || !this.isConnected) return [];
+    try {
+      return await this.client.smembers(key);
+    } catch (err) {
+      this.logger.warn(`Redis SMEMBERS failed for key "${key}": ${(err as Error).message}`);
+      return [];
+    }
+  }
+
+  public async sismember(key: string, member: string): Promise<boolean> {
+    if (!this.client || !this.isConnected) return false;
+    try {
+      const res = await this.client.sismember(key, member);
+      return res === 1;
+    } catch (err) {
+      this.logger.warn(`Redis SISMEMBER failed for key "${key}": ${(err as Error).message}`);
+      return false;
+    }
+  }
 }

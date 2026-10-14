@@ -122,6 +122,15 @@ if [ "$LOCAL_ALIVE" = "false" ]; then
   echo ""
 else
   echo "✅ Đã kết nối thử tới local server (Target: http://${TARGET_HOST}:${PORT})"
+  if [ "$PORT" = "$GATEWAY_PORT" ]; then
+    BE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://127.0.0.1:${PORT}${WEBHOOK_PATH}" 2>/dev/null || echo "000")
+    if [ "$BE_STATUS" = "200" ]; then
+      echo "✅ Đã kết nối tới Backend API qua Nginx (Path: ${WEBHOOK_PATH} -> HTTP 200 OK)"
+    else
+      echo "⚠️  CẢNH BÁO: Backend API chưa phản hồi tại port ${BE_PORT} (Gateway trả về HTTP ${BE_STATUS} cho ${WEBHOOK_PATH})!"
+      echo "👉 Hãy đảm bảo NestJS Backend đã khởi động thành công ('npm run dev')!"
+    fi
+  fi
 fi
 
 # Tự động chọn binary cloudflared
@@ -227,7 +236,7 @@ echo ""
 echo "⏳ Đang kiểm tra kết nối từ Internet tới tunnel..."
 TUNNEL_READY=false
 for i in {1..10}; do
-  HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 -m 4 "${FULL_WEBHOOK_URL}" 2>/dev/null)
+  HTTP_STATUS=$(curl --doh-url https://cloudflare-dns.com/dns-query -s -o /dev/null -w "%{http_code}" --connect-timeout 3 -m 5 "${FULL_WEBHOOK_URL}" 2>/dev/null || curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 -m 5 "${FULL_WEBHOOK_URL}" 2>/dev/null || true)
   HTTP_STATUS="${HTTP_STATUS:-000}"
   if [ "$HTTP_STATUS" = "200" ]; then
     TUNNEL_READY=true
@@ -261,7 +270,7 @@ fi
 
 SET_RESULT=$(curl -s -X POST "https://bot-api.zaloplatforms.com/bot${BOT_TOKEN}/setWebhook" \
   -H "Content-Type: application/json" \
-  -d "$PAYLOAD")
+  -d "$PAYLOAD" || true)
 
 echo "👉 Phản hồi setWebhook từ Zalo API:"
 echo "$SET_RESULT"
@@ -270,7 +279,7 @@ echo "$SET_RESULT"
 echo ""
 echo "🧪 Đang kiểm tra xác thực từ máy chủ Zalo (testWebhook)..."
 sleep 1
-TEST_RESULT=$(curl -s "https://bot-api.zaloplatforms.com/bot${BOT_TOKEN}/testWebhook")
+TEST_RESULT=$(curl -s "https://bot-api.zaloplatforms.com/bot${BOT_TOKEN}/testWebhook" || true)
 echo "👉 Phản hồi testWebhook từ Zalo:"
 echo "$TEST_RESULT"
 

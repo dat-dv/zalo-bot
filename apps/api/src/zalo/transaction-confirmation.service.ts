@@ -59,6 +59,9 @@ export interface PendingAction {
   createdAt: number;
   expiresAt: number;
   timer?: NodeJS.Timeout;
+  messageId?: string;
+  requiredHearts?: number;
+  heartUsers?: string[];
 }
 
 /** Alias to maintain backward compatibility */
@@ -241,6 +244,8 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     payload: T;
     descriptor: DtoDescriptor<T>;
     rawPrompt?: string;
+    requiredHearts?: number;
+    messageId?: string;
   }): Promise<PendingAction> {
     const code = this.generateCode();
     const now = Date.now();
@@ -256,6 +261,9 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       rawPrompt: params.rawPrompt,
       createdAt: now,
       expiresAt,
+      messageId: params.messageId,
+      requiredHearts: params.requiredHearts ?? 1,
+      heartUsers: [],
     };
 
     // Lưu vào Redis với TTL (tự động dọn dẹp khi hết hạn)
@@ -271,13 +279,19 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         rawPrompt: pending.rawPrompt,
         createdAt: pending.createdAt,
         expiresAt: pending.expiresAt,
+        messageId: pending.messageId,
+        requiredHearts: pending.requiredHearts,
+        heartUsers: pending.heartUsers,
       });
       await this.redisService.set(`pending:tx:code:${code}`, serialized, ttlSeconds);
       await this.redisService.set(`pending:tx:user:${params.userId}`, code, ttlSeconds);
       await this.addUserPendingCode(params.userId, code);
+      if (params.messageId) {
+        await this.redisService.set(`pending:tx:msg:${params.messageId}`, code, ttlSeconds);
+      }
     }
 
-    // Thiết lập timer thông báo hết hạn sau 1 phút
+    // Thiết lập timer thông báo hết hạn sau 5 phút
     pending.timer = setTimeout(async () => {
       await this.handleTimeout(code);
     }, this.timeoutMs);
@@ -288,17 +302,121 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     this.pendingMap.set(code, pending);
 
     const cardContent = renderDtoConfirmationCard(params.payload, params.descriptor);
+    const reqHearts = pending.requiredHearts || 1;
+    const heartPrompt = reqHearts > 1 ? `Thả tim (❤️) ${reqHearts} lần` : `Thả tim (❤️)`;
 
     const msg =
       `⏳ Xác nhận ${params.title.toLowerCase()}?\n\n` +
       cardContent +
-      `\n\n👉 Soạn: yes ${code} (để xác nhận)` +
-      `\n👉 Soạn: cancel ${code} (để hủy bỏ)` +
+      `\n\n👉 ${heartPrompt} hoặc soạn: yes ${code} (để xác nhận)` +
+      `\n👉 Thả phẫn nộ (😡) hoặc soạn: cancel ${code} (để hủy bỏ)` +
       `\n👉 Soạn: edit ${code} <nội dung sửa> (để điều chỉnh)` +
-      `\n⏱️ Tự động hết hạn sau 1 phút.`;
+      `\n⏱️ Tự động hết hạn sau 5 phút.`;
 
     await this.zaloService.sendMessage(params.chatId, msg);
     return pending;
+  }
+
+  public async setMessageId(code: string, messageId: string): Promise<void> {
+    const pending = await this.getPendingByCode(code);
+    if (pending) {
+      pending.messageId = messageId;
+      this.pendingMap.set(code, pending);
+      if (this.redisService) {
+        const ttlSeconds = Math.ceil(this.timeoutMs / 1000);
+        await this.redisService.set(`pending:tx:code:${code}`, JSON.stringify(pending), ttlSeconds);
+        await this.redisService.set(`pending:tx:msg:${messageId}`, code, ttlSeconds);
+      }
+    }
+  }
+
+  public async handleReaction(params: {
+    chatId: string;
+    userId: string;
+    reactionIcon: string;
+    msgId?: string;
+  }): Promise<{
+    handled: boolean;
+    status?: 'confirmed' | 'cancelled' | 'heart_added';
+    currentHearts?: number;
+    requiredHearts?: number;
+    code?: string;
+  }> {
+    let pending: PendingAction | undefined;
+
+    if (params.msgId) {
+      if (this.redisService) {
+        const code = await this.redisService.get(`pending:tx:msg:${params.msgId}`);
+        if (code) {
+          pending = await this.getPendingByCode(code);
+        }
+      }
+      if (!pending) {
+        pending = Array.from(this.pendingMap.values()).find(
+          (p) => p.chatId === params.chatId && p.messageId === params.msgId,
+        );
+      }
+    }
+
+    if (!pending) {
+      // Fallback: pending gần nhất trong chatId
+      const list = Array.from(this.pendingMap.values()).filter((p) => p.chatId === params.chatId);
+      pending = list[list.length - 1];
+    }
+
+    if (!pending) {
+      return { handled: false };
+    }
+
+    // 1. Phẫn nộ (Angry) -> Hủy bỏ
+    if (
+      params.reactionIcon === ':-h' ||
+      params.reactionIcon === 'ANGRY' ||
+      params.reactionIcon === '😡'
+    ) {
+      await this.processCancel(params.userId, params.chatId, pending.code);
+      return { handled: true, status: 'cancelled', code: pending.code };
+    }
+
+    // 2. Thả tim (Heart) -> Đếm tim hoặc Duyệt
+    if (
+      params.reactionIcon === '/-heart' ||
+      params.reactionIcon === 'HEART' ||
+      params.reactionIcon === '❤️'
+    ) {
+      if (!pending.heartUsers) {
+        pending.heartUsers = [];
+      }
+      if (!pending.heartUsers.includes(params.userId)) {
+        pending.heartUsers.push(params.userId);
+      }
+
+      const req = pending.requiredHearts || 1;
+      if (pending.heartUsers.length >= req) {
+        await this.processConfirm(pending.userId, params.chatId, pending.code);
+        return {
+          handled: true,
+          status: 'confirmed',
+          currentHearts: pending.heartUsers.length,
+          requiredHearts: req,
+          code: pending.code,
+        };
+      }
+
+      await this.zaloService.sendMessage(
+        params.chatId,
+        `❤️ Đã nhận ${pending.heartUsers.length}/${req} lượt thả tim để duyệt yêu cầu [${pending.code}]!`,
+      );
+      return {
+        handled: true,
+        status: 'heart_added',
+        currentHearts: pending.heartUsers.length,
+        requiredHearts: req,
+        code: pending.code,
+      };
+    }
+
+    return { handled: false };
   }
 
   /**

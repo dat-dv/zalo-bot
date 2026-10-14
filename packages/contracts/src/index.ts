@@ -33,6 +33,8 @@ export const API_ROUTES = {
   zcaThreads: '/api/zca/threads',
   zcaListenedThreads: '/api/zca/listened-threads',
   zcaListenedThreadsToggle: '/api/zca/listened-threads/toggle',
+  zcaThreadConfigs: '/api/zca/thread-configs',
+  zcaThreadConfig: (threadId: string) => `/api/zca/thread-configs/${threadId}`,
 } as const;
 
 export const APP_ROUTES = {
@@ -1912,3 +1914,56 @@ export interface IDeployNotifyResponse {
   recipients?: string[];
   timestamp: string;
 }
+
+export interface ThreadMediaBackupConfig {
+  enabled: boolean;
+  uploadImages: boolean;
+  uploadVideos: boolean;
+  customFolder?: string;
+  fileSuffix?: string;
+}
+
+export interface ThreadExpenseConfig {
+  enabled: boolean;
+  requireConfirm: boolean;
+}
+
+export interface ThreadCalendarConfig {
+  enabled: boolean;
+  requireConfirm: boolean;
+}
+
+export interface ThreadConfirmationConfig {
+  allowReactions: boolean;
+  requiredHearts: number;
+  timeoutMinutes: number;
+}
+
+export interface ThreadDirectInteractionConfig {
+  enabled: boolean;
+  requireMention: boolean;
+  triggerPrefix?: string;
+  allowAiChat?: boolean;
+}
+
+export interface ThreadBotConfig {
+  threadId: string;
+  threadName?: string;
+  threadType?: 'user' | 'group';
+  isListened: boolean;
+  directInteraction: ThreadDirectInteractionConfig;
+  mediaBackup: ThreadMediaBackupConfig;
+  expenseTracking: ThreadExpenseConfig;
+  calendarExtraction: ThreadCalendarConfig;
+  confirmationRules: ThreadConfirmationConfig;
+  updatedAt?: number;
+}
+
+export type UpdateThreadBotConfigDto = Partial<{
+  isListened: boolean;
+  directInteraction: Partial<ThreadDirectInteractionConfig>;
+  mediaBackup: Partial<ThreadMediaBackupConfig>;
+  expenseTracking: Partial<ThreadExpenseConfig>;
+  calendarExtraction: Partial<ThreadCalendarConfig>;
+  confirmationRules: Partial<ThreadConfirmationConfig>;
+}>;

@@ -1,23 +1,48 @@
 import { DynamicModule, Module, forwardRef } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { ZcaService } from './zca.service';
 import { ZcaController } from './zca.controller';
 import { ZCA_MODULE_OPTIONS } from './zca.constants';
 import type { ZcaModuleOptions } from './zca.interfaces';
 import { WelcomeGroupEventStrategy } from './strategies/welcome-group-event.strategy';
 import { GroupEventDispatcher } from './group-event-dispatcher.service';
+import { ThreadConfigService } from './thread-config.service';
+import { ZcaBotFeatureService } from './zca-bot-feature.service';
 import { ZaloModule } from '../zalo/zalo.module';
+import { ReceiptStorageModule } from '../receipt-storage/receipt-storage.module';
+import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 
 @Module({
-  imports: [forwardRef(() => ZaloModule)],
+  imports: [
+    TypeOrmModule.forFeature([ZcaThreadConfigEntity]),
+    forwardRef(() => ZaloModule),
+    forwardRef(() => ReceiptStorageModule),
+  ],
   controllers: [ZcaController],
-  providers: [WelcomeGroupEventStrategy, GroupEventDispatcher, ZcaService],
-  exports: [WelcomeGroupEventStrategy, GroupEventDispatcher, ZcaService],
+  providers: [
+    WelcomeGroupEventStrategy,
+    GroupEventDispatcher,
+    ThreadConfigService,
+    ZcaBotFeatureService,
+    ZcaService,
+  ],
+  exports: [
+    WelcomeGroupEventStrategy,
+    GroupEventDispatcher,
+    ThreadConfigService,
+    ZcaBotFeatureService,
+    ZcaService,
+  ],
 })
 export class ZcaModule {
   public static register(options?: ZcaModuleOptions): DynamicModule {
     return {
       module: ZcaModule,
-      imports: [forwardRef(() => ZaloModule)],
+      imports: [
+        TypeOrmModule.forFeature([ZcaThreadConfigEntity]),
+        forwardRef(() => ZaloModule),
+        forwardRef(() => ReceiptStorageModule),
+      ],
       controllers: [ZcaController],
       providers: [
         {
@@ -26,9 +51,17 @@ export class ZcaModule {
         },
         WelcomeGroupEventStrategy,
         GroupEventDispatcher,
+        ThreadConfigService,
+        ZcaBotFeatureService,
         ZcaService,
       ],
-      exports: [WelcomeGroupEventStrategy, GroupEventDispatcher, ZcaService],
+      exports: [
+        WelcomeGroupEventStrategy,
+        GroupEventDispatcher,
+        ThreadConfigService,
+        ZcaBotFeatureService,
+        ZcaService,
+      ],
     };
   }
 
@@ -36,7 +69,11 @@ export class ZcaModule {
     return {
       global: true,
       module: ZcaModule,
-      imports: [forwardRef(() => ZaloModule)],
+      imports: [
+        TypeOrmModule.forFeature([ZcaThreadConfigEntity]),
+        forwardRef(() => ZaloModule),
+        forwardRef(() => ReceiptStorageModule),
+      ],
       controllers: [ZcaController],
       providers: [
         {
@@ -45,9 +82,17 @@ export class ZcaModule {
         },
         WelcomeGroupEventStrategy,
         GroupEventDispatcher,
+        ThreadConfigService,
+        ZcaBotFeatureService,
         ZcaService,
       ],
-      exports: [WelcomeGroupEventStrategy, GroupEventDispatcher, ZcaService],
+      exports: [
+        WelcomeGroupEventStrategy,
+        GroupEventDispatcher,
+        ThreadConfigService,
+        ZcaBotFeatureService,
+        ZcaService,
+      ],
     };
   }
 }

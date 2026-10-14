@@ -25,6 +25,7 @@ lerna-debug.log*
 gcp-oauth.keys.json
 .zca-session.json
 .zca-listened-threads.json
+.zca-thread-configs.json
 zca-qrcode.png
 *.pem
 *.key

@@ -160,7 +160,7 @@ void test('ZcaService startListener registers on message listener and filters th
   };
   service.registerPlugin(testPlugin);
 
-  await service.setListenedThreadIds(['thread-123']);
+  await service.setListenedThreadIds(['allowed-thread-101']);
   service.startListener();
 
   assert.ok(registeredListeners['message'], 'message listener should be registered');
@@ -176,7 +176,7 @@ void test('ZcaService startListener registers on message listener and filters th
 
   // Allowed message (thread in listened list)
   const allowedMsg = {
-    threadId: 'thread-123',
+    threadId: 'allowed-thread-101',
     type: 1,
     isSelf: false,
     data: { content: 'hello from allowed thread', dName: 'User A', uidFrom: 'u1' },
