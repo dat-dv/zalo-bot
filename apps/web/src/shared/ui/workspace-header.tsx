@@ -31,6 +31,10 @@ const ROUTE_HEADER_MAP: Record<string, RouteHeaderMeta> = {
     titleKey: 'dashboard.welcome',
     subtitleKey: 'dashboard.overviewSubtitle',
   },
+  [APP_ROUTES.dashboard]: {
+    titleKey: 'dashboard.welcome',
+    subtitleKey: 'dashboard.overviewSubtitle',
+  },
   [APP_ROUTES.transactions]: {
     titleKey: 'transactions.title',
     subtitleKey: 'transactions.subtitle',

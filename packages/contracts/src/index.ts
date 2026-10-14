@@ -39,6 +39,7 @@ export const API_ROUTES = {
 
 export const APP_ROUTES = {
   home: '/',
+  dashboard: '/dashboard',
   about: '/about',
   privacy: '/privacy',
   terms: '/terms',

@@ -88,7 +88,7 @@ export class ReportsController {
       webOrigin = `${forwardedProto}://${forwardedHost}`.replace(/\/+$/, '');
     }
 
-    res.redirect(`${webOrigin}/#dashboard_token=${encodeURIComponent(access.token)}`);
+    res.redirect(`${webOrigin}/dashboard#dashboard_token=${encodeURIComponent(access.token)}`);
   }
 
   private renderAccessError(res: Response): void {

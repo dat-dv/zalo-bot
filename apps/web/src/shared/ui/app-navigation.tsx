@@ -160,7 +160,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
   const isItemActive = (item: NavItem): boolean => {
     if (active) return active === item.page;
     if (item.href === APP_ROUTES.home) {
-      return pathname === '/' || pathname === '';
+      return pathname === '/' || pathname === '' || pathname === APP_ROUTES.dashboard;
     }
     return pathname.startsWith(item.href);
   };
