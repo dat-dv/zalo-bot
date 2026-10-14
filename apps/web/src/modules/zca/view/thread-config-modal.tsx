@@ -188,7 +188,7 @@ export function ThreadConfigModal({
                           ...form.directInteraction,
                           enabled: e.target.checked,
                           requireMention:
-                            form.directInteraction?.requireMention ?? (threadType === 'group'),
+                            form.directInteraction?.requireMention ?? threadType === 'group',
                           triggerPrefix: form.directInteraction?.triggerPrefix ?? '',
                           allowAiChat: form.directInteraction?.allowAiChat ?? true,
                         },
@@ -214,9 +214,7 @@ export function ThreadConfigModal({
                       </div>
                       <label className="relative inline-flex cursor-pointer items-center">
                         <input
-                          checked={
-                            form.directInteraction?.requireMention ?? (threadType === 'group')
-                          }
+                          checked={form.directInteraction?.requireMention ?? threadType === 'group'}
                           className="peer sr-only"
                           onChange={(e) =>
                             setForm({
@@ -311,7 +309,7 @@ export function ThreadConfigModal({
                             ...form.directInteraction,
                             enabled: form.directInteraction?.enabled ?? false,
                             requireMention:
-                              form.directInteraction?.requireMention ?? (threadType === 'group'),
+                              form.directInteraction?.requireMention ?? threadType === 'group',
                             triggerPrefix: e.target.value,
                           },
                         })
@@ -321,7 +319,8 @@ export function ThreadConfigModal({
                       value={form.directInteraction?.triggerPrefix || ''}
                     />
                     <p className="mt-0.5 text-[10px] text-slate-400">
-                      Tin nhắn bắt đầu bằng tiền tố này sẽ kích hoạt bot nhanh (mặc định luôn hỗ trợ gọi @Bot)
+                      Tin nhắn bắt đầu bằng tiền tố này sẽ kích hoạt bot nhanh (mặc định luôn hỗ trợ
+                      gọi @Bot)
                     </p>
                   </div>
                 </div>

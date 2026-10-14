@@ -942,7 +942,11 @@ void test('TextInputService remains completely silent when passiveOnly=true and 
     passiveOnly: true,
   });
 
-  assert.equal(sentMessages.length, 0, 'Bot must not send any message in passive mode when no tool called');
+  assert.equal(
+    sentMessages.length,
+    0,
+    'Bot must not send any message in passive mode when no tool called',
+  );
 });
 
 void test('TextInputService executes tool when passiveOnly=true and LLM calls RECORD_TRANSACTION', async () => {

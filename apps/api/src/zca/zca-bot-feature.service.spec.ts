@@ -438,7 +438,11 @@ void test('ZcaBotFeatureService sets passiveOnly=true for group message without 
 
   await service.onMessage(message, {} as unknown as API);
   assert.ok(processedInput, 'Message should be forwarded for passive expense detection');
-  assert.equal(processedInput.passiveOnly, true, 'passiveOnly must be true so bot will not chit-chat');
+  assert.equal(
+    processedInput.passiveOnly,
+    true,
+    'passiveOnly must be true so bot will not chit-chat',
+  );
 });
 
 void test('ZcaBotFeatureService sets passiveOnly=false when message uses custom prefix or @bot', async () => {
@@ -454,7 +458,7 @@ void test('ZcaBotFeatureService sets passiveOnly=false when message uses custom 
     },
   });
 
-  let processedInputs: AgentInput[] = [];
+  const processedInputs: AgentInput[] = [];
   const mockTextInputService = {
     process: (input: AgentInput) => {
       processedInputs.push(input);
