@@ -39,28 +39,29 @@ export function createDefaultThreadConfig(
     threadType: params?.threadType || (isGroup ? 'group' : 'user'),
     isListened: params?.isListened ?? false,
     directInteraction: {
-      enabled: true,
-      requireMention: isGroup,
+      enabled: false,
+      requireMention: false,
       triggerPrefix: '',
-      allowAiChat: true,
+      allowAiChat: false,
+      allowSelf: false,
     },
     mediaBackup: {
       enabled: false,
-      uploadImages: true,
-      uploadVideos: true,
+      uploadImages: false,
+      uploadVideos: false,
       customFolder: params?.threadName ? `zalobot/${safeName}` : '',
       fileSuffix: safeName ? `_${safeName}` : '',
     },
     expenseTracking: {
-      enabled: true,
-      requireConfirm: true,
+      enabled: false,
+      requireConfirm: false,
     },
     calendarExtraction: {
-      enabled: true,
-      requireConfirm: true,
+      enabled: false,
+      requireConfirm: false,
     },
     confirmationRules: {
-      allowReactions: true,
+      allowReactions: false,
       requiredHearts: isGroup ? 5 : 1,
       timeoutMinutes: 5,
     },
@@ -74,31 +75,34 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
     threadName: entity.threadName || undefined,
     threadType: entity.threadType || 'user',
     isListened: Boolean(entity.isListened),
-    directInteraction: entity.directInteraction || {
-      enabled: true,
-      requireMention: entity.threadType === 'group',
-      triggerPrefix: '',
-      allowAiChat: true,
+    directInteraction: {
+      enabled: entity.directInteraction?.enabled ?? false,
+      requireMention: entity.directInteraction?.requireMention ?? false,
+      triggerPrefix: entity.directInteraction?.triggerPrefix || '',
+      allowAiChat: entity.directInteraction?.allowAiChat ?? false,
+      allowSelf: entity.directInteraction?.allowSelf ?? false,
     },
-    mediaBackup: entity.mediaBackup || {
-      enabled: false,
-      uploadImages: true,
-      uploadVideos: true,
-      customFolder: '',
-      fileSuffix: '',
+    mediaBackup: {
+      enabled: entity.mediaBackup?.enabled ?? false,
+      uploadImages: entity.mediaBackup?.uploadImages ?? false,
+      uploadVideos: entity.mediaBackup?.uploadVideos ?? false,
+      customFolder: entity.mediaBackup?.customFolder || '',
+      fileSuffix: entity.mediaBackup?.fileSuffix || '',
     },
-    expenseTracking: entity.expenseTracking || {
-      enabled: true,
-      requireConfirm: true,
+    expenseTracking: {
+      enabled: entity.expenseTracking?.enabled ?? false,
+      requireConfirm: entity.expenseTracking?.requireConfirm ?? false,
     },
-    calendarExtraction: entity.calendarExtraction || {
-      enabled: true,
-      requireConfirm: true,
+    calendarExtraction: {
+      enabled: entity.calendarExtraction?.enabled ?? false,
+      requireConfirm: entity.calendarExtraction?.requireConfirm ?? false,
     },
-    confirmationRules: entity.confirmationRules || {
-      allowReactions: true,
-      requiredHearts: entity.threadType === 'group' ? 5 : 1,
-      timeoutMinutes: 5,
+    confirmationRules: {
+      allowReactions: entity.confirmationRules?.allowReactions ?? false,
+      requiredHearts:
+        entity.confirmationRules?.requiredHearts ??
+        (entity.threadType === 'group' ? 5 : 1),
+      timeoutMinutes: entity.confirmationRules?.timeoutMinutes ?? 5,
     },
     updatedAt: entity.updatedAt ? new Date(entity.updatedAt).getTime() : Date.now(),
   };
@@ -263,6 +267,11 @@ export class ThreadConfigService implements OnModuleInit {
     return Array.from(this.configsMap.values()).filter((c) => c.threadId !== 'thread-123');
   }
 
+  public getConfigSync(threadId: string): ThreadBotConfig | undefined {
+    const id = String(threadId).trim();
+    return this.configsMap.get(id);
+  }
+
   public getListenedThreadIds(): string[] {
     const ids: string[] = [];
     for (const [id, cfg] of this.configsMap.entries()) {
@@ -295,6 +304,14 @@ export class ThreadConfigService implements OnModuleInit {
   ): Promise<ThreadBotConfig> {
     const id = String(threadId).trim();
     const config = await this.getConfig(id, meta);
+
+    if (update.threadName !== undefined) {
+      config.threadName = update.threadName;
+    }
+
+    if (update.threadType !== undefined) {
+      config.threadType = update.threadType;
+    }
 
     if (update.isListened !== undefined) {
       config.isListened = Boolean(update.isListened);

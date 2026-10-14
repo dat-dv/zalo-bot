@@ -131,6 +131,9 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   private cachedAvailableThreads: AvailableThread[] = [];
   private cachedThreadsExpiresAt = 0;
   private pendingThreadsFetchPromise: Promise<AvailableThread[]> | null = null;
+  private readonly sentBotSignatures = new Map<string, number>();
+  private readonly sentBotMsgIds = new Map<string, number>();
+  private readonly knownThreadTypes = new Map<string, ThreadType>();
 
   private qrLoginStatus: QrLoginStatusInfo = {
     phase: 'idle',
@@ -402,6 +405,93 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     return this;
   }
 
+  public resolveThreadType(threadId: string): ThreadType {
+    const strId = String(threadId).trim();
+    const known = this.knownThreadTypes.get(strId);
+    if (known !== undefined) {
+      return known;
+    }
+    const cached = this.cachedAvailableThreads.find((t) => t.id === strId);
+    if (cached) {
+      const type = cached.type === 'group' ? ThreadType.Group : ThreadType.User;
+      this.knownThreadTypes.set(strId, type);
+      return type;
+    }
+    const config = this.threadConfigService?.getConfigSync?.(strId);
+    if (config?.threadType === 'group' || strId.startsWith('g-')) {
+      return ThreadType.Group;
+    }
+    return ThreadType.User;
+  }
+
+  public trackBotOutgoingMessage(threadId: string, text: string): void {
+    const cleanText = text.trim();
+    if (!cleanText) return;
+    const signature = `${threadId}:${cleanText}`;
+    this.sentBotSignatures.set(signature, Date.now() + 120_000);
+    this.cleanExpiredTracking();
+  }
+
+  public trackBotMsgId(msgId: string): void {
+    if (!msgId) return;
+    this.sentBotMsgIds.set(String(msgId), Date.now() + 120_000);
+    this.cleanExpiredTracking();
+  }
+
+  public isBotSentMessage(message: Message): boolean {
+    if (!message) return false;
+    const msgId = message.data?.msgId ? String(message.data.msgId) : '';
+    if (msgId && this.sentBotMsgIds.has(msgId)) {
+      this.sentBotMsgIds.delete(msgId);
+      return true;
+    }
+
+    const text = (typeof message.data?.content === 'string' ? message.data.content : '').trim();
+    if (text) {
+      const signature = `${message.threadId}:${text}`;
+      if (this.sentBotSignatures.has(signature)) {
+        this.sentBotSignatures.delete(signature);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private cleanExpiredTracking(): void {
+    const now = Date.now();
+    if (this.sentBotSignatures.size > 200) {
+      for (const [key, expires] of this.sentBotSignatures.entries()) {
+        if (now > expires) this.sentBotSignatures.delete(key);
+      }
+    }
+    if (this.sentBotMsgIds.size > 200) {
+      for (const [key, expires] of this.sentBotMsgIds.entries()) {
+        if (now > expires) this.sentBotMsgIds.delete(key);
+      }
+    }
+  }
+
+  private setupApiInstance(api: API): API {
+    const originalSendMessage = api.sendMessage.bind(api);
+    api.sendMessage = async (
+      message: MessageContent | string,
+      threadId: string,
+      type?: ThreadType,
+    ) => {
+      const resolvedType = type ?? this.resolveThreadType(threadId);
+      const text = typeof message === 'string' ? message : message.msg || '';
+      if (text) {
+        this.trackBotOutgoingMessage(threadId, text);
+      }
+      const response = await originalSendMessage(message, threadId, resolvedType);
+      if (response?.message?.msgId) {
+        this.trackBotMsgId(String(response.message.msgId));
+      }
+      return response;
+    };
+    return api;
+  }
+
   /**
    * Log in to Zalo using session credentials (cookies, imei, userAgent).
    */
@@ -467,7 +557,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     this.logger.log(`Logging in to Zalo via credentials (IMEI: ${imei.slice(0, 8)}...)...`);
     const api = await this.client.login(fullCredentials);
-    this.api = api;
+    this.api = this.setupApiInstance(api);
 
     this.logger.log('Successfully logged in to Zalo via ZCA.');
     await this.initPlugins(api);
@@ -635,7 +725,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
           }
         });
 
-        this.api = api;
+        this.api = this.setupApiInstance(api);
         const ownId = typeof api.getOwnId === 'function' ? api.getOwnId() : 'unknown';
         this.setQrStatus('success', `Đăng nhập thành công! Tài khoản ID: ${ownId}`);
         this.logger.log('='.repeat(65));
@@ -696,7 +786,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       callback,
     );
 
-    this.api = api;
+    this.api = this.setupApiInstance(api);
     this.logger.log('Successfully logged in via QR Code.');
     await this.initPlugins(api);
     this.startListener();
@@ -846,6 +936,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
               }
 
               for (const gid of groupIds) {
+                this.knownThreadTypes.set(gid, ThreadType.Group);
                 if (seenIds.has(gid)) continue;
                 seenIds.add(gid);
                 const g = groupInfoMap[gid];
@@ -912,6 +1003,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
                 typeof rawId === 'string' ? rawId : typeof rawId === 'number' ? String(rawId) : '';
               if (!userId || seenIds.has(userId)) continue;
               seenIds.add(userId);
+              this.knownThreadTypes.set(userId, ThreadType.User);
 
               const alias =
                 aliasMap.get(userId) || (typeof f.alias === 'string' ? f.alias.trim() : undefined);
@@ -1039,6 +1131,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       const threadId = message?.threadId ?? 'unknown';
       const isListened = this.listenedThreadIds.size === 0 || this.listenedThreadIds.has(threadId);
       const isGroup = message?.type === ThreadType.Group;
+      this.knownThreadTypes.set(threadId, isGroup ? ThreadType.Group : ThreadType.User);
       const typeLabel = isGroup ? 'Group' : 'User (Direct)';
       const senderName = message?.data?.dName || 'Unknown';
       const senderId = message?.data?.uidFrom || 'Unknown';
@@ -1077,6 +1170,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     // 3. Group event listener (e.g. member joins -> Welcome strategy)
     listener.on('group_event', (event: GroupEvent) => {
+      this.knownThreadTypes.set(event.threadId, ThreadType.Group);
       if (this.listenedThreadIds.size > 0 && !this.listenedThreadIds.has(event.threadId)) {
         this.logger.debug(
           `Group event from thread ${event.threadId} ignored (not in listened list)`,
@@ -1142,7 +1236,8 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     if (!this.api) {
       throw new Error('Cannot send message: ZCA is not logged in.');
     }
-    return this.api.sendMessage(message, threadId, type);
+    const resolvedType = type ?? this.resolveThreadType(threadId);
+    return this.api.sendMessage(message, threadId, resolvedType);
   }
 
   /**

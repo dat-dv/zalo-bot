@@ -1944,6 +1944,7 @@ export interface ThreadDirectInteractionConfig {
   requireMention: boolean;
   triggerPrefix?: string;
   allowAiChat?: boolean;
+  allowSelf?: boolean;
 }
 
 export interface ThreadBotConfig {
@@ -1960,6 +1961,8 @@ export interface ThreadBotConfig {
 }
 
 export type UpdateThreadBotConfigDto = Partial<{
+  threadName: string;
+  threadType: 'user' | 'group';
   isListened: boolean;
   directInteraction: Partial<ThreadDirectInteractionConfig>;
   mediaBackup: Partial<ThreadMediaBackupConfig>;
@@ -1967,3 +1970,4 @@ export type UpdateThreadBotConfigDto = Partial<{
   calendarExtraction: Partial<ThreadCalendarConfig>;
   confirmationRules: Partial<ThreadConfirmationConfig>;
 }>;
+

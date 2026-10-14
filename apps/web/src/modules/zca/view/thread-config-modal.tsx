@@ -29,11 +29,33 @@ export function ThreadConfigModal({
     if (config) {
       setForm({
         ...config,
+        isListened: config.isListened ?? false,
         directInteraction: config.directInteraction || {
-          enabled: true,
-          requireMention: threadType === 'group',
+          enabled: false,
+          requireMention: false,
           triggerPrefix: '',
-          allowAiChat: true,
+          allowAiChat: false,
+          allowSelf: false,
+        },
+        mediaBackup: config.mediaBackup || {
+          enabled: false,
+          uploadImages: false,
+          uploadVideos: false,
+          customFolder: '',
+          fileSuffix: '',
+        },
+        expenseTracking: config.expenseTracking || {
+          enabled: false,
+          requireConfirm: false,
+        },
+        calendarExtraction: config.calendarExtraction || {
+          enabled: false,
+          requireConfirm: false,
+        },
+        confirmationRules: config.confirmationRules || {
+          allowReactions: false,
+          requiredHearts: threadType === 'group' ? 5 : 1,
+          timeoutMinutes: 5,
         },
       });
     }
@@ -46,6 +68,8 @@ export function ThreadConfigModal({
     if (!form) return;
 
     const payload: UpdateThreadBotConfigDto = {
+      threadName,
+      threadType,
       isListened: form.isListened,
       directInteraction: form.directInteraction,
       mediaBackup: form.mediaBackup,
@@ -152,7 +176,7 @@ export function ThreadConfigModal({
                 </div>
                 <label className="relative inline-flex cursor-pointer items-center">
                   <input
-                    checked={form.directInteraction?.enabled ?? true}
+                    checked={form.directInteraction?.enabled ?? false}
                     className="peer sr-only"
                     onChange={(e) =>
                       setForm({
@@ -160,10 +184,9 @@ export function ThreadConfigModal({
                         directInteraction: {
                           ...form.directInteraction,
                           enabled: e.target.checked,
-                          requireMention:
-                            form.directInteraction?.requireMention ?? (threadType === 'group'),
+                          requireMention: form.directInteraction?.requireMention ?? false,
                           triggerPrefix: form.directInteraction?.triggerPrefix ?? '',
-                          allowAiChat: form.directInteraction?.allowAiChat ?? true,
+                          allowAiChat: form.directInteraction?.allowAiChat ?? false,
                         },
                       })
                     }
@@ -173,7 +196,7 @@ export function ThreadConfigModal({
                 </label>
               </div>
 
-              {(form.directInteraction?.enabled ?? true) && (
+              {(form.directInteraction?.enabled ?? false) && (
                 <div className="mt-3.5 flex flex-col gap-3 pl-7">
                   {threadType === 'group' && (
                     <div className="flex items-center justify-between">
@@ -187,14 +210,14 @@ export function ThreadConfigModal({
                       </div>
                       <label className="relative inline-flex cursor-pointer items-center">
                         <input
-                          checked={form.directInteraction?.requireMention ?? true}
+                          checked={form.directInteraction?.requireMention ?? false}
                           className="peer sr-only"
                           onChange={(e) =>
                             setForm({
                               ...form,
                               directInteraction: {
                                 ...form.directInteraction,
-                                enabled: form.directInteraction?.enabled ?? true,
+                                enabled: form.directInteraction?.enabled ?? false,
                                 requireMention: e.target.checked,
                               },
                             })
@@ -217,17 +240,47 @@ export function ThreadConfigModal({
                     </div>
                     <label className="relative inline-flex cursor-pointer items-center">
                       <input
-                        checked={form.directInteraction?.allowAiChat ?? true}
+                        checked={form.directInteraction?.allowAiChat ?? false}
                         className="peer sr-only"
                         onChange={(e) =>
                           setForm({
                             ...form,
                             directInteraction: {
                               ...form.directInteraction,
-                              enabled: form.directInteraction?.enabled ?? true,
-                              requireMention:
-                                form.directInteraction?.requireMention ?? (threadType === 'group'),
+                              enabled: form.directInteraction?.enabled ?? false,
+                              requireMention: form.directInteraction?.requireMention ?? false,
                               allowAiChat: e.target.checked,
+                            },
+                          })
+                        }
+                        type="checkbox"
+                      />
+                      <div className="peer h-4 w-7 rounded-full bg-slate-300 peer-checked:bg-blue-600 peer-focus:outline-none dark:bg-slate-700 after:absolute after:top-[1px] after:left-[1px] after:size-3.5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full" />
+                    </label>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                        Phản hồi tin nhắn tự gửi (Self-listen / isSelf)
+                      </span>
+                      <p className="text-[10px] text-slate-400">
+                        Cho phép bot phản hồi tin nhắn gửi từ chính tài khoản Zalo của bot (hữu ích khi bạn tự nhắn tin để test bot)
+                      </p>
+                    </div>
+                    <label className="relative inline-flex cursor-pointer items-center">
+                      <input
+                        checked={form.directInteraction?.allowSelf ?? false}
+                        className="peer sr-only"
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            directInteraction: {
+                              ...form.directInteraction,
+                              enabled: form.directInteraction?.enabled ?? false,
+                              requireMention: form.directInteraction?.requireMention ?? false,
+                              allowAiChat: form.directInteraction?.allowAiChat ?? false,
+                              allowSelf: e.target.checked,
                             },
                           })
                         }
@@ -248,9 +301,8 @@ export function ThreadConfigModal({
                           ...form,
                           directInteraction: {
                             ...form.directInteraction,
-                            enabled: form.directInteraction?.enabled ?? true,
-                            requireMention:
-                              form.directInteraction?.requireMention ?? (threadType === 'group'),
+                            enabled: form.directInteraction?.enabled ?? false,
+                            requireMention: form.directInteraction?.requireMention ?? false,
                             triggerPrefix: e.target.value,
                           },
                         })

@@ -25,20 +25,39 @@ export class ZcaThreadConfigEntity {
   @Column({
     name: 'direct_interaction',
     type: 'jsonb',
-    default: () => '\'{"enabled": true, "requireMention": false, "allowAiChat": true}\'',
+    default: () =>
+      '\'{"enabled": false, "requireMention": false, "allowAiChat": false, "allowSelf": false}\'',
   })
   directInteraction: ThreadDirectInteractionConfig;
 
-  @Column({ name: 'media_backup', type: 'jsonb', default: () => "'{}'" })
+  @Column({
+    name: 'media_backup',
+    type: 'jsonb',
+    default: () =>
+      '\'{"enabled": false, "uploadImages": false, "uploadVideos": false, "customFolder": "", "fileSuffix": ""}\'',
+  })
   mediaBackup: ThreadMediaBackupConfig;
 
-  @Column({ name: 'expense_tracking', type: 'jsonb', default: () => "'{}'" })
+  @Column({
+    name: 'expense_tracking',
+    type: 'jsonb',
+    default: () => '\'{"enabled": false, "requireConfirm": false}\'',
+  })
   expenseTracking: ThreadExpenseConfig;
 
-  @Column({ name: 'calendar_extraction', type: 'jsonb', default: () => "'{}'" })
+  @Column({
+    name: 'calendar_extraction',
+    type: 'jsonb',
+    default: () => '\'{"enabled": false, "requireConfirm": false}\'',
+  })
   calendarExtraction: ThreadCalendarConfig;
 
-  @Column({ name: 'confirmation_rules', type: 'jsonb', default: () => "'{}'" })
+  @Column({
+    name: 'confirmation_rules',
+    type: 'jsonb',
+    default: () =>
+      '\'{"allowReactions": false, "requiredHearts": 1, "timeoutMinutes": 5}\'',
+  })
   confirmationRules: ThreadConfirmationConfig;
 
   @CreateDateColumn({ name: 'created_at' })

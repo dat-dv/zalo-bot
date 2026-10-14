@@ -102,3 +102,131 @@ test('ZcaBotFeatureService dispatches reaction confirmations', async () => {
   assert.equal(sentReplies.length, 1);
   assert.match(sentReplies[0], /1\/2 lượt thả tim/);
 });
+
+test('ZcaBotFeatureService ignores isSelf message when allowSelf is false', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'self-thread-1';
+  await configService.updateConfig(threadId, {
+    isListened: true,
+    directInteraction: {
+      enabled: true,
+      requireMention: false,
+      allowSelf: false,
+    },
+  });
+
+  let processedInput: any = null;
+  const mockTextInputService: any = {
+    process: (input: any) => {
+      processedInput = input;
+      return Promise.resolve();
+    },
+  };
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setTextInputService(mockTextInputService);
+
+  const message: any = {
+    threadId,
+    isSelf: true,
+    type: ThreadType.User,
+    data: {
+      content: '@Bot hi',
+      uidFrom: 'owner-id',
+      msgType: 'chat',
+    },
+  };
+
+  await service.onMessage(message, {} as any);
+  assert.equal(processedInput, null, 'Message should have been ignored because allowSelf is false');
+});
+
+test('ZcaBotFeatureService processes isSelf message when allowSelf is true and message not from bot itself', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'self-thread-2';
+  await configService.updateConfig(threadId, {
+    isListened: true,
+    directInteraction: {
+      enabled: true,
+      requireMention: false,
+      allowSelf: true,
+    },
+  });
+
+  let processedInput: any = null;
+  const mockTextInputService: any = {
+    process: (input: any) => {
+      processedInput = input;
+      return Promise.resolve();
+    },
+  };
+
+  const mockZcaService: any = {
+    isBotSentMessage: () => false,
+  };
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setTextInputService(mockTextInputService);
+  service.setZcaService(mockZcaService);
+
+  const message: any = {
+    threadId,
+    isSelf: true,
+    type: ThreadType.User,
+    data: {
+      content: '@Bot hi',
+      uidFrom: 'owner-id',
+      dName: 'Văn Đạt',
+      msgType: 'chat',
+    },
+  };
+
+  await service.onMessage(message, {} as any);
+  assert.ok(processedInput, 'Message should have been processed because allowSelf is true');
+  assert.equal(processedInput.text, '@Bot hi');
+  assert.equal(processedInput.displayName, 'Văn Đạt');
+});
+
+test('ZcaBotFeatureService drops isSelf message when allowSelf is true but originated by bot process (loop prevention)', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'self-thread-3';
+  await configService.updateConfig(threadId, {
+    isListened: true,
+    directInteraction: {
+      enabled: true,
+      requireMention: false,
+      allowSelf: true,
+    },
+  });
+
+  let processedInput: any = null;
+  const mockTextInputService: any = {
+    process: (input: any) => {
+      processedInput = input;
+      return Promise.resolve();
+    },
+  };
+
+  const mockZcaService: any = {
+    isBotSentMessage: () => true, // Identified as bot reply
+  };
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setTextInputService(mockTextInputService);
+  service.setZcaService(mockZcaService);
+
+  const message: any = {
+    threadId,
+    isSelf: true,
+    type: ThreadType.User,
+    data: {
+      content: 'Chào bạn! Tôi có thể giúp gì cho bạn?',
+      uidFrom: 'owner-id',
+      msgType: 'chat',
+    },
+  };
+
+  await service.onMessage(message, {} as any);
+  assert.equal(processedInput, null, 'Message should have been dropped to prevent infinite loop');
+});
+

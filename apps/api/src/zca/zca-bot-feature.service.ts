@@ -51,6 +51,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
   private readonly mediaStorageService?: MediaStorageService;
   private confirmationService?: TransactionConfirmationService;
   private textInputService?: TextInputService;
+  private zcaService?: any;
 
   constructor(
     private readonly threadConfigService: ThreadConfigService,
@@ -84,6 +85,10 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
     this.textInputService = service;
   }
 
+  public setZcaService(service: any): void {
+    this.zcaService = service;
+  }
+
   public onModuleInit(): void {
     if (this.moduleRef) {
       if (!this.confirmationService) {
@@ -108,20 +113,47 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
           this.logger.debug(`Could not resolve TextInputService via ModuleRef: ${err}`);
         }
       }
+      if (!this.zcaService) {
+        try {
+          const { ZcaService } = require('./zca.service');
+          this.zcaService = this.moduleRef.get(ZcaService, { strict: false });
+        } catch (err) {
+          this.logger.debug(`Could not resolve ZcaService via ModuleRef: ${err}`);
+        }
+      }
     }
   }
 
   public async onMessage(message: Message, api: API): Promise<void> {
-    if (message.isSelf) {
-      return;
-    }
-
     const threadId = message.threadId;
     const config = await this.threadConfigService.getConfig(threadId);
 
     if (!config.isListened) {
       this.logger.debug(`[ZcaBotFeature] Ignored message from unlistened thread: ${threadId}`);
       return;
+    }
+
+    const directConfig = config.directInteraction ?? {
+      enabled: true,
+      requireMention: message.type === ThreadType.Group,
+      triggerPrefix: '',
+      allowAiChat: true,
+      allowSelf: false,
+    };
+
+    if (message.isSelf) {
+      if (!directConfig.allowSelf) {
+        this.logger.debug(
+          `[ZcaBotFeature] Ignored self message (allowSelf is disabled) in thread ${threadId}`,
+        );
+        return;
+      }
+      if (this.zcaService?.isBotSentMessage?.(message)) {
+        this.logger.debug(
+          `[ZcaBotFeature] Ignored message originated by bot backend itself in thread ${threadId}`,
+        );
+        return;
+      }
     }
 
     const senderId = message.data?.uidFrom || '';
@@ -180,12 +212,6 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
     // 3. Text Message Processing (Direct Bot Interaction / Finance Transaction / Calendar Event extraction)
     if (text && this.textInputService) {
       const isGroup = message.type === ThreadType.Group;
-      const directConfig = config.directInteraction ?? {
-        enabled: true,
-        requireMention: isGroup,
-        triggerPrefix: '',
-        allowAiChat: true,
-      };
 
       // Check if all text features are disabled
       if (
@@ -242,14 +268,14 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
   }
 
   public async onReaction(reaction: Reaction, api: API): Promise<void> {
-    if (reaction.isSelf) {
-      return;
-    }
-
     const threadId = reaction.threadId;
     const config = await this.threadConfigService.getConfig(threadId);
 
     if (!config.isListened || !config.confirmationRules.allowReactions) {
+      return;
+    }
+
+    if (reaction.isSelf && !config.directInteraction?.allowSelf) {
       return;
     }
 
