@@ -22,4 +22,7 @@ This directory contains developer & operating guides organized by feature module
 - [Lời nhắc](reminders/README.md): Quản lý lời nhắc hẹn giờ và cập nhật trạng thái.
 - [Cài đặt](settings/README.md): Quản lý danh mục thu chi và cấu hình hệ thống cá nhân.
 - [Công việc](tasks/README.md): Đồng bộ và thao tác danh sách Google Tasks trên web.
+- [Người dùng](users/README.md): Quản lý danh sách người dùng, vai trò Admin/User và phân quyền truy cập bot.
+- [Tài khoản ZCA](zca/README.md): Kết nối tài khoản Zalo cá nhân, cấu hình tương tác kênh và sao lưu Google Drive.
+
 

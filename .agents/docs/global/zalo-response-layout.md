@@ -19,36 +19,62 @@ Trước khi gửi Markdown do AI tạo, bot giải mã HTML entity và bỏ esc
 
 Các tin nhắn danh sách/thông tin có nút thao tác dài hạn — tổng kết hôm nay, danh sách việc, trạng thái tài khoản, danh sách người dùng, chi tiết công nợ và liên kết Dashboard/Báo cáo — phải có nút `❌ Đóng`. Khi bấm, bot ưu tiên xóa tin nhắn; nếu zalo không cho phép xóa thì gỡ toàn bộ bàn phím inline để không còn thao tác cũ. Hộp xác nhận vẫn dùng `Hủy`; biên nhận Reminder và Calendar giữ `Ẩn nút` để không làm mất lịch sử thao tác.
 
-## 1. Cấu Trúc Hộp Xác Nhận (Confirmation Cards) & Giải Thích Tác Động 2 Chiều
+## 1. Cấu Trúc Thẻ Xác Nhận Tương Tác (3-Digit Interactive Cards)
 
-Mọi hộp xác nhận (`formatConfirmationBox`) đều chia làm 4 khối trực quan rõ ràng:
+Mọi thao tác nhạy cảm (ghi thu/chi, tạo địa điểm, nợ, lời nhắc, calendar, tasks, cấm người dùng) được sinh thẻ xác nhận với mã 3 số ngẫu nhiên (`code`):
 
-1. **Thông tin nghiệp vụ chính**: Thẻ tóm tắt chi tiết (loại thu/chi, số tiền format VND, nơi chốn, danh mục, thời gian phát sinh, đối tác công nợ, hạn chót).
-2. **Khối giải thích tác động hệ thống (`🎯 Tác động hệ thống:`)**: Nêu rõ ràng hành vi 2 chiều cho người dùng:
-   - `• ✅ Nếu Xác nhận`: Thao tác cụ thể sẽ diễn ra (ghi sổ, tạo nơi chốn mới, trừ nợ, đồng bộ Google Tasks/Calendar,...).
-   - `• ❌ Nếu Hủy bỏ`: Cam kết an toàn (không có dữ liệu nào bị thay đổi, số dư/danh bạ giữ nguyên).
-3. **Khối minh bạch kỹ thuật (`🔍 Chi tiết kỹ thuật (Payload JSON...):`)**: Khối `<pre><code class="language-json">...</code></pre>` chứa chính xác JSON payload gọi API (tuân thủ quy định `ai-tool-transparency-and-resolution.md`).
-4. **Mã yêu cầu & Nút bấm**: Mã định danh (ví dụ `🔖 Mã: REQ-XXXXXX`) kèm cặp nút `[✅ Xác nhận]` và `[❌ Hủy bỏ]`.
+```text
+⏳ Xác nhận lưu 🔴 khoản chi?
 
-## 2. Trạng Thái Callout Sau Khi Phê Duyệt / Hủy Bỏ (Context Preservation)
+• Phân loại: 🔴 Khoản chi
+• Số tiền: 30.000 đ
+• Danh mục: Ăn uống
+• Ghi chú: ăn bánh tráng nướng buổi tối
+• Thời gian: 20:00 13/10/2026
+• Địa điểm: tiệm bánh tráng đầu đường gò xoài
+• Phương thức: tiền mặt
+• Ảnh hóa đơn: (trống)
 
-Sau khi người dùng tương tác hoặc khi tin nhắn bị hủy tự động:
+👉 Thả tim (❤️) hoặc soạn: yes 629 (để xác nhận)
+👉 Thả phẫn nộ (😡) hoặc soạn: cancel 629 (để hủy bỏ)
+👉 Soạn: edit 629 <nội dung sửa> (để điều chỉnh)
+⏱️ Tự động hết hạn sau 5 phút.
+```
 
-- **Xác nhận thành công (`formatConfirmedBox`)**: Cập nhật tin nhắn thành thẻ Callout xanh:
-  - Header: `✅ ĐÃ XÁC NHẬN & THỰC HIỆN THÀNH CÔNG`
-  - Mã tham chiếu `🔖 Mã: REQ-XXXXXX`
-  - Kết quả mới ghi nhận (`✨ Kết quả đã ghi nhận:`)
-  - Nội dung yêu cầu gốc đã duyệt (`📋 Nội dung yêu cầu đã duyệt:`) -> Người dùng dễ dàng đối chiếu, không bị mất ngữ cảnh giao dịch.
-- **Hủy bỏ thao tác (`formatCancelledBox`)**: Cập nhật tin nhắn thành thẻ Callout đỏ:
-  - Header: `❌ ĐÃ HỦY YÊU CẦU THAO TÁC`
-  - Lời bảo đảm an toàn dữ liệu (`🛡️ Yêu cầu đã được hủy an toàn. Không có bất kỳ dữ liệu nào bị thay đổi...`)
-  - Nội dung yêu cầu đã hủy (`📋 Nội dung yêu cầu đã hủy:`)
-- **Tự động hủy khi có tin nhắn mới**: Nếu người dùng đang có hộp xác nhận nhưng gửi tin nhắn mới (text/voice/ảnh), tin nhắn cũ tự động chuyển sang Callout đã hủy và gỡ bỏ inline buttons.
+- **Đồng bộ đa nền tảng**: Thẻ được lưu đồng thời trong RAM và Redis (`pending:tx:code:*`, `pending:tx:user:*`, `pending:tx:msg:*`).
+
+## 2. Quy Chuẩn Thu Hồi Tin Nhắn Tự Động (Automatic Message Recall & Clean Conversations)
+
+Nhằm giữ cuộc trò chuyện luôn gọn gàng và tránh rác tin nhắn, bot áp dụng cơ chế tự động thu hồi cho tất cả người xem (`undoMessage` / `zca.undo`):
+
+1. **Xác nhận thành công (Thả ❤️ hoặc soạn `yes <code>`)**:
+   - Bot gọi `undoMessage` thu hồi thẻ xác nhận chờ (và tự động thu hồi thẻ tạo nơi chốn phụ đi kèm nếu có).
+   - Bot chỉ gửi **duy nhất 1 tin nhắn kết quả hợp nhất** chứa tiêu đề chúc mừng tim và đầy đủ nội dung DTO chi tiết:
+     ```text
+     🎉 Đã nhận đủ 1 lượt thả tim (❤️)! Yêu cầu [629] đã được xác nhận thành công!
+
+     • Phân loại: 🔴 Khoản chi
+     • Số tiền: 30.000 đ
+     ...
+     ```
+2. **Hết hạn sau 5 phút (Timeout)**:
+   - Bot gọi `undoMessage` thu hồi thẻ xác nhận chờ.
+   - Bot chỉ gửi thông báo hết hạn: `⏰ Yêu cầu ... (mã: xxx) đã hết hạn 5 phút và chưa được xác nhận.`
+3. **Hủy bỏ thao tác (Thả 😡 hoặc soạn `cancel <code>`)**:
+   - Bot gọi `undoMessage` thu hồi thẻ xác nhận chờ.
+   - Gửi thông báo: `❌ Yêu cầu [xxx] đã bị hủy bỏ.`
+4. **Chỉnh sửa thao tác (`edit <code> <nội dung>`)**:
+   - Bot gọi `undoMessage` thu hồi ngay lập tức thẻ xác nhận của phiên bản trước đó.
+   - AI phân tích lại nội dung bổ sung và gửi thẻ xác nhận mới.
+5. **An toàn không chặn (Non-blocking)**:
+   - Nếu Zalo API từ chối hoặc lỗi mạng khi thu hồi tin nhắn, lỗi được bắt trong `try...catch`, chỉ ghi log warning và không được làm gián đoạn việc lưu dữ liệu vào cơ sở dữ liệu.
+6. **Dọn dẹp Redis**:
+   - Xóa sạch các key `pending:tx:code:*`, `pending:tx:user:*`, `pending:tx:msg:*` khi hoàn thành luồng.
 
 ## 3. Danh Mục Kiểm Tra (Verification Checklist)
 
-1. Mọi hộp xác nhận (18 công cụ) đều hiển thị đầy đủ 4 khối: Nghiệp vụ + Tác động hệ thống + Chi tiết kỹ thuật JSON + Nút bấm.
-2. Khối JSON payload render đúng cú pháp `language-json`, HTML entity được escape an toàn.
-3. Khi bấm Xác nhận, tin nhắn chuyển sang Callout thành công, giữ nguyên tóm tắt yêu cầu gốc và hiển thị kết quả mới.
-4. Khi bấm Hủy hoặc khi gửi tin nhắn mới làm hủy tự động, tin nhắn chuyển sang Callout hủy an toàn kèm tóm tắt yêu cầu đã hủy.
-5. Chạy `npm run test --workspace @zalobot/api`, `npm run typecheck`, `npm run lint` và `npm run agent-system:validate` đều pass 100%.
+1. Mọi thẻ xác nhận đều chứa mã 3 số, hướng dẫn thả tim (❤️), phẫn nộ (😡), soạn `yes/cancel/edit` và thời hạn 5 phút.
+2. Khi xác nhận, thẻ chờ được thu hồi và chỉ có 1 tin nhắn kết quả hợp nhất được gửi.
+3. Khi hết hạn hoặc hủy bỏ, thẻ chờ được thu hồi và chỉ có 1 tin nhắn thông báo tương ứng.
+4. Khi chỉnh sửa, thẻ cũ được thu hồi ngay lập tức trước khi thẻ mới xuất hiện.
+5. Unit tests trong `apps/api/src/zalo/transaction-confirmation.service.spec.ts` pass 100%.

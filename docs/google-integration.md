@@ -46,15 +46,22 @@ export const GOOGLE_SCOPES = [
 
   // 3. Google Tasks
   'https://www.googleapis.com/auth/tasks',
+
+  // 4. Google Drive (lưu trữ file, ảnh, bill theo channel)
+  'https://www.googleapis.com/auth/drive.file',
+
+  // 5. Google Photos
+  'https://www.googleapis.com/auth/photoslibrary.appendonly',
+  'https://www.googleapis.com/auth/photoslibrary.sharing',
 ];
 ```
 
 > [!IMPORTANT]
-> Không xin scope cho tính năng chưa có. Khi thêm Gmail, Drive, Sheets, Docs hoặc Contacts trong tương lai, phải triển khai tính năng tương ứng, cập nhật Privacy Policy và nộp scope mới cho Google trước khi public.
+> Chỉ xin các scope đã phát hành và có tính năng tương ứng. Khi thêm scope mới trong tương lai, phải cập nhật Privacy Policy và nộp scope mới cho Google trước khi public.
 
 ## 2.1 Chuẩn bị Google OAuth verification
 
-Sau khi deploy HTTPS domain, dùng các URL public `/about`, `/privacy` và `/terms` trên domain đó để khai báo OAuth consent screen. Authorized redirect URI phải khớp chính xác với `${APP_URL}/api/oauth2callback`. Trong Google Cloud Console, chỉ bật Calendar API và Tasks API cho phạm vi hiện tại, xác minh domain, sau đó nộp Verification Center kèm video demo luồng kết nối và sử dụng Calendar/Tasks.
+Sau khi deploy HTTPS domain, dùng các URL public `/about`, `/privacy` và `/terms` trên domain đó để khai báo OAuth consent screen. Authorized redirect URI phải khớp chính xác với `${APP_URL}/api/oauth2callback`. Trong Google Cloud Console, bật Calendar API, Tasks API và Drive API cho phạm vi hiện tại, xác minh domain, sau đó nộp Verification Center kèm video demo luồng kết nối và sử dụng.
 
 ---
 
@@ -104,6 +111,8 @@ Thư mục được quản lý tự động dựa trên **`channelId` nguyên b�
 - **Hóa đơn**: `zalobot/<channelId>/bill`
 - **Hình ảnh**: `zalobot/<channelId>/image`
 - **Video**: `zalobot/<channelId>/video`
+- **Tập tin/Tài liệu**: `zalobot/<channelId>/file`
+- **Âm thanh/Voice**: `zalobot/<channelId>/audio`
 
 ### 6.2 Lưu Vết Thư Mục Trong PostgreSQL
 Khi thư mục được tạo hoặc truy vấn, đường dẫn và Google Drive web link được lưu vết vào cơ sở dữ liệu để tra cứu và truy cập nhanh:

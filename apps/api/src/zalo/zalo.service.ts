@@ -39,8 +39,7 @@ export class ZaloService implements OnModuleInit {
         try {
           const res = await this.zcaService.sendMessage(text, targetChatId);
           const rawMsg = res?.message as unknown as
-            | { msgId?: string | number; cliMsgId?: string | number }
-            | undefined;
+            { msgId?: string | number; cliMsgId?: string | number } | undefined;
           const msgId = rawMsg?.msgId !== undefined ? String(rawMsg.msgId) : undefined;
           const cliMsgId = rawMsg?.cliMsgId !== undefined ? String(rawMsg.cliMsgId) : undefined;
           this.logger.log(
@@ -91,8 +90,7 @@ export class ZaloService implements OnModuleInit {
           try {
             const res = await this.zcaService.sendMessage(text, targetChatId);
             const rawMsg = res?.message as unknown as
-              | { msgId?: string | number; cliMsgId?: string | number }
-              | undefined;
+              { msgId?: string | number; cliMsgId?: string | number } | undefined;
             const msgId = rawMsg?.msgId !== undefined ? String(rawMsg.msgId) : undefined;
             const cliMsgId = rawMsg?.cliMsgId !== undefined ? String(rawMsg.cliMsgId) : undefined;
             this.logger.log(`Fallback: Successfully sent message via ZCA to chat ${targetChatId}`);
@@ -132,9 +130,7 @@ export class ZaloService implements OnModuleInit {
   ): Promise<boolean> {
     const targetChatId = String(chatId);
     if (!this.zcaService?.isLoggedIn()) {
-      this.logger.debug(
-        `[ZaloService] Cannot recall message ${msgId}: ZCA is not logged in.`,
-      );
+      this.logger.debug(`[ZaloService] Cannot recall message ${msgId}: ZCA is not logged in.`);
       return false;
     }
 
@@ -146,7 +142,9 @@ export class ZaloService implements OnModuleInit {
         },
         targetChatId,
       );
-      this.logger.log(`[ZaloService] Successfully recalled message ${msgId} in chat ${targetChatId}`);
+      this.logger.log(
+        `[ZaloService] Successfully recalled message ${msgId} in chat ${targetChatId}`,
+      );
       return true;
     } catch (err) {
       this.logger.warn(

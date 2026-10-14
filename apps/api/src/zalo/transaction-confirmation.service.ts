@@ -329,11 +329,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     return pending;
   }
 
-  public async setMessageId(
-    code: string,
-    messageId: string,
-    cliMsgId?: string,
-  ): Promise<void> {
+  public async setMessageId(code: string, messageId: string, cliMsgId?: string): Promise<void> {
     const pending = await this.getPendingByCode(code);
     if (pending) {
       pending.messageId = messageId;
@@ -981,8 +977,9 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             const companionPending = Array.from(this.pendingMap.values()).find(
               (p) =>
                 p.actionType === 'CREATE_PLACE' &&
-                p.userId === pending!.userId &&
-                normalizePlaceName((p.payload?.name as string) || '') === normalizePlaceName(payload.placeName!),
+                p.userId === pending.userId &&
+                normalizePlaceName((p.payload?.name as string) || '') ===
+                  normalizePlaceName(payload.placeName),
             );
             if (companionPending) {
               if (companionPending.messageId && this.zaloService.undoMessage) {
@@ -1102,8 +1099,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!\n\n`
               : `✅ ĐÃ XÁC NHẬN VÀ THÊM VIỆC CẦN LÀM VÀO GOOGLE TASKS!\n\n`;
             const reply =
-              `${header}${cardContent}` +
-              `\n\n💡 Gõ /tasks để xem toàn bộ danh sách việc cần làm.`;
+              `${header}${cardContent}` + `\n\n💡 Gõ /tasks để xem toàn bộ danh sách việc cần làm.`;
             await this.zaloService.sendMessage(chatId, reply);
           }
           break;
@@ -1120,8 +1116,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!\n\n`
               : `🎉 ĐÃ XÁC NHẬN VÀ HOÀN THÀNH CÔNG VIỆC TRÊN GOOGLE TASKS!\n\n`;
             const reply =
-              `${header}${cardContent}` +
-              `\n\n💡 Gõ /tasks để xem danh sách việc cần làm còn lại.`;
+              `${header}${cardContent}` + `\n\n💡 Gõ /tasks để xem danh sách việc cần làm còn lại.`;
             await this.zaloService.sendMessage(chatId, reply);
           }
           break;

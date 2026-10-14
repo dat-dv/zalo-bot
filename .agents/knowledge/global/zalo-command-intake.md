@@ -1,7 +1,14 @@
-# zalo Command Intake
+# Zalo Command Intake
 
-The API instance receives zalo commands through zalograf long polling managed by `zaloLauncherService` when `zalo_LONG_POLLING_ENABLED=true` (default). Exactly one instance per bot token may poll updates at a time. If a duplicate instance is detected (`409 Conflict`), the launcher pauses polling and retries periodically with non-blocking backoff without crashing the NestJS application or web proxy. When polling is disabled, a separately configured webhook or worker must deliver updates; otherwise commands such as `/help` cannot reach their handlers.
+The system receives commands and user events through a dual-channel ingress:
 
-Direct command handlers must remain independently testable. The fallback harness verifies `/start` and `/help` still reply when dashboard-link issuance fails, when the origin is a localhost/loopback URL (omitting invalid inline URL buttons), and when zalo API rejects invalid markup.
+1. **Official Zalo Bot Platform Webhook**: Managed by `ZaloController` (`POST /webhook`), verified with `X-Bot-Api-Secret-Token`, normalized via `ZaloMessageParserService`, and throttled via `InputProcessorService` (whitelist & 2-second cooldown).
+2. **Personal Zalo Client Account (ZCA)**: Powered by `zca-js` via WebSocket managed by `ZcaService` and `ZcaBotFeatureService`. Supports QR login (`/zlogin`), configurable trigger prefix (`@bot`), per-thread mention policies (`requireMention`), and reaction listeners (❤️ Heart confirm, 😡 Angry cancel).
 
-The API test command must discover every `src/**/*.spec.ts` file and run through a TypeScript runner that honors NestJS decorators. Sensitive callbacks queue a user-bound confirmation; the action executes only after the same user confirms it.
+Intake routing:
+- Fast-path slash commands (`/start`, `/help`, `/finance`, `/tasks`, `/drive`, etc.) dispatch to corresponding strategy handlers in `apps/api/src/zalo/text/strategies/`.
+- Natural language messages are evaluated by `LlmService` (Gemini, OpenAI, Qwen) for structured tool calling.
+- Sensitive mutations queue an interactive 3-digit confirmation card with a 5-minute timeout managed by `TransactionConfirmationService`.
+- Upon resolution (confirm, cancel, timeout, edit), intermediate confirmation cards are automatically recalled (`undoMessage` / `zca.undo`), keeping conversation transcripts clean and free of dead buttons.
+- The API test command (`npm run test --workspace @zalobot/api`) discovers all `src/**/*.spec.ts` files using a decorator-aware TypeScript runner.
+

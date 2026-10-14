@@ -22,4 +22,7 @@ Each module document covers:
 - [Reminders](reminders/README.md): Scheduled user reminders management and status updates.
 - [Settings](settings/README.md): System preferences and custom finance categories management.
 - [Tasks](tasks/README.md): Google Tasks retrieval, updates, and state synchronization.
+- [Users](users/README.md): Multi-tenant user directory, Admin/User roles, and bot authorization.
+- [ZCA](zca/README.md): Personal Zalo account client integration, channel-specific bot rules, and Google Drive partitions.
+
 

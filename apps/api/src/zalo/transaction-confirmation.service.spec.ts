@@ -907,7 +907,7 @@ void test('TransactionConfirmationService captures messageId from sendMessageWit
 });
 
 void test('TransactionConfirmationService captures cliMsgId and exposes undoMessage helper', async () => {
-  let undonePayload: { chatId: string | number; msgId: string; cliMsgId?: string } | undefined;
+  let _undonePayload: { chatId: string | number; msgId: string; cliMsgId?: string } | undefined;
   const sentMessages: Array<{ chatId: string | number; text: string }> = [];
 
   const mockZaloService = {
@@ -924,7 +924,7 @@ void test('TransactionConfirmationService captures cliMsgId and exposes undoMess
       });
     },
     undoMessage: (chatId: string | number, msgId: string, cliMsgId?: string) => {
-      undonePayload = { chatId, msgId, cliMsgId };
+      _undonePayload = { chatId, msgId, cliMsgId };
       return Promise.resolve(true);
     },
   } as unknown as ZaloService;
@@ -998,8 +998,9 @@ void test('TransactionConfirmationService recalls previous message when action i
   });
 
   let onEditCalled = false;
-  await service.handleCommand('u1', 'c1', `edit ${pending.code} đổi thành 400k`, async () => {
+  await service.handleCommand('u1', 'c1', `edit ${pending.code} đổi thành 400k`, () => {
     onEditCalled = true;
+    return Promise.resolve();
   });
 
   assert.equal(onEditCalled, true);
@@ -1037,10 +1038,7 @@ void test('processConfirm recalls pending confirmation message and formats heart
       Promise.resolve({ id: 'tx_1', ...dto }),
   } as unknown as FinanceService;
 
-  const service = new TransactionConfirmationService(
-    mockZaloService,
-    mockFinanceService,
-  );
+  const service = new TransactionConfirmationService(mockZaloService, mockFinanceService);
 
   const pending = await service.createPending({
     userId: 'u1',
@@ -1076,7 +1074,9 @@ void test('processConfirm recalls pending confirmation message and formats heart
   const resultMessage = sentMessages[sentMessages.length - 1].text;
   assert.match(
     resultMessage,
-    new RegExp(`🎉 Đã nhận đủ 1 lượt thả tim \\(❤️\\)! Yêu cầu \\[${pending.code}\\] đã được xác nhận thành công`),
+    new RegExp(
+      `🎉 Đã nhận đủ 1 lượt thả tim \\(❤️\\)! Yêu cầu \\[${pending.code}\\] đã được xác nhận thành công`,
+    ),
   );
   assert.match(resultMessage, /• Phân loại:\s*🔴 Khoản chi/);
   assert.match(resultMessage, /• Số tiền:\s*450\.000 đ/);

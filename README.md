@@ -19,7 +19,7 @@ flowchart TB
 
     subgraph Monorepo["zalobot Monorepo"]
         subgraph Web["apps/web (Next.js Static Export)"]
-            Dashboard["Dashboard UI\n(Thu chi, Công nợ, Lịch, Cài đặt)"]
+            Dashboard["Dashboard UI\n(Thu chi, Công nợ, Lịch, ZCA Threads, Users)"]
         end
 
         subgraph Contracts["packages/contracts"]
@@ -27,29 +27,30 @@ flowchart TB
         end
 
         subgraph API["apps/api (NestJS Modular Monolith)"]
-            ZaloMod["Zalo Module\n(Webhook, Parser, Cooldown, Fast-Path)"]
+            ZaloMod["Zalo Module\n(Webhook, Confirmation & Message Recall)"]
+            ZcaMod["ZCA Module\n(WebSocket zca-js, QR Login, Reactions)"]
             AuthMod["Dashboard Auth\n(One-time Exchange Link, JWT)"]
             BizMod["Nghiệp Vụ Lõi\n(Finance, Debts, Reminders, Audit)"]
             LLMMod["LLM Router\n(Gemini, OpenAI, Qwen Tool Calling)"]
-            GoogleMod["Google Workspace\n(Calendar, Tasks, Multi-User OAuth2)"]
+            GoogleMod["Google Workspace\n(Calendar, Tasks, Drive per-channel)"]
         end
     end
 
     subgraph Storage["Cơ Sở Dữ Liệu & Hạ Tầng"]
-        PG[("🐘 PostgreSQL\n(Users, Tokens, Finance, Debts, Reminders)")]
-        Redis[("⚡ Redis\n(Rate Limit, Cooldown, Cache)")]
+        PG[("🐘 PostgreSQL\n(Users, Tokens, Finance, Debts, ThreadConfigs)")]
+        Redis[("⚡ Redis\n(ZCA Session, Pending Confirmations, Cooldown)")]
         ReceiptStore[("📁 Local Storage\n(Hóa đơn & Chứng từ)")]
     end
 
     subgraph External["Dịch Vụ Bên Ngoài"]
-        ZaloAPI["Zalo Platform API"]
-        GoogleAPI["Google Workspace APIs"]
-        LLMAPI["LLM Providers\n(Gemini / OpenAI / Ollama)"]
+        ZaloAPI["Zalo Platform API / ZCA"]
+        GoogleAPI["Google Workspace APIs (Calendar, Tasks, Drive)"]
+        LLMAPI["LLM Providers\n(Gemini / OpenAI / Qwen)"]
     end
 
     %% Client flows
-    ZUser <-->|"Chat / Lệnh"| ZaloAPI
-    ZaloAPI <-->|"Webhook & SendMessage"| ZaloMod
+    ZUser <-->|"Chat / Lệnh / Reactions"| ZaloAPI
+    ZaloAPI <-->|"Webhook & WebSocket"| ZaloMod & ZcaMod
     WUser <-->|"HTTPS"| RP
 
     %% Proxy routing
@@ -59,12 +60,12 @@ flowchart TB
     %% Internal shared
     Dashboard -.->|"Contracts"| Shared
     API -.->|"Contracts"| Shared
-    Dashboard <-->|"REST API"| AuthMod & BizMod
+    Dashboard <-->|"REST API"| AuthMod & BizMod & ZcaMod
 
     %% Backend processing
-    ZaloMod --> BizMod
-    ZaloMod <--> LLMMod
-    ZaloMod <--> GoogleMod
+    ZaloMod & ZcaMod --> BizMod
+    ZaloMod & ZcaMod <--> LLMMod
+    ZaloMod & ZcaMod <--> GoogleMod
     LLMMod <--> LLMAPI
     GoogleMod <--> GoogleAPI
 
@@ -72,7 +73,8 @@ flowchart TB
     BizMod <--> PG
     AuthMod <--> PG
     GoogleMod <--> PG
-    ZaloMod <--> Redis
+    ZcaMod <--> PG
+    ZaloMod & ZcaMod <--> Redis
     BizMod <--> ReceiptStore
 ```
 
@@ -80,19 +82,22 @@ flowchart TB
 
 | Phân hệ                  | Công nghệ               | Nhiệm vụ chính                                                                  |
 | :----------------------- | :---------------------- | :------------------------------------------------------------------------------ |
-| **`apps/api`**           | NestJS, TypeORM         | Xử lý Zalo Webhook, Function Calling LLM, Google OAuth2, REST API cho Dashboard |
-| **`apps/web`**           | Next.js (Static Export) | Giao diện quản lý thu chi, công nợ, lịch trình và báo cáo tài chính cá nhân     |
+| **`apps/api`**           | NestJS, TypeORM, Redis  | Xử lý Zalo Webhook & ZCA WebSocket, Function Calling LLM, Google OAuth2 & Drive, REST API cho Dashboard |
+| **`apps/web`**           | Next.js (Static Export) | Giao diện quản lý thu chi, công nợ, lịch trình, người dùng và cấu hình ZCA Threads |
 | **`packages/contracts`** | TypeScript              | Khai báo DTOs, interfaces và endpoint routes dùng chung giữa API và Web         |
-| **PostgreSQL & Redis**   | PostgreSQL 16, Redis    | Lưu trữ dữ liệu nghiệp vụ (ACID) và quản lý session / cooldown / rate limiting  |
+| **PostgreSQL & Redis**   | PostgreSQL 16, Redis    | Lưu trữ dữ liệu nghiệp vụ (ACID), phiên đăng nhập ZCA, pending confirmation cards và rate limits |
 
 ---
 
 ## 🌟 Tính Năng Nổi Bật
 
 - 🤖 **Zalo AI Assistant**: Tương tác ngôn ngữ tự nhiên, phân loại ý định qua LLM (Gemini, OpenAI, Qwen) kết hợp Fast-Path xử lý tức thì.
+- 💬 **Hỗ trợ Kép Webhook & ZCA Cá Nhân**: Lắng nghe tin nhắn nhóm và cá nhân, quét mã QR đăng nhập nhanh chóng, hỗ trợ nhận lệnh qua `@bot` hoặc chat trực tiếp.
+- ❤️ **Xác Nhận Đa Chiều & Thu Hồi Tin Nhắn Tự Động**: Thẻ xác nhận 3 số, duyệt bằng thả tim (❤️), hủy bằng phẫn nộ (😡), tự động hết hạn sau 5 phút. Tự động thu hồi tin nhắn chờ (`undoMessage`) để giữ hộp thoại luôn sạch sẽ và chỉ để lại 1 kết quả duy nhất.
+- 📁 **Google Drive Phân Vùng Per-Channel**: Tự động định tuyến sao lưu ảnh, video, tài liệu, voice vào thư mục `zalobot/<channelId>/<category>`. Cho phép thành viên tra cứu (`/drive`) và tự cấp quyền truy cập (`@bot share <email>`).
 - 📅 **Google Workspace per-user**: Quản lý Google Calendar (nhắc hẹn đa mốc) và Google Tasks với token mã hóa độc lập từng người.
-- 💰 **Tài Chính & Công Nợ**: Ghi nhận thu/chi, theo dõi khoản phải thu/phải trả, danh bạ người liên quan và nhật ký kiểm toán.
-- 📊 **Web Dashboard 1-Click**: Đăng nhập từ bot bằng liên kết xác thực một lần (One-Time Token Exchange), bảo mật JWT 2 lớp.
+- 💰 **Tài Chính & Công Nợ**: Ghi nhận thu/chi, gắn nơi chốn, phân bổ giao dịch vào nợ, theo dõi khoản phải thu/phải trả, danh bạ người liên quan.
+- 📊 **Web Dashboard 1-Click**: Đăng nhập từ bot bằng liên kết xác thực một lần (One-Time Token Exchange), bảo mật JWT 2 lớp, quản lý người dùng và ZCA channels.
 - 🛡️ **Bảo Mật & Multi-Tenant**: Whitelist người dùng bằng link mời (`/invite`), mã hóa dữ liệu nhạy cảm, thiết kế Zero-File-Mount sẵn sàng deploy.
 
 ---

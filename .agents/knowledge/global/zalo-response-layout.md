@@ -8,19 +8,48 @@ AI-generated Markdown is normalized before delivery: HTML entities are decoded a
 
 Long-lived interactive list and information messages (today summary, task list, account status, admin user list, debt detail, and dashboard/report links) include a close action. It deletes the message when zalo permits it; otherwise, it removes the inline keyboard so obsolete actions cannot be used. Confirmation dialogs retain cancel semantics, while reminder and calendar receipts retain their hide-controls action.
 
-## Confirmation Cards & Two-Way Impact Explanation
+## 3-Digit Interactive Confirmation Cards & Reactions
 
-Every confirmation dialog (`formatConfirmationBox`) is structured into four distinct visual sections:
+Sensitive mutations (creating transactions, new places, debts, reminders, calendar events, tasks, or user bans) generate an interactive confirmation card containing a 3-digit random code:
 
-1. **Primary Business Details**: Structured summary with intuitive icons (income/expense amount, dates, places, notes, counterparts).
-2. **System Impact Explanation (`🎯 Tác động hệ thống:`)**: Explicit two-way explanation detailing exactly what happens upon confirmation (`• ✅ Nếu Xác nhận: ...`) and guaranteeing safety upon cancellation (`• ❌ Nếu Hủy bỏ: ...`).
-3. **Transparent Technical Details**: An escaped, formatted JSON preview (`<pre><code class="language-json">...</code></pre>`) under `🔍 Chi tiết kỹ thuật (Payload JSON...):` containing the final API mutation payload. UI-only `duplicateWarnings` are excluded.
-4. **Action Buttons**: `[✅ Xác nhận]` and `[❌ Hủy bỏ]`.
+```text
+⏳ Xác nhận lưu 🔴 khoản chi?
 
-## Post-Action Callout State (Context Preservation)
+• Phân loại: 🔴 Khoản chi
+• Số tiền: 30.000 đ
+• Danh mục: Ăn uống
+• Ghi chú: ăn bánh tráng nướng buổi tối
+• Thời gian: 20:00 13/10/2026
+• Địa điểm: tiệm bánh tráng đầu đường gò xoài
+• Phương thức: tiền mặt
+• Ảnh hóa đơn: (trống)
 
-Instead of replacing the confirmation message with a single generic result string, the message is updated into a persistent Callout Card that preserves original request context:
+👉 Thả tim (❤️) hoặc soạn: yes 629 (để xác nhận)
+👉 Thả phẫn nộ (😡) hoặc soạn: cancel 629 (để hủy bỏ)
+👉 Soạn: edit 629 <nội dung sửa> (để điều chỉnh)
+⏱️ Tự động hết hạn sau 5 phút.
+```
 
-- **Confirmed Execution (`formatConfirmedBox`)**: Renders a success banner (`✅ ĐÃ XÁC NHẬN & THỰC HIỆN THÀNH CÔNG`), a summary of newly recorded/updated entities (`✨ Kết quả đã ghi nhận:`), and the preserved original request summary (`📋 Nội dung yêu cầu đã duyệt:`).
-- **Cancelled Execution (`formatCancelledBox`)**: Renders a cancelled banner (`❌ ĐÃ HỦY YÊU CẦU THAO TÁC`), a safety assurance notice stating that no data was modified, and a summary of the cancelled request.
-- **Auto-Cancellation on New Intake**: When the user sends a new message (text, voice, photo) while a confirmation is pending, previous confirmation cards are auto-updated to the cancelled callout state, removing inline action buttons to prevent accidental clicks.
+- Multi-tenant persistence: cards are stored in memory and synchronized to Redis (`pending:tx:code:*`, `pending:tx:user:*`, `pending:tx:msg:*`).
+
+## Automatic Message Recall (Clean Conversations)
+
+To keep chat feeds clean and avoid obsolete intermediate messages, the bot automatically recalls (`undoMessage` / `zca.undo`) pending cards:
+
+1. **Confirmed (`yes <code>` or ❤️ Heart)**:
+   - Recalls the pending confirmation card (and any companion pending place creation card created in the same flow).
+   - Posts a single consolidated confirmation message containing the heart celebration header and full DTO details.
+2. **Expired (5-Minute Timeout)**:
+   - Recalls the pending confirmation card.
+   - Posts only the timeout notification: `⏰ Yêu cầu ... (mã: xxx) đã hết hạn 5 phút và chưa được xác nhận.`
+3. **Cancelled (`cancel <code>` or 😡 Angry)**:
+   - Recalls the pending confirmation card.
+   - Posts the cancellation notice.
+4. **Edited (`edit <code> <new content>`)**:
+   - Immediately recalls the superseded confirmation card.
+   - Parses the edit instructions and issues a new confirmation card with a new code.
+5. **Non-blocking Error Boundary**:
+   - Network or API errors during `undoMessage` are caught safely and logged as warnings; they never block database writes or mutate transaction integrity.
+6. **Redis Cleanup**:
+   - Keys (`pending:tx:code:*`, `pending:tx:user:*`, `pending:tx:msg:*`) are purged immediately upon resolution.
+
