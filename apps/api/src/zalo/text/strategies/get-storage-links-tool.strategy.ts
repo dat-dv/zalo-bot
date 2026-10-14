@@ -5,33 +5,32 @@ import { ZaloService } from '../../zalo.service';
 import { GoogleDriveService, GG_DRIVE_ROOT_FOLDER } from '../../../google/google-drive.service';
 import { GooglePhotosService } from '../../../google/google-photos.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
+import { UsersService } from '../../../users/users.service';
+import { ThreadConfigService } from '../../../zca/thread-config.service';
+import { buildChannelFolder, getChannelDriveFolderPath } from '../../../google/channel-storage.util';
 
 type StorageType = 'all' | 'bill' | 'image' | 'video';
 
-interface StorageEntry {
+interface StorageCategoryMeta {
   emoji: string;
   label: string;
-  driveFolder: string;
   photosAlbum: string;
 }
 
-const STORAGE_ENTRIES: Record<Exclude<StorageType, 'all'>, StorageEntry> = {
+const CATEGORY_META: Record<Exclude<StorageType, 'all'>, StorageCategoryMeta> = {
   bill: {
     emoji: '🧾',
     label: 'Hóa đơn',
-    driveFolder: `${GG_DRIVE_ROOT_FOLDER}/bill`,
     photosAlbum: 'ZaloBot - Hóa đơn',
   },
   image: {
     emoji: '🖼️',
     label: 'Hình ảnh',
-    driveFolder: `${GG_DRIVE_ROOT_FOLDER}/image`,
     photosAlbum: 'ZaloBot - Hình ảnh',
   },
   video: {
     emoji: '🎬',
     label: 'Video',
-    driveFolder: `${GG_DRIVE_ROOT_FOLDER}/video`,
     photosAlbum: 'ZaloBot - Video',
   },
 };
@@ -46,6 +45,8 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
     private readonly googleAuthService: GoogleAuthService,
     @Optional() private readonly driveService?: GoogleDriveService,
     @Optional() private readonly photosService?: GooglePhotosService,
+    @Optional() private readonly usersService?: UsersService,
+    @Optional() private readonly threadConfigService?: ThreadConfigService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
@@ -98,45 +99,72 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
     );
 
     try {
+      const channelFolder = buildChannelFolder(context.chatId);
+      const channelDrivePath = `${GG_DRIVE_ROOT_FOLDER}/${channelFolder}`;
+
+      const [rootDriveLink, channelDriveLink] = await Promise.all([
+        this.driveService ? this.driveService.getFolderWebLink(GG_DRIVE_ROOT_FOLDER) : null,
+        this.driveService ? this.driveService.getFolderWebLink(channelDrivePath) : null,
+      ]);
+
+      // Lưu thông tin đường dẫn vào database để tra cứu sau này
+      if (channelDriveLink) {
+        const isGroup = context.chatId.startsWith('g-') || context.chatId.startsWith('group_');
+        if (isGroup && this.threadConfigService) {
+          void this.threadConfigService.saveDriveFolderInfo(context.chatId, {
+            folderUrl: channelDriveLink,
+            folderPath: channelDrivePath,
+          });
+        } else if (this.usersService) {
+          void this.usersService.saveDriveFolderInfo(context.chatId, {
+            folderUrl: channelDriveLink,
+            folderPath: channelDrivePath,
+          });
+        }
+      }
+
       const entriesToFetch =
         storageType === 'all'
-          ? Object.entries(STORAGE_ENTRIES)
-          : [[storageType, STORAGE_ENTRIES[storageType]] as [string, StorageEntry]];
-
-      // Lấy link thư mục gốc zalobot trên Drive
-      const rootDriveLink = this.driveService
-        ? await this.driveService.getFolderWebLink(GG_DRIVE_ROOT_FOLDER)
-        : null;
+          ? (['bill', 'image', 'video'] as const)
+          : [storageType as 'bill' | 'image' | 'video'];
 
       const lines: string[] = [
         `📦 KHO LƯU TRỮ GOOGLE CỦA BOT`,
         ``,
-        `📁 Google Drive (Thư mục gốc):`,
-        rootDriveLink ? `👉 ${rootDriveLink}` : `⚠️ Chưa có dữ liệu (chưa upload file nào)`,
+        `📁 Google Drive (Thư mục nhóm):`,
+        channelDriveLink ? `👉 ${channelDriveLink}` : `⚠️ Chưa có dữ liệu (chưa upload file nào)`,
+        ``,
+        `📁 Google Drive (Thư mục gốc hệ thống):`,
+        rootDriveLink ? `👉 ${rootDriveLink}` : `⚠️ Chưa có dữ liệu`,
         ``,
       ];
 
-      for (const [, entry] of entriesToFetch) {
-        const { emoji, label, driveFolder, photosAlbum } = entry;
+      for (const category of entriesToFetch) {
+        const meta = CATEGORY_META[category];
+        const driveFolder = getChannelDriveFolderPath(context.chatId, category);
 
         const [driveLink, photosLink] = await Promise.all([
           this.driveService ? this.driveService.getFolderWebLink(driveFolder) : null,
-          this.photosService ? this.photosService.getAlbumLink(photosAlbum) : null,
+          this.photosService ? this.photosService.getAlbumLink(meta.photosAlbum) : null,
         ]);
 
-        lines.push(`${emoji} ${label.toUpperCase()}:`);
+        lines.push(`${meta.emoji} ${meta.label.toUpperCase()}:`);
         lines.push(
           `• 📁 Drive [${driveFolder}]:`,
-          driveLink ? `  👉 ${driveLink}` : `  ⚠️ Chưa có (chưa upload ${label.toLowerCase()} nào)`,
+          driveLink ? `  👉 ${driveLink}` : `  ⚠️ Chưa có (chưa upload ${meta.label.toLowerCase()} nào)`,
         );
         lines.push(
-          `• 📸 Photos [${photosAlbum}]:`,
+          `• 📸 Photos [${meta.photosAlbum}]:`,
           photosLink ? `  👉 ${photosLink}` : `  ⚠️ Chưa có (album chưa được tạo)`,
         );
         lines.push(``);
       }
 
       lines.push(`💡 Các thư mục/album được tạo tự động khi bạn gửi ảnh/hóa đơn/video lên bot.`);
+      lines.push(``);
+      lines.push(`🔒 Chưa có quyền truy cập Google Drive?`);
+      lines.push(`👉 Hãy gửi: @bot share <gmail của bạn>`);
+      lines.push(`(Ví dụ: @bot share nguyenvana@gmail.com) để bot tự động bật quyền truy cập thư mục của nhóm này cho bạn nhé!`);
 
       await this.zaloService.sendMessage(context.chatId, lines.join('\n'));
     } catch (err) {
