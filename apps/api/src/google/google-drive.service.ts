@@ -346,4 +346,44 @@ export class GoogleDriveService {
       return null;
     }
   }
+
+  /**
+   * Chia sẻ quyền truy cập thư mục Google Drive cho người dùng qua email
+   */
+  public async shareFolderWithUser(
+    folderPathOrId: string,
+    emailAddress: string,
+    role: 'reader' | 'commenter' | 'writer' = 'reader',
+    userId?: number | string,
+  ): Promise<{ fileId: string; permissionId: string; emailAddress: string; role: string }> {
+    const cleanEmail = emailAddress.trim().toLowerCase();
+    const drive = this.getDriveClient(userId);
+
+    const folderId = folderPathOrId.includes('/')
+      ? await this.ensureFolderPath(folderPathOrId, userId)
+      : folderPathOrId;
+
+    const res = await drive.permissions.create({
+      fileId: folderId,
+      sendNotificationEmail: true,
+      fields: 'id',
+      requestBody: {
+        role,
+        type: 'user',
+        emailAddress: cleanEmail,
+      },
+    });
+
+    const permissionId = res.data.id || 'unknown';
+    this.logger.log(
+      `Shared Drive folder "${folderPathOrId}" (${folderId}) with ${cleanEmail} (role: ${role}).`,
+    );
+
+    return {
+      fileId: folderId,
+      permissionId,
+      emailAddress: cleanEmail,
+      role,
+    };
+  }
 }
