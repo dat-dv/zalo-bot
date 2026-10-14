@@ -50,6 +50,9 @@ services:
       DATABASE_SSL: ${DATABASE_SSL:-false}
       REDIS_URL: redis://redis:6379
       TYPEORM_SYNCHRONIZE: ${TYPEORM_SYNCHRONIZE:-false}
+      DATA_DIR: ${DATA_DIR:-/app/data}
+    volumes:
+      - ./data:/app/data
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     depends_on:

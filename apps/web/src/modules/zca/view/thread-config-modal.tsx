@@ -30,12 +30,12 @@ export function ThreadConfigModal({
       setForm({
         ...config,
         isListened: config.isListened ?? false,
-        directInteraction: config.directInteraction || {
-          enabled: false,
-          requireMention: true,
-          triggerPrefix: '',
-          allowAiChat: false,
-          allowSelf: false,
+        directInteraction: {
+          enabled: config.directInteraction?.enabled ?? false,
+          requireMention: config.directInteraction?.requireMention ?? true,
+          triggerPrefix: config.directInteraction?.triggerPrefix || '',
+          allowAiChat: config.directInteraction?.allowAiChat ?? false,
+          allowSelf: config.directInteraction?.allowSelf ?? false,
         },
         mediaBackup: config.mediaBackup || {
           enabled: false,
@@ -204,12 +204,12 @@ export function ThreadConfigModal({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                        Bắt buộc tag/mention (@Bot) mới trả lời
+                        Bắt buộc tag/mention (@Bot) hoặc Tiền tố mới phản hồi
                       </span>
                       <p className="text-[10px] text-slate-400">
                         {threadType === 'group'
-                          ? 'Tránh bot phản hồi tự do gây loãng cuộc trò chuyện của nhóm'
-                          : 'Tránh bot tự động phản hồi tin nhắn riêng của bạn bè/người quen'}
+                          ? 'Chỉ phản hồi khi có @Bot hoặc tiền tố. Tránh bot tự do trả lời gây loãng nhóm.'
+                          : 'Chỉ phản hồi khi có @Bot hoặc tiền tố. Tránh bot tự động trả lời tin nhắn riêng của bạn bè/người quen.'}
                       </p>
                     </div>
                     <label className="relative inline-flex cursor-pointer items-center">
@@ -252,7 +252,7 @@ export function ThreadConfigModal({
                             directInteraction: {
                               ...form.directInteraction,
                               enabled: form.directInteraction?.enabled ?? false,
-                              requireMention: form.directInteraction?.requireMention ?? false,
+                              requireMention: form.directInteraction?.requireMention ?? true,
                               allowAiChat: e.target.checked,
                             },
                           })
@@ -283,7 +283,7 @@ export function ThreadConfigModal({
                             directInteraction: {
                               ...form.directInteraction,
                               enabled: form.directInteraction?.enabled ?? false,
-                              requireMention: form.directInteraction?.requireMention ?? false,
+                              requireMention: form.directInteraction?.requireMention ?? true,
                               allowAiChat: form.directInteraction?.allowAiChat ?? false,
                               allowSelf: e.target.checked,
                             },

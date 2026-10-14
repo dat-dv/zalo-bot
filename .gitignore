@@ -36,9 +36,7 @@ zca-qrcode.png
 .cloudflared/
 
 # Database & Runtime Data
-/data/*.sqlite*
-/data/tokens/
-/data/users.json
+/data/*
 !/data/.gitkeep
 
 # OS files

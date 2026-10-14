@@ -75,7 +75,18 @@ async function main(): Promise<void> {
 
             // Auto-save session to .zca-session.json
             try {
-              const sessionPath = path.resolve(process.cwd(), '.zca-session.json');
+              const dataDir = process.env.DATA_DIR || process.env.ZCA_DATA_DIR;
+              const baseDir = dataDir
+                ? path.resolve(process.cwd(), dataDir)
+                : fs.existsSync(path.resolve(process.cwd(), 'data'))
+                  ? path.resolve(process.cwd(), 'data')
+                  : process.cwd();
+
+              if (!fs.existsSync(baseDir)) {
+                fs.mkdirSync(baseDir, { recursive: true });
+              }
+
+              const sessionPath = path.resolve(baseDir, '.zca-session.json');
               fs.writeFileSync(
                 sessionPath,
                 JSON.stringify(

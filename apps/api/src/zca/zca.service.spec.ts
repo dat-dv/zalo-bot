@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import { ConfigService } from '@nestjs/config';
@@ -184,3 +187,111 @@ void test('ZcaService startListener registers on message listener and filters th
   registeredListeners['message'](allowedMsg);
   assert.strictEqual(dispatchedMessage, allowedMsg, 'Allowed thread message should be dispatched');
 });
+
+void test('ZcaService loads and saves session to configured dataDir and syncs to Redis', async () => {
+  const tmpDir = path.resolve(os.tmpdir(), `zca-test-${Date.now()}`);
+  fs.mkdirSync(tmpDir, { recursive: true });
+
+  let redisKey = '';
+  let redisVal = '';
+  const mockRedisService = {
+    isReady: true,
+    get: async (key: string) => (key === 'zca:session' ? redisVal || null : null),
+    set: async (key: string, val: string) => {
+      redisKey = key;
+      redisVal = val;
+      return true;
+    },
+  };
+
+  const mockConfigService = {
+    get: (key: string) => {
+      if (key === 'DATA_DIR') return tmpDir;
+      return undefined;
+    },
+  } as unknown as ConfigService;
+
+  const service = new ZcaService(
+    mockConfigService,
+    { dataDir: tmpDir },
+    undefined,
+    undefined,
+    undefined,
+    mockRedisService as unknown as any,
+  );
+
+  // Save session
+  const testSession = {
+    imei: 'test-imei-123',
+    cookie: { zpw_sek: 'secret-cookie' },
+    userAgent: 'test-agent',
+  };
+  await (service as any).saveSessionToFile(testSession);
+
+  // Verify file in tmpDir
+  const savedFilePath = path.resolve(tmpDir, '.zca-session.json');
+  assert.strictEqual(fs.existsSync(savedFilePath), true, 'Session file should exist in dataDir');
+  const fileContent = JSON.parse(fs.readFileSync(savedFilePath, 'utf8'));
+  assert.strictEqual(fileContent.imei, 'test-imei-123');
+
+  // Verify synced to Redis
+  assert.strictEqual(redisKey, 'zca:session');
+  assert.strictEqual(JSON.parse(redisVal).imei, 'test-imei-123');
+
+  // Verify loadSessionFromFile
+  const loadedFromFile = service.loadSessionFromFile();
+  assert.ok(loadedFromFile);
+  assert.strictEqual(loadedFromFile.imei, 'test-imei-123');
+
+  // Clean up
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
+void test('ZcaService falls back to Redis when session file is missing', async () => {
+  const tmpDir = path.resolve(os.tmpdir(), `zca-test-redis-${Date.now()}`);
+  fs.mkdirSync(tmpDir, { recursive: true });
+
+  const mockRedisService = {
+    isReady: true,
+    get: async (key: string) => {
+      if (key === 'zca:session') {
+        return JSON.stringify({
+          imei: 'redis-imei-456',
+          cookie: { zpw_sek: 'redis-cookie' },
+          userAgent: 'redis-agent',
+        });
+      }
+      return null;
+    },
+    set: async () => true,
+  };
+
+  const mockConfigService = {
+    get: (key: string) => {
+      if (key === 'DATA_DIR') return tmpDir;
+      return undefined;
+    },
+  } as unknown as ConfigService;
+
+  const service = new ZcaService(
+    mockConfigService,
+    { dataDir: tmpDir },
+    undefined,
+    undefined,
+    undefined,
+    mockRedisService as unknown as any,
+  );
+
+  service.loadSessionFromFile = () => null;
+
+  const recovered = await (service as any).loadSavedSession();
+  assert.ok(recovered);
+  assert.strictEqual(recovered.imei, 'redis-imei-456');
+
+  // Check that it also restored the file in tmpDir
+  const restoredFile = path.resolve(tmpDir, '.zca-session.json');
+  assert.strictEqual(fs.existsSync(restoredFile), true);
+
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+

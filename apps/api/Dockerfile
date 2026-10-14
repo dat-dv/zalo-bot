@@ -20,7 +20,8 @@ RUN mkdir -p /app/apps/api/node_modules
 FROM node:22-alpine AS runner
 WORKDIR /app
 RUN --mount=type=cache,target=/var/cache/apk \
-    apk add curl
+    apk add curl && \
+    mkdir -p /app/data
 
 ARG BE_PORT=3005
 ENV NODE_ENV=production

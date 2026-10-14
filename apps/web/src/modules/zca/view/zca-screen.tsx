@@ -650,6 +650,27 @@ export function ZcaScreen() {
                         </span>
                         {configMap.get(thread.id) && (
                           <div className="mt-1 flex flex-wrap items-center justify-center gap-1">
+                            {configMap.get(thread.id)?.directInteraction?.enabled && (
+                              <span
+                                className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium ${
+                                  (configMap.get(thread.id)?.directInteraction?.requireMention ??
+                                  true)
+                                    ? 'bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
+                                    : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                                }`}
+                                title={
+                                  (configMap.get(thread.id)?.directInteraction?.requireMention ??
+                                  true)
+                                    ? 'Cần @Bot hoặc tiền tố để kích hoạt'
+                                    : 'Trò chuyện tự do (không cần @Bot)'
+                                }
+                              >
+                                {(configMap.get(thread.id)?.directInteraction?.requireMention ??
+                                true)
+                                  ? '🤖 @Bot'
+                                  : '🤖 Tự do'}
+                              </span>
+                            )}
                             {configMap.get(thread.id)?.mediaBackup.enabled && (
                               <span
                                 className="inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-300"

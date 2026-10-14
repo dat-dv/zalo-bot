@@ -18,6 +18,7 @@ export interface AppConfig {
     secretToken?: string;
   };
   zca: {
+    dataDir?: string;
     proxyUrl?: string;
     imei?: string;
     cookie?: string;
@@ -106,6 +107,7 @@ export default (): AppConfig => {
       secretToken: readOptionalEnv('ZALO_WEBHOOK_SECRET_TOKEN'),
     },
     zca: {
+      dataDir: readOptionalEnv('DATA_DIR') || readOptionalEnv('ZCA_DATA_DIR'),
       proxyUrl: readOptionalEnv('ZCA_PROXY_URL'),
       imei: readOptionalEnv('ZCA_IMEI'),
       cookie: readOptionalEnv('ZCA_COOKIE'),

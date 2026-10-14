@@ -14,6 +14,7 @@ import * as path from 'path';
 import type { ZaloService } from '../zalo/zalo.service';
 import { ThreadConfigService } from './thread-config.service';
 import { ZcaBotFeatureService } from './zca-bot-feature.service';
+import { RedisService } from '../redis/redis.service';
 import {
   Zalo,
   type API,
@@ -151,8 +152,9 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     onError?: (err: string) => void;
   }[] = [];
 
-  private readonly whitelistFilePath = path.resolve(process.cwd(), '.zca-listened-threads.json');
-  private readonly sessionFilePath = path.resolve(process.cwd(), '.zca-session.json');
+  private readonly dataDir: string;
+  private readonly whitelistFilePath: string;
+  private readonly sessionFilePath: string;
 
   constructor(
     private readonly configService: ConfigService,
@@ -166,7 +168,37 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     private readonly botFeaturePlugin?: ZcaBotFeatureService,
     @Optional()
     private readonly threadConfigService?: ThreadConfigService,
+    @Optional()
+    private readonly redisService?: RedisService,
   ) {
+    const configuredDataDir =
+      this.moduleOptions?.dataDir ??
+      this.configService.get<string>('zca.dataDir') ??
+      this.configService.get<string>('DATA_DIR') ??
+      process.env.DATA_DIR ??
+      process.env.ZCA_DATA_DIR;
+
+    if (configuredDataDir) {
+      this.dataDir = path.resolve(process.cwd(), configuredDataDir);
+    } else if (fs.existsSync(path.resolve(process.cwd(), 'data'))) {
+      this.dataDir = path.resolve(process.cwd(), 'data');
+    } else {
+      this.dataDir = process.cwd();
+    }
+
+    try {
+      if (!fs.existsSync(this.dataDir)) {
+        fs.mkdirSync(this.dataDir, { recursive: true });
+      }
+    } catch (dirErr) {
+      this.logger.warn(
+        `Could not create data directory ${this.dataDir}: ${formatErrorMessage(dirErr)}`,
+      );
+    }
+
+    this.sessionFilePath = path.resolve(this.dataDir, '.zca-session.json');
+    this.whitelistFilePath = path.resolve(this.dataDir, '.zca-listened-threads.json');
+
     this.groupEventDispatcher =
       groupEventDispatcher ??
       new GroupEventDispatcher(new WelcomeGroupEventStrategy(this.configService));
@@ -240,8 +272,16 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     };
   }
 
-  private saveSessionToFile(session: { imei: string; cookie: unknown; userAgent: string }): void {
+  private async saveSessionToFile(session: {
+    imei: string;
+    cookie: unknown;
+    userAgent: string;
+  }): Promise<void> {
     try {
+      const dir = path.dirname(this.sessionFilePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
       fs.writeFileSync(
         this.sessionFilePath,
         JSON.stringify({ ...session, savedAt: new Date().toISOString() }, null, 2),
@@ -251,13 +291,26 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     } catch (err) {
       this.logger.warn(`[ZCA] Không thể lưu file session: ${formatErrorMessage(err)}`);
     }
+
+    if (this.redisService?.isReady) {
+      try {
+        await this.redisService.set(
+          'zca:session',
+          JSON.stringify({ ...session, savedAt: new Date().toISOString() }),
+        );
+        this.logger.log(`[ZCA] Đã sao lưu phiên ZCA vào Redis (key: zca:session)`);
+      } catch (redisErr) {
+        this.logger.warn(`[ZCA] Không thể lưu phiên vào Redis: ${formatErrorMessage(redisErr)}`);
+      }
+    }
   }
 
-  private loadSessionFromFile(): {
+  public loadSessionFromFile(): {
     imei: string;
     cookie: Credentials['cookie'];
     userAgent: string;
   } | null {
+    // 1. Try primary session file
     try {
       if (fs.existsSync(this.sessionFilePath)) {
         const raw = fs.readFileSync(this.sessionFilePath, 'utf-8');
@@ -277,6 +330,73 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     } catch (err) {
       this.logger.warn(`[ZCA] Không thể đọc file session: ${formatErrorMessage(err)}`);
     }
+
+    // 2. Fallback to legacy root file if different from sessionFilePath
+    const legacyPath = path.resolve(process.cwd(), '.zca-session.json');
+    if (legacyPath !== this.sessionFilePath && fs.existsSync(legacyPath)) {
+      try {
+        const raw = fs.readFileSync(legacyPath, 'utf-8');
+        const parsed = JSON.parse(raw) as {
+          imei?: string;
+          cookie?: Credentials['cookie'];
+          userAgent?: string;
+        };
+        if (parsed?.imei && parsed?.cookie) {
+          this.logger.log(
+            `[ZCA] Tìm thấy phiên cũ ở ${legacyPath}, đang đồng bộ sang ${this.sessionFilePath}...`,
+          );
+          const session = {
+            imei: parsed.imei,
+            cookie: parsed.cookie,
+            userAgent: parsed.userAgent ?? ZCA_DEFAULT_USER_AGENT,
+          };
+          void this.saveSessionToFile(session);
+          return session;
+        }
+      } catch (err) {
+        this.logger.warn(`[ZCA] Không thể đọc file session cũ: ${formatErrorMessage(err)}`);
+      }
+    }
+
+    return null;
+  }
+
+  private async loadSavedSession(): Promise<{
+    imei: string;
+    cookie: Credentials['cookie'];
+    userAgent: string;
+  } | null> {
+    const fileSession = this.loadSessionFromFile();
+    if (fileSession) {
+      return fileSession;
+    }
+
+    // 3. Fallback to Redis cache
+    if (this.redisService?.isReady) {
+      try {
+        const rawRedis = await this.redisService.get('zca:session');
+        if (rawRedis) {
+          const parsed = JSON.parse(rawRedis) as {
+            imei?: string;
+            cookie?: Credentials['cookie'];
+            userAgent?: string;
+          };
+          if (parsed?.imei && parsed?.cookie) {
+            this.logger.log(`[ZCA] Khôi phục phiên ZCA thành công từ Redis (key: zca:session).`);
+            const session = {
+              imei: parsed.imei,
+              cookie: parsed.cookie,
+              userAgent: parsed.userAgent ?? ZCA_DEFAULT_USER_AGENT,
+            };
+            void this.saveSessionToFile(session);
+            return session;
+          }
+        }
+      } catch (err) {
+        this.logger.warn(`[ZCA] Không thể đọc phiên từ Redis: ${formatErrorMessage(err)}`);
+      }
+    }
+
     return null;
   }
 
@@ -304,7 +424,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         this.logger.error(`ZCA auto-login failed: ${formatErrorMessage(err)}`);
       }
     } else {
-      const savedSession = this.loadSessionFromFile();
+      const savedSession = await this.loadSavedSession();
       if (savedSession) {
         this.logger.log(
           `Tìm thấy phiên ZCA đã lưu (${this.sessionFilePath}). Tự động khôi phục kết nối...`,
@@ -522,7 +642,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       process.env.ZCA_LANGUAGE;
 
     if (!imei || !rawCookie) {
-      const savedSession = this.loadSessionFromFile();
+      const savedSession = await this.loadSavedSession();
       if (savedSession) {
         this.logger.log(`[ZCA] Đọc phiên đăng nhập từ file đã lưu: ${this.sessionFilePath}`);
         imei = imei || savedSession.imei;
@@ -1557,13 +1677,19 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         await this.threadConfigService.loadConfigs();
         const ids = this.threadConfigService.getListenedThreadIds();
         this.listenedThreadIds = new Set(ids.filter((id) => id !== 'thread-123'));
-      } else if (fs.existsSync(this.whitelistFilePath)) {
-        const content = await fs.promises.readFile(this.whitelistFilePath, 'utf8');
-        const parsed = JSON.parse(content) as string[];
-        if (Array.isArray(parsed)) {
-          this.listenedThreadIds = new Set(
-            parsed.map(String).filter((id) => Boolean(id) && id !== 'thread-123'),
-          );
+      } else {
+        const filePath = fs.existsSync(this.whitelistFilePath)
+          ? this.whitelistFilePath
+          : path.resolve(process.cwd(), '.zca-listened-threads.json');
+
+        if (fs.existsSync(filePath)) {
+          const content = await fs.promises.readFile(filePath, 'utf8');
+          const parsed = JSON.parse(content) as string[];
+          if (Array.isArray(parsed)) {
+            this.listenedThreadIds = new Set(
+              parsed.map(String).filter((id) => Boolean(id) && id !== 'thread-123'),
+            );
+          }
         }
       }
       this.logger.log(`Loaded ${this.listenedThreadIds.size} listened threads.`);
@@ -1579,6 +1705,10 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         for (const id of data) {
           await this.threadConfigService.setListened(id, true);
         }
+      }
+      const dir = path.dirname(this.whitelistFilePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
       }
       await fs.promises.writeFile(this.whitelistFilePath, JSON.stringify(data, null, 2), 'utf8');
     } catch (err: unknown) {

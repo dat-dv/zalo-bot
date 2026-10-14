@@ -33,6 +33,7 @@ export interface ZcaPlugin {
 }
 
 export interface ZcaModuleOptions {
+  dataDir?: string;
   proxyUrl?: string;
   imei?: string;
   cookie?: Credentials['cookie'] | string;

@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as fs from 'fs';
@@ -113,8 +114,8 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
 @Injectable()
 export class ThreadConfigService implements OnModuleInit {
   private readonly logger = new Logger(ThreadConfigService.name);
-  private readonly configsFilePath = path.resolve(process.cwd(), '.zca-thread-configs.json');
-  private readonly whitelistFilePath = path.resolve(process.cwd(), '.zca-listened-threads.json');
+  private readonly configsFilePath: string;
+  private readonly whitelistFilePath: string;
   private configsMap = new Map<string, ThreadBotConfig>();
 
   constructor(
@@ -123,7 +124,32 @@ export class ThreadConfigService implements OnModuleInit {
     private readonly threadConfigRepo?: Repository<ZcaThreadConfigEntity>,
     @Optional()
     private readonly redisService?: RedisService,
-  ) {}
+    @Optional()
+    private readonly configService?: ConfigService,
+  ) {
+    const dataDir =
+      this.configService?.get<string>('zca.dataDir') ||
+      this.configService?.get<string>('DATA_DIR') ||
+      process.env.DATA_DIR ||
+      process.env.ZCA_DATA_DIR;
+
+    const baseDir = dataDir
+      ? path.resolve(process.cwd(), dataDir)
+      : fs.existsSync(path.resolve(process.cwd(), 'data'))
+        ? path.resolve(process.cwd(), 'data')
+        : process.cwd();
+
+    try {
+      if (!fs.existsSync(baseDir)) {
+        fs.mkdirSync(baseDir, { recursive: true });
+      }
+    } catch {
+      // ignore
+    }
+
+    this.configsFilePath = path.resolve(baseDir, '.zca-thread-configs.json');
+    this.whitelistFilePath = path.resolve(baseDir, '.zca-listened-threads.json');
+  }
 
   public async onModuleInit(): Promise<void> {
     await this.loadConfigs();
@@ -155,9 +181,13 @@ export class ThreadConfigService implements OnModuleInit {
       }
 
       // 2. If DB was empty or not available, load from legacy JSON and migrate
-      if (!loadedFromDb && fs.existsSync(this.configsFilePath)) {
+      const candidateConfigsPath = fs.existsSync(this.configsFilePath)
+        ? this.configsFilePath
+        : path.resolve(process.cwd(), '.zca-thread-configs.json');
+
+      if (!loadedFromDb && fs.existsSync(candidateConfigsPath)) {
         try {
-          const raw = await fs.promises.readFile(this.configsFilePath, 'utf8');
+          const raw = await fs.promises.readFile(candidateConfigsPath, 'utf8');
           const parsed = JSON.parse(raw) as Record<string, ThreadBotConfig>;
           if (parsed && typeof parsed === 'object') {
             for (const [id, config] of Object.entries(parsed)) {
@@ -472,6 +502,11 @@ export class ThreadConfigService implements OnModuleInit {
         if (cfg.isListened) {
           listenedIds.push(id);
         }
+      }
+
+      const dir = path.dirname(this.configsFilePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
       }
 
       await fs.promises.writeFile(this.configsFilePath, JSON.stringify(data, null, 2), 'utf8');
