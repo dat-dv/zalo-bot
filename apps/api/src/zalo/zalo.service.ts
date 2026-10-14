@@ -31,18 +31,22 @@ export class ZaloService implements OnModuleInit {
   public async sendMessageWithResult(
     chatId: string | number,
     text: string,
-  ): Promise<{ success: boolean; msgId?: string }> {
+  ): Promise<{ success: boolean; msgId?: string; cliMsgId?: string }> {
     const targetChatId = String(chatId);
 
     if (!this.token) {
       if (this.zcaService?.isLoggedIn()) {
         try {
           const res = await this.zcaService.sendMessage(text, targetChatId);
-          const msgId = res?.message?.msgId ? String(res.message.msgId) : undefined;
+          const rawMsg = res?.message as unknown as
+            | { msgId?: string | number; cliMsgId?: string | number }
+            | undefined;
+          const msgId = rawMsg?.msgId !== undefined ? String(rawMsg.msgId) : undefined;
+          const cliMsgId = rawMsg?.cliMsgId !== undefined ? String(rawMsg.cliMsgId) : undefined;
           this.logger.log(
-            `Successfully sent message via ZCA to chat ${targetChatId}${msgId ? ` (msgId: ${msgId})` : ''}`,
+            `Successfully sent message via ZCA to chat ${targetChatId}${msgId ? ` (msgId: ${msgId}, cliMsgId: ${cliMsgId || 'n/a'})` : ''}`,
           );
-          return { success: true, msgId };
+          return { success: true, msgId, cliMsgId };
         } catch (zcaErr) {
           this.logger.error(
             `Failed to send message via ZCA to ${targetChatId}: ${zcaErr instanceof Error ? zcaErr.message : String(zcaErr)}`,
@@ -78,7 +82,7 @@ export class ZaloService implements OnModuleInit {
         error?: number;
         message?: string;
         description?: string;
-        data?: { message_id?: string | number };
+        data?: { message_id?: string | number; cli_msg_id?: string | number };
         message_id?: string | number;
       } | null;
 
@@ -86,9 +90,13 @@ export class ZaloService implements OnModuleInit {
         if (this.zcaService?.isLoggedIn()) {
           try {
             const res = await this.zcaService.sendMessage(text, targetChatId);
-            const msgId = res?.message?.msgId ? String(res.message.msgId) : undefined;
+            const rawMsg = res?.message as unknown as
+              | { msgId?: string | number; cliMsgId?: string | number }
+              | undefined;
+            const msgId = rawMsg?.msgId !== undefined ? String(rawMsg.msgId) : undefined;
+            const cliMsgId = rawMsg?.cliMsgId !== undefined ? String(rawMsg.cliMsgId) : undefined;
             this.logger.log(`Fallback: Successfully sent message via ZCA to chat ${targetChatId}`);
-            return { success: true, msgId };
+            return { success: true, msgId, cliMsgId };
           } catch {
             // Keep original error log below
           }
@@ -100,11 +108,51 @@ export class ZaloService implements OnModuleInit {
       }
 
       const msgId = data?.data?.message_id ?? data?.message_id;
+      const cliMsgId = data?.data?.cli_msg_id;
       this.logger.log(`Successfully sent message to Zalo chat ${targetChatId}`);
-      return { success: true, msgId: msgId !== undefined ? String(msgId) : undefined };
+      return {
+        success: true,
+        msgId: msgId !== undefined ? String(msgId) : undefined,
+        cliMsgId: cliMsgId !== undefined ? String(cliMsgId) : undefined,
+      };
     } catch (err) {
       this.logger.error(`Error sending Zalo message to ${targetChatId}: ${(err as Error).message}`);
       return { success: false };
+    }
+  }
+
+  /**
+   * Recalls / undoes a previously sent message for everyone in the chat (ZCA).
+   * Safe method: never throws error, logs warnings and returns boolean status.
+   */
+  public async undoMessage(
+    chatId: string | number,
+    msgId: string,
+    cliMsgId?: string,
+  ): Promise<boolean> {
+    const targetChatId = String(chatId);
+    if (!this.zcaService?.isLoggedIn()) {
+      this.logger.debug(
+        `[ZaloService] Cannot recall message ${msgId}: ZCA is not logged in.`,
+      );
+      return false;
+    }
+
+    try {
+      await this.zcaService.undo(
+        {
+          msgId,
+          cliMsgId: cliMsgId || msgId,
+        },
+        targetChatId,
+      );
+      this.logger.log(`[ZaloService] Successfully recalled message ${msgId} in chat ${targetChatId}`);
+      return true;
+    } catch (err) {
+      this.logger.warn(
+        `[ZaloService] Failed to recall message ${msgId} in chat ${targetChatId}: ${(err as Error).message}`,
+      );
+      return false;
     }
   }
 

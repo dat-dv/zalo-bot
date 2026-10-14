@@ -905,3 +905,285 @@ void test('TransactionConfirmationService captures messageId from sendMessageWit
 
   service.clearAll();
 });
+
+void test('TransactionConfirmationService captures cliMsgId and exposes undoMessage helper', async () => {
+  let undonePayload: { chatId: string | number; msgId: string; cliMsgId?: string } | undefined;
+  const sentMessages: Array<{ chatId: string | number; text: string }> = [];
+
+  const mockZaloService = {
+    sendMessage: (chatId: string | number, text: string) => {
+      sentMessages.push({ chatId, text });
+      return Promise.resolve(true);
+    },
+    sendMessageWithResult: (chatId: string | number, text: string) => {
+      sentMessages.push({ chatId, text });
+      return Promise.resolve({
+        success: true,
+        msgId: 'bot-msg-888',
+        cliMsgId: 'cli-msg-999',
+      });
+    },
+    undoMessage: (chatId: string | number, msgId: string, cliMsgId?: string) => {
+      undonePayload = { chatId, msgId, cliMsgId };
+      return Promise.resolve(true);
+    },
+  } as unknown as ZaloService;
+
+  const mockFinanceService = {
+    createTransaction: () => Promise.resolve({ id: 'tx_1' }),
+  } as unknown as FinanceService;
+
+  const service = new TransactionConfirmationService(
+    mockZaloService,
+    mockFinanceService,
+    {} as unknown as RemindersService,
+    {} as unknown as GoogleTasksService,
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as UsersService,
+    {} as unknown as GoogleAuthService,
+  );
+
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 50000,
+      category: 'Ăn uống',
+      note: 'cơm trưa',
+    },
+  });
+
+  assert.equal(pending.messageId, 'bot-msg-888');
+  assert.equal(pending.cliMsgId, 'cli-msg-999');
+
+  service.clearAll();
+});
+
+void test('TransactionConfirmationService recalls previous message when action is edited', async () => {
+  let recalledMsgId: string | undefined;
+  let recalledCliMsgId: string | undefined;
+
+  const mockZaloService = {
+    sendMessage: () => Promise.resolve(true),
+    sendMessageWithResult: () =>
+      Promise.resolve({
+        success: true,
+        msgId: 'msg-initial-123',
+        cliMsgId: 'cli-initial-456',
+      }),
+    undoMessage: (_chatId: string | number, msgId: string, cliMsgId?: string) => {
+      recalledMsgId = msgId;
+      recalledCliMsgId = cliMsgId;
+      return Promise.resolve(true);
+    },
+  } as unknown as ZaloService;
+
+  const service = new TransactionConfirmationService(
+    mockZaloService,
+    {} as unknown as FinanceService,
+  );
+
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 450000,
+      category: 'Mua sắm',
+      note: 'kính subin',
+    },
+  });
+
+  let onEditCalled = false;
+  await service.handleCommand('u1', 'c1', `edit ${pending.code} đổi thành 400k`, async () => {
+    onEditCalled = true;
+  });
+
+  assert.equal(onEditCalled, true);
+  assert.equal(recalledMsgId, 'msg-initial-123');
+  assert.equal(recalledCliMsgId, 'cli-initial-456');
+
+  service.clearAll();
+});
+
+void test('processConfirm recalls pending confirmation message and formats heart header when confirmed via reaction', async () => {
+  let recalledMsgId: string | undefined;
+  let recalledCliMsgId: string | undefined;
+  const sentMessages: Array<{ chatId: string | number; text: string }> = [];
+
+  const mockZaloService = {
+    sendMessage: (chatId: string | number, text: string) => {
+      sentMessages.push({ chatId, text });
+      return Promise.resolve(true);
+    },
+    sendMessageWithResult: () =>
+      Promise.resolve({
+        success: true,
+        msgId: 'msg-card-777',
+        cliMsgId: 'cli-card-777',
+      }),
+    undoMessage: (_chatId: string | number, msgId: string, cliMsgId?: string) => {
+      recalledMsgId = msgId;
+      recalledCliMsgId = cliMsgId;
+      return Promise.resolve(true);
+    },
+  } as unknown as ZaloService;
+
+  const mockFinanceService = {
+    createTransaction: (dto: CreateFinanceTransactionDto) =>
+      Promise.resolve({ id: 'tx_1', ...dto }),
+  } as unknown as FinanceService;
+
+  const service = new TransactionConfirmationService(
+    mockZaloService,
+    mockFinanceService,
+  );
+
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 450000,
+      category: 'Mua sắm',
+      note: 'mua tròng kính subin cho vợ',
+      placeName: 'Mắt kính Subin Hồ Xuân Hương quận 3',
+      paymentMethod: 'MoMo',
+    },
+  });
+
+  // Reaction with heart
+  const reactionResult = await service.handleReaction({
+    chatId: 'c1',
+    userId: 'u1',
+    reactionIcon: '❤️',
+    msgId: 'msg-card-777',
+  });
+
+  assert.equal(reactionResult.handled, true);
+  assert.equal(reactionResult.status, 'confirmed');
+
+  // Verify the card prompt message was recalled
+  assert.equal(recalledMsgId, 'msg-card-777');
+  assert.equal(recalledCliMsgId, 'cli-card-777');
+
+  // Verify the single message sent has both heart celebration and DTO details
+  // sentMessages[0] is the prompt, sentMessages[1] is the result
+  const resultMessage = sentMessages[sentMessages.length - 1].text;
+  assert.match(
+    resultMessage,
+    new RegExp(`🎉 Đã nhận đủ 1 lượt thả tim \\(❤️\\)! Yêu cầu \\[${pending.code}\\] đã được xác nhận thành công`),
+  );
+  assert.match(resultMessage, /• Phân loại:\s*🔴 Khoản chi/);
+  assert.match(resultMessage, /• Số tiền:\s*450\.000 đ/);
+  assert.match(resultMessage, /• Ghi chú:\s*mua tròng kính subin cho vợ/);
+  assert.match(resultMessage, /• Địa điểm:\s*Mắt kính Subin Hồ Xuân Hương quận 3/);
+  assert.match(resultMessage, /• Phương thức:\s*MoMo/);
+
+  service.clearAll();
+});
+
+void test('handleTimeout recalls pending card message and sends only timeout notice', async () => {
+  let recalledMsgId: string | undefined;
+  let recalledCliMsgId: string | undefined;
+  const sentMessages: Array<{ chatId: string | number; text: string }> = [];
+
+  const mockZaloService = {
+    sendMessage: (chatId: string | number, text: string) => {
+      sentMessages.push({ chatId, text });
+      return Promise.resolve(true);
+    },
+    sendMessageWithResult: () =>
+      Promise.resolve({
+        success: true,
+        msgId: 'msg-place-456',
+        cliMsgId: 'cli-place-456',
+      }),
+    undoMessage: (_chatId: string | number, msgId: string, cliMsgId?: string) => {
+      recalledMsgId = msgId;
+      recalledCliMsgId = cliMsgId;
+      return Promise.resolve(true);
+    },
+  } as unknown as ZaloService;
+
+  const service = new TransactionConfirmationService(
+    mockZaloService,
+    {} as unknown as FinanceService,
+  );
+  service.timeoutMs = 50;
+
+  await service.createPendingPlace({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      userId: 'u1',
+      name: 'tiệm bánh tráng đầu đường gò xoài',
+    },
+  });
+
+  await new Promise((r) => setTimeout(r, 80));
+
+  assert.equal(recalledMsgId, 'msg-place-456');
+  assert.equal(recalledCliMsgId, 'cli-place-456');
+  const timeoutMsg = sentMessages[sentMessages.length - 1].text;
+  assert.match(
+    timeoutMsg,
+    /⏰ Yêu cầu tạo nơi chốn "tiệm bánh tráng đầu đường gò xoài" \(mã: \d+\) đã hết hạn 5 phút và chưa được xác nhận\./,
+  );
+
+  service.clearAll();
+});
+
+void test('processCancel recalls pending card message and sends cancellation notice', async () => {
+  let recalledMsgId: string | undefined;
+  let recalledCliMsgId: string | undefined;
+  const sentMessages: Array<{ chatId: string | number; text: string }> = [];
+
+  const mockZaloService = {
+    sendMessage: (chatId: string | number, text: string) => {
+      sentMessages.push({ chatId, text });
+      return Promise.resolve(true);
+    },
+    sendMessageWithResult: () =>
+      Promise.resolve({
+        success: true,
+        msgId: 'msg-cancel-333',
+        cliMsgId: 'cli-cancel-333',
+      }),
+    undoMessage: (_chatId: string | number, msgId: string, cliMsgId?: string) => {
+      recalledMsgId = msgId;
+      recalledCliMsgId = cliMsgId;
+      return Promise.resolve(true);
+    },
+  } as unknown as ZaloService;
+
+  const service = new TransactionConfirmationService(
+    mockZaloService,
+    {} as unknown as FinanceService,
+  );
+
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 30000,
+      category: 'Ăn uống',
+      note: 'bánh tráng nướng',
+    },
+  });
+
+  await service.handleCommand('u1', 'c1', `cancel ${pending.code}`);
+
+  assert.equal(recalledMsgId, 'msg-cancel-333');
+  assert.equal(recalledCliMsgId, 'cli-cancel-333');
+  const cancelMsg = sentMessages[sentMessages.length - 1].text;
+  assert.match(cancelMsg, /❌ Đã hủy giao dịch khoản chi/);
+
+  service.clearAll();
+});

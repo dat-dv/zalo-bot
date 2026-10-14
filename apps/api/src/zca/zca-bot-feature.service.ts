@@ -404,11 +404,9 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
 
     if (result.handled) {
       if (result.status === 'confirmed') {
-        const msg = `🎉 Đã nhận đủ ${result.requiredHearts} lượt thả tim (❤️)! Yêu cầu [${result.code}] đã được xác nhận thành công.`;
-        await api.sendMessage(msg, threadId, threadType);
+        // Confirmation message with heart celebration and full DTO details is already sent by confirmationService.processConfirm!
       } else if (result.status === 'cancelled') {
-        const msg = `❌ Yêu cầu [${result.code}] đã bị hủy bỏ bởi biểu cảm phẫn nộ (😡).`;
-        await api.sendMessage(msg, threadId, threadType);
+        // Cancellation message is already sent by confirmationService.processCancel!
       } else if (result.status === 'heart_added') {
         const msg = `❤️ Đã nhận ${result.currentHearts}/${result.requiredHearts} lượt thả tim cho yêu cầu [${result.code}].`;
         await api.sendMessage(msg, threadId, threadType);

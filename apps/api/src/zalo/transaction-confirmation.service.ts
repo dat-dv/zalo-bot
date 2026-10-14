@@ -60,6 +60,7 @@ export interface PendingAction {
   expiresAt: number;
   timer?: NodeJS.Timeout;
   messageId?: string;
+  cliMsgId?: string;
   requiredHearts?: number;
   heartUsers?: string[];
 }
@@ -212,6 +213,9 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         await this.redisService.del(`pending:tx:user:${targetUserId}`);
         await this.removeUserPendingCode(targetUserId, code);
       }
+      if (local?.messageId) {
+        await this.redisService.del(`pending:tx:msg:${local.messageId}`);
+      }
     }
     if (local) {
       if (local.timer) {
@@ -280,6 +284,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         createdAt: pending.createdAt,
         expiresAt: pending.expiresAt,
         messageId: pending.messageId,
+        cliMsgId: pending.cliMsgId,
         requiredHearts: pending.requiredHearts,
         heartUsers: pending.heartUsers,
       });
@@ -316,7 +321,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     if (this.zaloService.sendMessageWithResult) {
       const sendResult = await this.zaloService.sendMessageWithResult(params.chatId, msg);
       if (sendResult?.msgId) {
-        await this.setMessageId(code, sendResult.msgId);
+        await this.setMessageId(code, sendResult.msgId, sendResult.cliMsgId);
       }
     } else {
       await this.zaloService.sendMessage(params.chatId, msg);
@@ -324,10 +329,17 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     return pending;
   }
 
-  public async setMessageId(code: string, messageId: string): Promise<void> {
+  public async setMessageId(
+    code: string,
+    messageId: string,
+    cliMsgId?: string,
+  ): Promise<void> {
     const pending = await this.getPendingByCode(code);
     if (pending) {
       pending.messageId = messageId;
+      if (cliMsgId) {
+        pending.cliMsgId = cliMsgId;
+      }
       this.pendingMap.set(code, pending);
       if (this.redisService) {
         const ttlSeconds = Math.ceil(this.timeoutMs / 1000);
@@ -416,7 +428,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
       const req = pending.requiredHearts || 1;
       if (pending.heartUsers.length >= req) {
-        await this.processConfirm(pending.userId, params.chatId, pending.code);
+        await this.processConfirm(pending.userId, params.chatId, pending.code, false, {
+          isHeartConfirmed: true,
+          requiredHearts: req,
+        });
         return {
           handled: true,
           status: 'confirmed',
@@ -652,6 +667,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     const pending = await this.getPendingByCode(code);
     if (!pending) return;
 
+    if (pending.messageId && this.zaloService.undoMessage) {
+      void this.zaloService.undoMessage(pending.chatId, pending.messageId, pending.cliMsgId);
+    }
+
     await this.deletePending(code, pending.userId);
 
     let title = pending.title || 'Thao tác';
@@ -822,6 +841,9 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     }
 
     try {
+      if (pending.messageId && this.zaloService.undoMessage) {
+        void this.zaloService.undoMessage(chatId, pending.messageId, pending.cliMsgId);
+      }
       await onEdit(pending, trimmedInstruction);
       await this.deletePending(pending.code, pending.userId);
     } catch (err) {
@@ -880,6 +902,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     chatId: string,
     code?: string,
     silent = false,
+    options?: {
+      isHeartConfirmed?: boolean;
+      requiredHearts?: number;
+    },
   ): Promise<boolean> {
     let pending: PendingAction | undefined;
 
@@ -913,6 +939,9 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
     if (Date.now() > pending.expiresAt) {
       await this.deletePending(pending.code, pending.userId);
+      if (pending.messageId && this.zaloService.undoMessage) {
+        void this.zaloService.undoMessage(chatId, pending.messageId, pending.cliMsgId);
+      }
       await this.zaloService.sendMessage(
         chatId,
         `⏰ Yêu cầu mã "${pending.code}" đã hết hạn xác nhận (quá 5 phút) và chưa được thực hiện.`,
@@ -921,6 +950,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     }
 
     await this.deletePending(pending.code, pending.userId);
+
+    if (pending.messageId && this.zaloService.undoMessage) {
+      void this.zaloService.undoMessage(chatId, pending.messageId, pending.cliMsgId);
+    }
 
     try {
       switch (pending.actionType) {
@@ -943,8 +976,31 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             },
             FINANCE_TRANSACTION_DESCRIPTOR,
           );
+
+          if (payload.placeName) {
+            const companionPending = Array.from(this.pendingMap.values()).find(
+              (p) =>
+                p.actionType === 'CREATE_PLACE' &&
+                p.userId === pending!.userId &&
+                normalizePlaceName((p.payload?.name as string) || '') === normalizePlaceName(payload.placeName!),
+            );
+            if (companionPending) {
+              if (companionPending.messageId && this.zaloService.undoMessage) {
+                void this.zaloService.undoMessage(
+                  companionPending.chatId,
+                  companionPending.messageId,
+                  companionPending.cliMsgId,
+                );
+              }
+              await this.deletePending(companionPending.code, companionPending.userId);
+            }
+          }
+
           if (!silent) {
-            const reply = `✅ Đã xác nhận và lưu ${typeLabel.toLowerCase()} thành công!\n\n${cardContent}`;
+            const header = options?.isHeartConfirmed
+              ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!\n\n`
+              : `✅ Đã xác nhận và lưu ${typeLabel.toLowerCase()} thành công!\n\n`;
+            const reply = `${header}${cardContent}`;
             await this.zaloService.sendMessage(chatId, reply);
           }
           break;
@@ -961,10 +1017,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             if (!silent) {
               const typeLabel = payload.type === 'income' ? 'khoản thu' : 'khoản chi';
               const cardContent = renderDtoConfirmationCard(payload, DELETE_TRANSACTION_DESCRIPTOR);
-              await this.zaloService.sendMessage(
-                chatId,
-                `🗑️ Đã xóa ${typeLabel} thành công!\n\n${cardContent}`,
-              );
+              const header = options?.isHeartConfirmed
+                ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!\n\n`
+                : `🗑️ Đã xóa ${typeLabel} thành công!\n\n`;
+              await this.zaloService.sendMessage(chatId, `${header}${cardContent}`);
             }
           } else {
             if (!silent) {
@@ -999,8 +1055,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               },
               DEBT_DESCRIPTOR,
             );
-            const reply = `✅ Đã xác nhận và ghi nhận khoản nợ thành công!\n\n${cardContent}`;
-            await this.zaloService.sendMessage(chatId, reply);
+            const header = options?.isHeartConfirmed
+              ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!\n\n`
+              : `✅ Đã xác nhận và ghi nhận khoản nợ thành công!\n\n`;
+            await this.zaloService.sendMessage(chatId, `${header}${cardContent}`);
           }
           break;
         }
@@ -1019,8 +1077,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               },
               REMINDER_DESCRIPTOR,
             );
-            const reply = `⏰ Đã xác nhận và đặt lịch nhắc thành công!\n\n${cardContent}`;
-            await this.zaloService.sendMessage(chatId, reply);
+            const header = options?.isHeartConfirmed
+              ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!\n\n`
+              : `⏰ Đã xác nhận và đặt lịch nhắc thành công!\n\n`;
+            await this.zaloService.sendMessage(chatId, `${header}${cardContent}`);
           }
           break;
         }
@@ -1038,9 +1098,11 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               },
               TASK_DESCRIPTOR,
             );
+            const header = options?.isHeartConfirmed
+              ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!\n\n`
+              : `✅ ĐÃ XÁC NHẬN VÀ THÊM VIỆC CẦN LÀM VÀO GOOGLE TASKS!\n\n`;
             const reply =
-              `✅ ĐÃ XÁC NHẬN VÀ THÊM VIỆC CẦN LÀM VÀO GOOGLE TASKS!\n\n` +
-              cardContent +
+              `${header}${cardContent}` +
               `\n\n💡 Gõ /tasks để xem toàn bộ danh sách việc cần làm.`;
             await this.zaloService.sendMessage(chatId, reply);
           }
@@ -1054,9 +1116,11 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           await this.googleTasksService.completeTask(payload.taskId, '@default', pending.userId);
           if (!silent) {
             const cardContent = renderDtoConfirmationCard(payload, COMPLETE_TASK_DESCRIPTOR);
+            const header = options?.isHeartConfirmed
+              ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!\n\n`
+              : `🎉 ĐÃ XÁC NHẬN VÀ HOÀN THÀNH CÔNG VIỆC TRÊN GOOGLE TASKS!\n\n`;
             const reply =
-              `🎉 ĐÃ XÁC NHẬN VÀ HOÀN THÀNH CÔNG VIỆC TRÊN GOOGLE TASKS!\n\n` +
-              cardContent +
+              `${header}${cardContent}` +
               `\n\n💡 Gõ /tasks để xem danh sách việc cần làm còn lại.`;
             await this.zaloService.sendMessage(chatId, reply);
           }
@@ -1070,9 +1134,11 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           await this.googleCalendarService.createEvent(payload, pending.userId);
           if (!silent) {
             const cardContent = renderDtoConfirmationCard(payload, CALENDAR_EVENT_DESCRIPTOR);
+            const header = options?.isHeartConfirmed
+              ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!\n\n`
+              : `✅ ĐÃ XÁC NHẬN VÀ TẠO SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG!\n\n`;
             const reply =
-              `✅ ĐÃ XÁC NHẬN VÀ TẠO SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG!\n\n` +
-              cardContent +
+              `${header}${cardContent}` +
               `\n\n🔗 Sự kiện đã được đồng bộ lên Google Calendar của bạn.`;
             await this.zaloService.sendMessage(chatId, reply);
           }
@@ -1089,8 +1155,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               payload,
               DELETE_CALENDAR_EVENT_DESCRIPTOR,
             );
-            const reply =
-              `🗑️ ĐÃ XÁC NHẬN VÀ XÓA SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG!\n\n` + cardContent;
+            const header = options?.isHeartConfirmed
+              ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!\n\n`
+              : `🗑️ ĐÃ XÁC NHẬN VÀ XÓA SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG!\n\n`;
+            const reply = `${header}${cardContent}`;
             await this.zaloService.sendMessage(chatId, reply);
           }
           break;
@@ -1105,9 +1173,11 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           }
           if (!silent) {
             const cardContent = renderDtoConfirmationCard(payload, BAN_USER_DESCRIPTOR);
+            const header = options?.isHeartConfirmed
+              ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!\n\n`
+              : `⛔ ĐÃ XÁC NHẬN VÀ KHÓA TÀI KHOẢN NGƯỜI DÙNG THÀNH CÔNG!\n\n`;
             const reply =
-              `⛔ ĐÃ XÁC NHẬN VÀ KHÓA TÀI KHOẢN NGƯỜI DÙNG THÀNH CÔNG!\n\n` +
-              cardContent +
+              `${header}${cardContent}` +
               `\n\nToàn bộ quyền truy cập và Token Google của tài khoản đã bị thu hồi.`;
             await this.zaloService.sendMessage(chatId, reply);
           }
@@ -1127,7 +1197,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               },
               PLACE_DESCRIPTOR,
             );
-            const reply = `✅ Đã xác nhận và tạo nơi chốn "${place?.name || payload.name}" thành công!\n\n${cardContent}`;
+            const header = options?.isHeartConfirmed
+              ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!\n\n`
+              : `✅ Đã xác nhận và tạo nơi chốn "${place?.name || payload.name}" thành công!\n\n`;
+            const reply = `${header}${cardContent}`;
             await this.zaloService.sendMessage(chatId, reply);
           }
           break;
@@ -1136,7 +1209,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           const payload = pending.payload as unknown as CreateFinanceTransactionDto;
           await this.financeService.createTransaction(payload);
           if (!silent) {
-            await this.zaloService.sendMessage(chatId, '✅ Đã xác nhận thao tác thành công!');
+            const header = options?.isHeartConfirmed
+              ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!`
+              : `✅ Đã xác nhận thao tác thành công!`;
+            await this.zaloService.sendMessage(chatId, header);
           }
           break;
         }
@@ -1190,6 +1266,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     }
 
     await this.deletePending(pending.code, pending.userId);
+
+    if (pending.messageId && this.zaloService.undoMessage) {
+      void this.zaloService.undoMessage(chatId, pending.messageId, pending.cliMsgId);
+    }
 
     let actionDesc = pending.title || 'thao tác';
     const payload = pending.payload;
