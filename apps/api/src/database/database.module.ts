@@ -25,6 +25,7 @@ import { AddGrantAccessToUsers1724720000000 } from './migrations/1724720000000-A
 import { AddLinkedUserIdToDebtContacts1724730000000 } from './migrations/1724730000000-AddLinkedUserIdToDebtContacts';
 import { CreateZcaThreadConfigs1724740000000 } from './migrations/1724740000000-CreateZcaThreadConfigs';
 import { AddDirectInteractionToZcaThreadConfigs1724750000000 } from './migrations/1724750000000-AddDirectInteractionToZcaThreadConfigs';
+import { AddDriveFolderColumnsToUsersAndThreadConfigs1724760000000 } from './migrations/1724760000000-AddDriveFolderColumnsToUsersAndThreadConfigs';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { AddDirectInteractionToZcaThreadConfigs1724750000000 } from './migration
             AddLinkedUserIdToDebtContacts1724730000000,
             CreateZcaThreadConfigs1724740000000,
             AddDirectInteractionToZcaThreadConfigs1724750000000,
+            AddDriveFolderColumnsToUsersAndThreadConfigs1724760000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

@@ -26,6 +26,7 @@ import { AddGrantAccessToUsers1724720000000 } from './migrations/1724720000000-A
 import { AddLinkedUserIdToDebtContacts1724730000000 } from './migrations/1724730000000-AddLinkedUserIdToDebtContacts';
 import { CreateZcaThreadConfigs1724740000000 } from './migrations/1724740000000-CreateZcaThreadConfigs';
 import { AddDirectInteractionToZcaThreadConfigs1724750000000 } from './migrations/1724750000000-AddDirectInteractionToZcaThreadConfigs';
+import { AddDriveFolderColumnsToUsersAndThreadConfigs1724760000000 } from './migrations/1724760000000-AddDriveFolderColumnsToUsersAndThreadConfigs';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -68,6 +69,7 @@ export const AppDataSource = new DataSource({
     AddLinkedUserIdToDebtContacts1724730000000,
     CreateZcaThreadConfigs1724740000000,
     AddDirectInteractionToZcaThreadConfigs1724750000000,
+    AddDriveFolderColumnsToUsersAndThreadConfigs1724760000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

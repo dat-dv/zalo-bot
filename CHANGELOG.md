@@ -1,5 +1,9 @@
 # Changelog
 
+## [v1.0.42] - 2026-10-14
+
+- Cập nhật hệ thống.
+
 Tất cả các thay đổi đáng chú ý của dự án Zalo Bot sẽ được ghi lại trong tài liệu này.
 
 ## [v1.0.41] - 2026-10-14
