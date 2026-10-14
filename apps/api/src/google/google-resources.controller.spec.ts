@@ -241,3 +241,44 @@ void test('GoogleResourcesController listTasks returns empty data when Google Ta
   assert.deepEqual(result, { data: [] });
   assert.equal(revokedUserId, 'user-123');
 });
+
+void test('GoogleResourcesController shareDrive throws BadRequestException when email is invalid', async () => {
+  const controller = new GoogleResourcesController(
+    {} as any,
+    {} as any,
+    {} as any,
+    { isSharedAuthorized: () => true, hasStorageScopes: () => true } as any,
+    {} as any,
+  );
+
+  await assert.rejects(async () => {
+    await controller.shareDrive({ channelId: 'g-123', email: 'invalid-email' });
+  }, /Email không hợp lệ/i);
+});
+
+void test('GoogleResourcesController shareDrive successfully shares channel folder', async () => {
+  let sharedFolder = '';
+  let sharedEmail = '';
+  const mockDrive = {
+    getFolderWebLink: async () => 'https://drive.mock/zalobot/g-123',
+    shareFolderWithUser: async (folder: string, email: string) => {
+      sharedFolder = folder;
+      sharedEmail = email;
+      return { fileId: 'f1', permissionId: 'p1', emailAddress: email, role: 'reader' };
+    },
+  };
+
+  const controller = new GoogleResourcesController(
+    {} as any,
+    {} as any,
+    {} as any,
+    { isSharedAuthorized: () => true, hasStorageScopes: () => true } as any,
+    mockDrive as any,
+  );
+
+  const res = await controller.shareDrive({ channelId: 'g-123', email: 'test@gmail.com' });
+  assert.equal(res.success, true);
+  assert.equal(sharedFolder, 'zalobot/g-123');
+  assert.equal(sharedEmail, 'test@gmail.com');
+  assert.equal(res.webViewLink, 'https://drive.mock/zalobot/g-123');
+});

@@ -7,6 +7,7 @@ import {
   Get,
   Logger,
   NotFoundException,
+  Optional,
   Param,
   Patch,
   Post,
@@ -22,6 +23,11 @@ import { ReportsTokenService } from '../reports/reports-token.service';
 import { GoogleCalendarService } from './google-calendar.service';
 import { GoogleTasksService } from './google-tasks.service';
 import { GoogleAuthService } from './google-auth.service';
+import { GoogleDriveService } from './google-drive.service';
+import { UsersService } from '../users/users.service';
+import { ThreadConfigService } from '../zca/thread-config.service';
+import { ShareDriveDto } from './dto/share-drive.dto';
+import { getChannelDriveFolderPath, isValidEmail } from './channel-storage.util';
 
 @ApiTags('Google Workspace (Calendar & Tasks)')
 @ApiBearerAuth('bearer-jwt')
@@ -34,7 +40,65 @@ export class GoogleResourcesController {
     private readonly tasks: GoogleTasksService,
     private readonly tokens: ReportsTokenService,
     private readonly authService: GoogleAuthService,
+    @Optional() private readonly driveService?: GoogleDriveService,
+    @Optional() private readonly usersService?: UsersService,
+    @Optional() private readonly threadConfigService?: ThreadConfigService,
   ) {}
+
+  @Post('drive/share')
+  @ApiOperation({ summary: 'Cấp quyền chia sẻ Google Drive cho thư mục của một channel' })
+  async shareDrive(@Body() body: ShareDriveDto) {
+    if (!this.driveService) {
+      throw new BadRequestException('Google Drive service is not available.');
+    }
+    const email = body.email ? body.email.trim() : '';
+    if (!isValidEmail(email)) {
+      throw new BadRequestException('Email không hợp lệ.');
+    }
+    const role = body.role || 'reader';
+    const folderPath = getChannelDriveFolderPath(body.channelId);
+
+    const shareResult = await this.driveService.shareFolderWithUser(folderPath, email, role);
+    let webViewLink: string | undefined;
+    try {
+      webViewLink = (await this.driveService.getFolderWebLink(folderPath)) || undefined;
+    } catch {
+      // ignore
+    }
+
+    try {
+      const folderId = shareResult.fileId;
+      if (body.channelId.startsWith('g-') || body.channelId.length > 10) {
+        if (this.threadConfigService) {
+          await this.threadConfigService.saveDriveFolderInfo(body.channelId, {
+            folderId,
+            folderUrl: webViewLink,
+            folderPath,
+          });
+        }
+      }
+      if (this.usersService) {
+        await this.usersService.saveDriveFolderInfo(body.channelId, {
+          folderId,
+          folderUrl: webViewLink,
+          folderPath,
+        });
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Could not persist drive folder info for ${body.channelId}: ${(err as Error).message}`,
+      );
+    }
+
+    return {
+      success: true,
+      folderPath,
+      email,
+      role,
+      webViewLink,
+      permissionId: shareResult.permissionId,
+    };
+  }
 
   @Get('calendar/events')
   @ApiOperation({ summary: 'Lấy danh sách sự kiện Google Calendar' })

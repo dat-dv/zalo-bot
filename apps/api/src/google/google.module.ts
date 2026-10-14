@@ -9,6 +9,8 @@ import { TokenEncryptionService } from './token-encryption.service';
 import { GoogleResourcesController } from './google-resources.controller';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 import { ZaloModule } from '../zalo/zalo.module';
+import { UsersModule } from '../users/users.module';
+import { ZcaModule } from '../zca/zca.module';
 
 import { GoogleDriveService } from './google-drive.service';
 import { GooglePhotosService } from './google-photos.service';
@@ -18,6 +20,8 @@ import { GooglePhotosService } from './google-photos.service';
     TypeOrmModule.forFeature([UserTokenEntity]),
     DashboardAuthModule,
     forwardRef(() => ZaloModule),
+    forwardRef(() => UsersModule),
+    forwardRef(() => ZcaModule),
   ],
   controllers: [GoogleAuthController, GoogleResourcesController],
   providers: [

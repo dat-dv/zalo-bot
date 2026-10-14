@@ -53,3 +53,11 @@ void test('cleanBotMention cleans image placeholders and group mentions', () => 
   assert.equal(cleanBotMention('[Ảnh] @Bot 2'), '2');
   assert.equal(cleanBotMention('@Bot Finance Assistant'), '');
 });
+
+void test('cleanBotMention cleans triggerPrefix if provided', () => {
+  assert.equal(cleanBotMention('!ăn trưa 40k', 'Bot', '!'), 'ăn trưa 40k');
+  assert.equal(cleanBotMention('@bot !ăn trưa 40k', 'Bot', '!'), 'ăn trưa 40k');
+  assert.equal(cleanBotMention('!@bot ăn trưa 40k', 'Bot', '!'), 'ăn trưa 40k');
+  assert.equal(cleanBotMention('/bot: /dashboard', 'Bot', '/bot:'), '/dashboard');
+  assert.equal(cleanBotMention('!/dashboard', 'Bot', '!'), '/dashboard');
+});

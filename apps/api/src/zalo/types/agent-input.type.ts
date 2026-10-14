@@ -20,4 +20,10 @@ export interface AgentInput {
   raw?: unknown;
   /** Tool call arguments từ LLM (dùng cho strategies) */
   toolArgs?: Record<string, unknown>;
+  /** Khi ở chế độ thụ động trong nhóm (không gọi @bot/prefix trực tiếp): chỉ xử lý tool call, tuyệt đối không phản hồi chit-chat */
+  passiveOnly?: boolean;
+  /** Cho phép AI trò chuyện tự do (Chit-chat). Mặc định là true nếu không đặt. */
+  allowAiChat?: boolean;
+  /** Tiền tố gọi bot tùy chọn (ví dụ: "!", "/") để hỗ trợ cắt tỉa tiền tố trước khi đưa vào LLM */
+  triggerPrefix?: string;
 }

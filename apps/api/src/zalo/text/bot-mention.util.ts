@@ -10,10 +10,18 @@ function escapeRegex(str: string): string {
  * 3. @Bot ngay sau slash command (ví dụ: "/dashboard @Bot Teétajjsne", "/dashboard@Bot")
  * 4. @Bot ở giữa câu (ví dụ: "nhắc @Bot ngày mai họp")
  */
-export function cleanBotMention(text: string, botName = 'Bot'): string {
+export function cleanBotMention(text: string, botName = 'Bot', triggerPrefix?: string): string {
   if (!text) return '';
   let result = text.trim();
   if (!result) return '';
+
+  // 0. Loại bỏ tiền tố gọi bot tùy chọn (triggerPrefix) nếu có ở đầu câu (ví dụ: "!ăn trưa 40k" -> "ăn trưa 40k")
+  if (triggerPrefix && triggerPrefix.trim()) {
+    const tp = triggerPrefix.trim();
+    if (result.startsWith(tp)) {
+      result = result.slice(tp.length).trim();
+    }
+  }
 
   const cleanName = (botName || 'Bot').replace(/^@/, '').trim();
   const baseNames = [cleanName, 'Bot Finance Assistant', 'Finance Assistant', 'Bot', 'bot'];
@@ -46,6 +54,14 @@ export function cleanBotMention(text: string, botName = 'Bot'): string {
   // Loại bỏ lại lần nữa nếu tiền tố/hậu tố ảnh nằm sau hoặc trước bot mention
   result = result.replace(/^\[(?:hình ảnh|hinh anh|ảnh|anh|image|photo)\]\s*/i, '').trim();
   result = result.replace(/\s*\[(?:hình ảnh|hinh anh|ảnh|anh|image|photo)\]$/i, '').trim();
+
+  // Loại bỏ lại triggerPrefix nếu người dùng gõ "@bot !ăn trưa 40k"
+  if (triggerPrefix && triggerPrefix.trim()) {
+    const tp = triggerPrefix.trim();
+    if (result.startsWith(tp)) {
+      result = result.slice(tp.length).trim();
+    }
+  }
 
   return result;
 }

@@ -67,7 +67,7 @@ export class TextInputService {
       process.env.BOT_NAME ||
       process.env.ZALO_BOT_NAME ||
       'Bot';
-    const text = cleanBotMention(rawText, botName);
+    const text = cleanBotMention(rawText, botName, input.triggerPrefix);
     input.text = text;
     const chatId = input.chatId || input.senderId;
     const senderId = input.senderId;
@@ -75,6 +75,11 @@ export class TextInputService {
 
     // Bỏ qua nếu tin nhắn ảnh nhưng không có nội dung text hợp lệ sau khi làm sạch mention
     if (!text && input.type === 'image') {
+      return;
+    }
+
+    // Nếu tin nhắn rỗng sau khi làm sạch mention/prefix và đang ở chế độ thụ động
+    if (!text && input.passiveOnly) {
       return;
     }
 
@@ -120,6 +125,9 @@ export class TextInputService {
 
     // Nếu người dùng chỉ gõ số "1" hoặc "2" đơn lẻ nhưng hiện không có ảnh nào chờ xử lý (tránh LLM gọi nhầm tool)
     if (/^[12]$/.test(text.trim())) {
+      if (input.passiveOnly) {
+        return;
+      }
       await this.zaloService.sendMessage(
         chatId,
         '💡 Hiện không có hình ảnh hoặc giao dịch nào đang chờ xử lý. Bạn có thể gửi ảnh mới hoặc nhập yêu cầu cụ thể (Ví dụ: "ăn trưa 45k", "mai 9h họp").',
@@ -130,6 +138,9 @@ export class TextInputService {
     // 2. Fast-path for deterministic commands (/start, /help, /echo, /ping, /reset)
     const fastPath = this.toolFactory.resolveFastPathToolType(text);
     if (fastPath) {
+      if (input.passiveOnly) {
+        return;
+      }
       const strategy = this.toolFactory.getStrategy(fastPath);
       await strategy.execute({
         input,
@@ -191,6 +202,9 @@ export class TextInputService {
             this.logger.warn(
               `Strategy for tool "${toolCall.name}" not found. Falling back to CONVERSATION.`,
             );
+            if (input.passiveOnly || input.allowAiChat === false) {
+              return;
+            }
             strategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
           }
 
@@ -207,6 +221,22 @@ export class TextInputService {
       }
 
       // Plain AI conversational reply
+      // Nếu là chế độ thụ động trong nhóm (passiveOnly) hoặc tắt tính năng trò chuyện tự do (allowAiChat === false):
+      // TUYỆT ĐỐI IM LẶNG, KHÔNG PHẢN HỒI RA CHAT!
+      if (input.passiveOnly) {
+        this.logger.debug(
+          `[TextInputService] Passive message did not trigger any tool in thread ${chatId}. Remaining silent.`,
+        );
+        return;
+      }
+
+      if (input.allowAiChat === false) {
+        this.logger.debug(
+          `[TextInputService] allowAiChat is disabled in thread ${chatId}. Remaining silent.`,
+        );
+        return;
+      }
+
       const conversationStrategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
       await conversationStrategy.execute({
         input,
@@ -218,6 +248,9 @@ export class TextInputService {
       });
     } catch (err) {
       this.logger.error(`Error in LLM text processing: ${(err as Error).message}`);
+      if (input.passiveOnly || input.allowAiChat === false) {
+        return;
+      }
       // Fallback to conversation strategy
       const fallbackStrategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
       await fallbackStrategy.execute({
@@ -288,6 +321,9 @@ export class TextInputService {
           this.logger.warn(
             `Strategy for tool "${toolCall.name}" not found. Falling back to CONVERSATION.`,
           );
+          if (input.passiveOnly || input.allowAiChat === false) {
+            return;
+          }
           strategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
         }
 
@@ -303,6 +339,9 @@ export class TextInputService {
       }
 
       // Plain AI conversational reply if LLM didn't return a tool call
+      if (input.passiveOnly || input.allowAiChat === false) {
+        return;
+      }
       const conversationStrategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
       await conversationStrategy.execute({
         input,
