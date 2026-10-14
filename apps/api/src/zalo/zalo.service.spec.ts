@@ -166,3 +166,92 @@ void test('ZaloService withChatAction automatically cleans up interval timer on 
     globalThis.fetch = originalFetch;
   }
 });
+
+void test('ZaloService undoMessage calls zcaService.undo with cached cliMsgId', async () => {
+  let undoCalled = false;
+  let undoPayload: { msgId: string; cliMsgId?: string } | undefined;
+  let undoThreadId = '';
+
+  const mockZcaService = {
+    isLoggedIn: () => true,
+    getCliMsgId: (msgId: string) => Promise.resolve(msgId === 'msg_1' ? 'cli_1' : undefined),
+    undo: (payload: { msgId: string; cliMsgId?: string }, threadId: string) => {
+      undoCalled = true;
+      undoPayload = payload;
+      undoThreadId = threadId;
+      return Promise.resolve({ status: 0 });
+    },
+  };
+
+  const service = new ZaloService(
+    { get: () => undefined } as unknown as ConfigService,
+    mockZcaService as never,
+  );
+
+  const res = await service.undoMessage('chat_100', 'msg_1');
+  assert.equal(res, true);
+  assert.equal(undoCalled, true);
+  assert.equal(undoThreadId, 'chat_100');
+  assert.equal(undoPayload?.msgId, 'msg_1');
+  assert.equal(undoPayload?.cliMsgId, 'cli_1');
+});
+
+void test('ZaloService undoMessage falls back to deleteMessage (onlyMe=true) when undo fails', async () => {
+  let fallbackDeleteCalled = false;
+  let deleteOnlyMe: boolean | undefined;
+
+  const mockZcaService = {
+    isLoggedIn: () => true,
+    getCliMsgId: () => Promise.resolve('cli_1'),
+    getOwnId: () => 'bot_uid',
+    undo: () => Promise.reject(new Error('Lỗi không xác định')),
+    deleteMessage: (
+      dest: { data: { msgId: string; cliMsgId: string; uidFrom: string }; threadId: string },
+      onlyMe?: boolean,
+    ) => {
+      fallbackDeleteCalled = true;
+      deleteOnlyMe = onlyMe;
+      return Promise.resolve({ status: 0 });
+    },
+  };
+
+  const service = new ZaloService(
+    { get: () => undefined } as unknown as ConfigService,
+    mockZcaService as never,
+  );
+
+  const res = await service.undoMessage('chat_100', 'msg_1');
+  assert.equal(res, false);
+  assert.equal(fallbackDeleteCalled, true);
+  assert.equal(deleteOnlyMe, true);
+});
+
+void test('ZaloService deleteMessage delegates to zcaService.deleteMessage', async () => {
+  let deleteCalled = false;
+  let passedOnlyMe: boolean | undefined;
+
+  const mockZcaService = {
+    isLoggedIn: () => true,
+    getCliMsgId: () => Promise.resolve('cli_1'),
+    getOwnId: () => 'bot_uid',
+    deleteMessage: (
+      dest: { data: { msgId: string; cliMsgId: string; uidFrom: string }; threadId: string },
+      onlyMe?: boolean,
+    ) => {
+      deleteCalled = true;
+      passedOnlyMe = onlyMe;
+      return Promise.resolve({ status: 0 });
+    },
+  };
+
+  const service = new ZaloService(
+    { get: () => undefined } as unknown as ConfigService,
+    mockZcaService as never,
+  );
+
+  const res = await service.deleteMessage('chat_100', 'msg_1', undefined, true);
+  assert.equal(res, true);
+  assert.equal(deleteCalled, true);
+  assert.equal(passedOnlyMe, true);
+});
+

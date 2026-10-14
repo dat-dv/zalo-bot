@@ -82,6 +82,10 @@ export function normalizePlaceName(val: string): string {
 export class TransactionConfirmationService implements OnModuleDestroy {
   private readonly logger = new Logger(TransactionConfirmationService.name);
   private readonly pendingMap = new Map<string, PendingAction>();
+  private readonly tempMessagesMap = new Map<
+    string,
+    Array<{ msgId: string; cliMsgId?: string; chatId: string }>
+  >();
   public timeoutMs = 5 * 60 * 1000; // 5 phút (300 giây)
 
   constructor(
@@ -321,6 +325,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     if (this.zaloService.sendMessageWithResult) {
       const sendResult = await this.zaloService.sendMessageWithResult(params.chatId, msg);
       if (sendResult?.msgId) {
+        pending.messageId = sendResult.msgId;
+        if (sendResult.cliMsgId) {
+          pending.cliMsgId = sendResult.cliMsgId;
+        }
         await this.setMessageId(code, sendResult.msgId, sendResult.cliMsgId);
       }
     } else {
@@ -342,6 +350,117 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         await this.redisService.set(`pending:tx:code:${code}`, JSON.stringify(pending), ttlSeconds);
         await this.redisService.set(`pending:tx:msg:${messageId}`, code, ttlSeconds);
       }
+      await this.addTempMessage(pending.chatId, messageId, cliMsgId, code);
+    }
+  }
+
+  public async addTempMessage(
+    chatId: string,
+    msgId: string,
+    cliMsgId?: string,
+    code?: string,
+  ): Promise<void> {
+    if (!msgId) return;
+    const item = {
+      msgId: String(msgId),
+      cliMsgId: cliMsgId ? String(cliMsgId) : undefined,
+      chatId: String(chatId),
+    };
+
+    if (code) {
+      const codeKey = `pending:tx:temp:${code}`;
+      if (this.redisService) {
+        try {
+          const raw = await this.redisService.get(codeKey);
+          const list: { msgId: string; cliMsgId?: string; chatId: string }[] = raw
+            ? JSON.parse(raw)
+            : [];
+          if (!list.some((m) => m.msgId === item.msgId)) {
+            list.push(item);
+            await this.redisService.set(codeKey, JSON.stringify(list), 3600);
+          }
+        } catch {
+          // ignore
+        }
+      }
+      const existing = this.tempMessagesMap.get(codeKey) || [];
+      if (!existing.some((m) => m.msgId === item.msgId)) {
+        existing.push(item);
+        this.tempMessagesMap.set(codeKey, existing);
+      }
+    } else {
+      const chatKey = `pending:tx:chat-temp:${chatId}`;
+      if (this.redisService) {
+        try {
+          const raw = await this.redisService.get(chatKey);
+          const list: { msgId: string; cliMsgId?: string; chatId: string }[] = raw
+            ? JSON.parse(raw)
+            : [];
+          if (!list.some((m) => m.msgId === item.msgId)) {
+            list.push(item);
+            await this.redisService.set(chatKey, JSON.stringify(list), 3600);
+          }
+        } catch {
+          // ignore
+        }
+      }
+      const existingChat = this.tempMessagesMap.get(chatKey) || [];
+      if (!existingChat.some((m) => m.msgId === item.msgId)) {
+        existingChat.push(item);
+        this.tempMessagesMap.set(chatKey, existingChat);
+      }
+    }
+  }
+
+  public async recallTempMessages(chatId: string, code?: string): Promise<void> {
+    const toRecall: { msgId: string; cliMsgId?: string; chatId: string }[] = [];
+
+    if (code) {
+      const codeKey = `pending:tx:temp:${code}`;
+      let fromRedis: { msgId: string; cliMsgId?: string; chatId: string }[] = [];
+      if (this.redisService) {
+        try {
+          const raw = await this.redisService.get(codeKey);
+          if (raw) fromRedis = JSON.parse(raw);
+          await this.redisService.del(codeKey);
+        } catch {
+          // ignore
+        }
+      }
+      const fromMem = this.tempMessagesMap.get(codeKey) || [];
+      this.tempMessagesMap.delete(codeKey);
+      for (const m of [...fromRedis, ...fromMem]) {
+        if (!toRecall.some((x) => x.msgId === m.msgId)) {
+          toRecall.push(m);
+        }
+      }
+    }
+
+    const chatKey = `pending:tx:chat-temp:${chatId}`;
+    let fromChatRedis: { msgId: string; cliMsgId?: string; chatId: string }[] = [];
+    if (this.redisService) {
+      try {
+        const raw = await this.redisService.get(chatKey);
+        if (raw) fromChatRedis = JSON.parse(raw);
+        await this.redisService.del(chatKey);
+      } catch {
+        // ignore
+      }
+    }
+    const fromChatMem = this.tempMessagesMap.get(chatKey) || [];
+    this.tempMessagesMap.delete(chatKey);
+    for (const m of [...fromChatRedis, ...fromChatMem]) {
+      if (!toRecall.some((x) => x.msgId === m.msgId)) {
+        toRecall.push(m);
+      }
+    }
+
+    if (toRecall.length > 0 && this.zaloService.undoMessage) {
+      await Promise.allSettled(
+        toRecall.map((item) =>
+          this.zaloService.undoMessage(item.chatId || chatId, item.msgId, item.cliMsgId),
+        ),
+      );
     }
   }
 
@@ -350,6 +469,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     userId: string;
     reactionIcon: string;
     msgId?: string;
+    cliMsgId?: string;
   }): Promise<{
     handled: boolean;
     status?: 'confirmed' | 'cancelled' | 'heart_added';
@@ -389,6 +509,22 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
     if (!pending) {
       return { handled: false };
+    }
+
+    if (params.cliMsgId && pending.cliMsgId !== params.cliMsgId) {
+      pending.cliMsgId = params.cliMsgId;
+      this.pendingMap.set(pending.code, pending);
+      if (this.redisService) {
+        const ttlSeconds = Math.max(1, Math.ceil((pending.expiresAt - Date.now()) / 1000));
+        void this.redisService.set(
+          `pending:tx:code:${pending.code}`,
+          JSON.stringify(pending),
+          ttlSeconds,
+        );
+      }
+      if (params.msgId) {
+        void this.addTempMessage(params.chatId, params.msgId, params.cliMsgId, pending.code);
+      }
     }
 
     // 1. Phẫn nộ (Angry) -> Hủy bỏ
@@ -437,10 +573,15 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         };
       }
 
-      await this.zaloService.sendMessage(
-        params.chatId,
-        `❤️ Đã nhận ${pending.heartUsers.length}/${req} lượt thả tim để duyệt yêu cầu [${pending.code}]!`,
-      );
+      const heartNotice = `❤️ Đã nhận ${pending.heartUsers.length}/${req} lượt thả tim để duyệt yêu cầu [${pending.code}]!`;
+      if (this.zaloService.sendMessageWithResult) {
+        const sendRes = await this.zaloService.sendMessageWithResult(params.chatId, heartNotice);
+        if (sendRes?.msgId) {
+          await this.addTempMessage(params.chatId, sendRes.msgId, sendRes.cliMsgId);
+        }
+      } else {
+        await this.zaloService.sendMessage(params.chatId, heartNotice);
+      }
       return {
         handled: true,
         status: 'heart_added',
@@ -663,10 +804,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     const pending = await this.getPendingByCode(code);
     if (!pending) return;
 
-    if (pending.messageId && this.zaloService.undoMessage) {
-      void this.zaloService.undoMessage(pending.chatId, pending.messageId, pending.cliMsgId);
-    }
-
+    await this.recallTempMessages(pending.chatId, pending.code);
     await this.deletePending(code, pending.userId);
 
     let title = pending.title || 'Thao tác';
@@ -837,9 +975,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     }
 
     try {
-      if (pending.messageId && this.zaloService.undoMessage) {
-        void this.zaloService.undoMessage(chatId, pending.messageId, pending.cliMsgId);
-      }
+      await this.recallTempMessages(chatId, pending.code);
       await onEdit(pending, trimmedInstruction);
       await this.deletePending(pending.code, pending.userId);
     } catch (err) {
@@ -865,6 +1001,8 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       if (ok) successCount++;
     }
 
+    await this.recallTempMessages(chatId);
+
     await this.zaloService.sendMessage(
       chatId,
       `🎉 Đã xác nhận thành công tất cả (${successCount}/${list.length}) yêu cầu!`,
@@ -883,8 +1021,11 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     }
 
     for (const pending of list) {
+      await this.recallTempMessages(chatId, pending.code);
       await this.deletePending(pending.code, pending.userId);
     }
+
+    await this.recallTempMessages(chatId);
 
     await this.zaloService.sendMessage(
       chatId,
@@ -935,9 +1076,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
     if (Date.now() > pending.expiresAt) {
       await this.deletePending(pending.code, pending.userId);
-      if (pending.messageId && this.zaloService.undoMessage) {
-        void this.zaloService.undoMessage(chatId, pending.messageId, pending.cliMsgId);
-      }
+      await this.recallTempMessages(chatId, pending.code);
       await this.zaloService.sendMessage(
         chatId,
         `⏰ Yêu cầu mã "${pending.code}" đã hết hạn xác nhận (quá 5 phút) và chưa được thực hiện.`,
@@ -946,10 +1085,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     }
 
     await this.deletePending(pending.code, pending.userId);
-
-    if (pending.messageId && this.zaloService.undoMessage) {
-      void this.zaloService.undoMessage(chatId, pending.messageId, pending.cliMsgId);
-    }
+    await this.recallTempMessages(chatId, pending.code);
 
     try {
       switch (pending.actionType) {
@@ -982,13 +1118,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
                   normalizePlaceName(payload.placeName),
             );
             if (companionPending) {
-              if (companionPending.messageId && this.zaloService.undoMessage) {
-                void this.zaloService.undoMessage(
-                  companionPending.chatId,
-                  companionPending.messageId,
-                  companionPending.cliMsgId,
-                );
-              }
+              await this.recallTempMessages(companionPending.chatId, companionPending.code);
               await this.deletePending(companionPending.code, companionPending.userId);
             }
           }
@@ -1196,7 +1326,15 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               ? `🎉 Đã nhận đủ ${options.requiredHearts || 1} lượt thả tim (❤️)! Yêu cầu [${pending.code}] đã được xác nhận thành công!\n\n`
               : `✅ Đã xác nhận và tạo nơi chốn "${place?.name || payload.name}" thành công!\n\n`;
             const reply = `${header}${cardContent}`;
-            await this.zaloService.sendMessage(chatId, reply);
+            const remainingList = await this.getPendingListForUser(userId);
+            if (this.zaloService.sendMessageWithResult) {
+              const sendRes = await this.zaloService.sendMessageWithResult(chatId, reply);
+              if (remainingList.length > 0 && sendRes?.msgId) {
+                await this.addTempMessage(chatId, sendRes.msgId, sendRes.cliMsgId);
+              }
+            } else {
+              await this.zaloService.sendMessage(chatId, reply);
+            }
           }
           break;
         }
@@ -1216,10 +1354,15 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       if (!silent) {
         const remainingList = await this.getPendingListForUser(userId);
         if (remainingList.length > 0) {
-          await this.zaloService.sendMessage(
-            chatId,
-            `💡 Bạn còn ${remainingList.length} yêu cầu chờ xác nhận. Soạn "yes all" để duyệt tất cả hoặc "yes <mã>".`,
-          );
+          const notice = `💡 Bạn còn ${remainingList.length} yêu cầu chờ xác nhận. Soạn "yes all" để duyệt tất cả hoặc "yes <mã>".`;
+          if (this.zaloService.sendMessageWithResult) {
+            const res = await this.zaloService.sendMessageWithResult(chatId, notice);
+            if (res?.msgId) {
+              await this.addTempMessage(chatId, res.msgId, res.cliMsgId);
+            }
+          } else {
+            await this.zaloService.sendMessage(chatId, notice);
+          }
         }
       }
 
@@ -1261,10 +1404,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     }
 
     await this.deletePending(pending.code, pending.userId);
-
-    if (pending.messageId && this.zaloService.undoMessage) {
-      void this.zaloService.undoMessage(chatId, pending.messageId, pending.cliMsgId);
-    }
+    await this.recallTempMessages(chatId, pending.code);
 
     let actionDesc = pending.title || 'thao tác';
     const payload = pending.payload;
@@ -1304,10 +1444,15 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     if (!code) {
       const remainingList = await this.getPendingListForUser(userId);
       if (remainingList.length > 0) {
-        await this.zaloService.sendMessage(
-          chatId,
-          `💡 Bạn còn ${remainingList.length} yêu cầu chờ xác nhận. Soạn "cancel all" để hủy tất cả hoặc "cancel <mã>".`,
-        );
+        const notice = `💡 Bạn còn ${remainingList.length} yêu cầu chờ xác nhận. Soạn "cancel all" để hủy tất cả hoặc "cancel <mã>".`;
+        if (this.zaloService.sendMessageWithResult) {
+          const res = await this.zaloService.sendMessageWithResult(chatId, notice);
+          if (res?.msgId) {
+            await this.addTempMessage(chatId, res.msgId, res.cliMsgId);
+          }
+        } else {
+          await this.zaloService.sendMessage(chatId, notice);
+        }
       }
     }
     return true;

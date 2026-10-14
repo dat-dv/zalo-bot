@@ -51,6 +51,8 @@ import {
   type AddReactionResponse,
   type UndoPayload,
   type UndoResponse,
+  type DeleteMessageDestination,
+  type DeleteMessageResponse,
 } from './shapes';
 import { HttpProxyAgent } from 'http-proxy-agent';
 import { ZCA_DEFAULT_USER_AGENT, ZCA_MODULE_OPTIONS } from './zca.constants';
@@ -134,6 +136,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   private pendingThreadsFetchPromise: Promise<AvailableThread[]> | null = null;
   private readonly sentBotSignatures = new Map<string, number>();
   private readonly sentBotMsgIds = new Map<string, number>();
+  private readonly msgIdToCliMsgId = new Map<string, string>();
   private readonly knownThreadTypes = new Map<string, ThreadType>();
 
   private qrLoginStatus: QrLoginStatusInfo = {
@@ -556,6 +559,35 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     if (!msgId) return;
     this.sentBotMsgIds.set(String(msgId), Date.now() + 120_000);
     this.cleanExpiredTracking();
+  }
+
+  public trackMsgCliId(msgId: string, cliMsgId: string): void {
+    if (!msgId || !cliMsgId) return;
+    const strMsgId = String(msgId);
+    const strCliMsgId = String(cliMsgId);
+    this.msgIdToCliMsgId.set(strMsgId, strCliMsgId);
+    if (this.redisService) {
+      void this.redisService.set(`zca:msg:cli:${strMsgId}`, strCliMsgId, 86400);
+    }
+  }
+
+  public async getCliMsgId(msgId: string): Promise<string | undefined> {
+    if (!msgId) return undefined;
+    const strMsgId = String(msgId);
+    const inMem = this.msgIdToCliMsgId.get(strMsgId);
+    if (inMem) return inMem;
+    if (this.redisService) {
+      try {
+        const fromRedis = await this.redisService.get(`zca:msg:cli:${strMsgId}`);
+        if (fromRedis) {
+          this.msgIdToCliMsgId.set(strMsgId, fromRedis);
+          return fromRedis;
+        }
+      } catch {
+        // Ignore redis lookup error
+      }
+    }
+    return undefined;
   }
 
   public isBotSentMessage(message: Message): boolean {
@@ -1263,6 +1295,9 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       const isListened = this.listenedThreadIds.size === 0 || this.listenedThreadIds.has(threadId);
       const isGroup = message?.type === ThreadType.Group;
       this.knownThreadTypes.set(threadId, isGroup ? ThreadType.Group : ThreadType.User);
+      if (message?.data?.msgId && message?.data?.cliMsgId) {
+        this.trackMsgCliId(String(message.data.msgId), String(message.data.cliMsgId));
+      }
       const typeLabel = isGroup ? 'Group' : 'User (Direct)';
       const senderName = message?.data?.dName || 'Unknown';
       const senderId = message?.data?.uidFrom || 'Unknown';
@@ -1296,6 +1331,16 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     // 2. Reaction listener
     listener.on('reaction', (reaction: Reaction) => {
+      if (reaction?.threadId) {
+        this.knownThreadTypes.set(
+          reaction.threadId,
+          reaction.isGroup ? ThreadType.Group : ThreadType.User,
+        );
+      }
+      const rMsg = reaction?.data?.content?.rMsg;
+      if (rMsg?.[0]?.gMsgID && rMsg?.[0]?.cMsgID) {
+        this.trackMsgCliId(String(rMsg[0].gMsgID), String(rMsg[0].cMsgID));
+      }
       void this.dispatchReaction(reaction);
     });
 
@@ -1490,7 +1535,44 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     if (!this.api) {
       throw new Error('Cannot undo message: ZCA is not logged in.');
     }
-    return this.api.undo(payload, threadId, type);
+    const resolvedType = type ?? this.resolveThreadType(threadId);
+    let cliMsgId = payload.cliMsgId;
+    if (!cliMsgId || String(cliMsgId) === String(payload.msgId)) {
+      const cachedCli = await this.getCliMsgId(String(payload.msgId));
+      if (cachedCli) {
+        cliMsgId = cachedCli;
+      }
+    }
+    return this.api.undo(
+      {
+        msgId: payload.msgId,
+        cliMsgId: cliMsgId || payload.msgId,
+      },
+      threadId,
+      resolvedType,
+    );
+  }
+
+  /**
+   * Helper to delete a message via active API.
+   * - onlyMe: true -> deletes message only for bot side
+   * - onlyMe: false -> deletes message for everyone (only works if bot is group admin deleting other members' messages)
+   */
+  public async deleteMessage(
+    dest: DeleteMessageDestination,
+    onlyMe = false,
+  ): Promise<DeleteMessageResponse> {
+    if (!this.api) {
+      throw new Error('Cannot delete message: ZCA is not logged in.');
+    }
+    const resolvedType = dest.type ?? this.resolveThreadType(dest.threadId);
+    return this.api.deleteMessage(
+      {
+        ...dest,
+        type: resolvedType,
+      },
+      onlyMe,
+    );
   }
 
   /**

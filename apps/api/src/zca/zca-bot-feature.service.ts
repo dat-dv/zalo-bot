@@ -387,12 +387,13 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
     const icon = reaction.data?.content?.rIcon || '';
     const rMsg = reaction.data?.content?.rMsg;
     const targetMsgId = rMsg?.[0]?.gMsgID || rMsg?.[0]?.cMsgID || reaction.data?.msgId;
+    const targetCliMsgId = rMsg?.[0]?.cMsgID;
     const senderId = reaction.data?.uidFrom || '';
     const isGroup = reaction.isGroup;
     const threadType = isGroup ? ThreadType.Group : ThreadType.User;
 
     this.logger.log(
-      `[ZcaBotFeature] Reaction received in thread ${threadId}: icon="${icon}", sender="${senderId}", targetMsgId="${targetMsgId || ''}"`,
+      `[ZcaBotFeature] Reaction received in thread ${threadId}: icon="${icon}", sender="${senderId}", targetMsgId="${targetMsgId || ''}", targetCliMsgId="${targetCliMsgId || ''}"`,
     );
 
     const result = await this.confirmationService.handleReaction({
@@ -400,6 +401,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
       userId: senderId,
       reactionIcon: icon,
       msgId: targetMsgId ? String(targetMsgId) : undefined,
+      cliMsgId: targetCliMsgId ? String(targetCliMsgId) : undefined,
     });
 
     if (result.handled) {

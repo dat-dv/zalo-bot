@@ -1187,3 +1187,139 @@ void test('processCancel recalls pending card message and sends cancellation not
 
   service.clearAll();
 });
+
+void test('Multi-card confirmation flow cleans up all temporary cards and interim messages, leaving only final message', async () => {
+  const recalled: Array<{ chatId: string | number; msgId: string; cliMsgId?: string }> = [];
+  const sentMessages: Array<{ chatId: string | number; text: string }> = [];
+  let msgSeq = 100;
+
+  const mockRedisStorage = new Map<string, string>();
+  const mockRedisService = {
+    get: (key: string) => Promise.resolve(mockRedisStorage.get(key) || null),
+    set: (key: string, val: string) => {
+      mockRedisStorage.set(key, val);
+      return Promise.resolve('OK');
+    },
+    del: (key: string) => {
+      mockRedisStorage.delete(key);
+      return Promise.resolve(1);
+    },
+  } as unknown as RedisService;
+
+  const mockZaloService = {
+    sendMessage: (chatId: string | number, text: string) => {
+      sentMessages.push({ chatId, text });
+      return Promise.resolve(true);
+    },
+    sendMessageWithResult: (chatId: string | number, text: string) => {
+      msgSeq++;
+      const res = {
+        success: true,
+        msgId: `msg-${msgSeq}`,
+        cliMsgId: `cli-${msgSeq}`,
+      };
+      sentMessages.push({ chatId, text });
+      return Promise.resolve(res);
+    },
+    undoMessage: (chatId: string | number, msgId: string, cliMsgId?: string) => {
+      recalled.push({ chatId, msgId, cliMsgId });
+      return Promise.resolve(true);
+    },
+  } as unknown as ZaloService;
+
+  const mockFinanceService = {
+    resolveOrCreatePlace: (_userId: string, name: string) => Promise.resolve({ id: 'p1', name }),
+    createTransaction: (dto: CreateFinanceTransactionDto) =>
+      Promise.resolve({
+        id: 'tx_1',
+        amount: dto.amount,
+        type: dto.type,
+        category: dto.category,
+        note: dto.note,
+        occurredAt: new Date(),
+      } as never),
+  } as unknown as FinanceService;
+
+  const service = new TransactionConfirmationService(
+    mockZaloService,
+    mockFinanceService,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    mockRedisService,
+  );
+
+  // 1. Create Place prompt card (e.g. "đối diện ctgroup")
+  const placePending = await service.createPendingPlace({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      userId: 'u1',
+      name: 'đối diện ctgroup',
+    },
+  });
+  const placeMsgId = placePending.messageId;
+  const placeCliId = placePending.cliMsgId;
+  assert.ok(placeMsgId);
+
+  // 2. Create Transaction prompt card (e.g. 20k ăn bánh mì ở đối diện ctgroup)
+  const txPending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: {
+      userId: 'u1',
+      type: 'expense',
+      amount: 20000,
+      category: 'Ăn uống',
+      note: 'ăn bánh mì',
+      placeName: 'đối diện ctgroup',
+    },
+  });
+  const txMsgId = txPending.messageId;
+  const txCliId = txPending.cliMsgId;
+  assert.ok(txMsgId);
+
+  // User confirms Place (650) via ❤️ reaction
+  const res1 = await service.handleReaction({
+    chatId: 'c1',
+    userId: 'u1',
+    reactionIcon: '/-heart',
+    msgId: placeMsgId,
+    cliMsgId: placeCliId,
+  });
+  assert.equal(res1.status, 'confirmed');
+
+  // Place card should be recalled immediately
+  assert.ok(recalled.some((m) => m.msgId === placeMsgId && m.cliMsgId === placeCliId));
+
+  // Intermediate notice "💡 Bạn còn 1 yêu cầu..." was sent
+  const noticeMsg = sentMessages.find((m) => m.text.includes('Bạn còn 1 yêu cầu'));
+  assert.ok(noticeMsg);
+
+  // User confirms Expense (363) via ❤️ reaction
+  const res2 = await service.handleReaction({
+    chatId: 'c1',
+    userId: 'u1',
+    reactionIcon: '/-heart',
+    msgId: txMsgId,
+    cliMsgId: txCliId,
+  });
+  assert.equal(res2.status, 'confirmed');
+
+  // Expense card should be recalled
+  assert.ok(recalled.some((m) => m.msgId === txMsgId && m.cliMsgId === txCliId));
+
+  // The intermediate notice ("Bạn còn 1 yêu cầu...") and interim place confirmation were recalled!
+  assert.ok(recalled.length >= 3);
+
+  // The final message is the successful expense confirmation
+  const finalMsg = sentMessages[sentMessages.length - 1].text;
+  assert.match(finalMsg, /Yêu cầu \[363\]|đã được xác nhận thành công!/);
+  assert.match(finalMsg, /20\.000 đ/);
+  assert.match(finalMsg, /đối diện ctgroup/);
+
+  service.clearAll();
+});
+

@@ -134,11 +134,16 @@ export class ZaloService implements OnModuleInit {
       return false;
     }
 
+    let resolvedCliMsgId = cliMsgId;
+    if (!resolvedCliMsgId || resolvedCliMsgId === msgId) {
+      resolvedCliMsgId = await this.zcaService.getCliMsgId(msgId);
+    }
+
     try {
       await this.zcaService.undo(
         {
           msgId,
-          cliMsgId: cliMsgId || msgId,
+          cliMsgId: resolvedCliMsgId || msgId,
         },
         targetChatId,
       );
@@ -149,6 +154,70 @@ export class ZaloService implements OnModuleInit {
     } catch (err) {
       this.logger.warn(
         `[ZaloService] Failed to recall message ${msgId} in chat ${targetChatId}: ${(err as Error).message}`,
+      );
+      // Fallback: Delete on bot side via deleteMessage (onlyMe=true)
+      try {
+        await this.zcaService.deleteMessage(
+          {
+            data: {
+              msgId,
+              cliMsgId: resolvedCliMsgId || msgId,
+              uidFrom: this.zcaService.getOwnId() || '0',
+            },
+            threadId: targetChatId,
+          },
+          true,
+        );
+        this.logger.log(
+          `[ZaloService] Fallback deleted message ${msgId} (onlyMe) in chat ${targetChatId}`,
+        );
+      } catch {
+        // Silently ignore fallback error
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Deletes a message via ZCA.
+   * - onlyMe: true (default) -> deletes message only for bot side
+   * - onlyMe: false -> deletes message for everyone (only works if bot is group admin)
+   */
+  public async deleteMessage(
+    chatId: string | number,
+    msgId: string,
+    cliMsgId?: string,
+    onlyMe = true,
+  ): Promise<boolean> {
+    const targetChatId = String(chatId);
+    if (!this.zcaService?.isLoggedIn()) {
+      return false;
+    }
+
+    let resolvedCliMsgId = cliMsgId;
+    if (!resolvedCliMsgId || resolvedCliMsgId === msgId) {
+      resolvedCliMsgId = await this.zcaService.getCliMsgId(msgId);
+    }
+
+    try {
+      await this.zcaService.deleteMessage(
+        {
+          data: {
+            msgId,
+            cliMsgId: resolvedCliMsgId || msgId,
+            uidFrom: this.zcaService.getOwnId() || '0',
+          },
+          threadId: targetChatId,
+        },
+        onlyMe,
+      );
+      this.logger.log(
+        `[ZaloService] Successfully deleted message ${msgId} (onlyMe=${onlyMe}) in chat ${targetChatId}`,
+      );
+      return true;
+    } catch (err) {
+      this.logger.warn(
+        `[ZaloService] Failed to delete message ${msgId} in chat ${targetChatId}: ${(err as Error).message}`,
       );
       return false;
     }
