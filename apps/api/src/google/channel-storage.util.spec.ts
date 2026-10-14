@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildChannelFolder, getChannelDriveFolderPath, isValidEmail } from './channel-storage.util';
+import {
+  buildChannelFolder,
+  getChannelDriveFolderPath,
+  isValidEmail,
+} from './channel-storage.util';
 
 void test('buildChannelFolder cleans and uses channelId strictly', () => {
   assert.equal(buildChannelFolder('g-12345'), 'g-12345');

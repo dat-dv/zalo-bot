@@ -81,17 +81,29 @@ void test('MediaStorageService routes uploads to channel folders when channelId 
   let capturedVideoFolder: string | undefined;
 
   const mockDriveService = {
-    uploadReceipt: async (_buf: Buffer, _sender: string, options?: { folderPath?: string }) => {
+    uploadReceipt: (_buf: Buffer, _sender: string, options?: { folderPath?: string }) => {
       capturedBillFolder = options?.folderPath;
-      return { fileId: 'b1', name: 'bill.jpg', folderPath: capturedBillFolder || '' };
+      return Promise.resolve({
+        fileId: 'b1',
+        name: 'bill.jpg',
+        folderPath: capturedBillFolder || '',
+      });
     },
-    uploadImage: async (_buf: Buffer, _sender: string, options?: { folderPath?: string }) => {
+    uploadImage: (_buf: Buffer, _sender: string, options?: { folderPath?: string }) => {
       capturedImageFolder = options?.folderPath;
-      return { fileId: 'i1', name: 'img.jpg', folderPath: capturedImageFolder || '' };
+      return Promise.resolve({
+        fileId: 'i1',
+        name: 'img.jpg',
+        folderPath: capturedImageFolder || '',
+      });
     },
-    uploadVideo: async (_buf: Buffer, _sender: string, options?: { folderPath?: string }) => {
+    uploadVideo: (_buf: Buffer, _sender: string, options?: { folderPath?: string }) => {
       capturedVideoFolder = options?.folderPath;
-      return { fileId: 'v1', name: 'vid.mp4', folderPath: capturedVideoFolder || '' };
+      return Promise.resolve({
+        fileId: 'v1',
+        name: 'vid.mp4',
+        folderPath: capturedVideoFolder || '',
+      });
     },
   } as unknown as GoogleDriveService;
 

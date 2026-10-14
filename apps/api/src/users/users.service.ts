@@ -456,7 +456,9 @@ export class UsersService implements OnModuleInit {
       if (folderInfo.folderPath !== undefined) user.driveFolderPath = folderInfo.folderPath;
       await this.userRepo.save(user);
     } catch (err) {
-      this.logger.warn(`Could not save Drive folder info for user ${userId}: ${(err as Error).message}`);
+      this.logger.warn(
+        `Could not save Drive folder info for user ${userId}: ${(err as Error).message}`,
+      );
     }
   }
 }

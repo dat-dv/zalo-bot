@@ -5,13 +5,14 @@ import type { ZaloService } from '../../zalo.service';
 import type { GoogleAuthService } from '../../../google/google-auth.service';
 import type { GoogleDriveService } from '../../../google/google-drive.service';
 import type { ThreadConfigService } from '../../../zca/thread-config.service';
-import type { UsersService } from '../../../users/users.service';
+import type { AgentInput } from '../../types/agent-input.type';
 
 void test('GetStorageLinksToolStrategy outputs channel-specific links and permission help prompt', async () => {
   let sentMessage = '';
   const mockZaloService = {
-    sendMessage: async (_chatId: string, msg: string) => {
+    sendMessage: (_chatId: string, msg: string) => {
       sentMessage = msg;
+      return Promise.resolve();
     },
   } as unknown as ZaloService;
 
@@ -21,13 +22,14 @@ void test('GetStorageLinksToolStrategy outputs channel-specific links and permis
   } as unknown as GoogleAuthService;
 
   const mockDrive = {
-    getFolderWebLink: async (path: string) => `https://drive.mock/${path}`,
+    getFolderWebLink: (path: string) => Promise.resolve(`https://drive.mock/${path}`),
   } as unknown as GoogleDriveService;
 
-  let savedThreadFolder: any = null;
+  let savedThreadFolder: Record<string, unknown> | null = null;
   const mockThreadConfig = {
-    saveDriveFolderInfo: async (threadId: string, info: any) => {
+    saveDriveFolderInfo: (threadId: string, info: Record<string, unknown>) => {
       savedThreadFolder = { threadId, ...info };
+      return Promise.resolve();
     },
   } as unknown as ThreadConfigService;
 
@@ -45,7 +47,7 @@ void test('GetStorageLinksToolStrategy outputs channel-specific links and permis
     senderId: 'user-1',
     displayName: 'Dat Doan',
     text: '/drive',
-    input: {} as any,
+    input: {} as unknown as AgentInput,
   });
 
   assert.match(sentMessage, /Thư mục nhóm/);

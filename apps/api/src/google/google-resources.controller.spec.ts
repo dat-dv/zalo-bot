@@ -7,6 +7,7 @@ import { GoogleResourcesController } from './google-resources.controller';
 import { GoogleCalendarService } from './google-calendar.service';
 import { GoogleTasksService } from './google-tasks.service';
 import { GoogleAuthService } from './google-auth.service';
+import { GoogleDriveService } from './google-drive.service';
 import { ReportsTokenService } from '../reports/reports-token.service';
 
 function createMockRequest(userId = 'test-user'): Request {
@@ -244,11 +245,14 @@ void test('GoogleResourcesController listTasks returns empty data when Google Ta
 
 void test('GoogleResourcesController shareDrive throws BadRequestException when email is invalid', async () => {
   const controller = new GoogleResourcesController(
-    {} as any,
-    {} as any,
-    {} as any,
-    { isSharedAuthorized: () => true, hasStorageScopes: () => true } as any,
-    {} as any,
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as GoogleTasksService,
+    {} as unknown as ReportsTokenService,
+    {
+      isSharedAuthorized: () => true,
+      hasStorageScopes: () => true,
+    } as unknown as GoogleAuthService,
+    {} as unknown as GoogleDriveService,
   );
 
   await assert.rejects(async () => {
@@ -260,20 +264,28 @@ void test('GoogleResourcesController shareDrive successfully shares channel fold
   let sharedFolder = '';
   let sharedEmail = '';
   const mockDrive = {
-    getFolderWebLink: async () => 'https://drive.mock/zalobot/g-123',
-    shareFolderWithUser: async (folder: string, email: string) => {
+    getFolderWebLink: () => Promise.resolve('https://drive.mock/zalobot/g-123'),
+    shareFolderWithUser: (folder: string, email: string) => {
       sharedFolder = folder;
       sharedEmail = email;
-      return { fileId: 'f1', permissionId: 'p1', emailAddress: email, role: 'reader' };
+      return Promise.resolve({
+        fileId: 'f1',
+        permissionId: 'p1',
+        emailAddress: email,
+        role: 'reader' as const,
+      });
     },
-  };
+  } as unknown as GoogleDriveService;
 
   const controller = new GoogleResourcesController(
-    {} as any,
-    {} as any,
-    {} as any,
-    { isSharedAuthorized: () => true, hasStorageScopes: () => true } as any,
-    mockDrive as any,
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as GoogleTasksService,
+    {} as unknown as ReportsTokenService,
+    {
+      isSharedAuthorized: () => true,
+      hasStorageScopes: () => true,
+    } as unknown as GoogleAuthService,
+    mockDrive,
   );
 
   const res = await controller.shareDrive({ channelId: 'g-123', email: 'test@gmail.com' });

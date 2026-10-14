@@ -78,12 +78,16 @@ void test('GoogleDriveService ensures folder path and uploads file properly with
 });
 
 void test('shareFolderWithUser creates a user permission on the target folder', async () => {
-  const permissionsCreated: Array<{ fileId: string; requestBody: any }> = [];
+  interface PermissionParams {
+    fileId: string;
+    requestBody: { emailAddress: string; role: string; type: string };
+  }
+  const permissionsCreated: PermissionParams[] = [];
   const mockDrive = {
     permissions: {
-      create: async (params: any) => {
+      create: (params: PermissionParams) => {
         permissionsCreated.push(params);
-        return { data: { id: 'perm-999' } };
+        return Promise.resolve({ data: { id: 'perm-999' } });
       },
     },
   };
@@ -91,12 +95,12 @@ void test('shareFolderWithUser creates a user permission on the target folder', 
   const service = new GoogleDriveService({
     getOAuth2Client: () => ({ credentials: { access_token: 'token' } }),
     isAuthorized: () => true,
-  } as any);
+  } as unknown as GoogleAuthService);
 
-  Reflect.set(service, 'ensureFolderPath', async () => 'mock-folder-id-123');
+  Reflect.set(service, 'ensureFolderPath', () => Promise.resolve('mock-folder-id-123'));
   Reflect.set(service, 'getDriveClient', () => mockDrive);
 
-  const res = await (service as any).shareFolderWithUser('zalobot/g-123', 'user@gmail.com', 'reader');
+  const res = await service.shareFolderWithUser('zalobot/g-123', 'user@gmail.com', 'reader');
   assert.equal(res.fileId, 'mock-folder-id-123');
   assert.equal(res.permissionId, 'perm-999');
   assert.equal(permissionsCreated.length, 1);

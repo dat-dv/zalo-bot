@@ -91,3 +91,57 @@ File vị trí: [`src/google/google-tasks.service.ts`](file:///Users/datdoan/Doc
 - `createTask(options, userId?)`: Tạo to-do mới có deadline vào Tasks của đúng người gửi.
 - `completeTask(taskId, taskListId?, userId?)`: Đánh dấu hoàn thành task.
 - `deleteTask(taskId, taskListId?, userId?)`: Xóa task.
+
+---
+
+## 6. Lưu Trữ Google Drive & Google Photos Phân Vùng Theo Channel (`GoogleDriveService`)
+
+Hệ thống phân tách không gian lưu trữ độc lập cho từng nhóm / người dùng (channel) trên Google Drive:
+
+### 6.1 Cấu Trúc Thư Mục Chuẩn Hóa
+Thư mục được quản lý tự động dựa trên **`channelId` nguyên bản** (ví dụ `g-123456789` hoặc `u-userId`), không ghép nối tên nhóm để đảm bảo đường dẫn bất biến ngay cả khi nhóm đổi tên trên Zalo:
+- **Thư mục gốc của channel**: `zalobot/<channelId>`
+- **Hóa đơn**: `zalobot/<channelId>/bill`
+- **Hình ảnh**: `zalobot/<channelId>/image`
+- **Video**: `zalobot/<channelId>/video`
+
+### 6.2 Lưu Vết Thư Mục Trong PostgreSQL
+Khi thư mục được tạo hoặc truy vấn, đường dẫn và Google Drive web link được lưu vết vào cơ sở dữ liệu để tra cứu và truy cập nhanh:
+- **Nhóm ZCA**: Lưu vào bảng `zca_thread_configs` (`drive_folder_id`, `drive_folder_url`, `drive_folder_path`).
+- **Người dùng cá nhân**: Lưu vào bảng `users` (`drive_folder_id`, `drive_folder_url`, `drive_folder_path`).
+
+### 6.3 Lệnh Tra Cứu Kho Lưu Trữ Trên Zalo
+- Gõ `@bot /drive` hoặc `@bot /kho` (hoặc `/storage`):
+  - Bot sẽ phản hồi các đường link Drive của riêng channel đó.
+  - Kèm hướng dẫn: Nếu chưa có quyền truy cập, thành viên chỉ cần nhắn `@bot share <gmail của bạn>` để được cấp quyền tự động.
+
+### 6.4 Phân Quyền Truy Cập (Sharing)
+
+#### 1. Lệnh chat trên Zalo:
+```
+@bot share user@gmail.com
+```
+Bot tự động gọi Google Drive API (`permissions.create`) để cấp quyền Reader trên thư mục `zalobot/<channelId>` của nhóm đó cho email được cung cấp.
+
+#### 2. REST API:
+- **Endpoint**: `POST /api/drive/share`
+- **Body**:
+  ```json
+  {
+    "channelId": "g-123456789",
+    "email": "user@gmail.com",
+    "role": "reader"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "success": true,
+    "folderPath": "zalobot/g-123456789",
+    "email": "user@gmail.com",
+    "role": "reader",
+    "webViewLink": "https://drive.google.com/drive/folders/...",
+    "permissionId": "..."
+  }
+  ```
+

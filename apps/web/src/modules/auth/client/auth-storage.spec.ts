@@ -86,4 +86,3 @@ void test('setAccessToken and clearAccessToken manage token in localStorage', ()
   clearAccessToken();
   assert.equal(getAccessToken(), null);
 });
-

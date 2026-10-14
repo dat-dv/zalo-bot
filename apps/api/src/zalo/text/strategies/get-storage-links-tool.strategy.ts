@@ -7,7 +7,10 @@ import { GooglePhotosService } from '../../../google/google-photos.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
 import { UsersService } from '../../../users/users.service';
 import { ThreadConfigService } from '../../../zca/thread-config.service';
-import { buildChannelFolder, getChannelDriveFolderPath } from '../../../google/channel-storage.util';
+import {
+  buildChannelFolder,
+  getChannelDriveFolderPath,
+} from '../../../google/channel-storage.util';
 
 type StorageType = 'all' | 'bill' | 'image' | 'video';
 
@@ -124,9 +127,7 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
       }
 
       const entriesToFetch =
-        storageType === 'all'
-          ? (['bill', 'image', 'video'] as const)
-          : [storageType as 'bill' | 'image' | 'video'];
+        storageType === 'all' ? (['bill', 'image', 'video'] as const) : [storageType];
 
       const lines: string[] = [
         `📦 KHO LƯU TRỮ GOOGLE CỦA BOT`,
@@ -151,7 +152,9 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
         lines.push(`${meta.emoji} ${meta.label.toUpperCase()}:`);
         lines.push(
           `• 📁 Drive [${driveFolder}]:`,
-          driveLink ? `  👉 ${driveLink}` : `  ⚠️ Chưa có (chưa upload ${meta.label.toLowerCase()} nào)`,
+          driveLink
+            ? `  👉 ${driveLink}`
+            : `  ⚠️ Chưa có (chưa upload ${meta.label.toLowerCase()} nào)`,
         );
         lines.push(
           `• 📸 Photos [${meta.photosAlbum}]:`,
@@ -164,7 +167,9 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
       lines.push(``);
       lines.push(`🔒 Chưa có quyền truy cập Google Drive?`);
       lines.push(`👉 Hãy gửi: @bot share <gmail của bạn>`);
-      lines.push(`(Ví dụ: @bot share nguyenvana@gmail.com) để bot tự động bật quyền truy cập thư mục của nhóm này cho bạn nhé!`);
+      lines.push(
+        `(Ví dụ: @bot share nguyenvana@gmail.com) để bot tự động bật quyền truy cập thư mục của nhóm này cho bạn nhé!`,
+      );
 
       await this.zaloService.sendMessage(context.chatId, lines.join('\n'));
     } catch (err) {

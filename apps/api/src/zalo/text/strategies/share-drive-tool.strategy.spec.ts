@@ -5,14 +5,15 @@ import type { ZaloService } from '../../zalo.service';
 import type { GoogleAuthService } from '../../../google/google-auth.service';
 import type { GoogleDriveService } from '../../../google/google-drive.service';
 import type { ThreadConfigService } from '../../../zca/thread-config.service';
-import type { UsersService } from '../../../users/users.service';
+import type { AgentInput } from '../../types/agent-input.type';
 
 void test('ShareDriveToolStrategy rejects when Google is not connected', async () => {
   let sentMessage = '';
   const strategy = new ShareDriveToolStrategy(
     {
-      sendMessage: async (_id: string, msg: string) => {
+      sendMessage: (_id: string, msg: string) => {
         sentMessage = msg;
+        return Promise.resolve();
       },
     } as unknown as ZaloService,
     {
@@ -26,7 +27,7 @@ void test('ShareDriveToolStrategy rejects when Google is not connected', async (
     senderId: 'user-1',
     displayName: 'Dat Doan',
     text: '@bot share test@gmail.com',
-    input: {} as any,
+    input: {} as unknown as AgentInput,
   });
 
   assert.match(sentMessage, /CHƯA ĐƯỢC KẾT NỐI/);
@@ -36,8 +37,9 @@ void test('ShareDriveToolStrategy rejects invalid email address', async () => {
   let sentMessage = '';
   const strategy = new ShareDriveToolStrategy(
     {
-      sendMessage: async (_id: string, msg: string) => {
+      sendMessage: (_id: string, msg: string) => {
         sentMessage = msg;
+        return Promise.resolve();
       },
     } as unknown as ZaloService,
     {
@@ -52,7 +54,7 @@ void test('ShareDriveToolStrategy rejects invalid email address', async () => {
     senderId: 'user-1',
     displayName: 'Dat Doan',
     text: '@bot share not-an-email',
-    input: {} as any,
+    input: {} as unknown as AgentInput,
   });
 
   assert.match(sentMessage, /Email không hợp lệ/);
@@ -63,25 +65,32 @@ void test('ShareDriveToolStrategy shares channel folder with valid email', async
   let sharedFolder = '';
   let sharedEmail = '';
   const mockDrive = {
-    getFolderWebLink: async () => 'https://drive.mock/folder',
-    shareFolderWithUser: async (folder: string, email: string) => {
+    getFolderWebLink: () => Promise.resolve('https://drive.mock/folder'),
+    shareFolderWithUser: (folder: string, email: string) => {
       sharedFolder = folder;
       sharedEmail = email;
-      return { fileId: '1', permissionId: 'p1', emailAddress: email, role: 'reader' };
+      return Promise.resolve({
+        fileId: '1',
+        permissionId: 'p1',
+        emailAddress: email,
+        role: 'reader',
+      });
     },
   } as unknown as GoogleDriveService;
 
-  let savedFolderInfo: any = null;
+  let savedFolderInfo: Record<string, unknown> | null = null;
   const mockThreadConfig = {
-    saveDriveFolderInfo: async (threadId: string, info: any) => {
+    saveDriveFolderInfo: (threadId: string, info: Record<string, unknown>) => {
       savedFolderInfo = { threadId, ...info };
+      return Promise.resolve();
     },
   } as unknown as ThreadConfigService;
 
   const strategy = new ShareDriveToolStrategy(
     {
-      sendMessage: async (_id: string, msg: string) => {
+      sendMessage: (_id: string, msg: string) => {
         sentMessage = msg;
+        return Promise.resolve();
       },
     } as unknown as ZaloService,
     {
@@ -98,7 +107,7 @@ void test('ShareDriveToolStrategy shares channel folder with valid email', async
     senderId: 'user-1',
     displayName: 'Dat Doan',
     text: '@bot share myemail@gmail.com',
-    input: {} as any,
+    input: {} as unknown as AgentInput,
   });
 
   assert.equal(sharedEmail, 'myemail@gmail.com');
