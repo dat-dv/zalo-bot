@@ -130,10 +130,12 @@ function createTextInputService(options?: SetupOptions) {
 
   let llmCallCount = 0;
   let lastLlmPrompt = '';
+  let lastLlmInstruction = '';
   const mockLlmService = {
-    generate: (prompt: string) => {
+    generate: (prompt: string, _tools?: unknown, systemInstruction?: string) => {
       llmCallCount++;
       lastLlmPrompt = prompt;
+      lastLlmInstruction = systemInstruction || '';
       return Promise.resolve(
         options?.llmResponse || {
           text: 'Xin chào, tôi có thể giúp gì cho bạn?',
@@ -217,6 +219,7 @@ function createTextInputService(options?: SetupOptions) {
     confirmationService,
     getLlmCallCount: () => llmCallCount,
     getLastLlmPrompt: () => lastLlmPrompt,
+    getLastLlmInstruction: () => lastLlmInstruction,
   };
 }
 
@@ -994,4 +997,141 @@ void test('TextInputService remains silent when allowAiChat=false and LLM return
   });
 
   assert.equal(sentMessages.length, 0, 'Bot must remain silent when allowAiChat is false');
+});
+
+void test('TextInputService includes shared context inheritance rules in systemInstruction for LLM tool calling', async () => {
+  const { service, getLastLlmInstruction } = createTextInputService({
+    llmResponse: {
+      text: 'Chào bạn',
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'User',
+    text: 'hôm nay mua cà phê 13k và mua nước cam 20k ở đối diện ctgroup',
+  });
+
+  const instruction = getLastLlmInstruction();
+  assert.match(instruction, /placeName/);
+  assert.match(instruction, /paymentMethod/);
+  assert.match(instruction, /KẾ THỪA NGỮ CẢNH DÙNG CHUNG/);
+});
+
+void test('TextInputService propagates shared placeName to all sibling transactions when compound request has single location', async () => {
+  const { service, sentMessages, confirmationService } = createTextInputService({
+    enablePlaceCheck: true,
+    existingPlaces: [],
+    llmResponse: {
+      toolCalls: [
+        {
+          name: TextToolType.RECORD_TRANSACTION,
+          args: {
+            type: 'expense',
+            amount: 13000,
+            category: 'Ăn uống',
+            note: 'mua cà phê',
+            occurredAt: '2026-10-15T08:30:00+07:00',
+            // Missing placeName from LLM
+          },
+        },
+        {
+          name: TextToolType.RECORD_TRANSACTION,
+          args: {
+            type: 'expense',
+            amount: 20000,
+            category: 'Ăn uống',
+            note: 'mua nước cam',
+            occurredAt: '2026-10-15T08:30:00+07:00',
+            placeName: 'đối diện ctgroup',
+          },
+        },
+      ],
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'hôm nay mua cà phê 13k và mua nước cam 20k ở đối diện ctgroup',
+  });
+
+  // Exactly 3 confirmation messages: 1 place card + 2 transaction cards
+  assert.equal(sentMessages.length, 3);
+
+  // Message 0: Place card for 'đối diện ctgroup'
+  assert.match(sentMessages[0].text, /tạo nơi chốn/);
+  assert.match(sentMessages[0].text, /đối diện ctgroup/);
+
+  // Message 1: First transaction card (13k) MUST have location 'đối diện ctgroup'
+  assert.match(sentMessages[1].text, /13\.000 đ/);
+  assert.match(sentMessages[1].text, /mua cà phê/);
+  assert.match(sentMessages[1].text, /đối diện ctgroup/);
+
+  // Message 2: Second transaction card (20k) MUST have location 'đối diện ctgroup'
+  assert.match(sentMessages[2].text, /20\.000 đ/);
+  assert.match(sentMessages[2].text, /mua nước cam/);
+  assert.match(sentMessages[2].text, /đối diện ctgroup/);
+
+  // Check stored pending transactions
+  const pendingList = await confirmationService.getPendingListForUser('u1');
+  const txPendings = pendingList.filter((p) => p.actionType === 'RECORD_TRANSACTION');
+  assert.equal(txPendings.length, 2);
+  assert.equal((txPendings[0].payload as { placeName?: string }).placeName, 'đối diện ctgroup');
+  assert.equal((txPendings[1].payload as { placeName?: string }).placeName, 'đối diện ctgroup');
+
+  confirmationService.clearAll();
+});
+
+void test('TextInputService does NOT propagate placeName across different timestamps or distinct places', async () => {
+  const { service, sentMessages, confirmationService } = createTextInputService({
+    enablePlaceCheck: true,
+    existingPlaces: ['quán cô tư'],
+    llmResponse: {
+      toolCalls: [
+        {
+          name: TextToolType.RECORD_TRANSACTION,
+          args: {
+            type: 'expense',
+            amount: 40000,
+            category: 'Ăn uống',
+            note: 'ăn sáng',
+            occurredAt: '2026-10-15T08:00:00+07:00',
+            placeName: 'quán cô Tư',
+          },
+        },
+        {
+          name: TextToolType.RECORD_TRANSACTION,
+          args: {
+            type: 'expense',
+            amount: 150000,
+            category: 'Ăn uống',
+            note: 'ăn tối',
+            occurredAt: '2026-10-15T19:00:00+07:00',
+            // No placeName
+          },
+        },
+      ],
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'sáng ăn phở 40k ở quán cô Tư, tối ăn lẩu 150k',
+  });
+
+  // Exactly 2 transactions
+  assert.equal(sentMessages.length, 2);
+  assert.match(sentMessages[0].text, /quán cô Tư/);
+  // Transaction 2 should have (trống) for placeName, not quán cô Tư
+  assert.match(sentMessages[1].text, /Địa điểm: \(trống\)/);
+
+  confirmationService.clearAll();
 });

@@ -159,7 +159,7 @@ export class TextInputService {
       'Nhiệm vụ của bạn:\n' +
       '- Phân tích yêu cầu của người dùng để gọi công cụ (tool call) phù hợp nhất.\n' +
       '- Về công nợ ("nợ a 100k", "cho Nam vay 200k", "mai trả nợ"): gọi MANAGE_DEBT, xác định chính xác direction (receivable: người ta nợ mình, payable: mình nợ người ta), counterparty, amount, occurredAt (nếu có) và dueAt (nếu có).\n' +
-      '- Về thu chi ("ăn trưa 45k", "tiền lương 15tr", "tối qua cà phê 15k"): gọi RECORD_TRANSACTION, xác định type (income, expense), category, amount và occurredAt (nếu có đề cập thời gian trong quá khứ/tương lai, tính chuẩn ISO theo giờ hiện tại).\n' +
+      '- Về thu chi ("ăn trưa 45k", "tiền lương 15tr", "tối qua cà phê 15k"): gọi RECORD_TRANSACTION, xác định type (income, expense), category, amount, occurredAt (thời gian nếu có đề cập trong quá khứ/tương lai, tính chuẩn ISO theo giờ hiện tại), placeName (địa điểm/nơi chốn nếu có), paymentMethod (phương thức thanh toán nếu có).\n' +
       '- Về xóa giao dịch thu chi ("xóa giao dịch có ID...", "hủy khoản chi ăn sáng", "xóa giao dịch gần nhất"): gọi DELETE_TRANSACTION, trích xuất transactionId (UUID nếu có) hoặc query.\n' +
       '- Về nhắc nhở ("mai 9h họp", "15 phút nữa nhắc tắt bếp"): gọi SET_REMINDER, tính toán thời điểm ISO chính xác dựa trên giờ hiện tại.\n' +
       '- Về báo cáo chi tiêu ("hôm nay tiêu bao nhiêu", "báo cáo tài chính"): gọi GET_REPORT.\n' +
@@ -175,6 +175,7 @@ export class TextInputService {
       '- Nếu người dùng chỉ chào hỏi hoặc trò chuyện, hãy trả lời tự nhiên, ngắn gọn, thân thiện bằng tiếng Việt.\n\n' +
       'QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n' +
       '- TÁCH CÁC HÀNH ĐỘNG ĐỘC LẬP: Khi người dùng đưa ra một câu chứa NHIỀU YÊU CẦU / NHIỀU HÀNH ĐỘNG ĐỘC LẬP (ví dụ: "tối nay đi ăn tối hết 80k ở bến thành sau đó đi uống nước 90k ở aeon", hoặc vừa ăn uống vừa tạo lịch, nhiều khoản chi tiêu trong cùng 1 câu), bạn PHẢI gọi đồng thời NHIỀU TOOL CALLS tương ứng cho từng hành động riêng biệt. Tuyệt đối không gộp chung vào 1 tool hay bỏ sót bất kỳ hành động nào.\n' +
+      '- KẾ THỪA NGỮ CẢNH DÙNG CHUNG: Khi câu chứa nhiều hành động/giao dịch cùng chia sẻ ngữ cảnh chung (như địa điểm "ở...", thời gian "hôm nay...", hoặc phương thức thanh toán "chuyển khoản/tiền mặt..."), ví dụ: "hôm nay mua cà phê 13k và mua nước cam 20k ở đối diện ctgroup", bạn PHẢI điền đầy đủ các thông tin dùng chung đó (thời gian occurredAt, địa điểm placeName: "đối diện ctgroup", phương thức paymentMethod) cho TẤT CẢ các tool call tương ứng của các giao dịch đó, không được bỏ sót ở bất kỳ giao dịch nào. Nếu từng hành động có địa điểm hoặc thời gian riêng (ví dụ: "ở bến thành... sau đó ở aeon...") thì giữ đúng thông tin riêng của từng hành động.\n' +
       '- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object (ví dụ đúng: {"amount": 15000, "category": "Ăn uống", "type": "expense", "note": "uống cà phê"}, KHÔNG ĐƯỢC: {"amount": {"amount": 15000}}).';
 
     try {
@@ -190,6 +191,7 @@ export class TextInputService {
             : [];
 
       if (toolCalls.length > 0) {
+        this.propagateSharedTransactionContext(toolCalls);
         for (const toolCall of toolCalls) {
           this.logger.log(
             `LLM resolved tool "${toolCall.name}" with args: ${JSON.stringify(toolCall.args)}`,
@@ -357,6 +359,72 @@ export class TextInputService {
         chatId,
         `⚠️ Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu: ${(err as Error).message}`,
       );
+    }
+  }
+
+  private propagateSharedTransactionContext(
+    toolCalls: Array<{ name: string; args?: Record<string, unknown> }>,
+  ): void {
+    if (!toolCalls || toolCalls.length <= 1) return;
+
+    const txCalls = toolCalls.filter(
+      (tc) =>
+        tc.name === (TextToolType.RECORD_TRANSACTION as string) &&
+        tc.args &&
+        typeof tc.args === 'object',
+    );
+
+    if (txCalls.length <= 1) return;
+
+    // 1. Kiểm tra ngữ cảnh thời gian giữa các giao dịch
+    const occurredTimes = txCalls
+      .map((tc) => (typeof tc.args?.occurredAt === 'string' ? tc.args.occurredAt.trim() : ''))
+      .filter(Boolean);
+    const uniqueTimes = Array.from(new Set(occurredTimes));
+    const isSameTimeContext = uniqueTimes.length <= 1;
+
+    // 2. Kế thừa occurredAt nếu chỉ có đúng 1 mốc thời gian duy nhất cho cả câu
+    if (uniqueTimes.length === 1 && occurredTimes.length < txCalls.length) {
+      const sharedTime = uniqueTimes[0];
+      for (const tc of txCalls) {
+        if (tc.args && !tc.args.occurredAt) {
+          tc.args.occurredAt = sharedTime;
+        }
+      }
+    }
+
+    // 3. Kế thừa placeName nếu các giao dịch trong cùng ngữ cảnh thời gian và chỉ có đúng 1 địa điểm được nêu
+    if (isSameTimeContext) {
+      const placeNames = txCalls
+        .map((tc) => (typeof tc.args?.placeName === 'string' ? tc.args.placeName.trim() : ''))
+        .filter(Boolean);
+      const uniquePlaces = Array.from(new Set(placeNames.map((p) => p.toLowerCase())));
+
+      if (uniquePlaces.length === 1 && placeNames.length < txCalls.length) {
+        const sharedPlace = placeNames[0];
+        for (const tc of txCalls) {
+          if (tc.args && (!tc.args.placeName || !(tc.args.placeName as string).trim())) {
+            tc.args.placeName = sharedPlace;
+          }
+        }
+      }
+
+      // 4. Kế thừa paymentMethod tương tự
+      const paymentMethods = txCalls
+        .map((tc) =>
+          typeof tc.args?.paymentMethod === 'string' ? tc.args.paymentMethod.trim() : '',
+        )
+        .filter(Boolean);
+      const uniquePayments = Array.from(new Set(paymentMethods.map((p) => p.toLowerCase())));
+
+      if (uniquePayments.length === 1 && paymentMethods.length < txCalls.length) {
+        const sharedPayment = paymentMethods[0];
+        for (const tc of txCalls) {
+          if (tc.args && (!tc.args.paymentMethod || !(tc.args.paymentMethod as string).trim())) {
+            tc.args.paymentMethod = sharedPayment;
+          }
+        }
+      }
     }
   }
 }

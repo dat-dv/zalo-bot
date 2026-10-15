@@ -169,4 +169,3 @@ export async function getGoogleDriveFolderLink(
     return { folderPath: 'zalobot', webViewLink: 'https://drive.google.com' };
   }
 }
-

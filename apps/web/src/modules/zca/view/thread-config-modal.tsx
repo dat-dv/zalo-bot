@@ -384,7 +384,9 @@ export function ThreadConfigModal({
                             Thư mục Drive:
                           </span>
                           <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] font-medium text-blue-700 border border-blue-200 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300">
-                            {form.driveFolderPath || form.mediaBackup.customFolder || `zalobot/${threadId}`}
+                            {form.driveFolderPath ||
+                              form.mediaBackup.customFolder ||
+                              `zalobot/${threadId}`}
                           </code>
                         </div>
                         <p className="text-[10px] text-slate-500 dark:text-slate-400">
@@ -394,7 +396,11 @@ export function ThreadConfigModal({
                     </div>
                     <a
                       className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 transition-colors"
-                      href={form.driveFolderUrl || (driveLinkData?.webViewLink || 'https://drive.google.com')}
+                      href={
+                        form.driveFolderUrl ||
+                        driveLinkData?.webViewLink ||
+                        'https://drive.google.com'
+                      }
                       rel="noopener noreferrer"
                       target="_blank"
                     >

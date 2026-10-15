@@ -45,10 +45,19 @@ Mọi thao tác nhạy cảm (ghi thu/chi, tạo địa điểm, nợ, lời nh�
 
 ## 2. Quy Chuẩn Thu Hồi Tin Nhắn Tự Động (Automatic Message Recall & Clean Conversations)
 
-Nhằm giữ cuộc trò chuyện luôn gọn gàng và tránh rác tin nhắn, bot áp dụng cơ chế tự động thu hồi cho tất cả người xem (`undoMessage` / `zca.undo`):
+Nhằm giữ cuộc trò chuyện luôn gọn gàng và tránh rác tin nhắn, bot áp dụng nguyên tắc: **"Toàn bộ tin nhắn sinh ra trong quá trình tương tác đều là tạm thời, khi hoàn tất chỉ để lại thông điệp kết quả cuối cùng"**:
 
-1. **Xác nhận thành công (Thả ❤️ hoặc soạn `yes <code>`)**:
-   - Bot gọi `undoMessage` thu hồi thẻ xác nhận chờ (và tự động thu hồi thẻ tạo nơi chốn phụ đi kèm nếu có).
+1. **Phân vùng lưu trữ tin nhắn tạm trên Redis**:
+   - `pending:tx:temp:${code}`: Lưu các thẻ xác nhận chờ theo mã (`code`).
+   - `pending:tx:chat-temp:${chatId}`: Lưu các tin nhắn trung gian trong thread (thông báo đếm tim `❤️ Đã nhận X/Y...`, lời nhắc `💡 Bạn còn X yêu cầu...`, và thông báo tạo địa điểm đi kèm tạm thời).
+
+2. **Cơ chế phân giải định danh `cliMsgId`**:
+   - Trong Zalo, API `undo` bắt buộc phải có `cliMsgId` (13 số timestamp client). Nếu thiếu hoặc truyền nhầm server `msgId`, Zalo server sẽ trả về `"Lỗi không xác định"`.
+   - `ZcaService` tự động bắt cặp `msgId <-> cliMsgId` qua WebSocket echo và mảng `rMsg[0].cMsgID` trong reaction, lưu vào Redis (`zca:msg:cli:*`) với TTL 24h.
+   - Khi gọi `undoMessage`, hệ thống tự động bù `cliMsgId` từ Redis/cache. Nếu Zalo từ chối `undo`, hệ thống tự động fallback gọi `deleteMessage(onlyMe: true)` để dọn sạch phía bot.
+
+3. **Xác nhận thành công (Thả ❤️ hoặc soạn `yes <code>`)**:
+   - Bot gọi `recallTempMessages(chatId, code)` thu hồi thẻ xác nhận chờ và toàn bộ tin nhắn trung gian trong phòng chat (`chat-temp`).
    - Bot chỉ gửi **duy nhất 1 tin nhắn kết quả hợp nhất** chứa tiêu đề chúc mừng tim và đầy đủ nội dung DTO chi tiết:
      ```text
      🎉 Đã nhận đủ 1 lượt thả tim (❤️)! Yêu cầu [629] đã được xác nhận thành công!
@@ -57,19 +66,29 @@ Nhằm giữ cuộc trò chuyện luôn gọn gàng và tránh rác tin nhắn, 
      • Số tiền: 30.000 đ
      ...
      ```
-2. **Hết hạn sau 5 phút (Timeout)**:
-   - Bot gọi `undoMessage` thu hồi thẻ xác nhận chờ.
+4. **Luồng nhiều thẻ liên tiếp (Multi-card sequential flow)**:
+   - Khi người dùng gửi câu lệnh sinh 2 yêu cầu (ví dụ: tạo nơi chốn `[650]` + khoản chi `[363]`).
+   - Duyệt `[650]`: Thẻ `[650]` bị thu hồi, kết quả nơi chốn và lời nhắc `💡 Bạn còn 1 yêu cầu...` được đưa vào `chat-temp`.
+   - Duyệt `[363]`: Thẻ `[363]` bị thu hồi, đồng thời quét sạch toàn bộ `chat-temp` (thu hồi cả xác nhận nơi chốn tạm và thông báo nhắc còn lại).
+   - Kết quả: Trong phòng chat chỉ còn duy nhất 1 tin nhắn xác nhận hoàn tất giao dịch tại nơi chốn mới!
+
+5. **Hết hạn sau 5 phút (Timeout)**:
+   - Bot gọi `recallTempMessages(chatId, code)` thu hồi thẻ xác nhận chờ và tin nhắn trung gian.
    - Bot chỉ gửi thông báo hết hạn: `⏰ Yêu cầu ... (mã: xxx) đã hết hạn 5 phút và chưa được xác nhận.`
-3. **Hủy bỏ thao tác (Thả 😡 hoặc soạn `cancel <code>`)**:
-   - Bot gọi `undoMessage` thu hồi thẻ xác nhận chờ.
-   - Gửi thông báo: `❌ Yêu cầu [xxx] đã bị hủy bỏ.`
-4. **Chỉnh sửa thao tác (`edit <code> <nội dung>`)**:
-   - Bot gọi `undoMessage` thu hồi ngay lập tức thẻ xác nhận của phiên bản trước đó.
+
+6. **Hủy bỏ thao tác (Thả 😡 hoặc soạn `cancel <code>`)**:
+   - Bot gọi `recallTempMessages(chatId, code)` thu hồi thẻ xác nhận chờ và tin nhắn trung gian.
+   - Gửi thông báo: `❌ Đã hủy giao dịch ... (mã: xxx). Yêu cầu chưa được lưu.`
+
+7. **Chỉnh sửa thao tác (`edit <code> <nội dung>`)**:
+   - Bot gọi `recallTempMessages(chatId, code)` thu hồi ngay lập tức thẻ xác nhận cũ.
    - AI phân tích lại nội dung bổ sung và gửi thẻ xác nhận mới.
-5. **An toàn không chặn (Non-blocking)**:
-   - Nếu Zalo API từ chối hoặc lỗi mạng khi thu hồi tin nhắn, lỗi được bắt trong `try...catch`, chỉ ghi log warning và không được làm gián đoạn việc lưu dữ liệu vào cơ sở dữ liệu.
-6. **Dọn dẹp Redis**:
-   - Xóa sạch các key `pending:tx:code:*`, `pending:tx:user:*`, `pending:tx:msg:*` khi hoàn thành luồng.
+
+8. **An toàn không chặn (Non-blocking)**:
+   - Toàn bộ thao tác thu hồi được bọc trong `Promise.allSettled` và `try...catch`, chỉ ghi log warning và không được làm gián đoạn việc lưu dữ liệu vào cơ sở dữ liệu.
+
+9. **Dọn dẹp Redis sạch sẽ**:
+   - Xóa sạch các key `pending:tx:code:*`, `pending:tx:user:*`, `pending:tx:msg:*`, `pending:tx:temp:*`, `pending:tx:chat-temp:*` khi hoàn thành luồng.
 
 ## 3. Danh Mục Kiểm Tra (Verification Checklist)
 

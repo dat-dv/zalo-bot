@@ -257,3 +257,41 @@ void test('QwenProvider handles connection errors gracefully', async () => {
     globalThis.fetch = originalFetch;
   }
 });
+
+void test('LlmService cleans arguments on both toolCall and response.toolCalls', async () => {
+  const mockConfigService = {
+    get: (key: string) => {
+      if (key === 'llm.provider') return 'gemini';
+      return undefined;
+    },
+  } as unknown as ConfigService;
+
+  const mockProvider = {
+    name: 'gemini',
+    generate: () =>
+      Promise.resolve({
+        toolCall: {
+          name: 'RECORD_TRANSACTION',
+          args: { amount: { amount: 15000 }, category: 'Ăn uống' },
+        },
+        toolCalls: [
+          {
+            name: 'RECORD_TRANSACTION',
+            args: { amount: { amount: 15000 }, category: 'Ăn uống' },
+          },
+          {
+            name: 'RECORD_TRANSACTION',
+            args: { amount: { value: 20000 }, placeName: { name: 'ctgroup' } },
+          },
+        ],
+      }),
+  } as unknown as GeminiProvider;
+
+  const llmService = new LlmService(mockConfigService, mockProvider, {} as never, {} as never);
+
+  const res = await llmService.generate('test');
+  assert.equal(res.toolCall?.args.amount, 15000);
+  assert.equal(res.toolCalls?.[0].args.amount, 15000);
+  assert.equal(res.toolCalls?.[1].args.amount, 20000);
+  assert.equal(res.toolCalls?.[1].args.placeName, 'ctgroup');
+});

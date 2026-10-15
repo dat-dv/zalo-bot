@@ -373,7 +373,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         try {
           const raw = await this.redisService.get(codeKey);
           const list: { msgId: string; cliMsgId?: string; chatId: string }[] = raw
-            ? JSON.parse(raw)
+            ? (JSON.parse(raw) as { msgId: string; cliMsgId?: string; chatId: string }[])
             : [];
           if (!list.some((m) => m.msgId === item.msgId)) {
             list.push(item);
@@ -394,7 +394,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         try {
           const raw = await this.redisService.get(chatKey);
           const list: { msgId: string; cliMsgId?: string; chatId: string }[] = raw
-            ? JSON.parse(raw)
+            ? (JSON.parse(raw) as { msgId: string; cliMsgId?: string; chatId: string }[])
             : [];
           if (!list.some((m) => m.msgId === item.msgId)) {
             list.push(item);
@@ -421,7 +421,12 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       if (this.redisService) {
         try {
           const raw = await this.redisService.get(codeKey);
-          if (raw) fromRedis = JSON.parse(raw);
+          if (raw)
+            fromRedis = JSON.parse(raw) as {
+              msgId: string;
+              cliMsgId?: string;
+              chatId: string;
+            }[];
           await this.redisService.del(codeKey);
         } catch {
           // ignore
@@ -441,7 +446,12 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     if (this.redisService) {
       try {
         const raw = await this.redisService.get(chatKey);
-        if (raw) fromChatRedis = JSON.parse(raw);
+        if (raw)
+          fromChatRedis = JSON.parse(raw) as {
+            msgId: string;
+            cliMsgId?: string;
+            chatId: string;
+          }[];
         await this.redisService.del(chatKey);
       } catch {
         // ignore

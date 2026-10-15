@@ -12,6 +12,7 @@ import { GoogleTasksService, CreateTaskOptions } from '../google/google-tasks.se
 import { GoogleCalendarService, CreateEventOptions } from '../google/google-calendar.service';
 import { UsersService } from '../users/users.service';
 import { GoogleAuthService } from '../google/google-auth.service';
+import { RedisService } from '../redis/redis.service';
 import { FINANCE_TRANSACTION_DESCRIPTOR } from './confirmation/dto-descriptor.util';
 
 interface TestContext {
@@ -1322,4 +1323,3 @@ void test('Multi-card confirmation flow cleans up all temporary cards and interi
 
   service.clearAll();
 });
-

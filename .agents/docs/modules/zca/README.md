@@ -18,11 +18,13 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` quản lý việc kết
 - **Quản lý kết nối & Phiên WebSocket (`ZcaService`)**:
   - Khởi tạo client `zca-js`, xử lý đăng nhập bằng mã QR (`/zlogin`, `/zca-login`).
   - Hỗ trợ lưu trữ phiên đăng nhập vào Redis (`zca:session:...`) và fallback ra file cục bộ để duy trì trạng thái đăng nhập khi restart server.
-  - Cung cấp API thu hồi tin nhắn cho tất cả mọi người (`undo(payload, threadId)`).
+  - Tự động bắt cặp `msgId <-> cliMsgId` qua WebSocket echo và sự kiện reaction, lưu cache vào Redis (`zca:msg:cli:*`) với TTL 24h.
+  - Cung cấp API thu hồi tin nhắn hai chiều (`undo(payload, threadId)`), tự động bù `cliMsgId` từ Redis/cache để tránh lỗi `"Lỗi không xác định"` từ máy chủ Zalo.
+  - Hỗ trợ API xóa tin nhắn `deleteMessage(dest, onlyMe)`, trong đó `onlyMe: true` đóng vai trò fallback dọn dẹp phía bot nếu `undo` bị từ chối.
 - **Lắng nghe & Xử lý tin nhắn (`ZcaBotFeatureService`)**:
   - Lắng nghe tin nhắn văn bản, ảnh, video, tệp tin và giọng nói từ cả chat 1-1 và nhóm chat.
   - Nhận diện trigger prefix (mặc định `@bot`).
-  - Lắng nghe biểu cảm (Reactions): Thả tim (❤️) đạt ngưỡng quy định để xác nhận giao dịch; thả phẫn nộ (😡) để hủy bỏ.
+  - Lắng nghe biểu cảm (Reactions): Trích xuất `cMsgID` (`cliMsgId`) từ mảng `rMsg` để chuyển tiếp chính xác vào `TransactionConfirmationService`. Thả tim (❤️) đạt ngưỡng quy định để xác nhận giao dịch; thả phẫn nộ (😡) để hủy bỏ.
 - **Cấu hình theo kênh (`ThreadConfigService` & `ThreadConfigEntity`)**:
   - Lưu trữ cấu hình trong bảng `thread_configs`:
     - `isListened`: Bật/tắt lắng nghe kênh.

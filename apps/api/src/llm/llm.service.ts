@@ -44,6 +44,14 @@ export class LlmService {
       response.toolCall.args = cleanToolArguments(response.toolCall.args);
     }
 
+    if (response.toolCalls && response.toolCalls.length > 0) {
+      for (const tc of response.toolCalls) {
+        if (tc.args) {
+          tc.args = cleanToolArguments(tc.args);
+        }
+      }
+    }
+
     return response;
   }
 }

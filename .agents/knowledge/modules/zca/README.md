@@ -11,11 +11,13 @@
 - **WebSocket Connection & Session Management (`ZcaService`)**:
   - Initializes `zca-js` client, coordinates QR login (`/zlogin`, `/zca-login`).
   - Persists session credentials to Redis (`zca:session:...`) with fallback to persistent disk storage to survive process restarts.
-  - Exposes `undo(payload, threadId)` to recall messages for everyone in the chat.
+  - Intercepts WebSocket message echos and reaction events to automatically cache `msgId <-> cliMsgId` into memory and Redis (`zca:msg:cli:*`) with 24h TTL.
+  - Exposes `undo(payload, threadId)` to recall messages for everyone in the chat, automatically resolving `ThreadType` and retrieving true `cliMsgId` to prevent Zalo `"Lỗi không xác định"` errors.
+  - Exposes `deleteMessage(dest, onlyMe)` with `onlyMe: true` fallback support if undo is rejected by server.
 - **Message & Reaction Handler (`ZcaBotFeatureService`)**:
   - Listens to incoming messages across group and 1-1 chats.
   - Enforces trigger prefixes (default `@bot`) and respects thread configuration rules (`requireMention`).
-  - Processes reaction events: increments heart counts (❤️) towards threshold confirmations and triggers cancellation upon angry reactions (😡).
+  - Processes reaction events: extracts `cMsgID` (`cliMsgId`) from `rMsg` payloads, increments heart counts (❤️) towards threshold confirmations, and triggers cancellation upon angry reactions (😡).
 - **Per-Thread Configuration (`ThreadConfigService` & `ThreadConfigEntity`)**:
   - Persists channel settings in the `thread_configs` table:
     - `isListened`: Listening state toggle.

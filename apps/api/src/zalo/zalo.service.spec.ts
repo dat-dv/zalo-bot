@@ -184,7 +184,7 @@ void test('ZaloService undoMessage calls zcaService.undo with cached cliMsgId', 
   };
 
   const service = new ZaloService(
-    { get: () => undefined } as unknown as ConfigService,
+    { get: (): undefined => undefined } as unknown as ConfigService,
     mockZcaService as never,
   );
 
@@ -216,7 +216,7 @@ void test('ZaloService undoMessage falls back to deleteMessage (onlyMe=true) whe
   };
 
   const service = new ZaloService(
-    { get: () => undefined } as unknown as ConfigService,
+    { get: (): undefined => undefined } as unknown as ConfigService,
     mockZcaService as never,
   );
 
@@ -245,7 +245,7 @@ void test('ZaloService deleteMessage delegates to zcaService.deleteMessage', asy
   };
 
   const service = new ZaloService(
-    { get: () => undefined } as unknown as ConfigService,
+    { get: (): undefined => undefined } as unknown as ConfigService,
     mockZcaService as never,
   );
 
@@ -254,4 +254,3 @@ void test('ZaloService deleteMessage delegates to zcaService.deleteMessage', asy
   assert.equal(deleteCalled, true);
   assert.equal(passedOnlyMe, true);
 });
-

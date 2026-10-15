@@ -32,24 +32,44 @@ Sensitive mutations (creating transactions, new places, debts, reminders, calend
 
 - Multi-tenant persistence: cards are stored in memory and synchronized to Redis (`pending:tx:code:*`, `pending:tx:user:*`, `pending:tx:msg:*`).
 
-## Automatic Message Recall (Clean Conversations)
+## Automatic Message Recall & Ephemeral Lifecycle (Clean Conversations)
 
-To keep chat feeds clean and avoid obsolete intermediate messages, the bot automatically recalls (`undoMessage` / `zca.undo`) pending cards:
+To keep chat feeds clean and prevent visual clutter, the bot strictly adheres to: **"All interaction messages generated during a flow are ephemeral; upon completion, only the final outcome message remains in chat"**:
 
-1. **Confirmed (`yes <code>` or ❤️ Heart)**:
-   - Recalls the pending confirmation card (and any companion pending place creation card created in the same flow).
+1. **Redis Key Partitioning**:
+   - `pending:tx:temp:${code}`: Tracks interactive confirmation cards by action code (`code`).
+   - `pending:tx:chat-temp:${chatId}`: Tracks thread-wide interim status messages (heart reaction threshold updates `❤️ Đã nhận X/Y...`, pending queue reminders `💡 Bạn còn X yêu cầu...`, and provisional companion place notifications).
+
+2. **Accurate `cliMsgId` Mapping & Resolution**:
+   - In Zalo protocol, `undo` requires the client-generated 13-digit Unix timestamp `cliMsgId`. Supplying the server's global `msgId` causes Zalo server to reject with `"Lỗi không xác định"`.
+   - `ZcaService` continuously intercepts WebSocket message echoes and reaction events (`rMsg[0].cMsgID`), syncing `msgId <-> cliMsgId` pairs to memory and Redis (`zca:msg:cli:*`) with 24h TTL.
+   - `undoMessage` auto-resolves `ThreadType` and retrieves cached `cliMsgId`. If `undo` is rejected by the server, it seamlessly falls back to `deleteMessage(onlyMe: true)` on the bot's side.
+
+3. **Confirmed (`yes <code>` or ❤️ Heart)**:
+   - Invokes `recallTempMessages(chatId, code)` to recall the confirmation card and all interim notices in `chat-temp`.
    - Posts a single consolidated confirmation message containing the heart celebration header and full DTO details.
-2. **Expired (5-Minute Timeout)**:
-   - Recalls the pending confirmation card.
+
+4. **Multi-Card Sequential Flow (e.g. New Place `[650]` + Expense `[363]`)**:
+   - Confirming place `[650]`: Recalls card `[650]`, posts temporary place confirmation and remainder notice into `chat-temp`.
+   - Confirming expense `[363]`: Recalls card `[363]` and purges all of `chat-temp` (recalling both the temporary place confirmation and remainder notice).
+   - Chat ends with **strictly one message**: the complete expense record already showing the new place!
+
+5. **Expired (5-Minute Timeout)**:
+   - Recalls the confirmation card and interim notices via `recallTempMessages`.
    - Posts only the timeout notification: `⏰ Yêu cầu ... (mã: xxx) đã hết hạn 5 phút và chưa được xác nhận.`
-3. **Cancelled (`cancel <code>` or 😡 Angry)**:
-   - Recalls the pending confirmation card.
+
+6. **Cancelled (`cancel <code>` or 😡 Angry)**:
+   - Recalls the confirmation card and interim notices.
    - Posts the cancellation notice.
-4. **Edited (`edit <code> <new content>`)**:
+
+7. **Edited (`edit <code> <new content>`)**:
    - Immediately recalls the superseded confirmation card.
    - Parses the edit instructions and issues a new confirmation card with a new code.
-5. **Non-blocking Error Boundary**:
-   - Network or API errors during `undoMessage` are caught safely and logged as warnings; they never block database writes or mutate transaction integrity.
-6. **Redis Cleanup**:
-   - Keys (`pending:tx:code:*`, `pending:tx:user:*`, `pending:tx:msg:*`) are purged immediately upon resolution.
+
+8. **Non-blocking Error Boundary**:
+   - Recalls run concurrently via `Promise.allSettled` inside `try...catch`; network or API failures log warnings without disrupting database integrity or user flow.
+
+9. **Redis Cleanup**:
+   - Keys (`pending:tx:code:*`, `pending:tx:user:*`, `pending:tx:msg:*`, `pending:tx:temp:*`, `pending:tx:chat-temp:*`) are purged immediately upon resolution.
+
 
