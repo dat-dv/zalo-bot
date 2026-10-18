@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserEntity } from '../database/entities/user.entity';
@@ -9,6 +9,7 @@ import {
   type SupportedLocale,
 } from '@zalobot/contracts';
 import { RedisService } from '../redis/redis.service';
+import { ZcaService, type AvailableThread } from '../zca/zca.service';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -26,6 +27,9 @@ export class UsersService implements OnModuleInit {
     @InjectRepository(UserEntity)
     private readonly userRepo: Repository<UserEntity>,
     @Optional() private readonly redisService?: RedisService,
+    @Optional()
+    @Inject(forwardRef(() => ZcaService))
+    private readonly zcaService?: ZcaService,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -358,6 +362,7 @@ export class UsersService implements OnModuleInit {
       username?: string;
       firstName?: string;
       avatarUrl?: string;
+      phoneNumber?: string;
       grantAccess?: GrantAccessStatus;
     },
   ): Promise<UserEntity> {
@@ -379,6 +384,7 @@ export class UsersService implements OnModuleInit {
         username: extra?.username,
         firstName: extra?.firstName,
         avatarUrl: extra?.avatarUrl,
+        phoneNumber: extra?.phoneNumber,
         createdAt: new Date(),
       });
     } else {
@@ -389,6 +395,7 @@ export class UsersService implements OnModuleInit {
       if (extra?.username) existing.username = extra.username;
       if (extra?.firstName) existing.firstName = extra.firstName;
       if (extra?.avatarUrl) existing.avatarUrl = extra.avatarUrl;
+      if (extra?.phoneNumber) existing.phoneNumber = extra.phoneNumber;
     }
     await this.userRepo.save(existing);
 
@@ -421,8 +428,99 @@ export class UsersService implements OnModuleInit {
     return false;
   }
 
-  public async getUsers(): Promise<UserEntity[]> {
-    return this.userRepo.find({ order: { createdAt: 'DESC' } });
+  public async getUsers(): Promise<Array<UserEntity & { alias?: string; zaloName?: string }>> {
+    const users = await this.userRepo.find({ order: { createdAt: 'DESC' } });
+    if (!this.zcaService) {
+      return users;
+    }
+
+    try {
+      const threads = await this.zcaService.getAvailableThreads(false).catch((): AvailableThread[] => []);
+      if (!threads || threads.length === 0) return users;
+
+      const threadMap = new Map<string, AvailableThread>();
+      for (const t of threads) {
+        threadMap.set(t.id, t);
+      }
+
+      return users.map((u) => {
+        const t = threadMap.get(u.id);
+        if (!t) return u;
+        return {
+          ...u,
+          firstName: u.firstName || t.alias || t.displayName || t.name,
+          avatarUrl: u.avatarUrl || t.avatar,
+          phoneNumber: u.phoneNumber || t.phoneNumber,
+          alias: t.alias,
+          zaloName: t.zaloName || t.displayName,
+        };
+      });
+    } catch {
+      return users;
+    }
+  }
+
+  public async syncUsersWithZca(): Promise<{ syncedCount: number; totalUsers: number }> {
+    if (!this.zcaService) {
+      return { syncedCount: 0, totalUsers: 0 };
+    }
+    const threads = await this.zcaService.getAvailableThreads(true).catch((): AvailableThread[] => []);
+    if (!threads || threads.length === 0) {
+      return { syncedCount: 0, totalUsers: 0 };
+    }
+
+    const threadMap = new Map<string, AvailableThread>();
+    for (const t of threads) {
+      threadMap.set(t.id, t);
+    }
+
+    const users = await this.userRepo.find();
+    let syncedCount = 0;
+
+    for (const user of users) {
+      const t = threadMap.get(user.id);
+      if (t) {
+        let changed = false;
+        if (t.avatar && user.avatarUrl !== t.avatar) {
+          user.avatarUrl = t.avatar;
+          changed = true;
+        }
+        if (t.phoneNumber && user.phoneNumber !== t.phoneNumber) {
+          user.phoneNumber = t.phoneNumber;
+          changed = true;
+        }
+        const isGenericName =
+          !user.firstName ||
+          user.firstName === 'bạn' ||
+          user.firstName === 'Người dùng Zalo' ||
+          user.firstName.trim() === '';
+        const zcaName = t.alias || t.displayName || t.name || t.zaloName;
+        if ((isGenericName || !user.firstName) && zcaName) {
+          user.firstName = zcaName;
+          changed = true;
+        }
+
+        if (changed) {
+          await this.userRepo.save(user);
+          syncedCount++;
+        }
+      }
+    }
+
+    return { syncedCount, totalUsers: users.length };
+  }
+
+  public async updateUserProfile(
+    id: string,
+    data: { firstName?: string; phoneNumber?: string; avatarUrl?: string },
+  ): Promise<UserEntity | null> {
+    const user = await this.getUser(id);
+    if (!user) return null;
+    if (data.firstName !== undefined) user.firstName = data.firstName;
+    if (data.phoneNumber !== undefined) user.phoneNumber = data.phoneNumber;
+    if (data.avatarUrl !== undefined) user.avatarUrl = data.avatarUrl;
+    await this.userRepo.save(user);
+    return user;
   }
 
   public getUser(id: string): Promise<UserEntity | null> {
