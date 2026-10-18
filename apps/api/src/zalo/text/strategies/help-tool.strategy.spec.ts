@@ -33,4 +33,6 @@ void test('HelpToolStrategy includes /zalo-login command in help text', async ()
   assert.match(helpText, /HƯỚNG DẪN SỬ DỤNG TRỢ LÝ ZALO/);
   assert.match(helpText, /\/zalo-login/);
   assert.match(helpText, /\/zca-login/);
+  assert.match(helpText, /\/zalo-logout/);
+  assert.match(helpText, /\/zca-logout/);
 });

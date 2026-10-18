@@ -17,6 +17,7 @@ export enum TextToolType {
   USERS = 'USERS',
   BAN = 'BAN',
   ZALO_LOGIN = 'ZALO_LOGIN',
+  ZALO_LOGOUT = 'ZALO_LOGOUT',
   SHARE_DRIVE = 'SHARE_DRIVE',
 
   // Business & AI Tools (Resolved via LLM Function Calling)

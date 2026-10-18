@@ -42,6 +42,7 @@ const CATEGORY_META: Record<Exclude<StorageType, 'all'>, StorageCategoryMeta> = 
 export class GetStorageLinksToolStrategy implements TextToolStrategy {
   public readonly type = TextToolType.GET_STORAGE_LINKS;
   private readonly logger = new Logger(GetStorageLinksToolStrategy.name);
+  private readonly defaultRecallDelayMs = 5 * 60 * 1000;
 
   constructor(
     private readonly zaloService: ZaloService,
@@ -50,6 +51,7 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
     @Optional() private readonly photosService?: GooglePhotosService,
     @Optional() private readonly usersService?: UsersService,
     @Optional() private readonly threadConfigService?: ThreadConfigService,
+    @Optional() private readonly recallDelayMs?: number,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
@@ -96,10 +98,18 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
       return;
     }
 
-    await this.zaloService.sendMessage(
-      context.chatId,
-      `⏳ Đang lấy đường dẫn kho lưu trữ Google...`,
-    );
+    let progressResult: { success: boolean; msgId?: string; cliMsgId?: string } | undefined;
+    if (this.zaloService.sendMessageWithResult) {
+      progressResult = await this.zaloService.sendMessageWithResult(
+        context.chatId,
+        `⏳ Đang lấy đường dẫn kho lưu trữ Google...`,
+      );
+    } else {
+      await this.zaloService.sendMessage(
+        context.chatId,
+        `⏳ Đang lấy đường dẫn kho lưu trữ Google...`,
+      );
+    }
 
     try {
       const channelFolder = buildChannelFolder(context.chatId);
@@ -170,10 +180,55 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
       lines.push(
         `(Ví dụ: @bot share nguyenvana@gmail.com) để bot tự động bật quyền truy cập thư mục của nhóm này cho bạn nhé!`,
       );
+      lines.push(``);
+      lines.push(`⏱️ Tin nhắn này sẽ tự động thu hồi sau 5 phút vì lý do bảo mật.`);
 
-      await this.zaloService.sendMessage(context.chatId, lines.join('\n'));
+      let sendResult: { success: boolean; msgId?: string; cliMsgId?: string } | undefined;
+      if (this.zaloService.sendMessageWithResult) {
+        sendResult = await this.zaloService.sendMessageWithResult(context.chatId, lines.join('\n'));
+      } else {
+        await this.zaloService.sendMessage(context.chatId, lines.join('\n'));
+      }
+
+      // Thu hồi tin nhắn tiến trình (loading) ngay sau khi có kết quả
+      if (progressResult?.msgId && this.zaloService.undoMessage) {
+        void this.zaloService
+          .undoMessage(context.chatId, progressResult.msgId, progressResult.cliMsgId)
+          .catch((err) => {
+            this.logger.debug(
+              `Could not recall progress message ${progressResult?.msgId}: ${(err as Error).message}`,
+            );
+          });
+      }
+
+      // Tự động thu hồi tin nhắn kho lưu trữ sau 5 phút
+      const delayMs = this.recallDelayMs ?? this.defaultRecallDelayMs;
+      if (sendResult?.msgId && this.zaloService.undoMessage) {
+        const msgId = sendResult.msgId;
+        const cliMsgId = sendResult.cliMsgId;
+        const timer = setTimeout(async () => {
+          try {
+            await this.zaloService.undoMessage(context.chatId, msgId, cliMsgId);
+            this.logger.log(
+              `Auto-recalled storage links message ${msgId} in chat ${context.chatId}`,
+            );
+          } catch (err) {
+            this.logger.warn(
+              `Failed to auto-recall storage links message ${msgId}: ${(err as Error).message}`,
+            );
+          }
+        }, delayMs);
+        if (typeof timer?.unref === 'function') {
+          timer.unref();
+        }
+      }
     } catch (err) {
       this.logger.error(`Failed to fetch storage links: ${(err as Error).message}`);
+      if (progressResult?.msgId && this.zaloService.undoMessage) {
+        void this.zaloService
+          .undoMessage(context.chatId, progressResult.msgId, progressResult.cliMsgId)
+          .catch(() => {});
+      }
       await this.zaloService.sendMessage(
         context.chatId,
         `⚠️ Không thể lấy đường dẫn lưu trữ: ${(err as Error).message}`,

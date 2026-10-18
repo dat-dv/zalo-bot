@@ -42,6 +42,7 @@ import { DeleteTransactionToolStrategy } from './text/strategies/delete-transact
 import { CreatePlaceToolStrategy } from './text/strategies/create-place-tool.strategy';
 import { GetStorageLinksToolStrategy } from './text/strategies/get-storage-links-tool.strategy';
 import { ZaloLoginToolStrategy } from './text/strategies/zalo-login-tool.strategy';
+import { ZaloLogoutToolStrategy } from './text/strategies/zalo-logout-tool.strategy';
 import { ShareDriveToolStrategy } from './text/strategies/share-drive-tool.strategy';
 import { ZcaModule } from '../zca/zca.module';
 
@@ -123,6 +124,7 @@ import { ImageBatchHandler } from './pending-image/image-batch-handler.service';
     CreatePlaceToolStrategy,
     GetStorageLinksToolStrategy,
     ZaloLoginToolStrategy,
+    ZaloLogoutToolStrategy,
     ShareDriveToolStrategy,
     CancelPendingImageStrategy,
     StorageUploadPendingImageStrategy,

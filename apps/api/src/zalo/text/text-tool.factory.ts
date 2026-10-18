@@ -35,6 +35,7 @@ import { DeleteTransactionToolStrategy } from './strategies/delete-transaction-t
 import { CreatePlaceToolStrategy } from './strategies/create-place-tool.strategy';
 import { GetStorageLinksToolStrategy } from './strategies/get-storage-links-tool.strategy';
 import { ZaloLoginToolStrategy } from './strategies/zalo-login-tool.strategy';
+import { ZaloLogoutToolStrategy } from './strategies/zalo-logout-tool.strategy';
 import { ShareDriveToolStrategy } from './strategies/share-drive-tool.strategy';
 
 @Injectable()
@@ -74,6 +75,7 @@ export class TextToolFactory {
     createPlaceStrategy?: CreatePlaceToolStrategy,
     getStorageLinksStrategy?: GetStorageLinksToolStrategy,
     zaloLoginStrategy?: ZaloLoginToolStrategy,
+    zaloLogoutStrategy?: ZaloLogoutToolStrategy,
     shareDriveStrategy?: ShareDriveToolStrategy,
     private readonly configService?: ConfigService,
   ) {
@@ -117,6 +119,7 @@ export class TextToolFactory {
     if (getStorageLinksStrategy)
       this.strategyMap.set(TextToolType.GET_STORAGE_LINKS, getStorageLinksStrategy);
     if (zaloLoginStrategy) this.strategyMap.set(TextToolType.ZALO_LOGIN, zaloLoginStrategy);
+    if (zaloLogoutStrategy) this.strategyMap.set(TextToolType.ZALO_LOGOUT, zaloLogoutStrategy);
     if (shareDriveStrategy) this.strategyMap.set(TextToolType.SHARE_DRIVE, shareDriveStrategy);
   }
 
@@ -174,6 +177,18 @@ export class TextToolFactory {
       trimmed.startsWith('/zlogin ')
     ) {
       return TextToolType.ZALO_LOGIN;
+    }
+
+    // 6a. /zalo-logout, /zca-logout, /zlogout
+    if (
+      trimmed === '/zalo-logout' ||
+      trimmed.startsWith('/zalo-logout ') ||
+      trimmed === '/zca-logout' ||
+      trimmed.startsWith('/zca-logout ') ||
+      trimmed === '/zlogout' ||
+      trimmed.startsWith('/zlogout ')
+    ) {
+      return TextToolType.ZALO_LOGOUT;
     }
 
     // 6b. /login or /auth

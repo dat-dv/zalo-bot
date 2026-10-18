@@ -41,6 +41,7 @@ function createFactory(): TextToolFactory {
     createDummyStrategy(TextToolType.CREATE_PLACE),
     createDummyStrategy(TextToolType.GET_STORAGE_LINKS),
     createDummyStrategy(TextToolType.ZALO_LOGIN),
+    createDummyStrategy(TextToolType.ZALO_LOGOUT),
     createDummyStrategy(TextToolType.SHARE_DRIVE),
   );
 }
@@ -88,6 +89,9 @@ void test('TextToolFactory resolves tool types by enum correctly', () => {
   assert.equal(factory.resolveFastPathToolType('/users'), TextToolType.USERS);
   assert.equal(factory.resolveFastPathToolType('/ban u123'), TextToolType.BAN);
   assert.equal(factory.resolveFastPathToolType('/kho'), TextToolType.GET_STORAGE_LINKS);
+  assert.equal(factory.resolveFastPathToolType('/zalo-logout'), TextToolType.ZALO_LOGOUT);
+  assert.equal(factory.resolveFastPathToolType('/zca-logout'), TextToolType.ZALO_LOGOUT);
+  assert.equal(factory.resolveFastPathToolType('/zlogout'), TextToolType.ZALO_LOGOUT);
 
   assert.equal(factory.resolveFastPathToolType('nợ a 100k'), null);
   assert.equal(factory.resolveFastPathToolType('@Bot nợ a 100k'), null);

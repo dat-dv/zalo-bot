@@ -20,6 +20,7 @@ export class HelpToolStrategy implements TextToolStrategy {
       `1️⃣ KẾT NỐI TÀI KHOẢN & DỊCH VỤ:\n` +
       `• /login hoặc /auth - Đăng nhập Google (Admin: Calendar, Tasks, Drive & Photos dùng chung)\n` +
       `• /zalo-login (hoặc /zca-login, /zlogin) - Đăng nhập Zalo cá nhân (ZCA) qua mã QR (Admin)\n` +
+      `• /zalo-logout (hoặc /zca-logout, /zlogout) - Đăng xuất & xóa phiên Zalo cá nhân (ZCA) (Admin)\n` +
       `• /status - Xem trạng thái tài khoản & kết nối Google\n\n` +
       `2️⃣ LỊCH TRÌNH & CÔNG VIỆC:\n` +
       `• /today - Tổng hợp lịch hẹn & việc cần làm hôm nay\n` +
@@ -37,6 +38,7 @@ export class HelpToolStrategy implements TextToolStrategy {
       `• /reset hoặc /clear - Làm mới phiên hội thoại\n` +
       `👑 LỆNH DÀNH CHO QUẢN TRỊ VIÊN:\n` +
       `• /zalo-login (hoặc /zca-login, /zlogin) - Khởi tạo đăng nhập Zalo cá nhân (ZCA) bằng mã QR\n` +
+      `• /zalo-logout (hoặc /zca-logout, /zlogout) - Đăng xuất & ngắt kết nối Zalo cá nhân (ZCA)\n` +
       `• /users - Xem danh sách người dùng & trạng thái Google\n` +
       `• /ban <id> - Thu hồi quyền & hủy token Google của người dùng\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
