@@ -1020,6 +1020,10 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
    * Includes in-memory caching (3 mins TTL) to prevent Zalo rate limit (429).
    */
   public async getAvailableThreads(forceRefresh = false): Promise<AvailableThread[]> {
+    if (!this.isLoggedIn()) {
+      return [];
+    }
+
     // 1. Return fresh cached copy if still valid and not explicitly forced
     if (
       !forceRefresh &&
@@ -1429,18 +1433,26 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     };
 
     // 3. Xóa session file trên disk
-    try {
-      if (this.sessionFilePath && fs.existsSync(this.sessionFilePath)) {
-        fs.unlinkSync(this.sessionFilePath);
-        this.logger.log(`[ZCA] Đã xóa file phiên: ${this.sessionFilePath}`);
+    if (this.sessionFilePath) {
+      try {
+        if (fs.existsSync(this.sessionFilePath)) {
+          fs.unlinkSync(this.sessionFilePath);
+          this.logger.log(`[ZCA] Đã xóa file phiên: ${this.sessionFilePath}`);
+        }
+      } catch (err) {
+        this.logger.warn(
+          `[ZCA] Lỗi khi xóa file phiên ZCA (${this.sessionFilePath}): ${formatErrorMessage(err)}`,
+        );
       }
+    }
+    try {
       const legacyPath = path.resolve(process.cwd(), '.zca-session.json');
       if (legacyPath !== this.sessionFilePath && fs.existsSync(legacyPath)) {
         fs.unlinkSync(legacyPath);
         this.logger.log(`[ZCA] Đã xóa file phiên cũ: ${legacyPath}`);
       }
     } catch (err) {
-      this.logger.warn(`[ZCA] Lỗi khi xóa file phiên ZCA: ${formatErrorMessage(err)}`);
+      this.logger.warn(`[ZCA] Lỗi khi xóa file phiên ZCA cũ: ${formatErrorMessage(err)}`);
     }
 
     // 4. Xóa session trong Redis

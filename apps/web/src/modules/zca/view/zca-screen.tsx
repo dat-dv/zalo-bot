@@ -20,6 +20,7 @@ import {
   type ZcaThread,
 } from '../api/zca-api';
 import { ThreadConfigModal } from './thread-config-modal';
+import { useLocale } from '@/shared/providers/locale-provider';
 
 function normalizeVietnamese(str: string): string {
   return str
@@ -60,6 +61,7 @@ function ThreadAvatar({ thread }: { thread: ZcaThread }) {
 }
 
 export function ZcaScreen() {
+  const { t } = useLocale();
   const [pollInterval, setPollInterval] = useState<number | false>(false);
   const { data: status, refetch: refetchStatus } = useZcaStatusQuery({
     refetchInterval: pollInterval,
@@ -68,7 +70,7 @@ export function ZcaScreen() {
     data: threads = [],
     isLoading: isThreadsLoading,
     refetch: refetchThreads,
-  } = useZcaThreadsQuery();
+  } = useZcaThreadsQuery({ enabled: Boolean(status?.loggedIn) });
   const { data: threadConfigs = [] } = useZcaThreadConfigsQuery();
   const { data: driveRootData } = useGoogleDriveFolderLinkQuery();
   const queryClient = useQueryClient();
@@ -153,9 +155,7 @@ export function ZcaScreen() {
   };
 
   const handleLogout = async () => {
-    const confirmed = window.confirm(
-      'Bạn có chắc chắn muốn ngắt kết nối và đăng xuất tài khoản Zalo cá nhân (ZCA) này không?',
-    );
+    const confirmed = window.confirm(t('zca.logoutConfirm'));
     if (!confirmed) return;
     try {
       await logoutMutation.mutateAsync();
@@ -299,7 +299,7 @@ export function ZcaScreen() {
               type="button"
             >
               <LogoutIcon />
-              {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất ZCA'}
+              {isLoggingOut ? 'Đang đăng xuất...' : t('zca.logout')}
             </button>
           ) : (
             <button
@@ -329,7 +329,7 @@ export function ZcaScreen() {
                 onClick={() => void handleLogout()}
                 type="button"
               >
-                {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
+                {isLoggingOut ? 'Đang đăng xuất...' : t('zca.logout')}
               </button>
             )}
           </div>

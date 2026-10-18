@@ -38,11 +38,12 @@ export function useZcaStatusQuery(options?: { refetchInterval?: number | false }
   });
 }
 
-export function useZcaThreadsQuery() {
+export function useZcaThreadsQuery(options?: { enabled?: boolean }) {
   return useQuery<ZcaThread[]>({
     queryKey: zcaQueryKeys.threads(),
     queryFn: ({ signal }) => getZcaThreads(undefined, signal),
     staleTime: 60_000,
+    enabled: options?.enabled,
   });
 }
 

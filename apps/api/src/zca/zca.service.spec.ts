@@ -366,3 +366,17 @@ void test('ZcaService logout stops listener, purges session files, deletes redis
 
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
+
+void test('ZcaService.getAvailableThreads returns empty array when not logged in', async () => {
+  const mockConfigService = {
+    get: () => undefined,
+  } as unknown as ConfigService;
+
+  const service = new ZcaService(mockConfigService);
+  await service.setListenedThreadIds(['thread-123']);
+
+  assert.strictEqual(service.isLoggedIn(), false);
+  const threads = await service.getAvailableThreads();
+  assert.deepStrictEqual(threads, []);
+});
+
