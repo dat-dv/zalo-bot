@@ -127,6 +127,15 @@ export class ZcaController {
     };
   }
 
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Đăng xuất và xóa phiên tài khoản Zalo cá nhân (ZCA)' })
+  public async logout(): Promise<{ data: { success: boolean; message: string } }> {
+    this.logger.log('[ZcaController] Nhận yêu cầu POST /api/zca/logout...');
+    const result = await this.zcaService.logout();
+    return { data: result };
+  }
+
   @Get('threads')
   @ApiOperation({
     summary: 'Lấy danh sách các nhóm và bạn bè để chọn danh sách lắng nghe',
