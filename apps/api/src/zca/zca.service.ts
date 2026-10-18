@@ -1402,6 +1402,65 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   }
 
   /**
+   * Logs out from ZCA, stops the listener, cleans up session files and Redis cache.
+   */
+  public async logout(): Promise<{ success: boolean; message: string }> {
+    this.logger.log('[ZCA] Đang thực hiện đăng xuất và ngắt kết nối tài khoản ZCA...');
+
+    // 1. Dừng listener
+    try {
+      this.stopListener();
+    } catch (err) {
+      this.logger.warn(`[ZCA] Lỗi khi dừng listener: ${formatErrorMessage(err)}`);
+    }
+
+    // 2. Reset trạng thái bộ nhớ
+    this.api = null;
+    this.isListening = false;
+    this.latestQrImageBase64 = null;
+    this.latestQrCode = null;
+    this.cachedAvailableThreads = [];
+    this.cachedThreadsExpiresAt = 0;
+    this.activeQrLoginPromise = null;
+    this.qrLoginStatus = {
+      phase: 'idle',
+      message: 'Chưa có yêu cầu đăng nhập QR nào',
+      updatedAt: Date.now(),
+    };
+
+    // 3. Xóa session file trên disk
+    try {
+      if (this.sessionFilePath && fs.existsSync(this.sessionFilePath)) {
+        fs.unlinkSync(this.sessionFilePath);
+        this.logger.log(`[ZCA] Đã xóa file phiên: ${this.sessionFilePath}`);
+      }
+      const legacyPath = path.resolve(process.cwd(), '.zca-session.json');
+      if (legacyPath !== this.sessionFilePath && fs.existsSync(legacyPath)) {
+        fs.unlinkSync(legacyPath);
+        this.logger.log(`[ZCA] Đã xóa file phiên cũ: ${legacyPath}`);
+      }
+    } catch (err) {
+      this.logger.warn(`[ZCA] Lỗi khi xóa file phiên ZCA: ${formatErrorMessage(err)}`);
+    }
+
+    // 4. Xóa session trong Redis
+    try {
+      if (this.redisService) {
+        await this.redisService.del('zca:session');
+        this.logger.log('[ZCA] Đã xóa phiên ZCA khỏi Redis (key: zca:session)');
+      }
+    } catch (err) {
+      this.logger.warn(`[ZCA] Lỗi khi xóa session khỏi Redis: ${formatErrorMessage(err)}`);
+    }
+
+    return {
+      success: true,
+      message: 'Đã đăng xuất tài khoản ZCA và xóa phiên làm việc thành công.',
+    };
+  }
+
+
+  /**
    * Helper to send a message via active API.
    */
   public async sendMessage(

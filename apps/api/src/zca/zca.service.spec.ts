@@ -306,3 +306,60 @@ void test('ZcaService falls back to Redis when session file is missing', async (
 
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
+
+void test('ZcaService logout stops listener, purges session files, deletes redis key, and resets state', async () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zca-test-logout-'));
+  const sessionFile = path.resolve(tmpDir, '.zca-session.json');
+  fs.writeFileSync(sessionFile, JSON.stringify({ imei: '123', cookie: {} }), 'utf-8');
+
+  let deletedRedisKey: string | null = null;
+  const mockRedisService = {
+    get: async () => null,
+    set: async () => {},
+    del: async (key: string) => {
+      deletedRedisKey = key;
+    },
+  } as unknown as RedisService;
+
+  const mockConfigService = {
+    get: () => undefined,
+  } as unknown as ConfigService;
+
+  const service = new ZcaService(
+    mockConfigService,
+    { dataDir: tmpDir },
+    undefined,
+    undefined,
+    undefined,
+    mockRedisService,
+  );
+
+  let listenerStopped = false;
+  // Attach fake api & listener
+  (service as unknown as { api: { listener: { stop: () => void } } }).api = {
+    listener: {
+      stop: () => {
+        listenerStopped = true;
+      },
+    },
+  };
+  (service as unknown as { isListening: boolean }).isListening = true;
+
+  assert.strictEqual(service.isLoggedIn(), true);
+  assert.strictEqual(fs.existsSync(sessionFile), true);
+
+  const result = await service.logout();
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(listenerStopped, true);
+  assert.strictEqual(service.isLoggedIn(), false);
+  assert.strictEqual(service.getApi(), null);
+  assert.strictEqual(fs.existsSync(sessionFile), false);
+  assert.strictEqual(deletedRedisKey, 'zca:session');
+
+  // Idempotence test: calling logout again when already logged out should not throw
+  const secondResult = await service.logout();
+  assert.strictEqual(secondResult.success, true);
+
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
