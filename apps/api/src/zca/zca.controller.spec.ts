@@ -8,8 +8,12 @@ void test('ZcaController.logout calls zcaService.logout and wraps in data envelo
   let logoutCalled = false;
   const mockZcaService = {
     logout: async () => {
+      await Promise.resolve();
       logoutCalled = true;
-      return { success: true, message: 'Đã đăng xuất tài khoản ZCA và xóa phiên làm việc thành công.' };
+      return {
+        success: true,
+        message: 'Đã đăng xuất tài khoản ZCA và xóa phiên làm việc thành công.',
+      };
     },
   } as unknown as ZcaService;
 

@@ -353,3 +353,59 @@ void test('GoogleResourcesController getDriveFolderLink returns channel folder l
   assert.equal(savedThreadId, 'g-team-channel');
   assert.ok(savedInfo);
 });
+
+void test('GoogleResourcesController getDriveFolderLink uses customFolder if configured in ThreadBotConfig', async () => {
+  const mockThreadConfigService = {
+    getConfigSync: (tId: string) => ({
+      threadId: tId,
+      mediaBackup: { customFolder: 'zalobot/CustomProject' },
+    }),
+    saveDriveFolderInfo: () => Promise.resolve(),
+  } as unknown as ThreadConfigService;
+
+  const mockDrive = {
+    getFolderWebLink: (folder: string) => Promise.resolve(`https://drive.mock/${folder}`),
+  } as unknown as GoogleDriveService;
+
+  const controller = new GoogleResourcesController(
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as GoogleTasksService,
+    {} as unknown as ReportsTokenService,
+    {} as unknown as GoogleAuthService,
+    mockDrive,
+    undefined,
+    mockThreadConfigService,
+  );
+
+  const res = await controller.getDriveFolderLink('g-custom-channel');
+  assert.deepEqual(res, {
+    data: {
+      folderPath: 'zalobot/CustomProject',
+      webViewLink: 'https://drive.mock/zalobot/CustomProject',
+    },
+  });
+});
+
+void test('GoogleResourcesController openDriveFolder redirects to channel folder link', async () => {
+  const mockDrive = {
+    getFolderWebLink: (folder: string) => Promise.resolve(`https://drive.mock/${folder}`),
+  } as unknown as GoogleDriveService;
+
+  const controller = new GoogleResourcesController(
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as GoogleTasksService,
+    {} as unknown as ReportsTokenService,
+    {} as unknown as GoogleAuthService,
+    mockDrive,
+  );
+
+  let redirectedUrl = '';
+  const mockRes = {
+    redirect: (url: string) => {
+      redirectedUrl = url;
+    },
+  } as unknown as import('express').Response;
+
+  await controller.openDriveFolder(mockRes, 'g-redirect-channel');
+  assert.equal(redirectedUrl, 'https://drive.mock/zalobot/g-redirect-channel');
+});

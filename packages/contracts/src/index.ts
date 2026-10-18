@@ -16,6 +16,7 @@ export const API_ROUTES = {
   financeAnalytics: '/api/finance/analytics',
   reminders: '/api/reminders',
   users: '/api/users',
+  usersSyncZca: '/api/users/sync-zca',
   usersGrantAccess: (id: string) => `/api/users/${id}/grant-access`,
   calendarEvents: '/api/calendar/events',
   tasks: '/api/tasks',
@@ -119,7 +120,8 @@ const messages = {
     'nav.users': 'Người dùng',
     'nav.zca': 'Tài khoản ZCA',
     'zca.logout': 'Đăng xuất ZCA',
-    'zca.logoutConfirm': 'Bạn có chắc chắn muốn ngắt kết nối và đăng xuất tài khoản Zalo cá nhân (ZCA) này không?',
+    'zca.logoutConfirm':
+      'Bạn có chắc chắn muốn ngắt kết nối và đăng xuất tài khoản Zalo cá nhân (ZCA) này không?',
     'zca.logoutSuccess': 'Đã đăng xuất tài khoản ZCA thành công.',
     'nav.personalSpace': 'Cá nhân',
     'nav.section.overview': 'TỔNG QUAN',
@@ -748,7 +750,8 @@ const messages = {
     'nav.users': 'Users',
     'nav.zca': 'ZCA Account',
     'zca.logout': 'Logout ZCA',
-    'zca.logoutConfirm': 'Are you sure you want to disconnect and logout this ZCA personal account?',
+    'zca.logoutConfirm':
+      'Are you sure you want to disconnect and logout this ZCA personal account?',
     'zca.logoutSuccess': 'ZCA account logged out successfully.',
     'nav.personalSpace': 'Personal',
     'nav.section.overview': 'OVERVIEW',
@@ -1518,6 +1521,10 @@ export interface IUserListItem {
   role: UserRole;
   grantAccess: GrantAccessStatus;
   status: 'active' | 'suspended';
+  avatarUrl?: string;
+  phoneNumber?: string;
+  alias?: string;
+  zaloName?: string;
   createdAt: string;
   updatedAt: string;
 }

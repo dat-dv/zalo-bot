@@ -1459,7 +1459,6 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     };
   }
 
-
   /**
    * Helper to send a message via active API.
    */

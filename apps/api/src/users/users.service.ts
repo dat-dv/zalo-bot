@@ -435,7 +435,9 @@ export class UsersService implements OnModuleInit {
     }
 
     try {
-      const threads = await this.zcaService.getAvailableThreads(false).catch((): AvailableThread[] => []);
+      const threads = await this.zcaService
+        .getAvailableThreads(false)
+        .catch((): AvailableThread[] => []);
       if (!threads || threads.length === 0) return users;
 
       const threadMap = new Map<string, AvailableThread>();
@@ -464,7 +466,9 @@ export class UsersService implements OnModuleInit {
     if (!this.zcaService) {
       return { syncedCount: 0, totalUsers: 0 };
     }
-    const threads = await this.zcaService.getAvailableThreads(true).catch((): AvailableThread[] => []);
+    const threads = await this.zcaService
+      .getAvailableThreads(true)
+      .catch((): AvailableThread[] => []);
     if (!threads || threads.length === 0) {
       return { syncedCount: 0, totalUsers: 0 };
     }

@@ -13,10 +13,15 @@ import {
   Post,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Request } from 'express';
-import { type ICalendarEventItem, type ITaskListItem } from '@zalobot/contracts';
+import { Request, Response } from 'express';
+import {
+  type ICalendarEventItem,
+  type ITaskListItem,
+  type ThreadBotConfig,
+} from '@zalobot/contracts';
 import { type calendar_v3, type tasks_v1 } from 'googleapis';
 import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
@@ -25,7 +30,7 @@ import { GoogleTasksService } from './google-tasks.service';
 import { GoogleAuthService } from './google-auth.service';
 import { GoogleDriveService, GG_DRIVE_ROOT_FOLDER } from './google-drive.service';
 import { UsersService } from '../users/users.service';
-import { ThreadConfigService } from '../zca/thread-config.service';
+import { ThreadConfigService, sanitizePathSegment } from '../zca/thread-config.service';
 import { ShareDriveDto } from './dto/share-drive.dto';
 import { getChannelDriveFolderPath, isValidEmail } from './channel-storage.util';
 
@@ -102,7 +107,10 @@ export class GoogleResourcesController {
 
   @Get('drive/folder-link')
   @ApiOperation({ summary: 'Lấy đường link xem thư mục Google Drive (root hoặc channel)' })
-  async getDriveFolderLink(@Query('channelId') channelId?: string) {
+  async getDriveFolderLink(
+    @Query('channelId') channelId?: string,
+    @Query('threadName') threadName?: string,
+  ) {
     if (!this.driveService) {
       return {
         data: {
@@ -111,19 +119,51 @@ export class GoogleResourcesController {
         },
       };
     }
-    const folderPath = channelId ? getChannelDriveFolderPath(channelId) : GG_DRIVE_ROOT_FOLDER;
+
+    let folderPath = GG_DRIVE_ROOT_FOLDER;
+    let cachedUrl: string | undefined;
+
+    if (channelId) {
+      let config: ThreadBotConfig | undefined;
+      if (this.threadConfigService) {
+        config = this.threadConfigService.getConfigSync?.(channelId);
+        if (!config && threadName && typeof this.threadConfigService.getConfig === 'function') {
+          try {
+            config = await this.threadConfigService.getConfig(channelId, { threadName });
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      cachedUrl = config?.driveFolderUrl;
+      folderPath =
+        config?.driveFolderPath ||
+        config?.mediaBackup?.customFolder ||
+        (threadName
+          ? `${GG_DRIVE_ROOT_FOLDER}/${sanitizePathSegment(threadName)}`
+          : getChannelDriveFolderPath(channelId));
+    }
+
+    if (cachedUrl) {
+      return {
+        data: {
+          folderPath,
+          webViewLink: cachedUrl,
+        },
+      };
+    }
+
     try {
       const webViewLink = await this.driveService.getFolderWebLink(folderPath);
       if (channelId && webViewLink) {
-        if (channelId.startsWith('g-') || channelId.length > 10) {
-          if (this.threadConfigService) {
-            void this.threadConfigService.saveDriveFolderInfo(channelId, {
-              folderUrl: webViewLink,
-              folderPath,
-            });
-          }
+        if (this.threadConfigService?.saveDriveFolderInfo) {
+          void this.threadConfigService.saveDriveFolderInfo(channelId, {
+            folderUrl: webViewLink,
+            folderPath,
+          });
         }
-        if (this.usersService) {
+        if (this.usersService?.saveDriveFolderInfo) {
           void this.usersService.saveDriveFolderInfo(channelId, {
             folderUrl: webViewLink,
             folderPath,
@@ -144,6 +184,18 @@ export class GoogleResourcesController {
         },
       };
     }
+  }
+
+  @Get('drive/open')
+  @ApiOperation({ summary: 'Mở trực tiếp thư mục Google Drive của một channel hoặc root' })
+  async openDriveFolder(
+    @Res() res: Response,
+    @Query('channelId') channelId?: string,
+    @Query('threadName') threadName?: string,
+  ): Promise<void> {
+    const result = await this.getDriveFolderLink(channelId, threadName);
+    const targetUrl = result.data.webViewLink || 'https://drive.google.com';
+    res.redirect(targetUrl);
   }
 
   @Get('calendar/events')

@@ -280,6 +280,19 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
             dualResult = await this.mediaStorageService.uploadFile(senderId, buffer, uploadOptions);
           }
 
+          if (dualResult.drive?.folderId || dualResult.drive?.folderPath) {
+            const folderUrl = dualResult.drive.folderId
+              ? `https://drive.google.com/drive/folders/${dualResult.drive.folderId}`
+              : dualResult.drive.webViewLink;
+            if (folderUrl) {
+              void this.threadConfigService.saveDriveFolderInfo(threadId, {
+                folderId: dualResult.drive.folderId,
+                folderUrl,
+                folderPath: dualResult.drive.folderPath || config.mediaBackup.customFolder,
+              });
+            }
+          }
+
           // Chỉ gửi thông báo vào nhóm nếu notifyInThread được bật (mặc định tắt)
           if (config.mediaBackup.notifyInThread && dualResult.drive?.webViewLink) {
             const summary = `📁 Đã tự động lưu trữ ${mediaLabel} lên Google Drive!\n👉 Xem tại: ${dualResult.drive.webViewLink}`;

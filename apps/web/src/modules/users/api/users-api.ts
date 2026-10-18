@@ -18,6 +18,8 @@ export async function createUser(
   data: {
     id: string;
     firstName?: string;
+    phoneNumber?: string;
+    avatarUrl?: string;
     role?: UserRole;
     grantAccess?: GrantAccessStatus;
   },
@@ -42,14 +44,39 @@ export async function setGrantAccess(
   return response.data.data;
 }
 
+export async function updateUser(
+  id: string,
+  data: {
+    firstName?: string;
+    phoneNumber?: string;
+    avatarUrl?: string;
+    role?: UserRole;
+    grantAccess?: GrantAccessStatus;
+  },
+  signal?: AbortSignal,
+): Promise<IUserListItem> {
+  const response = await httpClient.patch<IApiResponse<IUserListItem>>(
+    `${API_ROUTES.users}/${id}`,
+    data,
+    { signal },
+  );
+  return response.data.data;
+}
+
 export async function updateUserRole(
   id: string,
   role: UserRole,
   signal?: AbortSignal,
 ): Promise<IUserListItem> {
-  const response = await httpClient.patch<IApiResponse<IUserListItem>>(
-    `${API_ROUTES.users}/${id}`,
-    { role },
+  return updateUser(id, { role }, signal);
+}
+
+export async function syncUsersWithZca(
+  signal?: AbortSignal,
+): Promise<{ syncedCount: number; totalUsers: number }> {
+  const response = await httpClient.post<IApiResponse<{ syncedCount: number; totalUsers: number }>>(
+    API_ROUTES.usersSyncZca,
+    {},
     { signal },
   );
   return response.data.data;

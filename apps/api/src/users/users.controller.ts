@@ -42,6 +42,16 @@ export class UsersController {
     return { data: user };
   }
 
+  @Post('users/sync-zca')
+  @ApiOperation({
+    summary: 'Đồng bộ tên, avatar và SĐT từ danh bạ ZCA sang danh sách Users (Admin Only)',
+  })
+  async syncUsersWithZca(@Req() req: Request) {
+    this.admin(req);
+    const result = await this.users.syncUsersWithZca();
+    return { data: result };
+  }
+
   @Post('users')
   @ApiOperation({ summary: 'Thêm hoặc cập nhật người dùng thủ công' })
   async createUser(@Req() req: Request, @Body() body: Record<string, unknown>) {
@@ -50,9 +60,13 @@ export class UsersController {
     const role = body.role ? this.role(body.role) : UserRole.USER;
     const grantAccess = this.parseGrantAccess(body.grantAccess, GrantAccessStatus.GRANTED);
     const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : undefined;
+    const phoneNumber = typeof body.phoneNumber === 'string' ? body.phoneNumber.trim() : undefined;
+    const avatarUrl = typeof body.avatarUrl === 'string' ? body.avatarUrl.trim() : undefined;
     return {
       data: await this.users.upsertUser(id, role, {
         firstName,
+        phoneNumber,
+        avatarUrl,
         grantAccess,
       }),
     };
@@ -88,6 +102,17 @@ export class UsersController {
     }
     if (body.grantAccess !== undefined) {
       user = await this.users.setGrantAccess(id, this.parseGrantAccess(body.grantAccess));
+    }
+    if (
+      body.firstName !== undefined ||
+      body.phoneNumber !== undefined ||
+      body.avatarUrl !== undefined
+    ) {
+      user = await this.users.updateUserProfile(id, {
+        firstName: typeof body.firstName === 'string' ? body.firstName.trim() : undefined,
+        phoneNumber: typeof body.phoneNumber === 'string' ? body.phoneNumber.trim() : undefined,
+        avatarUrl: typeof body.avatarUrl === 'string' ? body.avatarUrl.trim() : undefined,
+      });
     }
     return { data: user };
   }

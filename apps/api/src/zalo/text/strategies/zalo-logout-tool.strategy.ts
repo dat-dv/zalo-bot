@@ -49,10 +49,7 @@ export class ZaloLogoutToolStrategy implements TextToolStrategy {
       const errMsg =
         err instanceof Error ? err.message : typeof err === 'string' ? err : JSON.stringify(err);
       this.logger.error(`Failed to logout ZCA: ${errMsg}`);
-      await this.zaloService.sendMessage(
-        context.chatId,
-        `⚠️ Không thể đăng xuất ZCA: ${errMsg}`,
-      );
+      await this.zaloService.sendMessage(context.chatId, `⚠️ Không thể đăng xuất ZCA: ${errMsg}`);
     }
   }
 }

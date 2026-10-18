@@ -1,31 +1,70 @@
 'use client';
 
 import { useState } from 'react';
-import { UserRole, GrantAccessStatus } from '@zalobot/contracts';
+import { UserRole, GrantAccessStatus, type IUserListItem } from '@zalobot/contracts';
 import {
   useUsersQuery,
   useCreateUserMutation,
   useSetGrantAccessMutation,
+  useUpdateUserMutation,
+  useSyncUsersWithZcaMutation,
   useDeleteUserMutation,
 } from '../api/users-query';
+
+function UserAvatar({ user }: { user: IUserListItem }) {
+  const [imgError, setImgError] = useState(false);
+
+  if (user.avatarUrl && !imgError) {
+    return (
+      <img
+        alt={user.firstName || user.id}
+        className="size-9 shrink-0 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700"
+        onError={() => setImgError(true)}
+        referrerPolicy="no-referrer"
+        src={user.avatarUrl}
+      />
+    );
+  }
+
+  const initial = (user.firstName || user.id || 'U').charAt(0).toUpperCase();
+  return (
+    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+      {initial}
+    </div>
+  );
+}
 
 export function UsersScreen() {
   const { data: users = [], isLoading, error } = useUsersQuery();
   const createMutation = useCreateUserMutation();
   const setGrantAccessMutation = useSetGrantAccessMutation();
+  const updateMutation = useUpdateUserMutation();
+  const syncZcaMutation = useSyncUsersWithZcaMutation();
   const deleteMutation = useDeleteUserMutation();
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'granted' | 'pending' | 'admin'>('all');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Modal State
+  // Sync notification
+  const [syncMessage, setSyncMessage] = useState('');
+  const [syncMessageType, setSyncMessageType] = useState<'success' | 'error'>('success');
+
+  // Create Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newUserId, setNewUserId] = useState('');
   const [newUserName, setNewUserName] = useState('');
+  const [newUserPhone, setNewUserPhone] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserRole>(UserRole.USER);
   const [newUserGrantAccess, setNewUserGrantAccess] = useState(true);
   const [formError, setFormError] = useState('');
+
+  // Edit Modal State
+  const [editingUser, setEditingUser] = useState<IUserListItem | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editRole, setEditRole] = useState<UserRole>(UserRole.USER);
+  const [editError, setEditError] = useState('');
 
   const copyToClipboard = (id: string) => {
     void navigator.clipboard.writeText(id);
@@ -36,10 +75,19 @@ export function UsersScreen() {
   const handleOpenModal = () => {
     setNewUserId('');
     setNewUserName('');
+    setNewUserPhone('');
     setNewUserRole(UserRole.USER);
     setNewUserGrantAccess(true);
     setFormError('');
     setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (u: IUserListItem) => {
+    setEditingUser(u);
+    setEditName(u.firstName || '');
+    setEditPhone(u.phoneNumber || '');
+    setEditRole(u.role);
+    setEditError('');
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -53,6 +101,7 @@ export function UsersScreen() {
       await createMutation.mutateAsync({
         id,
         firstName: newUserName.trim() || undefined,
+        phoneNumber: newUserPhone.trim() || undefined,
         role: newUserRole,
         grantAccess: newUserGrantAccess ? GrantAccessStatus.GRANTED : GrantAccessStatus.DENIED,
       });
@@ -62,6 +111,40 @@ export function UsersScreen() {
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
           'Không thể thêm người dùng. Vui lòng thử lại.',
       );
+    }
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    try {
+      await updateMutation.mutateAsync({
+        id: editingUser.id,
+        firstName: editName.trim() || undefined,
+        phoneNumber: editPhone.trim() || undefined,
+        role: editRole,
+      });
+      setEditingUser(null);
+    } catch (err: unknown) {
+      setEditError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+          'Không thể cập nhật người dùng. Vui lòng thử lại.',
+      );
+    }
+  };
+
+  const handleSyncZca = async () => {
+    try {
+      const res = await syncZcaMutation.mutateAsync();
+      setSyncMessage(
+        `Đồng bộ ZCA thành công! Đã cập nhật ${res.syncedCount} / ${res.totalUsers} người dùng từ danh bạ Zalo.`,
+      );
+      setSyncMessageType('success');
+      setTimeout(() => setSyncMessage(''), 5000);
+    } catch {
+      setSyncMessage('Không thể đồng bộ từ ZCA. Hãy đảm bảo bạn đã đăng nhập ZCA ở trang ZCA.');
+      setSyncMessageType('error');
+      setTimeout(() => setSyncMessage(''), 5000);
     }
   };
 
@@ -94,10 +177,14 @@ export function UsersScreen() {
 
   // Filter & Search
   const filteredUsers = users.filter((u) => {
+    const q = search.toLowerCase();
     const matchesSearch =
-      u.id.toLowerCase().includes(search.toLowerCase()) ||
-      (u.firstName || '').toLowerCase().includes(search.toLowerCase()) ||
-      (u.username || '').toLowerCase().includes(search.toLowerCase());
+      u.id.toLowerCase().includes(q) ||
+      (u.firstName || '').toLowerCase().includes(q) ||
+      (u.alias || '').toLowerCase().includes(q) ||
+      (u.phoneNumber || '').toLowerCase().includes(q) ||
+      (u.zaloName || '').toLowerCase().includes(q) ||
+      (u.username || '').toLowerCase().includes(q);
 
     if (!matchesSearch) return false;
 
@@ -131,19 +218,64 @@ export function UsersScreen() {
             Quản lý người dùng
           </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Duyệt quyền truy cập (Whitelist) và quản lý thành viên tương tác với Zalo Bot.
+            Duyệt quyền truy cập (Whitelist), quản lý thông tin thành viên và đồng bộ danh bạ từ Zalo.
           </p>
         </div>
-        <button
-          onClick={handleOpenModal}
-          className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95 dark:bg-indigo-500 dark:hover:bg-indigo-600"
-        >
-          <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Thêm người dùng
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => void handleSyncZca()}
+            disabled={syncZcaMutation.isPending}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-95 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            title="Đồng bộ tên, avatar và SĐT từ danh bạ Zalo cá nhân (ZCA)"
+          >
+            <svg
+              className={`size-4 ${syncZcaMutation.isPending ? 'animate-spin' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            <span>{syncZcaMutation.isPending ? 'Đang đồng bộ...' : 'Đồng bộ ZCA'}</span>
+          </button>
+          <button
+            onClick={handleOpenModal}
+            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+          >
+            <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Thêm người dùng</span>
+          </button>
+        </div>
       </div>
+
+      {/* Sync Status Banner */}
+      {syncMessage && (
+        <div
+          className={`flex items-center justify-between rounded-xl p-3.5 text-sm font-medium transition ${
+            syncMessageType === 'success'
+              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50'
+              : 'bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900/50'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span>{syncMessageType === 'success' ? '✅' : '⚠️'}</span>
+            <span>{syncMessage}</span>
+          </div>
+          <button
+            onClick={() => setSyncMessage('')}
+            className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Metric Cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
@@ -191,12 +323,12 @@ export function UsersScreen() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Tìm theo ID hoặc tên..."
+            placeholder="Tìm theo ID, tên, SĐT, gợi nhớ..."
             className="w-full rounded-lg border border-slate-300 bg-slate-50 py-1.5 pl-9 pr-3 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={() => setFilter('all')}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
@@ -286,16 +418,29 @@ export function UsersScreen() {
                     >
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-                            {(u.firstName || u.id).charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-medium text-slate-900 dark:text-slate-100">
-                              {u.firstName || 'Người dùng Zalo'}
+                          <UserAvatar user={u} />
+                          <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-medium text-slate-900 dark:text-slate-100 truncate max-w-[240px]">
+                                {u.firstName || 'Người dùng Zalo'}
+                              </span>
+                              {u.alias && (
+                                <span className="inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
+                                  🏷️ {u.alias}
+                                </span>
+                              )}
                             </div>
-                            {u.username && (
-                              <div className="text-xs text-slate-400">@{u.username}</div>
-                            )}
+                            <div className="flex items-center gap-2 text-xs text-slate-400 flex-wrap mt-0.5">
+                              {u.phoneNumber && (
+                                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-medium">
+                                  📞 {u.phoneNumber}
+                                </span>
+                              )}
+                              {u.zaloName && u.zaloName !== u.firstName && (
+                                <span>Zalo: {u.zaloName}</span>
+                              )}
+                              {u.username && <span>@{u.username}</span>}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -363,7 +508,30 @@ export function UsersScreen() {
                       </td>
 
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Sửa thông tin */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(u)}
+                            title="Sửa tên hiển thị và số điện thoại"
+                            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-indigo-400 transition"
+                          >
+                            <svg
+                              className="size-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                              />
+                            </svg>
+                          </button>
+
+                          {/* Cấp quyền / Thu hồi */}
                           <button
                             type="button"
                             onClick={() => handleToggleGrantAccess(u.id, u.grantAccess, isAdmin)}
@@ -381,7 +549,7 @@ export function UsersScreen() {
                               type="button"
                               onClick={() => handleDeleteUser(u.id, u.firstName)}
                               title="Xóa người dùng"
-                              className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30"
+                              className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 transition"
                             >
                               <svg
                                 className="size-4"
@@ -408,6 +576,102 @@ export function UsersScreen() {
           </div>
         )}
       </div>
+
+      {/* Edit User Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between pb-3">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                Sửa thông tin người dùng
+              </h3>
+              <button
+                onClick={() => setEditingUser(null)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateUser} className="mt-4 flex flex-col gap-4">
+              {editError && (
+                <div className="rounded-lg bg-red-50 p-3 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400">
+                  {editError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Zalo User ID
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={editingUser.id}
+                  className="mt-1.5 w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 font-mono text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Tên hiển thị / Ghi chú
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="Ví dụ: Anh Nam (Kế toán), Chị Linh..."
+                  className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Số điện thoại
+                </label>
+                <input
+                  type="text"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="Ví dụ: 0901234567..."
+                  className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Vai trò
+                </label>
+                <select
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value as UserRole)}
+                  className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                >
+                  <option value={UserRole.USER}>👤 Thành viên (Member)</option>
+                  <option value={UserRole.ADMIN}>👑 Quản trị viên (Admin)</option>
+                </select>
+              </div>
+
+              <div className="mt-2 flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateMutation.isPending}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 active:scale-95 disabled:opacity-50"
+                >
+                  {updateMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Add User Modal */}
       {isModalOpen && (
@@ -458,6 +722,19 @@ export function UsersScreen() {
                   value={newUserName}
                   onChange={(e) => setNewUserName(e.target.value)}
                   placeholder="Ví dụ: Anh Nam, Chị Linh..."
+                  className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Số điện thoại (Tùy chọn)
+                </label>
+                <input
+                  type="text"
+                  value={newUserPhone}
+                  onChange={(e) => setNewUserPhone(e.target.value)}
+                  placeholder="Ví dụ: 0901234567..."
                   className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                 />
               </div>

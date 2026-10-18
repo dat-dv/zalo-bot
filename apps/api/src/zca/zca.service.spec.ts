@@ -314,15 +314,19 @@ void test('ZcaService logout stops listener, purges session files, deletes redis
 
   let deletedRedisKey: string | null = null;
   const mockRedisService = {
-    get: async () => null,
+    get: async (): Promise<null> => {
+      await Promise.resolve();
+      return null;
+    },
     set: async () => {},
     del: async (key: string) => {
+      await Promise.resolve();
       deletedRedisKey = key;
     },
   } as unknown as RedisService;
 
   const mockConfigService = {
-    get: () => undefined,
+    get: (): undefined => undefined,
   } as unknown as ConfigService;
 
   const service = new ZcaService(
@@ -362,4 +366,3 @@ void test('ZcaService logout stops listener, purges session files, deletes redis
 
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
-
