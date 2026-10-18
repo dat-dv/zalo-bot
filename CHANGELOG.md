@@ -1,5 +1,9 @@
 # Changelog
 
+## [v1.0.53] - 2026-10-18
+
+- Cập nhật hệ thống.
+
 ## [v1.0.52] - 2026-10-15
 
 - Cập nhật hệ thống.
