@@ -1,17 +1,24 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   useZcaStatusQuery,
   useZcaThreadsQuery,
   useRefreshZcaThreadsMutation,
   useLoginZcaQrMutation,
+  useLogoutZcaMutation,
   useSetZcaListenedThreadsMutation,
   useToggleZcaListenedThreadMutation,
   useZcaThreadConfigsQuery,
   useGoogleDriveFolderLinkQuery,
+  zcaQueryKeys,
 } from '../api/zca-query';
-import type { ZcaThread } from '../api/zca-api';
+import {
+  getThreadDriveLink,
+  getThreadDriveOpenUrl,
+  type ZcaThread,
+} from '../api/zca-api';
 import { ThreadConfigModal } from './thread-config-modal';
 
 function normalizeVietnamese(str: string): string {
@@ -64,11 +71,15 @@ export function ZcaScreen() {
   } = useZcaThreadsQuery();
   const { data: threadConfigs = [] } = useZcaThreadConfigsQuery();
   const { data: driveRootData } = useGoogleDriveFolderLinkQuery();
+  const queryClient = useQueryClient();
 
   const refreshThreadsMutation = useRefreshZcaThreadsMutation();
   const loginQrMutation = useLoginZcaQrMutation();
+  const logoutMutation = useLogoutZcaMutation();
   const setListenedMutation = useSetZcaListenedThreadsMutation();
   const toggleListenedMutation = useToggleZcaListenedThreadMutation();
+
+  const isLoggingOut = logoutMutation.isPending;
 
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'listened' | 'group' | 'user'>('all');
@@ -138,6 +149,19 @@ export function ZcaScreen() {
     } catch {
       // If endpoint already generated QR
       setQrTimestamp(Date.now());
+    }
+  };
+
+  const handleLogout = async () => {
+    const confirmed = window.confirm(
+      'Bạn có chắc chắn muốn ngắt kết nối và đăng xuất tài khoản Zalo cá nhân (ZCA) này không?',
+    );
+    if (!confirmed) return;
+    try {
+      await logoutMutation.mutateAsync();
+      await refetchStatus();
+    } catch {
+      alert('Đăng xuất thất bại. Vui lòng thử lại.');
     }
   };
 
@@ -267,14 +291,26 @@ export function ZcaScreen() {
             <RefreshIcon className={isRefreshing ? 'animate-spin' : ''} />
             {isRefreshing ? 'Đang tải lại...' : 'Làm mới'}
           </button>
-          <button
-            className="inline-flex items-center gap-1.5 rounded-[4px] bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none"
-            onClick={() => void handleOpenQrLogin(false)}
-            type="button"
-          >
-            <QrIcon />
-            Quét mã QR đăng nhập
-          </button>
+          {status?.loggedIn ? (
+            <button
+              className="inline-flex items-center gap-1.5 rounded-[4px] border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-semibold text-rose-700 shadow-sm hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900"
+              disabled={isLoggingOut}
+              onClick={() => void handleLogout()}
+              type="button"
+            >
+              <LogoutIcon />
+              {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất ZCA'}
+            </button>
+          ) : (
+            <button
+              className="inline-flex items-center gap-1.5 rounded-[4px] bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none"
+              onClick={() => void handleOpenQrLogin(false)}
+              type="button"
+            >
+              <QrIcon />
+              Quét mã QR đăng nhập
+            </button>
+          )}
         </div>
       </div>
 
@@ -282,9 +318,21 @@ export function ZcaScreen() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* Card 1: Trạng thái kết nối */}
         <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Trạng thái kết nối
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Trạng thái kết nối
+            </p>
+            {status?.loggedIn && (
+              <button
+                className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 disabled:opacity-50"
+                disabled={isLoggingOut}
+                onClick={() => void handleLogout()}
+                type="button"
+              >
+                {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
+              </button>
+            )}
+          </div>
           <div className="mt-2 flex items-center gap-2">
             <span
               className={`inline-flex size-2.5 rounded-full ${
@@ -380,7 +428,7 @@ export function ZcaScreen() {
             <div className="flex items-center gap-2">
               <a
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400"
-                href={driveRootData?.webViewLink || 'https://drive.google.com'}
+                href={driveRootData?.webViewLink || getThreadDriveOpenUrl()}
                 rel="noopener noreferrer"
                 target="_blank"
                 title="Mở thư mục kho lưu trữ zalobot trên Google Drive"
@@ -691,11 +739,17 @@ export function ZcaScreen() {
                             {configMap.get(thread.id)?.mediaBackup.enabled && (
                               <a
                                 className="inline-flex items-center gap-0.5 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900 transition-colors"
-                                href={
-                                  configMap.get(thread.id)?.driveFolderUrl ||
-                                  driveRootData?.webViewLink ||
-                                  'https://drive.google.com'
-                                }
+                                href={getThreadDriveLink(
+                                  thread,
+                                  configMap.get(thread.id),
+                                )}
+                                onClick={() => {
+                                  setTimeout(() => {
+                                    void queryClient.invalidateQueries({
+                                      queryKey: zcaQueryKeys.configs(),
+                                    });
+                                  }, 2000);
+                                }}
                                 rel="noopener noreferrer"
                                 target="_blank"
                                 title={`Mở thư mục Google Drive: ${configMap.get(thread.id)?.driveFolderPath || configMap.get(thread.id)?.mediaBackup.customFolder || `zalobot/${thread.id}`}`}
@@ -722,14 +776,20 @@ export function ZcaScreen() {
                         <div className="flex items-center justify-end gap-1.5">
                           <a
                             className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400 transition-colors"
-                            href={
-                              configMap.get(thread.id)?.driveFolderUrl ||
-                              driveRootData?.webViewLink ||
-                              'https://drive.google.com'
-                            }
+                            href={getThreadDriveLink(
+                              thread,
+                              configMap.get(thread.id),
+                            )}
+                            onClick={() => {
+                              setTimeout(() => {
+                                void queryClient.invalidateQueries({
+                                  queryKey: zcaQueryKeys.configs(),
+                                });
+                              }, 2000);
+                            }}
                             rel="noopener noreferrer"
                             target="_blank"
-                            title={`Mở thư mục Google Drive (${configMap.get(thread.id)?.driveFolderPath || `zalobot/${thread.id}`})`}
+                            title={`Mở thư mục Google Drive (${configMap.get(thread.id)?.driveFolderPath || configMap.get(thread.id)?.mediaBackup.customFolder || `zalobot/${thread.id}`})`}
                           >
                             <GoogleDriveIcon className="size-3.5 shrink-0" />
                             <span>Drive</span>
@@ -1058,6 +1118,24 @@ function ExternalLinkIcon({ className = 'size-3' }: { className?: string }) {
       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
       <polyline points="15 3 21 3 21 9" />
       <line x1="10" x2="21" y1="14" y2="3" />
+    </svg>
+  );
+}
+
+function LogoutIcon({ className = 'size-3.5' }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" x2="9" y1="12" y2="12" />
     </svg>
   );
 }

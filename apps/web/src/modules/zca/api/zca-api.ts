@@ -4,7 +4,7 @@ import {
   type ThreadBotConfig,
   type UpdateThreadBotConfigDto,
 } from '@zalobot/contracts';
-import { httpClient } from '@/shared/api/http-client';
+import { httpClient, resolveApiBaseUrl } from '@/shared/api/http-client';
 
 export interface ZcaQrStatus {
   phase:
@@ -68,6 +68,17 @@ export async function loginZcaQr(
   const response = await httpClient.post<IApiResponse<ZcaLoginQrResult>>(
     API_ROUTES.zcaLoginQr,
     options,
+    { signal },
+  );
+  return response.data.data;
+}
+
+export async function logoutZca(
+  signal?: AbortSignal,
+): Promise<{ success: boolean; message: string }> {
+  const response = await httpClient.post<IApiResponse<{ success: boolean; message: string }>>(
+    API_ROUTES.zcaLogout,
+    {},
     { signal },
   );
   return response.data.data;
@@ -152,15 +163,38 @@ export interface DriveFolderLinkResult {
   webViewLink: string;
 }
 
+export function getThreadDriveOpenUrl(threadId?: string, threadName?: string): string {
+  const base = resolveApiBaseUrl();
+  if (!threadId) {
+    return `${base}${API_ROUTES.driveOpen}`;
+  }
+  const params = new URLSearchParams({ channelId: threadId });
+  if (threadName) {
+    params.set('threadName', threadName);
+  }
+  return `${base}${API_ROUTES.driveOpen}?${params.toString()}`;
+}
+
+export function getThreadDriveLink(
+  thread: { id: string; name?: string },
+  config?: ThreadBotConfig | null,
+): string {
+  if (config?.driveFolderUrl) {
+    return config.driveFolderUrl;
+  }
+  return getThreadDriveOpenUrl(thread.id, thread.name);
+}
+
 export async function getGoogleDriveFolderLink(
   channelId?: string,
+  threadName?: string,
   signal?: AbortSignal,
 ): Promise<DriveFolderLinkResult> {
   try {
     const response = await httpClient.get<IApiResponse<DriveFolderLinkResult>>(
       API_ROUTES.driveFolderLink,
       {
-        params: channelId ? { channelId } : undefined,
+        params: channelId ? { channelId, threadName } : undefined,
         signal,
       },
     );

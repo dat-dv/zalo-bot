@@ -7,6 +7,7 @@ import {
   useZcaThreadConfigQuery,
   useGoogleDriveFolderLinkQuery,
 } from '../api/zca-query';
+import { getThreadDriveLink } from '../api/zca-api';
 
 interface ThreadConfigModalProps {
   threadId: string;
@@ -24,7 +25,10 @@ export function ThreadConfigModal({
   onClose,
 }: ThreadConfigModalProps) {
   const { data: config, isLoading } = useZcaThreadConfigQuery(isOpen ? threadId : null);
-  const { data: driveLinkData } = useGoogleDriveFolderLinkQuery(isOpen ? threadId : undefined);
+  const { data: driveLinkData } = useGoogleDriveFolderLinkQuery(
+    isOpen ? threadId : undefined,
+    isOpen ? threadName : undefined,
+  );
   const updateMutation = useUpdateZcaThreadConfigMutation();
 
   const [form, setForm] = useState<ThreadBotConfig | null>(null);
@@ -385,6 +389,7 @@ export function ThreadConfigModal({
                           </span>
                           <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] font-medium text-blue-700 border border-blue-200 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300">
                             {form.driveFolderPath ||
+                              driveLinkData?.folderPath ||
                               form.mediaBackup.customFolder ||
                               `zalobot/${threadId}`}
                           </code>
@@ -399,7 +404,7 @@ export function ThreadConfigModal({
                       href={
                         form.driveFolderUrl ||
                         driveLinkData?.webViewLink ||
-                        'https://drive.google.com'
+                        getThreadDriveLink({ id: threadId, name: threadName }, form)
                       }
                       rel="noopener noreferrer"
                       target="_blank"

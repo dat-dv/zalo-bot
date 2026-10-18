@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   getZcaStatus,
   loginZcaQr,
+  logoutZca,
   getZcaThreads,
   getZcaListenedThreads,
   setZcaListenedThreads,
@@ -25,7 +26,8 @@ export const zcaQueryKeys = {
   listened: () => ['zca', 'listened'] as const,
   configs: () => ['zca', 'configs'] as const,
   config: (threadId: string) => ['zca', 'config', threadId] as const,
-  driveLink: (channelId?: string) => ['zca', 'drive-link', channelId || 'root'] as const,
+  driveLink: (channelId?: string, threadName?: string) =>
+    ['zca', 'drive-link', channelId || 'root', threadName || ''] as const,
 };
 
 export function useZcaStatusQuery(options?: { refetchInterval?: number | false }) {
@@ -67,6 +69,17 @@ export function useLoginZcaQrMutation() {
     mutationFn: (variables?: { forceNew?: boolean }) => loginZcaQr(variables),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.status() });
+    },
+  });
+}
+
+export function useLogoutZcaMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => logoutZca(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.all() });
+      queryClient.setQueryData(zcaQueryKeys.threads(), []);
     },
   });
 }
@@ -121,10 +134,10 @@ export function useUpdateZcaThreadConfigMutation() {
   });
 }
 
-export function useGoogleDriveFolderLinkQuery(channelId?: string) {
+export function useGoogleDriveFolderLinkQuery(channelId?: string, threadName?: string) {
   return useQuery<DriveFolderLinkResult>({
-    queryKey: zcaQueryKeys.driveLink(channelId),
-    queryFn: ({ signal }) => getGoogleDriveFolderLink(channelId, signal),
+    queryKey: zcaQueryKeys.driveLink(channelId, threadName),
+    queryFn: ({ signal }) => getGoogleDriveFolderLink(channelId, threadName, signal),
     staleTime: 5 * 60 * 1000,
   });
 }
