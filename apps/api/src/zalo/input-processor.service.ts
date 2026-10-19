@@ -7,11 +7,11 @@ import { AgentInput } from './types/agent-input.type';
 import { ZALO_EVENTS } from './zalo.constants';
 import { ZaloWebhookEventName } from './dto/zalo-webhook.dto';
 import { UsersService } from '../users/users.service';
-import { InitialAdminBootstrapGuard } from './guards/initial-admin-bootstrap.guard';
-import { GrantAccessGuard } from './guards/grant-access.guard';
-import { PendingImageActionService } from './pending-image-action.service';
+import { InitialAdminBootstrapGuard } from '../zca/guards/initial-admin-bootstrap.guard';
+import { GrantAccessGuard } from '../zca/guards/grant-access.guard';
+import { PendingImageActionService } from '../zca/pending-image/pending-image-action.service';
 import { cleanBotMention } from './text/bot-mention.util';
-import { ImageBatchHandler } from './pending-image/image-batch-handler.service';
+import { ImageBatchHandler } from '../zca/pending-image/image-batch-handler.service';
 import { MediaStorageService } from '../receipt-storage/media-storage.service';
 import { fetchImageBuffer } from '../common/utils/image-fetcher.util';
 

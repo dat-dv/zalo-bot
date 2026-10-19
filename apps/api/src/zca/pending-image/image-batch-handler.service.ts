@@ -61,12 +61,10 @@ export class ImageBatchHandler implements OnModuleDestroy {
     if (!this.zcaService) return;
     if ('sendMessageToChat' in this.zcaService && typeof this.zcaService.sendMessageToChat === 'function') {
       await this.zcaService.sendMessageToChat(targetChatId, text);
+    } else if (typeof (this.zcaService as any).isLoggedIn === 'function') {
+      await this.zcaService.sendMessage(text, targetChatId);
     } else if (typeof this.zcaService.sendMessage === 'function') {
-      try {
-        await this.zcaService.sendMessage(text, targetChatId);
-      } catch {
-        await (this.zcaService as unknown as { sendMessage(c: string, t: string): Promise<unknown> }).sendMessage(targetChatId, text);
-      }
+      await (this.zcaService as unknown as { sendMessage(c: string, t: string): Promise<unknown> }).sendMessage(targetChatId, text);
     }
   }
 

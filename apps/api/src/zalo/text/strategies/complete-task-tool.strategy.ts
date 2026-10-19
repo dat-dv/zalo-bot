@@ -7,7 +7,7 @@ import {
   arePotentialDuplicateTaskTitles,
 } from '../../../google/google-tasks.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
-import { TransactionConfirmationService } from '../../transaction-confirmation.service';
+import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
 
 @Injectable()
 export class CompleteTaskToolStrategy implements TextToolStrategy {

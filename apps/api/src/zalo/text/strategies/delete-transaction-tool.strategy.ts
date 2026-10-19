@@ -3,7 +3,7 @@ import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { FinanceService } from '../../../finance/finance.service';
-import { TransactionConfirmationService } from '../../transaction-confirmation.service';
+import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
 import { cleanToolArguments } from '../../../llm/utils/tool-arguments.util';
 import { FinanceTransactionEntity } from '../../../database/entities/finance-transaction.entity';
 

@@ -3,7 +3,7 @@ import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { UsersService } from '../../../users/users.service';
-import { TransactionConfirmationService } from '../../transaction-confirmation.service';
+import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
 
 @Injectable()
 export class BanToolStrategy implements TextToolStrategy {

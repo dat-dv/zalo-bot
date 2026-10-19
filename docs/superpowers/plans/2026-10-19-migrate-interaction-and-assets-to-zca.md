@@ -52,14 +52,14 @@
 - `ImageBatchHandler`
 - `CreateBillPendingImageStrategy`, `StorageUploadPendingImageStrategy`, `CancelPendingImageStrategy`
 
-- [ ] **Step 1: Di chuyển thư mục `pending-image` và service sang `apps/api/src/zca/pending-image/`**
+- [x] **Step 1: Di chuyển thư mục `pending-image` và service sang `apps/api/src/zca/pending-image/`**
       - Chuyển `PendingImageActionService`, `ImageBatchHandler`, `PendingImageActionDispatcher`, và 3 strategy (`create-bill`, `storage-upload`, `cancel`).
       - Cập nhật các đường dẫn import sang `ZcaService` thay vì `ZaloService`.
 
-- [ ] **Step 2: Đăng ký các providers vào `ZcaModule` và export để chia sẻ**
+- [x] **Step 2: Đăng ký các providers vào `ZcaModule` và export để chia sẻ**
       - Cập nhật `apps/api/src/zca/zca.module.ts`: thêm `PendingImageActionService`, `PendingImageActionDispatcher`, `ImageBatchHandler`, các strategies vào `providers` và `exports`.
 
-- [ ] **Step 3: Cập nhật unit test và chạy thử nghiệm**
+- [x] **Step 3: Cập nhật unit test và chạy thử nghiệm**
       - Chạy `npm test apps/api/src/zca/pending-image/` để xác nhận logic lưu pending image và batching hoạt động ổn định.
 
 ---
@@ -79,17 +79,17 @@
 - `TransactionConfirmationService.handleReaction(...)`
 - `TransactionConfirmationService.recallTempMessages(...)`
 
-- [ ] **Step 1: Di chuyển `TransactionConfirmationService` và `dto-descriptor.util.ts` vào `apps/api/src/zca/confirmation/`**
+- [x] **Step 1: Di chuyển `TransactionConfirmationService` và `dto-descriptor.util.ts` vào `apps/api/src/zca/confirmation/`**
       - Chuyển phụ thuộc gửi/thu hồi tin nhắn từ `ZaloService` sang `ZcaService` trực tiếp (gọi `this.zcaService.sendMessage` và `this.zcaService.undo`).
       - Cập nhật hàm `sendMessageWithResult` và `undoMessage` để tận dụng trực tiếp kết nối WebSocket và cache `cliMsgId` của `ZcaService`.
 
-- [ ] **Step 2: Đăng ký `TransactionConfirmationService` vào `ZcaModule` và export**
+- [x] **Step 2: Đăng ký `TransactionConfirmationService` vào `ZcaModule` và export**
       - Thêm vào `providers` và `exports` trong `apps/api/src/zca/zca.module.ts`.
 
-- [ ] **Step 3: Cập nhật các import trong các Tool Strategies của `ZaloModule`**
+- [x] **Step 3: Cập nhật các import trong các Tool Strategies của `ZaloModule`**
       - Sửa đường dẫn import `TransactionConfirmationService` trong các file: `record-transaction-tool.strategy.ts`, `manage-debt-tool.strategy.ts`, `set-reminder-tool.strategy.ts`, `create-calendar-event-tool.strategy.ts`, v.v. trỏ sang `apps/api/src/zca/confirmation/transaction-confirmation.service`.
 
-- [ ] **Step 4: Chạy unit test xác nhận**
+- [x] **Step 4: Chạy unit test xác nhận**
       - Chạy `npm test apps/api/src/zca/confirmation/` đảm bảo các kịch bản thả tim, hủy, timeout 5 phút, và thu hồi tin nhắn pass 100%.
 
 ---
@@ -106,10 +106,10 @@
 - `InitialAdminBootstrapGuard.canActivate(input: AgentInput): Promise<boolean>`
 - `GrantAccessGuard.canActivate(input: AgentInput): Promise<boolean>`
 
-- [ ] **Step 1: Di chuyển guards sang `apps/api/src/zca/guards/`**
+- [x] **Step 1: Di chuyển guards sang `apps/api/src/zca/guards/`**
       - Cập nhật `ZcaService` để gửi thông báo từ chối truy cập / cấp quyền admin.
 
-- [ ] **Step 2: Đăng ký Guards vào `ZcaModule` và tích hợp vào luồng tin nhắn ZCA**
+- [x] **Step 2: Đăng ký Guards vào `ZcaModule` và tích hợp vào luồng tin nhắn ZCA**
       - Tích hợp kiểm tra Guard trực tiếp trong `ZcaBotFeatureService` hoặc service tiền xử lý của ZCA trước khi dispatch tin nhắn tới các tính năng bot.
 
 ---
@@ -154,15 +154,15 @@
 - `TextInputService.process(input: AgentInput, toolTypeOverride?: TextToolType): Promise<void>`
 - `TextToolFactory.getStrategy(type: TextToolType): TextToolStrategy`
 
-- [ ] **Step 1: Dọn dẹp `ZaloModule`**
+- [x] **Step 1: Dọn dẹp `ZaloModule`**
       - Bỏ các providers đã chuyển sang `ZcaModule`: `PendingImageActionService`, `PendingImageActionDispatcher`, `ImageBatchHandler`, `TransactionConfirmationService`, `InitialAdminBootstrapGuard`, `GrantAccessGuard`.
       - Import `ZcaModule` vào `ZaloModule` để sử dụng `TransactionConfirmationService` và `ZcaService`.
 
-- [ ] **Step 2: Tinh gọn `TextInputService`**
+- [x] **Step 2: Tinh gọn `TextInputService`**
       - Tập trung vào: Fast-path command routing, LLM tool calling resolution (`ZALO_TOOL_DEFINITIONS`), và thực thi Strategy tương ứng.
       - Chuyển `pendingImageDispatcher` sang `ZcaModule` xử lý ở tầng tiếp nhận sự kiện ZCA.
 
-- [ ] **Step 3: Rà soát `ZaloService` và `ZaloController`**
+- [x] **Step 3: Rà soát `ZaloService` và `ZaloController`**
       - Đơn giản hóa `ZaloService` để delegate thẳng qua `ZcaService` khi gửi tin hoặc thu hồi tin nhắn.
       - Giữ `ZaloController` ở mức tối giản (webhook forwarder) hoặc đánh dấu deprecated.
 
@@ -174,11 +174,11 @@
 - All test files in `apps/api/src/zalo/**/*.spec.ts` and `apps/api/src/zca/**/*.spec.ts`
 - `apps/api/src/app.module.ts`
 
-- [ ] **Step 1: Sửa chữa các import bị gãy trong toàn bộ codebase**
+- [x] **Step 1: Sửa chữa các import bị gãy trong toàn bộ codebase**
       - Quét và cập nhật lại đường dẫn import của `TransactionConfirmationService`, `PendingImageActionService`, `guards` trên toàn bộ các file test.
 
-- [ ] **Step 2: Chạy kiểm thử tự động toàn bộ ứng dụng**
-      - Chạy `npm test` để xác nhận tất cả 264+ test cases của `apps/api` và `apps/web` đều pass 100%.
+- [x] **Step 2: Chạy kiểm thử tự động toàn bộ ứng dụng**
+      - Chạy `npm test` để xác nhận tất cả 288 test cases của `apps/api` và `apps/web` đều pass 100%.
 
-- [ ] **Step 3: Kiểm tra Build dự án**
+- [x] **Step 3: Kiểm tra Build dự án**
       - Chạy `npm run build` để đảm bảo TypeScript biên dịch thành công không có lỗi type.

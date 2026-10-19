@@ -4,7 +4,7 @@ import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { GoogleTasksService } from '../../../google/google-tasks.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
-import { TransactionConfirmationService } from '../../transaction-confirmation.service';
+import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
 
 @Injectable()
 export class CreateTaskToolStrategy implements TextToolStrategy {

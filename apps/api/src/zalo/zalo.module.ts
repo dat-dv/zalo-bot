@@ -5,7 +5,6 @@ import { InputProcessor } from './input-processor.service';
 import { ZaloMessageParser } from './zalo-message-parser.service';
 import { TextInputService } from './text/text-input.service';
 import { TextToolFactory } from './text/text-tool.factory';
-import { TransactionConfirmationService } from './transaction-confirmation.service';
 
 // Fast-path / Command Strategies
 import { StartToolStrategy } from './text/strategies/start-tool.strategy';
@@ -56,17 +55,6 @@ import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 import { ReceiptStorageModule } from '../receipt-storage/receipt-storage.module';
 import { AuditModule } from '../audit/audit.module';
 import { OcrModule } from '../ocr/ocr.module';
-import { PendingImageActionService } from './pending-image-action.service';
-
-import { InitialAdminBootstrapGuard } from './guards/initial-admin-bootstrap.guard';
-import { GrantAccessGuard } from './guards/grant-access.guard';
-
-// Pending Image Action Strategies & Batching
-import { CancelPendingImageStrategy } from './pending-image/strategies/cancel-pending-image.strategy';
-import { StorageUploadPendingImageStrategy } from './pending-image/strategies/storage-upload-pending-image.strategy';
-import { CreateBillPendingImageStrategy } from './pending-image/strategies/create-bill-pending-image.strategy';
-import { PendingImageActionDispatcher } from './pending-image/pending-image-dispatcher.service';
-import { ImageBatchHandler } from './pending-image/image-batch-handler.service';
 
 @Module({
   imports: [
@@ -86,11 +74,7 @@ import { ImageBatchHandler } from './pending-image/image-batch-handler.service';
     ZaloService,
     ZaloMessageParser,
     InputProcessor,
-    PendingImageActionService,
-    InitialAdminBootstrapGuard,
-    GrantAccessGuard,
     TextInputService,
-    TransactionConfirmationService,
     TextToolFactory,
     StartToolStrategy,
     HelpToolStrategy,
@@ -126,25 +110,14 @@ import { ImageBatchHandler } from './pending-image/image-batch-handler.service';
     ZaloLoginToolStrategy,
     ZaloLogoutToolStrategy,
     ShareDriveToolStrategy,
-    CancelPendingImageStrategy,
-    StorageUploadPendingImageStrategy,
-    CreateBillPendingImageStrategy,
-    PendingImageActionDispatcher,
-    ImageBatchHandler,
   ],
   exports: [
     ZaloService,
     ZaloMessageParser,
     InputProcessor,
-    PendingImageActionService,
-    InitialAdminBootstrapGuard,
-    GrantAccessGuard,
     TextInputService,
-    TransactionConfirmationService,
     TextToolFactory,
     ShareDriveToolStrategy,
-    PendingImageActionDispatcher,
-    ImageBatchHandler,
   ],
 })
 export class ZaloModule {}

@@ -4,7 +4,7 @@ import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { GoogleCalendarService } from '../../../google/google-calendar.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
-import { TransactionConfirmationService } from '../../transaction-confirmation.service';
+import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
 
 @Injectable()
 export class CreateCalendarEventToolStrategy implements TextToolStrategy {
