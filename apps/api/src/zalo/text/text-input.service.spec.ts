@@ -71,6 +71,7 @@ function createTextInputService(options?: SetupOptions) {
   } as unknown as ConfigService;
 
   const mockFinanceService = {
+    resolveContacts: () => Promise.resolve([]),
     createDebt: (dto: {
       counterparty: string;
       amount: number;
@@ -169,7 +170,11 @@ function createTextInputService(options?: SetupOptions) {
     mockZaloService,
     mockFinanceService,
   );
-  const manageDebtStrategy = new ManageDebtToolStrategy(mockZaloService, confirmationService);
+  const manageDebtStrategy = new ManageDebtToolStrategy(
+    mockZaloService,
+    confirmationService,
+    mockFinanceService,
+  );
   const recordTransactionStrategy = new RecordTransactionToolStrategy(
     mockZaloService,
     confirmationService,

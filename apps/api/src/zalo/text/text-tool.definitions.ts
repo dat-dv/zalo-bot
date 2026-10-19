@@ -20,6 +20,11 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           type: 'STRING',
           description: 'Tên người liên quan (ví dụ: a, Nam, Hùng, mẹ)',
         },
+        counterpartyAlias: {
+          type: 'STRING',
+          description:
+            'Biệt danh để phân biệt người trùng tên, chỉ khi người dùng nêu rõ (ví dụ: "Trí Đen" trong "Trí (Trí Đen)")',
+        },
         amount: {
           type: 'NUMBER',
           description: 'Số tiền bằng VND (ví dụ: 100k -> 100000, 2tr -> 2000000)',

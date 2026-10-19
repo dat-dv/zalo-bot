@@ -1514,16 +1514,6 @@ export class FinanceService {
       if (!debt) throw new Error('Không tìm thấy khoản nợ đang mở.');
       if (payment > debt.remainingAmount) throw new Error('Số tiền trả lớn hơn số nợ còn lại.');
 
-      const paymentRecord = await debtPaymentRepo.save(
-        debtPaymentRepo.create({
-          debtId: debt.id,
-          userId: userId.toString(),
-          amount: payment,
-          paymentDate: pDate,
-          note: note?.trim() || undefined,
-        }),
-      );
-
       debt.remainingAmount -= payment;
       if (debt.remainingAmount === 0) {
         debt.status = 'settled';
@@ -1533,7 +1523,7 @@ export class FinanceService {
       const isRecovery = debt.direction === 'receivable';
       const description = `${isRecovery ? 'Thu hồi nợ từ' : 'Trả nợ cho'} ${debt.counterparty}`;
 
-      await transactionRepo.save(
+      const cashflow = await transactionRepo.save(
         transactionRepo.create({
           userId: userId.toString(),
           type: isRecovery ? 'income' : 'expense',
@@ -1543,6 +1533,18 @@ export class FinanceService {
           contactId: debt.contactId || undefined,
           note: note?.trim() ? `${description}: ${note.trim()}` : description,
           occurredAt: pDate,
+        }),
+      );
+
+      // Linking the auto-created cashflow lets deleteDebtPayment remove it too.
+      const paymentRecord = await debtPaymentRepo.save(
+        debtPaymentRepo.create({
+          debtId: debt.id,
+          userId: userId.toString(),
+          financeTransactionId: cashflow.id,
+          amount: payment,
+          paymentDate: pDate,
+          note: note?.trim() || undefined,
         }),
       );
 

@@ -71,7 +71,7 @@ Image/video handling inside L1:
 
 ## Reactions (`onReaction`)
 
-Requires `isListened` and `confirmationRules.allowReactions`; same self rules. Extracts target `gMsgID`/`cMsgID` from `rMsg` and calls `TransactionConfirmationService.handleReaction`: ❤️ counts towards `requiredHearts` (bot posts "❤️ x/y"), 😡 cancels.
+Requires `isListened` and `confirmationRules.allowReactions`; same self rules. Extracts target `gMsgID`/`cMsgID` from `rMsg` and calls `TransactionConfirmationService.handleReaction`: ❤️ counts towards `requiredHearts` (bot posts "❤️ x/y"), 😡 cancels. Each pending card copies `requiredHearts` from the thread's saved `confirmationRules` when it is created (`ThreadConfigService.findStoredConfig`), so later config edits do not change open cards.
 
 ## Media history sync (`syncThreadMediaHistory`)
 

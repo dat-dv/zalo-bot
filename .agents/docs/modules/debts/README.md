@@ -46,16 +46,14 @@ Trang `/debts` cho người dùng theo dõi **khoản phải thu** (người kh�
 ## Quy tắc nghiệp vụ phía backend
 
 - **Sửa số còn lại**: về 0 thì chuyển `settled` và ghi ngày tất toán; lớn hơn 0 thì mở lại.
-- **Ghi nhận đợt trả** (`POST /api/debts/:id/payments`, một transaction): khoản nợ phải đang mở và số trả không vượt số còn lại. Hệ thống đồng thời tạo một giao dịch thu–chi để số dư dòng tiền khớp với công nợ: thu hồi khoản **phải thu** → khoản **thu** danh mục _Thu hồi nợ_; trả khoản **phải trả** → khoản **chi** danh mục _Trả nợ_.
-- **Xoá đợt trả** (một transaction): cộng lại số còn lại (không vượt số gốc), mở lại khoản nợ, tính lại số còn lại của khoản cha, và xoá giao dịch liên kết **nếu** đợt trả có `financeTransactionId` (tức là đợt trả sinh ra từ phân bổ giao dịch).
+- **Ghi nhận đợt trả** (`POST /api/debts/:id/payments`, một transaction): khoản nợ phải đang mở và số trả không vượt số còn lại. Hệ thống đồng thời tạo một giao dịch thu–chi để số dư dòng tiền khớp với công nợ: thu hồi khoản **phải thu** → khoản **thu** danh mục _Thu hồi nợ_; trả khoản **phải trả** → khoản **chi** danh mục _Trả nợ_. Đợt trả lưu `financeTransactionId` trỏ tới giao dịch đó, nên hai bản ghi luôn đi cùng nhau (đợt trả tạo trước bản sửa này không có liên kết và không được bổ sung).
+- **Xoá đợt trả** (một transaction): cộng lại số còn lại (không vượt số gốc), mở lại khoản nợ, tính lại số còn lại của khoản cha, và xoá giao dịch liên kết **nếu** đợt trả có `financeTransactionId` (đợt trả thủ công/Trả nhanh và đợt trả sinh ra từ phân bổ giao dịch). Nhờ vậy xoá đợt trả không để lại giao dịch _Thu hồi nợ_/_Trả nợ_ mồ côi trong sổ thu–chi.
 - **Phân bổ giao dịch vào nợ**: một giao dịch thu/chi có sẵn có thể được phân bổ vào một hoặc nhiều khoản nợ qua `/api/transactions/:id/allocations` (xem module dashboard); mỗi phân bổ sinh một đợt trả có `financeTransactionId`.
 - **Gộp nợ** (`POST /api/debts/combine`, một transaction): cần ít nhất 2 khoản của chính người dùng, cùng chiều và cùng loại tiền. Tạo khoản cha có số gốc và số còn lại bằng tổng các khoản con; khoản con trỏ về cha qua `parentDebtId`. Nếu khoản được gộp đã có con, các con đó được chuyển thẳng lên cha mới để cây luôn chỉ có một cấp.
 - Gộp danh bạ có chọn "gom nợ" sẽ tái sử dụng logic gộp nợ theo từng nhóm chiều + loại tiền (xem module contacts).
 
 ## Lỗi đã biết (chưa sửa)
 
-- **Nút Trả nhanh không hoạt động**: web gọi `POST /api/debts/payments` (`API_ROUTES.debtPayments`) nhưng backend chỉ có `POST /api/debts/:id/payments`, nên nhận 404. Cần một task riêng để sửa route (client hoặc contract).
-- Đợt trả tạo qua `POST /api/debts/:id/payments` không lưu `financeTransactionId`, nên khi xoá đợt trả đó, giao dịch _Thu hồi nợ_/_Trả nợ_ tự sinh vẫn còn trong sổ thu–chi.
 - Danh sách giới hạn 200 bản ghi (tính cả khoản con), chưa phân trang.
 
 ## Kiểm thử

@@ -334,6 +334,11 @@ export class ThreadConfigService implements OnModuleInit {
     return fixed;
   }
 
+  /** Read-only lookup of a thread's saved config; unlike `getConfig` it never creates a default one. */
+  public async findStoredConfig(threadId: string): Promise<ThreadBotConfig | undefined> {
+    return this.loadStoredConfig(String(threadId).trim());
+  }
+
   /** Stored config lookup (memory → Redis → DB); warms memory/Redis, never creates a config. */
   private async loadStoredConfig(id: string): Promise<ThreadBotConfig | undefined> {
     const inMemory = this.configsMap.get(id);

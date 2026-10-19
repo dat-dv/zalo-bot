@@ -15,6 +15,7 @@ import { GoogleCalendarService, CreateEventOptions } from '../../google/google-c
 import { UsersService } from '../../users/users.service';
 import { GoogleAuthService } from '../../google/google-auth.service';
 import { RedisService } from '../../redis/redis.service';
+import { ThreadConfigService } from '../thread-config.service';
 import {
   DtoDescriptor,
   renderDtoConfirmationCard,
@@ -141,6 +142,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     @Optional() private readonly usersService?: UsersService,
     @Optional() private readonly googleAuthService?: GoogleAuthService,
     @Optional() private readonly redisService?: RedisService,
+    @Optional() private readonly threadConfigService?: ThreadConfigService,
   ) {
     this.zaloService = {
       sendMessage: async (chatId: string | number, text: string) => {
@@ -316,6 +318,24 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   }
 
   /**
+   * Số tim cần để duyệt theo `confirmationRules` của kênh đã lưu (nhóm mặc định 5).
+   * Chỉ đọc config sẵn có: chat chưa có config (vd. webhook chính thức) dùng 1 tim.
+   */
+  private async resolveRequiredHearts(chatId: string): Promise<number> {
+    if (!this.threadConfigService) return 1;
+    try {
+      const config = await this.threadConfigService.findStoredConfig(chatId);
+      const hearts = Math.floor(Number(config?.confirmationRules?.requiredHearts));
+      return Number.isFinite(hearts) && hearts >= 1 ? hearts : 1;
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Không đọc được confirmationRules của kênh ${chatId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return 1;
+    }
+  }
+
+  /**
    * Tạo yêu cầu chờ xác nhận tổng quát dựa trên DTO Descriptor.
    */
   public async createPendingAction<T extends object>(params: {
@@ -344,7 +364,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       createdAt: now,
       expiresAt,
       messageId: params.messageId,
-      requiredHearts: params.requiredHearts ?? 1,
+      requiredHearts: params.requiredHearts ?? (await this.resolveRequiredHearts(params.chatId)),
       heartUsers: [],
     };
 

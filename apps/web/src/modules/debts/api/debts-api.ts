@@ -32,12 +32,12 @@ export async function createDebtPayment(
   data: ICreateDebtPaymentRequest,
   signal?: AbortSignal,
 ): Promise<IDebtPaymentItem> {
-  const response = await httpClient.post<IApiResponse<IDebtPaymentItem>>(
-    API_ROUTES.debtPayments,
-    data,
-    { signal },
-  );
-  return response.data.data;
+  const { debtId, ...body } = data;
+  // The backend responds with both the updated debt and the new payment; callers only need the payment.
+  const response = await httpClient.post<
+    IApiResponse<{ debt: IDebtListItem; payment: IDebtPaymentItem }>
+  >(API_ROUTES.debtPayments(debtId), body, { signal });
+  return response.data.data.payment;
 }
 
 export async function combineDebts(
@@ -56,7 +56,7 @@ export async function deleteDebtPayment(
   signal?: AbortSignal,
 ): Promise<{ deleted: boolean }> {
   const response = await httpClient.delete<IApiResponse<{ deleted: boolean }>>(
-    `${API_ROUTES.debts}/${debtId}/payments/${paymentId}`,
+    API_ROUTES.debtPaymentDetail(debtId, paymentId),
     { signal },
   );
   return response.data.data;

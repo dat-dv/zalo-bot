@@ -77,9 +77,9 @@ Identity normalization (`normalizeIdentity`): NFD, strip diacritics, `vi-VN` low
 
 ### Debt payments
 - `GET /debts/:id/payments`, `POST /debts/:id/payments` body `{ amount, paymentDate?, note? }`, `DELETE /debts/:id/payments/:paymentId`.
-- Record (transactional): debt must be active, amount <= remaining; writes payment, reduces remaining (0 -> settled), and creates a cashflow transaction (`income`/`Thu hồi nợ` for receivable, `expense`/`Trả nợ` for payable). This transaction is not linked back via `finance_transaction_id`.
+- Record (transactional): debt must be active, amount <= remaining; writes payment, reduces remaining (0 -> settled), and creates a cashflow transaction (`income`/`Thu hồi nợ` for receivable, `expense`/`Trả nợ` for payable). The payment row stores that transaction's id in `finance_transaction_id` (older payments are not backfilled).
 - Delete (transactional): restores remaining (capped at original), reactivates; recomputes parent remaining from children; removes the linked transaction only if `finance_transaction_id` is set.
-- Contract drift: `API_ROUTES.debtPayments = '/api/debts/payments'` has no backend handler.
+- Web route constants: `API_ROUTES.debtPayments(debtId)`, `API_ROUTES.debtPaymentDetail(debtId, paymentId)`.
 
 ### Categories
 - `GET /categories?type=` seeds defaults on first call when the user has none (`seedDefaultCategories`, `isDefault: true`) from `DEFAULT_EXPENSE_CATEGORIES` / `DEFAULT_INCOME_CATEGORIES` in `@zalobot/contracts`.
@@ -101,7 +101,7 @@ Tools from `ZALO_TOOL_DEFINITIONS` relevant to finance (see [LLM Providers](llm-
 - If `placeName` matches no existing place (`resolvePlaces`) and no pending place exists, `RecordTransactionToolStrategy` also queues a separate `CREATE_PLACE` confirmation (`createPendingPlace`). Confirming the transaction auto-recalls and drops the companion place card; the place is still created by `createTransaction` via `resolveOrCreatePlace`.
 - `CREATE_PLACE` (name) -> pending confirmation unless the place exists.
 - `DELETE_TRANSACTION` (transactionId or query; UUID also extracted from raw text; "gần nhất/mới nhất" -> latest) -> pending confirmation -> `deleteTransaction`.
-- `MANAGE_DEBT` (direction, counterparty, amount, note, occurredAt, dueAt) -> pending confirmation -> `createDebt`. Known gap: the chat payload carries neither `contactId` nor `createNewContact`, so `createDebt` rejects it.
+- `MANAGE_DEBT` (direction, counterparty, amount, note, occurredAt, dueAt) (+ optional `counterpartyAlias`) -> `ManageDebtToolStrategy` resolves the contact with `resolveContacts` (exact normalized name/alias): 1 match -> `contactId`; 0 -> `createNewContact: true`; >1 -> no card, bot lists `Name (alias)` options and asks the user to resend with the alias -> pending confirmation -> `createDebt`.
 - `GET_REPORT` (grain day/month/year) for chat summaries.
 - No LLM tool exists for allocations, contacts, categories, or combine operations (dashboard only).
 - No call coalescing. Multiple tool calls run sequentially; `TextInputService.propagateSharedTransactionContext` copies a single shared `occurredAt`, and (when times agree) a single shared `placeName`/`paymentMethod`, to sibling `RECORD_TRANSACTION` calls missing them.

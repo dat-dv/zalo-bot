@@ -85,6 +85,7 @@ function createMockSetup(overrides?: {
 
   const mockFinanceService = {
     createDebt: () => Promise.resolve({} as never),
+    resolveContacts: () => Promise.resolve([]),
     createTransaction: () => Promise.resolve({} as never),
     getSummary: () => Promise.resolve({ income: 0, expense: 0, balance: 0 } as never),
   } as unknown as FinanceService;
@@ -110,7 +111,11 @@ function createMockSetup(overrides?: {
     mockZaloService,
     mockFinanceService,
   );
-  const manageDebtStrategy = new ManageDebtToolStrategy(mockZaloService, confirmationService);
+  const manageDebtStrategy = new ManageDebtToolStrategy(
+    mockZaloService,
+    confirmationService,
+    mockFinanceService,
+  );
   const recordTransactionStrategy = new RecordTransactionToolStrategy(
     mockZaloService,
     confirmationService,
