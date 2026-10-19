@@ -859,3 +859,460 @@ void test('ZcaBotFeatureService syncThreadMediaHistory filters messages by timeR
   assert.equal(uploadedFiles[0].msgId, 'msg-recent');
 });
 
+void test('ZcaBotFeatureService syncThreadMediaHistory handles Zalo API 404 gracefully when buffer is empty', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = '404-group-empty-buffer';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+  });
+
+  const mockZcaService = {
+    isLoggedIn: () => true,
+    getGroupChatHistory: async () => {
+      const err = new Error('Request failed with status code 404');
+      (err as { name?: string }).name = 'ZcaApiError';
+      throw err;
+    },
+  } as unknown as ZcaService;
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setZcaService(mockZcaService);
+
+  const res = await service.syncThreadMediaHistory(threadId);
+  assert.equal(res.scannedCount, 0);
+  assert.equal(res.foundCount, 0);
+  assert.equal(res.syncedCount, 0);
+  assert.equal(res.warning, 'zalo_history_api_unavailable');
+  assert.match(res.message, /ngưng hỗ trợ API đọc lại lịch sử cũ/);
+});
+
+void test('ZcaBotFeatureService syncThreadMediaHistory falls back to buffered messages when Zalo API throws 404', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = '404-group-with-buffer';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    mediaBackup: {
+      enabled: true,
+      uploadImages: true,
+    },
+  });
+
+  const uploadedFiles: { id: string; msgId?: string }[] = [];
+  const mockMediaStorageService = {
+    uploadImage: (_sender: string, _buf: Buffer, options?: { msgId?: string }) => {
+      uploadedFiles.push({ id: `img-buf-${uploadedFiles.length + 1}`, msgId: options?.msgId });
+      return Promise.resolve({
+        drive: {
+          fileId: `drive-buf-${uploadedFiles.length}`,
+          webViewLink: 'https://drive.google.com/buf',
+        },
+      });
+    },
+  } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
+
+  const mockZcaService = {
+    isLoggedIn: () => true,
+    getGroupChatHistory: async () => {
+      throw new Error('Request failed with status code 404');
+    },
+  } as unknown as ZcaService;
+
+  const service = new ZcaBotFeatureService(configService, mockMediaStorageService);
+  service.setZcaService(mockZcaService);
+
+  // Pre-fill buffer with recent messages
+  await service.bufferRecentMessage(threadId, {
+    threadId,
+    type: ThreadType.Group,
+    data: {
+      msgId: 'buf-img-101',
+      msgType: 'chat.photo',
+      content: JSON.stringify({ href: 'data:image/jpeg;base64,dGVzdA==' }),
+      uidFrom: 'u100',
+      dName: 'Thành viên A',
+    },
+  } as unknown as Message);
+
+  const res = await service.syncThreadMediaHistory(threadId);
+  assert.equal(res.scannedCount, 1);
+  assert.equal(res.foundCount, 1);
+  assert.equal(res.syncedCount, 1);
+  assert.equal(res.warning, 'scanned_from_buffer');
+  assert.equal(uploadedFiles.length, 1);
+  assert.equal(uploadedFiles[0].msgId, 'buf-img-101');
+});
+
+void test('ZcaBotFeatureService handles quote-reply to an image with @bot and runs OCR', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-quote-ocr-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    directInteraction: {
+      enabled: true,
+      requireMention: true,
+      allowAiChat: true,
+    },
+  });
+
+  let processedInput: AgentInput | null = null;
+  const mockTextInputService = {
+    process: (input: AgentInput) => {
+      processedInput = input;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  const mockOcrService = {
+    extractTextFromBuffer: async () => 'COFFEE SHOP\nTOTAL: 55000 VND',
+  } as unknown as import('../ocr/ocr.service').OcrService;
+
+  const mockMediaStorageService = {
+    uploadBill: async () => ({
+      drive: { fileId: 'f1', webViewLink: 'https://drive.google.com/bill-123' },
+    }),
+  } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
+
+  const service = new ZcaBotFeatureService(configService, mockMediaStorageService);
+  service.setTextInputService(mockTextInputService);
+  service.setOcrService(mockOcrService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.Group,
+    data: {
+      content: '@bot thanh toán hóa đơn này nhé',
+      uidFrom: 'u-quote-1',
+      dName: 'Văn Đạt',
+      msgType: 'chat',
+      quote: {
+        attach: JSON.stringify({ href: 'data:image/jpeg;base64,dGVzdA==' }),
+        cliMsgType: 32,
+      },
+    },
+  } as unknown as Message;
+
+  await service.onMessage(message, {} as unknown as API);
+
+  assert.ok(processedInput, 'TextInputService should be called with extracted OCR data');
+  assert.equal(processedInput.type, 'image');
+  assert.equal(processedInput.imageUrl, 'https://drive.google.com/bill-123');
+  assert.match(processedInput.text || '', /TOTAL: 55000 VND/);
+  assert.match(processedInput.text || '', /thanh toán hóa đơn này nhé/);
+});
+
+void test('ZcaBotFeatureService in 1-1 chat without caption triggers ImageBatchHandler', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'direct-batch-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'user',
+    isListened: true,
+  });
+
+  let batchHandledInput: AgentInput | null = null;
+  let batchHandledChatId = '';
+  const mockImageBatchHandler = {
+    handle: (input: AgentInput, chatId: string) => {
+      batchHandledInput = input;
+      batchHandledChatId = chatId;
+      return Promise.resolve();
+    },
+    onModuleDestroy: () => {},
+  } as unknown as import('./pending-image/image-batch-handler.service').ImageBatchHandler;
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setImageBatchHandler(mockImageBatchHandler);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.User,
+    data: {
+      content: JSON.stringify({ href: 'https://example.com/bill.jpg' }),
+      uidFrom: 'u-batch-1',
+      dName: 'Alice',
+      msgType: 'chat.photo',
+    },
+  } as unknown as Message;
+
+  await service.onMessage(message, {} as unknown as API);
+
+  assert.ok(batchHandledInput, 'ImageBatchHandler should be called for 1-1 photo with no caption');
+  assert.equal(batchHandledChatId, threadId);
+  assert.equal(batchHandledInput.imageUrl, 'https://example.com/bill.jpg');
+});
+
+void test('ZcaBotFeatureService in group without @bot does silent backup only and no interactive prompt', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-silent-photo-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    mediaBackup: {
+      enabled: true,
+      uploadImages: true,
+    },
+    directInteraction: {
+      enabled: true,
+      requireMention: true,
+    },
+  });
+
+  let imageUploaded = false;
+  const mockMediaStorageService = {
+    uploadImage: () => {
+      imageUploaded = true;
+      return Promise.resolve({ drive: { fileId: 'backup-123' } });
+    },
+  } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
+
+  let textInputCalled = false;
+  const mockTextInputService = {
+    process: () => {
+      textInputCalled = true;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  let batchHandlerCalled = false;
+  const mockImageBatchHandler = {
+    handle: () => {
+      batchHandlerCalled = true;
+      return Promise.resolve();
+    },
+  } as unknown as import('./pending-image/image-batch-handler.service').ImageBatchHandler;
+
+  const service = new ZcaBotFeatureService(configService, mockMediaStorageService);
+  service.setTextInputService(mockTextInputService);
+  service.setImageBatchHandler(mockImageBatchHandler);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.Group,
+    data: {
+      content: JSON.stringify({ href: 'data:image/jpeg;base64,dGVzdA==' }),
+      uidFrom: 'u-meme-1',
+      dName: 'Bob',
+      msgType: 'chat.photo',
+    },
+  } as unknown as Message;
+
+  await service.onMessage(message, {} as unknown as API);
+
+  assert.equal(imageUploaded, true, 'Image should be backed up silently');
+  assert.equal(textInputCalled, false, 'TextInputService should not be called for casual group image');
+  assert.equal(batchHandlerCalled, false, 'ImageBatchHandler must not be called in group to avoid spam');
+});
+
+void test('ZcaBotFeatureService handles direct video upload when tagged @bot', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-video-direct-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    directInteraction: {
+      enabled: true,
+      requireMention: true,
+    },
+  });
+
+  let videoUploaded = false;
+  const mockMediaStorageService = {
+    uploadVideo: () => {
+      videoUploaded = true;
+      return Promise.resolve({ drive: { fileId: 'vid-file-1' } });
+    },
+    formatUploadSummary: () => '✅ Đã lưu trữ video thành công!',
+  } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
+
+  const sentMessages: string[] = [];
+  const mockApi = {
+    sendMessage: (msg: string | { msg: string }) => {
+      sentMessages.push(typeof msg === 'string' ? msg : msg.msg);
+      return Promise.resolve({ message: { msgId: 10 }, attachment: [] });
+    },
+  } as unknown as API;
+
+  const service = new ZcaBotFeatureService(configService, mockMediaStorageService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.Group,
+    data: {
+      content: JSON.stringify({ href: 'data:video/mp4;base64,dGVzdA==' }),
+      uidFrom: 'u-vid-1',
+      dName: 'Charlie',
+      msgType: 'chat.video.msg',
+    },
+  } as unknown as Message;
+
+  // With @bot in group
+  await service.onMessage(
+    {
+      ...message,
+      data: {
+        ...message.data,
+        content: JSON.stringify({
+          href: 'data:video/mp4;base64,dGVzdA==',
+          title: '@bot lưu video này',
+        }),
+      },
+    } as unknown as Message,
+    mockApi,
+  );
+
+  assert.equal(videoUploaded, true, 'Video upload should be executed');
+  assert.ok(sentMessages.some((msg) => msg.includes('Đã lưu trữ video')));
+});
+
+void test('ZcaBotFeatureService blocks direct interaction if GrantAccessGuard denies', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-guard-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    directInteraction: {
+      enabled: true,
+      requireMention: true,
+    },
+  });
+
+  const mockGrantAccessGuard = {
+    canActivate: () => Promise.resolve(false), // Access denied
+  } as unknown as import('./guards/grant-access.guard').GrantAccessGuard;
+
+  let textInputCalled = false;
+  const mockTextInputService = {
+    process: () => {
+      textInputCalled = true;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setGrantAccessGuard(mockGrantAccessGuard);
+  service.setTextInputService(mockTextInputService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.Group,
+    data: {
+      content: '@bot ăn trưa 50k',
+      uidFrom: 'unauthorized-user',
+      dName: 'Hacker',
+      msgType: 'chat',
+    },
+  } as unknown as Message;
+
+  await service.onMessage(message, {} as unknown as API);
+  assert.equal(textInputCalled, false, 'TextInputService should be blocked by GrantAccessGuard');
+});
+
+void test('ZcaBotFeatureService rate limits via UsersService.checkCooldown', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'cooldown-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    directInteraction: {
+      enabled: true,
+      requireMention: true,
+    },
+  });
+
+  const sentReplies: string[] = [];
+  const mockApi = {
+    sendMessage: (msg: string | { msg: string }) => {
+      sentReplies.push(typeof msg === 'string' ? msg : msg.msg);
+      return Promise.resolve({ message: { msgId: 11 }, attachment: [] });
+    },
+  } as unknown as API;
+
+  const mockUsersService = {
+    checkCooldown: () => ({ allowed: false, reason: '⏳ Bạn gửi quá nhanh, vui lòng chờ 3s.' }),
+  } as unknown as import('../users/users.service').UsersService;
+
+  let textInputCalled = false;
+  const mockTextInputService = {
+    process: () => {
+      textInputCalled = true;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setUsersService(mockUsersService);
+  service.setTextInputService(mockTextInputService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.Group,
+    data: {
+      content: '@bot /ping',
+      uidFrom: 'spammy-user',
+      dName: 'Spammer',
+      msgType: 'chat',
+    },
+  } as unknown as Message;
+
+  await service.onMessage(message, mockApi);
+
+  assert.equal(textInputCalled, false);
+  assert.equal(sentReplies.length, 1);
+  assert.match(sentReplies[0], /Bạn gửi quá nhanh/);
+});
+
+void test('ZcaBotFeatureService dispatches pending image selections ("1", "2", "hủy")', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'pending-dispatcher-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'user',
+    isListened: true,
+  });
+
+  let dispatchedText = '';
+  const mockPendingImageDispatcher = {
+    dispatch: (_input: AgentInput, _sender: string, _chat: string, _name: string, text: string) => {
+      dispatchedText = text;
+      return Promise.resolve(true); // Handled
+    },
+  } as unknown as import('./pending-image/pending-image-dispatcher.service').PendingImageActionDispatcher;
+
+  let textInputCalled = false;
+  const mockTextInputService = {
+    process: () => {
+      textInputCalled = true;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  const service = new ZcaBotFeatureService(configService);
+  service.setPendingImageDispatcher(mockPendingImageDispatcher);
+  service.setTextInputService(mockTextInputService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.User,
+    data: {
+      content: '1 Ăn trưa Highlands',
+      uidFrom: 'u-pending-1',
+      dName: 'Dave',
+      msgType: 'chat',
+    },
+  } as unknown as Message;
+
+  await service.onMessage(message, {} as unknown as API);
+
+  assert.equal(dispatchedText, '1 Ăn trưa Highlands');
+  assert.equal(textInputCalled, false, 'TextInputService should not be called when pending dispatcher handles it');
+});
+
+
