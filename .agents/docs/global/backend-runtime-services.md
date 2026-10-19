@@ -6,6 +6,8 @@ metadata:
     depends_on:
       - .agents/knowledge/global/backend-runtime-services.md
       - apps/api/src/health/deploy-notify.service.ts
+      - apps/api/src/health/deploy-notify.guard.ts
+      - apps/api/src/google/google-resources.controller.ts
       - apps/api/src/reminders/reminder-scheduler.service.ts
 ---
 
@@ -18,7 +20,10 @@ Tài liệu này ánh xạ với tri thức canonical [`backend-runtime-services
 **Mục đích:** cho hệ thống hạ tầng (Coolify, load balancer) kiểm tra API còn sống, và báo cho Quản trị viên qua Zalo mỗi khi có bản deploy mới.
 
 - `GET /health` trả `{ status: 'ok', timestamp }`. Route này không có tiền tố `/api`.
-- Gửi thông báo deploy: `GET|POST /health/deploy`, `GET|POST /deploy/notify`, `GET /deploy/ping`. Tham số tuỳ chọn: `message`, `version`, `commit`, `branch`, `environment`, `deployedBy`. Các route này **không yêu cầu xác thực**.
+- Gửi thông báo deploy: `GET|POST /health/deploy`, `GET|POST /deploy/notify`, `GET /deploy/ping`. Tham số tuỳ chọn: `message`, `version`, `commit`, `branch`, `environment`, `deployedBy`. Các route này được bảo vệ bằng `DeployNotifyGuard` (`GET /health` vẫn công khai cho healthcheck của Docker):
+  - Đặt biến `DEPLOY_NOTIFY_TOKEN` (tạo bằng `openssl rand -hex 32`). Gửi token qua header `X-Deploy-Token`, `Authorization: Bearer <token>` hoặc query `?token=<token>`. Hook của Coolify/CI thường chỉ cho nhập URL, nên dùng dạng `https://<domain>/deploy/notify?token=<token>`.
+  - Chưa đặt `DEPLOY_NOTIFY_TOKEN` thì các route deploy trả **403**, tức tính năng bị tắt (fail-closed). Sai hoặc thiếu token thì trả **401**.
+  - **Vì sao?** Route này gửi tin Zalo tới mọi admin với nội dung do người gọi tự đặt. Để mở thì ai cũng có thể spam hoặc giả mạo thông báo deploy.
 - Nội dung tin nhắn gồm thời gian (giờ Việt Nam), môi trường, các trường trên và tối đa 5 dòng thay đổi lấy từ mục `## ` mới nhất trong `CHANGELOG.md`. Tin được gửi tới mọi admin; chưa có admin thì trả `notified: false`.
 - **Tự báo khi khởi động:** sau khi app chạy 1,5 giây, bot tự gửi thông báo. Tắt bằng `NOTIFY_ON_STARTUP=false` (hoặc `0`). Ở môi trường `development`, mặc định không gửi trừ khi đặt `NOTIFY_ON_STARTUP=true`.
 - Phiên bản lấy theo thứ tự `APP_VERSION` → `npm_package_version` → `package.json`. Commit lấy theo `GIT_COMMIT` → `COOLIFY_COMMIT_SHA` → `COMMIT_SHA` → lệnh `git`.
@@ -53,7 +58,11 @@ Tài liệu này ánh xạ với tri thức canonical [`backend-runtime-services
 | `GET /api/photos/album-link` | Trả link album Photos của kênh (mặc định `ZaloBot - Hình ảnh`, theo kênh là `[Zalo] <tên nhóm>`) |
 | `GET /api/photos/open` | Chuyển hướng thẳng tới album |
 
-**Lưu ý bảo mật:** năm route này hiện không kiểm tra access token dashboard. Ai biết `channelId` đều có thể gọi `drive/share` để chia sẻ thư mục cho email bất kỳ.
+**Phân quyền:** cả năm route **chỉ dành cho admin dashboard** (401 khi thiếu hoặc sai token, 403 khi không phải admin).
+- `drive/share`, `drive/folder-link`, `photos/album-link` cần Bearer access token.
+- `drive/open`, `photos/open` được mở bằng `<a href>` nên chấp nhận thêm cookie `reports_refresh`.
+
+Lý do: hệ thống không kiểm tra người gọi có thuộc kênh hay không. Ngoài ra, `folder-link`/`open` còn tự tạo thư mục Drive. Nếu để mở, người ngoài có thể chia sẻ thư mục của nhóm khác cho email bất kỳ, hoặc tạo thư mục rác trên Drive của bot. Lệnh chat `@bot share <email>` không bị ảnh hưởng vì gọi thẳng service Drive, không đi qua HTTP.
 
 ## 6. Bộ lập lịch nhắc nhở (`reminders/reminder-scheduler.service.ts`)
 

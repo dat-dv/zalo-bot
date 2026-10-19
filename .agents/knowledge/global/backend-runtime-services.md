@@ -8,6 +8,8 @@ metadata:
       - apps/api/src/health/health.controller.ts
       - apps/api/src/health/deploy.controller.ts
       - apps/api/src/health/deploy-notify.service.ts
+      - apps/api/src/health/deploy-notify.guard.ts
+      - apps/api/src/dashboard-auth/dashboard-user.ts
       - apps/api/src/redis/redis.service.ts
       - apps/api/src/ocr/ocr.service.ts
       - apps/api/src/receipt-storage/media-storage.service.ts
@@ -30,7 +32,7 @@ Cross-cutting NestJS services in `apps/api/src` that are not feature CRUD.
 ## Health & deploy notify (`health/`)
 
 - Routes excluded from the `/api` global prefix (`main.ts`): `GET /health` -> `{ status: 'ok', timestamp }` (load balancer / Coolify probe).
-- Deploy notify routes (all call `DeployNotifyService.notifyDeploy`): `GET|POST /health/deploy`, `GET|POST /deploy/notify`, `GET /deploy/ping`. Input `DeployNotifyDto` (query, merged with body on POST): `message`, `version`, `commit`, `branch`, `environment`, `deployedBy`, all optional. Controllers use `@BypassTransform()` and have no auth guard.
+- Deploy notify routes (all call `DeployNotifyService.notifyDeploy`): `GET|POST /health/deploy`, `GET|POST /deploy/notify`, `GET /deploy/ping`. Input `DeployNotifyDto` (query, merged with body on POST): `message`, `version`, `commit`, `branch`, `environment`, `deployedBy`, all optional. Controllers use `@BypassTransform()`. `GET /health` (Docker healthcheck) is public; every deploy route is protected by `DeployNotifyGuard`: token from header `X-Deploy-Token`, `Authorization: Bearer`, or query `?token=` (CI/Coolify hooks often allow only a URL), compared to `DEPLOY_NOTIFY_TOKEN` via SHA-256 + `timingSafeEqual`. Unset `DEPLOY_NOTIFY_TOKEN` → 403 (feature disabled, fail-closed); missing/wrong token → 401. Rationale: the route messages every admin on Zalo with caller-supplied text.
 - `notifyDeploy` sends a Vietnamese deploy message to every admin (`UsersService.getAdminUsers`) via `ZaloService.sendMessage`; includes time (Asia/Ho_Chi_Minh), environment (dto or `NODE_ENV`, default `production`), optional fields, and up to 5 bullet lines from the latest `## ` section of `CHANGELOG.md` (project root, API root, or cwd). No admins -> `notified: false`. Response `IDeployNotifyResponse`.
 - Startup notify (`onApplicationBootstrap`): `NOTIFY_ON_STARTUP=false|0` disables; in `NODE_ENV=development` it runs only with `NOTIFY_ON_STARTUP=true|1`; otherwise fires 1.5 s after bootstrap.
 - Version: `APP_VERSION` -> `npm_package_version` -> API `package.json` -> root `package.json` -> `v1.0.0` (prefixed `v`).
@@ -67,7 +69,7 @@ Cross-cutting NestJS services in `apps/api/src` that are not feature CRUD.
 | `GET /api/photos/album-link?channelId&threadName` | `{ data: { albumTitle, webViewLink } }`. Default album `ZaloBot - Hình ảnh`; per channel `photosAlbumTitle` / `mediaBackup.photosAlbum` / `[Zalo] <threadName>` / `[Zalo] Nhóm <channelId>`; caches `photosAlbumUrl`. Fallback `https://photos.google.com`. |
 | `GET /api/photos/open` | 302 redirect to the album-link result. |
 
-These five handlers do not read the dashboard access token (unlike the calendar/tasks handlers in the same controller).
+All five routes are **admin-only** (dashboard user must pass `UsersService.isAdmin`; 401 without a valid token, 403 for non-admins or when `UsersService` is absent). Rationale: there is no per-channel membership check, and `folder-link`/`open` call `ensureFolderPath`, so an open route would let anyone share or create another chat's Drive partition. `drive/share`, `drive/folder-link`, `photos/album-link` need the Bearer access token. `drive/open` and `photos/open` are opened as `<a href target=_blank>` and cannot send a header, so they also accept the dashboard refresh cookie `reports_refresh` (`getDashboardUserIdFromBrowser`). The only callers are the ZCA admin page; the chat command `@bot share` calls the Drive service directly, not HTTP.
 
 ## Reminder scheduler (`reminders/reminder-scheduler.service.ts`)
 

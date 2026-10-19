@@ -43,6 +43,7 @@ export const API_ROUTES = {
   driveFolderLink: '/api/drive/folder-link',
   driveOpen: '/api/drive/open',
   photosAlbumLink: '/api/photos/album-link',
+  photosOpen: '/api/photos/open',
 } as const;
 
 export const APP_ROUTES = {

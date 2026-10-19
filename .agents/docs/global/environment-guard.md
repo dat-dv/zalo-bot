@@ -31,11 +31,16 @@ Danh sách bắt buộc nằm trong `apps/api/src/config/env.validator.ts`:
 - `APP_URL`, `WEB_ORIGIN` là URL HTTP(S) đầy đủ; `DATABASE_URL` là URL `postgresql://...`.
 - `CORS_ALLOW_ALL` chỉ nhận `true`/`false`; `DATA_ENCRYPTION_KEY` đúng 64 ký tự hex (tạo bằng `openssl rand -hex 32`); `DEFAULT_TIMEZONE` là IANA timezone, ví dụ `Asia/Ho_Chi_Minh`.
 
-**Lưu ý hiện trạng quan trọng**: hàm `validateEnvironment()` đang **không được gọi** ở đâu (kể cả `main.ts`), nên API vẫn khởi động khi thiếu biến và dùng giá trị mặc định trong `configuration.ts`. Một số mặc định nguy hiểm khi lên production: `CORS_ALLOW_ALL` mặc định `true`, `DATA_ENCRYPTION_KEY` mặc định 64 số `0`. Vì vậy môi trường triển khai bắt buộc phải khai báo đủ các biến trên, không dựa vào mặc định.
+**Kiểm tra lúc khởi động (fail-fast)**: `main.ts` gọi `validateEnvironment()` ngay sau `loadEnvironment()`, trước khi tạo app NestJS. Nếu có biến sai hoặc thiếu, API in khung báo lỗi (tên biến, lý do, cách lấy; không in giá trị) rồi thoát với mã `1`.
+
+**Vì sao?** Trước đây hàm này không được gọi, nên khi thiếu biến, API vẫn chạy với mặc định nguy hiểm: `CORS_ALLOW_ALL=true` cho phép mọi origin, còn `DATA_ENCRYPTION_KEY` toàn số `0` khiến token Google được "mã hóa" bằng khóa ai cũng đoán được. Thêm một lớp phòng thủ: mặc định của `CORS_ALLOW_ALL` trong `configuration.ts` nay là `false`.
+
+**Khi deploy**: nếu container khởi động lại liên tục, hãy xem log. Khung "THIẾU CẤU HÌNH BIẾN MÔI TRƯỜNG" liệt kê chính xác biến cần bổ sung vào `.env` hoặc `.env.production`.
 
 ## Biến tùy chọn
 
 - **Database/cache**: `DATABASE_SSL`, `TYPEORM_SYNCHRONIZE`, `REDIS_URL`.
+- **Thông báo deploy**: `DEPLOY_NOTIFY_TOKEN`, bí mật cho webhook `/health/deploy`, `/deploy/*`. Để trống thì các route này trả 403 (xem [Dịch vụ nền của Backend](backend-runtime-services.md)).
 - **Zalo Bot**: `BOT_NAME`, `ZALO_WEBHOOK_URL`, `ZALO_WEBHOOK_SECRET_TOKEN`.
 - **ZCA (Zalo cá nhân)**: `DATA_DIR`, `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN`, `ZCA_CHECK_UPDATE`, `ZCA_LOGGING`, `ZCA_AUTO_LOGIN`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH`.
 - **LLM**: `LLM_PROVIDER` chọn nhà cung cấp cho `LlmService` (`gemini` mặc định, `openai`, `qwen`/`ollama`); kèm `GEMINI_API_KEY`, `GEMINI_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `QWEN_BASE_URL`, `QWEN_MODEL`, `QWEN_API_KEY` (chấp nhận tên thay thế `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_API_KEY`).

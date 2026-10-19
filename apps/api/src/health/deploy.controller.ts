@@ -1,12 +1,14 @@
-import { Controller, Get, Post, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import type { IDeployNotifyResponse } from '@zalobot/contracts';
 import { BypassTransform } from '../common/decorators/bypass-transform.decorator';
+import { DeployNotifyGuard } from './deploy-notify.guard';
 import { DeployNotifyService } from './deploy-notify.service';
 import { DeployNotifyDto } from './dto/deploy-notify.dto';
 
 @ApiTags('Deploy')
 @BypassTransform()
+@UseGuards(DeployNotifyGuard)
 @Controller('deploy')
 export class DeployController {
   constructor(private readonly deployNotifyService: DeployNotifyService) {}

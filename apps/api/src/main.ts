@@ -6,11 +6,22 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import { AppModule } from './app.module';
-import { loadEnvironment } from './config/env.validator';
+import {
+  loadEnvironment,
+  printEnvValidationBanner,
+  validateEnvironment,
+} from './config/env.validator';
 
 async function bootstrap() {
   // Load environment variables
   loadEnvironment();
+
+  // Fail fast: without this, missing values fall back to unsafe defaults in configuration.ts.
+  const envValidation = validateEnvironment();
+  if (!envValidation.isValid) {
+    printEnvValidationBanner(envValidation.errors);
+    process.exit(1);
+  }
 
   // Initialize NestJS Application với rawBody option để có thể debug webhook payload gốc
   const logger = new Logger('Bootstrap');

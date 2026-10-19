@@ -114,7 +114,12 @@ Requires `isListened` and `confirmationRules.allowReactions`; same self rules. E
 
 `GoogleResourcesController` links used by the ZCA page: `GET /api/drive/folder-link?channelId=&threadName=`, `GET /api/drive/open` (302 to folder), `POST /api/drive/share` (`{ channelId, email }`), `GET /api/photos/album-link`, `GET /api/photos/open` (302 to album).
 
-Known gap: `ZcaController` performs no dashboard-token or admin check in code.
+### Access control
+
+- Every `ZcaController` route is **admin-only**: `requireDashboardAdmin` (`dashboard-auth/dashboard-user.ts`) needs a Bearer dashboard access token (401 otherwise) whose user passes `UsersService.isAdmin` (403 otherwise). Rationale: these routes log the bot's personal Zalo account in/out, change which chats it listens to, and `status` exposes `qrStatus.code` (the raw QR payload), which would let anyone hijack an in-progress QR login.
+- `GET /api/zca/qr` is opened by `<img src>` on the dashboard and by the link the bot sends to Zalo, neither of which can send a header. It accepts any one of: valid `?key=` QR access key, Bearer admin token, or the admin's `reports_refresh` cookie.
+- QR access key: `ZcaService` creates a random 32-byte base64url key when a new QR login flow starts (`startQrLogin`, not on flow reuse) and revokes it when that flow ends (success or failure) or on `logout()`; a `forceNew` flow only revokes its own key. `getQrImageUrl()` returns `${APP_URL}/api/zca/qr?key=…` while a flow is active (used by `POST /zca/login-qr` and the `/zalo-login` chat reply); `isQrAccessKeyValid` compares with `timingSafeEqual`. Logs print the URL without the key.
+- Drive/Photos link routes used by this page are admin-only too (see `global/backend-runtime-services.md`).
 
 ## Web UI (`ZcaScreen` — page "Zalo & Users", route `APP_ROUTES.zca`)
 
@@ -141,6 +146,6 @@ The former Users page (`/users`) was removed; user management lives here. Nav la
 
 ## Integration Seams & Contracts
 
-- `API_ROUTES`: `zcaStatus`, `zcaQr`, `zcaLoginQr`, `zcaLogout`, `zcaThreads`, `zcaListenedThreads`, `zcaListenedThreadsToggle`, `zcaThreadConfigs`, `zcaThreadConfig(threadId)`, `zcaSyncThreadMedia(threadId)`, `driveFolderLink`, `driveOpen`, `photosAlbumLink`. Known gap: `getThreadPhotosOpenUrl` hardcodes `/api/photos/open` (no route constant).
+- `API_ROUTES`: `zcaStatus`, `zcaQr`, `zcaLoginQr`, `zcaLogout`, `zcaThreads`, `zcaListenedThreads`, `zcaListenedThreadsToggle`, `zcaThreadConfigs`, `zcaThreadConfig(threadId)`, `zcaSyncThreadMedia(threadId)`, `driveFolderLink`, `driveOpen`, `photosAlbumLink`, `photosOpen`. Web builds the QR image URL with `getZcaQrImageUrl()` (`API_ROUTES.zcaQr` on `resolveApiBaseUrl()`).
 - Contracts (`packages/contracts`): `ThreadBotConfig`, `UpdateThreadBotConfigDto`, `ThreadDirectInteractionConfig`, `ThreadMediaBackupConfig`, `ThreadExpenseConfig`, `ThreadCalendarConfig`, `ThreadConfirmationConfig`, `SyncThreadMediaDto`, `SyncMediaTimeRange`, `SyncThreadMediaResponse`.
 - Env (`apps/api/src/config/configuration.ts` `zca.*`): `DATA_DIR`/`ZCA_DATA_DIR`, `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN`, `ZCA_CHECK_UPDATE`, `ZCA_LOGGING`, `ZCA_AUTO_LOGIN`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH`.

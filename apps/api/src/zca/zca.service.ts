@@ -9,6 +9,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomBytes, timingSafeEqual } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { ZaloService } from '../zalo/zalo.service';
@@ -131,6 +132,8 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
   private latestQrImageBase64: string | null = null;
   private latestQrCode: string | null = null;
+  /** Per-login-flow secret that lets `GET /api/zca/qr?key=` serve the QR to a link sent via Zalo. */
+  private qrAccessKey: string | null = null;
   private listenedThreadIds = new Set<string>();
   private cachedAvailableThreads: AvailableThread[] = [];
   private cachedThreadsExpiresAt = 0;
@@ -732,10 +735,6 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     },
     options?: { forceNew?: boolean },
   ): Promise<API> {
-    const appUrl =
-      this.configService.get<string>('appUrl') || process.env.APP_URL || 'http://localhost:3005';
-    const qrEndpointUrl = `${appUrl.replace(/\/+$/, '')}/api/zca/qr`;
-
     if (this.isLoggedIn()) {
       const ownId = this.getOwnId() || 'unknown';
       this.logger.log(`[ZCA QR] Tài khoản đã đăng nhập trước đó (Own ID: ${ownId}).`);
@@ -760,7 +759,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         `[ZCA QR] Tái sử dụng tiến trình đăng nhập QR đang chạy (Trạng thái: ${this.qrLoginStatus.phase})...`,
       );
       if (this.latestQrCode) {
-        callbacks?.onQrGenerated?.(qrEndpointUrl, this.latestQrCode);
+        callbacks?.onQrGenerated?.(this.getQrImageUrl(), this.latestQrCode);
       }
       if (this.qrLoginStatus.scannedBy) {
         callbacks?.onScanned?.(this.qrLoginStatus.scannedBy);
@@ -779,7 +778,10 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     this.logger.log('='.repeat(65));
     this.logger.log(`[ZCA QR] User-Agent: ${userAgent}`);
     this.logger.log(`[ZCA QR] Proxy: ${this.proxyUrl || 'Không sử dụng (Direct connection)'}`);
-    this.logger.log(`[ZCA QR] Endpoint ảnh QR: ${qrEndpointUrl}`);
+    const flowQrAccessKey = randomBytes(32).toString('base64url');
+    this.qrAccessKey = flowQrAccessKey;
+    const qrEndpointUrl = this.getQrImageUrl();
+    this.logger.log(`[ZCA QR] Endpoint ảnh QR: ${qrEndpointUrl.replace(/\?.*$/, '')}`);
 
     this.setQrStatus('generating', 'Đang kết nối Zalo để tạo mã QR đăng nhập...');
 
@@ -796,7 +798,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
                 { code: event.data.code },
               );
               this.logger.log(`[ZCA QR] [Bước 1/3] ✅ Mã QR đã được tạo thành công!`);
-              this.logger.log(`[ZCA QR] 👉 URL xem ảnh: ${qrEndpointUrl}`);
+              this.logger.log(`[ZCA QR] 👉 URL xem ảnh: ${qrEndpointUrl.replace(/\?.*$/, '')}`);
               this.logger.log(`[ZCA QR] 👉 Raw Code URL: ${event.data.code}`);
               this.logger.log(`[ZCA QR] 📱 Vui lòng mở ứng dụng Zalo điện thoại -> Quét mã QR.`);
               for (const cb of this.activeQrCallbacks) {
@@ -907,6 +909,8 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         }
         throw err;
       } finally {
+        // A forceNew flow may have replaced the key; only revoke the one this flow issued.
+        if (this.qrAccessKey === flowQrAccessKey) this.qrAccessKey = null;
         this.activeQrLoginPromise = null;
         this.activeQrCallbacks = [];
       }
@@ -945,6 +949,23 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     this.startListener();
 
     return api;
+  }
+
+  /**
+   * Public URL of the QR image, carrying the current flow's access key when one is active.
+   */
+  public getQrImageUrl(): string {
+    const appUrl =
+      this.configService.get<string>('appUrl') || process.env.APP_URL || 'http://localhost:3005';
+    const base = `${appUrl.replace(/\/+$/, '')}/api/zca/qr`;
+    return this.qrAccessKey ? `${base}?key=${encodeURIComponent(this.qrAccessKey)}` : base;
+  }
+
+  public isQrAccessKeyValid(key: string | undefined): boolean {
+    if (!key || !this.qrAccessKey) return false;
+    const given = Buffer.from(key);
+    const expected = Buffer.from(this.qrAccessKey);
+    return given.length === expected.length && timingSafeEqual(given, expected);
   }
 
   /**
@@ -1478,6 +1499,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     this.isListening = false;
     this.latestQrImageBase64 = null;
     this.latestQrCode = null;
+    this.qrAccessKey = null;
     this.cachedAvailableThreads = [];
     this.cachedThreadsExpiresAt = 0;
     this.activeQrLoginPromise = null;
@@ -1556,8 +1578,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     try {
       const res = await this.sendMessage(text, targetChatId);
       const rawMsg = res?.message as unknown as
-        | { msgId?: string | number; cliMsgId?: string | number }
-        | undefined;
+        { msgId?: string | number; cliMsgId?: string | number } | undefined;
       const msgId = rawMsg?.msgId !== undefined ? String(rawMsg.msgId) : undefined;
       const cliMsgId = rawMsg?.cliMsgId !== undefined ? String(rawMsg.cliMsgId) : undefined;
       return { success: true, msgId, cliMsgId };
@@ -1602,10 +1623,14 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         },
         targetChatId,
       );
-      this.logger.log(`[ZcaService] Successfully recalled message ${msgId} (cliMsgId: ${resolvedCliMsgId || 'n/a'})`);
+      this.logger.log(
+        `[ZcaService] Successfully recalled message ${msgId} (cliMsgId: ${resolvedCliMsgId || 'n/a'})`,
+      );
       return true;
     } catch (err) {
-      this.logger.warn(`[ZcaService] Could not undo message ${msgId}: ${err instanceof Error ? err.message : String(err)}`);
+      this.logger.warn(
+        `[ZcaService] Could not undo message ${msgId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
       try {
         if (this.api?.deleteMessage) {
           await this.deleteMessage(

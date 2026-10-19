@@ -15,7 +15,7 @@ import {
   useGoogleDriveFolderLinkQuery,
   zcaQueryKeys,
 } from '../api/zca-query';
-import { getThreadDriveOpenUrl, type ZcaThread } from '../api/zca-api';
+import { getThreadDriveOpenUrl, getZcaQrImageUrl, type ZcaThread } from '../api/zca-api';
 import {
   buildChatRows,
   countChatRows,
@@ -776,7 +776,7 @@ export function ZcaScreen() {
                     // Retry with new timestamp if not ready
                     setTimeout(() => setQrTimestamp(Date.now()), 1500);
                   }}
-                  src={`/api/zca/qr?t=${qrTimestamp}`}
+                  src={getZcaQrImageUrl(qrTimestamp)}
                 />
               </div>
 
