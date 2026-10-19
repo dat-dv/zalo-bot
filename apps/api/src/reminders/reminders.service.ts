@@ -12,6 +12,19 @@ export interface CreateReminderDto {
   status?: 'pending' | 'completed' | 'snoozed' | 'cancelled';
 }
 
+/**
+ * Accepts a Date or an ISO string (pending actions round-trip through Redis as JSON,
+ * which turns Date into string) and returns a valid Date, or throws.
+ */
+export function toValidReminderDate(value: unknown): Date {
+  const date =
+    value instanceof Date ? value : typeof value === 'string' ? new Date(value) : new Date(NaN);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error('Thời gian nhắc (remindAt) không hợp lệ.');
+  }
+  return date;
+}
+
 export interface UpdateReminderDto {
   title?: string;
   remindAt?: Date;
@@ -30,10 +43,12 @@ export class RemindersService {
   ) {}
 
   public async createReminder(dto: CreateReminderDto): Promise<ReminderEntity> {
+    // Validate before saving so a bad value never leaves a saved row behind a reported error.
+    const remindAt = toValidReminderDate(dto.remindAt);
     const reminder = this.reminderRepo.create({
       userId: dto.userId.toString(),
       title: dto.title.trim(),
-      remindAt: dto.remindAt,
+      remindAt,
       notifyType: dto.notifyType || 'text',
       repeatType: dto.repeatType || 'none',
       status: dto.status || 'pending',
@@ -43,7 +58,7 @@ export class RemindersService {
 
     const saved = await this.reminderRepo.save(reminder);
     this.logger.log(
-      `Created reminder "${dto.title}" [${saved.notifyType.toUpperCase()}] for user ${dto.userId} at ${dto.remindAt.toISOString()}`,
+      `Created reminder "${dto.title}" [${saved.notifyType.toUpperCase()}] for user ${dto.userId} at ${remindAt.toISOString()}`,
     );
     return saved;
   }

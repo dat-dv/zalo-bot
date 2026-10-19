@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { TransactionConfirmationService } from './transaction-confirmation.service';
+import {
+  TransactionConfirmationService,
+  parseReminderPayload,
+} from './transaction-confirmation.service';
 import {
   FinanceService,
   CreateFinanceTransactionDto,
@@ -31,7 +34,7 @@ interface TestContext {
   revokedTokens: string[];
 }
 
-function createTestContext(): TestContext {
+function createTestContext(redisService?: RedisService): TestContext {
   const sentMessages: Array<{ chatId: string | number; text: string }> = [];
   const createdTransactions: CreateFinanceTransactionDto[] = [];
   const deletedTransactions: Array<{ userId: string | number; id: string }> = [];
@@ -140,6 +143,7 @@ function createTestContext(): TestContext {
     mockGoogleCalendarService,
     mockUsersService,
     mockGoogleAuthService,
+    redisService,
   );
   service.timeoutMs = 50; // 50ms for tests
 
@@ -399,6 +403,60 @@ void test('TransactionConfirmationService creates and confirms reminder with str
   assert.match(sentMessages[1].text, /Đã xác nhận và đặt lịch nhắc thành công/);
 
   service.clearAll();
+});
+
+void test('TransactionConfirmationService confirms reminder whose payload round-tripped through Redis', async () => {
+  const redisStorage = new Map<string, string>();
+  const redisService = {
+    get: (key: string) => Promise.resolve(redisStorage.get(key) || null),
+    set: (key: string, val: string) => {
+      redisStorage.set(key, val);
+      return Promise.resolve('OK');
+    },
+    del: (key: string) => {
+      redisStorage.delete(key);
+      return Promise.resolve(1);
+    },
+  } as unknown as RedisService;
+  const { service, sentMessages, createdReminders } = createTestContext(redisService);
+  const remindAt = new Date('2026-10-19T17:00:00+07:00');
+
+  const pending = await service.createPendingReminder({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: { userId: 'u1', title: 'Nhắn Mẹ đừng nấu cơm', remindAt },
+  });
+
+  await service.handleCommand('u1', 'c1', `yes ${pending.code}`);
+  assert.equal(createdReminders.length, 1);
+  assert.ok(createdReminders[0].remindAt instanceof Date);
+  assert.equal(createdReminders[0].remindAt.getTime(), remindAt.getTime());
+  assert.match(
+    sentMessages[sentMessages.length - 1].text,
+    /Đã xác nhận và đặt lịch nhắc thành công/,
+  );
+
+  service.clearAll();
+});
+
+void test('parseReminderPayload revives ISO remindAt and rejects invalid values', () => {
+  const parsed = parseReminderPayload({
+    userId: 'u1',
+    title: 'Đi chợ',
+    remindAt: '2026-10-19T10:00:00.000Z',
+    notifyType: 'call',
+    repeatType: 'bogus',
+  });
+  assert.ok(parsed.remindAt instanceof Date);
+  assert.equal(parsed.remindAt.toISOString(), '2026-10-19T10:00:00.000Z');
+  assert.equal(parsed.notifyType, 'call');
+  assert.equal(parsed.repeatType, undefined);
+
+  assert.throws(() =>
+    parseReminderPayload({ userId: 'u1', title: 'x', remindAt: 'không phải ngày' }),
+  );
+  assert.throws(() => parseReminderPayload({ userId: 'u1', title: 'x', remindAt: 123 }));
+  assert.throws(() => parseReminderPayload({ userId: 'u1', title: '  ', remindAt: new Date() }));
 });
 
 void test('TransactionConfirmationService creates and confirms Google Task with strict shape', async () => {

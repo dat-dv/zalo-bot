@@ -5,7 +5,11 @@ import {
   CreateFinanceTransactionDto,
   CreateDebtDto,
 } from '../../finance/finance.service';
-import { RemindersService, CreateReminderDto } from '../../reminders/reminders.service';
+import {
+  RemindersService,
+  CreateReminderDto,
+  toValidReminderDate,
+} from '../../reminders/reminders.service';
 import { GoogleTasksService, CreateTaskOptions } from '../../google/google-tasks.service';
 import { GoogleCalendarService, CreateEventOptions } from '../../google/google-calendar.service';
 import { UsersService } from '../../users/users.service';
@@ -78,6 +82,36 @@ export function normalizePlaceName(val: string): string {
     .replace(/\s+/g, ' ');
 }
 
+const REMINDER_NOTIFY_TYPES = ['text', 'call'] as const;
+const REMINDER_REPEAT_TYPES = ['none', 'daily', 'weekly'] as const;
+const REMINDER_STATUSES = ['pending', 'completed', 'snoozed', 'cancelled'] as const;
+
+function pickOption<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  return allowed.find((option) => option === value);
+}
+
+/**
+ * Rebuilds a CreateReminderDto from a pending payload. Payloads read back from Redis are
+ * plain JSON, so `remindAt` arrives as an ISO string and must be revived into a Date.
+ */
+export function parseReminderPayload(payload: Record<string, unknown>): CreateReminderDto {
+  const { userId, title } = payload;
+  if (typeof userId !== 'string' && typeof userId !== 'number') {
+    throw new Error('Thiếu người dùng cho lịch nhắc.');
+  }
+  if (typeof title !== 'string' || !title.trim()) {
+    throw new Error('Thiếu nội dung lịch nhắc.');
+  }
+  return {
+    userId,
+    title,
+    remindAt: toValidReminderDate(payload.remindAt),
+    notifyType: pickOption(payload.notifyType, REMINDER_NOTIFY_TYPES),
+    repeatType: pickOption(payload.repeatType, REMINDER_REPEAT_TYPES),
+    status: pickOption(payload.status, REMINDER_STATUSES),
+  };
+}
+
 @Injectable()
 export class TransactionConfirmationService implements OnModuleDestroy {
   private readonly logger = new Logger(TransactionConfirmationService.name);
@@ -90,7 +124,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
   private readonly zaloService: {
     sendMessage(chatId: string | number, text: string): Promise<unknown>;
-    sendMessageWithResult?(chatId: string | number, text: string): Promise<{ success: boolean; msgId?: string; cliMsgId?: string }>;
+    sendMessageWithResult?(
+      chatId: string | number,
+      text: string,
+    ): Promise<{ success: boolean; msgId?: string; cliMsgId?: string }>;
     undoMessage?(chatId: string | number, msgId: string, cliMsgId?: string): Promise<boolean>;
   };
 
@@ -1250,7 +1287,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           if (!this.remindersService) {
             throw new Error('RemindersService chưa được cấu hình.');
           }
-          const payload = pending.payload as unknown as CreateReminderDto;
+          const payload = parseReminderPayload(pending.payload);
           const reminder = await this.remindersService.createReminder(payload);
           if (!silent) {
             const cardContent = renderDtoConfirmationCard(

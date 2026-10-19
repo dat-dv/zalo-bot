@@ -1,5 +1,9 @@
 # Changelog
 
+## [v1.0.83] - 2026-10-19
+
+- Cập nhật hệ thống.
+
 ## [v1.0.82] - 2026-10-19
 
 - fix(zca): tin nhắn nhóm không tag bot (L2) chỉ xử lý cho user đã cấp quyền, im lặng hoàn toàn, AI chỉ nhận tool thu chi/công nợ/lịch hẹn theo cấu hình thread.
