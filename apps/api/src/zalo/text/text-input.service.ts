@@ -25,6 +25,17 @@ import { StorageUploadPendingImageStrategy } from '../../zca/pending-image/strat
 import { CreateBillPendingImageStrategy } from '../../zca/pending-image/strategies/create-bill-pending-image.strategy';
 import { getVietnamDateTimeContext } from '../../common/utils/datetime.util';
 
+/**
+ * Appended to the prompt when free chat is allowed. Without it the tool-heavy prompt makes the
+ * LLM treat general questions as out of scope and refuse ("em chỉ là trợ lý tài chính").
+ */
+const CHIT_CHAT_INSTRUCTION =
+  'TRÒ CHUYỆN TỰ DO:\n' +
+  '- Ngoài các tác vụ có công cụ, bạn ĐƯỢC PHÉP và NÊN trả lời mọi câu hỏi tổng quát (kiến thức, giải trí, phim ảnh, âm nhạc, ẩm thực, du lịch, học tập, tư vấn...) một cách tự nhiên, hữu ích, ngắn gọn bằng tiếng Việt.\n' +
+  '- KHÔNG từ chối với lý do bạn "chỉ là trợ lý tài chính / lịch hẹn / công việc".\n' +
+  '- Với câu hỏi cần dữ liệu thời gian thực (lịch chiếu, giá cả, thời tiết, tin tức): trả lời bằng kiến thức bạn có, nói ngắn gọn rằng thông tin có thể chưa cập nhật và gợi ý nguồn để kiểm tra.\n' +
+  '- Chỉ gọi công cụ khi người dùng thực sự yêu cầu một thao tác có công cụ tương ứng.';
+
 @Injectable()
 export class TextInputService {
   private readonly logger = new Logger(TextInputService.name);
@@ -199,7 +210,8 @@ export class TextInputService {
       'QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n' +
       '- TÁCH CÁC HÀNH ĐỘNG ĐỘC LẬP: Khi người dùng đưa ra một câu chứa NHIỀU YÊU CẦU / NHIỀU HÀNH ĐỘNG ĐỘC LẬP (ví dụ: "tối nay đi ăn tối hết 80k ở bến thành sau đó đi uống nước 90k ở aeon", hoặc vừa ăn uống vừa tạo lịch, nhiều khoản chi tiêu trong cùng 1 câu), bạn PHẢI gọi đồng thời NHIỀU TOOL CALLS tương ứng cho từng hành động riêng biệt. Tuyệt đối không gộp chung vào 1 tool hay bỏ sót bất kỳ hành động nào.\n' +
       '- KẾ THỪA NGỮ CẢNH DÙNG CHUNG: Khi câu chứa nhiều hành động/giao dịch cùng chia sẻ ngữ cảnh chung (như địa điểm "ở...", thời gian "hôm nay...", hoặc phương thức thanh toán "chuyển khoản/tiền mặt..."), ví dụ: "hôm nay mua cà phê 13k và mua nước cam 20k ở đối diện ctgroup", bạn PHẢI điền đầy đủ các thông tin dùng chung đó (thời gian occurredAt, địa điểm placeName: "đối diện ctgroup", phương thức paymentMethod) cho TẤT CẢ các tool call tương ứng của các giao dịch đó, không được bỏ sót ở bất kỳ giao dịch nào. Nếu từng hành động có địa điểm hoặc thời gian riêng (ví dụ: "ở bến thành... sau đó ở aeon...") thì giữ đúng thông tin riêng của từng hành động.\n' +
-      '- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object (ví dụ đúng: {"amount": 15000, "category": "Ăn uống", "type": "expense", "note": "uống cà phê"}, KHÔNG ĐƯỢC: {"amount": {"amount": 15000}}).';
+      '- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object (ví dụ đúng: {"amount": 15000, "category": "Ăn uống", "type": "expense", "note": "uống cà phê"}, KHÔNG ĐƯỢC: {"amount": {"amount": 15000}}).' +
+      (input.allowAiChat !== false ? `\n\n${CHIT_CHAT_INSTRUCTION}` : '');
 
     try {
       const response = passiveAllowed
@@ -274,6 +286,12 @@ export class TextInputService {
         return;
       }
 
+      // A tool-free second pass answers without the tool catalog biasing the reply toward refusals;
+      // the first pass text stays as fallback.
+      const chitChatReply = await this.zaloService.withChatAction(chatId, () =>
+        this.generateChitChatReply(text, dtContext.systemInstructionSnippet),
+      );
+
       const conversationStrategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
       await conversationStrategy.execute({
         input,
@@ -281,7 +299,7 @@ export class TextInputService {
         senderId,
         displayName,
         text,
-        aiReplyText: response.text,
+        aiReplyText: chitChatReply ?? response.text,
       });
     } catch (err) {
       this.logger.error(`Error in LLM text processing: ${(err as Error).message}`);
@@ -416,6 +434,27 @@ export class TextInputService {
         chatId,
         `⚠️ Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu: ${(err as Error).message}`,
       );
+    }
+  }
+
+  /** Tool-free free-chat reply; `undefined` when empty or failed so the caller can fall back. */
+  private async generateChitChatReply(
+    text: string,
+    dateTimeSnippet: string,
+  ): Promise<string | undefined> {
+    const systemInstruction =
+      `Bạn là trợ lý cá nhân thông minh trên Zalo.\n\n` +
+      `${dateTimeSnippet}\n\n` +
+      'Hãy trả lời tin nhắn của người dùng một cách tự nhiên, thân thiện, ngắn gọn bằng tiếng Việt.\n\n' +
+      CHIT_CHAT_INSTRUCTION;
+    try {
+      const response = await this.llmService.generate(text, undefined, systemInstruction);
+      const reply = response.text?.trim();
+      return reply ? reply : undefined;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : JSON.stringify(err);
+      this.logger.warn(`[TextInputService] Chit-chat generation failed: ${message}`);
+      return undefined;
     }
   }
 

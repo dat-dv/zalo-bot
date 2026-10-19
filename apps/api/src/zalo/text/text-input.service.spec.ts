@@ -32,6 +32,8 @@ interface SetupOptions {
   isAllowed?: boolean;
   cooldownAllowed?: boolean;
   llmResponse?: LlmResponse;
+  /** Reply of the tool-free chit-chat pass; an Error makes that pass throw. */
+  chitChatResponse?: LlmResponse | Error;
   pendingImageActionService?: PendingImageActionService;
   ocrService?: OcrService;
   mediaStorageService?: MediaStorageService;
@@ -132,8 +134,19 @@ function createTextInputService(options?: SetupOptions) {
   let lastLlmPrompt = '';
   let lastLlmInstruction = '';
   let lastLlmToolNames: string[] = [];
+  // Tool-free calls are the chit-chat pass; tracked apart so the counters above keep measuring
+  // the tool-calling pass only.
+  const chitChatCalls: Array<{ prompt: string; systemInstruction: string }> = [];
   const mockLlmService = {
     generate: (prompt: string, tools?: Array<{ name: string }>, systemInstruction?: string) => {
+      if (!tools) {
+        chitChatCalls.push({ prompt, systemInstruction: systemInstruction || '' });
+        const chitChat = options?.chitChatResponse;
+        if (chitChat instanceof Error) {
+          return Promise.reject(chitChat);
+        }
+        return Promise.resolve(chitChat ?? options?.llmResponse ?? { text: '' });
+      }
       llmCallCount++;
       lastLlmPrompt = prompt;
       lastLlmToolNames = (tools ?? []).map((t) => t.name);
@@ -223,6 +236,7 @@ function createTextInputService(options?: SetupOptions) {
     getLastLlmPrompt: () => lastLlmPrompt,
     getLastLlmInstruction: () => lastLlmInstruction,
     getLastLlmToolNames: () => lastLlmToolNames,
+    chitChatCalls,
   };
 }
 
@@ -1001,6 +1015,99 @@ void test('TextInputService remains silent when allowAiChat=false and LLM return
   });
 
   assert.equal(sentMessages.length, 0, 'Bot must remain silent when allowAiChat is false');
+});
+
+void test('TextInputService answers general questions via a tool-free chit-chat pass when allowAiChat=true', async () => {
+  const { service, sentMessages, chitChatCalls, getLlmCallCount } = createTextInputService({
+    llmResponse: { text: 'Em chỉ là trợ lý tài chính nên chưa biết về phim.' },
+    chitChatResponse: { text: 'Gần đây có vài phim đáng xem ngoài rạp...' },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'g1',
+    displayName: 'User',
+    text: 'có phim gì hay chiếu rạp không',
+    allowAiChat: true,
+  });
+
+  assert.equal(getLlmCallCount(), 1);
+  assert.equal(chitChatCalls.length, 1, 'Must run one tool-free chit-chat pass');
+  assert.equal(chitChatCalls[0].prompt, 'có phim gì hay chiếu rạp không');
+  assert.match(chitChatCalls[0].systemInstruction, /TRÒ CHUYỆN TỰ DO/);
+  assert.equal(sentMessages.length, 1);
+  assert.equal(sentMessages[0].text, 'Gần đây có vài phim đáng xem ngoài rạp...');
+});
+
+void test('TextInputService falls back to the first-pass reply when the chit-chat pass fails or is empty', async () => {
+  for (const chitChatResponse of [new Error('provider down'), { text: '   ' }]) {
+    const { service, sentMessages, chitChatCalls } = createTextInputService({
+      llmResponse: { text: 'Chào bạn!' },
+      chitChatResponse,
+    });
+
+    await service.process({
+      type: 'text',
+      senderId: 'u1',
+      chatId: 'c1',
+      displayName: 'User',
+      text: 'xin chào',
+    });
+
+    assert.equal(chitChatCalls.length, 1);
+    assert.equal(sentMessages.length, 1);
+    assert.equal(sentMessages[0].text, 'Chào bạn!');
+  }
+});
+
+void test('TextInputService adds the chit-chat block to the tool prompt only when allowAiChat is not false', async () => {
+  for (const allowAiChat of [true, undefined]) {
+    const { service, getLastLlmInstruction } = createTextInputService();
+    await service.process({
+      type: 'text',
+      senderId: 'u1',
+      chatId: 'c1',
+      displayName: 'User',
+      text: 'kể chuyện cười đi',
+      allowAiChat,
+    });
+    assert.match(getLastLlmInstruction(), /TRÒ CHUYỆN TỰ DO/);
+  }
+
+  const { service, getLastLlmInstruction, chitChatCalls } = createTextInputService();
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'User',
+    text: 'kể chuyện cười đi',
+    allowAiChat: false,
+  });
+  assert.doesNotMatch(getLastLlmInstruction(), /TRÒ CHUYỆN TỰ DO/);
+  assert.equal(chitChatCalls.length, 0, 'No chit-chat pass when allowAiChat is false');
+});
+
+void test('TextInputService skips the chit-chat pass when the LLM resolves a tool call', async () => {
+  const { service, chitChatCalls } = createTextInputService({
+    llmResponse: {
+      toolCall: {
+        name: TextToolType.RECORD_TRANSACTION,
+        args: { type: 'expense', amount: 45000, category: 'Ăn uống', note: 'ăn phở' },
+      },
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'User',
+    text: 'ăn phở 45k',
+    allowAiChat: true,
+  });
+
+  assert.equal(chitChatCalls.length, 0);
 });
 
 void test('TextInputService includes shared context inheritance rules in systemInstruction for LLM tool calling', async () => {
