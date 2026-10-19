@@ -1520,6 +1520,7 @@ export interface IUserListItem {
   id: string;
   username?: string;
   firstName?: string;
+  displayName?: string;
   role: UserRole;
   grantAccess: GrantAccessStatus;
   status: 'active' | 'suspended';

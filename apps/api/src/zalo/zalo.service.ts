@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit, Optional, Inject, forwardRef } from '
 import { ConfigService } from '@nestjs/config';
 import { ZALO_API_URLS } from './zalo.constants';
 import { ZcaService } from '../zca/zca.service';
+import { splitMessage } from '../common/utils/message-splitter.util';
 
 @Injectable()
 export class ZaloService implements OnModuleInit {
@@ -57,7 +58,33 @@ export class ZaloService implements OnModuleInit {
       return { success: false };
     }
 
-    const entrypoint = ZALO_API_URLS.BOT_SEND_MESSAGE(this.token);
+    const chunks = splitMessage(text, 1900);
+    if (chunks.length === 0) {
+      return { success: true };
+    }
+
+    let lastResult: { success: boolean; msgId?: string; cliMsgId?: string } = { success: false };
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      const result = await this.sendSingleMessage(targetChatId, chunk);
+      if (!result.success) {
+        return result;
+      }
+      lastResult = result;
+      if (i < chunks.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+    }
+
+    return lastResult;
+  }
+
+  private async sendSingleMessage(
+    targetChatId: string,
+    text: string,
+  ): Promise<{ success: boolean; msgId?: string; cliMsgId?: string }> {
+    const entrypoint = ZALO_API_URLS.BOT_SEND_MESSAGE(this.token || '');
 
     this.logger.log({
       entrypoint,

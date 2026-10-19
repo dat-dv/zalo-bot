@@ -254,3 +254,49 @@ void test('ZaloService deleteMessage delegates to zcaService.deleteMessage', asy
   assert.equal(deleteCalled, true);
   assert.equal(passedOnlyMe, true);
 });
+
+void test('ZaloService sendMessage automatically splits messages exceeding 2000 characters and sends all chunks', async () => {
+  const mockConfigService = {
+    get: (key: string) => {
+      if (key === 'zalo.botToken') return 'valid_token_xyz';
+      return undefined;
+    },
+  };
+
+  const sentBodies: Array<{ chat_id: string; text: string }> = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (_input: string | URL | Request, init?: RequestInit) => {
+    const rawBody = typeof init?.body === 'string' ? init.body : '{}';
+    const parsed = JSON.parse(rawBody) as { chat_id: string; text: string };
+    sentBodies.push(parsed);
+    return Promise.resolve({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          ok: true,
+          data: { message_id: `msg_${sentBodies.length}` },
+        }),
+    } as Response);
+  };
+
+  try {
+    const service = new ZaloService(mockConfigService as unknown as ConfigService);
+    // Construct a long message of ~3500 characters
+    const p1 = 'A'.repeat(1800);
+    const p2 = 'B'.repeat(1700);
+    const longMessage = `${p1}\n\n${p2}`;
+
+    const result = await service.sendMessage('user_123', longMessage);
+
+    assert.equal(result, true);
+    assert.equal(sentBodies.length, 2);
+    assert.ok(sentBodies[0].text.length <= 1900);
+    assert.ok(sentBodies[1].text.length <= 1900);
+    assert.equal(sentBodies[0].chat_id, 'user_123');
+    assert.equal(sentBodies[1].chat_id, 'user_123');
+    assert.equal(sentBodies[0].text, p1);
+    assert.equal(sentBodies[1].text, p2);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

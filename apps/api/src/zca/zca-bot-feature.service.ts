@@ -466,7 +466,16 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     text: string,
     threadType: number,
     api: API,
+    isSelf?: boolean,
   ): Promise<boolean> {
+    const ownId = (api as unknown as { getOwnId?: () => string })?.getOwnId?.() || '';
+    const isOwner = Boolean(isSelf || (ownId && ownId === senderId));
+
+    // If sender is the bot account itself (e.g. self-listen testing), bypass access guards
+    if (isOwner) {
+      return true;
+    }
+
     const input: AgentInput = {
       type: 'text',
       senderId,
@@ -862,6 +871,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         text,
         message.type,
         api,
+        Boolean(message.isSelf),
       );
       if (!allowed) return;
 
@@ -945,6 +955,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
           text,
           message.type,
           api,
+          Boolean(message.isSelf),
         );
         if (!allowed) return;
 
@@ -971,6 +982,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
           text,
           message.type,
           api,
+          Boolean(message.isSelf),
         );
         if (!allowed) return;
 
@@ -1051,6 +1063,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         text,
         message.type,
         api,
+        Boolean(message.isSelf),
       );
       if (!allowed) return;
 
@@ -1110,6 +1123,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
           text,
           message.type,
           api,
+          Boolean(message.isSelf),
         );
         if (!allowed) return;
       }

@@ -11,13 +11,13 @@ import {
   useDeleteUserMutation,
 } from '../api/users-query';
 
-function UserAvatar({ user }: { user: IUserListItem }) {
+function UserAvatar({ user, name }: { user: IUserListItem; name?: string }) {
   const [imgError, setImgError] = useState(false);
 
   if (user.avatarUrl && !imgError) {
     return (
       <img
-        alt={user.firstName || user.id}
+        alt={name || user.firstName || 'Avatar'}
         className="size-9 shrink-0 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700"
         onError={() => setImgError(true)}
         referrerPolicy="no-referrer"
@@ -26,10 +26,12 @@ function UserAvatar({ user }: { user: IUserListItem }) {
     );
   }
 
-  const initial = (user.firstName || user.id || 'U').charAt(0).toUpperCase();
+  const displayName = name || user.firstName || '';
+  const initial = displayName.trim().charAt(0).toUpperCase();
+
   return (
-    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-indigo-100 font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
-      {initial}
+    <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sky-100 text-xs font-semibold text-sky-700 dark:bg-sky-950 dark:text-sky-300">
+      {initial || '👤'}
     </div>
   );
 }
@@ -181,6 +183,7 @@ export function UsersScreen() {
     const matchesSearch =
       u.id.toLowerCase().includes(q) ||
       (u.firstName || '').toLowerCase().includes(q) ||
+      (u.displayName || '').toLowerCase().includes(q) ||
       (u.alias || '').toLowerCase().includes(q) ||
       (u.phoneNumber || '').toLowerCase().includes(q) ||
       (u.zaloName || '').toLowerCase().includes(q) ||
@@ -411,33 +414,54 @@ export function UsersScreen() {
                     u.grantAccess === GrantAccessStatus.GRANTED || u.role === UserRole.ADMIN;
                   const isAdmin = u.role === UserRole.ADMIN;
 
+                  const isGenericName =
+                    !u.firstName || u.firstName === 'bạn' || u.firstName === 'Người dùng Zalo';
+                  const primaryName =
+                    (!isGenericName ? u.firstName : undefined) ||
+                    u.alias ||
+                    u.displayName ||
+                    u.zaloName ||
+                    u.firstName ||
+                    'Không có tên';
+                  const zaloDisplayName = u.displayName || u.zaloName;
+
                   return (
                     <tr
                       key={u.id}
                       className="transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
                     >
+                      {/* Cột Người dùng */}
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <UserAvatar user={u} />
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative shrink-0">
+                            <UserAvatar user={u} name={primaryName} />
+                            {isGranted && (
+                              <span
+                                className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900"
+                                title="Đã cấp quyền (Whitelist)"
+                              />
+                            )}
+                          </div>
                           <div className="flex flex-col min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-medium text-slate-900 dark:text-slate-100 truncate max-w-[240px]">
-                                {u.firstName || 'Người dùng Zalo'}
+                              <span className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[280px]">
+                                {primaryName}
                               </span>
                               {u.alias && (
                                 <span className="inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
-                                  🏷️ {u.alias}
+                                  🏷️ Gợi nhớ: {u.alias}
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-slate-400 flex-wrap mt-0.5">
+
+                            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex-wrap">
+                              {zaloDisplayName && zaloDisplayName !== primaryName && (
+                                <span>Zalo: {zaloDisplayName}</span>
+                              )}
                               {u.phoneNumber && (
-                                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-medium">
+                                <span className="font-mono text-emerald-600 dark:text-emerald-400">
                                   📞 {u.phoneNumber}
                                 </span>
-                              )}
-                              {u.zaloName && u.zaloName !== u.firstName && (
-                                <span>Zalo: {u.zaloName}</span>
                               )}
                               {u.username && <span>@{u.username}</span>}
                             </div>
@@ -547,7 +571,7 @@ export function UsersScreen() {
                           {!isAdmin && (
                             <button
                               type="button"
-                              onClick={() => handleDeleteUser(u.id, u.firstName)}
+                              onClick={() => handleDeleteUser(u.id, primaryName)}
                               title="Xóa người dùng"
                               className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 transition"
                             >

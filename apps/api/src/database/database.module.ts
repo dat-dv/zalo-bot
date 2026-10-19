@@ -26,6 +26,7 @@ import { AddLinkedUserIdToDebtContacts1724730000000 } from './migrations/1724730
 import { CreateZcaThreadConfigs1724740000000 } from './migrations/1724740000000-CreateZcaThreadConfigs';
 import { AddDirectInteractionToZcaThreadConfigs1724750000000 } from './migrations/1724750000000-AddDirectInteractionToZcaThreadConfigs';
 import { AddDriveFolderColumnsToUsersAndThreadConfigs1724760000000 } from './migrations/1724760000000-AddDriveFolderColumnsToUsersAndThreadConfigs';
+import { AddPhotosAlbumColumnsToZcaThreadConfigs1724770000000 } from './migrations/1724770000000-AddPhotosAlbumColumnsToZcaThreadConfigs';
 
 @Module({
   imports: [
@@ -69,6 +70,7 @@ import { AddDriveFolderColumnsToUsersAndThreadConfigs1724760000000 } from './mig
             CreateZcaThreadConfigs1724740000000,
             AddDirectInteractionToZcaThreadConfigs1724750000000,
             AddDriveFolderColumnsToUsersAndThreadConfigs1724760000000,
+            AddPhotosAlbumColumnsToZcaThreadConfigs1724770000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

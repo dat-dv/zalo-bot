@@ -48,7 +48,14 @@ export class UsersService implements OnModuleInit {
   }
 
   private getEnvAdminIds(): Set<string> {
-    const raw = process.env.ADMIN_USER_IDS || '';
+    const raw = [
+      process.env.ADMIN_USER_IDS,
+      process.env.ADMIN_USER_ID,
+      process.env.ZALO_ADMIN_ID,
+      process.env.ZALO_ADMIN_USER_ID,
+    ]
+      .filter(Boolean)
+      .join(',');
     return new Set(
       raw
         .split(',')
@@ -60,6 +67,10 @@ export class UsersService implements OnModuleInit {
   public async refreshMemoryCache(): Promise<void> {
     try {
       const envAdminIds = this.getEnvAdminIds();
+      const ownId = this.zcaService?.getOwnId();
+      if (ownId) {
+        envAdminIds.add(ownId);
+      }
 
       // Ensure all env admins exist in DB and have role=ADMIN & grantAccess=GRANTED
       for (const adminId of envAdminIds) {
@@ -214,6 +225,10 @@ export class UsersService implements OnModuleInit {
 
   public isAdmin(userId: string | number): boolean {
     const strId = userId.toString();
+    const ownId = this.zcaService?.getOwnId();
+    if (ownId && ownId === strId) {
+      return true;
+    }
     return this.adminUserIdsCache.has(strId) || this.getEnvAdminIds().has(strId);
   }
 
@@ -263,13 +278,42 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
-   * Register pending user with grantAccess = DENIED if they don't exist yet
+   * Register pending user with grantAccess = DENIED if they don't exist yet.
+   * If the user is an admin, promote or keep them as ADMIN with GRANTED access.
    */
   public async registerPendingUser(
     userId: string | number,
     firstName?: string,
   ): Promise<UserEntity> {
     const strId = userId.toString();
+    if (this.isAdmin(strId)) {
+      let existing = await this.userRepo.findOne({ where: { id: strId } });
+      if (!existing) {
+        existing = this.userRepo.create({
+          id: strId,
+          role: UserRole.ADMIN,
+          grantAccess: GrantAccessStatus.GRANTED,
+          firstName: firstName || undefined,
+          createdAt: new Date(),
+        });
+        await this.userRepo.save(existing);
+      } else if (
+        existing.role !== UserRole.ADMIN ||
+        existing.grantAccess !== GrantAccessStatus.GRANTED
+      ) {
+        existing.role = UserRole.ADMIN;
+        existing.grantAccess = GrantAccessStatus.GRANTED;
+        if (firstName && existing.firstName !== firstName) {
+          existing.firstName = firstName;
+        }
+        await this.userRepo.save(existing);
+      }
+      this.adminUserIdsCache.add(strId);
+      this.allowedUserIdsCache.add(strId);
+      void this.redisService?.setWhitelist(strId, true);
+      return existing;
+    }
+
     let existing = await this.userRepo.findOne({ where: { id: strId } });
     if (!existing) {
       existing = this.userRepo.create({
@@ -439,7 +483,9 @@ export class UsersService implements OnModuleInit {
     return false;
   }
 
-  public async getUsers(): Promise<Array<UserEntity & { alias?: string; zaloName?: string }>> {
+  public async getUsers(): Promise<
+    Array<UserEntity & { alias?: string; zaloName?: string; displayName?: string }>
+  > {
     const users = await this.userRepo.find({ order: { createdAt: 'DESC' } });
     if (!this.zcaService) {
       return users;
@@ -461,11 +507,12 @@ export class UsersService implements OnModuleInit {
         if (!t) return u;
         return {
           ...u,
-          firstName: u.firstName || t.alias || t.displayName || t.name,
+          firstName: t.alias || t.name || u.firstName,
           avatarUrl: u.avatarUrl || t.avatar,
           phoneNumber: u.phoneNumber || t.phoneNumber,
           alias: t.alias,
-          zaloName: t.zaloName || t.displayName,
+          displayName: t.displayName,
+          zaloName: t.displayName || t.zaloName,
         };
       });
     } catch {
@@ -509,8 +556,8 @@ export class UsersService implements OnModuleInit {
           user.firstName === 'bạn' ||
           user.firstName === 'Người dùng Zalo' ||
           user.firstName.trim() === '';
-        const zcaName = t.alias || t.displayName || t.name || t.zaloName;
-        if ((isGenericName || !user.firstName) && zcaName) {
+        const zcaName = t.alias || t.name || t.displayName || t.zaloName;
+        if ((isGenericName || !user.firstName || (t.displayName && user.firstName === t.displayName)) && zcaName && user.firstName !== zcaName) {
           user.firstName = zcaName;
           changed = true;
         }

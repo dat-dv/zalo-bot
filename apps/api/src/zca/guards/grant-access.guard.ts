@@ -27,6 +27,13 @@ export class GrantAccessGuard {
       return false;
     }
 
+    if (
+      input.isBot ||
+      (typeof this.usersService?.isAdmin === 'function' && this.usersService.isAdmin(senderId))
+    ) {
+      return true;
+    }
+
     // 1. Lưu user vào DB với cờ grantAccess = DENIED nếu chưa có
     await this.usersService.registerPendingUser(senderId, input.displayName);
 

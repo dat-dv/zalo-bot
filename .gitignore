@@ -65,3 +65,7 @@ scripts/agent-system/
 *.traineddata
 
 
+
+# Claude Code (local, per-developer)
+.claude/settings.local.json
+CLAUDE.local.md

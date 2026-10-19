@@ -68,6 +68,7 @@ void test('GrantAccessGuard saves pending user and rejects ungranted users with 
   const grantedUsers = new Set<string>(['admin_user']);
 
   const mockUsersService = {
+    isAdmin: (id: string) => id === 'admin_user',
     registerPendingUser: (id: string) => {
       registeredUsers.push(id);
       return Promise.resolve({} as never);

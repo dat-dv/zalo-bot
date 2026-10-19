@@ -87,3 +87,36 @@ void test('UsersService.updateUserProfile updates user display name and phone nu
   assert.equal(updated.phoneNumber, '0988776655');
   assert.equal(savedUser?.firstName, 'Chị Mai Giám Đốc');
 });
+
+void test('UsersService.isAdmin identifies admin via ownId and ZALO_ADMIN_ID', async () => {
+  process.env.ZALO_ADMIN_ID = 'zalo_admin_999';
+
+  const mockRepo = {
+    findOne: () => Promise.resolve(null),
+    create: (dto: Partial<UserEntity>) => dto as UserEntity,
+    save: (entity: UserEntity) => Promise.resolve(entity),
+  } as unknown as Repository<UserEntity>;
+
+  const mockZcaService = {
+    getOwnId: () => 'bot_account_123',
+  } as unknown as ZcaService;
+
+  const service = new UsersService(mockRepo, undefined, mockZcaService);
+
+  // 1. Bot own account is automatically admin
+  assert.equal(service.isAdmin('bot_account_123'), true);
+
+  // 2. ID from ZALO_ADMIN_ID is admin
+  assert.equal(service.isAdmin('zalo_admin_999'), true);
+
+  // 3. Random stranger is not admin
+  assert.equal(service.isAdmin('random_stranger'), false);
+
+  // 4. registerPendingUser promotes admin to ADMIN & GRANTED
+  const registered = await service.registerPendingUser('zalo_admin_999', 'Admin Văn Đạt');
+  assert.equal(registered.role, 'admin');
+  assert.equal(registered.grantAccess, 1);
+
+  delete process.env.ZALO_ADMIN_ID;
+});
+
