@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ZcaBotFeatureService, extractMediaUrl } from './zca-bot-feature.service';
+import { ZcaBotFeatureService, extractMediaUrl, isStorageUploadInstruction } from './zca-bot-feature.service';
 import { ThreadConfigService } from './thread-config.service';
 import { ThreadType, type API, type Message, type Reaction } from './shapes';
 import type { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
@@ -1002,6 +1002,179 @@ void test('ZcaBotFeatureService handles quote-reply to an image with @bot and ru
   assert.equal(processedInput.imageUrl, 'https://drive.google.com/bill-123');
   assert.match(processedInput.text || '', /TOTAL: 55000 VND/);
   assert.match(processedInput.text || '', /thanh toán hóa đơn này nhé/);
+});
+
+void test('isStorageUploadInstruction detects storage upload intents and distinguishes from bills', () => {
+  assert.equal(isStorageUploadInstruction('lưu ảnh này lên drive'), true);
+  assert.equal(isStorageUploadInstruction('lưu ảnh này lên drive nhé'), true);
+  assert.equal(isStorageUploadInstruction('lưu ảnh lên drive'), true);
+  assert.equal(isStorageUploadInstruction('lưu lên drive'), true);
+  assert.equal(isStorageUploadInstruction('lưu vào drive'), true);
+  assert.equal(isStorageUploadInstruction('lưu ảnh'), true);
+  assert.equal(isStorageUploadInstruction('lưu drive'), true);
+  assert.equal(isStorageUploadInstruction('lưu kho'), true);
+  assert.equal(isStorageUploadInstruction('2'), true);
+  assert.equal(isStorageUploadInstruction('2 lưu vào drive'), true);
+  assert.equal(isStorageUploadInstruction('upload lên drive'), true);
+  assert.equal(isStorageUploadInstruction('up ảnh này lên drive'), true);
+  assert.equal(isStorageUploadInstruction('lưu video này lên drive'), true);
+
+  // Negative cases: bills and general chatter
+  assert.equal(isStorageUploadInstruction('lưu hóa đơn này'), false);
+  assert.equal(isStorageUploadInstruction('tạo hóa đơn này'), false);
+  assert.equal(isStorageUploadInstruction('lưu bill ăn trưa'), false);
+  assert.equal(isStorageUploadInstruction('ăn trưa 45k'), false);
+  assert.equal(isStorageUploadInstruction('mai 9h họp'), false);
+  assert.equal(isStorageUploadInstruction(''), false);
+});
+
+void test('ZcaBotFeatureService handles quote-reply to an image with @bot lưu ảnh này lên drive and saves to Drive/Photos', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-quote-drive-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    directInteraction: {
+      enabled: true,
+      requireMention: true,
+    },
+  });
+
+  const sentReplies: string[] = [];
+  const mockApi = {
+    sendMessage: (msg: string | { msg: string }) => {
+      sentReplies.push(typeof msg === 'string' ? msg : msg.msg);
+      return Promise.resolve({ message: { msgId: 21 }, attachment: [] });
+    },
+  } as unknown as API;
+
+  let uploadImageCalled = false;
+  let uploadBillCalled = false;
+  const mockMediaStorageService = {
+    uploadImage: async () => {
+      uploadImageCalled = true;
+      return {
+        drive: { fileId: 'img-file-1', webViewLink: 'https://drive.google.com/img-file-1', folderPath: 'zalobot/img' },
+        photos: { albumTitle: '[Zalo] Nhóm group-quote-drive-test', productUrl: 'https://photos.google.com/album-1' },
+      };
+    },
+    uploadBill: async () => {
+      uploadBillCalled = true;
+      return {};
+    },
+    formatUploadSummary: (res: any) =>
+      `☁️ ĐÃ LƯU TRỮ HÌNH ẢNH LÊN GOOGLE:\n📁 Google Drive: ${res.drive?.webViewLink}\n📸 Google Photos: ${res.photos?.productUrl}`,
+  } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
+
+  let textInputCalled = false;
+  const mockTextInputService = {
+    process: () => {
+      textInputCalled = true;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  const service = new ZcaBotFeatureService(configService, mockMediaStorageService);
+  service.setTextInputService(mockTextInputService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.Group,
+    data: {
+      content: '@bot lưu ảnh này lên drive nhé',
+      uidFrom: 'u-user-drive',
+      dName: 'Anh Tuấn',
+      msgType: 'chat',
+      quote: {
+        attach: JSON.stringify({ href: 'data:image/jpeg;base64,dGVzdA==' }),
+        cliMsgType: 32,
+      },
+    },
+  } as unknown as Message;
+
+  await service.onMessage(message, mockApi);
+
+  assert.equal(uploadImageCalled, true, 'uploadImage must be called');
+  assert.equal(uploadBillCalled, false, 'uploadBill must NOT be called');
+  assert.equal(textInputCalled, false, 'textInputService must NOT be called for storage upload');
+  assert.equal(sentReplies.length, 2, 'Should send loading progress and formatted summary');
+  assert.match(sentReplies[0], /Đang tải ảnh lên Google Drive/);
+  assert.match(sentReplies[1], /https:\/\/drive\.google\.com\/img-file-1/);
+  assert.match(sentReplies[1], /https:\/\/photos\.google\.com\/album-1/);
+});
+
+void test('ZcaBotFeatureService handles direct image with caption @bot lưu ảnh này lên drive and saves to Drive/Photos', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-direct-drive-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    directInteraction: {
+      enabled: true,
+      requireMention: true,
+    },
+  });
+
+  const sentReplies: string[] = [];
+  const mockApi = {
+    sendMessage: (msg: string | { msg: string }) => {
+      sentReplies.push(typeof msg === 'string' ? msg : msg.msg);
+      return Promise.resolve({ message: { msgId: 22 }, attachment: [] });
+    },
+  } as unknown as API;
+
+  let uploadImageCalled = false;
+  let uploadBillCalled = false;
+  const mockMediaStorageService = {
+    uploadImage: async () => {
+      uploadImageCalled = true;
+      return {
+        drive: { fileId: 'img-direct-1', webViewLink: 'https://drive.google.com/img-direct-1' },
+        photos: { albumTitle: 'Album Direct', productUrl: 'https://photos.google.com/direct-1' },
+      };
+    },
+    uploadBill: async () => {
+      uploadBillCalled = true;
+      return {};
+    },
+    formatUploadSummary: (res: any) =>
+      `☁️ ĐÃ LƯU TRỮ HÌNH ẢNH LÊN GOOGLE:\n📁 Google Drive: ${res.drive?.webViewLink}`,
+  } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
+
+  let textInputCalled = false;
+  const mockTextInputService = {
+    process: () => {
+      textInputCalled = true;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  const service = new ZcaBotFeatureService(configService, mockMediaStorageService);
+  service.setTextInputService(mockTextInputService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.Group,
+    data: {
+      content: JSON.stringify({
+        href: 'data:image/jpeg;base64,dGVzdA==',
+        title: '@bot lưu ảnh này lên drive',
+      }),
+      uidFrom: 'u-user-direct',
+      dName: 'Chị Mai',
+      msgType: 'chat.photo',
+    },
+  } as unknown as Message;
+
+  await service.onMessage(message, mockApi);
+
+  assert.equal(uploadImageCalled, true, 'uploadImage must be called');
+  assert.equal(uploadBillCalled, false, 'uploadBill must NOT be called');
+  assert.equal(textInputCalled, false, 'textInputService must NOT be called');
+  assert.equal(sentReplies.length, 2);
+  assert.match(sentReplies[1], /https:\/\/drive\.google\.com\/img-direct-1/);
 });
 
 void test('ZcaBotFeatureService in 1-1 chat without caption triggers ImageBatchHandler', async () => {

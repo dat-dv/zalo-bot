@@ -4,6 +4,7 @@ import { PendingImageActionService } from '../pending-image-action.service';
 import { MediaStorageService } from '../../../receipt-storage/media-storage.service';
 import { fetchImageBuffer } from '../../../common/utils/image-fetcher.util';
 import { PendingImageContext, PendingImageStrategy } from '../pending-image.interface';
+import { isStorageUploadInstruction } from '../../zca-bot-feature.service';
 
 @Injectable()
 export class StorageUploadPendingImageStrategy implements PendingImageStrategy {
@@ -21,7 +22,7 @@ export class StorageUploadPendingImageStrategy implements PendingImageStrategy {
   ) {}
 
   public canHandle(text: string): boolean {
-    return this.option2Regex.test(text.trim());
+    return isStorageUploadInstruction(text) || this.option2Regex.test(text.trim());
   }
 
   private async notify(chatId: string, text: string): Promise<void> {

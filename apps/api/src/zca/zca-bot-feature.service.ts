@@ -123,6 +123,35 @@ export function getCaptionOrText(message: Message): string {
   return getMessageText(message);
 }
 
+export function isStorageUploadInstruction(text: string): boolean {
+  const norm = (text || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+  // Option 2 directly from prompt (e.g. "2", "2 lưu drive", "2 lưu ảnh")
+  if (/^2(?:\s+.*)?$/.test(norm)) {
+    return true;
+  }
+
+  // If instruction explicitly refers to bill/expense transaction without mentioning drive/storage
+  // e.g. "lưu hóa đơn này", "quét hóa đơn", "tạo bill" -> goes to OCR bill flow
+  if (
+    /\b(?:hoa\s*don|bill|chi\s*tieu|thu\s*chi|thanh\s*toan)\b/i.test(norm) &&
+    !/\b(?:drive|kho)\b/i.test(norm)
+  ) {
+    return false;
+  }
+
+  // Action verbs for saving/uploading
+  const hasSaveAction = /\b(?:luu|upload|up|save|backup|luu\s*tru)\b/i.test(norm);
+  // Storage destinations or media types
+  const hasStorageTargetOrMedia = /\b(?:drive|google\s*drive|kho|photos?|anh|hinh|video|file|clip|tep)\b/i.test(norm);
+
+  return hasSaveAction && hasStorageTargetOrMedia;
+}
+
 @Injectable()
 export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDestroy {
   public readonly name = 'zca-bot-feature-plugin';
@@ -473,6 +502,91 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     return true;
   }
 
+  private async handleDirectMediaStorageUpload(params: {
+    mediaUrl: string;
+    senderId: string;
+    threadId: string;
+    cleanedText: string;
+    config: ThreadBotConfig;
+    messageType: ThreadType;
+    api: API;
+    isVideo?: boolean;
+  }): Promise<void> {
+    const { mediaUrl, senderId, threadId, cleanedText, config, messageType, api, isVideo } = params;
+
+    if (!this.mediaStorageService) {
+      await api.sendMessage(
+        '☁️ Tính năng lưu trữ ảnh lên Google Drive đang được phát triển.',
+        threadId,
+        messageType,
+      );
+      return;
+    }
+
+    try {
+      await api.sendMessage(
+        isVideo
+          ? '⏳ Đang tải video lên Google Drive & Google Photos dùng chung...'
+          : '⏳ Đang tải ảnh lên Google Drive & Google Photos dùng chung...',
+        threadId,
+        messageType,
+      );
+
+      const buffer = await fetchImageBuffer(mediaUrl);
+      const photosAlbumTitle =
+        config.mediaBackup.photosAlbum ||
+        config.photosAlbumTitle ||
+        (config.threadName ? `[Zalo] ${config.threadName}` : `[Zalo] Nhóm ${threadId}`);
+
+      const uploadOptions = {
+        channelId: threadId,
+        note: cleanedText || (isVideo ? 'Video lưu theo yêu cầu' : 'Ảnh lưu theo yêu cầu'),
+        photosAlbumTitle,
+        photosAlbumId: config.photosAlbumId || undefined,
+        folderPath: config.mediaBackup.customFolder || undefined,
+        suffix: config.mediaBackup.fileSuffix || undefined,
+      };
+
+      const dualResult = isVideo
+        ? await this.mediaStorageService.uploadVideo(senderId, buffer, uploadOptions)
+        : await this.mediaStorageService.uploadImage(senderId, buffer, uploadOptions);
+
+      if (dualResult.drive?.folderId || dualResult.drive?.folderPath) {
+        const folderUrl = dualResult.drive.folderId
+          ? `https://drive.google.com/drive/folders/${dualResult.drive.folderId}`
+          : dualResult.drive.webViewLink;
+        if (folderUrl) {
+          void this.threadConfigService.saveDriveFolderInfo(threadId, {
+            folderId: dualResult.drive.folderId,
+            folderUrl,
+            folderPath: dualResult.drive.folderPath || config.mediaBackup.customFolder,
+          });
+        }
+      }
+
+      if (dualResult.photos?.albumId || dualResult.photos?.albumUrl) {
+        void this.threadConfigService.savePhotosAlbumInfo(threadId, {
+          albumId: dualResult.photos.albumId,
+          albumUrl: dualResult.photos.albumUrl,
+          albumTitle: dualResult.photos.albumTitle || photosAlbumTitle,
+        });
+      }
+
+      const summary = this.mediaStorageService.formatUploadSummary(
+        dualResult,
+        isVideo ? 'video' : 'image',
+      );
+      await api.sendMessage(summary, threadId, messageType);
+    } catch (err) {
+      this.logger.error(`[ZcaBotFeature] Failed to upload media to Drive: ${String(err)}`);
+      await api.sendMessage(
+        `⚠️ Không thể lưu trữ ${isVideo ? 'video' : 'ảnh'} lên Google: ${err instanceof Error ? err.message : String(err)}`,
+        threadId,
+        messageType,
+      );
+    }
+  }
+
   public async onMessage(message: Message, api: API): Promise<void> {
     const threadId = message.threadId;
     const config: ThreadBotConfig = await this.threadConfigService.getConfig(threadId);
@@ -752,6 +866,26 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       if (!allowed) return;
 
       const cleanedText = cleanBotMention(text, botName, directConfig.triggerPrefix);
+
+      // 5a. Quoted media storage upload request (e.g. "@bot lưu ảnh này lên drive")
+      if (isStorageUploadInstruction(cleanedText)) {
+        const isQuotedVideo =
+          /\b(?:video|clip|mp4|mov)\b/i.test(cleanedText) ||
+          /\b(?:video|clip)\b/i.test(JSON.stringify(quoteData?.attach || ''));
+        await this.handleDirectMediaStorageUpload({
+          mediaUrl: quotedMediaUrl,
+          senderId,
+          threadId,
+          cleanedText,
+          config,
+          messageType: message.type,
+          api,
+          isVideo: isQuotedVideo,
+        });
+        return;
+      }
+
+      // 5b. Default: OCR Bill & pass to TextInputService for AI tool execution
       let activeReceiptUrl = quotedMediaUrl;
       let ocrText = '';
 
@@ -841,6 +975,23 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         if (!allowed) return;
 
         const cleanedText = cleanBotMention(text, botName, directConfig.triggerPrefix);
+
+        // 6a. Direct image captioned with request to save to Drive (e.g. "@bot lưu ảnh này lên drive")
+        if (isStorageUploadInstruction(cleanedText)) {
+          await this.handleDirectMediaStorageUpload({
+            mediaUrl,
+            senderId,
+            threadId,
+            cleanedText,
+            config,
+            messageType: message.type,
+            api,
+            isVideo: false,
+          });
+          return;
+        }
+
+        // 6b. Default direct image with caption -> OCR Bill -> TextInputService
         let activeReceiptUrl = mediaUrl;
         let ocrText = '';
 
