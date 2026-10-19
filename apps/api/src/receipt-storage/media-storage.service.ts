@@ -32,6 +32,8 @@ export class MediaStorageService {
       folderPath?: string;
       suffix?: string;
       channelId?: string;
+      photosAlbumTitle?: string;
+      photosAlbumId?: string;
     },
   ): Promise<DualUploadResult> {
     const result: DualUploadResult = {};
@@ -45,7 +47,11 @@ export class MediaStorageService {
         ? this.driveService.uploadReceipt(buffer, senderId, driveOptions)
         : Promise.reject(new Error('GoogleDriveService chưa được khởi tạo.')),
       this.photosService
-        ? this.photosService.uploadBillPhoto(buffer, senderId, options)
+        ? this.photosService.uploadBillPhoto(buffer, senderId, {
+            ...options,
+            albumTitle: options?.photosAlbumTitle,
+            albumId: options?.photosAlbumId,
+          })
         : Promise.reject(new Error('GooglePhotosService chưa được khởi tạo.')),
     ]);
 
@@ -67,7 +73,7 @@ export class MediaStorageService {
   }
 
   /**
-   * Lưu ảnh lên cả Google Drive (zalobot/<channelId>/image/YYYY-MM) và Google Photos (Album ZaloBot - Hình ảnh)
+   * Lưu ảnh lên cả Google Drive (zalobot/<channelId>/image/YYYY-MM) và Google Photos (Album chỉ định hoặc ZaloBot - Hình ảnh)
    */
   public async uploadImage(
     senderId: string,
@@ -80,6 +86,8 @@ export class MediaStorageService {
       channelId?: string;
       msgId?: string;
       filename?: string;
+      photosAlbumTitle?: string;
+      photosAlbumId?: string;
     },
   ): Promise<DualUploadResult> {
     const result: DualUploadResult = {};
@@ -93,7 +101,11 @@ export class MediaStorageService {
         ? this.driveService.uploadImage(buffer, senderId, driveOptions)
         : Promise.reject(new Error('GoogleDriveService chưa được khởi tạo.')),
       this.photosService
-        ? this.photosService.uploadGeneralPhoto(buffer, senderId, options)
+        ? this.photosService.uploadGeneralPhoto(buffer, senderId, {
+            ...options,
+            albumTitle: options?.photosAlbumTitle,
+            albumId: options?.photosAlbumId,
+          })
         : Promise.reject(new Error('GooglePhotosService chưa được khởi tạo.')),
     ]);
 
@@ -115,7 +127,7 @@ export class MediaStorageService {
   }
 
   /**
-   * Lưu video lên cả Google Drive (zalobot/<channelId>/video/YYYY-MM) và Google Photos (Album ZaloBot - Video)
+   * Lưu video lên cả Google Drive (zalobot/<channelId>/video/YYYY-MM) và Google Photos (Album chỉ định hoặc ZaloBot - Video)
    */
   public async uploadVideo(
     senderId: string,
@@ -128,6 +140,8 @@ export class MediaStorageService {
       channelId?: string;
       msgId?: string;
       filename?: string;
+      photosAlbumTitle?: string;
+      photosAlbumId?: string;
     },
   ): Promise<DualUploadResult> {
     const result: DualUploadResult = {};
@@ -141,7 +155,11 @@ export class MediaStorageService {
         ? this.driveService.uploadVideo(buffer, senderId, driveOptions)
         : Promise.reject(new Error('GoogleDriveService chưa được khởi tạo.')),
       this.photosService
-        ? this.photosService.uploadVideo(buffer, senderId, options)
+        ? this.photosService.uploadVideo(buffer, senderId, {
+            ...options,
+            albumTitle: options?.photosAlbumTitle,
+            albumId: options?.photosAlbumId,
+          })
         : Promise.reject(new Error('GooglePhotosService chưa được khởi tạo.')),
     ]);
 

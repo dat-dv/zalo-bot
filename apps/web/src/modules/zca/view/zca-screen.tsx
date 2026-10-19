@@ -17,6 +17,7 @@ import {
 import {
   getThreadDriveLink,
   getThreadDriveOpenUrl,
+  getThreadPhotosLink,
   type ZcaThread,
 } from '../api/zca-api';
 import { ThreadConfigModal } from './thread-config-modal';
@@ -759,6 +760,20 @@ export function ZcaScreen() {
                                 📁 Drive ↗
                               </a>
                             )}
+                            {configMap.get(thread.id)?.mediaBackup.enabled && (
+                              <a
+                                className="inline-flex items-center gap-0.5 rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300 dark:hover:bg-indigo-900 transition-colors"
+                                href={getThreadPhotosLink(
+                                  thread,
+                                  configMap.get(thread.id),
+                                )}
+                                rel="noopener noreferrer"
+                                target="_blank"
+                                title={`Mở album Google Photos: ${configMap.get(thread.id)?.photosAlbumTitle || `[Zalo] ${thread.name || thread.id}`}`}
+                              >
+                                📸 Photos ↗
+                              </a>
+                            )}
                             {configMap.get(thread.id)?.expenseTracking.enabled && (
                               <span className="inline-flex items-center rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                                 💰 Thu chi
@@ -773,14 +788,14 @@ export function ZcaScreen() {
                         )}
                       </td>
 
-                      {/* Cột Thao tác (Sao lưu media, Google Drive, Cấu hình tính năng & Toggle switch button) */}
+                      {/* Cột Thao tác (Sao lưu media, Google Drive, Google Photos, Cấu hình tính năng & Toggle switch button) */}
                       <td className="px-3.5 py-2.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           {thread.type === 'group' && (
                             <button
                               className="inline-flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:border-blue-300 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/40 transition-colors"
                               onClick={() => setSyncThreadTarget(thread)}
-                              title="Quét và sao lưu media lịch sử của nhóm lên Google Drive"
+                              title="Quét và sao lưu media lịch sử của nhóm lên Google Drive & Google Photos"
                               type="button"
                             >
                               <span>⏳</span>
@@ -807,6 +822,21 @@ export function ZcaScreen() {
                             <GoogleDriveIcon className="size-3.5 shrink-0" />
                             <span>Drive</span>
                           </a>
+                          {configMap.get(thread.id)?.mediaBackup.enabled && (
+                            <a
+                              className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-800 dark:text-indigo-300 dark:hover:border-indigo-500 dark:hover:bg-slate-700 dark:hover:text-indigo-200 transition-colors"
+                              href={getThreadPhotosLink(
+                                thread,
+                                configMap.get(thread.id),
+                              )}
+                              rel="noopener noreferrer"
+                              target="_blank"
+                              title={`Mở album Google Photos (${configMap.get(thread.id)?.photosAlbumTitle || `[Zalo] ${thread.name || thread.id}`})`}
+                            >
+                              <span>📸</span>
+                              <span className="hidden sm:inline">Photos</span>
+                            </a>
+                          )}
                           <button
                             className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                             onClick={() => setSelectedThreadForConfig(thread)}
