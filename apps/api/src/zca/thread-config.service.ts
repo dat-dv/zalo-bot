@@ -124,7 +124,6 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
 export class ThreadConfigService implements OnModuleInit {
   private readonly logger = new Logger(ThreadConfigService.name);
   private readonly configsFilePath: string;
-  private readonly whitelistFilePath: string;
   private configsMap = new Map<string, ThreadBotConfig>();
 
   constructor(
@@ -157,7 +156,6 @@ export class ThreadConfigService implements OnModuleInit {
     }
 
     this.configsFilePath = path.resolve(baseDir, '.zca-thread-configs.json');
-    this.whitelistFilePath = path.resolve(baseDir, '.zca-listened-threads.json');
   }
 
   public async onModuleInit(): Promise<void> {
@@ -223,9 +221,6 @@ export class ThreadConfigService implements OnModuleInit {
         this.logger.log(`[ThreadConfigService] Synced configs and whitelist to Redis.`);
       }
 
-      // 4. Save sanitized fallback files (never storing thread-123)
-      await this.saveLegacyFiles();
-
       this.logger.log(
         `[ThreadConfigService] Initialized with ${this.configsMap.size} thread configs.`,
       );
@@ -242,7 +237,6 @@ export class ThreadConfigService implements OnModuleInit {
       await this.cacheConfigToRedis(config);
     }
     await this.syncListenedThreadsToRedis();
-    await this.saveLegacyFiles();
   }
 
   public async getConfig(
@@ -293,7 +287,6 @@ export class ThreadConfigService implements OnModuleInit {
       this.configsMap.set(id, config);
       await this.saveConfigToDb(config);
       await this.cacheConfigToRedis(config);
-      await this.saveLegacyFiles();
     } else if (meta?.threadName && (!config.threadName || config.threadName !== meta.threadName)) {
       config.threadName = meta.threadName;
       if (meta.threadType) config.threadType = meta.threadType;
@@ -421,7 +414,6 @@ export class ThreadConfigService implements OnModuleInit {
       }
     }
 
-    await this.saveLegacyFiles();
     return config;
   }
 
@@ -511,37 +503,6 @@ export class ThreadConfigService implements OnModuleInit {
     } catch (err) {
       this.logger.warn(
         `[ThreadConfigService] Failed to sync listened threads to Redis: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
-
-  private async saveLegacyFiles(): Promise<void> {
-    try {
-      const data: Record<string, ThreadBotConfig> = {};
-      const listenedIds: string[] = [];
-
-      for (const [id, cfg] of this.configsMap.entries()) {
-        if (id === 'thread-123') continue;
-        data[id] = cfg;
-        if (cfg.isListened) {
-          listenedIds.push(id);
-        }
-      }
-
-      const dir = path.dirname(this.configsFilePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-
-      await fs.promises.writeFile(this.configsFilePath, JSON.stringify(data, null, 2), 'utf8');
-      await fs.promises.writeFile(
-        this.whitelistFilePath,
-        JSON.stringify(listenedIds, null, 2),
-        'utf8',
-      );
-    } catch (err) {
-      this.logger.warn(
-        `[ThreadConfigService] Could not save fallback files: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
   }

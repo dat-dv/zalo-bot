@@ -63,4 +63,3 @@ void test('ZcaController.syncThreadMedia delegates to botFeatureService and wrap
   assert.strictEqual(res.data.scannedCount, 20);
   assert.strictEqual(res.data.syncedCount, 5);
 });
-

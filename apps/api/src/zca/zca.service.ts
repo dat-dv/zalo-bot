@@ -157,7 +157,6 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   }[] = [];
 
   private readonly dataDir: string;
-  private readonly whitelistFilePath: string;
   private readonly sessionFilePath: string;
 
   constructor(
@@ -201,7 +200,6 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     }
 
     this.sessionFilePath = path.resolve(this.dataDir, '.zca-session.json');
-    this.whitelistFilePath = path.resolve(this.dataDir, '.zca-listened-threads.json');
 
     this.groupEventDispatcher =
       groupEventDispatcher ??
@@ -974,13 +972,23 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
    * Whitelist Management: Update listened thread IDs and persist.
    */
   public async setListenedThreadIds(ids: string[]): Promise<void> {
-    this.listenedThreadIds = new Set(ids.map(String).filter(Boolean));
-    await this.saveListenedThreads();
+    const previous = new Set(this.listenedThreadIds);
+    const next = new Set(ids.map(String).filter((id) => Boolean(id) && id !== 'thread-123'));
+    this.listenedThreadIds = next;
+
     if (this.threadConfigService) {
-      for (const id of this.listenedThreadIds) {
-        await this.threadConfigService.setListened(id, true);
+      for (const id of previous) {
+        if (!next.has(id)) {
+          await this.threadConfigService.setListened(id, false);
+        }
+      }
+      for (const id of next) {
+        if (!previous.has(id)) {
+          await this.threadConfigService.setListened(id, true);
+        }
       }
     }
+
     this.cachedAvailableThreads = this.cachedAvailableThreads.map((t) => ({
       ...t,
       isListened: this.listenedThreadIds.has(t.id),
@@ -1008,7 +1016,6 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         await this.threadConfigService.setListened(strId, true);
       }
     }
-    await this.saveListenedThreads();
     this.cachedAvailableThreads = this.cachedAvailableThreads.map((t) =>
       t.id === strId ? { ...t, isListened: enabled } : t,
     );
@@ -1297,7 +1304,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     // 1. Message listener (UserMessage | GroupMessage)
     listener.on('message', (message: Message) => {
       const threadId = message?.threadId ?? 'unknown';
-      const isListened = this.listenedThreadIds.size === 0 || this.listenedThreadIds.has(threadId);
+      const isListened = this.listenedThreadIds.has(threadId);
       const isGroup = message?.type === ThreadType.Group;
       this.knownThreadTypes.set(threadId, isGroup ? ThreadType.Group : ThreadType.User);
       if (message?.data?.msgId && message?.data?.cliMsgId) {
@@ -1352,7 +1359,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     // 3. Group event listener (e.g. member joins -> Welcome strategy)
     listener.on('group_event', (event: GroupEvent) => {
       this.knownThreadTypes.set(event.threadId, ThreadType.Group);
-      if (this.listenedThreadIds.size > 0 && !this.listenedThreadIds.has(event.threadId)) {
+      if (!this.listenedThreadIds.has(event.threadId)) {
         this.logger.debug(
           `Group event from thread ${event.threadId} ignored (not in listened list)`,
         );
@@ -1843,42 +1850,10 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         await this.threadConfigService.loadConfigs();
         const ids = this.threadConfigService.getListenedThreadIds();
         this.listenedThreadIds = new Set(ids.filter((id) => id !== 'thread-123'));
-      } else {
-        const filePath = fs.existsSync(this.whitelistFilePath)
-          ? this.whitelistFilePath
-          : path.resolve(process.cwd(), '.zca-listened-threads.json');
-
-        if (fs.existsSync(filePath)) {
-          const content = await fs.promises.readFile(filePath, 'utf8');
-          const parsed = JSON.parse(content) as string[];
-          if (Array.isArray(parsed)) {
-            this.listenedThreadIds = new Set(
-              parsed.map(String).filter((id) => Boolean(id) && id !== 'thread-123'),
-            );
-          }
-        }
       }
       this.logger.log(`Loaded ${this.listenedThreadIds.size} listened threads.`);
     } catch (err: unknown) {
       this.logger.warn(`Could not load listened threads: ${formatErrorMessage(err)}`);
-    }
-  }
-
-  private async saveListenedThreads(): Promise<void> {
-    try {
-      const data = Array.from(this.listenedThreadIds).filter((id) => id !== 'thread-123');
-      if (this.threadConfigService) {
-        for (const id of data) {
-          await this.threadConfigService.setListened(id, true);
-        }
-      }
-      const dir = path.dirname(this.whitelistFilePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      await fs.promises.writeFile(this.whitelistFilePath, JSON.stringify(data, null, 2), 'utf8');
-    } catch (err: unknown) {
-      this.logger.warn(`Could not save listened threads: ${formatErrorMessage(err)}`);
     }
   }
 

@@ -9,6 +9,7 @@ import { createZcaClient } from './index';
 import type { ZcaPlugin } from './zca.interfaces';
 import type { Message, Reaction, GroupEvent, FriendEvent } from 'zca-js';
 import type { RedisService } from '../redis/redis.service';
+import type { ThreadConfigService } from './thread-config.service';
 
 void test('ZcaService initializes Zalo with proxy and node-fetch polyfill', () => {
   const mockConfigService = {
@@ -380,3 +381,114 @@ void test('ZcaService.getAvailableThreads returns empty array when not logged in
   assert.deepStrictEqual(threads, []);
 });
 
+void test('ZcaService startListener ignores messages and group events when listenedThreadIds is empty (strict whitelist)', async () => {
+  const mockConfigService = {
+    get: (): undefined => undefined,
+  } as unknown as ConfigService;
+
+  const service = new ZcaService(mockConfigService);
+  const registeredListeners: Record<string, (arg: unknown) => void> = {};
+
+  const mockListener = {
+    on: (event: string, cb: (arg: unknown) => void) => {
+      registeredListeners[event] = cb;
+    },
+    start: () => {},
+    stop: () => {},
+  };
+
+  (service as unknown as { api: { listener: typeof mockListener } }).api = {
+    listener: mockListener,
+  };
+
+  let dispatchedMessage: Message | null = null;
+  let dispatchedGroupEvent: GroupEvent | null = null;
+  const testPlugin: ZcaPlugin = {
+    name: 'strict-whitelist-plugin',
+    onMessage: (msg) => {
+      dispatchedMessage = msg;
+    },
+    onGroupEvent: (ev) => {
+      dispatchedGroupEvent = ev;
+    },
+  };
+  service.registerPlugin(testPlugin);
+
+  // Start listener with 0 listened threads (strict whitelist / default deny)
+  service.startListener();
+
+  // 1. Message should be ignored
+  registeredListeners['message']({
+    threadId: 'group-100',
+    type: 1,
+    isSelf: false,
+    data: { content: 'hello to unlistened group', dName: 'User A', uidFrom: 'u1' },
+  });
+  assert.strictEqual(dispatchedMessage, null, 'Message must be ignored when listened list is empty');
+
+  // 2. Group event should be ignored
+  registeredListeners['group_event']({
+    threadId: 'group-100',
+    type: 1,
+    act: 'join',
+    data: { updateMembers: ['u1'] },
+  });
+  assert.strictEqual(dispatchedGroupEvent, null, 'Group event must be ignored when listened list is empty');
+
+  // 3. Now allow group-100
+  await service.setListenedThreadIds(['group-100']);
+
+  const allowedMsg = {
+    threadId: 'group-100',
+    type: 1,
+    isSelf: false,
+    data: { content: 'hello to allowed group', dName: 'User A', uidFrom: 'u1' },
+  } as unknown as Message;
+  registeredListeners['message'](allowedMsg);
+  assert.strictEqual(dispatchedMessage, allowedMsg, 'Message must be dispatched when thread is listened');
+
+  const allowedGroupEvent = {
+    threadId: 'group-100',
+    type: 1,
+    act: 'join',
+    data: { updateMembers: ['u1'] },
+  } as unknown as GroupEvent;
+  registeredListeners['group_event'](allowedGroupEvent);
+  await new Promise((r) => setTimeout(r, 10));
+  assert.strictEqual(dispatchedGroupEvent, allowedGroupEvent, 'Group event must be dispatched when thread is listened');
+});
+
+void test('ZcaService setListenedThreadIds unlistens removed threads in ThreadConfigService', async () => {
+  const statusMap = new Map<string, boolean>();
+  const mockThreadConfigService = {
+    loadConfigs: async () => {},
+    getListenedThreadIds: () => Array.from(statusMap.entries()).filter(([, v]) => v).map(([k]) => k),
+    setListened: async (threadId: string, isListened: boolean) => {
+      statusMap.set(threadId, isListened);
+    },
+  } as unknown as ThreadConfigService;
+
+  const mockConfigService = {
+    get: (): undefined => undefined,
+  } as unknown as ConfigService;
+
+  const service = new ZcaService(
+    mockConfigService,
+    undefined,
+    undefined,
+    undefined,
+    mockThreadConfigService,
+  );
+
+  // Listen to threads A and B
+  await service.setListenedThreadIds(['thread-A', 'thread-B']);
+  assert.strictEqual(statusMap.get('thread-A'), true);
+  assert.strictEqual(statusMap.get('thread-B'), true);
+  assert.deepStrictEqual(service.getListenedThreadIds(), ['thread-A', 'thread-B']);
+
+  // Now update to only listen to thread-B (thread-A is removed)
+  await service.setListenedThreadIds(['thread-B']);
+  assert.strictEqual(statusMap.get('thread-A'), false, 'thread-A must be unlistened in ThreadConfigService');
+  assert.strictEqual(statusMap.get('thread-B'), true, 'thread-B must remain listened');
+  assert.deepStrictEqual(service.getListenedThreadIds(), ['thread-B']);
+});

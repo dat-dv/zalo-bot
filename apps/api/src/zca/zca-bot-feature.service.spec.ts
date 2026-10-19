@@ -707,24 +707,22 @@ void test('ZcaBotFeatureService syncThreadMediaHistory scans group media and pre
 
   const uploadedFiles: { id: string; msgId?: string }[] = [];
   const mockMediaStorageService = {
-    uploadImage: (
-      _sender: string,
-      _buf: Buffer,
-      options?: { msgId?: string },
-    ) => {
+    uploadImage: (_sender: string, _buf: Buffer, options?: { msgId?: string }) => {
       uploadedFiles.push({ id: `img-${uploadedFiles.length + 1}`, msgId: options?.msgId });
       return Promise.resolve({
-        drive: { fileId: `drive-img-${uploadedFiles.length}`, webViewLink: 'https://drive.google.com/img' },
+        drive: {
+          fileId: `drive-img-${uploadedFiles.length}`,
+          webViewLink: 'https://drive.google.com/img',
+        },
       });
     },
-    uploadVideo: (
-      _sender: string,
-      _buf: Buffer,
-      options?: { msgId?: string },
-    ) => {
+    uploadVideo: (_sender: string, _buf: Buffer, options?: { msgId?: string }) => {
       uploadedFiles.push({ id: `vid-${uploadedFiles.length + 1}`, msgId: options?.msgId });
       return Promise.resolve({
-        drive: { fileId: `drive-vid-${uploadedFiles.length}`, webViewLink: 'https://drive.google.com/vid' },
+        drive: {
+          fileId: `drive-vid-${uploadedFiles.length}`,
+          webViewLink: 'https://drive.google.com/vid',
+        },
       });
     },
   } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
@@ -790,5 +788,74 @@ void test('ZcaBotFeatureService syncThreadMediaHistory scans group media and pre
   assert.equal(res2.syncedCount, 0);
   assert.equal(res2.skippedCount, 2);
   assert.equal(uploadedFiles.length, 2, 'No new uploads should be performed on duplicate run');
+});
+
+void test('ZcaBotFeatureService syncThreadMediaHistory filters messages by timeRange', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'sync-timerange-group';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+  });
+
+  const uploadedFiles: { id: string; msgId?: string }[] = [];
+  const mockMediaStorageService = {
+    uploadImage: (_sender: string, _buf: Buffer, options?: { msgId?: string }) => {
+      uploadedFiles.push({ id: `img-${uploadedFiles.length + 1}`, msgId: options?.msgId });
+      return Promise.resolve({
+        drive: {
+          fileId: `drive-img-${uploadedFiles.length}`,
+          webViewLink: 'https://drive.google.com/img',
+        },
+      });
+    },
+  } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
+
+  const now = Date.now();
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+
+  const sampleMessages = [
+    {
+      data: {
+        msgId: 'msg-recent',
+        msgType: 'chat.photo',
+        ts: now - 5 * ONE_DAY, // 5 days ago
+        content: JSON.stringify({ href: 'data:image/jpeg;base64,dGVzdA==' }),
+        uidFrom: 'u1',
+        dName: 'Alice',
+      },
+    },
+    {
+      data: {
+        msgId: 'msg-old',
+        msgType: 'chat.photo',
+        ts: now - 45 * ONE_DAY, // 45 days ago (older than 1 month)
+        content: JSON.stringify({ href: 'data:image/jpeg;base64,dGVzdA==' }),
+        uidFrom: 'u2',
+        dName: 'Bob',
+      },
+    },
+  ];
+
+  const mockZcaService = {
+    isLoggedIn: () => true,
+    getGroupChatHistory: async (_groupId: string, _count: number) => ({
+      lastActionId: '1',
+      lastActionIdOther: '1',
+      more: 0,
+      groupMsgs: sampleMessages,
+    }),
+  } as unknown as ZcaService;
+
+  const service = new ZcaBotFeatureService(configService, mockMediaStorageService);
+  service.setZcaService(mockZcaService);
+
+  // Sync with 1_month (cutoff is 30 days): msg-old (45 days) must be skipped
+  const res = await service.syncThreadMediaHistory(threadId, { timeRange: '1_month' });
+  assert.equal(res.scannedCount, 2);
+  assert.equal(res.foundCount, 1, 'Only msg-recent within 30 days should be found');
+  assert.equal(res.syncedCount, 1);
+  assert.equal(uploadedFiles.length, 1);
+  assert.equal(uploadedFiles[0].msgId, 'msg-recent');
 });
 

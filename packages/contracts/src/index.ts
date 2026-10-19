@@ -1998,8 +1998,12 @@ export type UpdateThreadBotConfigDto = Partial<{
   confirmationRules: Partial<ThreadConfirmationConfig>;
 }>;
 
+export type SyncMediaTimeRange = 'all' | '1_month' | '2_months' | '3_months' | '6_months';
+
 export interface SyncThreadMediaDto {
   limit?: number;
+  timeRange?: SyncMediaTimeRange;
+  sinceTimestamp?: number;
   mediaTypes?: ('image' | 'video' | 'file' | 'audio')[];
 }
 

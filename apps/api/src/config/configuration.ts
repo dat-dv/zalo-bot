@@ -28,6 +28,8 @@ export interface AppConfig {
     checkUpdate?: boolean;
     logging?: boolean;
     autoLogin?: boolean;
+    enableWelcome?: boolean;
+    welcomeImagePath?: string;
   };
   timezone: string;
   google: {
@@ -117,6 +119,8 @@ export default (): AppConfig => {
       checkUpdate: readBooleanEnv('ZCA_CHECK_UPDATE', true),
       logging: readBooleanEnv('ZCA_LOGGING', false),
       autoLogin: readBooleanEnv('ZCA_AUTO_LOGIN', false),
+      enableWelcome: readBooleanEnv('ZCA_ENABLE_WELCOME', false),
+      welcomeImagePath: readOptionalEnv('ZCA_WELCOME_IMAGE_PATH'),
     },
     timezone: readEnv('DEFAULT_TIMEZONE', 'Asia/Ho_Chi_Minh'),
     google: {

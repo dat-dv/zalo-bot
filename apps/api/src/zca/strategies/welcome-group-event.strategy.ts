@@ -13,6 +13,7 @@ import {
 import type { ZcaGroupEventStrategy } from './group-event.strategy.interface';
 
 export interface WelcomeStrategyOptions {
+  enabled?: boolean;
   imagePath?: string;
   customWelcomeSingle?: (name: string) => string;
   customWelcomeMultiple?: () => string;
@@ -39,11 +40,25 @@ export class WelcomeGroupEventStrategy implements ZcaGroupEventStrategy {
       : path.resolve(process.cwd(), configuredPath);
   }
 
+  public isEnabled(): boolean {
+    if (this.options?.enabled !== undefined) {
+      return this.options.enabled;
+    }
+    const envVal = process.env.ZCA_ENABLE_WELCOME;
+    if (envVal !== undefined) {
+      return envVal.toLowerCase() === 'true';
+    }
+    return this.configService?.get<boolean>('zca.enableWelcome') === true;
+  }
+
   public setImagePath(newPath: string): void {
     this.imagePath = path.isAbsolute(newPath) ? newPath : path.resolve(process.cwd(), newPath);
   }
 
   public canHandle(event: GroupEvent): boolean {
+    if (!this.isEnabled()) {
+      return false;
+    }
     return event.type === GroupEventType.JOIN && !event.isSelf;
   }
 

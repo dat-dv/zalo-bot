@@ -4,13 +4,11 @@ import { useState, useEffect } from 'react';
 import type {
   ThreadBotConfig,
   UpdateThreadBotConfigDto,
-  SyncThreadMediaResponse,
 } from '@zalobot/contracts';
 import {
   useUpdateZcaThreadConfigMutation,
   useZcaThreadConfigQuery,
   useGoogleDriveFolderLinkQuery,
-  useSyncThreadMediaMutation,
 } from '../api/zca-query';
 import { getThreadDriveLink } from '../api/zca-api';
 
@@ -38,42 +36,6 @@ export function ThreadConfigModal({
 
   const [form, setForm] = useState<ThreadBotConfig | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-
-  const syncMediaMutation = useSyncThreadMediaMutation();
-  const [syncLimit, setSyncLimit] = useState<number>(50);
-  const [syncTypes, setSyncTypes] = useState<{
-    image: boolean;
-    video: boolean;
-    file: boolean;
-  }>({
-    image: true,
-    video: true,
-    file: false,
-  });
-  const [syncResult, setSyncResult] = useState<SyncThreadMediaResponse | null>(null);
-  const [syncError, setSyncError] = useState<string | null>(null);
-
-  const handleSyncHistoryMedia = async () => {
-    setSyncResult(null);
-    setSyncError(null);
-    const mediaTypes: ('image' | 'video' | 'file')[] = [];
-    if (syncTypes.image) mediaTypes.push('image');
-    if (syncTypes.video) mediaTypes.push('video');
-    if (syncTypes.file) mediaTypes.push('file');
-
-    try {
-      const res = await syncMediaMutation.mutateAsync({
-        threadId,
-        data: {
-          limit: syncLimit,
-          mediaTypes,
-        },
-      });
-      setSyncResult(res);
-    } catch (err) {
-      setSyncError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi quét lịch sử.');
-    }
-  };
 
   useEffect(() => {
     if (config) {
@@ -608,156 +570,6 @@ export function ThreadConfigModal({
                         Tránh trùng tên file khi có nhiều người/nhóm cùng upload
                       </p>
                     </div>
-                  </div>
-
-                  {/* Box: Quét & Sao lưu lịch sử (Deduplicated Media History Backup) */}
-                  <div className="mt-4 rounded-lg border border-blue-200/70 bg-blue-50/50 p-3.5 dark:border-blue-900/40 dark:bg-blue-950/20">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base">⏳</span>
-                        <div>
-                          <h5 className="text-xs font-semibold text-blue-950 dark:text-blue-200">
-                            Sao lưu media từ lịch sử tin nhắn cũ
-                          </h5>
-                          <p className="text-[11px] text-blue-700/80 dark:text-blue-400">
-                            Quét ngược tin nhắn cũ trong nhóm và tải lên Google Drive. Tự động kiểm tra trùng lặp (không tải lại tệp đã có).
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {threadType !== 'group' ? (
-                      <div className="mt-2.5 rounded bg-amber-50 p-2 text-[11px] text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
-                        ⚠️ Tính năng quét lịch sử hiện chỉ áp dụng cho <strong>Nhóm chat (Group)</strong>.
-                      </div>
-                    ) : (
-                      <div className="mt-3 space-y-3">
-                        <div className="flex flex-wrap items-center gap-4 text-xs">
-                          <div className="flex items-center gap-1.5">
-                            <label className="text-[11px] font-medium text-slate-700 dark:text-slate-300">
-                              Số tin nhắn quét:
-                            </label>
-                            <select
-                              className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                              disabled={syncMediaMutation.isPending}
-                              onChange={(e) => setSyncLimit(Number(e.target.value))}
-                              value={syncLimit}
-                            >
-                              <option value={20}>20 tin nhắn gần nhất</option>
-                              <option value={50}>50 tin nhắn gần nhất</option>
-                              <option value={100}>100 tin nhắn gần nhất</option>
-                              <option value={200}>200 tin nhắn gần nhất</option>
-                            </select>
-                          </div>
-
-                          <div className="flex items-center gap-3">
-                            <label className="inline-flex cursor-pointer items-center gap-1.5">
-                              <input
-                                checked={syncTypes.image}
-                                className="size-3.5 rounded border-slate-300 text-blue-600"
-                                disabled={syncMediaMutation.isPending}
-                                onChange={(e) =>
-                                  setSyncTypes({ ...syncTypes, image: e.target.checked })
-                                }
-                                type="checkbox"
-                              />
-                              <span className="text-xs text-slate-700 dark:text-slate-300">🖼️ Ảnh</span>
-                            </label>
-                            <label className="inline-flex cursor-pointer items-center gap-1.5">
-                              <input
-                                checked={syncTypes.video}
-                                className="size-3.5 rounded border-slate-300 text-blue-600"
-                                disabled={syncMediaMutation.isPending}
-                                onChange={(e) =>
-                                  setSyncTypes({ ...syncTypes, video: e.target.checked })
-                                }
-                                type="checkbox"
-                              />
-                              <span className="text-xs text-slate-700 dark:text-slate-300">🎬 Video</span>
-                            </label>
-                            <label className="inline-flex cursor-pointer items-center gap-1.5">
-                              <input
-                                checked={syncTypes.file}
-                                className="size-3.5 rounded border-slate-300 text-blue-600"
-                                disabled={syncMediaMutation.isPending}
-                                onChange={(e) =>
-                                  setSyncTypes({ ...syncTypes, file: e.target.checked })
-                                }
-                                type="checkbox"
-                              />
-                              <span className="text-xs text-slate-700 dark:text-slate-300">📁 File/Tài liệu</span>
-                            </label>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                            disabled={
-                              syncMediaMutation.isPending ||
-                              (!syncTypes.image && !syncTypes.video && !syncTypes.file)
-                            }
-                            onClick={handleSyncHistoryMedia}
-                            type="button"
-                          >
-                            {syncMediaMutation.isPending ? (
-                              <>
-                                <svg
-                                  className="size-3.5 animate-spin text-white"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <circle
-                                    className="opacity-25"
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="currentColor"
-                                    strokeWidth="4"
-                                  />
-                                  <path
-                                    className="opacity-75"
-                                    d="M4 12a8 8 0 018-8v8H4z"
-                                    fill="currentColor"
-                                  />
-                                </svg>
-                                <span>Đang quét & tải lên...</span>
-                              </>
-                            ) : (
-                              <span>🚀 Quét & Sao lưu media cũ</span>
-                            )}
-                          </button>
-                        </div>
-
-                        {/* Sync Result Banner */}
-                        {syncResult && (
-                          <div className="rounded border border-emerald-200 bg-emerald-50/80 p-2.5 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
-                            <div className="font-semibold">✅ Hoàn thành quét lịch sử:</div>
-                            <p className="mt-0.5">{syncResult.message}</p>
-                            <div className="mt-1.5 flex flex-wrap gap-2 text-[11px]">
-                              <span className="rounded bg-emerald-100 px-2 py-0.5 font-medium text-emerald-900 dark:bg-emerald-900/60 dark:text-emerald-200">
-                                Mới tải lên: {syncResult.syncedCount}
-                              </span>
-                              <span className="rounded bg-blue-100 px-2 py-0.5 font-medium text-blue-900 dark:bg-blue-900/60 dark:text-blue-200">
-                                Đã có sẵn (bỏ qua): {syncResult.skippedCount}
-                              </span>
-                              {syncResult.failedCount > 0 && (
-                                <span className="rounded bg-rose-100 px-2 py-0.5 font-medium text-rose-900 dark:bg-rose-900/60 dark:text-rose-200">
-                                  Lỗi: {syncResult.failedCount}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Sync Error Banner */}
-                        {syncError && (
-                          <div className="rounded border border-rose-200 bg-rose-50/80 p-2.5 text-xs text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
-                            ❌ {syncError}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
               )}

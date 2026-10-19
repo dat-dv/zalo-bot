@@ -236,7 +236,9 @@ export class ZcaController {
 
   @Post('threads/:threadId/sync-media')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Quét lịch sử và sao lưu media (ảnh, video, file) của kênh lên Google Drive' })
+  @ApiOperation({
+    summary: 'Quét lịch sử và sao lưu media (ảnh, video, file) của kênh lên Google Drive',
+  })
   public async syncThreadMedia(
     @Param('threadId') threadId: string,
     @Body() body?: SyncThreadMediaDto,

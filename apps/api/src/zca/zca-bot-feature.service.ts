@@ -518,7 +518,40 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
       };
     }
 
-    const requestedLimit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
+    // Resolve time range cutoff and count limit
+    let cutoffTime = 0;
+    let defaultCount = 100;
+
+    if (options?.sinceTimestamp && options.sinceTimestamp > 0) {
+      cutoffTime = options.sinceTimestamp;
+    } else if (options?.timeRange) {
+      const now = Date.now();
+      const ONE_DAY = 24 * 60 * 60 * 1000;
+      switch (options.timeRange) {
+        case '1_month':
+          cutoffTime = now - 30 * ONE_DAY;
+          defaultCount = 200;
+          break;
+        case '2_months':
+          cutoffTime = now - 60 * ONE_DAY;
+          defaultCount = 300;
+          break;
+        case '3_months':
+          cutoffTime = now - 90 * ONE_DAY;
+          defaultCount = 500;
+          break;
+        case '6_months':
+          cutoffTime = now - 180 * ONE_DAY;
+          defaultCount = 500;
+          break;
+        case 'all':
+          cutoffTime = 0;
+          defaultCount = 500;
+          break;
+      }
+    }
+
+    const requestedLimit = Math.min(Math.max(options?.limit ?? defaultCount, 1), 500);
     const mediaTypes = options?.mediaTypes || ['image', 'video', 'file', 'audio'];
     const allowImage = mediaTypes.includes('image');
     const allowVideo = mediaTypes.includes('video');
@@ -526,7 +559,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
     const allowAudio = mediaTypes.includes('audio');
 
     this.logger.log(
-      `[ZcaBotFeature] Bắt đầu quét lịch sử cho thread ${threadId} (limit: ${requestedLimit}, types: ${mediaTypes.join(',')})...`,
+      `[ZcaBotFeature] Bắt đầu quét lịch sử cho thread ${threadId} (limit: ${requestedLimit}, timeRange: ${options?.timeRange || 'custom'}, types: ${mediaTypes.join(',')})...`,
     );
 
     let historyRes: GetGroupChatHistoryResponse;
@@ -545,6 +578,11 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
     let failedCount = 0;
 
     for (const msg of msgs) {
+      const msgTime = Number(msg.data?.ts);
+      if (cutoffTime > 0 && msgTime && msgTime < cutoffTime) {
+        continue;
+      }
+
       const msgType = msg.data?.msgType || '';
       const isImage = msgType === 'chat.photo';
       const isVideo = msgType === 'chat.video.msg';
