@@ -5,23 +5,22 @@ metadata:
     type: documentation
     depends_on:
       - .agents/knowledge/global/zalo-response-layout.md
+      - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
 ---
 
-# Bố cục phản hồi zalo
+# Bố cục phản hồi Zalo
 
 Hướng dẫn này ánh xạ trực tiếp với tri thức canonical [`zalo-response-layout.md`](../../knowledge/global/zalo-response-layout.md).
 
-Response zalo cần ưu tiên nội dung người dùng cần quyết định hoặc đọc ngay: một tiêu đề ngắn, số liệu chính cùng dòng và từng mục tối đa hai dòng. Không thêm đường phân cách hoặc hướng dẫn lặp lại khi nút bên dưới đã thể hiện hành động kế tiếp.
+## 1. Nguyên tắc trình bày
 
-Các nút ngắn, liên quan trực tiếp có thể cùng một hàng. Nút dài phải để hàng riêng để không bị tràn trên điện thoại. Khi có cùng một hành động ở nhiều phạm vi, nhãn phải nói rõ phạm vi: làm mới lịch hôm nay và làm mới lịch 7 ngày dùng hai callback riêng. Không đổi callback data và không đổi JSON fallback của hộp xác nhận, trừ callback mới cần thiết cho một phạm vi mới.
+- Mọi phản hồi của bot là **văn bản thuần**. Zalo không có nút bấm hay bàn phím inline như các nền tảng khác, nên mọi thao tác tiếp theo đều là **gõ lệnh** (`yes 629`, `/today`...) hoặc **thả cảm xúc**.
+- Bố cục: một dòng tiêu đề ngắn có emoji, sau đó các dòng `• Nhãn: giá trị`. Giữ gọn để đọc tốt trên điện thoại.
+- Gửi tin qua `ZaloService`: nếu có token Bot Platform, tin dài được cắt thành đoạn 1900 ký tự (cách nhau 300 ms); nếu Bot API lỗi mà ZCA đang đăng nhập thì gửi lại qua ZCA. Không có token thì gửi thẳng qua ZCA. Kết quả trả về `msgId`/`cliMsgId` để có thể thu hồi về sau.
 
-Trước khi gửi Markdown do AI tạo, bot giải mã HTML entity và bỏ escape thừa trước dấu `&` trong URL. Vì vậy chuỗi như ` ` hoặc `\&ctz` không được xuất hiện nguyên văn trong chat.
+## 2. Thẻ xác nhận 3 số
 
-Các tin nhắn danh sách/thông tin có nút thao tác dài hạn — tổng kết hôm nay, danh sách việc, trạng thái tài khoản, danh sách người dùng, chi tiết công nợ và liên kết Dashboard/Báo cáo — phải có nút `❌ Đóng`. Khi bấm, bot ưu tiên xóa tin nhắn; nếu zalo không cho phép xóa thì gỡ toàn bộ bàn phím inline để không còn thao tác cũ. Hộp xác nhận vẫn dùng `Hủy`; biên nhận Reminder và Calendar giữ `Ẩn nút` để không làm mất lịch sử thao tác.
-
-## 1. Cấu Trúc Thẻ Xác Nhận Tương Tác (3-Digit Interactive Cards)
-
-Mọi thao tác nhạy cảm (ghi thu/chi, tạo địa điểm, nợ, lời nhắc, calendar, tasks, cấm người dùng) được sinh thẻ xác nhận với mã 3 số ngẫu nhiên (`code`):
+Mọi thao tác nhạy cảm (ghi/xoá thu chi, ghi nợ, tạo nơi chốn, lời nhắc, tạo/xoá lịch, tạo/hoàn thành việc, khoá người dùng) không thực thi ngay mà sinh thẻ xác nhận với mã 3 số ngẫu nhiên (100–999) và thời hạn 5 phút:
 
 ```text
 ⏳ Xác nhận lưu 🔴 khoản chi?
@@ -33,7 +32,6 @@ Mọi thao tác nhạy cảm (ghi thu/chi, tạo địa điểm, nợ, lời nh�
 • Thời gian: 20:00 13/10/2026
 • Địa điểm: tiệm bánh tráng đầu đường gò xoài
 • Phương thức: tiền mặt
-• Ảnh hóa đơn: (trống)
 
 👉 Thả tim (❤️) hoặc soạn: yes 629 (để xác nhận)
 👉 Thả phẫn nộ (😡) hoặc soạn: cancel 629 (để hủy bỏ)
@@ -41,59 +39,42 @@ Mọi thao tác nhạy cảm (ghi thu/chi, tạo địa điểm, nợ, lời nh�
 ⏱️ Tự động hết hạn sau 5 phút.
 ```
 
-- **Đồng bộ đa nền tảng**: Thẻ được lưu đồng thời trong RAM và Redis (`pending:tx:code:*`, `pending:tx:user:*`, `pending:tx:msg:*`).
+Cách duyệt:
+- **Gõ lệnh:** `yes <mã>`, `cancel <mã>`, `edit <mã> <nội dung>`, `yes all`, `cancel all` (chấp nhận cả `xác nhận`, `hủy`, `bỏ qua`, `sửa`...). Không ghi mã thì `yes` lấy thẻ cũ nhất, `cancel`/`edit` lấy thẻ mới nhất của người gửi.
+- **Thả cảm xúc (ZCA):** ❤️ cộng một lượt tim, đủ số tim yêu cầu thì duyệt; 😡 huỷ ngay.
+- **Lưu ý:** mỗi thẻ hiện chỉ cần 1 tim. Cấu hình nhóm `confirmationRules.requiredHearts` (mặc định 5 với nhóm) đã lưu nhưng chưa được áp dụng khi tạo thẻ.
+- Người gửi được duyệt/huỷ/sửa khi là chủ thẻ hoặc đang nhắn trong đúng cuộc trò chuyện chứa thẻ.
 
-## 2. Quy Chuẩn Thu Hồi Tin Nhắn Tự Động (Automatic Message Recall & Clean Conversations)
+## 3. Khoá Redis
 
-Nhằm giữ cuộc trò chuyện luôn gọn gàng và tránh rác tin nhắn, bot áp dụng nguyên tắc: **"Toàn bộ tin nhắn sinh ra trong quá trình tương tác đều là tạm thời, khi hoàn tất chỉ để lại thông điệp kết quả cuối cùng"**:
+| Khoá | Nội dung |
+| --- | --- |
+| `pending:tx:code:<mã>` | Toàn bộ dữ liệu thẻ chờ |
+| `pending:tx:user:<userId>` | Mã thẻ mới nhất của người dùng |
+| `pending:tx:user-codes:<userId>` | Danh sách mọi mã đang chờ của người dùng — phục vụ `yes all`, `cancel all` và kiểm tra nơi chốn đang chờ tạo |
+| `pending:tx:msg:<msgId>` | Mã thẻ gắn với tin nhắn (để tra khi có người thả cảm xúc) |
+| `pending:tx:temp:<mã>` | Tin nhắn cần thu hồi theo mã (TTL 1 giờ) |
+| `pending:tx:chat-temp:<chatId>` | Tin nhắn trung gian trong cuộc trò chuyện (TTL 1 giờ) |
+| `zca:msg:cli:<msgId>` | `cliMsgId` dùng để thu hồi (TTL 24 giờ) |
 
-1. **Phân vùng lưu trữ tin nhắn tạm trên Redis**:
-   - `pending:tx:temp:${code}`: Lưu các thẻ xác nhận chờ theo mã (`code`).
-   - `pending:tx:chat-temp:${chatId}`: Lưu các tin nhắn trung gian trong thread (thông báo đếm tim `❤️ Đã nhận X/Y...`, lời nhắc `💡 Bạn còn X yêu cầu...`, và thông báo tạo địa điểm đi kèm tạm thời).
+Thẻ chờ cũng được giữ trong bộ nhớ kèm bộ hẹn giờ; Redis là bản sao để chịu được khởi động lại và vẫn chạy được khi Redis mất kết nối.
 
-2. **Cơ chế phân giải định danh `cliMsgId`**:
-   - Trong Zalo, API `undo` bắt buộc phải có `cliMsgId` (13 số timestamp client). Nếu thiếu hoặc truyền nhầm server `msgId`, Zalo server sẽ trả về `"Lỗi không xác định"`.
-   - `ZcaService` tự động bắt cặp `msgId <-> cliMsgId` qua WebSocket echo và mảng `rMsg[0].cMsgID` trong reaction, lưu vào Redis (`zca:msg:cli:*`) với TTL 24h.
-   - Khi gọi `undoMessage`, hệ thống tự động bù `cliMsgId` từ Redis/cache. Nếu Zalo từ chối `undo`, hệ thống tự động fallback gọi `deleteMessage(onlyMe: true)` để dọn sạch phía bot.
+## 4. Thu hồi tin nhắn tự động
 
-3. **Xác nhận thành công (Thả ❤️ hoặc soạn `yes <code>`)**:
-   - Bot gọi `recallTempMessages(chatId, code)` thu hồi thẻ xác nhận chờ và toàn bộ tin nhắn trung gian trong phòng chat (`chat-temp`).
-   - Bot chỉ gửi **duy nhất 1 tin nhắn kết quả hợp nhất** chứa tiêu đề chúc mừng tim và đầy đủ nội dung DTO chi tiết:
-     ```text
-     🎉 Đã nhận đủ 1 lượt thả tim (❤️)! Yêu cầu [629] đã được xác nhận thành công!
+Nguyên tắc: **tin nhắn trong quá trình tương tác là tạm thời; khi xong chỉ còn lại tin kết quả.**
 
-     • Phân loại: 🔴 Khoản chi
-     • Số tiền: 30.000 đ
-     ...
-     ```
-4. **Luồng nhiều thẻ liên tiếp (Multi-card sequential flow)**:
-   - Khi người dùng gửi câu lệnh sinh 2 yêu cầu (ví dụ: tạo nơi chốn `[650]` + khoản chi `[363]`).
-   - Duyệt `[650]`: Thẻ `[650]` bị thu hồi, kết quả nơi chốn và lời nhắc `💡 Bạn còn 1 yêu cầu...` được đưa vào `chat-temp`.
-   - Duyệt `[363]`: Thẻ `[363]` bị thu hồi, đồng thời quét sạch toàn bộ `chat-temp` (thu hồi cả xác nhận nơi chốn tạm và thông báo nhắc còn lại).
-   - Kết quả: Trong phòng chat chỉ còn duy nhất 1 tin nhắn xác nhận hoàn tất giao dịch tại nơi chốn mới!
+1. **Tin trung gian** được ghi nhận để thu hồi: đếm tim `❤️ Đã nhận X/Y...`, nhắc `💡 Bạn còn X yêu cầu chờ xác nhận...`, và kết quả tạo nơi chốn khi vẫn còn thẻ khác đang chờ.
+2. **`cliMsgId`:** API `undo` của Zalo cần mã phía client (`cliMsgId`), truyền nhầm `msgId` sẽ bị từ chối. `ZcaService` bắt cặp `msgId ↔ cliMsgId` và lưu Redis 24 giờ. Nếu `undo` thất bại, bot xoá tin ở phía mình (`deleteMessage(onlyMe: true)`). Thu hồi chỉ hoạt động khi ZCA đang đăng nhập.
+3. **Xác nhận:** thu hồi thẻ + tin trung gian, thực thi, gửi một tin kết quả. Nếu còn thẻ khác, gửi lời nhắc (cũng là tin tạm).
+4. **Thẻ đi kèm:** duyệt giao dịch có nơi chốn mới sẽ tự thu hồi và bỏ thẻ `CREATE_PLACE` tương ứng.
+5. **Huỷ / hết hạn:** thu hồi thẻ và tin trung gian, gửi một tin thông báo (`⏰ ... (mã: xxx) đã hết hạn 5 phút và chưa được xác nhận.`).
+6. **Sửa:** thu hồi thẻ cũ, LLM gọi lại đúng tool đó để sinh thẻ mới với mã mới, rồi xoá thẻ cũ.
+7. **An toàn:** thu hồi chạy bằng `Promise.allSettled`; lỗi chỉ ghi log, không ảnh hưởng việc lưu dữ liệu.
 
-5. **Hết hạn sau 5 phút (Timeout)**:
-   - Bot gọi `recallTempMessages(chatId, code)` thu hồi thẻ xác nhận chờ và tin nhắn trung gian.
-   - Bot chỉ gửi thông báo hết hạn: `⏰ Yêu cầu ... (mã: xxx) đã hết hạn 5 phút và chưa được xác nhận.`
+## 5. Danh mục kiểm tra
 
-6. **Hủy bỏ thao tác (Thả 😡 hoặc soạn `cancel <code>`)**:
-   - Bot gọi `recallTempMessages(chatId, code)` thu hồi thẻ xác nhận chờ và tin nhắn trung gian.
-   - Gửi thông báo: `❌ Đã hủy giao dịch ... (mã: xxx). Yêu cầu chưa được lưu.`
-
-7. **Chỉnh sửa thao tác (`edit <code> <nội dung>`)**:
-   - Bot gọi `recallTempMessages(chatId, code)` thu hồi ngay lập tức thẻ xác nhận cũ.
-   - AI phân tích lại nội dung bổ sung và gửi thẻ xác nhận mới.
-
-8. **An toàn không chặn (Non-blocking)**:
-   - Toàn bộ thao tác thu hồi được bọc trong `Promise.allSettled` và `try...catch`, chỉ ghi log warning và không được làm gián đoạn việc lưu dữ liệu vào cơ sở dữ liệu.
-
-9. **Dọn dẹp Redis sạch sẽ**:
-   - Xóa sạch các key `pending:tx:code:*`, `pending:tx:user:*`, `pending:tx:msg:*`, `pending:tx:temp:*`, `pending:tx:chat-temp:*` khi hoàn thành luồng.
-
-## 3. Danh Mục Kiểm Tra (Verification Checklist)
-
-1. Mọi thẻ xác nhận đều chứa mã 3 số, hướng dẫn thả tim (❤️), phẫn nộ (😡), soạn `yes/cancel/edit` và thời hạn 5 phút.
-2. Khi xác nhận, thẻ chờ được thu hồi và chỉ có 1 tin nhắn kết quả hợp nhất được gửi.
-3. Khi hết hạn hoặc hủy bỏ, thẻ chờ được thu hồi và chỉ có 1 tin nhắn thông báo tương ứng.
-4. Khi chỉnh sửa, thẻ cũ được thu hồi ngay lập tức trước khi thẻ mới xuất hiện.
-5. Unit tests trong `apps/api/src/zalo/transaction-confirmation.service.spec.ts` pass 100%.
+1. Thẻ có mã 3 số, hướng dẫn ❤️/😡, `yes/cancel/edit` và thời hạn 5 phút.
+2. Duyệt xong chỉ còn một tin kết quả trong cuộc trò chuyện.
+3. Huỷ hoặc hết hạn chỉ còn một tin thông báo.
+4. Sửa thì thẻ cũ biến mất trước khi thẻ mới xuất hiện.
+5. Test `apps/api/src/zca/confirmation/transaction-confirmation.service.spec.ts` pass.

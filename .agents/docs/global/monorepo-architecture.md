@@ -5,76 +5,88 @@ metadata:
     type: documentation
     depends_on:
       - .agents/knowledge/global/monorepo-architecture.md
+      - package.json
+      - apps/api/src/main.ts
+      - apps/web/next.config.ts
+      - apps/web/nginx.conf
+      - docker-compose.yml
+      - docker-compose.local.yml
 ---
 
 # Kiến trúc Monorepo
 
-Tài liệu này hướng dẫn cấu trúc tổ chức dự án monorepo và quy trình vận hành hệ thống, ánh xạ trực tiếp với tri thức canonical [`monorepo-architecture.md`](../../knowledge/global/monorepo-architecture.md).
+Tài liệu này hướng dẫn cấu trúc monorepo và quy trình vận hành, ánh xạ với tri thức canonical [`monorepo-architecture.md`](../../knowledge/global/monorepo-architecture.md).
 
 ## Cấu trúc
 
-- `apps/api`: NestJS backend, zalo bot và OAuth Google.
-- `apps/web`: Next.js App Router xuất static files; không dùng Next API Route hay Server Action.
-- `packages/contracts`: Kiểu dữ liệu và hằng số route dùng chung.
-- PostgreSQL là nơi lưu dữ liệu bền vững; container API không dùng file database cục bộ.
+- `apps/api`: NestJS backend — nhận tin nhắn Zalo qua webhook, kết nối Zalo cá nhân (ZCA), Google OAuth/Workspace, gọi LLM (`LlmService`), REST API cho dashboard. Code chia theo vùng nghiệp vụ: `finance`, `zalo`, `zca`, `google`, `llm`, `ocr`, `receipt-storage`, `reminders`, `reports`, `users`, `redis`, `health`, `audit`, `common`, `config`, `database`.
+- `apps/web`: Next.js App Router, xuất static (`output: 'export'`) khi build production; không dùng Route Handler hay Server Action. Module trong `apps/web/src/modules/`: `auth`, `calendar`, `contacts`, `dashboard`, `debts`, `expenses`, `reminders`, `settings`, `tasks`, `users`, `zca`.
+- `packages/contracts`: hằng số route (`API_ROUTES`, `APP_ROUTES`), kiểu DTO, catalog i18n dùng chung.
+- PostgreSQL lưu dữ liệu bền vững; Redis lưu cache, phiên ZCA, thao tác chờ duyệt.
+
+## Các trang web
+
+`/` và `/dashboard` (tổng quan), `/transactions` (`/expenses`, `/income` tự chuyển sang `/transactions?type=...`), `/debts`, `/analytics`, `/calendar`, `/tasks`, `/reminders`, `/contacts`, `/places`, `/zca` (Zalo & Người dùng), `/settings`; trang public `/about`, `/privacy`, `/terms`.
 
 ## Chạy dự án
 
-1. Sao chép `.env.example` thành `.env.local` ở root và điền toàn bộ biến bắt buộc; xem thêm [Env Guard](environment-guard.md).
-2. Chạy cả API và Web cùng lúc bằng `npm run dev` (hoặc chạy riêng từng app bằng `npm run dev:api` / `npm run dev:web`).
-3. Chạy `npm run build` trước khi phát hành; lệnh này build contracts, API rồi web.
+1. Sao chép `.env.example` thành `.env.local` ở root và điền biến bắt buộc; xem [Biến môi trường](environment-guard.md).
+2. Bật hạ tầng local bằng `npm run docker:local` (PostgreSQL, Redis, Nginx gateway).
+3. Chạy API và web cùng lúc bằng `npm run dev` (hoặc `npm run dev:api` / `npm run dev:web`). Web dev chạy ở `FE_PORT` (mặc định 5173), API ở `BE_PORT` (mặc định 3005).
+4. Chạy `npm run build` trước khi phát hành; lệnh này build contracts, API rồi web.
 
 ## Kiểm tra chất lượng
 
-- `npm run lint` và `npm run format:check` chỉ kiểm tra, không sửa mã nguồn.
-- `npm run lint:fix` và `npm run format` chủ động sửa lỗi lint/format trên toàn monorepo.
+- `npm run lint`, `npm run typecheck`, `npm run test`, `npm run format:check` chỉ kiểm tra.
+- `npm run lint:fix` và `npm run format` sửa lỗi lint/format trên toàn monorepo.
 
 ## Bảo mật biến môi trường
 
-Chỉ `NEXT_PUBLIC_API_URL` được phép đi vào bundle trình duyệt. Token zalo, Gemini, Google OAuth và `DATA_ENCRYPTION_KEY` chỉ dùng cho `apps/api`.
+Chỉ biến `NEXT_PUBLIC_*` được phép vào bundle trình duyệt. Token Zalo, khóa LLM (`GEMINI_*`, `OPENAI_*`, `QWEN_*`), Google OAuth, secret dashboard và `DATA_ENCRYPTION_KEY` chỉ dùng cho `apps/api`.
 
-Dashboard tổ chức theo DDD: `modules/auth` sở hữu token/session phía trình duyệt, `modules/dashboard` sở hữu tổng quan và thống kê, `modules/contacts` sở hữu danh bạ. Component tái sử dụng như `DataTable` và `DataPanel` nằm ở `shared/ui`; client HTTP và TanStack Query provider nằm ở `shared/api`/`shared/providers`. `packages/contracts` chỉ chứa route constants và DTO types, không chứa React component.
+## Bot nhận tin nhắn như thế nào
 
-## Tránh xung đột bot zalo
+Bot không dùng long polling. Tin nhắn đến theo hai đường:
 
-zalo chỉ cho phép một tiến trình gọi long polling (`getUpdates`) với cùng một bot token. Phải khai báo rõ `zalo_LONG_POLLING_ENABLED`; chỉ đặt `true` tại đúng một bot worker. Khi chạy local chỉ để dùng dashboard/API trong lúc production đang chạy bot, đặt `zalo_LONG_POLLING_ENABLED=false` trong `.env.local`. Instance này vẫn gửi được tin nhắn chủ động (ví dụ lời nhắc và thông báo OAuth) nhưng không nhận command hoặc update từ zalo.
+- **Webhook Zalo Bot chính thức**: Zalo gọi `/webhook` (chấp nhận cả `/zalo/webhook`, `/api/webhook`, `/api/zalo/webhook`). Các đường này không có tiền tố `/api` bắt buộc để khớp URL đã đăng ký với Zalo.
+- **ZCA**: tài khoản Zalo cá nhân kết nối WebSocket qua `zca-js` để tham gia nhóm chat.
+
+Vì vậy chạy nhiều instance API cùng lúc không tranh nhau nhận update; chỉ instance nào được đăng ký làm webhook URL mới nhận tin nhắn.
 
 ## Dashboard mở từ bot
 
-1. Cấu hình `APP_URL` là URL public runtime của API/bot và đặt `WEB_ORIGIN` cùng giá trị khi Dashboard dùng chung domain.
-2. Đặt `NEXT_PUBLIC_API_URL` cùng origin đó trước khi build Docker dashboard, ví dụ `https://zalobot.datintech.site` (không thêm `/api`). Giá trị này được đóng gói vào static bundle; các hằng route đã có `/api`, nên Nginx nhận `/api/*` và chuyển sang NestJS. Không dùng `SERVICE_URL_*` vì Coolify dành tiền tố này cho URL do nền tảng quản lý.
-3. Bot hiển thị nút **Xem Dashboard**. Link chỉ dùng trong năm phút; API xác nhận token theo user zalo, cấp session dashboard và chuyển sang `/` (kèm `#dashboard_token=...`) trên frontend.
-4. Dashboard gọi `GET /api/dashboard` bằng access token; không truyền zalo ID. Refresh token không đi vào JavaScript. Hai secret `DASHBOARD_ACCESS_TOKEN_SECRET` và `DASHBOARD_REFRESH_TOKEN_SECRET` chỉ nằm ở API.
+1. Cấu hình `APP_URL` là URL public của API; `WEB_ORIGIN` là URL public của web (mặc định bằng `APP_URL` khi dùng chung domain).
+2. Đặt `NEXT_PUBLIC_API_URL` trước khi build Docker web, ví dụ `https://zalobot.datintech.site` (không thêm `/api`). Không dùng tiền tố `SERVICE_URL_*` vì Coolify dành riêng.
+3. Người dùng gõ `/dashboard`; bot gửi link một lần sống 20 phút. API xác nhận token, ghi cookie refresh và chuyển sang `/dashboard#dashboard_token=...`.
+4. Access token sống 24 giờ, lưu ở `localStorage`; refresh token sống 7 ngày, xoay vòng trong cookie `HttpOnly`. Axios tự refresh sau `401`, TanStack Query quản lý cache.
 
-Access token dashboard được lưu ở browser storage trong 15 phút theo yêu cầu UI. Refresh token sống 7 ngày, được xoay vòng ở cookie `HttpOnly`; Axios tự refresh sau `401`, còn TanStack Query quản lý cache và trạng thái dữ liệu.
+Chi tiết: [Phiên Dashboard](dashboard-session.md).
 
-Khi phát triển local, Next chạy tại `http://localhost:5173` và browser gọi API tại `http://localhost:3000`; API tự cho phép origin này ở non-production. Khi dashboard và API dùng cùng domain, đặt `APP_URL`, `WEB_ORIGIN` và `NEXT_PUBLIC_API_URL` cùng giá trị. Khi triển khai static web riêng, đặt `WEB_ORIGIN` là URL public của web; API dùng biến này cho CORS và redirect từ `/api/access`.
+## CORS và gọi API từ web
 
-Khi cần frontend local gọi API remote, đặt `NEXT_PUBLIC_API_URL=https://zalobot.datintech.site` trong `apps/web/.env.local` và tạm đặt `CORS_ALLOW_ALL=true` trong ENV của API remote. Chế độ này phản chiếu origin thay vì dùng `*`, nên vẫn tương thích cookie refresh; phải đổi lại `false` sau khi thử nghiệm.
+- Khi phát triển, Next dev rewrite `/api/*` sang API (theo `NEXT_PUBLIC_API_URL` hoặc `http://localhost:<NGINX_PORT>`), và web trên localhost/tunnel gọi API bằng đường dẫn tương đối.
+- API cho phép origin `WEB_ORIGIN` và thêm `http://localhost:5173` khi không phải production.
+- Khi cần frontend local gọi API remote, tạm đặt `CORS_ALLOW_ALL=true` ở API remote. Chế độ này phản chiếu origin (vẫn dùng được cookie refresh) nên phải đổi lại `false` sau khi thử nghiệm.
 
-## Docker & Tối Ưu Hóa Build Cache
+## Docker production
 
-Dùng `docker compose up --build` tại root. Compose build API và static web qua `apps/api/Dockerfile` và `apps/web/Dockerfile`; web được phục vụ bởi Nginx tại `WEB_PORT` (mặc định 3001), đồng thời Nginx tự động reverse proxy các route `/api/*` (bao gồm Swagger UI `/api/docs` và OAuth callback `/api/oauth2callback`) sang container API backend (`http://api:3000`). PostgreSQL và Redis dùng Docker volumes riêng. Với kiến trúc này, Cloudflare Tunnel chỉ cần trỏ vào duy nhất cổng Web (`localhost:3001`).
+`docker compose up -d --build` tại root dựng 4 service:
 
-### Cơ chế tối ưu Docker Build trên Coolify:
+- `postgres` (16-alpine) và `redis` (7-alpine, bật AOF) với volume riêng.
+- `api`: cổng `BE_PORT` (mặc định 3005), mount `./data:/app/data`, healthcheck `GET /health`.
+- `web`: Nginx phục vụ static export tại `NGINX_PORT` hoặc `WEB_PORT` (mặc định 3009), đồng thời reverse proxy `/api/`, `/webhook`, `/zalo/`, `/oauth2callback` sang `http://api:${BE_PORT}`. Nhờ vậy Cloudflare Tunnel chỉ cần trỏ vào một cổng web.
 
-1. **Root `.dockerignore`**: Loại trừ `.git`, `node_modules`, `.next`, `dist`, logs, test artifacts và các file môi trường `.env*` khỏi build context, giúp upload context tức thì và tránh làm mất cache Docker do thay đổi file tạm.
-2. **Tách biệt multi-stage trong `apps/api/Dockerfile`**:
-   - `tessdata-downloader`: Tải dữ liệu ngôn ngữ Tesseract OCR độc lập.
-   - `whisper-builder`: Pin version tag `v1.7.4` của `whisper.cpp` và biên dịch `whisper-server`, tải `ggml-base.bin` trong một stage riêng.
-   - `builder`: Cài đặt dependencies và build TypeScript.
-   - 👉 Khi deploy thay đổi code TypeScript trên Coolify, Docker chỉ cần build lại stage `builder` (~10-15 giây) thay vì phải clone, biên dịch C++ và tải lại model (~5-8 phút).
-3. **BuildKit Cache Mounts**: Sử dụng `# syntax=docker/dockerfile:1` cùng `RUN --mount=type=cache,target=/root/.npm npm ci` để chia sẻ cache npm giữa các build.
+Tối ưu build:
 
-## Quản Lý Cơ Sở Dữ Liệu & TypeORM Migrations
+1. Root `.dockerignore` loại `node_modules`, `dist`, `.next`, `out`, `.git`, `.env*` để context nhỏ và không lọt secret.
+2. Dockerfile API và web đều 2 stage (`builder` → `runner`); API runner chỉ chứa `dist` và `node_modules`, web runner là Nginx chứa thư mục `out`.
+3. BuildKit cache mount (`RUN --mount=type=cache,target=/root/.npm npm ci`) chia sẻ cache npm giữa các lần build.
 
-Dự án sử dụng cơ chế **TypeORM Migrations tự động** để đồng bộ cơ sở dữ liệu PostgreSQL an toàn mà không làm mất dữ liệu:
+## Quản lý cơ sở dữ liệu & TypeORM Migrations
 
-1. **Tự động thực thi khi khởi động (`migrationsRun: true`)**:
-   - Khi container API khởi động, NestJS tự động quét các file trong `apps/api/src/database/migrations/` và thực thi những migration chưa được áp dụng vào database.
-   - Trạng thái đã chạy được lưu trong bảng `typeorm_migrations`.
-2. **Các lệnh quản lý Migration (CLI)**:
-   - `npm run migration:run --workspace @zalobot/api`: Chạy thủ công tất cả migration mới.
-   - `npm run migration:revert --workspace @zalobot/api`: Rollback migration gần nhất.
-   - `npm run migration:generate --workspace @zalobot/api -- src/database/migrations/<TenMigration>`: Tự động so sánh Entity và sinh file migration mới.
-   - `npm run migration:create --workspace @zalobot/api -- src/database/migrations/<TenMigration>`: Tạo file migration trống.
+1. **Tự chạy khi khởi động** (`migrationsRun: true`): API chạy các migration chưa áp dụng trong `apps/api/src/database/migrations/`, lưu trạng thái ở bảng `typeorm_migrations`. Không sửa migration đã chạy; luôn thêm migration mới. Danh sách migration được import tường minh, nên migration mới phải được đăng ký ở cả `database.module.ts` và `data-source.ts`.
+2. **Lệnh CLI**:
+   - `npm run migration:run --workspace @zalobot/api`: chạy migration mới.
+   - `npm run migration:revert --workspace @zalobot/api`: rollback migration gần nhất.
+   - `npm run migration:generate --workspace @zalobot/api -- src/database/migrations/<TenMigration>`: sinh migration từ thay đổi entity.
+   - `npm run migration:create --workspace @zalobot/api -- src/database/migrations/<TenMigration>`: tạo migration trống.

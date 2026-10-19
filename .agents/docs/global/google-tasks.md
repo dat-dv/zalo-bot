@@ -5,24 +5,45 @@ metadata:
     type: documentation
     depends_on:
       - .agents/knowledge/global/google-tasks.md
+      - apps/api/src/zalo/text/strategies/create-task-tool.strategy.ts
+      - apps/api/src/zalo/text/strategies/tasks-quick-tool.strategy.ts
+      - apps/api/src/google/google-tasks.service.ts
 ---
 
-# Google Tasks: tạo một hoặc nhiều việc
+# Google Tasks: tạo và xem việc cần làm
 
-Bot yêu cầu xác nhận trước khi ghi Google Tasks.
+Tài liệu canonical tương ứng: [`google-tasks.md`](../../knowledge/global/google-tasks.md).
 
-Trước khi hiện hộp xác nhận, bot so sánh tiêu đề với tối đa 50 việc chưa hoàn thành (bỏ dấu, khoảng trắng và ký tự phân cách). Nếu tiêu đề trùng hoặc một tiêu đề là bản mở rộng của tiêu đề còn lại, bot hiện cảnh báo **Có thể trùng**. Đây chỉ là cảnh báo: người dùng vẫn bấm **Xác nhận** được vì hai việc cùng tên có thể là chủ ý.
+## Nhắn tự nhiên (qua LLM)
 
-- Mỗi task hỗ trợ cấu trúc chuẩn 3 phần: `title` (tiêu đề việc), `notes` (ghi chú/hướng dẫn chi tiết), và `due` (hạn chót hoàn thành định dạng ISO 8601). Thẻ xác nhận trên zalo hiển thị đầy đủ 3 trường này.
-- Một việc dùng `create_task`.
-- Danh sách nhiều việc độc lập dùng `create_tasks`; bot hiển thị một xác nhận cho toàn bộ danh sách.
-- Sau khi xác nhận, các mục được tạo tuần tự. Google Tasks không hỗ trợ transaction nhiều mục, nên nếu lỗi giữa chừng bot phải báo rõ mục nào đã tạo và mục nào chưa tạo được.
+Khi người dùng nhắn kiểu "thêm việc nộp báo cáo trước 17h", `LlmService` chọn tool `CREATE_TASK`. Mỗi lần gọi chỉ tạo **một** việc với 3 trường:
 
-Người dùng có thể xem việc bằng cả `/tasks` và `/task`. Với câu như “mua cà phê và cam”, hệ thống phải coi đây là hai mục độc lập, không phải một task có tiêu đề ghép.
+- `title`: tiêu đề việc (bắt buộc).
+- `notes`: ghi chú chi tiết (tùy chọn).
+- `due`: hạn chót dạng ISO 8601 (tùy chọn).
+
+Hệ thống không có tool tạo nhiều việc cùng lúc. Ngoài ra còn `LIST_TASKS` (xem việc) và `COMPLETE_TASK` (đánh dấu hoàn thành, cũng phải xác nhận).
+
+Nếu người dùng chưa liên kết Google, bot nhắc gõ `/login`.
+
+## Vì sao phải xác nhận và cảnh báo trùng
+
+Ghi vào Google Tasks là thay đổi dữ liệu bên ngoài, nên bot tạo **thao tác chờ duyệt** với mã 3 số (duyệt bằng `yes <code>` hoặc thả tim như các thao tác khác). Trước khi tạo thẻ xác nhận, bot so sánh tiêu đề với tối đa 50 việc chưa hoàn thành:
+
+- Chuẩn hóa tiêu đề: bỏ dấu, `đ`→`d`, chữ thường, ký tự phân cách thành khoảng trắng.
+- Coi là có thể trùng nếu hai tiêu đề giống hệt sau chuẩn hóa, hoặc tiêu đề ngắn hơn (từ 2 từ trở lên) nằm trọn trong tiêu đề dài hơn.
+- Nếu trùng, bot gửi thêm tin nhắn cảnh báo liệt kê các việc tương tự. Đây chỉ là cảnh báo: người dùng vẫn xác nhận được vì hai việc cùng tên có thể là chủ ý.
+
+Sau khi xác nhận, việc được tạo trong danh sách mặc định (`@default`) và bot gợi ý gõ `/tasks` để xem toàn bộ.
+
+## Lệnh nhanh
+
+- `/tasks`, `/task`, `/viec`: liệt kê tối đa 15 việc chưa hoàn thành kèm hạn và ghi chú.
+- `/task <nội dung>`: tạo ngay một việc với tiêu đề đó, **không** qua xác nhận và không kiểm tra trùng — dùng khi người dùng chủ động gõ lệnh rõ ràng.
 
 ## Kiểm tra
 
-1. Gửi yêu cầu hai việc, xác nhận, rồi dùng `/tasks`: phải thấy đủ hai mục.
-2. Mô phỏng Google Tasks lỗi ở một mục giữa danh sách: phản hồi phải hiển thị thành công một phần.
-3. Dùng cả `/task` và `/tasks`: hai lệnh phải trả cùng danh sách.
-4. Khi còn `Học C#`, tạo `Học C# (ánh xạ bằng TS)`: hộp xác nhận phải cảnh báo khả năng trùng nhưng vẫn có nút xác nhận; sau khi xác nhận chỉ tạo một task mới.
+1. Nhắn "thêm việc nộp báo cáo", xác nhận mã, rồi gõ `/tasks`: phải thấy việc mới.
+2. Khi đang có `Học C#`, nhắn tạo `Học C# (ánh xạ bằng TS)`: bot phải gửi cảnh báo trùng nhưng vẫn cho xác nhận; sau xác nhận chỉ tạo một việc mới.
+3. Gõ `/task mua sữa`: việc được tạo ngay, không có thẻ xác nhận.
+4. Dùng tài khoản chưa liên kết Google: bot phải nhắc `/login`.

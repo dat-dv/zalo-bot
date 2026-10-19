@@ -4,18 +4,31 @@
 
 ## Purpose
 
-`apps/web/src/modules/calendar` provides a rich calendar interface supporting interactive 7-column Month Grid View and tabular List View for managing Google Calendar events of authenticated users in realtime.
+`apps/web/src/modules/calendar` provides the Google Calendar data layer, date utilities, and the presentational month grid for the authenticated user's events. The routed page (`/calendar`) is `CalendarScreen` in the dashboard module (`modules/dashboard/presentation/components/calendar-screen.tsx`), which owns view toggle, month navigation, search, edit state, and the list view (`CalendarTable`).
 
-## UI and state
+## Files
 
-- **UI Styling**: Fully styled with 100% Tailwind CSS utility classes supporting dark mode (`dark:`) and compact responsive layouts across desktop and mobile screens.
-- **Dual View Modes**: Switchable between Month Grid View (`calendar.view.grid`) and tabular Data Table View (`calendar.view.table`). In List View, the Description column defaults to a compact multi-line width and each column can be resized from its header; widths persist locally per table.
-- **Month Grid (`CalendarGrid`)**: Located under `apps/web/src/modules/calendar/presentation/components/calendar-grid.tsx` (re-exported via `view/calendar-grid.tsx`). Features 7-day grid (Mon–Sun) with leading/trailing padding days, today highlight, selected date focus, full event chips display with start time/summary (displaying all day events without truncation), event count indicator, and an interactive selected day event details/inline-editing panel.
-- **Month Navigation**: Prev Month, Next Month, and Today navigation buttons with localized month/year formatting.
-- **State Management**: TanStack Query caches events by the visible grid `timeMin`/`timeMax`; local month navigation changes that range and fetches the matching Google Calendar interval. A successful empty Calendar response remains empty and never falls back to Dashboard's upcoming-events summary.
-- **Multi-day Events**: Events are indexed into every covered local date. Google all-day end dates and timed events ending exactly at midnight are treated as exclusive boundaries.
+- `api/calendar-api.ts`: `getCalendarEvents(params)` → `GET API_ROUTES.calendarEvents` with `ICalendarEventsQuery` (`timeMin`, `timeMax`); `updateCalendarEvent(id, data)` → `PATCH /api/calendar/events/:id` (`IUpdateCalendarEventRequest`); `deleteCalendarEvent(id)` → `DELETE /api/calendar/events/:id`.
+- `api/calendar-query.ts`: keys `['calendarEvents']` (all) and `['calendarEvents', params]` (range); `useCalendarEventsQuery(params)`, `useUpdateCalendarEventMutation`, `useDeleteCalendarEventMutation`. Both mutations invalidate all `calendarEvents` ranges and `['dashboard']`.
+- `model/calendar-date-utils.ts` (+ spec):
+  - `getCalendarGridRange(month)`: Monday-first grid covering leading/trailing padding days; returns ISO `timeMin`/`timeMax` (end exclusive, local midnight after last cell).
+  - `getEventDateKeys(event)`: local `YYYY-MM-DD` keys for every covered day. Date-only (all-day) ends and timed ends at exactly 00:00 are exclusive.
+- `presentation/components/calendar-grid.tsx` (re-exported by `view/calendar-grid.tsx`): `CalendarGrid`.
 
-## Integration seams
+## `CalendarGrid` (controlled component)
 
-- Backend: `GoogleResourcesController` (`GET/POST/PATCH/DELETE /calendar/events`) interfaces with `GoogleCalendarService` and maps Google Calendar items into normalized `ICalendarEventItem` DTOs.
-- Web Client: `getCalendarEvents` sends a bounded `ICalendarEventsQuery` (`timeMin`, `timeMax`) to `API_ROUTES.calendarEvents`; updates/deletes invalidate all Calendar range caches and the Dashboard summary cache.
+- Props: `events`, `currentDate`, `selectedDate`, `onSelectDate`, edit state (`editingId`, `editDraft`, `onEditDraftChange`, `onSaveEdit`, `onCancelEdit`), `onEdit`, `onDelete`, `isSaving`, `isDeleting`. It holds no server or edit state itself.
+- 7-column grid Mon–Sun with localized weekday headers; padding days dimmed; today highlighted; selected day outlined; per-day event count badge.
+- Every event of the day renders as a chip (start time + title). Titles are single-line and truncated (`truncate`); full text is in the chip `title` tooltip and the detail panel.
+- Selected-day panel lists that day's events with Edit / Delete; inline edit fields: title (required), start, end, location, description.
+
+## Behavior owned by `CalendarScreen` (dashboard module)
+
+- View toggle grid/table (default grid), Today / previous / next month, localized month-year label, client-side search over title/location/description.
+- Queries `useCalendarEventsQuery(getCalendarGridRange(currentMonth))`; each month is its own cache entry. Empty result stays empty (no fallback to the dashboard calendar summary).
+- Delete asks `window.confirm`. Retry/refresh invalidates all calendar ranges and the dashboard key.
+- Shows the "connect Google" hint when `dashboard.user.googleConnected` is false.
+
+## Backend seam
+
+`GoogleResourcesController` (`apps/api/src/google/google-resources.controller.ts`): `GET/POST /api/calendar/events`, `GET/PATCH/DELETE /api/calendar/events/:id`. List returns `{ data: [] }` when the user has no Google authorization or Google errors; rejects `timeMin >= timeMax` (400); default `maxResults` 100. Items map to `ICalendarEventItem` (`id`, `title`, `description`, `location`, `startAt`, `endAt`, ...).

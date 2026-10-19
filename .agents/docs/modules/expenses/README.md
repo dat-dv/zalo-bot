@@ -5,17 +5,45 @@ metadata:
     type: documentation
     depends_on:
       - .agents/knowledge/modules/expenses/README.md
+      - apps/web/src/modules/expenses/api/expenses-api.ts
+      - apps/web/src/modules/expenses/api/expenses-query.ts
+      - apps/web/src/modules/expenses/presentation/components/expenses-screen.tsx
+      - apps/web/app/(private)/expenses/page.tsx
+      - apps/web/app/(private)/income/page.tsx
+      - apps/api/src/reports/reports.controller.ts
 ---
 
-# Module chi tiêu
+# Module chi tiêu (expenses)
 
 Tài liệu này ánh xạ trực tiếp với tri thức canonical [`README.md`](../../../knowledge/modules/expenses/README.md).
 
-Module `apps/web/src/modules/expenses` hiển thị lịch sử các khoản chi tiêu của đúng người dùng đăng nhập.
+## Trạng thái hiện tại
 
-- API: `getExpenses` gọi `API_ROUTES.expenses`; `updateExpense` và `deleteExpense` thao tác qua `API_ROUTES.transactions`. Các mutation `useExpensesQuery`, `useUpdateExpenseMutation`, `useDeleteExpenseMutation` tự động làm mới cache `expenses`, `transactions`, `categories` và `dashboard`.
-- UI: Xây dựng 100% bằng Tailwind CSS utility classes (hỗ trợ đầy đủ dark mode `dark:`). Tiêu đề trang (tên trang, mô tả, nút Làm mới, nút Đăng xuất) do `WorkspaceHeader` trong common private layout cung cấp — `ExpensesScreen` (`apps/web/src/modules/expenses/presentation/components/expenses-screen.tsx`, re-exported qua `view/expenses-screen.tsx`) **không tự render header riêng**. Bảng danh sách chi tiêu gồm danh mục, ghi chú, số tiền, ngày phát sinh; tích hợp menu gợi ý danh mục tự động (`<datalist id="expense-categories-autocomplete">` kết hợp danh mục cấu hình người dùng từ `useCategoriesQuery('expense')`, danh mục chi tiêu chuẩn và lịch sử), bộ lọc chu kỳ thời gian (`PeriodFilterToolbar`), dải xu hướng thu-chi (`TrendSummaryStrip`), biểu đồ thanh tỷ lệ phần trăm số tiền trực quan trong ô `amount`, cụm nút thao tác (Sửa, Xóa, Lưu, Hủy) được cấu hình `flex-nowrap whitespace-nowrap` và `shrink-0` chống rớt dòng, cơ chế ẩn/hiện số tiền nhạy cảm trong phiên (`useMoneyFormatter()`) tự động che `'••••••'` khi ẩn, và lưu trạng thái ẩn/hiện cột qua `DataTable` (`id="expenses"`). Hỗ trợ tìm kiếm nhanh theo danh mục & ghi chú, độ rộng cột tối thiểu `minWidth` và định dạng tiền tệ/thời gian theo chuẩn i18n locale. Khi sửa dòng (inline edit), ô input vẫn giữ số thực để phục vụ nhập liệu.
-- Trên desktop, canvas báo cáo và bảng trải hết chiều ngang còn lại sau thanh điều hướng; trên màn hình hẹp bảng cuộn ngang bên trong panel.
-- Hỗ trợ đầy đủ 4 trạng thái giao diện: Đang tải (skeleton), Rỗng (chưa có chi tiêu), Thành công và Lỗi có nút thử lại.
+Module `apps/web/src/modules/expenses` có màn hình lịch sử **khoản chi** riêng (`ExpensesScreen`) và lớp dữ liệu đi kèm, nhưng **màn hình này hiện không được gắn vào route nào**:
 
-Kiểm thử bằng `npm run typecheck`, `npm run lint` và `npm run build` tại thư mục gốc.
+- `/expenses` chuyển hướng sang `/transactions?type=expense`.
+- `/income` chuyển hướng sang `/transactions?type=income`.
+
+Nghĩa là người dùng xem và sửa khoản chi trong trang Thu chi (`TransactionsScreen`, module dashboard) với bộ lọc loại giao dịch. Module expenses vẫn được giữ lại trong code; query key `['expenses']` vẫn được các mutation giao dịch, nơi chốn, danh bạ làm mới để tương thích.
+
+## API và cache
+
+- `GET /api/expenses`: chỉ lấy khoản chi của người đang đăng nhập, mới nhất trước, **tối đa 200 dòng**, mỗi dòng chỉ có `id`, danh mục, ghi chú, số tiền, ngày phát sinh.
+- Sửa và xoá đi qua API giao dịch chung: `PATCH /api/transactions/:id`, `DELETE /api/transactions/:id`.
+- Sửa/xoá thành công làm mới cache `expenses`, `transactions`, `dashboard`. Nút Thử lại khi lỗi làm mới `expenses` và `categories`.
+
+## Hành vi của `ExpensesScreen` (nếu được gắn lại)
+
+- Bộ lọc kỳ mặc định theo tháng, thanh chọn kỳ có Tuần / Tháng / Quý / Năm (không có nút "Tất cả"). Lọc kỳ làm ở phía client trên tối đa 200 dòng đã tải.
+- Dải xu hướng chi tiêu (`TrendSummaryStrip`) và thẻ đếm số danh mục trong kỳ.
+- Lọc theo danh mục (ô chọn chỉ gồm danh mục có trong kỳ) và tìm kiếm theo danh mục/ghi chú.
+- Bảng `id="expenses"`: Danh mục, Ghi chú, Số tiền (có thanh tỷ lệ so với khoản lớn nhất trong kỳ), Phương thức thanh toán, Tiền tệ, Ngày phát sinh, Thao tác.
+- Sửa trực tiếp danh mục (gợi ý từ danh mục người dùng cấu hình, danh mục đã dùng và danh mục chi mặc định), ghi chú, số tiền (> 0), phương thức thanh toán, ngày phát sinh. Xoá hỏi xác nhận bằng `window.confirm`.
+- Số tiền tuân theo chế độ ẩn/hiện số tiền; ô nhập khi sửa vẫn hiện số thật.
+
+## Lỗi/hạn chế đã biết
+
+- Cột Phương thức thanh toán và Tiền tệ luôn hiện "chưa đặt"/`VND` vì `GET /api/expenses` không trả hai trường này (dù entity và API sửa giao dịch có hỗ trợ `paymentMethod`).
+- Giới hạn 200 dòng: các kỳ cũ hơn 200 khoản chi gần nhất sẽ hiện rỗng.
+
+Nếu muốn dùng lại màn hình này, cần bổ sung trường vào API và quyết định lại route trước khi gắn.

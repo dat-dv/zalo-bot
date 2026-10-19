@@ -12,7 +12,7 @@ metadata:
 
 # Hướng Dẫn Vận Hành & Bảo Trì Dành Cho Lập Trình Viên (Human Developer Guides)
 
-Thư mục này chứa toàn bộ tài liệu hướng dẫn dành cho lập trình viên con người. Để giúp đội ngũ phát triển dễ đọc và vận hành nhất, TẤT CẢ tài liệu dưới `.agents/docs/` được viết bằng **Tiếng Việt** và ánh xạ 1-1 với thư mục module trong mã nguồn (`src/modules/<module-name>/`).
+Thư mục này chứa toàn bộ tài liệu hướng dẫn dành cho lập trình viên con người. Để giúp đội ngũ phát triển dễ đọc và vận hành nhất, TẤT CẢ tài liệu dưới `.agents/docs/` được viết bằng **Tiếng Việt** và ánh xạ 1-1 với thư mục module web trong mã nguồn (`apps/web/src/modules/<module-name>/`); các khu vực backend (`apps/api/src/<area>`) được mô tả trong `global/` hoặc trong module mà chúng phục vụ.
 
 ## Cấu Trúc Ánh Xạ Thư Mục
 
@@ -20,7 +20,7 @@ Thư mục này chứa toàn bộ tài liệu hướng dẫn dành cho lập tr�
 | --------------------- | ------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | **Tổng quan dự án**   | [`README.md`](README.md)                          | [`project-overview.md`](../knowledge/project-overview.md)      | Tổng quan mục tiêu, phạm vi ứng dụng và định hướng kinh doanh                                                                 |
 | **Quy định Hệ thống** | `global/README.md`                                | [`global/README.md`](../knowledge/global/README.md)            | Quy định chung, kiến trúc tổng thể và hạ tầng hệ thống                                                                        |
-| **Feature Modules**   | `modules/<module>/README.md`                      | [`modules/<module>/README.md`](../knowledge/modules/README.md) | Ánh xạ trực tiếp mã nguồn (`src/modules/auth/` -> `modules/auth/`): Hướng dẫn sử dụng, các bước chạy test, và khắc phục sự cố |
+| **Feature Modules**   | `modules/<module>/README.md`                      | [`modules/<module>/README.md`](../knowledge/modules/README.md) | Ánh xạ trực tiếp mã nguồn (`apps/web/src/modules/auth/` -> `modules/auth/`): Hướng dẫn sử dụng, các bước chạy test, và khắc phục sự cố |
 
 ## Quy Chuẩn Viết Tài Liệu Dành Cho Lập Trình Viên
 
@@ -32,9 +32,10 @@ Thư mục này chứa toàn bộ tài liệu hướng dẫn dành cho lập tr�
    - **Xử lý Sự cố (Troubleshooting)**: Các lỗi thường gặp và cách khắc phục nhanh.
 4. **Cấu hình môi trường & UX dashboard**: Hợp đồng ENV fail-fast được duy trì trong `global/environment-guard.md`, còn quy tắc URL dashboard trong `global/monorepo-architecture.md`; riêng UX, trạng thái, giao diện sáng/tối và cấu hình API của dashboard nằm ở `modules/dashboard/README.md`, bao gồm quy ước không hiển thị nhãn trạng thái kết nối Google cố định.
 5. **Hard Completion Gate**: Một nhiệm vụ `implement` chỉ hoàn thành khi đã cập nhật song song cả **Tri thức AI Agent (`.agents/knowledge/`)** và **Hướng dẫn Lập trình viên (`.agents/docs/`)**.
-6. **CRUD backend**: Tài liệu vận hành cho finance, reminders, users và google nằm trong `modules/README.md`; mọi endpoint ghi dữ liệu phải dùng dashboard access token và kiểm tra ownership/phân quyền tương ứng.
-7. **Đa ngôn ngữ**: Chuẩn locale dùng chung, cách đổi ngôn ngữ zalo và cookie dashboard nằm ở `global/i18n.md`.
+6. **CRUD backend**: Danh sách endpoint nằm ở `global/backend-crud-api.md`, nghiệp vụ thu chi ở `global/finance-domain.md`, reminders/users/zca ở `modules/<module>/README.md`; mọi endpoint ghi dữ liệu phải dùng dashboard access token và kiểm tra ownership/phân quyền tương ứng.
+7. **Đa ngôn ngữ**: Chuẩn locale dùng chung, cách lưu ngôn ngữ người dùng và cookie dashboard nằm ở `global/i18n.md`.
 8. **Google OAuth public**: Scope được xin phải đúng tính năng đã phát hành; các URL `/about`, `/privacy` và `/terms` cùng checklist Google review nằm ở `global/google-oauth-public-verification.md`.
 9. **Bảng dữ liệu dùng chung**: Quy ước cột `STT` và `ID` bắt buộc, cấu hình ẩn/hiện cột và đổi độ rộng nằm ở `global/web-ui-direction.md`.
-10. **Dữ liệu nơi chốn thu chi**: Hợp đồng tạo/sửa/xóa nơi chốn riêng, liên kết `placeId` của phát sinh và cách vận hành dashboard nằm ở `modules/finance/README.md` và `modules/dashboard/README.md`.
-11. **Ảnh bill đã nén**: Luồng OCR local, JPEG storage persistent, kiểm soát ownership và biến môi trường nằm ở `global/receipt-image-analysis.md`.
+10. **Dữ liệu nơi chốn thu chi**: Hợp đồng tạo/sửa/xóa nơi chốn riêng, liên kết `placeId` của phát sinh và cách vận hành dashboard nằm ở `global/finance-domain.md` và `modules/dashboard/README.md`.
+11. **Ảnh bill & media**: Luồng OCR local (Tesseract) và gửi văn bản cho `LlmService` nằm ở `global/receipt-image-analysis.md`; lưu media lên Google Drive/Photos theo phân vùng kênh nằm ở `global/backend-runtime-services.md`.
+12. **LLM**: Cách chọn provider (Gemini/OpenAI/Qwen) và danh sách tool Zalo nằm ở `global/llm-providers.md`.

@@ -5,161 +5,107 @@ metadata:
     type: documentation
     depends_on:
       - .agents/knowledge/global/route-constants.md
-      - .agents/rules/strict-routes-and-paths.md
+      - .claude/rules/strict-routes-and-paths.md
+      - packages/contracts/src/index.ts
 ---
 
 # Hướng Dẫn Quy Chuẩn Quản Lý Route & API Constants
 
-Tài liệu này hướng dẫn chi tiết quy chuẩn cấm tuyệt đối hardcode các đường dẫn URL / API endpoints và cách áp dụng hằng số tập trung, ánh xạ trực tiếp với tri thức canonical [`route-constants.md`](../../knowledge/global/route-constants.md).
+Tài liệu này giải thích quy chuẩn cấm hardcode đường dẫn trang và endpoint API, ánh xạ với tri thức canonical [`route-constants.md`](../../knowledge/global/route-constants.md) và rule [`strict-routes-and-paths.md`](../../../.claude/rules/strict-routes-and-paths.md).
 
 ---
 
-## 1. Tại Sao Bắt Buộc Sử Dụng Route Constants?
+## 1. Vì Sao Bắt Buộc Dùng Route Constants?
 
-1. **Chống gãy đường dẫn (Dead Links)**: Khi đổi cấu trúc URL trang hoặc endpoint của API, lập trình viên chỉ cần sửa tại một file hằng số duy nhất thay vì tìm kiếm và thay thế thủ công hàng chục file trong dự án.
-2. **Type Safety & Tự động gợi ý**: Khi gọi `APP_ROUTES.` hoặc `API_ROUTES.`, IDE sẽ tự động gợi ý các đường dẫn hợp lệ, giảm thiểu tối đa lỗi gõ sai chính tả (typo).
-3. **Đồng bộ toàn diện Fullstack**: Trong mô hình Monorepo hoặc Clean Architecture, hằng số route từ `@shared/contracts` giúp Backend Controller và Frontend Repositories luôn đồng nhất 100%.
-
----
-
-## 2. Vị Trí Lưu Trữ & Cách Tổ Chức
-
-### 2.1. Trong Monorepo (Chia sẻ giữa Backend & Frontend)
-- **Vị trí**: `packages/shared/src/constants/` hoặc `@shared/contracts`:
-  - `routes.ts`: Chứa `APP_ROUTES` dành cho điều hướng Frontend.
-  - `api-endpoints.ts`: Chứa `API_ROUTES` / `API_ENDPOINTS` dành cho Backend Controllers & Frontend Repositories.
-
-### 2.2. Trong Dự Án Frontend Đơn Lập
-- **Vị trí**: `src/shared/constants/`:
-  - `routes.ts`: Định nghĩa `APP_ROUTES` cho toàn bộ trang giao diện.
-  - `api-routes.ts`: Định nghĩa `API_ROUTES` và `PROXY_ROUTES` cho các cuộc gọi mạng.
+1. **Chống gãy link**: đổi URL trang hoặc endpoint chỉ cần sửa một chỗ.
+2. **Type safety**: gõ `APP_ROUTES.` / `API_ROUTES.` được IDE gợi ý, gõ sai key thì lỗi typecheck.
+3. **Đồng bộ fullstack**: web và API cùng đọc một file trong `@zalobot/contracts`, nên đường dẫn backend và frontend không lệch nhau.
 
 ---
 
-## 3. Mẫu Khai Báo Route Constants Chuẩn
+## 2. Vị Trí Duy Nhất
 
-### 3.1. Hằng số Điều hướng Giao diện (`APP_ROUTES`)
+Cả hai hằng số nằm trong `packages/contracts/src/index.ts` (package `@zalobot/contracts`):
+
+- `API_ROUTES`: endpoint backend, **đã gồm tiền tố `/api`** (không có `/api/v1`).
+- `APP_ROUTES`: đường dẫn trang của web dashboard.
+
+Dự án **không** có `PROXY_ROUTES`, thư mục `src/shared/constants/` hay lớp BFF proxy: web là static export, `httpClient` gọi thẳng NestJS (qua `NEXT_PUBLIC_API_URL` hoặc cùng domain qua Nginx).
+
+---
+
+## 3. Cách Khai Báo Thực Tế
+
+Key dạng camelCase phẳng; segment động là hàm có kiểu:
 
 ```typescript
-// src/shared/constants/routes.ts
-export const APP_ROUTES = {
-  HOME: '/',
-  AUTH: {
-    LOGIN: '/login',
-    REGISTER: '/register',
-    FORGOT_PASSWORD: '/forgot-password',
-  },
-  DASHBOARD: {
-    HOME: '/dashboard',
-    ANALYTICS: '/dashboard/analytics',
-    USERS: '/dashboard/users',
-    SETTINGS: '/dashboard/settings',
-  },
-  USERS: {
-    LIST: '/users',
-    CREATE: '/users/new',
-    DETAIL: (id: string | number) => `/users/${id}`,
-    EDIT: (id: string | number) => `/users/${id}/edit`,
-  },
-} as const;
-
-export type AppRoutes = typeof APP_ROUTES;
-```
-
-### 3.2. Hằng số API Endpoints (`API_ROUTES`)
-
-```typescript
-// src/shared/constants/api-routes.ts
+// packages/contracts/src/index.ts (trích)
 export const API_ROUTES = {
-  AUTH: {
-    LOGIN: '/api/v1/auth/login',
-    LOGOUT: '/api/v1/auth/logout',
-    REFRESH: '/api/v1/auth/refresh',
-    ME: '/api/v1/auth/me',
-  },
-  USERS: {
-    LIST: '/api/v1/users',
-    CREATE: '/api/v1/users',
-    DETAIL: (id: string | number) => `/api/v1/users/${id}`,
-    UPDATE: (id: string | number) => `/api/v1/users/${id}`,
-    DELETE: (id: string | number) => `/api/v1/users/${id}`,
-  },
+  transactions: '/api/transactions',
+  debts: '/api/debts',
+  debtsCombine: '/api/debts/combine',
+  usersMerge: (id: string) => `/api/users/${id}/merge`,
+  transactionAllocations: (id: string) => `/api/transactions/${id}/allocations`,
+  zcaThreadConfig: (threadId: string) => `/api/zca/thread-configs/${threadId}`,
+  googleAuthCallback: '/api/oauth2callback',
 } as const;
 
-export const PROXY_ROUTES = {
-  BASE: '/api/proxy',
+export const APP_ROUTES = {
+  home: '/',
+  dashboard: '/dashboard',
+  transactions: '/transactions',
+  debts: '/debts',
+  zca: '/zca',
+  settings: '/settings',
 } as const;
 ```
 
+Lưu ý: `APP_ROUTES.analyticsSpending`, `analyticsCashflow`, `analyticsDebts` đã khai báo nhưng chưa có trang tương ứng trong `apps/web/app/`.
+
 ---
 
-## 4. Hướng Dẫn Sử Dụng trong Các Tình Huống Thực Tế
+## 4. Cách Dùng Trong Code
 
-### 4.1. Thẻ Liên Kết UI (`Next.js <Link>`)
-- ❌ **Cấm**: `<Link href="/dashboard/users">Quản lý người dùng</Link>`
-- ✅ **Chuẩn**:
-  ```tsx
-  import Link from 'next/link';
-  import { APP_ROUTES } from '@/shared/constants/routes';
+### 4.1. Link điều hướng
 
-  <Link href={APP_ROUTES.DASHBOARD.USERS}>Quản lý người dùng</Link>
-  ```
+```tsx
+import Link from 'next/link';
+import { APP_ROUTES } from '@zalobot/contracts';
 
-### 4.2. Điều Hướng Client (`useRouter`)
-- ❌ **Cấm**: `router.push('/login')`
-- ✅ **Chuẩn**:
-  ```tsx
-  import { useRouter } from 'next/navigation';
-  import { APP_ROUTES } from '@/shared/constants/routes';
+<Link href={APP_ROUTES.home}>{t('nav.home')}</Link>;
+```
 
-  const router = useRouter();
-  router.push(APP_ROUTES.AUTH.LOGIN);
-  ```
+### 4.2. Chuyển hướng trang (static export)
 
-### 4.3. Chuyển Hướng Server (`Server Actions` / `RSC`)
-- ❌ **Cấm**: `redirect('/login?redirect=/dashboard')`
-- ✅ **Chuẩn**:
-  ```tsx
-  import { redirect } from 'next/navigation';
-  import { APP_ROUTES } from '@/shared/constants/routes';
+```tsx
+import { redirect } from 'next/navigation';
+import { APP_ROUTES } from '@zalobot/contracts';
 
-  redirect(`${APP_ROUTES.AUTH.LOGIN}?redirect=${encodeURIComponent(APP_ROUTES.DASHBOARD.HOME)}`);
-  ```
+export default function ExpensesRedirectPage() {
+  redirect(`${APP_ROUTES.transactions}?type=expense`);
+}
+```
 
-### 4.4. Xóa Cache Trang (`revalidatePath`)
-- ❌ **Cấm**: `revalidatePath('/dashboard/users')`
-- ✅ **Chuẩn**:
-  ```tsx
-  import { revalidatePath } from 'next/cache';
-  import { APP_ROUTES } from '@/shared/constants/routes';
+### 4.3. Gọi API trong module `api/`
 
-  revalidatePath(APP_ROUTES.DASHBOARD.USERS);
-  ```
+```tsx
+import { API_ROUTES } from '@zalobot/contracts';
+import { httpClient } from '@/shared/api/http-client';
 
-### 4.5. Gọi API trong Repository (`proxyHttpClient` / `directHttpClient`)
-- ❌ **Cấm**: `httpClient.get('/api/proxy/v1/users')`
-- ✅ **Chuẩn**:
-  ```tsx
-  import { proxyHttpClient } from '@/shared/utils/http/client';
-  import { API_ROUTES } from '@/shared/constants/api-routes';
+export async function allocateTransaction(transactionId: string, allocations: unknown[]) {
+  return httpClient.post(API_ROUTES.transactionAllocations(transactionId), { allocations });
+}
+```
 
-  export const userRepository = {
-    async getUsers(signal?: AbortSignal) {
-      return proxyHttpClient.get(API_ROUTES.USERS.LIST, { signal });
-    },
-    async deleteUser(id: string) {
-      return proxyHttpClient.delete(API_ROUTES.USERS.DELETE(id));
-    },
-  };
-  ```
+Code hiện có còn ghép chuỗi kiểu `${API_ROUTES.debts}/${id}`. Endpoint mới nên khai báo hàm builder trong contract thay vì ghép tay.
 
-### 4.6. Edge Middleware & Route Protection
-- ❌ **Cấm**: `const PROTECTED = ['/dashboard', '/admin']`
-- ✅ **Chuẩn**:
-  ```tsx
-  import { APP_ROUTES } from '@/shared/constants/routes';
+### 4.4. Backend
 
-  const PROTECTED_PREFIXES = [
-    APP_ROUTES.DASHBOARD.HOME,
-  ];
-  ```
+Decorator controller NestJS (`@Get('transactions')`) khai báo đường dẫn tương đối với tiền tố toàn cục `/api`. Khi đổi đường dẫn backend phải sửa `API_ROUTES` trong cùng thay đổi. Backend cũng dùng hằng số khi cần URL đầy đủ, ví dụ `API_ROUTES.googleAuthCallback` để dựng redirect URI OAuth.
+
+---
+
+## 5. Chỗ còn hardcode cần dọn
+
+- `apps/web/src/modules/auth/client/auth-storage.ts`: chuyển hướng tới chuỗi `/api/access?token=`.
+- `apps/web/app/sitemap.ts`: liệt kê `/about`, `/privacy`, `/terms` bằng chuỗi.

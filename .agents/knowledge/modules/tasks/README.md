@@ -4,27 +4,26 @@
 
 ## Purpose
 
-`apps/web/src/modules/tasks` provides the web dashboard client API, TanStack Query integration, and full inline editing data table for Google Tasks.
+Dashboard view of the user's Google Tasks with inline editing. Backend rules (creation via chat, confirmation, duplicate warning, batch create) are in [`global/google-tasks.md`](../../global/google-tasks.md).
 
-## UI and Inline Editing
+## Code ownership
 
-- **UI Styling**: Fully styled with 100% Tailwind CSS utility classes supporting dark mode (`dark:`) and compact responsive layouts.
-- **Table Columns**:
-  - `status`: Interactive completion checkbox + status badge (`needsAction` vs `completed`).
-  - `title`: Primary title with double-click inline text editing (`Enter` to save, `Escape` to cancel).
-  - `notes`: Detailed task notes with double-click inline editing.
-  - `dueAt`: Localized due date with inline date picker input.
-  - `updatedAt`: Localized timestamp of last update.
-  - `actions`: Inline Save/Cancel buttons when editing; Edit and Delete buttons in view mode.
-- **Controls & Filters**:
-  - Multi-grain period filter toolbar (`day`, `week`, `month`, `quarter`, `year`, `all`) with bidirectional period navigation.
-  - Quick status filter tabs (`all`, `needsAction`, `completed`) with real-time count badges (defaults to `needsAction`).
-  - Instant client search by title and notes.
-  - Toast notifications confirming saved edits and deletions.
+- `apps/web/src/modules/tasks` contains only `api/`:
+  - `tasks-api.ts`: `getTasks`, `updateTask`, `deleteTask` → `API_ROUTES.tasks` (`/api/tasks`, `/api/tasks/:id`).
+  - `tasks-query.ts`: `tasksQueryKeys.list()` (`['tasks']`), `useTasksQuery`, `useUpdateTaskMutation`, `useDeleteTaskMutation`. Mutations invalidate `['tasks']` and `['dashboard']`.
+- Screen and table live in the dashboard module: `TasksScreen` and `TasksTable` (`apps/web/src/modules/dashboard/presentation/components/tasks-screen.tsx`, `tasks-table.tsx`), re-exported by `dashboard/view/tasks-screen.tsx`, routed by `apps/web/app/(private)/tasks/page.tsx`.
 
-## State and Integration Seams
+## Web UI (`TasksScreen`)
 
-- **API & Hooks**: `tasks-api.ts` (`getTasks`, `updateTask`, `deleteTask`) and `tasks-query.ts` (`useTasksQuery`, `useUpdateTaskMutation`, `useDeleteTaskMutation`).
-- **Backend Service & Controller**: `GoogleResourcesController` (`GET /api/tasks`, `POST /api/tasks`, `PATCH /api/tasks/:id`, `DELETE /api/tasks/:id`) and `GoogleTasksService`. Mappings ensure raw Google Tasks fields (`due`, `updated`, `completed`) are normalized to `ITaskListItem` (`dueAt`, `updatedAt`, `completedAt`), and both active and completed tasks are fetched (`showCompleted: true`, `showHidden: true`).
-- **Contracts**: Shared DTOs `ITaskListItem` and `IUpdateTaskRequest` from `@zalobot/contracts`.
-- **Cache Invalidation**: Mutations automatically invalidate `['tasks']` and `['dashboard']` TanStack query caches.
+- Data: `useTasksQuery`; when it returns an empty list, falls back to `dashboard.data.tasks`. If Google is not connected (`dashboard.data.user.googleConnected` false), the panel shows `dashboard.connectGoogleTip`.
+- Period filter: `usePeriodFilter('month')` (default **month**) + `PeriodFilterToolbar` with grains `day`, `week`, `month`, `quarter`, `year`, `all`. A task is in period by `dueAt`, else `updatedAt`.
+- Summary cards for the selected period: total, pending, completed, overdue (not completed and `dueAt < now`).
+- Status filter buttons `all` / `needsAction` (default) / `completed` (no count badges); client search on title and notes.
+- Table columns: `status` (checkbox toggles completed/needsAction + badge), `title`, `notes`, `dueAt` (date input in edit mode), `updatedAt`, `actions` (Edit/Delete; Save/Cancel when editing).
+- Inline edit: double-click a cell or Edit; `Enter` saves, `Escape` cancels. Delete asks `window.confirm`. Toasts on save/delete. Error state: alert with Retry.
+
+## Integration seams
+
+- Backend: `GoogleResourcesController` (`apps/api/src/google/google-resources.controller.ts`) `GET /api/tasks`, `GET /api/tasks/:id`, `POST /api/tasks`, `PATCH /api/tasks/:id`, `DELETE /api/tasks/:id`, backed by `GoogleTasksService`. `GET /api/tasks` defaults to `showCompleted=true` and `showHidden=showCompleted` (overridable by query).
+- Google fields `due`, `updated`, `completed` are normalized to `ITaskListItem.dueAt`, `updatedAt`, `completedAt`.
+- Contracts: `ITaskListItem`, `IUpdateTaskRequest` (`@zalobot/contracts`).

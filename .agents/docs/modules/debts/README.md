@@ -5,36 +5,59 @@ metadata:
     type: documentation
     depends_on:
       - .agents/knowledge/modules/debts/README.md
+      - apps/web/src/modules/debts/api/debts-api.ts
+      - apps/web/src/modules/debts/api/debts-query.ts
+      - apps/web/src/modules/debts/presentation/components/debts-screen.tsx
+      - apps/web/src/modules/debts/presentation/components/debts-table.tsx
+      - apps/web/src/modules/debts/presentation/components/combine-debts-dialog.tsx
+      - apps/api/src/reports/reports.controller.ts
+      - apps/api/src/finance/finance.controller.ts
+      - apps/api/src/finance/finance.service.ts
+      - packages/contracts/src/index.ts
 ---
 
-# Module công nợ
+# Module công nợ (debts)
 
 Tài liệu này ánh xạ trực tiếp với tri thức canonical [`README.md`](../../../knowledge/modules/debts/README.md).
 
-Module `apps/web/src/modules/debts` hiển thị các khoản công nợ đang mở của đúng người dùng đăng nhập.
+## Vai trò nghiệp vụ
 
-- API: `getDebts` lấy danh sách qua `API_ROUTES.debts`; `updateDebt` cập nhật khoản nợ (bao gồm `occurredAt` — thời gian phát sinh độc lập với thời gian tạo), hướng vay, người liên quan, số tiền ban đầu/còn lại, ghi chú, hạn chót qua `API_ROUTES.debts` và `createDebtPayment` ghi nhận thanh toán qua `API_ROUTES.debtPayments`. Các mutation `useDebtsQuery`, `useUpdateDebtMutation`, `useCreateDebtPaymentMutation` tự động làm mới cache `debts` và `dashboard`. `ReportsController` sử dụng `FinanceService.listDebts` để nạp đầy đủ cả khoản nợ đang mở (`active`) và đã tất toán (`settled`), sắp xếp bằng chuỗi `.orderBy('debt.occurred_at', 'DESC', 'NULLS LAST').addOrderBy('debt.created_at', 'DESC').addOrderBy('debt.id', 'DESC')`.
-- Khi ghi nhận thanh toán, hệ thống đồng thời tạo một giao dịch trong sổ thu–chi ở cùng database transaction: khoản **phải thu** được thu hồi tạo khoản **thu** thuộc danh mục _Thu hồi nợ_ (cộng số dư); khoản **phải trả** được thanh toán tạo khoản **chi** thuộc danh mục _Trả nợ_ (trừ số dư). Số tiền, loại tiền, ngày thanh toán và liên hệ được sao chép từ khoản công nợ để dashboard và công nợ luôn khớp.
-- **Phân bổ từ Giao dịch Thu–Chi**: Một giao dịch thu hoặc chi có sẵn có thể được gắn/phân bổ vào một hoặc nhiều khoản công nợ qua bảng `debt_payment_allocations`. Mỗi khoản phân bổ tự động sinh bản ghi `debt_payments` tương ứng có liên kết `finance_transaction_id` trỏ về giao dịch nguồn, đảm bảo tính toàn vẹn và minh bạch của lịch sử trả nợ.
-- **Gộp công nợ & Cây phân cấp Cha–Con (`parentDebtId`)**: Hệ thống hỗ trợ gộp $N \ge 2$ khoản nợ có cùng chiều (`receivable` hoặc `payable`) thành 1 khoản nợ cha tổng:
-  - Khoản nợ cha đại diện cho tổng nợ gốc và tổng nợ còn lại (`originalAmount = sum(...)`, `remainingAmount = sum(...)`).
-  - Các khoản nợ con liên kết với nợ cha qua `parentDebtId` (`ON DELETE SET NULL`), giữ nguyên lịch sử thanh toán, ghi chú và mốc thời gian riêng.
-  - **Quy tắc Validation & Phòng vệ (Crash Guards)**:
-    - *Đồng nhất chiều nợ*: Chặn tuyệt đối việc gộp lẫn lộn khoản cho vay với đi vay; giao diện tự động cảnh báo và vô hiệu hóa nút bấm.
-    - *Đồng nhất loại tiền tệ*: Chỉ cho phép gộp các khoản nợ có cùng đơn vị tiền tệ (`currency`). Khi gộp liên hệ tự động (`consolidateDebts: true`), hệ thống tự gom nhóm riêng biệt theo cả chiều nợ và loại tiền tệ để không phát sinh lỗi.
-    - *Làm phẳng cây phân cấp (Cycle Prevention)*: Khi gộp khoản nợ đã có các khoản con từ trước, toàn bộ các khoản con cũ sẽ được tự động liên kết thẳng lên nợ cha mới nhất, triệt tiêu nguy cơ cây nợ vô tận hoặc lỗi lặp đệ quy.
-    - *Xác thực quyền sở hữu*: Bắt buộc người dùng chỉ được gộp các khoản nợ do chính mình sở hữu.
-  - Khi gộp danh bạ (`POST /api/contacts/combine`), nếu chọn `consolidateDebts: true`, hệ thống tự động gom các khoản nợ cùng chiều sang khoản nợ cha duy nhất dưới liên hệ đích.
-  - Trên Web UI: `DebtsTable` áp dụng kiến trúc Master-Detail với Sub-panel thụt lề 1 cấp duy nhất (`renderExpandedRow`). Bảng chính chỉ chứa các khoản nợ độc lập / nợ cha để giữ số thứ tự STT luôn liên tục `1, 2, 3...` và không làm sai lệch checkbox chọn nợ. Mỗi dòng nợ chỉ có **đúng 1 nút mũi tên dropdown `▶ / ▼`** duy nhất ở cột Người liên quan (xoay góc `rotate-90`).
-- **Sub-panel chi tiết thụt lề (`colSpan={columns.length}`)**: Khi bấm mở rộng một dòng nợ, hệ thống hiển thị khối Panel thụt lề `pl-12 pr-4` bên dưới:
-  - *Khoản nợ gộp*: Hiển thị bảng mini danh sách các khoản con cấu thành (STT con, Tên khoản con, Số tiền gốc, Số tiền còn lại kèm tiến độ đã trả, Hạn trả, Ghi chú).
-  - *Lịch sử các đợt trả nợ*: Hiển thị bảng mini các đợt thanh toán (Đợt #, Số tiền trả `- X ₫` màu xanh ngọc, Ngày thanh toán thực tế, Ghi chú, Biểu tượng liên kết giao dịch thu chi `🔗`, và nút Xóa đợt trả `✕` an toàn kèm hoàn lại số dư).
-  - *Tinh giản ô Số tiền còn lại*: Cột Số tiền còn lại hiển thị 1 dòng số tiền chuẩn `tabular-nums font-semibold` (chiều cao dòng chuẩn phẳng `h-8`). Với các khoản có thanh toán dở dang, hiển thị thanh micro progress bar siêu mỏng (`h-1 w-16` màu xanh ngọc) và tooltip hover chi tiết `(Đã trả X ₫ · N đợt)`. Khoản đã tất toán (`remainingAmount === 0`) vẫn có nút `▶ / ▼` để tra cứu lịch sử đợt trả nợ. Modal `CombineDebtsDialog` hiển thị cảnh báo đỏ và khóa nút xác nhận khi phát hiện chọn lệch chiều nợ hoặc lệch loại tiền. Tổng số tiền thống kê chỉ tính các khoản cha để tránh double-counting.
-- Bảng gồm trạng thái (`status`: _Đang mở_ hoặc _Đã tất toán_), hướng công nợ (badge đơn gọn gàng không viền bọc ngoài thừa, phân biệt màu sắc `emerald` cho Cho vay và `amber` cho Đi vay), người liên quan (hỗ trợ autocomplete danh bạ liên hệ), số tiền ban đầu và còn lại (hỗ trợ inline edit trực tiếp), hạn trả, ngày tất toán và ghi chú. Giao diện được xây dựng 100% bằng Tailwind CSS utility classes, tương thích hoàn toàn chế độ dark mode (`dark:`). Tiêu đề trang (tên trang, mô tả, nút Làm mới, nút Đăng xuất) do `WorkspaceHeader` trong common private layout cung cấp — `DebtsScreen` (`apps/web/src/modules/debts/presentation/components/debts-screen.tsx`, re-exported qua `view/debts-screen.tsx`) **không tự render header riêng**. Sử dụng component dùng chung `DebtsTable` (`apps/web/src/modules/debts/presentation/components/debts-table.tsx`, re-exported qua `view/debts-table.tsx`) có cấu hình ghi nhớ ẩn/hiện cột (`id="debts"`), độ rộng tối thiểu cột `minWidth: 140px` cho cột thao tác với `flex-nowrap whitespace-nowrap` và `shrink-0` chống rớt dòng các nút bấm (`✎ Sửa`, `+ Trả nợ`), khóa không cho ẩn các cột quan trọng (`status`, `counterparty`, `remainingAmount`).
-- Hỗ trợ đầy đủ phím tắt `Enter` để lưu và `Escape` để hủy bỏ khi chỉnh sửa inline.
-- Giao diện tích hợp thẻ KPI tổng tiền cho vay & đi vay đang mở, bộ lọc kép (Trạng thái: Tất cả / Đang mở / Đã tất toán kèm số lượng real-time, và Hướng công nợ: Tất cả / Cho vay / Đi vay), thanh tìm kiếm nhanh và định dạng tiền tệ/ngày giờ theo chuẩn i18n locale. Toàn bộ số tiền hiển thị (thẻ KPI, cột số tiền ban đầu/còn lại, footer tổng nợ) tuân thủ cơ chế ẩn/hiện số tiền trong phiên (`useMoneyFormatter()`), tự động che bằng `'••••••'` khi ở chế độ riêng tư và giữ nguyên số thực trong ô input khi đang inline edit.
-- Các bảng dữ liệu dùng chung tự sắp theo mốc thời gian nghiệp vụ: lịch sử thu–chi/nợ dùng mới nhất trước; lịch, nhắc việc và công việc dùng mốc sắp diễn ra trước. Bản ghi nợ cũ thiếu `occurredAt` tạm dùng `createdAt` để giữ thứ tự ổn định.
-- Trên desktop, canvas báo cáo và bảng trải hết chiều ngang còn lại sau thanh điều hướng; trên màn hình hẹp bảng cuộn ngang bên trong panel.
-- Khi API lỗi, dùng nút **Thử lại**; trước hết kiểm tra phiên dashboard đã hết hạn hay chưa.
+Trang `/debts` cho người dùng theo dõi **khoản phải thu** (người khác nợ mình) và **khoản phải trả** (mình nợ người khác), cả đang mở lẫn đã tất toán. Khoản nợ chỉ hoàn tất khi **số còn lại** bằng 0. Người dùng có thể sửa nhanh, trả hết một khoản, xem lịch sử các đợt trả và gộp nhiều khoản nợ thành một khoản nợ cha.
 
-Kiểm thử bằng `npm run typecheck`, `npm run lint` và `npm run build` tại thư mục gốc.
+## API và cache
+
+- `GET /api/debts`: trả khoản nợ của người đang đăng nhập, sắp theo ngày phát sinh mới nhất → ngày tạo → id (giảm dần), **tối đa 200 bản ghi**, kèm danh sách đợt trả và khoản con. API hỗ trợ `?status=active|settled` nhưng web không dùng — lọc trạng thái làm ở phía client.
+- Khoản nợ thiếu `occurredAt` (dữ liệu cũ) dùng `createdAt` thay thế.
+- Khoản con xuất hiện cả như một bản ghi riêng (có `parentDebtId`); bảng chỉ hiện khoản gốc/khoản cha, còn khoản con nằm trong panel mở rộng của khoản cha.
+- Mọi mutation (sửa, trả nợ, xoá đợt trả, gộp) làm mới cache `debts` và `dashboard`. Nút Thử lại trên màn hình làm mới `debts` và `contacts`.
+
+## Màn hình công nợ
+
+- Tiêu đề trang do `WorkspaceHeader` của layout chung hiển thị.
+- **Thẻ KPI**: tổng phải thu và tổng phải trả đang mở (chỉ tính khoản gốc để không cộng trùng khoản con), tuân theo chế độ ẩn/hiện số tiền.
+- **Bộ lọc**: trạng thái (Tất cả / Đang mở / Đã tất toán, có số đếm), chiều nợ (Tất cả / Cho vay / Đi vay), tìm kiếm theo người liên quan, biệt danh, ghi chú (tìm cả trong khoản con).
+- **Bảng** (`DebtsTable`, `id="debts"`): chọn, Trạng thái, Chiều nợ, Người liên quan (có nút mở rộng ▶/▼), Số tiền gốc, Số còn lại (thanh tiến độ nhỏ + tooltip khi đã trả một phần), Tiền tệ, Hạn trả, Ngày tất toán, Ghi chú, Thao tác. Các cột Trạng thái, Người liên quan, Số còn lại, Thao tác không ẩn được.
+- **Sửa trực tiếp** (nhấp đúp hoặc ✎, `Enter`/`Escape`): chiều nợ, người liên quan (gợi ý từ danh bạ công nợ), số tiền gốc, số còn lại, ghi chú, hạn trả. Ngày phát sinh hiện **không** sửa được trên giao diện (API vẫn hỗ trợ).
+- **Trả nhanh (+)**: chỉ có ở khoản đang mở, luôn trả **toàn bộ** số còn lại.
+- **Panel mở rộng**: bảng nhỏ các khoản con và bảng lịch sử đợt trả (số tiền, ngày, ghi chú, biểu tượng 🔗 nếu đợt trả đến từ phân bổ giao dịch, nút xoá). Xoá đợt trả có hộp `window.confirm` xác nhận.
+- **Gộp nợ**: chọn từ 2 khoản gốc → `CombineDebtsDialog` (ghi chú, hạn trả). Nếu chọn lệch chiều nợ hoặc lệch loại tiền, dialog báo lỗi và khoá nút xác nhận.
+- Không có nút xoá khoản nợ trên giao diện. Trang chủ dùng lại `DebtsTable` ở chế độ chỉ đọc.
+
+## Quy tắc nghiệp vụ phía backend
+
+- **Sửa số còn lại**: về 0 thì chuyển `settled` và ghi ngày tất toán; lớn hơn 0 thì mở lại.
+- **Ghi nhận đợt trả** (`POST /api/debts/:id/payments`, một transaction): khoản nợ phải đang mở và số trả không vượt số còn lại. Hệ thống đồng thời tạo một giao dịch thu–chi để số dư dòng tiền khớp với công nợ: thu hồi khoản **phải thu** → khoản **thu** danh mục _Thu hồi nợ_; trả khoản **phải trả** → khoản **chi** danh mục _Trả nợ_.
+- **Xoá đợt trả** (một transaction): cộng lại số còn lại (không vượt số gốc), mở lại khoản nợ, tính lại số còn lại của khoản cha, và xoá giao dịch liên kết **nếu** đợt trả có `financeTransactionId` (tức là đợt trả sinh ra từ phân bổ giao dịch).
+- **Phân bổ giao dịch vào nợ**: một giao dịch thu/chi có sẵn có thể được phân bổ vào một hoặc nhiều khoản nợ qua `/api/transactions/:id/allocations` (xem module dashboard); mỗi phân bổ sinh một đợt trả có `financeTransactionId`.
+- **Gộp nợ** (`POST /api/debts/combine`, một transaction): cần ít nhất 2 khoản của chính người dùng, cùng chiều và cùng loại tiền. Tạo khoản cha có số gốc và số còn lại bằng tổng các khoản con; khoản con trỏ về cha qua `parentDebtId`. Nếu khoản được gộp đã có con, các con đó được chuyển thẳng lên cha mới để cây luôn chỉ có một cấp.
+- Gộp danh bạ có chọn "gom nợ" sẽ tái sử dụng logic gộp nợ theo từng nhóm chiều + loại tiền (xem module contacts).
+
+## Lỗi đã biết (chưa sửa)
+
+- **Nút Trả nhanh không hoạt động**: web gọi `POST /api/debts/payments` (`API_ROUTES.debtPayments`) nhưng backend chỉ có `POST /api/debts/:id/payments`, nên nhận 404. Cần một task riêng để sửa route (client hoặc contract).
+- Đợt trả tạo qua `POST /api/debts/:id/payments` không lưu `financeTransactionId`, nên khi xoá đợt trả đó, giao dịch _Thu hồi nợ_/_Trả nợ_ tự sinh vẫn còn trong sổ thu–chi.
+- Danh sách giới hạn 200 bản ghi (tính cả khoản con), chưa phân trang.
+
+## Kiểm thử
+
+`npm run typecheck`, `npm run lint`, `npm run build` (scope `--workspace @zalobot/web`); test backend liên quan chạy bằng `npm run test --workspace @zalobot/api`.

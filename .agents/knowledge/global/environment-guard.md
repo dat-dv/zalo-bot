@@ -1,21 +1,64 @@
+---
+metadata:
+  agent-artifact:
+    id: global-environment-guard-knowledge
+    type: documentation
+    depends_on:
+      - apps/api/src/config/env.validator.ts
+      - apps/api/src/config/configuration.ts
+      - apps/api/src/config/project-root.ts
+      - apps/api/src/main.ts
+      - apps/api/src/app.module.ts
+      - apps/api/src/health/deploy-notify.service.ts
+      - apps/web/next.config.ts
+      - apps/web/src/shared/api/http-client.ts
+      - apps/web/src/shared/ui/workspace-header.tsx
+      - .env.example
+      - docker-compose.yml
+---
+
 # Environment Guard
 
 Human guide: [Environment Guard](../../docs/global/environment-guard.md).
 
 ## Purpose
 
-Runtime configuration is an explicit deployment contract. API startup and dashboard build must fail before serving traffic when a required environment variable is missing or malformed.
+Runtime configuration is an explicit deployment contract. Secrets never appear in errors, logs, source, or documentation.
 
-## Contract
+## Load Order (API)
 
-- API loads root `.env` then `.env.local`; `.env.local` has development precedence, while process-provided variables remain valid deployment inputs.
-- Required API values are parsed once into Nest configuration: public URLs, port, CORS and polling flags, zalo credentials, Gemini settings, Google OAuth client credentials, dashboard secrets, encryption key, AI/OCR limits, and timezone.
-- `zalo_ALLOWED_USER_IDS` is optional. GramJS flash-call variables are optional as a group, but all three must be present when enabled.
-- Consumers use validated config values only; they must not read `process.env` or provide their own environment defaults.
-- The static dashboard requires a valid `NEXT_PUBLIC_API_URL` during both configuration load and browser client initialization.
+1. `main.ts` calls `loadEnvironment()`: dotenv loads project-root `.env.local`, then project-root `.env`, both with `override: false`. Precedence: process env > `.env.local` > `.env`.
+2. `ConfigModule.forRoot` (`app.module.ts`) also reads `envFilePath` in order `apps/api/.env.local`, `apps/api/.env`, root `.env.local`, root `.env` and loads `config/configuration.ts`.
+3. Project root resolves to `../..` when cwd is `apps/api`, else cwd (`config/project-root.ts`).
 
-## Integration
+## Required Values (`env.validator.ts`)
 
-- `.env.example` is the complete non-secret key inventory.
-- Secret values are never included in errors, logs, source, or documentation.
-- Deployment systems must provide every required value rather than relying on local host defaults.
+`validateEnvironment()` declares the required contract:
+
+- Non-empty: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DASHBOARD_ACCESS_TOKEN_SECRET`, `DASHBOARD_REFRESH_TOKEN_SECRET`, `ZALO_BOT_TOKEN` (or legacy `BOT_TOKEN`).
+- `BE_PORT` (or `PORT`): positive integer. `NGINX_PORT` / `GATEWAY_PORT`: positive integer when set.
+- `APP_URL`, `WEB_ORIGIN`: HTTP(S) URL. `DATABASE_URL`: `postgres://` or `postgresql://` URL.
+- `CORS_ALLOW_ALL`: `true` or `false`. `DATA_ENCRYPTION_KEY`: 64 hex chars. `DEFAULT_TIMEZONE`: valid IANA zone.
+
+Current state: `validateEnvironment()` and `printEnvValidationBanner()` are not called by `main.ts` or any other code, so a missing value does not stop startup; `configuration.ts` fallbacks apply instead (`port` 3005, `CORS_ALLOW_ALL` → `true`, `DATA_ENCRYPTION_KEY` → 64 zeros, `DEFAULT_TIMEZONE` → `Asia/Ho_Chi_Minh`, `WEB_ORIGIN` → `APP_URL`). Deployments must still set every required value.
+
+## Optional Values (`configuration.ts`)
+
+- Database/cache: `DATABASE_SSL`, `TYPEORM_SYNCHRONIZE`, `REDIS_URL`.
+- Zalo bot: `BOT_NAME` / `ZALO_BOT_NAME`, `ZALO_WEBHOOK_URL` / `WEBHOOK_URL`, `ZALO_WEBHOOK_SECRET_TOKEN`.
+- ZCA: `DATA_DIR` / `ZCA_DATA_DIR`, `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN` (default false), `ZCA_CHECK_UPDATE` (true), `ZCA_LOGGING` (false), `ZCA_AUTO_LOGIN` (false), `ZCA_ENABLE_WELCOME` (false), `ZCA_WELCOME_IMAGE_PATH`.
+- LLM: `LLM_PROVIDER` (`gemini` default; `openai`; `qwen`/`ollama`), `GEMINI_API_KEY`, `GEMINI_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `QWEN_BASE_URL` / `OLLAMA_BASE_URL`, `QWEN_MODEL` / `OLLAMA_MODEL`, `QWEN_API_KEY` / `OLLAMA_API_KEY`.
+- Read directly from `process.env` (not via `configuration.ts`): `NOTIFY_ON_STARTUP`, `APP_VERSION`, commit/branch vars (`COMMIT_SHA`, `GIT_COMMIT`, `COOLIFY_COMMIT_SHA`, `BRANCH`, `GIT_BRANCH`, `COOLIFY_BRANCH`) in `health/deploy-notify.service.ts`; some ZCA/bot-name reads in `zca/`.
+- Compose-only: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `REDIS_PORT`, `WEB_PORT`, `NGINX_PORT`, `FE_PORT`.
+
+## Web Values
+
+- Only `NEXT_PUBLIC_*` reaches the browser. `next.config.ts` loads the monorepo root env via `@next/env`.
+- `NEXT_PUBLIC_API_URL`: public API origin without `/api`. Optional: `httpClient` uses relative URLs when it is unset or the page host is localhost/127.0.0.1/a tunnel; dev rewrites fall back to `http://localhost:${NGINX_PORT|GATEWAY_PORT|3000}`.
+- `NEXT_PUBLIC_ZALO_BOT_URL`, else `NEXT_PUBLIC_ZALO_BOT_USERNAME` → `https://zalo.me/<username>`, else `https://zalo.me` (Open Zalo Bot link).
+- `NEXT_PUBLIC_APP_URL`: metadata base and sitemap origin (fallback `https://bot.datintech.site`).
+
+## Inventory Notes
+
+- Root `.env.example` is the key inventory but omits `ZCA_LANGUAGE`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH`, `OLLAMA_*` aliases, `NEXT_PUBLIC_APP_URL`, and `NEXT_PUBLIC_ZALO_BOT_URL` / `_USERNAME`.
+- `ZALO_ALLOWED_USER_IDS` in `apps/api/.env.example` is not read by any code; bot access is governed by `users.grantAccess`.

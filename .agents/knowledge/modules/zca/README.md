@@ -4,42 +4,81 @@
 
 ## Purpose
 
-`apps/api/src/zca` and `apps/web/src/modules/zca` manage personal Zalo account integrations via `zca-js` WebSocket client, event orchestration (messages, group events, reactions), channel-level bot configuration, and channel-scoped Google Drive storage bindings.
+`apps/api/src/zca` and `apps/web/src/modules/zca` connect a personal Zalo account through `zca-js` (WebSocket), route its events (messages, reactions, group events), store per-thread bot configuration, back up media to Google Drive/Photos, and host the "Zalo & Users" admin page.
 
-## Backend Architecture & Services
+## Backend services
 
-- **WebSocket Connection & Session Management (`ZcaService`)**:
-  - Initializes `zca-js` client, coordinates QR login (`/zlogin`, `/zca-login`).
-  - Persists session credentials to Redis (`zca:session:...`) with fallback to persistent disk storage to survive process restarts.
-  - Intercepts WebSocket message echos and reaction events to automatically cache `msgId <-> cliMsgId` into memory and Redis (`zca:msg:cli:*`) with 24h TTL.
-  - Exposes `undo(payload, threadId)` to recall messages for everyone in the chat, automatically resolving `ThreadType` and retrieving true `cliMsgId` to prevent Zalo `"Lỗi không xác định"` errors.
-  - Exposes `deleteMessage(dest, onlyMe)` with `onlyMe: true` fallback support if undo is rejected by server.
-- **Message & Reaction Handler (`ZcaBotFeatureService`)**:
-  - Listens to incoming messages across group and 1-1 chats.
-  - Enforces trigger prefixes (default `@bot`) and respects thread configuration rules (`requireMention`).
-  - Processes reaction events: extracts `cMsgID` (`cliMsgId`) from `rMsg` payloads, increments heart counts (❤️) towards threshold confirmations, and triggers cancellation upon angry reactions (😡).
-- **Per-Thread Configuration (`ThreadConfigService` & `ThreadConfigEntity`)**:
-  - Persists channel settings in the `thread_configs` table:
-    - `isListened`: Listening state toggle.
-    - `directInteraction`: Bot toggle, `requireMention` (defaults to true for 1-1 chats), trigger prefix.
-    - `mediaBackup`: Configurable upload flags (`uploadImages`, `uploadVideos`, `uploadFiles`, `uploadAudios`) and thread notification toggle (`notifyInThread`).
-    - `confirmationRules`: Reaction toggle, required hearts threshold, timeout minutes.
-    - `driveFolderId`, `driveFolderUrl`, `driveFolderPath`: Channel-specific Google Drive partition (`zalobot/<channelId>`).
+- **`ZcaService`** (connection & session):
+  - QR login (`startQrLogin`, `loginQR`), chat commands `/zalo-login`, `/zca-login`, `/zlogin` and `/zalo-logout`, `/zca-logout`, `/zlogout`; CLI `npm run zca:login --workspace @zalobot/api` (`apps/api/scripts/zca-login.ts`).
+  - Session persisted to file `.zca-session.json` in `DATA_DIR`/`ZCA_DATA_DIR` (else `./data` if it exists, else cwd) and to Redis key `zca:session`. Restore order on bootstrap: file → Redis (then rewritten to file). `ZCA_AUTO_LOGIN=true` forces `login()` on bootstrap. `logout()` clears file + Redis.
+  - Caches `msgId → cliMsgId` in memory and Redis `zca:msg:cli:<msgId>` (TTL 24h). `undo(payload, threadId)` resolves thread type and the real `cliMsgId` to avoid Zalo "Lỗi không xác định". `deleteMessage(dest, onlyMe)` is the fallback.
+  - `getAvailableThreads(forceRefresh)` lists groups/friends; `setListenedThreadIds` / `toggleListenedThread` sync listening state to `ThreadConfigService`.
+  - Event dispatch: `dispatchMessage`, `dispatchReaction`, `dispatchGroupEvent` (→ `GroupEventDispatcher`), friend/undo/typing/seen/delivered events to registered plugins.
+- **`ZcaBotFeatureService`**: `onMessage`, `onReaction`, `syncThreadMediaHistory` (see below).
+- **`ThreadConfigService`** + `ZcaThreadConfigEntity` (table `zca_thread_configs`): memory → Redis `zca:thread_config:<id>` (TTL 24h) → DB. Listened set in Redis `zca:listened_threads`.
+- **`TransactionConfirmationService`** (`confirmation/`): pending actions (`yes/cancel/edit <code>`, reactions), message recall.
+- **Guards** (`guards/`): `InitialAdminBootstrapGuard`, `GrantAccessGuard`.
+- **Pending image** (`pending-image/`): `ImageBatchHandler` (1s debounce per sender) shows a menu for an uncaptioned 1-1 image; `PendingImageActionService` keeps the pending image (memory + Redis `pending:image:user:<userId>`, 5 min). `PendingImageActionDispatcher` (`pending-image-dispatcher.service.ts`) strategies: `CreateBillPendingImageStrategy` (`1` / `tạo bill [note]` → OCR + LLM with `ZALO_TOOL_DEFINITIONS`), `StorageUploadPendingImageStrategy` (`2` / `lưu drive|ảnh|photo` → Drive/Photos), `CancelPendingImageStrategy` (`hủy`, `cancel`, `bỏ qua`, `không`…).
+- **Group events**: `GroupEventDispatcher` with `WelcomeGroupEventStrategy` (registered by default). Handles `JOIN` (not self) only when enabled (`ZCA_ENABLE_WELCOME=true` / `zca.enableWelcome`); sends "Chào mừng @name đến với nhóm!" (or multi-member text) with optional image `ZCA_WELCOME_IMAGE_PATH` (default `./welcome.jpg`).
+
+## Per-thread configuration (`ThreadBotConfig`)
+
+| Field | Default (`createDefaultThreadConfig`) | Meaning |
+| --- | --- | --- |
+| `threadType` | from zca-js, else legacy prefix, else `user` | `user` / `group` |
+| `isListened` | `false` | Bot receives messages from this thread |
+| `directInteraction.enabled` | `false` | Direct mode on |
+| `directInteraction.requireMention` | `true` (all thread types) | Needs `@bot`/mention/prefix to trigger L1 |
+| `directInteraction.triggerPrefix` | `''` | Custom prefix, e.g. `!bot` |
+| `directInteraction.allowAiChat` | `false` | Free chat in L1: adds the chit-chat block to the LLM prompt and a tool-free second pass (see [Zalo Command Intake](../../global/zalo-command-intake.md)); `false` = silent on non-tool replies |
+| `directInteraction.allowSelf` | `false` | Process messages sent by the bot account itself |
+| `mediaBackup.enabled` + `uploadImages/Videos/Files/Audios` | all `false` | L3 auto backup per type |
+| `mediaBackup.notifyInThread` | `false` | Post Drive/Photos links after auto backup |
+| `mediaBackup.customFolder` | `zalobot/<sanitized threadName>` when name known, else `''` | Drive folder override |
+| `mediaBackup.fileSuffix` | `_<sanitized name or id>` | Filename suffix |
+| `mediaBackup.photosAlbum` | `''` | Google Photos album title override |
+| `expenseTracking.enabled` / `requireConfirm` | `false` / `false` | L2 passive expense tools |
+| `calendarExtraction.enabled` / `requireConfirm` | `false` / `false` | L2 passive calendar tools |
+| `confirmationRules.allowReactions` | `false` | ❤️/😡 reactions confirm/cancel |
+| `confirmationRules.requiredHearts` | group `5`, user `1` | Hearts needed |
+| `confirmationRules.timeoutMinutes` | `5` | Pending timeout |
+| `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | unset | Channel Drive partition `zalobot/<channelId>` and per-group Photos album |
+
+- `setListened(id, true)` on a thread whose `directInteraction.enabled` is false also enables it with `allowAiChat: true` (keeps `requireMention`).
+- Known gap: `expenseTracking.requireConfirm` / `calendarExtraction.requireConfirm` are stored and editable in `ThreadConfigModal` but no backend code reads them.
 
 ## Message Flows (`ZcaBotFeatureService.onMessage`)
 
-Shared gates first: self-message rules (`allowSelf`, `isBotSentMessage`) and `isListened`. Responsibility split: **Users module = WHO may interact; thread config = HOW the bot behaves in a thread.**
+Shared gates, in order: (1) `getConfig(threadId, { threadType })` + `isListened` (unlistened → ignore); (2) self-message rules: `message.isSelf` is ignored unless `allowSelf` or `ZCA_SELF_LISTEN`, and messages sent by the backend itself (`isBotSentMessage`) are always ignored. Responsibility split: **Users module = WHO may interact; thread config = HOW the bot behaves in a thread.**
 
 | Flow | Trigger | User access check | Behavior |
 |---|---|---|---|
 | Pending fast-path | `yes/cancel/edit <code>`, pending image replies | `yes`/`cancel`/reactions: collective (any member). `edit`: pending owner, bot account or granted user only; others ignored silently **before** the card is recalled/deleted (`handleCommand(..., canEdit)`) | `edit` re-issues only the tool of `pending.actionType`; non-tool action types (`create`, `delete`, `BAN_USER`…) cannot be edited (reply: cancel and recreate) |
-| L3 passive media | image/video/file/voice without mention, `mediaBackup` + type flag on | None — group storage, every member is backed up | Auto upload to Drive/Photos; no OCR, no LLM |
-| L1 direct | `@bot`, mention entity, `triggerPrefix`, or `directInteraction.enabled && !requireMention` | `InitialAdminBootstrapGuard` + `GrantAccessGuard` (replies with denial, `registerPendingUser`) + cooldown with reply | Full tool set; free chat per `allowAiChat` |
-| L2 passive text | text without mention, `expenseTracking` and/or `calendarExtraction` on | Silent: owner bypass, else `isGrantAccess` must be true; cooldown (2s, in-memory) drops silently. Never replies, never registers pending users | LLM sees only the allowlist; empty allowlist → no LLM call; tools outside allowlist are skipped; never free chat |
+| L3 passive media | image/video/file/voice, `mediaBackup.enabled` + type flag on | None — group storage, every member is backed up | Upload to Drive + Photos album (dedup via Redis set `zca:synced_media:<threadId>`), saves folder/album info to thread config; no OCR, no LLM |
+| L1 direct | `@bot`/bot-name regex, mention entity, `triggerPrefix`, or `enabled && !requireMention`; also an uncaptioned image in 1-1 | `InitialAdminBootstrapGuard` + `GrantAccessGuard` (replies with denial, `registerPendingUser`) + cooldown with reply; bot account bypasses | Full tool set; free chat per `allowAiChat` |
+| L2 passive text | text without trigger, `expenseTracking` and/or `calendarExtraction` on | Silent: owner bypass, else `isGrantAccess` must be true; cooldown (2s, in-memory) drops silently. Never replies, never registers pending users | LLM sees only the allowlist; empty allowlist → no LLM call; tools outside allowlist are skipped; never free chat |
 
-- Passive allowlist (`text-tool.definitions.ts`): `expenseTracking` → `PASSIVE_EXPENSE_TOOLS` (`RECORD_TRANSACTION`, `MANAGE_DEBT`); `calendarExtraction` → `PASSIVE_CALENDAR_TOOLS` (`CREATE_CALENDAR_EVENT`, `SET_REMINDER`). Passed as `AgentInput.allowedTools` with `passiveOnly: true`.
+Image/video handling inside L1:
+- Quote-reply to an image/video with a trigger: storage instruction (`isStorageUploadInstruction`, e.g. "@bot lưu ảnh này lên drive") → Drive/Photos upload; otherwise OCR + bill upload → `TextInputService.process` (type `image`).
+- Captioned image with trigger: same split (save vs. OCR bill). Uncaptioned 1-1 image → `ImageBatchHandler` menu. Group image without trigger → only L3 backup.
+- Video with trigger → upload to Drive/Photos and reply with summary.
+- Every listened message is buffered (last 200, Redis `zca:buffered_msgs:<threadId>`, 7 days) as a fallback for history sync.
+
+- Passive allowlist (`apps/api/src/zalo/text/text-tool.definitions.ts`): `expenseTracking` → `PASSIVE_EXPENSE_TOOLS` (`RECORD_TRANSACTION`, `MANAGE_DEBT`); `calendarExtraction` → `PASSIVE_CALENDAR_TOOLS` (`CREATE_CALENDAR_EVENT`, `SET_REMINDER`). Passed as `AgentInput.allowedTools` with `passiveOnly: true`.
+- Full LLM tool set `ZALO_TOOL_DEFINITIONS` has 14 tools: `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS` (called through `LlmService`).
 - Passive LLM call uses a dedicated system instruction listing only allowlisted tools and no typing indicator (`withChatAction`), so un-mentioned chat leaves no visible trace.
 - Known trade-off: L2 shares `UsersService.checkCooldown` with L1, so two expense lines within 2s lose the second one, and a passive message right before `@bot` makes L1 reply "too fast".
+
+## Reactions (`onReaction`)
+
+Requires `isListened` and `confirmationRules.allowReactions`; same self rules. Extracts target `gMsgID`/`cMsgID` from `rMsg` and calls `TransactionConfirmationService.handleReaction`: ❤️ counts towards `requiredHearts` (bot posts "❤️ x/y"), 😡 cancels.
+
+## Media history sync (`syncThreadMediaHistory`)
+
+- `POST /api/zca/threads/:threadId/sync-media` with `SyncThreadMediaDto` (`limit` ≤ 500, `timeRange: SyncMediaTimeRange` = `all` | `1_month` | `2_months` | `3_months` | `6_months`, `sinceTimestamp`, `mediaTypes`).
+- Requires ZCA logged in (401 otherwise); group threads only (1-1 returns a message with zero counts).
+- Reads `getGroupChatHistory`; if Zalo's history API fails, falls back to buffered messages, else returns `warning: 'zalo_history_api_unavailable'`. Skips already-synced `msgId`s. Response `SyncThreadMediaResponse` (scanned/found/synced/skipped/failed counts).
+- Web: `SyncMediaModal` (`apps/web/src/modules/zca/view/sync-media-modal.tsx`) chooses time range and media types.
 
 ## Group vs User Channel Detection
 
@@ -54,6 +93,29 @@ Shared gates first: self-message rules (`allowSelf`, `isBotSentMessage`) and `is
 - Self-heal of legacy rows: after a successful fresh fetch, `getAvailableThreads` calls `ThreadConfigService.reconcileThreadTypes` (fire-and-forget) with ZCA-confirmed types. It only fixes existing configs and never creates new ones.
 - No SQL migration: numeric group ids and user UIDs cannot be told apart in the DB. `users:cleanup-groups` reads `thread_type='group'`, so run it after the ZCA threads page or Users sync has loaded the thread list once post-deploy.
 
+## Backend API
+
+`ZcaController` (`@Controller('zca')`, global prefix `/api`):
+
+| Method | Path | Behavior |
+| --- | --- | --- |
+| GET | `/api/zca/status` | `loggedIn`, `ownId`, `isListening`, `listenedCount`, `proxyEnabled`, `qrStatus` |
+| GET | `/api/zca/qr` | Latest QR as PNG (404 if none) |
+| POST | `/api/zca/login-qr` | Starts QR login (`{ forceNew? }`), waits ≤4s for the QR, returns `{ message, qrUrl, code }` |
+| POST | `/api/zca/logout` | Logout and clear session |
+| GET | `/api/zca/threads?refresh=true` | Groups + friends (`AvailableThread[]`) |
+| GET | `/api/zca/listened-threads` | Listened thread ids |
+| PUT | `/api/zca/listened-threads` | Replace listened list `{ threadIds }` |
+| POST | `/api/zca/listened-threads/toggle` | Toggle one `{ threadId }` |
+| GET | `/api/zca/thread-configs` | All configs |
+| GET | `/api/zca/thread-configs/:threadId` | One config (creates and persists a default config if missing) |
+| PUT | `/api/zca/thread-configs/:threadId` | `UpdateThreadBotConfigDto`; also syncs listened list when `isListened` is sent |
+| POST | `/api/zca/threads/:threadId/sync-media` | Media history sync |
+
+`GoogleResourcesController` links used by the ZCA page: `GET /api/drive/folder-link?channelId=&threadName=`, `GET /api/drive/open` (302 to folder), `POST /api/drive/share` (`{ channelId, email }`), `GET /api/photos/album-link`, `GET /api/photos/open` (302 to album).
+
+Known gap: `ZcaController` performs no dashboard-token or admin check in code.
+
 ## Web UI (`ZcaScreen` — page "Zalo & Users", route `APP_ROUTES.zca`)
 
 The former Users page (`/users`) was removed; user management lives here. Nav label key `nav.zca` = "Zalo & Người dùng" / "Zalo & Users".
@@ -64,7 +126,7 @@ The former Users page (`/users`) was removed; user management lives here. Nav la
   - Interaction access (`users.grantAccess` / role, `PATCH usersGrantAccess(id)`): may that person use bot features. Granting on a personal thread with no `users` row creates it (backend `setGrantAccess` upserts).
 - **Row model** (`apps/web/src/modules/zca/model/chat-rows.ts`, pure, tested in `chat-rows.spec.ts`): `buildChatRows(threads, users)` →
   - `group`: ZCA group thread; access column `n/a` (groups are never users, even if a stray `users` row shares the id).
-  - `personal`: ZCA user thread joined to `users` by id; access `admin|granted|pending`, or `none` when no `users` row.
+  - `personal`: ZCA user thread joined to `users` by id; access `admin|granted|pending` (`pending` = `grantAccess` DENIED), or `none` when no `users` row.
   - `user-only`: `users` row without a ZCA thread (webhook 20-hex ids, non-friend group members). Shown even when ZCA is logged out.
   - Name/avatar prefer ZCA thread data, fall back to `users`.
 - **Screen (`apps/web/src/modules/zca/view/zca-screen.tsx`)**:
@@ -73,11 +135,12 @@ The former Users page (`/users`) was removed; user management lives here. Nav la
   - Toolbar: "Đồng bộ thông tin" (`usersSyncZca`), "+ Thêm người dùng" (`UserFormDialog` create), Drive root link, manual ID form (adds id to listened list only).
   - Filters (`ChatRowFilter`): all, listened, group, personal (personal + user-only), pending (`pending|none`), granted (`granted|admin`), admin. Sorts (`ChatRowSort`) incl. `pending_first`. Accent-insensitive search over name, alias, Zalo name, username, phone, id. Pagination.
   - Columns: type, name/identity, id (copy), Listening (clickable pill + config badges; `—` for user-only), Interaction access (badge + grant/revoke; revoking an admin asks confirmation; `—` for groups), actions.
-  - Actions (`presentation/components/chat-table-row.tsx`): group media backup (`SyncMediaModal`), Drive, `ThreadConfigModal` (thread rows only); "⋯" menu (`chat-row-menu.tsx`, fixed-positioned to escape table overflow) for non-group rows: edit info & role (`UserFormDialog` edit; or create prefilled when no `users` row), merge (`MergeUserDialog` from users module), delete (non-admin, confirm).
-- **Config Modal (`ThreadConfigModal`)**:
-  - Controls direct interaction rules, media backup toggles (images, videos, files, audios), confirmation rules, and displays channel Google Drive links.
+  - Actions (`presentation/components/chat-table-row.tsx`): group media history sync (`SyncMediaModal`), Drive link and Photos album link (`getThreadDriveLink` / `getThreadPhotosLink`: stored URL, else `/api/drive/open` / `/api/photos/open`), `ThreadConfigModal` (thread rows only); "⋯" menu (`chat-row-menu.tsx`, fixed-positioned to escape table overflow) for non-group rows: edit info & role (`UserFormDialog` edit; or create prefilled when no `users` row), merge (`MergeUserDialog` from users module), delete (non-admin, confirm).
+- **`ThreadConfigModal`** (`view/thread-config-modal.tsx`): listening; direct interaction (enabled, `requireMention`, `allowAiChat`, `allowSelf`, `triggerPrefix`); media backup (enabled, images/videos/files/audios, `notifyInThread`, `customFolder`, `fileSuffix`, `photosAlbum`); expense tracking and calendar extraction (enabled, `requireConfirm`); confirmation rules (`allowReactions`, `requiredHearts`, `timeoutMinutes`); channel Drive/Photos links.
+- Web API (`api/zca-api.ts`, `api/zca-query.ts`): status, QR login/logout, threads (+ refresh), listened threads (get/set/toggle), thread configs (list/one/update), Drive folder link, `syncThreadMedia` (`useSyncThreadMediaMutation`).
 
 ## Integration Seams & Contracts
 
-- Endpoints in `API_ROUTES`: `zcaStatus`, `zcaLoginQr`, `zcaThreads`, `zcaListenedThreads`, `zcaListenedThreadsToggle`, `zcaThreadConfigs`, `zcaThreadConfig(threadId)`.
-- Contracts in `packages/contracts`: `ThreadBotConfig`, `UpdateThreadBotConfigDto`, `ThreadMediaBackupConfig`, `ThreadDirectInteractionConfig`, `ThreadConfirmationConfig`.
+- `API_ROUTES`: `zcaStatus`, `zcaQr`, `zcaLoginQr`, `zcaLogout`, `zcaThreads`, `zcaListenedThreads`, `zcaListenedThreadsToggle`, `zcaThreadConfigs`, `zcaThreadConfig(threadId)`, `zcaSyncThreadMedia(threadId)`, `driveFolderLink`, `driveOpen`, `photosAlbumLink`. Known gap: `getThreadPhotosOpenUrl` hardcodes `/api/photos/open` (no route constant).
+- Contracts (`packages/contracts`): `ThreadBotConfig`, `UpdateThreadBotConfigDto`, `ThreadDirectInteractionConfig`, `ThreadMediaBackupConfig`, `ThreadExpenseConfig`, `ThreadCalendarConfig`, `ThreadConfirmationConfig`, `SyncThreadMediaDto`, `SyncMediaTimeRange`, `SyncThreadMediaResponse`.
+- Env (`apps/api/src/config/configuration.ts` `zca.*`): `DATA_DIR`/`ZCA_DATA_DIR`, `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN`, `ZCA_CHECK_UPDATE`, `ZCA_LOGGING`, `ZCA_AUTO_LOGIN`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH`.

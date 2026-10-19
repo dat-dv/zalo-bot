@@ -1,11 +1,33 @@
+---
+metadata:
+  agent-artifact:
+    id: global-google-tasks-knowledge
+    type: documentation
+    depends_on:
+      - apps/api/src/zalo/text/text-tool.definitions.ts
+      - apps/api/src/zalo/text/strategies/create-task-tool.strategy.ts
+      - apps/api/src/zalo/text/strategies/tasks-quick-tool.strategy.ts
+      - apps/api/src/zalo/text/text-tool.factory.ts
+      - apps/api/src/google/google-tasks.service.ts
+      - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
+---
+
 # Google Tasks Commands
 
-Google Tasks creation is confirmation-gated. `create_task` creates one item; `create_tasks` creates a list of 1–20 independent items after one confirmation.
+## LLM Tools
 
-Task items follow a structured 3-field layout: `title` (required concise action), `notes` (optional detailed instructions/sub-steps), and `due` (optional RFC 3339 / ISO 8601 deadline). The AI assistant systematically extracts and populates these fields.
+- `CREATE_TASK` creates exactly one task per call: `title` (required), `notes` (optional), `due` (optional RFC 3339 / ISO 8601). There is no batch/multi-task tool.
+- `LIST_TASKS` and `COMPLETE_TASK` (confirmation-gated via `createPendingCompleteTask`) complete the set.
+- All task tools require a linked Google account; otherwise the bot asks the user to run `/login`.
 
-Before confirmation, creation checks up to 50 active tasks for a normalized title match or an expanded version of the same title. A match produces a warning only: users can still confirm because similarly named tasks may be intentional. Warning metadata is UI-only and is never sent to Google Tasks.
+## Create Flow
 
-Batch creation is sequential because the Google Tasks API has no multi-item transaction. The result retains per-item successes and failures, so a partial failure never hides already-created tasks.
+1. `CreateTaskToolStrategy` rejects an empty title.
+2. Duplicate check: `findPotentialDuplicateTasks` loads up to 50 incomplete tasks and matches titles after `normalizeTaskTitle` (strip diacritics, `đ`→`d`, lowercase, non-alphanumerics → single space). A match is an exact normalized title, or the shorter title (≥2 words) contained in the longer. Errors in this check are ignored.
+3. A pending action `CREATE_TASK` (3-digit code, standard confirmation) is created with `{ title, due, notes }`. If duplicates were found, a separate warning message lists them; the user may still confirm.
+4. On confirmation `GoogleTasksService.createTask` inserts into the `@default` list and the bot replies with the task card and a `/tasks` hint.
 
-zalo routes `/tasks` and `/task` list pending Tasks. Task-list language is routed to `create_tasks` when two or more independent items are named.
+## Fast-Path Commands
+
+- `/tasks`, `/task`, `/viec` (and `/tasks ...`, `/viec ...`) route to `TasksQuickToolStrategy` and list up to 15 incomplete tasks with due date and notes.
+- `/task <content>` creates a task with that title immediately, without confirmation or duplicate check.

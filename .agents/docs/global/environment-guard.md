@@ -5,30 +5,58 @@ metadata:
     type: documentation
     depends_on:
       - .agents/knowledge/global/environment-guard.md
+      - apps/api/src/config/env.validator.ts
+      - apps/api/src/config/configuration.ts
+      - apps/api/src/main.ts
+      - apps/web/next.config.ts
+      - .env.example
 ---
 
-# Env Guard và cấu hình bắt buộc
+# Biến môi trường và cấu hình bắt buộc
 
-API và dashboard không tự đoán giá trị cấu hình. Nếu thiếu hoặc sai biến môi trường bắt buộc, API dừng ngay khi khởi động và dashboard dừng ngay khi dev/build. Tài liệu này ánh xạ với tri thức canonical [Environment Guard](../../knowledge/global/environment-guard.md).
+Tài liệu này ánh xạ với tri thức canonical [Environment Guard](../../knowledge/global/environment-guard.md). Mục tiêu: cấu hình là hợp đồng triển khai rõ ràng, không đoán giá trị, không để lộ secret trong log hay lỗi.
+
+## Thứ tự nạp biến môi trường (API)
+
+1. `main.ts` gọi `loadEnvironment()`: nạp `.env.local` ở root monorepo, rồi `.env` ở root, đều với `override: false`. Kết quả: biến môi trường do hệ thống/Docker truyền vào thắng, sau đó đến `.env.local`, cuối cùng `.env`.
+2. `ConfigModule` của NestJS đọc thêm theo thứ tự `apps/api/.env.local`, `apps/api/.env`, `.env.local` root, `.env` root rồi dựng object cấu hình từ `config/configuration.ts`.
+3. Dù chạy từ `apps/api` hay từ root (Docker), "root" luôn trỏ về thư mục monorepo.
+
+## Biến bắt buộc
+
+Danh sách bắt buộc nằm trong `apps/api/src/config/env.validator.ts`:
+
+- Không được trống: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DASHBOARD_ACCESS_TOKEN_SECRET`, `DASHBOARD_REFRESH_TOKEN_SECRET`, `ZALO_BOT_TOKEN` (hoặc tên cũ `BOT_TOKEN`).
+- `BE_PORT` (hoặc `PORT`) là số nguyên dương; `NGINX_PORT`/`GATEWAY_PORT` nếu khai báo cũng phải là số nguyên dương.
+- `APP_URL`, `WEB_ORIGIN` là URL HTTP(S) đầy đủ; `DATABASE_URL` là URL `postgresql://...`.
+- `CORS_ALLOW_ALL` chỉ nhận `true`/`false`; `DATA_ENCRYPTION_KEY` đúng 64 ký tự hex (tạo bằng `openssl rand -hex 32`); `DEFAULT_TIMEZONE` là IANA timezone, ví dụ `Asia/Ho_Chi_Minh`.
+
+**Lưu ý hiện trạng quan trọng**: hàm `validateEnvironment()` đang **không được gọi** ở đâu (kể cả `main.ts`), nên API vẫn khởi động khi thiếu biến và dùng giá trị mặc định trong `configuration.ts`. Một số mặc định nguy hiểm khi lên production: `CORS_ALLOW_ALL` mặc định `true`, `DATA_ENCRYPTION_KEY` mặc định 64 số `0`. Vì vậy môi trường triển khai bắt buộc phải khai báo đủ các biến trên, không dựa vào mặc định.
+
+## Biến tùy chọn
+
+- **Database/cache**: `DATABASE_SSL`, `TYPEORM_SYNCHRONIZE`, `REDIS_URL`.
+- **Zalo Bot**: `BOT_NAME`, `ZALO_WEBHOOK_URL`, `ZALO_WEBHOOK_SECRET_TOKEN`.
+- **ZCA (Zalo cá nhân)**: `DATA_DIR`, `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN`, `ZCA_CHECK_UPDATE`, `ZCA_LOGGING`, `ZCA_AUTO_LOGIN`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH`.
+- **LLM**: `LLM_PROVIDER` chọn nhà cung cấp cho `LlmService` (`gemini` mặc định, `openai`, `qwen`/`ollama`); kèm `GEMINI_API_KEY`, `GEMINI_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `QWEN_BASE_URL`, `QWEN_MODEL`, `QWEN_API_KEY` (chấp nhận tên thay thế `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_API_KEY`).
+- **Thông báo deploy**: `NOTIFY_ON_STARTUP` (đặt `false` để tắt; ở `NODE_ENV=development` phải đặt `true` mới gửi), `APP_VERSION`, các biến commit/branch do Coolify/CI cung cấp.
+- **Chỉ dùng cho Docker Compose**: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `REDIS_PORT`, `WEB_PORT`, `NGINX_PORT`, `FE_PORT`.
+
+## Biến của web dashboard
+
+Chỉ biến `NEXT_PUBLIC_*` được đóng gói vào trình duyệt; mọi secret ở trên chỉ dành cho `apps/api`.
+
+- `NEXT_PUBLIC_API_URL`: origin public của API, **không** thêm `/api` vì hằng số route đã có sẵn. Có thể bỏ trống: khi đó (hoặc khi trang chạy trên localhost/tunnel) web gọi API bằng đường dẫn tương đối qua cùng domain.
+- `NEXT_PUBLIC_ZALO_BOT_URL` hoặc `NEXT_PUBLIC_ZALO_BOT_USERNAME`: link nút "Mở Zalo Bot" (mặc định `https://zalo.me`).
+- `NEXT_PUBLIC_APP_URL`: domain dùng cho metadata/sitemap.
 
 ## Cách cấu hình
 
 1. Sao chép `.env.example` thành `.env.local` ở root monorepo.
-2. Điền toàn bộ key bắt buộc; không để placeholder `replace-me` trong môi trường triển khai.
-3. Giữ `zalo_ALLOWED_USER_IDS` trống nếu chỉ dùng `zalo_ADMIN_ID`.
-4. Chỉ bật flash-call khi có đủ `zalo_API_ID`, `zalo_API_HASH` và `zalo_SESSION`; nếu không dùng, xóa cả ba key.
-5. Đặt `NEXT_PUBLIC_API_URL` là URL HTTP(S) đầy đủ của API trước khi chạy hoặc build dashboard.
+2. Điền toàn bộ biến bắt buộc; không để placeholder `replace-...` trong môi trường triển khai.
+3. Bổ sung thủ công các biến chưa có trong `.env.example` nếu cần: `ZCA_LANGUAGE`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH`, `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_ZALO_BOT_URL`/`NEXT_PUBLIC_ZALO_BOT_USERNAME`.
+4. Bỏ qua `ZALO_ALLOWED_USER_IDS` trong `apps/api/.env.example`: không có code nào đọc biến này. Quyền dùng bot do admin cấp qua trường `grantAccess` của user.
 
 ## Docker local
 
-Chạy stack local bằng `docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build`. File override giữ secret trong `.env`, dùng `.env.local` cho local overrides, trỏ dashboard về `http://localhost:3000` và tắt zalo long polling để không tranh consumer với production.
-
-## Lỗi thường gặp
-
-- Số port/timeout/giới hạn ảnh-voice phải là số nguyên dương.
-- `CORS_ALLOW_ALL` và `zalo_LONG_POLLING_ENABLED` chỉ nhận `true` hoặc `false`.
-- `DATA_ENCRYPTION_KEY` phải có đúng 64 ký tự hexadecimal.
-- `APP_URL`, `WEB_ORIGIN`, `WHISPER_URL` và `NEXT_PUBLIC_API_URL` phải là URL HTTP(S) hợp lệ.
-- `DEFAULT_TIMEZONE` phải là IANA timezone, ví dụ `Asia/Ho_Chi_Minh`.
-
-Thông báo lỗi chỉ nêu tên key và lý do, không hiển thị secret.
+Chạy `npm run docker:local` (tương đương `docker compose -f docker-compose.local.yml up -d`) để bật PostgreSQL, Redis và Nginx gateway; API và web chạy trên máy bằng `npm run dev`. Gateway (`NGINX_PORT`/`GATEWAY_PORT`, mặc định 3000) chuyển `/api`, `/webhook`, `/zalo/`, `/oauth2callback` về API chạy trên máy host (`BE_PORT`) và phần còn lại về Next dev server (`FE_PORT`).

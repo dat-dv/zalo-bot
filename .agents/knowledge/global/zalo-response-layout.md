@@ -1,16 +1,29 @@
-# zalo Response Layout
+---
+metadata:
+  agent-artifact:
+    id: global-zalo-response-layout-knowledge
+    type: documentation
+    depends_on:
+      - apps/api/src/zalo/zalo.service.ts
+      - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
+      - apps/api/src/zca/confirmation/dto-descriptor.util.ts
+      - apps/api/src/zca/zca.service.ts
+      - apps/api/src/zca/thread-config.service.ts
+---
 
-User-facing zalo responses prioritize one compact heading, inline primary facts, and at most two lines per listed item. Repeated guidance and decorative separators are omitted when an action button already communicates the next step.
+# Zalo Response Layout
 
-Short related inline actions may share one row. Long labels remain on their own row to avoid mobile overflow. Action labels must state their time or data scope when the same action exists in multiple scopes: today refresh and seven-day refresh use separate callbacks. Callback payloads and confirmation JSON fallbacks are otherwise unchanged.
+Human guide: [Zalo Response Layout](../../docs/global/zalo-response-layout.md).
 
-AI-generated Markdown is normalized before delivery: HTML entities are decoded and escaped URL ampersands are restored so raw output such as `&#x20;` never reaches the chat.
+## Delivery
 
-Long-lived interactive list and information messages (today summary, task list, account status, admin user list, debt detail, and dashboard/report links) include a close action. It deletes the message when zalo permits it; otherwise, it removes the inline keyboard so obsolete actions cannot be used. Confirmation dialogs retain cancel semantics, while reminder and calendar receipts retain their hide-controls action.
+- All bot replies are plain text. There are no buttons, inline keyboards, or callback payloads; every follow-up action is a typed command or a reaction.
+- Layout: one short heading line (emoji prefix), then `• Label: value` lines; keep each item compact for mobile.
+- `ZaloService.sendMessageWithResult`: with a Bot Platform token, text is split into 1900-character chunks (300 ms apart) and sent to the Bot API; on API failure it falls back to ZCA if logged in. Without a token it sends through ZCA. Returns `{ success, msgId?, cliMsgId? }` used for later recall.
 
-## 3-Digit Interactive Confirmation Cards & Reactions
+## Confirmation cards
 
-Sensitive mutations (creating transactions, new places, debts, reminders, calendar events, tasks, or user bans) generate an interactive confirmation card containing a 3-digit random code:
+Sensitive mutations (transactions, transaction delete, debts, places, reminders, calendar create/delete, task create/complete, user ban) create a `PendingAction` with a 3-digit code (100–999, unique among in-memory pending) and a 5-minute timeout. The card body is rendered from a DTO descriptor (`renderDtoConfirmationCard`):
 
 ```text
 ⏳ Xác nhận lưu 🔴 khoản chi?
@@ -22,7 +35,6 @@ Sensitive mutations (creating transactions, new places, debts, reminders, calend
 • Thời gian: 20:00 13/10/2026
 • Địa điểm: tiệm bánh tráng đầu đường gò xoài
 • Phương thức: tiền mặt
-• Ảnh hóa đơn: (trống)
 
 👉 Thả tim (❤️) hoặc soạn: yes 629 (để xác nhận)
 👉 Thả phẫn nộ (😡) hoặc soạn: cancel 629 (để hủy bỏ)
@@ -30,46 +42,37 @@ Sensitive mutations (creating transactions, new places, debts, reminders, calend
 ⏱️ Tự động hết hạn sau 5 phút.
 ```
 
-- Multi-tenant persistence: cards are stored in memory and synchronized to Redis (`pending:tx:code:*`, `pending:tx:user:*`, `pending:tx:msg:*`).
+- Text commands: `yes|y|ok|xác nhận [code]`, `cancel|no|hủy|huỷ|bỏ qua [code]`, `yes all`, `cancel all`, `edit|sửa|chỉnh sửa|sửa lại <code> <instruction>`. Without a code, `yes` takes the oldest pending action of the sender; `cancel` and `edit` take the newest.
+- Reactions (ZCA): heart (`/-heart`, `HEART`, `❤️`) adds the reactor to `heartUsers`; confirm when `heartUsers.length >= requiredHearts`. Angry (`:-h`, `ANGRY`, `😡`) cancels. `requiredHearts` defaults to 1 per pending action; thread config `confirmationRules.requiredHearts` (group default 5) is stored but not passed when pending actions are created.
+- Authorization: confirm/cancel/edit by code is allowed when the sender owns the action or the command comes from the action's chat.
 
-## Automatic Message Recall & Ephemeral Lifecycle (Clean Conversations)
+## Redis keys (TTL = remaining confirmation time unless noted)
 
-To keep chat feeds clean and prevent visual clutter, the bot strictly adheres to: **"All interaction messages generated during a flow are ephemeral; upon completion, only the final outcome message remains in chat"**:
+| Key | Value |
+| --- | --- |
+| `pending:tx:code:<code>` | Serialized pending action |
+| `pending:tx:user:<userId>` | Latest code of the user |
+| `pending:tx:user-codes:<userId>` | JSON array of all pending codes of the user (ordered list for `yes all`, `cancel all`, pending-place lookup) |
+| `pending:tx:msg:<msgId>` | Code of the card message (reaction lookup) |
+| `pending:tx:temp:<code>` | Messages to recall with this code (TTL 1 h) |
+| `pending:tx:chat-temp:<chatId>` | Interim chat messages to recall (TTL 1 h) |
+| `zca:msg:cli:<msgId>` | `cliMsgId` for recall (TTL 24 h) |
 
-1. **Redis Key Partitioning**:
-   - `pending:tx:temp:${code}`: Tracks interactive confirmation cards by action code (`code`).
-   - `pending:tx:chat-temp:${chatId}`: Tracks thread-wide interim status messages (heart reaction threshold updates `❤️ Đã nhận X/Y...`, pending queue reminders `💡 Bạn còn X yêu cầu...`, and provisional companion place notifications).
+Pending actions are also held in memory with a timer; Redis is the cross-restart / fail-soft copy.
 
-2. **Accurate `cliMsgId` Mapping & Resolution**:
-   - In Zalo protocol, `undo` requires the client-generated 13-digit Unix timestamp `cliMsgId`. Supplying the server's global `msgId` causes Zalo server to reject with `"Lỗi không xác định"`.
-   - `ZcaService` continuously intercepts WebSocket message echoes and reaction events (`rMsg[0].cMsgID`), syncing `msgId <-> cliMsgId` pairs to memory and Redis (`zca:msg:cli:*`) with 24h TTL.
-   - `undoMessage` auto-resolves `ThreadType` and retrieves cached `cliMsgId`. If `undo` is rejected by the server, it seamlessly falls back to `deleteMessage(onlyMe: true)` on the bot's side.
+## Message recall lifecycle
 
-3. **Confirmed (`yes <code>` or ❤️ Heart)**:
-   - Invokes `recallTempMessages(chatId, code)` to recall the confirmation card and all interim notices in `chat-temp`.
-   - Posts a single consolidated confirmation message containing the heart celebration header and full DTO details.
+Principle: interaction messages are ephemeral; after resolution only the outcome message stays.
 
-4. **Multi-Card Sequential Flow (e.g. New Place `[650]` + Expense `[363]`)**:
-   - Confirming place `[650]`: Recalls card `[650]`, posts temporary place confirmation and remainder notice into `chat-temp`.
-   - Confirming expense `[363]`: Recalls card `[363]` and purges all of `chat-temp` (recalling both the temporary place confirmation and remainder notice).
-   - Chat ends with **strictly one message**: the complete expense record already showing the new place!
+1. Interim messages tracked via `addTempMessage`: heart counter `❤️ Đã nhận X/Y…`, remaining notice `💡 Bạn còn X yêu cầu chờ xác nhận…`, and a place confirmation sent while other actions are still pending.
+2. `recallTempMessages(chatId, code?)` recalls the card and tracked messages (`Promise.allSettled`, errors logged only).
+3. ZCA `undo` needs the client `cliMsgId`; `ZcaService` caches `msgId -> cliMsgId` from echoes/reactions. If `undo` fails, fall back to `deleteMessage(onlyMe: true)`. Recall requires ZCA to be logged in.
+4. Confirmed: recall, execute, post one result message (heart header when confirmed by reactions). If more actions remain, post the remaining notice as an interim message.
+5. Companion place: confirming a `RECORD_TRANSACTION` with `placeName` recalls and deletes a matching pending `CREATE_PLACE` card.
+6. Cancelled: recall, post cancel notice. Timeout: recall, post `⏰ … (mã: xxx) đã hết hạn 5 phút và chưa được xác nhận.`
+7. Edited: recall the old card, re-run the same tool via LLM to issue a new card, then delete the old pending action.
+8. Resolution deletes `pending:tx:code`, `pending:tx:user`, the code from `pending:tx:user-codes`, and `pending:tx:msg`; `recallTempMessages` deletes the `pending:tx:temp` / `pending:tx:chat-temp` lists it recalls.
 
-5. **Expired (5-Minute Timeout)**:
-   - Recalls the confirmation card and interim notices via `recallTempMessages`.
-   - Posts only the timeout notification: `⏰ Yêu cầu ... (mã: xxx) đã hết hạn 5 phút và chưa được xác nhận.`
+## Tests
 
-6. **Cancelled (`cancel <code>` or 😡 Angry)**:
-   - Recalls the confirmation card and interim notices.
-   - Posts the cancellation notice.
-
-7. **Edited (`edit <code> <new content>`)**:
-   - Immediately recalls the superseded confirmation card.
-   - Parses the edit instructions and issues a new confirmation card with a new code.
-
-8. **Non-blocking Error Boundary**:
-   - Recalls run concurrently via `Promise.allSettled` inside `try...catch`; network or API failures log warnings without disrupting database integrity or user flow.
-
-9. **Redis Cleanup**:
-   - Keys (`pending:tx:code:*`, `pending:tx:user:*`, `pending:tx:msg:*`, `pending:tx:temp:*`, `pending:tx:chat-temp:*`) are purged immediately upon resolution.
-
-
+`apps/api/src/zca/confirmation/transaction-confirmation.service.spec.ts`, `dto-descriptor.util.spec.ts`.

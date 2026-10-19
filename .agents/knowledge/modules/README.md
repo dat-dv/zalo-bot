@@ -4,7 +4,7 @@ This directory contains specifications and domain knowledge organized by feature
 
 ## Module Structure
 
-Each subfolder under `modules/` represents a single feature module (e.g. `auth`, `homepage`, `platform-accounts`).
+Each subfolder under `modules/` mirrors a web module in `apps/web/src/modules/<name>/`. Backend areas in `apps/api/src/<area>` are documented in the module they serve or under `global/` (e.g. `global/finance-domain.md`).
 
 Each module document covers:
 1. **Business Purpose & API Rationale**: Why specific APIs exist and what business problems they solve.
@@ -18,7 +18,6 @@ Each module document covers:
 - [Debts](debts/README.md): Active receivables and payables reporting.
 - [Dashboard](dashboard/README.md): Personal reports, statistics, and operational data views.
 - [Expenses](expenses/README.md): Expense-only transaction history reporting.
-- [Finance](finance/README.md): User-scoped transactions, debt records, categories, and places.
 - [Reminders](reminders/README.md): Scheduled user reminders management and status updates.
 - [Settings](settings/README.md): System preferences and custom finance categories management.
 - [Tasks](tasks/README.md): Google Tasks retrieval, updates, and state synchronization.

@@ -5,56 +5,54 @@ metadata:
     type: documentation
     depends_on:
       - .agents/knowledge/modules/tasks/README.md
+      - apps/web/src/modules/tasks/api/tasks-api.ts
+      - apps/web/src/modules/tasks/api/tasks-query.ts
+      - apps/web/src/modules/dashboard/presentation/components/tasks-screen.tsx
+      - apps/web/src/modules/dashboard/presentation/components/tasks-table.tsx
+      - apps/api/src/google/google-resources.controller.ts
 ---
 
 # Module công việc Google Tasks (Web)
 
-`apps/web/src/modules/tasks` quản lý tương tác API, trạng thái server-state và bảng dữ liệu hỗ trợ chỉnh sửa trực tiếp (inline edit) cho Google Tasks trên giao diện Web Dashboard.
+Tài liệu này ánh xạ trực tiếp với tri thức canonical [`README.md`](../../../knowledge/modules/tasks/README.md). Quy tắc backend (tạo task từ chat, xác nhận, cảnh báo trùng, tạo hàng loạt) xem ở [`global/google-tasks.md`](../../global/google-tasks.md).
 
-## Tổng quan tính năng & Cấu trúc cột bảng
+## 1. Nghiệp vụ
 
-Bảng dữ liệu công việc (`TasksScreen`) được xây dựng 100% bằng Tailwind CSS utility classes (hỗ trợ dark mode `dark:`) và cung cấp đầy đủ các cột dữ liệu và tính năng tương tác chuẩn Enterprise UI:
+Người dùng tạo việc cần làm bằng cách chat với bot; việc được lưu thẳng vào Google Tasks của họ. Dashboard cho phép xem lại, đánh dấu xong, sửa và xoá các việc đó mà không cần mở ứng dụng Google.
 
-1. **Cột Trạng thái (`status`)**:
-   - Checkbox đánh dấu hoàn thành/chưa hoàn thành nhanh chóng.
-   - Badge trạng thái trực quan (_Cần làm_ `needsAction` hoặc _Đã xong_ `completed`).
-2. **Cột Tiêu đề (`title`)**:
-   - Hiển thị tên công việc (gạch ngang khi đã hoàn thành).
-   - Nhấn đúp chuột hoặc bấm nút Sửa để mở input chỉnh sửa trực tiếp.
-3. **Cột Ghi chú (`notes`)**:
-   - Hiển thị ghi chú chi tiết của công việc.
-   - Hỗ trợ chỉnh sửa inline bằng input text.
-4. **Cột Hạn chót (`dueAt`)**:
-   - Hiển thị ngày giờ hết hạn đã format theo ngôn ngữ (`vi-VN` hoặc `en-US`).
-   - Hỗ trợ chọn ngày hạn chót trực tiếp trong chế độ edit.
-5. **Cột Cập nhật (`updatedAt`)**:
-   - Hiển thị thời điểm cập nhật công việc gần nhất.
-6. **Cột Thao tác (`actions`)**:
-   - Chế độ xem: Nút Sửa (✎) và Xóa (🗑).
-   - Chế độ chỉnh sửa: Nút Lưu (✓) và Hủy (✕).
+## 2. Ai sở hữu code nào
 
-## Tương tác & Phím tắt (Inline Editing)
+- `apps/web/src/modules/tasks` **chỉ có thư mục `api/`**:
+  - `tasks-api.ts`: `getTasks`, `updateTask`, `deleteTask`, gọi `API_ROUTES.tasks` (`/api/tasks`).
+  - `tasks-query.ts`: query key `['tasks']` và các hook `useTasksQuery`, `useUpdateTaskMutation`, `useDeleteTaskMutation`. Sửa/xoá thành công thì làm mới cache `tasks` và `dashboard`.
+- **Màn hình và bảng nằm ở module dashboard**: `TasksScreen` và `TasksTable` trong `apps/web/src/modules/dashboard/presentation/components/`. Trang `/tasks` import từ `@/modules/dashboard/view/tasks-screen`.
 
-- **Kích hoạt chỉnh sửa**: Nhấp đúp chuột (double-click) vào bất kỳ ô nào trên hàng hoặc bấm nút Sửa.
-- **Phím tắt**:
-  - `Enter`: Lưu thay đổi tức thì.
-  - `Escape`: Hủy bỏ chỉnh sửa và khôi phục dữ liệu ban đầu.
-- **Bộ lọc & Tìm kiếm**:
-  - Thanh công cụ lọc kỳ thời gian đa cấp độ (`PeriodFilterToolbar` & `usePeriodFilter`): Ngày (`day`), Tuần (`week`), Tháng (`month`), Quý (`quarter`), Năm (`year`), Tất cả (`all`).
-  - Dải nút lọc trạng thái kèm số đếm thời gian thực: Tất cả (`all`), Cần làm (`needsAction` - mặc định), Đã xong (`completed`).
-  - Ô tìm kiếm tức thì theo tiêu đề và nội dung ghi chú.
-- **Thông báo phản hồi**: Toast notification xuất hiện khi lưu hoặc xóa công việc thành công.
+## 3. Màn hình Việc cần làm
 
-## Cấu trúc mã nguồn & Tích hợp Backend
+- **Nguồn dữ liệu**: `useTasksQuery`. Nếu API trả danh sách rỗng, màn hình dùng tạm `tasks` trong dữ liệu dashboard. Nếu chưa kết nối Google, bảng hiện gợi ý kết nối.
+- **Lọc theo kỳ**: thanh `PeriodFilterToolbar` với Ngày, Tuần, Tháng, Quý, Năm, Tất cả; **mặc định là Tháng**. Một việc thuộc kỳ theo hạn chót (`dueAt`), nếu không có hạn thì theo thời điểm cập nhật.
+- **Thẻ tổng quan** cho kỳ đang chọn: tổng số, chưa xong, đã xong, quá hạn (chưa xong và hạn đã qua).
+- **Lọc trạng thái**: Tất cả / Cần làm (mặc định) / Đã xong. Các nút này không hiển thị số đếm; số đếm nằm ở thẻ tổng quan.
+- **Tìm kiếm** tức thì theo tiêu đề và ghi chú.
+- **Cột bảng**:
+  1. Trạng thái: checkbox đổi nhanh giữa Cần làm và Đã xong, kèm badge.
+  2. Tiêu đề.
+  3. Ghi chú.
+  4. Hạn chót: hiển thị theo ngôn ngữ; ở chế độ sửa là ô chọn ngày.
+  5. Cập nhật lúc.
+  6. Thao tác: Sửa, Xoá; khi đang sửa thì Lưu, Huỷ.
+- **Sửa trực tiếp**: nhấp đúp vào ô hoặc bấm Sửa. `Enter` lưu, `Escape` huỷ.
+- Xoá có hộp thoại xác nhận; lưu/xoá thành công hiện toast. Khi lỗi hiện dải cảnh báo với nút Thử lại.
 
-- `tasks-api.ts`: Triển khai `getTasks`, `updateTask`, `deleteTask` trỏ đến endpoint `API_ROUTES.tasks` (`/api/tasks`).
-- `tasks-query.ts`: Cung cấp Query Key Factory `tasksQueryKeys` cùng các hooks `useTasksQuery`, `useUpdateTaskMutation`, `useDeleteTaskMutation` tự động đồng bộ cache.
-- `tasks-screen.tsx`: Giao diện hiển thị bảng DataTable tích hợp chỉnh sửa trực tiếp, bộ lọc thời gian và trạng thái.
-- `GoogleResourcesController` (`apps/api`): Tự động nạp cả task đang làm và đã hoàn thành (`showCompleted: true`, `showHidden: true`), đồng thời chuẩn hóa dữ liệu từ Google Tasks API sang `ITaskListItem` (`dueAt`, `updatedAt`, `completedAt`).
+## 4. Tích hợp backend
 
-## Quy trình kiểm thử
+- `GoogleResourcesController` (`apps/api/src/google/google-resources.controller.ts`) cung cấp `GET/POST /api/tasks` và `GET/PATCH/DELETE /api/tasks/:id`, gọi `GoogleTasksService`.
+- `GET /api/tasks` mặc định lấy cả việc đã xong (`showCompleted=true`, `showHidden` theo `showCompleted`), nên bộ lọc "Đã xong" trên web có dữ liệu.
+- Dữ liệu Google (`due`, `updated`, `completed`) được đổi tên thành `dueAt`, `updatedAt`, `completedAt` trong `ITaskListItem`.
 
-1. Chạy `npm run typecheck` và `npm run lint` để kiểm tra an toàn kiểu và chuẩn mã nguồn.
-2. Chạy `npm run test --workspace @zalobot/api` để chạy test backend.
-3. Chạy `npm run build` để kiểm tra build toàn bộ monorepo.
-4. Kiểm tra các thao tác sửa inline, chuyển đổi các tab thời gian (Ngày, Tuần, Tháng, Quý, Năm, Tất cả) và lọc trạng thái (Đã xong, Cần làm) trên trình duyệt.
+## 5. Kiểm thử
+
+1. `npm run typecheck` và `npm run lint`.
+2. `npm run test --workspace @zalobot/api` cho backend.
+3. `npm run build` cho toàn monorepo.
+4. Thử tay trên trình duyệt: sửa inline, đổi kỳ thời gian, lọc trạng thái, tick hoàn thành và xoá.

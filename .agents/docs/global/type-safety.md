@@ -5,7 +5,7 @@ metadata:
     type: documentation
     depends_on:
       - .agents/knowledge/global/type-safety.md
-      - .agents/rules/strict-types.md
+      - .claude/rules/strict-types.md
 ---
 
 # Hướng Dẫn Quy Chuẩn Type Safety & Zero-Any

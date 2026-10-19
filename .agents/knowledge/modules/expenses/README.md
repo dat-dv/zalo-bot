@@ -4,12 +4,28 @@
 
 ## Purpose
 
-`apps/web/src/modules/expenses` exposes an authenticated user's expense history independently from income transactions.
+`apps/web/src/modules/expenses` contains an expense-only history screen and its data layer. **The screen is not routed**: `/expenses` redirects to `/transactions?type=expense` (and `/income` to `/transactions?type=income`) via `app/(private)/expenses/page.tsx` and `income/page.tsx`. Expense browsing in the product happens in the dashboard module's `TransactionsScreen`. The module is kept as code; its query key `['expenses']` is still invalidated by transaction, place, and contact mutations elsewhere.
 
-## UI and state
+## Files
 
-The table in `ExpensesScreen` (`apps/web/src/modules/expenses/presentation/components/expenses-screen.tsx`, re-exported via `view/expenses-screen.tsx`) displays category, note, amount, and occurrence time. The entire view is styled with 100% Tailwind CSS utility classes and dark mode styling (`dark:`). The page header (title, subtitle, Refresh, Logout) is rendered by the common private layout `WorkspaceHeader` — `ExpensesScreen` does not render its own header. It supports inline editing with expense category autocomplete suggestions (`<datalist id="expense-categories-autocomplete">` combining user-configured categories from `useCategoriesQuery('expense')`, `DEFAULT_EXPENSE_CATEGORIES`, and past expense categories), incorporates dynamic period filtering (`PeriodFilterToolbar` with month/week/quarter/year/all ranges), visual trend distribution strips (`TrendSummaryStrip`), inline proportional bar tracks inside amount cells representing spending intensity relative to the period maximum, session money visibility masking via `useMoneyFormatter()` (displaying `'••••••'` when hidden while keeping editable inputs unmasked during inline edits), action buttons configured with `flex-nowrap whitespace-nowrap` and `shrink-0` to eliminate line wrapping during inline edit/delete operations, and column visibility persistence via `DataTable` (`id="expenses"`). It includes quick search filtering across category and notes, responsive minimum column widths (`minWidth`), non-hideable category and amount columns, and i18n currency & date formatting. Its report canvas uses the full available desktop width after navigation, while narrow screens retain horizontal table scrolling. It provides loading, empty, success, and retryable-error states.
+- `api/expenses-api.ts`: `getExpenses` (`GET API_ROUTES.expenses`), `updateExpense` (`PATCH /api/transactions/:id`, `IUpdateExpenseRequest`), `deleteExpense` (`DELETE /api/transactions/:id`).
+- `api/expenses-query.ts`: key `['expenses']`; `useExpensesQuery`, `useUpdateExpenseMutation`, `useDeleteExpenseMutation`. Both mutations invalidate `['expenses']`, `['transactions']`, `['dashboard']`.
+- `presentation/components/expenses-screen.tsx` (re-exported via `view/expenses-screen.tsx`): `ExpensesScreen`.
 
-## Integration seams
+## API data
 
-`getExpenses` calls `API_ROUTES.expenses`; `updateExpense` patches expense transactions, and `deleteExpense` removes transactions via `API_ROUTES.transactions`. Custom hooks `useExpensesQuery`, `useUpdateExpenseMutation`, and `useDeleteExpenseMutation` manage queries and invalidate `expenses`, `transactions`, `categories`, and `dashboard` query keys on success or refresh. `ReportsController` scopes results by access-token user ID and `FinanceService.listExpenses` filters `finance_transactions` by `type = expense`.
+`GET /api/expenses` (`ReportsController` → `FinanceService.listExpenses`): caller-scoped `type = expense`, ordered `occurredAt DESC`, `take: 200`. Returns only `id`, `category`, `note`, `amount`, `occurredAt`.
+
+## `ExpensesScreen` behavior (if mounted)
+
+- `usePeriodFilter('month')` + `PeriodFilterToolbar` with its default grains `week / month / quarter / year` (no `all` button). Period filtering is client-side over the ≤200 loaded rows.
+- `TrendSummaryStrip` (expense total + buckets) plus a category-count card.
+- Category filter `<select>` (categories present in the period) and search over category/note.
+- `DataTable` `id="expenses"` columns: `category` (non-hideable), `note`, `amount` (non-hideable; proportional bar vs period max), `paymentMethod`, `currency`, `occurredAt`, `actions` (non-hideable).
+- Inline edit: category (datalist `expense-categories-autocomplete` from `useCategoriesQuery('expense')`, loaded expense categories, `DEFAULT_EXPENSE_CATEGORIES`), note, amount (>0), payment method, occurredAt. Delete uses `window.confirm`.
+- Money masked via `useMoneyFormatter()`; inputs stay unmasked. Error banner Retry invalidates `['expenses']` and `['categories']`.
+
+## Known issues
+
+- `paymentMethod` and `currency` columns always show "not set"/`VND` because `GET /api/expenses` does not return those fields (the entity and `PATCH /api/transactions/:id` do support `paymentMethod`).
+- 200-row cap; periods older than the newest 200 expenses appear empty.

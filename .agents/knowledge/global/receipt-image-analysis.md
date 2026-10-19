@@ -1,9 +1,35 @@
+---
+metadata:
+  agent-artifact:
+    id: global-receipt-image-analysis-knowledge
+    type: documentation
+    depends_on:
+      - apps/api/src/zca/pending-image/image-batch-handler.service.ts
+      - apps/api/src/zca/pending-image/pending-image-action.service.ts
+      - apps/api/src/zca/pending-image/strategies/create-bill-pending-image.strategy.ts
+      - apps/api/src/zca/pending-image/strategies/storage-upload-pending-image.strategy.ts
+      - apps/api/src/zca/pending-image/strategies/cancel-pending-image.strategy.ts
+      - apps/api/src/ocr/ocr.service.ts
+      - apps/api/src/receipt-storage/media-storage.service.ts
+      - apps/api/src/common/utils/image-fetcher.util.ts
+---
+
 # Receipt Image Analysis
 
-zalo photos are transcribed locally with Tesseract `vie+eng` before semantic analysis. Gemini receives only normalized OCR text; it never receives image bytes, base64 image data, or zalo file URLs.
+## Intake
 
-The model returns one of three states: `ready`, `missing_fields`, or `not_receipt`. Only `ready` with a valid income/expense type, positive VND amount, and note can enqueue `create_finance_transaction`. The existing confirmation action remains mandatory before the finance record is written.
+- Images from the official-bot webhook (`InputProcessor`) and ZCA go to `ImageBatchHandlerService`, which debounces per sender (1 s) and stores a pending image action (`receiptUrl`, `receiptUrls`) in memory and Redis with a 5-minute TTL (`PendingImageActionService`).
+- The bot then asks: `1` (or `1 <note>`, `tạo bill`) → create bill; `2` (or `lưu drive/ảnh/photo`) → store to Google Drive & Google Photos; `hủy`/`cancel`/`bỏ qua`/`không` → discard. Other messages continue as normal chat.
 
-For a `ready` receipt, the downloaded image is read into memory for OCR and stored directly to Google Drive & Google Photos via `MediaStorageService`. The file is no longer persisted locally to disk under `./data/receipts` and `RECEIPT_STORAGE_DIR` has been removed. Its Google Drive link (or original image URL) is attached to the pending transaction as `receiptUrl`.
+## Option 1 — Create Bill (`CreateBillPendingImageStrategy`)
 
-The service has bounded download timeout and byte size. Blurry, unrelated, or incomplete images must prompt for a clearer image or the specific missing field; they must not create a transaction.
+1. Clears the pending action and downloads the image into memory via `fetchImageBuffer` (HTTP(S) or data URI; no size or timeout limit is enforced).
+2. `OcrService.extractTextFromBuffer`: Sharp normalization, then Tesseract.js `vie+eng`, entirely local.
+3. `MediaStorageService.uploadBill` uploads the buffer to Drive (`zalobot/<channelId>/bill/YYYY-MM`) and Google Photos in parallel; on Drive success the Drive `webViewLink` replaces the original URL as `receiptUrl`. Upload failures are only logged. Nothing is written to local disk.
+4. `LlmService.generate(prompt, ZALO_TOOL_DEFINITIONS, systemInstruction)`: the prompt holds the OCR text, the user's note, the `receiptUrl` string, and the current date-time anchor. No image bytes or base64 are sent.
+5. If the model returns a `RECORD_TRANSACTION` tool call, missing `receiptUrl`/`note` are filled in and `RecordTransactionToolStrategy` creates the usual pending confirmation; the transaction is written only after the user confirms.
+6. Otherwise the bot relays the model's text or asks the user to type the amount (e.g. "Ăn trưa 85k"); no transaction is created.
+
+## Option 2 — Store Only
+
+`StorageUploadPendingImageStrategy` uploads every pending image (`receiptUrls`) through `MediaStorageService.uploadImage` (Drive `zalobot/<channelId>/image/...` + Photos) and replies with a per-image summary. No LLM call.

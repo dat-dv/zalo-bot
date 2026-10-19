@@ -1,39 +1,67 @@
+---
+metadata:
+  agent-artifact:
+    id: global-monorepo-architecture-knowledge
+    type: documentation
+    depends_on:
+      - package.json
+      - apps/api/src/main.ts
+      - apps/api/src/app.module.ts
+      - apps/api/src/reports/reports-token.service.ts
+      - apps/api/src/reports/reports.controller.ts
+      - apps/api/src/config/configuration.ts
+      - apps/api/src/database/database.module.ts
+      - apps/web/next.config.ts
+      - apps/web/nginx.conf
+      - apps/web/Dockerfile
+      - apps/api/Dockerfile
+      - apps/web/src/shared/api/http-client.ts
+      - docker-compose.yml
+      - docker-compose.local.yml
+      - packages/contracts/src/index.ts
+---
+
 # Monorepo Architecture
 
 ## Layout
 
-- `apps/api`: NestJS zalo and OAuth backend. It owns all private environment variables and the PostgreSQL runtime.
-- `apps/web`: Next.js App Router static export. It may consume only `NEXT_PUBLIC_*` environment variables and contains no server runtime.
-- `packages/contracts`: framework-neutral routes and API TypeScript contracts.
-- PostgreSQL: the persistent system of record for the API, provisioned by Compose in container deployments.
+- `apps/api`: NestJS 10 backend — Zalo webhook bot, ZCA personal client, Google OAuth/Workspace, LLM tool calling, REST API. Owns all private env vars, PostgreSQL (TypeORM), and Redis. Top-level areas: `audit`, `common`, `config`, `dashboard-auth`, `database`, `finance`, `google`, `health`, `llm`, `ocr`, `receipt-storage`, `redis`, `reminders`, `reports`, `users`, `zalo`, `zca`.
+- `apps/web`: Next.js 16 App Router, React 19, TanStack Query v5. `output: 'export'` (static) when `NODE_ENV=production`; no Route Handlers or Server Actions. Consumes only `NEXT_PUBLIC_*`.
+  - Modules (`apps/web/src/modules/`): `auth`, `calendar`, `contacts`, `dashboard`, `debts`, `expenses`, `reminders`, `settings`, `tasks`, `users`, `zca`. Shared code: `shared/api` (axios `httpClient`), `shared/ui`, `shared/providers`, `shared/hooks`.
+  - Private routes (`app/(private)/`): `/`, `/dashboard`, `/transactions`, `/expenses`→`/transactions?type=expense`, `/income`→`/transactions?type=income`, `/debts`, `/analytics`, `/calendar`, `/tasks`, `/reminders`, `/contacts`, `/places`, `/zca`, `/settings`. Public: `/about`, `/privacy`, `/terms`.
+- `packages/contracts` (`@zalobot/contracts`): `API_ROUTES`, `APP_ROUTES`, DTO types, i18n catalog, shared constants.
+- PostgreSQL 16 and Redis 7 are provisioned by Compose.
 
 ## Runtime Rules
 
-- npm workspaces are the only package boundary. Build contracts before applications.
-- API resolves `.env.local`, `.env`, and `data/` from the monorepo root, regardless of whether it runs from `apps/api` or a root Docker working directory.
-- Never expose zalo, Gemini, Google, encryption, or database secrets to the web package.
-- The web app owns static UI routes while Nest remains the only API, OAuth, token, database, and zalo runtime. The static dashboard calls Nest directly through `NEXT_PUBLIC_API_URL`.
-- `zalo_LONG_POLLING_ENABLED` is required. Exactly one runtime may enable long polling for a given bot token; API-only runtimes set it to `false` and retain outbound zalo API access.
-- Contract changes belong in `@zalobot/contracts` before an API or web consumer is added.
+- npm workspaces are the only package boundary. `npm run build` builds contracts, then API, then web.
+- API resolves `.env.local`, `.env`, and `data/` from the monorepo root whether it runs from `apps/api` or the repo root.
+- Never expose Zalo, LLM (`GEMINI_*`, `OPENAI_*`, `QWEN_*`), Google, encryption, dashboard-token, or database secrets to the web package.
+- Nest is the only API, OAuth, token, database, and bot runtime. Bot input arrives only via webhook (`/webhook`, `/zalo/webhook`, `/api/webhook`, `/api/zalo/webhook`) and the ZCA WebSocket client; there is no long polling.
+- Global prefix `/api`, excluding webhook, `health`, `health/deploy`, `deploy/*`. Swagger at `/api/docs`.
+- Contract changes go into `@zalobot/contracts` before an API or web consumer is added.
 
-## zalo Dashboard
+## Dashboard Session
 
-- The bot creates a five-minute browser entry URL from a user-specific HMAC signature and expiry.
-- `GET /api/access` validates the zalo exchange token, writes the refresh cookie, then redirects to `/` with `#dashboard_token=...`.
-- The React dashboard requests `GET /api/dashboard` with its short-lived Bearer token. The API derives the user exclusively from that signed token; it never accepts a frontend `userId`.
-- `APP_URL`, `WEB_ORIGIN`, and `NEXT_PUBLIC_API_URL` are required explicit URLs. `NEXT_PUBLIC_API_URL` is the public origin without `/api`, because contract route constants already include that prefix. Avoid `SERVICE_URL_*`: Coolify reserves that prefix for managed URLs. In single-origin deployments, Web Nginx proxies `/api/*` (including Swagger docs at `/api/docs` and OAuth callback at `/api/oauth2callback`) directly to the backend API container (`http://api:3000`) while serving static web files for other paths.
-- `CORS_ALLOW_ALL` is required and must be explicitly set to `true` or `false`. Setting it to `true` reflects every request origin and permits credentials for temporary cross-origin local testing; it must be treated as an explicit security exception.
-- Dashboard access and refresh tokens are signed with the two private dashboard token secrets. During local tunnel development, Vite proxies dashboard API routes to the exposed API Docker port at `localhost:3000`.
-- The frontend stores only the 15-minute dashboard access token. A rotated seven-day refresh token remains in an `HttpOnly` cookie and Axios uses it after a 401.
-- The browser routes `/`, `/transactions`, `/debts`, `/analytics`, `/calendar`, `/tasks`, `/reminders`, and `/contacts` are exported as static files inside route group `app/(private)/`. UI ownership is split into `modules/auth`, `modules/dashboard`, `modules/debts`, `modules/contacts`, and reusable `shared/api` and `shared/ui` components.
+- Bot `/dashboard` issues a random one-time exchange token (SHA-256 hash stored, 20-minute TTL) and links `APP_URL/api/access?token=...`.
+- `GET /api/access` consumes it, sets the refresh cookie, and redirects to `${webOrigin}/dashboard#dashboard_token=...`.
+- Access token 24h (stored in `localStorage`), refresh token 7d (rotated, HTTP-only cookie `reports_refresh`), both HMAC-signed with `DASHBOARD_ACCESS_TOKEN_SECRET` / `DASHBOARD_REFRESH_TOKEN_SECRET`. Axios refreshes once after a `401`.
+- The API derives the user only from the Bearer token; it never accepts a frontend `userId`.
+
+## URLs, CORS, Proxy
+
+- `APP_URL` and `WEB_ORIGIN` are explicit URLs (`WEB_ORIGIN` defaults to `APP_URL`). `NEXT_PUBLIC_API_URL` is the public origin without `/api` (route constants include the prefix); when unset or on localhost/tunnel hosts the web uses relative URLs. Avoid `SERVICE_URL_*` (reserved by Coolify).
+- CORS: `CORS_ALLOW_ALL=true` reflects any origin with credentials (explicit security exception); otherwise `WEB_ORIGIN` plus `http://localhost:5173` outside production.
+- Production web container (`apps/web/nginx.conf`, Nginx 1.27) serves the static export and proxies `/api/`, `/webhook`, `/zalo/`, `/oauth2callback` to `http://api:${BE_PORT}`.
+- Next dev (`FE_PORT`, default 5173) rewrites `/api/:path*` to `NEXT_PUBLIC_API_URL` or `http://localhost:${NGINX_PORT|GATEWAY_PORT|3000}`.
+
+## Docker
+
+- `docker-compose.yml`: `postgres` (16-alpine), `redis` (7-alpine, AOF), `api` (`BE_PORT`, default 3005; mounts `./data:/app/data`; healthcheck `/health`), `web` (Nginx, host port `NGINX_PORT` or `WEB_PORT`, default 3009; build arg `NEXT_PUBLIC_API_URL`).
+- `docker-compose.local.yml` (`npm run docker:local`): postgres, redis, and an Nginx gateway (`NGINX_PORT`/`GATEWAY_PORT`, default 3000) proxying to API/web dev servers on the host.
+- Dockerfiles are two-stage (`builder` → `runner`) using BuildKit npm cache mounts; root `.dockerignore` excludes `node_modules`, build outputs, `.git`, and `.env*`.
 
 ## Database Migrations
 
-- PostgreSQL database schema is managed via TypeORM Migrations (`apps/api/src/database/migrations/`).
-- `migrationsRun: true` is enabled in `database.module.ts` to automatically execute pending migrations on API startup with zero data loss.
-- CLI DataSource is configured in `apps/api/src/database/data-source.ts`.
-- Manage migrations with:
-  - `npm run migration:run --workspace @zalobot/api`: Run pending migrations.
-  - `npm run migration:revert --workspace @zalobot/api`: Rollback latest migration.
-  - `npm run migration:generate --workspace @zalobot/api`: Auto-generate migration from entity diffs.
-  - `npm run migration:create --workspace @zalobot/api`: Create empty migration file.
+- Schema managed by TypeORM migrations in `apps/api/src/database/migrations/`, explicitly imported in both `database.module.ts` (`migrationsRun: true`, table `typeorm_migrations`) and the CLI DataSource `apps/api/src/database/data-source.ts`; a new migration must be added to both lists. Never rewrite an applied migration.
+- `npm run migration:run|migration:revert|migration:generate|migration:create --workspace @zalobot/api`.

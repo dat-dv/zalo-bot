@@ -4,21 +4,41 @@
 
 ## Purpose
 
-`apps/web/src/modules/contacts` presents the current user's debt-contact directory and business partner/place directory so they can identify saved counterparties, edit details inline, and combine duplicate entries without exposing another user's data.
+`apps/web/src/modules/contacts` shows the current user's debt-contact directory (people/counterparties linked to debts and transactions), lets the user edit contact details inline, and combine duplicate contacts. Places (merchants/venues) are NOT here; they live on `/places` in the dashboard module.
 
-## UI and state
+## Files
 
-The contacts screen (`apps/web/src/modules/contacts/presentation/components/contacts-screen.tsx`, re-exported via `view/contacts-screen.tsx`) provides:
+- `api/contacts-api.ts`: `getContacts` (`GET API_ROUTES.contacts`), `updateContact` (`PATCH /api/contacts/:id`, `IUpdateContactRequest`), `combineContacts` (`POST API_ROUTES.contactsCombine` = `/api/contacts/combine`), `deleteContact` (`DELETE /api/contacts/:id`).
+- `api/contacts-query.ts`: key `['contacts']`; `useContactsQuery`, `useUpdateContactMutation`, `useCombineContactsMutation`, `useDeleteContactMutation`.
+- `presentation/components/contacts-screen.tsx`, `presentation/components/combine-contacts-dialog.tsx` (re-exported via `view/`). Route `/contacts`.
 
-- **UI Styling & Links**: 100% Tailwind CSS utility classes with complete light and dark theme styling across all tables, badges, action buttons, dialog overlays, and toast notifications. External phone and address links open in new tabs with secure attributes (`target="_blank" rel="noopener noreferrer"`). The page header (title, subtitle, Refresh, Logout) is rendered by the common private layout `WorkspaceHeader` — `ContactsScreen` does not render its own header.
-- **Inline Editing**: Double-clicking or clicking the Edit action activates inline Excel-like inputs for `displayName`, `alias`, and `descriptor` (place address / identifier). Supports `Enter` (Save), `Escape` (Cancel), and action buttons. Action columns configure `minWidth: 130px` with `flex-nowrap whitespace-nowrap` and `shrink-0` buttons to eliminate wrapping during inline edit and view modes.
-- **Horizontal Scrolling**: Preserves fixed column min-widths (`select`, `displayName`, `alias`, `descriptor`, `createdAt`, `actions`), allowing smooth horizontal scrolling inside the panel on smaller viewports without text squishing.
-- **Combine Contacts**: Multi-select checkboxes trigger a "Combine" action toolbar when 2+ contacts are checked. Opens a modal dialog (`apps/web/src/modules/contacts/presentation/components/combine-contacts-dialog.tsx`, re-exported via `view/combine-contacts-dialog.tsx`) allowing the user to select the primary target contact, preview/edit merged names, aliases, and addresses, and optionally auto-consolidate debts into single parent debts via `consolidateDebts: true` (automatically grouped by direction and currency to prevent merge errors), migrating all linked debts in a single backend transaction.
-- **States & i18n**: Renders loading skeletons, empty states, error alerts with retry, and temporary toast notifications on successful save/combine. All labels, placeholders, and messages use the shared i18n catalog.
+## API data (`GET /api/contacts`, `ReportsController`)
 
-## Integration seams
+- Caller-scoped, ordered `displayName ASC, createdAt DESC`, max 200 rows (`FinanceService.listContacts`).
+- Fields: `id`, `displayName`, `alias`, `descriptor`, `phoneNumber`, `bankAccountNumber`, `bankCode`, `bankName`, `avatarUrl`, `linkedUserId`, `linkedUser { id, username, firstName, avatarUrl }`, `debtCount`, `transactionCount`, `createdAt`, `updatedAt`.
 
-- `getContacts` requests `API_ROUTES.contacts` via authenticated HTTP client.
-- `updateContact` requests `PATCH /api/contacts/:id` to persist inline edits (`displayName`, `alias`, `descriptor`).
-- `combineContacts` requests `POST /api/contacts/combine` (`API_ROUTES.contactsCombine`) with `{ targetContactId, sourceContactIds, displayName, alias, descriptor, consolidateDebts }` to merge source contacts into a target contact and reassign/consolidate associated debts safely.
-- `useContactsQuery`, `useUpdateContactMutation`, and `useCombineContactsMutation` manage TanStack Query caching and invalidate `contacts`, `debts`, and `dashboard` query keys.
+## Screen (`ContactsScreen`)
+
+- Header (title/Refresh/Logout/money toggle) comes from the private layout `WorkspaceHeader`; the screen renders only a `DataPanel` + `DataTable` (`id="contacts"`).
+- Columns: `select` (checkbox, select-all in header), `displayName` (non-hideable), `alias`, `descriptor`, `phoneNumber`, `bankAccountNumber`, `bankName`, `linkedUser` (badge `firstName (@username)` or `#<id prefix>`), `resources` (debt/transaction count badges), `createdAt`, `actions` (non-hideable, `minWidth: 120px`, Edit only).
+- Values are plain text; there are no external phone/map links.
+- Inline edit (double-click a cell or Edit): `displayName` (required), `alias`, `descriptor`, `phoneNumber`, `bankAccountNumber`, `bankName`. `Enter` saves, `Escape` cancels. Empty optional fields are sent as `undefined`; the API clears `alias`/`descriptor` on empty but leaves phone/bank fields unchanged, so those cannot be cleared from the UI.
+- Toolbar: Combine button when 2+ rows selected, select/deselect all, selected-count chip, search (displayName/alias/descriptor).
+- States: loading via `DataTable`, empty message, error banner with Retry (invalidates `['contacts']`), toast after save/combine.
+- `useDeleteContactMutation` exists but no delete action is rendered.
+
+## Combine (`CombineContactsDialog`)
+
+- Candidate ranking (same as backend fallback): has linked user → most `debtCount + transactionCount` → earliest `createdAt`. Top candidate is the default lead; user can pick another lead via radio.
+- Prefills name/alias from the lead, descriptor = all distinct descriptors joined, `linkedUserId` from lead or any source.
+- Linked-user select is loaded with `useUsersQuery` (`GET /api/users`, admin-only); non-admins get only the "not set" option.
+- `consolidateDebts` checkbox, default on. Escape closes unless pending; errors shown inline.
+- Payload: `{ targetContactId, sourceContactIds, displayName, alias, descriptor, linkedUserId, consolidateDebts }`.
+- Success invalidates `contacts`, `debts`, `transactions`, `expenses`, `dashboard`. Update/delete invalidate `contacts`, `debts`, `dashboard`.
+
+## Backend combine semantics (`FinanceService.combineContacts`)
+
+- Requires ≥2 caller-owned contacts. Lead = `targetContactId` if given, else the ranking above.
+- Applies name/alias/descriptor/linkedUserId; inherits missing phone, bank (number+code+name), avatar from sources.
+- Reassigns sources' debts (`contactId`, `counterparty`, `counterpartyAlias`) and transactions (`contactId`) to the lead, deletes sources, then if `consolidateDebts` groups the lead's top-level debts by direction + currency and calls `combineDebts` for groups of ≥2.
+- NOT a single DB transaction: the steps are sequential saves; a failure midway (e.g. during debt consolidation) leaves earlier steps committed. Each `combineDebts` call is itself transactional.
