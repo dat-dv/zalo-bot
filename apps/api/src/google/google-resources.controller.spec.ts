@@ -374,6 +374,7 @@ void test('GoogleResourcesController getDriveFolderLink uses customFolder if con
     {} as unknown as GoogleAuthService,
     mockDrive,
     undefined,
+    undefined,
     mockThreadConfigService,
   );
 

@@ -68,6 +68,15 @@ export class ZcaThreadConfigEntity {
   @Column({ name: 'drive_folder_path', type: 'varchar', nullable: true })
   driveFolderPath?: string;
 
+  @Column({ name: 'photos_album_id', type: 'varchar', nullable: true })
+  photosAlbumId?: string;
+
+  @Column({ name: 'photos_album_url', type: 'varchar', nullable: true })
+  photosAlbumUrl?: string;
+
+  @Column({ name: 'photos_album_title', type: 'varchar', nullable: true })
+  photosAlbumTitle?: string;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

@@ -6,16 +6,16 @@ import { TextToolType } from './text-tool.enum';
 import { ZALO_TOOL_DEFINITIONS } from './text-tool.definitions';
 import { LlmService } from '../../llm/llm.service';
 import { ZaloService } from '../zalo.service';
-import { TransactionConfirmationService, PendingAction } from '../transaction-confirmation.service';
+import { TransactionConfirmationService, PendingAction } from '../../zca/confirmation/transaction-confirmation.service';
 import { cleanBotMention } from './bot-mention.util';
-import { PendingImageActionService } from '../pending-image-action.service';
+import { PendingImageActionService } from '../../zca/pending-image/pending-image-action.service';
 import { OcrService } from '../../ocr/ocr.service';
 import { MediaStorageService } from '../../receipt-storage/media-storage.service';
 
-import { PendingImageActionDispatcher } from '../pending-image/pending-image-dispatcher.service';
-import { CancelPendingImageStrategy } from '../pending-image/strategies/cancel-pending-image.strategy';
-import { StorageUploadPendingImageStrategy } from '../pending-image/strategies/storage-upload-pending-image.strategy';
-import { CreateBillPendingImageStrategy } from '../pending-image/strategies/create-bill-pending-image.strategy';
+import { PendingImageActionDispatcher } from '../../zca/pending-image/pending-image-dispatcher.service';
+import { CancelPendingImageStrategy } from '../../zca/pending-image/strategies/cancel-pending-image.strategy';
+import { StorageUploadPendingImageStrategy } from '../../zca/pending-image/strategies/storage-upload-pending-image.strategy';
+import { CreateBillPendingImageStrategy } from '../../zca/pending-image/strategies/create-bill-pending-image.strategy';
 
 @Injectable()
 export class TextInputService {

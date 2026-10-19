@@ -1495,6 +1495,93 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   }
 
   /**
+   * Helper to send text message with success status, msgId and cliMsgId.
+   */
+  public async sendMessageWithResult(
+    chatId: string | number,
+    text: string,
+  ): Promise<{ success: boolean; msgId?: string; cliMsgId?: string }> {
+    const targetChatId = String(chatId);
+    if (!this.isLoggedIn()) {
+      this.logger.warn(`ZCA is not logged in. Outgoing message to ${targetChatId}: "${text}"`);
+      return { success: false };
+    }
+    try {
+      const res = await this.sendMessage(text, targetChatId);
+      const rawMsg = res?.message as unknown as
+        | { msgId?: string | number; cliMsgId?: string | number }
+        | undefined;
+      const msgId = rawMsg?.msgId !== undefined ? String(rawMsg.msgId) : undefined;
+      const cliMsgId = rawMsg?.cliMsgId !== undefined ? String(rawMsg.cliMsgId) : undefined;
+      return { success: true, msgId, cliMsgId };
+    } catch (zcaErr) {
+      this.logger.error(
+        `Failed to send message via ZCA to ${targetChatId}: ${zcaErr instanceof Error ? zcaErr.message : String(zcaErr)}`,
+      );
+      return { success: false };
+    }
+  }
+
+  /**
+   * Helper to send text message directly to chat ID.
+   */
+  public async sendMessageToChat(chatId: string | number, text: string): Promise<boolean> {
+    const res = await this.sendMessageWithResult(chatId, text);
+    return res.success;
+  }
+
+  /**
+   * Helper to recall/undo a message cleanly.
+   */
+  public async undoMessage(
+    chatId: string | number,
+    msgId: string,
+    cliMsgId?: string,
+  ): Promise<boolean> {
+    const targetChatId = String(chatId);
+    if (!this.isLoggedIn()) {
+      this.logger.debug(`[ZcaService] Cannot recall message ${msgId}: ZCA is not logged in.`);
+      return false;
+    }
+    let resolvedCliMsgId = cliMsgId;
+    if (!resolvedCliMsgId || resolvedCliMsgId === msgId) {
+      resolvedCliMsgId = await this.getCliMsgId(msgId);
+    }
+    try {
+      await this.undo(
+        {
+          msgId,
+          cliMsgId: resolvedCliMsgId || msgId,
+        },
+        targetChatId,
+      );
+      this.logger.log(`[ZcaService] Successfully recalled message ${msgId} (cliMsgId: ${resolvedCliMsgId || 'n/a'})`);
+      return true;
+    } catch (err) {
+      this.logger.warn(`[ZcaService] Could not undo message ${msgId}: ${err instanceof Error ? err.message : String(err)}`);
+      try {
+        if (this.api?.deleteMessage) {
+          await this.deleteMessage(
+            {
+              threadId: targetChatId,
+              data: {
+                msgId,
+                cliMsgId: resolvedCliMsgId || msgId,
+                uidFrom: this.getOwnId() || '0',
+              },
+            },
+            true,
+          );
+          return true;
+        }
+      } catch {
+        // ignore fallback errors
+      }
+      return false;
+    }
+  }
+
+  /**
    * Helper to send sticker via active API.
    */
   public async sendSticker(
