@@ -52,6 +52,10 @@ void test('TextToolFactory resolves tool types by enum correctly', () => {
   assert.equal(factory.resolveFastPathToolType('/start'), TextToolType.START);
   assert.equal(factory.resolveFastPathToolType('/start 123'), TextToolType.START);
   assert.equal(factory.resolveFastPathToolType('/help'), TextToolType.HELP);
+  assert.equal(factory.resolveFastPathToolType('help'), TextToolType.HELP);
+  assert.equal(factory.resolveFastPathToolType('trợ giúp'), TextToolType.HELP);
+  assert.equal(factory.resolveFastPathToolType('hướng dẫn'), TextToolType.HELP);
+  assert.equal(factory.resolveFastPathToolType('huong dan'), TextToolType.HELP);
   assert.equal(factory.resolveFastPathToolType('/echo test'), TextToolType.ECHO);
   assert.equal(factory.resolveFastPathToolType('/ping'), TextToolType.PING);
   assert.equal(factory.resolveFastPathToolType('/reset'), TextToolType.RESET);

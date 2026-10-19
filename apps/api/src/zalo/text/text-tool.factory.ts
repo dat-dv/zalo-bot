@@ -146,7 +146,10 @@ export class TextToolFactory {
       trimmed === '/help' ||
       trimmed.startsWith('/help ') ||
       lower === 'help' ||
-      lower === 'trợ giúp'
+      lower === 'trợ giúp' ||
+      lower === 'tro giup' ||
+      lower === 'hướng dẫn' ||
+      lower === 'huong dan'
     ) {
       return TextToolType.HELP;
     }
