@@ -40,6 +40,7 @@ export const API_ROUTES = {
   zcaSyncThreadMedia: (threadId: string) => `/api/zca/threads/${threadId}/sync-media`,
   driveFolderLink: '/api/drive/folder-link',
   driveOpen: '/api/drive/open',
+  photosAlbumLink: '/api/photos/album-link',
 } as const;
 
 export const APP_ROUTES = {
@@ -1942,6 +1943,7 @@ export interface ThreadMediaBackupConfig {
   notifyInThread?: boolean;
   customFolder?: string;
   fileSuffix?: string;
+  photosAlbum?: string;
 }
 
 export interface ThreadExpenseConfig {
@@ -1976,6 +1978,9 @@ export interface ThreadBotConfig {
   driveFolderId?: string;
   driveFolderUrl?: string;
   driveFolderPath?: string;
+  photosAlbumId?: string;
+  photosAlbumUrl?: string;
+  photosAlbumTitle?: string;
   directInteraction: ThreadDirectInteractionConfig;
   mediaBackup: ThreadMediaBackupConfig;
   expenseTracking: ThreadExpenseConfig;
@@ -1991,6 +1996,9 @@ export type UpdateThreadBotConfigDto = Partial<{
   driveFolderId: string;
   driveFolderUrl: string;
   driveFolderPath: string;
+  photosAlbumId: string;
+  photosAlbumUrl: string;
+  photosAlbumTitle: string;
   directInteraction: Partial<ThreadDirectInteractionConfig>;
   mediaBackup: Partial<ThreadMediaBackupConfig>;
   expenseTracking: Partial<ThreadExpenseConfig>;
@@ -2015,4 +2023,5 @@ export interface SyncThreadMediaResponse {
   skippedCount: number;
   failedCount: number;
   message: string;
+  warning?: string;
 }

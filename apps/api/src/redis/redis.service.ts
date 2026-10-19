@@ -148,4 +148,47 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       return false;
     }
   }
+
+  public async rpush(key: string, ...values: string[]): Promise<boolean> {
+    if (!this.client || !this.isConnected || values.length === 0) return false;
+    try {
+      await this.client.rpush(key, ...values);
+      return true;
+    } catch (err) {
+      this.logger.warn(`Redis RPUSH failed for key "${key}": ${(err as Error).message}`);
+      return false;
+    }
+  }
+
+  public async ltrim(key: string, start: number, stop: number): Promise<boolean> {
+    if (!this.client || !this.isConnected) return false;
+    try {
+      await this.client.ltrim(key, start, stop);
+      return true;
+    } catch (err) {
+      this.logger.warn(`Redis LTRIM failed for key "${key}": ${(err as Error).message}`);
+      return false;
+    }
+  }
+
+  public async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    if (!this.client || !this.isConnected) return [];
+    try {
+      return await this.client.lrange(key, start, stop);
+    } catch (err) {
+      this.logger.warn(`Redis LRANGE failed for key "${key}": ${(err as Error).message}`);
+      return [];
+    }
+  }
+
+  public async expire(key: string, seconds: number): Promise<boolean> {
+    if (!this.client || !this.isConnected) return false;
+    try {
+      await this.client.expire(key, seconds);
+      return true;
+    } catch (err) {
+      this.logger.warn(`Redis EXPIRE failed for key "${key}": ${(err as Error).message}`);
+      return false;
+    }
+  }
 }

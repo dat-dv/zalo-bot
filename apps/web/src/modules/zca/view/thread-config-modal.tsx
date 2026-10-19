@@ -1,16 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type {
-  ThreadBotConfig,
-  UpdateThreadBotConfigDto,
-} from '@zalobot/contracts';
+import type { ThreadBotConfig, UpdateThreadBotConfigDto } from '@zalobot/contracts';
 import {
   useUpdateZcaThreadConfigMutation,
   useZcaThreadConfigQuery,
   useGoogleDriveFolderLinkQuery,
 } from '../api/zca-query';
-import { getThreadDriveLink } from '../api/zca-api';
+import { getThreadDriveLink, getThreadPhotosLink } from '../api/zca-api';
 
 interface ThreadConfigModalProps {
   threadId: string;
@@ -45,6 +42,9 @@ export function ThreadConfigModal({
         driveFolderId: config.driveFolderId,
         driveFolderUrl: config.driveFolderUrl,
         driveFolderPath: config.driveFolderPath,
+        photosAlbumId: config.photosAlbumId,
+        photosAlbumUrl: config.photosAlbumUrl,
+        photosAlbumTitle: config.photosAlbumTitle,
         directInteraction: {
           enabled: config.directInteraction?.enabled ?? false,
           requireMention: config.directInteraction?.requireMention ?? true,
@@ -61,6 +61,7 @@ export function ThreadConfigModal({
           notifyInThread: config.mediaBackup?.notifyInThread ?? false,
           customFolder: config.mediaBackup?.customFolder || '',
           fileSuffix: config.mediaBackup?.fileSuffix || '',
+          photosAlbum: config.mediaBackup?.photosAlbum || '',
         },
         expenseTracking: config.expenseTracking || {
           enabled: false,
@@ -92,6 +93,9 @@ export function ThreadConfigModal({
       driveFolderId: form.driveFolderId,
       driveFolderUrl: form.driveFolderUrl,
       driveFolderPath: form.driveFolderPath,
+      photosAlbumId: form.photosAlbumId,
+      photosAlbumUrl: form.photosAlbumUrl,
+      photosAlbumTitle: form.photosAlbumTitle,
       directInteraction: form.directInteraction,
       mediaBackup: form.mediaBackup,
       expenseTracking: form.expenseTracking,
@@ -417,6 +421,37 @@ export function ThreadConfigModal({
                     </a>
                   </div>
 
+                  {/* Google Photos Album info banner */}
+                  <div className="flex items-center justify-between rounded-lg border border-indigo-200/80 bg-indigo-50/70 p-3 dark:border-indigo-900/40 dark:bg-indigo-950/30">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl">📸</span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                            Album Google Photos:
+                          </span>
+                          <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] font-medium text-indigo-700 border border-indigo-200 dark:border-indigo-800 dark:bg-slate-900 dark:text-indigo-300">
+                            {form.photosAlbumTitle ||
+                              form.mediaBackup.photosAlbum ||
+                              (threadName ? `[Zalo] ${threadName}` : `[Zalo] Nhóm ${threadId}`)}
+                          </code>
+                        </div>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                          Tự động tạo album riêng trên Google Photos cho cuộc trò chuyện này
+                        </p>
+                      </div>
+                    </div>
+                    <a
+                      className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 transition-colors"
+                      href={getThreadPhotosLink({ id: threadId, name: threadName }, form)}
+                      rel="noopener noreferrer"
+                      target="_blank"
+                    >
+                      <span>Mở Google Photos</span>
+                      <span>↗</span>
+                    </a>
+                  </div>
+
                   <div>
                     <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                       Loại tài nguyên tự động lưu (Mặc định tắt):
@@ -548,6 +583,30 @@ export function ThreadConfigModal({
                     </div>
 
                     <div>
+                      <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                        Tên Album Google Photos riêng
+                      </label>
+                      <input
+                        className="mt-1 w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            mediaBackup: {
+                              ...form.mediaBackup,
+                              photosAlbum: e.target.value,
+                            },
+                          })
+                        }
+                        placeholder={`VD: [Zalo] ${threadName || threadId}`}
+                        type="text"
+                        value={form.mediaBackup.photosAlbum || ''}
+                      />
+                      <p className="mt-0.5 text-[10px] text-slate-400">
+                        Để trống để tự động tạo album theo tên nhóm
+                      </p>
+                    </div>
+
+                    <div className="sm:col-span-2">
                       <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         Hậu tố tên file (Suffix)
                       </label>
