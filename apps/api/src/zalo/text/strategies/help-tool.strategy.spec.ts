@@ -31,6 +31,13 @@ void test('HelpToolStrategy includes /zalo-login command in help text', async ()
   assert.equal(sentMessages.length, 1);
   const helpText = sentMessages[0];
   assert.match(helpText, /HƯỚNG DẪN SỬ DỤNG TRỢ LÝ ZALO/);
+  assert.match(helpText, /CÁC TÍNH NĂNG AI THÔNG MINH \(TOOLCALLS HỮU ÍCH\)/);
+  assert.match(helpText, /Thu - Chi/);
+  assert.match(helpText, /Google Calendar/);
+  assert.match(helpText, /Google Tasks/);
+  assert.match(helpText, /Reminders/);
+  assert.match(helpText, /\/drive/);
+  assert.match(helpText, /\/share/);
   assert.match(helpText, /\/zalo-login/);
   assert.match(helpText, /\/zca-login/);
   assert.match(helpText, /\/zalo-logout/);

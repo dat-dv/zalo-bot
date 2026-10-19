@@ -369,7 +369,7 @@ void test('ZcaService logout stops listener, purges session files, deletes redis
 
 void test('ZcaService.getAvailableThreads returns empty array when not logged in', async () => {
   const mockConfigService = {
-    get: () => undefined,
+    get: (): undefined => undefined,
   } as unknown as ConfigService;
 
   const service = new ZcaService(mockConfigService);
