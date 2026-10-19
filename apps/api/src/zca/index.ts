@@ -19,6 +19,14 @@ export * from './strategies/welcome-group-event.strategy';
 export * from './group-event-dispatcher.service';
 export * from './zca.service';
 export * from './zca.module';
+export * from './confirmation/transaction-confirmation.service';
+export * from './confirmation/dto-descriptor.util';
+export * from './guards/initial-admin-bootstrap.guard';
+export * from './guards/grant-access.guard';
+export * from './pending-image/pending-image-action.service';
+export * from './pending-image/pending-image.interface';
+export * from './pending-image/pending-image-dispatcher.service';
+export * from './pending-image/image-batch-handler.service';
 
 export interface CreateZcaClientOptions {
   proxyUrl?: string;

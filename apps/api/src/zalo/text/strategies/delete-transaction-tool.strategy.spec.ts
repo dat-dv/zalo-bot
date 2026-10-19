@@ -3,9 +3,9 @@ import test from 'node:test';
 import { DeleteTransactionToolStrategy } from './delete-transaction-tool.strategy';
 import { ZaloService } from '../../zalo.service';
 import { FinanceService } from '../../../finance/finance.service';
-import { TransactionConfirmationService } from '../../transaction-confirmation.service';
+import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
 import { FinanceTransactionEntity } from '../../../database/entities/finance-transaction.entity';
-import { DeleteTransactionDto } from '../../confirmation/dto-descriptor.util';
+import { DeleteTransactionDto } from '../../../zca/confirmation/dto-descriptor.util';
 import { AgentInput } from '../../types/agent-input.type';
 
 interface PendingDeleteParam {

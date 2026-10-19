@@ -28,6 +28,7 @@ import { ReportsTokenService } from '../reports/reports-token.service';
 import { GoogleCalendarService } from './google-calendar.service';
 import { GoogleTasksService } from './google-tasks.service';
 import { GoogleAuthService } from './google-auth.service';
+import { GooglePhotosService } from './google-photos.service';
 import { GoogleDriveService, GG_DRIVE_ROOT_FOLDER } from './google-drive.service';
 import { UsersService } from '../users/users.service';
 import { ThreadConfigService, sanitizePathSegment } from '../zca/thread-config.service';
@@ -46,6 +47,7 @@ export class GoogleResourcesController {
     private readonly tokens: ReportsTokenService,
     private readonly authService: GoogleAuthService,
     @Optional() private readonly driveService?: GoogleDriveService,
+    @Optional() private readonly photosService?: GooglePhotosService,
     @Optional() private readonly usersService?: UsersService,
     @Optional() private readonly threadConfigService?: ThreadConfigService,
   ) {}
@@ -195,6 +197,89 @@ export class GoogleResourcesController {
   ): Promise<void> {
     const result = await this.getDriveFolderLink(channelId, threadName);
     const targetUrl = result.data.webViewLink || 'https://drive.google.com';
+    res.redirect(targetUrl);
+  }
+
+  @Get('photos/album-link')
+  @ApiOperation({ summary: 'Lấy đường link xem album Google Photos (chung hoặc của channel)' })
+  async getPhotosAlbumLink(
+    @Query('channelId') channelId?: string,
+    @Query('threadName') threadName?: string,
+  ) {
+    let albumTitle = 'ZaloBot - Hình ảnh';
+    let cachedUrl: string | undefined;
+
+    if (channelId) {
+      let config: ThreadBotConfig | undefined;
+      if (this.threadConfigService) {
+        config = this.threadConfigService.getConfigSync?.(channelId);
+        if (!config && threadName && typeof this.threadConfigService.getConfig === 'function') {
+          try {
+            config = await this.threadConfigService.getConfig(channelId, { threadName });
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      cachedUrl = config?.photosAlbumUrl;
+      albumTitle =
+        config?.photosAlbumTitle ||
+        config?.mediaBackup?.photosAlbum ||
+        (threadName ? `[Zalo] ${threadName}` : `[Zalo] Nhóm ${channelId}`);
+    }
+
+    if (cachedUrl) {
+      return {
+        data: {
+          albumTitle,
+          webViewLink: cachedUrl,
+        },
+      };
+    }
+
+    if (!this.photosService) {
+      return {
+        data: {
+          albumTitle,
+          webViewLink: 'https://photos.google.com',
+        },
+      };
+    }
+
+    try {
+      const albumUrl = await this.photosService.getAlbumLink(albumTitle);
+      if (channelId && albumUrl && this.threadConfigService?.savePhotosAlbumInfo) {
+        void this.threadConfigService.savePhotosAlbumInfo(channelId, {
+          albumUrl,
+          albumTitle,
+        });
+      }
+      return {
+        data: {
+          albumTitle,
+          webViewLink: albumUrl || 'https://photos.google.com',
+        },
+      };
+    } catch {
+      return {
+        data: {
+          albumTitle,
+          webViewLink: 'https://photos.google.com',
+        },
+      };
+    }
+  }
+
+  @Get('photos/open')
+  @ApiOperation({ summary: 'Mở trực tiếp Album Google Photos của một channel hoặc chung' })
+  async openPhotosAlbum(
+    @Res() res: Response,
+    @Query('channelId') channelId?: string,
+    @Query('threadName') threadName?: string,
+  ): Promise<void> {
+    const result = await this.getPhotosAlbumLink(channelId, threadName);
+    const targetUrl = result.data.webViewLink || 'https://photos.google.com';
     res.redirect(targetUrl);
   }
 

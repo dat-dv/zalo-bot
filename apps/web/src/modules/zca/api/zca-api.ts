@@ -187,6 +187,29 @@ export function getThreadDriveLink(
   return getThreadDriveOpenUrl(thread.id, thread.name);
 }
 
+export function getThreadPhotosOpenUrl(threadId?: string, threadName?: string): string {
+  const base = resolveApiBaseUrl();
+  const path = '/api/photos/open';
+  if (!threadId) {
+    return `${base}${path}`;
+  }
+  const params = new URLSearchParams({ channelId: threadId });
+  if (threadName) {
+    params.set('threadName', threadName);
+  }
+  return `${base}${path}?${params.toString()}`;
+}
+
+export function getThreadPhotosLink(
+  thread: { id: string; name?: string },
+  config?: ThreadBotConfig | null,
+): string {
+  if (config?.photosAlbumUrl) {
+    return config.photosAlbumUrl;
+  }
+  return getThreadPhotosOpenUrl(thread.id, thread.name);
+}
+
 export async function getGoogleDriveFolderLink(
   channelId?: string,
   threadName?: string,
