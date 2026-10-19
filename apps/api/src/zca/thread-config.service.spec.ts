@@ -246,3 +246,106 @@ void test('ThreadConfigService.isGroupThread trusts stored thread type over id p
   assert.equal(await service.isGroupThread('g-legacy'), true);
   assert.equal(await service.isGroupThread('group_legacy'), true);
 });
+
+function createStoreMocks(seed: Partial<ZcaThreadConfigEntity>[] = []): {
+  repo: Repository<ZcaThreadConfigEntity>;
+  redis: RedisService;
+  rows: Map<string, Partial<ZcaThreadConfigEntity>>;
+  redisValues: Map<string, string>;
+} {
+  const rows = new Map<string, Partial<ZcaThreadConfigEntity>>();
+  for (const row of seed) if (row.threadId) rows.set(row.threadId, row);
+  const redisValues = new Map<string, string>();
+
+  const repo = {
+    find: () => Promise.resolve(Array.from(rows.values())),
+    findOneBy: ({ threadId }: { threadId: string }) => Promise.resolve(rows.get(threadId) ?? null),
+    upsert: (entity: Partial<ZcaThreadConfigEntity>) => {
+      if (entity.threadId) rows.set(entity.threadId, { ...rows.get(entity.threadId), ...entity });
+      return Promise.resolve({ identifiers: [], generatedMaps: [], raw: [] });
+    },
+  } as unknown as Repository<ZcaThreadConfigEntity>;
+
+  const redis = {
+    isReady: true,
+    get: (key: string) => Promise.resolve(redisValues.get(key) ?? null),
+    set: (key: string, val: string) => {
+      redisValues.set(key, val);
+      return Promise.resolve(true);
+    },
+    sadd: (_key: string, ...members: string[]) => Promise.resolve(members.length),
+    srem: (_key: string, ...members: string[]) => Promise.resolve(members.length),
+  } as unknown as RedisService;
+
+  return { repo, redis, rows, redisValues };
+}
+
+function cachedThreadType(redisValues: Map<string, string>, threadId: string): unknown {
+  const raw = redisValues.get(`zca:thread_config:${threadId}`);
+  if (!raw) return undefined;
+  const parsed: unknown = JSON.parse(raw);
+  return parsed && typeof parsed === 'object' && 'threadType' in parsed
+    ? parsed.threadType
+    : undefined;
+}
+
+const NUMERIC_GROUP_ID = '7120342145544273834';
+
+void test('getConfig stores a numeric ZCA group id as group when meta says so', async () => {
+  const { repo, redis, rows, redisValues } = createStoreMocks();
+  const service = new ThreadConfigService(repo, redis);
+
+  const config = await service.getConfig(NUMERIC_GROUP_ID, { threadType: 'group' });
+
+  assert.equal(config.threadType, 'group');
+  assert.equal(config.confirmationRules.requiredHearts, 5);
+  assert.equal(rows.get(NUMERIC_GROUP_ID)?.threadType, 'group');
+  assert.equal(cachedThreadType(redisValues, NUMERIC_GROUP_ID), 'group');
+});
+
+void test('getConfig corrects a group stored as user without a thread name change', async () => {
+  const { repo, redis, rows, redisValues } = createStoreMocks([
+    { threadId: NUMERIC_GROUP_ID, threadName: 'Team', threadType: 'user', isListened: true },
+  ]);
+  const service = new ThreadConfigService(repo, redis);
+
+  const config = await service.getConfig(NUMERIC_GROUP_ID, { threadType: 'group' });
+
+  assert.equal(config.threadType, 'group');
+  assert.equal(config.threadName, 'Team');
+  assert.equal(rows.get(NUMERIC_GROUP_ID)?.threadType, 'group');
+  assert.equal(cachedThreadType(redisValues, NUMERIC_GROUP_ID), 'group');
+  assert.equal(await service.isGroupThread(NUMERIC_GROUP_ID), true);
+});
+
+void test('setListened passes thread type meta to the default config', async () => {
+  const { repo, redis, rows } = createStoreMocks();
+  const service = new ThreadConfigService(repo, redis);
+
+  const config = await service.setListened(NUMERIC_GROUP_ID, true, { threadType: 'group' });
+
+  assert.equal(config.threadType, 'group');
+  assert.equal(config.isListened, true);
+  assert.equal(rows.get(NUMERIC_GROUP_ID)?.threadType, 'group');
+});
+
+void test('reconcileThreadTypes fixes wrong stored types and never creates configs', async () => {
+  const { repo, redis, rows, redisValues } = createStoreMocks([
+    { threadId: NUMERIC_GROUP_ID, threadType: 'user', isListened: true },
+    { threadId: '5854445174804412080', threadType: 'user', isListened: true },
+  ]);
+  const service = new ThreadConfigService(repo, redis);
+
+  const fixed = await service.reconcileThreadTypes([
+    { id: NUMERIC_GROUP_ID, type: 'group' },
+    { id: '5854445174804412080', type: 'user' },
+    { id: '9999999999999999999', type: 'group' },
+  ]);
+
+  assert.equal(fixed, 1);
+  assert.equal(rows.get(NUMERIC_GROUP_ID)?.threadType, 'group');
+  assert.equal(cachedThreadType(redisValues, NUMERIC_GROUP_ID), 'group');
+  assert.equal(rows.get('5854445174804412080')?.threadType, 'user');
+  assert.equal(rows.has('9999999999999999999'), false);
+  assert.equal(service.getConfigSync('9999999999999999999'), undefined);
+});

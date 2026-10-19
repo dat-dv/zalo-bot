@@ -31,6 +31,13 @@ export function hasLegacyGroupPrefix(threadId: string): boolean {
   return threadId.startsWith('g-') || threadId.startsWith('group_');
 }
 
+export type ThreadKind = 'user' | 'group';
+
+export interface ThreadConfigMeta {
+  threadName?: string;
+  threadType?: ThreadKind;
+}
+
 export function createDefaultThreadConfig(
   threadId: string,
   params?: {
@@ -271,45 +278,10 @@ export class ThreadConfigService implements OnModuleInit {
     await this.syncListenedThreadsToRedis();
   }
 
-  public async getConfig(
-    threadId: string,
-    meta?: { threadName?: string; threadType?: 'user' | 'group' },
-  ): Promise<ThreadBotConfig> {
+  public async getConfig(threadId: string, meta?: ThreadConfigMeta): Promise<ThreadBotConfig> {
     const id = String(threadId).trim();
+    let config = await this.loadStoredConfig(id);
 
-    // 1. In-memory check
-    let config = this.configsMap.get(id);
-
-    // 2. Redis cache check
-    if (!config && this.redisService?.isReady) {
-      try {
-        const cachedRaw = await this.redisService.get(`${REDIS_KEY_THREAD_CONFIG_PREFIX}${id}`);
-        if (cachedRaw) {
-          config = JSON.parse(cachedRaw) as ThreadBotConfig;
-          this.configsMap.set(id, config);
-        }
-      } catch {
-        // Continue to DB check
-      }
-    }
-
-    // 3. PostgreSQL DB check
-    if (!config && this.threadConfigRepo) {
-      try {
-        const entity = await this.threadConfigRepo.findOneBy({ threadId: id });
-        if (entity) {
-          config = entityToConfig(entity);
-          this.configsMap.set(id, config);
-          await this.cacheConfigToRedis(config);
-        }
-      } catch (err) {
-        this.logger.warn(
-          `[ThreadConfigService] DB findOneBy failed for ${id}: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-    }
-
-    // 4. Create default config if not found
     if (!config) {
       config = createDefaultThreadConfig(id, {
         threadName: meta?.threadName,
@@ -319,14 +291,84 @@ export class ThreadConfigService implements OnModuleInit {
       this.configsMap.set(id, config);
       await this.saveConfigToDb(config);
       await this.cacheConfigToRedis(config);
-    } else if (meta?.threadName && (!config.threadName || config.threadName !== meta.threadName)) {
-      config.threadName = meta.threadName;
-      if (meta.threadType) config.threadType = meta.threadType;
+      return config;
+    }
+
+    const nameChanged = Boolean(meta?.threadName) && config.threadName !== meta?.threadName;
+    // Callers pass `threadType` only when they know it from zca-js (message/reaction/thread list),
+    // so it overrides a type that was guessed from the id when the config was first created.
+    const typeChanged = Boolean(meta?.threadType) && config.threadType !== meta?.threadType;
+    if (nameChanged || typeChanged) {
+      if (nameChanged) config.threadName = meta?.threadName;
+      if (typeChanged && meta?.threadType) config.threadType = meta.threadType;
+      config.updatedAt = Date.now();
       await this.saveConfigToDb(config);
       await this.cacheConfigToRedis(config);
     }
 
     return config;
+  }
+
+  /**
+   * Corrects stored `threadType` for threads that already have a config, using the authoritative
+   * ZCA thread list. Never creates configs. Returns how many configs were fixed.
+   */
+  public async reconcileThreadTypes(
+    threads: ReadonlyArray<{ id: string; type: ThreadKind }>,
+  ): Promise<number> {
+    let fixed = 0;
+    for (const thread of threads) {
+      const id = String(thread.id).trim();
+      if (!id || id === 'thread-123') continue;
+      const config = await this.loadStoredConfig(id);
+      if (!config || config.threadType === thread.type) continue;
+      config.threadType = thread.type;
+      config.updatedAt = Date.now();
+      await this.saveConfigToDb(config);
+      await this.cacheConfigToRedis(config);
+      fixed++;
+    }
+    if (fixed > 0) {
+      this.logger.log(`[ThreadConfigService] Reconciled threadType for ${fixed} thread configs.`);
+    }
+    return fixed;
+  }
+
+  /** Stored config lookup (memory → Redis → DB); warms memory/Redis, never creates a config. */
+  private async loadStoredConfig(id: string): Promise<ThreadBotConfig | undefined> {
+    const inMemory = this.configsMap.get(id);
+    if (inMemory) return inMemory;
+
+    if (this.redisService?.isReady) {
+      try {
+        const cachedRaw = await this.redisService.get(`${REDIS_KEY_THREAD_CONFIG_PREFIX}${id}`);
+        if (cachedRaw) {
+          const config = JSON.parse(cachedRaw) as ThreadBotConfig;
+          this.configsMap.set(id, config);
+          return config;
+        }
+      } catch {
+        // Continue to DB check
+      }
+    }
+
+    if (this.threadConfigRepo) {
+      try {
+        const entity = await this.threadConfigRepo.findOneBy({ threadId: id });
+        if (entity) {
+          const config = entityToConfig(entity);
+          this.configsMap.set(id, config);
+          await this.cacheConfigToRedis(config);
+          return config;
+        }
+      } catch (err) {
+        this.logger.warn(
+          `[ThreadConfigService] DB findOneBy failed for ${id}: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    return undefined;
   }
 
   public getAllConfigs(): ThreadBotConfig[] {
@@ -422,7 +464,7 @@ export class ThreadConfigService implements OnModuleInit {
   public async updateConfig(
     threadId: string,
     update: UpdateThreadBotConfigDto,
-    meta?: { threadName?: string; threadType?: 'user' | 'group' },
+    meta?: ThreadConfigMeta,
   ): Promise<ThreadBotConfig> {
     const id = String(threadId).trim();
     const config = await this.getConfig(id, meta);
@@ -517,8 +559,12 @@ export class ThreadConfigService implements OnModuleInit {
     return config;
   }
 
-  public async setListened(threadId: string, isListened: boolean): Promise<ThreadBotConfig> {
-    const config = await this.getConfig(threadId);
+  public async setListened(
+    threadId: string,
+    isListened: boolean,
+    meta?: ThreadConfigMeta,
+  ): Promise<ThreadBotConfig> {
+    const config = await this.getConfig(threadId, meta);
     const directInteraction =
       isListened && !config.directInteraction?.enabled
         ? {

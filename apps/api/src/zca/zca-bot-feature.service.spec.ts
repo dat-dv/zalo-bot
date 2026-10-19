@@ -1687,3 +1687,52 @@ void test('ZcaBotFeatureService only lets pending owner or granted users edit a 
   assert.equal(await canEditCalls[1](pending), true, 'granted member may edit');
   assert.equal(await canEditCalls[2](pending), true, 'pending owner may edit');
 });
+
+function createNumericGroupMessage(threadId: string): Message {
+  return {
+    threadId,
+    isSelf: false,
+    type: ThreadType.Group,
+    data: { content: 'Hello', uidFrom: 'u1', msgType: 'chat' },
+  } as unknown as Message;
+}
+
+void test('ZcaBotFeatureService.onMessage stores a numeric ZCA group id as group', async () => {
+  const configService = new ThreadConfigService();
+  const service = new ZcaBotFeatureService(configService);
+  const threadId = '7120342145544273834';
+
+  await service.onMessage(createNumericGroupMessage(threadId), {} as unknown as API);
+
+  assert.equal(configService.getConfigSync(threadId)?.threadType, 'group');
+  assert.equal(await configService.isGroupThread(threadId), true);
+});
+
+void test('ZcaBotFeatureService.onMessage corrects a group config stored as user', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = '7120342145544273835';
+  await configService.updateConfig(threadId, { threadType: 'user', isListened: false });
+  assert.equal(await configService.isGroupThread(threadId), false);
+
+  const service = new ZcaBotFeatureService(configService);
+  await service.onMessage(createNumericGroupMessage(threadId), {} as unknown as API);
+
+  assert.equal(configService.getConfigSync(threadId)?.threadType, 'group');
+  assert.equal(await configService.isGroupThread(threadId), true);
+});
+
+void test('ZcaBotFeatureService.onReaction stores a numeric ZCA group id as group', async () => {
+  const configService = new ThreadConfigService();
+  const service = new ZcaBotFeatureService(configService);
+  const threadId = '7120342145544273836';
+  const reaction = {
+    threadId,
+    isSelf: false,
+    isGroup: true,
+    data: { uidFrom: 'u1', content: { rIcon: '/-heart', rMsg: [] } },
+  } as unknown as Reaction;
+
+  await service.onReaction(reaction, {} as unknown as API);
+
+  assert.equal(configService.getConfigSync(threadId)?.threadType, 'group');
+});

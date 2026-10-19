@@ -659,7 +659,10 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
    */
   public async onMessage(message: Message, api: API): Promise<void> {
     const threadId = message.threadId;
-    const config: ThreadBotConfig = await this.threadConfigService.getConfig(threadId);
+    // ZCA group ids are plain numbers, so the default config must get its type from zca-js.
+    const config: ThreadBotConfig = await this.threadConfigService.getConfig(threadId, {
+      threadType: message.type === ThreadType.Group ? 'group' : 'user',
+    });
 
     if (!config.isListened) {
       this.logger.debug(`[ZcaBotFeature] Ignored message from unlistened thread: ${threadId}`);
@@ -1203,7 +1206,10 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
 
   public async onReaction(reaction: Reaction, api: API): Promise<void> {
     const threadId = reaction.threadId;
-    const config: ThreadBotConfig = await this.threadConfigService.getConfig(threadId);
+    const isGroup = reaction.isGroup;
+    const config: ThreadBotConfig = await this.threadConfigService.getConfig(threadId, {
+      threadType: isGroup ? 'group' : 'user',
+    });
 
     if (!config.isListened || !config.confirmationRules.allowReactions) {
       return;
@@ -1222,7 +1228,6 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     const targetMsgId = rMsg?.[0]?.gMsgID || rMsg?.[0]?.cMsgID || reaction.data?.msgId;
     const targetCliMsgId = rMsg?.[0]?.cMsgID;
     const senderId = reaction.data?.uidFrom || '';
-    const isGroup = reaction.isGroup;
     const threadType = isGroup ? ThreadType.Group : ThreadType.User;
 
     this.logger.log(

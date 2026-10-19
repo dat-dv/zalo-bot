@@ -67,6 +67,12 @@ Nguyên tắc phân vai: **module Users quyết định AI được tương tác
   - nhóm → chỉ lưu vào cấu hình thread;
   - cá nhân → chỉ lưu vào user.
   - Đây là nguyên nhân trước đây ID nhóm lọt vào trang Users với trạng thái "Chờ phê duyệt".
+- `isGroupThread` chỉ đúng khi `threadType` được **lưu đúng**. Trước đây config mặc định được tạo mà không biết loại kênh, nên hàm `createDefaultThreadConfig` phải đoán bằng tiền tố. Kết quả là nhóm ZCA (ID số) bị lưu thành `user`. Hệ quả: `/drive` và share Drive không lưu link vào thread config, `users:cleanup-groups` bỏ sót nhóm, và đồng bộ media lịch sử từ chối nhóm. Cách sửa:
+  - Nơi nào biết loại kênh từ zca-js thì truyền vào `getConfig(id, { threadType })`: `onMessage` (lấy từ `message.type`), `onReaction` (lấy từ `reaction.isGroup`), và thao tác bật/tắt lắng nghe trên dashboard. Thao tác này lấy loại kênh từ danh sách nhóm/bạn bè mà ZCA trả về. Mục dự phòng "Cuộc trò chuyện <id>" chỉ là đoán nên bị bỏ qua.
+  - Nếu config đã lưu sai loại kênh, `getConfig` sẽ ghi đè bằng loại kênh mới nhận và lưu lại vào DB + Redis. Số tim xác nhận đã cấu hình được giữ nguyên.
+  - Dữ liệu cũ tự được sửa: mỗi lần `getAvailableThreads` tải danh sách mới từ ZCA, hàm này chạy ngầm `reconcileThreadTypes`. Hàm chỉ sửa config đã có, không tạo config mới.
+- **Vì sao không dùng migration?** Trong DB, ID nhóm và UID người dùng đều là chuỗi số, nên SQL không phân biệt được; chỉ ZCA biết ID nào là nhóm. Script `users:cleanup-groups` cũng không tự đăng nhập ZCA, vì làm vậy sẽ mở thêm một WebSocket và có thể làm rớt phiên của server.
+- **Sau khi deploy:** mở trang ZCA (danh sách thread) hoặc bấm đồng bộ ở trang Users ít nhất một lần, để các dòng `thread_type` sai được sửa. Sau đó mới chạy `npm run users:cleanup-groups --workspace @zalobot/api` (dry-run trước, rồi thêm `-- --apply`).
 
 ## 2. Giao Diện Quản Trị Web (`apps/web/src/modules/zca`)
 

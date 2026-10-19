@@ -86,11 +86,12 @@ Hai cổng chung giữ nguyên: (G1) `isSelf` theo `allowSelf` / `isBotSentMessa
 - Nhánh direct của `process()` giữ nguyên.
 
 #### [MODIFY] `text-input.service.spec.ts`
+
 - passive + `allowedTools=[]` → `generate` không được gọi.
 - passive + `[RECORD_TRANSACTION]` → `generate` nhận đúng 1 definition.
 - passive, LLM trả `GET_STORAGE_LINKS` → strategy không execute, không `sendMessage`.
 - direct → full definitions (hồi quy).
-- edit với pending `RECORD_TRANSACTION`, LLM trả `GET_STORAGE_LINKS` → không execute.
+  - edit với pending `RECORD_TRANSACTION`, LLM trả `GET_STORAGE_LINKS` → không execute.
 - edit với pending `actionType: 'create'` → không gọi `generate`.
 
 #### [MODIFY] `strategies/get-storage-links-tool.strategy.ts`, `strategies/share-drive-tool.strategy.ts` (+ spec tương ứng)

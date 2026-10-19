@@ -973,6 +973,30 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   /**
    * Whitelist Management: Update listened thread IDs and persist.
    */
+  /**
+   * Thread type confirmed by zca-js (thread list or incoming events). Ignores guessed entries such as
+   * the whitelist fallback in `getAvailableThreads` and never reads the possibly wrong thread config.
+   */
+  private knownThreadKind(threadId: string): 'user' | 'group' | undefined {
+    const known = this.knownThreadTypes.get(threadId);
+    if (known === undefined) return undefined;
+    return known === ThreadType.Group ? 'group' : 'user';
+  }
+
+  /** Fixes thread configs whose stored `threadType` was guessed wrong (ZCA group ids are numeric). */
+  private reconcileStoredThreadTypes(threads: readonly AvailableThread[]): void {
+    if (typeof this.threadConfigService?.reconcileThreadTypes !== 'function') return;
+    const confirmed: Array<{ id: string; type: 'user' | 'group' }> = [];
+    for (const t of threads) {
+      const type = this.knownThreadKind(t.id);
+      if (type) confirmed.push({ id: t.id, type });
+    }
+    if (confirmed.length === 0) return;
+    void this.threadConfigService.reconcileThreadTypes(confirmed).catch((err: unknown) => {
+      this.logger.warn(`Failed to reconcile thread types: ${formatErrorMessage(err)}`);
+    });
+  }
+
   public async setListenedThreadIds(ids: string[]): Promise<void> {
     const previous = new Set(this.listenedThreadIds);
     const next = new Set(ids.map(String).filter((id) => Boolean(id) && id !== 'thread-123'));
@@ -981,12 +1005,16 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     if (this.threadConfigService) {
       for (const id of previous) {
         if (!next.has(id)) {
-          await this.threadConfigService.setListened(id, false);
+          await this.threadConfigService.setListened(id, false, {
+            threadType: this.knownThreadKind(id),
+          });
         }
       }
       for (const id of next) {
         if (!previous.has(id)) {
-          await this.threadConfigService.setListened(id, true);
+          await this.threadConfigService.setListened(id, true, {
+            threadType: this.knownThreadKind(id),
+          });
         }
       }
     }
@@ -1009,13 +1037,17 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       this.listenedThreadIds.delete(strId);
       enabled = false;
       if (this.threadConfigService) {
-        await this.threadConfigService.setListened(strId, false);
+        await this.threadConfigService.setListened(strId, false, {
+          threadType: this.knownThreadKind(strId),
+        });
       }
     } else {
       this.listenedThreadIds.add(strId);
       enabled = true;
       if (this.threadConfigService) {
-        await this.threadConfigService.setListened(strId, true);
+        await this.threadConfigService.setListened(strId, true, {
+          threadType: this.knownThreadKind(strId),
+        });
       }
     }
     this.cachedAvailableThreads = this.cachedAvailableThreads.map((t) =>
@@ -1264,6 +1296,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       if (result.length > 0) {
         this.cachedAvailableThreads = result;
         this.cachedThreadsExpiresAt = Date.now() + 180_000; // 3 minutes TTL
+        this.reconcileStoredThreadTypes(result);
         return result;
       }
 

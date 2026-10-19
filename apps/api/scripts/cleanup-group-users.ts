@@ -4,6 +4,10 @@
  * Before the passive-tool-allowlist fix, `UsersService.saveDriveFolderInfo` created a DENIED user
  * for any unknown channel id, so group ids showed up as "pending approval" on the Users page.
  *
+ * Candidates come from `zca_thread_configs.thread_type = 'group'`. Older rows may still say 'user'
+ * for numeric ZCA group ids; the API fixes them when it loads the ZCA thread list, so open the ZCA
+ * threads page (or run the Users sync) once after deploying before running this script.
+ *
  * Usage:
  *   npm run users:cleanup-groups --workspace @zalobot/api            # dry-run, prints candidates
  *   npm run users:cleanup-groups --workspace @zalobot/api -- --apply # deletes eligible rows

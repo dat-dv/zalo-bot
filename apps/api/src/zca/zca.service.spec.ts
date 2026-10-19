@@ -9,7 +9,7 @@ import { createZcaClient } from './index';
 import type { ZcaPlugin } from './zca.interfaces';
 import type { Message, Reaction, GroupEvent, FriendEvent } from 'zca-js';
 import type { RedisService } from '../redis/redis.service';
-import type { ThreadConfigService } from './thread-config.service';
+import { ThreadConfigService } from './thread-config.service';
 
 void test('ZcaService initializes Zalo with proxy and node-fetch polyfill', () => {
   const mockConfigService = {
@@ -491,4 +491,35 @@ void test('ZcaService setListenedThreadIds unlistens removed threads in ThreadCo
   assert.strictEqual(statusMap.get('thread-A'), false, 'thread-A must be unlistened in ThreadConfigService');
   assert.strictEqual(statusMap.get('thread-B'), true, 'thread-B must remain listened');
   assert.deepStrictEqual(service.getListenedThreadIds(), ['thread-B']);
+});
+
+void test('ZcaService passes ZCA-confirmed group type to thread configs and reconciles wrong ones', async () => {
+  const mockConfigService = {
+    get: (): undefined => undefined,
+  } as unknown as ConfigService;
+  const threadConfigService = new ThreadConfigService();
+  const storedWrongGroupId = '7120342145544273834';
+  const newGroupId = '7120342145544273835';
+  await threadConfigService.updateConfig(storedWrongGroupId, { threadType: 'user' });
+
+  const service = new ZcaService(
+    mockConfigService,
+    undefined,
+    undefined,
+    undefined,
+    threadConfigService,
+  );
+  (service as unknown as { api: Record<string, unknown> }).api = {
+    getAllGroups: () => Promise.resolve([{ groupId: storedWrongGroupId }, { groupId: newGroupId }]),
+    getGroupInfo: () => Promise.resolve({ gridInfoMap: {} }),
+  };
+
+  await service.getAvailableThreads(true);
+  // Reconciliation runs in the background so the thread list response is not delayed.
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.strictEqual(threadConfigService.getConfigSync(storedWrongGroupId)?.threadType, 'group');
+
+  await service.toggleListenedThread(newGroupId);
+  assert.strictEqual(threadConfigService.getConfigSync(newGroupId)?.threadType, 'group');
+  assert.strictEqual(await threadConfigService.isGroupThread(newGroupId), true);
 });

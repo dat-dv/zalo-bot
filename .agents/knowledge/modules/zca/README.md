@@ -47,6 +47,12 @@ Shared gates first: self-message rules (`allowSelf`, `isBotSentMessage`) and `is
 - `ThreadConfigService.isGroupThread(id)`: stored `threadType` from memory → Redis → DB (never creates a config); fallback `hasLegacyGroupPrefix(id)` only when nothing is stored.
 - Drive folder persistence (`GET_STORAGE_LINKS`, `SHARE_DRIVE`, `google-resources.controller` share/folder-link): group → `ThreadConfigService.saveDriveFolderInfo` only; user → `UsersService.saveDriveFolderInfo` only.
 - `createDefaultThreadConfig`, `saveDriveFolderInfo`/`savePhotosAlbumInfo` (new entity) and `ZcaService.resolveThreadType` use the same rule.
+- Stored `threadType` must come from zca-js, never from the id. Callers that know the type pass it as `getConfig(id, { threadType })`:
+  - `ZcaBotFeatureService.onMessage` (`message.type`), `onReaction` (`reaction.isGroup`).
+  - `ZcaService.setListenedThreadIds` / `toggleListenedThread` → `ThreadConfigService.setListened(id, flag, { threadType })`, type from `knownThreadTypes` (zca-js thread list/events only; the whitelist fallback in `getAvailableThreads` guesses `group` and is ignored).
+- `getConfig`: when `meta.threadType` is given and differs from the stored value, it overwrites it and persists to DB + Redis (independent of `threadName` changes). `confirmationRules.requiredHearts` is not touched.
+- Self-heal of legacy rows: after a successful fresh fetch, `getAvailableThreads` calls `ThreadConfigService.reconcileThreadTypes` (fire-and-forget) with ZCA-confirmed types. It only fixes existing configs and never creates new ones.
+- No SQL migration: numeric group ids and user UIDs cannot be told apart in the DB. `users:cleanup-groups` reads `thread_type='group'`, so run it after the ZCA threads page or Users sync has loaded the thread list once post-deploy.
 
 ## Web UI (`ZcaScreen` & `ThreadConfigModal`)
 
