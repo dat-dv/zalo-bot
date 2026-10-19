@@ -1,5 +1,17 @@
 # Changelog
 
+## [v1.0.69] - 2026-10-19
+
+- Cập nhật hệ thống.
+
+## [v1.0.68] - 2026-10-19
+
+- Cập nhật hệ thống.
+
+## [v1.0.67] - 2026-10-19
+
+- Cập nhật hệ thống.
+
 ## [v1.0.66] - 2026-10-19
 
 - Chuyển tính năng sao lưu media lịch sử thành nút riêng tại bảng ZCA với modal chọn khoảng thời gian quét (1 tháng, 2 tháng, 3 tháng, 6 tháng, toàn bộ) và chống trùng lặp.

@@ -6,6 +6,7 @@ export interface PhotosUploadResult {
   productUrl?: string;
   albumTitle: string;
   albumId?: string;
+  albumUrl?: string;
   description?: string;
 }
 
@@ -13,6 +14,7 @@ export interface UploadPhotoOptions {
   buffer: Buffer;
   filename: string;
   albumTitle: string;
+  albumId?: string;
   description?: string;
 }
 
@@ -27,6 +29,7 @@ interface GooglePhotosAlbum {
 export class GooglePhotosService {
   private readonly logger = new Logger(GooglePhotosService.name);
   private readonly albumCache: Map<string, string> = new Map();
+  private readonly albumUrlCache: Map<string, string> = new Map();
   private readonly baseUrl = 'https://photoslibrary.googleapis.com/v1';
 
   constructor(private readonly authService: GoogleAuthService) {}
@@ -106,6 +109,9 @@ export class GooglePhotosService {
         const found = listData.albums?.find((a) => a.title?.trim() === title.trim());
         if (found?.id) {
           this.albumCache.set(cacheKey, found.id);
+          if (found.productUrl) {
+            this.albumUrlCache.set(cacheKey, found.productUrl);
+          }
           return found.id;
         }
       }
@@ -141,6 +147,9 @@ export class GooglePhotosService {
 
     this.logger.log(`Created Google Photos album "${title}" (id: ${newAlbum.id}).`);
     this.albumCache.set(cacheKey, newAlbum.id);
+    if (newAlbum.productUrl) {
+      this.albumUrlCache.set(cacheKey, newAlbum.productUrl);
+    }
     return newAlbum.id;
   }
 
@@ -211,14 +220,39 @@ export class GooglePhotosService {
   ): Promise<PhotosUploadResult> {
     try {
       const uploadToken = await this.uploadBytes(options.buffer, options.filename, userId);
-      const albumId = await this.getOrCreateAlbum(options.albumTitle, userId);
-      const media = await this.createMediaItem(
-        uploadToken,
-        albumId,
-        options.description,
-        options.filename,
-        userId,
-      );
+      let albumId = options.albumId;
+      if (!albumId) {
+        albumId = await this.getOrCreateAlbum(options.albumTitle, userId);
+      }
+      const albumUrl =
+        this.albumUrlCache.get(`${userId || 'shared'}:${options.albumTitle}`) || undefined;
+      let media;
+      try {
+        media = await this.createMediaItem(
+          uploadToken,
+          albumId,
+          options.description,
+          options.filename,
+          userId,
+        );
+      } catch (createErr) {
+        // Nếu albumId lưu trước đó bị xoá hoặc không hợp lệ, thử fallback sang getOrCreateAlbum
+        if (options.albumId) {
+          this.logger.warn(
+            `Failed to add to albumId "${options.albumId}", falling back to getOrCreateAlbum("${options.albumTitle}"): ${(createErr as Error).message}`,
+          );
+          albumId = await this.getOrCreateAlbum(options.albumTitle, userId);
+          media = await this.createMediaItem(
+            uploadToken,
+            albumId,
+            options.description,
+            options.filename,
+            userId,
+          );
+        } else {
+          throw createErr;
+        }
+      }
 
       this.logger.log(
         `Added photo "${options.filename}" to Google Photos album "${options.albumTitle}" (${media.mediaItemId}).`,
@@ -229,6 +263,7 @@ export class GooglePhotosService {
         productUrl: media.productUrl,
         albumTitle: options.albumTitle,
         albumId,
+        albumUrl,
         description: options.description,
       };
     } catch (err) {
@@ -255,19 +290,21 @@ export class GooglePhotosService {
   public async uploadBillPhoto(
     buffer: Buffer,
     senderId: string,
-    options?: { note?: string; extension?: string; occurredAt?: Date },
+    options?: { note?: string; extension?: string; occurredAt?: Date; albumTitle?: string; albumId?: string },
     userId?: number | string,
   ): Promise<PhotosUploadResult> {
     const date = options?.occurredAt || new Date();
     const ts = this.getFormattedTimestamp(date);
     const ext = (options?.extension || 'jpg').replace(/^\./, '');
     const filename = `bill_${ts}_${senderId}.${ext}`;
+    const albumTitle = options?.albumTitle?.trim() || 'ZaloBot - Hóa đơn';
 
     return this.uploadPhoto(
       {
         buffer,
         filename,
-        albumTitle: 'ZaloBot - Hóa đơn',
+        albumTitle,
+        albumId: options?.albumId,
         description: options?.note || `Hóa đơn chi tiêu từ Zalo ID ${senderId}`,
       },
       userId,
@@ -275,23 +312,25 @@ export class GooglePhotosService {
   }
 
   /**
-   * Tải ảnh thông thường vào album "ZaloBot - Hình ảnh"
+   * Tải ảnh thông thường vào album chỉ định hoặc mặc định "ZaloBot - Hình ảnh"
    */
   public async uploadGeneralPhoto(
     buffer: Buffer,
     senderId: string,
-    options?: { note?: string; extension?: string },
+    options?: { note?: string; extension?: string; albumTitle?: string; albumId?: string },
     userId?: number | string,
   ): Promise<PhotosUploadResult> {
     const ts = this.getFormattedTimestamp(new Date());
     const ext = (options?.extension || 'jpg').replace(/^\./, '');
     const filename = `img_${ts}_${senderId}.${ext}`;
+    const albumTitle = options?.albumTitle?.trim() || 'ZaloBot - Hình ảnh';
 
     return this.uploadPhoto(
       {
         buffer,
         filename,
-        albumTitle: 'ZaloBot - Hình ảnh',
+        albumTitle,
+        albumId: options?.albumId,
         description: options?.note || `Ảnh từ Zalo ID ${senderId}`,
       },
       userId,
@@ -299,23 +338,25 @@ export class GooglePhotosService {
   }
 
   /**
-   * Tải video vào album "ZaloBot - Video"
+   * Tải video vào album chỉ định hoặc mặc định "ZaloBot - Video"
    */
   public async uploadVideo(
     buffer: Buffer,
     senderId: string,
-    options?: { note?: string; extension?: string },
+    options?: { note?: string; extension?: string; albumTitle?: string; albumId?: string },
     userId?: number | string,
   ): Promise<PhotosUploadResult> {
     const ts = this.getFormattedTimestamp(new Date());
     const ext = (options?.extension || 'mp4').replace(/^\./, '');
     const filename = `vid_${ts}_${senderId}.${ext}`;
+    const albumTitle = options?.albumTitle?.trim() || 'ZaloBot - Video';
 
     return this.uploadPhoto(
       {
         buffer,
         filename,
-        albumTitle: 'ZaloBot - Video',
+        albumTitle,
+        albumId: options?.albumId,
         description: options?.note || `Video từ Zalo ID ${senderId}`,
       },
       userId,
@@ -327,6 +368,10 @@ export class GooglePhotosService {
    * Trả về null nếu chưa tồn tại hoặc chưa được uỷ quyền.
    */
   public async getAlbumLink(albumTitle: string, userId?: number | string): Promise<string | null> {
+    const cacheKey = `${userId || 'shared'}:${albumTitle}`;
+    const cachedUrl = this.albumUrlCache.get(cacheKey);
+    if (cachedUrl) return cachedUrl;
+
     try {
       const accessToken = await this.getAccessToken(userId);
       const listRes = await fetch(
@@ -336,7 +381,12 @@ export class GooglePhotosService {
       if (!listRes.ok) return null;
       const listData = (await listRes.json()) as { albums?: GooglePhotosAlbum[] };
       const album = listData.albums?.find((a) => a.title?.trim() === albumTitle.trim());
-      return album?.productUrl ?? null;
+      if (album?.productUrl) {
+        this.albumUrlCache.set(cacheKey, album.productUrl);
+        if (album.id) this.albumCache.set(cacheKey, album.id);
+        return album.productUrl;
+      }
+      return null;
     } catch {
       return null;
     }
