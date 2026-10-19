@@ -264,6 +264,8 @@ export class GoogleDriveService {
       extension?: string;
       folderPath?: string;
       suffix?: string;
+      msgId?: string;
+      filename?: string;
     },
     userId?: number | string,
   ): Promise<DriveUploadResult> {
@@ -272,12 +274,19 @@ export class GoogleDriveService {
     const ts = this.getFormattedTimestamp(now);
     const ext = (options?.extension || 'jpg').replace(/^\./, '');
     const suffix = options?.suffix ? `_${options.suffix.replace(/^_/, '')}` : '';
-    const filename = `image_${ts}_${senderId}${suffix}.${ext}`;
+    const msgPart = options?.msgId ? `_${options.msgId}` : '';
+    const filename = options?.filename || `image_${ts}_${senderId}${msgPart}${suffix}.${ext}`;
     const folderPath = options?.folderPath
       ? options.folderPath.includes(ym)
         ? options.folderPath
         : `${options.folderPath}/${ym}`
       : `${this.rootFolderName}/image/${ym}`;
+
+    const description = options?.note
+      ? options?.msgId
+        ? `${options.note} (Zalo MsgId: ${options.msgId})`
+        : options.note
+      : `Ảnh từ người dùng Zalo ID: ${senderId}${options?.msgId ? ` (MsgId: ${options.msgId})` : ''}`;
 
     return this.uploadFile(
       {
@@ -285,7 +294,7 @@ export class GoogleDriveService {
         mimeType: ext === 'png' ? 'image/png' : 'image/jpeg',
         content: buffer,
         folderPath,
-        description: options?.note || `Ảnh từ người dùng Zalo ID: ${senderId}`,
+        description,
         makePublic: true,
       },
       userId,
@@ -303,6 +312,8 @@ export class GoogleDriveService {
       extension?: string;
       folderPath?: string;
       suffix?: string;
+      msgId?: string;
+      filename?: string;
     },
     userId?: number | string,
   ): Promise<DriveUploadResult> {
@@ -311,12 +322,19 @@ export class GoogleDriveService {
     const ts = this.getFormattedTimestamp(now);
     const ext = (options?.extension || 'mp4').replace(/^\./, '');
     const suffix = options?.suffix ? `_${options.suffix.replace(/^_/, '')}` : '';
-    const filename = `video_${ts}_${senderId}${suffix}.${ext}`;
+    const msgPart = options?.msgId ? `_${options.msgId}` : '';
+    const filename = options?.filename || `video_${ts}_${senderId}${msgPart}${suffix}.${ext}`;
     const folderPath = options?.folderPath
       ? options.folderPath.includes(ym)
         ? options.folderPath
         : `${options.folderPath}/${ym}`
       : `${this.rootFolderName}/video/${ym}`;
+
+    const description = options?.note
+      ? options?.msgId
+        ? `${options.note} (Zalo MsgId: ${options.msgId})`
+        : options.note
+      : `Video từ người dùng Zalo ID: ${senderId}${options?.msgId ? ` (MsgId: ${options.msgId})` : ''}`;
 
     return this.uploadFile(
       {
@@ -324,7 +342,7 @@ export class GoogleDriveService {
         mimeType: 'video/mp4',
         content: buffer,
         folderPath,
-        description: options?.note || `Video từ người dùng Zalo ID: ${senderId}`,
+        description,
         makePublic: true,
       },
       userId,
@@ -344,6 +362,7 @@ export class GoogleDriveService {
       folderPath?: string;
       suffix?: string;
       note?: string;
+      msgId?: string;
     },
     userId?: number | string,
   ): Promise<DriveUploadResult> {
@@ -352,12 +371,19 @@ export class GoogleDriveService {
     const ts = this.getFormattedTimestamp(now);
     const ext = (options?.extension || 'bin').replace(/^\./, '');
     const suffix = options?.suffix ? `_${options.suffix.replace(/^_/, '')}` : '';
-    const filename = options?.filename || `file_${ts}_${senderId}${suffix}.${ext}`;
+    const msgPart = options?.msgId ? `_${options.msgId}` : '';
+    const filename = options?.filename || `file_${ts}_${senderId}${msgPart}${suffix}.${ext}`;
     const folderPath = options?.folderPath
       ? options.folderPath.includes(ym)
         ? options.folderPath
         : `${options.folderPath}/${ym}`
       : `${this.rootFolderName}/file/${ym}`;
+
+    const description = options?.note
+      ? options?.msgId
+        ? `${options.note} (Zalo MsgId: ${options.msgId})`
+        : options.note
+      : `Tài liệu từ người dùng Zalo ID: ${senderId}${options?.msgId ? ` (MsgId: ${options.msgId})` : ''}`;
 
     return this.uploadFile(
       {
@@ -365,7 +391,7 @@ export class GoogleDriveService {
         mimeType: options?.mimeType || 'application/octet-stream',
         content: buffer,
         folderPath,
-        description: options?.note || `File tài liệu từ người dùng Zalo ID: ${senderId}`,
+        description,
         makePublic: true,
       },
       userId,

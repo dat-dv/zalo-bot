@@ -12,12 +12,29 @@ import {
   type API,
   type Message,
   type Reaction,
+  type GetGroupChatHistoryResponse,
   getMessageText,
   isMentioned,
 } from './shapes';
 import { fetchImageBuffer } from '../common/utils/image-fetcher.util';
 import type { AgentInput } from '../zalo/types/agent-input.type';
-import type { ThreadBotConfig, ThreadDirectInteractionConfig } from '@zalobot/contracts';
+import type {
+  ThreadBotConfig,
+  ThreadDirectInteractionConfig,
+  SyncThreadMediaDto,
+  SyncThreadMediaResponse,
+} from '@zalobot/contracts';
+import { RedisService } from '../redis/redis.service';
+
+function formatErrorMessage(err: unknown): string {
+  if (err instanceof Error) {
+    return err.message;
+  }
+  if (typeof err === 'string') {
+    return err;
+  }
+  return JSON.stringify(err);
+}
 
 export function extractMediaMeta(content: unknown): { url: string | null; filename?: string } {
   if (!content) return { url: null };
@@ -80,6 +97,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
     @Optional() confirmationService?: TransactionConfirmationService,
     @Optional() textInputService?: TextInputService,
     @Optional() private configService?: ConfigService,
+    @Optional() private redisService?: RedisService,
   ) {
     if (mediaStorageServiceOrConfirmation) {
       if ('handleReaction' in mediaStorageServiceOrConfirmation) {
@@ -110,6 +128,25 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
 
   public setConfigService(service: ConfigService): void {
     this.configService = service;
+  }
+
+  public setRedisService(service: RedisService): void {
+    this.redisService = service;
+  }
+
+  public async isMediaSynced(threadId: string, msgId: string): Promise<boolean> {
+    if (!msgId) return false;
+    if (this.redisService?.isReady) {
+      return this.redisService.sismember(`zca:synced_media:${threadId}`, msgId);
+    }
+    return false;
+  }
+
+  public async markMediaSynced(threadId: string, msgId: string): Promise<void> {
+    if (!msgId) return;
+    if (this.redisService?.isReady) {
+      await this.redisService.sadd(`zca:synced_media:${threadId}`, msgId);
+    }
   }
 
   private isSelfListenEnabled(): boolean {
@@ -156,6 +193,14 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
           this.configService = this.moduleRef.get(ConfigService, { strict: false });
         } catch (err) {
           this.logger.debug(`Could not resolve ConfigService via ModuleRef: ${String(err)}`);
+        }
+      }
+      if (!this.redisService) {
+        try {
+          const { RedisService } = await import('../redis/redis.service');
+          this.redisService = this.moduleRef.get(RedisService, { strict: false });
+        } catch (err) {
+          this.logger.debug(`Could not resolve RedisService via ModuleRef: ${String(err)}`);
         }
       }
     }
@@ -240,6 +285,14 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
         (isAudio && config.mediaBackup.uploadAudios));
 
     if (shouldBackup) {
+      const msgId = message.data?.msgId || message.data?.cliMsgId;
+      if (msgId && (await this.isMediaSynced(threadId, msgId))) {
+        this.logger.debug(
+          `[ZcaBotFeature] Media với msgId "${msgId}" đã được sao lưu trước đó, bỏ qua để tránh trùng lặp.`,
+        );
+        return;
+      }
+
       const { url: mediaUrl, filename: originalFilename } = extractMediaMeta(message.data?.content);
       if (mediaUrl && this.mediaStorageService) {
         try {
@@ -259,6 +312,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
             folderPath: config.mediaBackup.customFolder || undefined,
             suffix: config.mediaBackup.fileSuffix || undefined,
             channelId: threadId,
+            msgId: msgId || undefined,
             filename: originalFilename,
             note: `Tự động sao lưu từ ${displayName || senderId} trong nhóm ${config.threadName || threadId}`,
           };
@@ -278,6 +332,10 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
             );
           } else {
             dualResult = await this.mediaStorageService.uploadFile(senderId, buffer, uploadOptions);
+          }
+
+          if (dualResult.drive?.fileId && msgId) {
+            await this.markMediaSynced(threadId, msgId);
           }
 
           if (dualResult.drive?.folderId || dualResult.drive?.folderPath) {
@@ -427,5 +485,156 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit {
         await api.sendMessage(msg, threadId, threadType);
       }
     }
+  }
+
+  /**
+   * Quét lịch sử trò chuyện và sao lưu media (ảnh, video, file) lên Google Drive với cơ chế chống trùng lặp.
+   */
+  public async syncThreadMediaHistory(
+    threadId: string,
+    options?: SyncThreadMediaDto,
+  ): Promise<SyncThreadMediaResponse> {
+    const config = await this.threadConfigService.getConfig(threadId);
+
+    if (!this.zcaService) {
+      throw new Error('Dịch vụ ZCA chưa sẵn sàng.');
+    }
+    if (!this.zcaService.isLoggedIn()) {
+      throw new Error(
+        'Tài khoản Zalo cá nhân (ZCA) chưa đăng nhập. Vui lòng đăng nhập qua mã QR trước.',
+      );
+    }
+
+    if (config.threadType && config.threadType !== 'group') {
+      return {
+        threadId,
+        scannedCount: 0,
+        foundCount: 0,
+        syncedCount: 0,
+        skippedCount: 0,
+        failedCount: 0,
+        message:
+          'Tính năng quét lịch sử hiện chỉ hỗ trợ các Nhóm chat (Group), chưa hỗ trợ tin nhắn cá nhân (1-1).',
+      };
+    }
+
+    const requestedLimit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
+    const mediaTypes = options?.mediaTypes || ['image', 'video', 'file', 'audio'];
+    const allowImage = mediaTypes.includes('image');
+    const allowVideo = mediaTypes.includes('video');
+    const allowFile = mediaTypes.includes('file');
+    const allowAudio = mediaTypes.includes('audio');
+
+    this.logger.log(
+      `[ZcaBotFeature] Bắt đầu quét lịch sử cho thread ${threadId} (limit: ${requestedLimit}, types: ${mediaTypes.join(',')})...`,
+    );
+
+    let historyRes: GetGroupChatHistoryResponse;
+    try {
+      historyRes = await this.zcaService.getGroupChatHistory(threadId, requestedLimit);
+    } catch (err) {
+      this.logger.error(`[ZcaBotFeature] Lỗi khi lấy lịch sử nhóm ${threadId}: ${String(err)}`);
+      throw new Error(`Không thể lấy lịch sử từ Zalo: ${formatErrorMessage(err)}`);
+    }
+
+    const msgs = historyRes?.groupMsgs || [];
+    const scannedCount = msgs.length;
+    let foundCount = 0;
+    let syncedCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+
+    for (const msg of msgs) {
+      const msgType = msg.data?.msgType || '';
+      const isImage = msgType === 'chat.photo';
+      const isVideo = msgType === 'chat.video.msg';
+      const isFile = msgType === 'sharefile';
+      const isAudio = msgType === 'chat.voice';
+
+      const isMatchingType =
+        (isImage && allowImage) ||
+        (isVideo && allowVideo) ||
+        (isFile && allowFile) ||
+        (isAudio && allowAudio);
+
+      if (!isMatchingType) {
+        continue;
+      }
+
+      foundCount++;
+      const msgId = msg.data?.msgId || msg.data?.cliMsgId;
+      if (msgId && (await this.isMediaSynced(threadId, msgId))) {
+        skippedCount++;
+        continue;
+      }
+
+      const { url: mediaUrl, filename: originalFilename } = extractMediaMeta(msg.data?.content);
+      if (!mediaUrl || !this.mediaStorageService) {
+        failedCount++;
+        continue;
+      }
+
+      try {
+        const buffer = await fetchImageBuffer(mediaUrl);
+        const senderId = msg.data?.uidFrom || 'unknown';
+        const displayName = msg.data?.dName || '';
+        const uploadOptions = {
+          folderPath: config.mediaBackup?.customFolder || undefined,
+          suffix: config.mediaBackup?.fileSuffix || undefined,
+          channelId: threadId,
+          msgId: msgId || undefined,
+          filename: originalFilename,
+          note: `Sao lưu lịch sử từ ${displayName || senderId} trong nhóm ${config.threadName || threadId}`,
+        };
+
+        let dualResult;
+        if (isImage) {
+          dualResult = await this.mediaStorageService.uploadImage(senderId, buffer, uploadOptions);
+        } else if (isVideo) {
+          dualResult = await this.mediaStorageService.uploadVideo(senderId, buffer, uploadOptions);
+        } else {
+          dualResult = await this.mediaStorageService.uploadFile(senderId, buffer, uploadOptions);
+        }
+
+        if (dualResult.drive?.fileId) {
+          syncedCount++;
+          if (msgId) {
+            await this.markMediaSynced(threadId, msgId);
+          }
+          if (dualResult.drive?.folderId || dualResult.drive?.folderPath) {
+            const folderUrl = dualResult.drive.folderId
+              ? `https://drive.google.com/drive/folders/${dualResult.drive.folderId}`
+              : dualResult.drive.webViewLink;
+            if (folderUrl) {
+              void this.threadConfigService.saveDriveFolderInfo(threadId, {
+                folderId: dualResult.drive.folderId,
+                folderUrl,
+                folderPath: dualResult.drive.folderPath || config.mediaBackup?.customFolder,
+              });
+            }
+          }
+        } else {
+          failedCount++;
+        }
+
+        // Delay 300ms between downloads to avoid rate limits
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      } catch (err) {
+        this.logger.warn(`[ZcaBotFeature] Lỗi upload media ${msgId} từ lịch sử: ${String(err)}`);
+        failedCount++;
+      }
+    }
+
+    const message = `Đã quét ${scannedCount} tin nhắn: tìm thấy ${foundCount} tệp, đã tải lên mới ${syncedCount} tệp, bỏ qua ${skippedCount} tệp đã có${failedCount > 0 ? `, thất bại ${failedCount} tệp` : ''}.`;
+
+    return {
+      threadId,
+      scannedCount,
+      foundCount,
+      syncedCount,
+      skippedCount,
+      failedCount,
+      message,
+    };
   }
 }

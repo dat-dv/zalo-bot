@@ -30,3 +30,37 @@ void test('ZcaController.logout calls zcaService.logout and wraps in data envelo
     },
   });
 });
+
+void test('ZcaController.syncThreadMedia delegates to botFeatureService and wraps response', async () => {
+  let capturedThreadId = '';
+  let capturedBody: unknown;
+
+  const mockBotFeatureService = {
+    syncThreadMediaHistory: async (threadId: string, body?: unknown) => {
+      capturedThreadId = threadId;
+      capturedBody = body;
+      return {
+        threadId,
+        scannedCount: 20,
+        foundCount: 5,
+        syncedCount: 5,
+        skippedCount: 0,
+        failedCount: 0,
+        message: 'Thành công',
+      };
+    },
+  } as unknown as import('./zca-bot-feature.service').ZcaBotFeatureService;
+
+  const controller = new ZcaController(
+    {} as unknown as ZcaService,
+    {} as unknown as ThreadConfigService,
+    mockBotFeatureService,
+  );
+
+  const res = await controller.syncThreadMedia('group-123', { limit: 100 });
+  assert.strictEqual(capturedThreadId, 'group-123');
+  assert.deepStrictEqual(capturedBody, { limit: 100 });
+  assert.strictEqual(res.data.scannedCount, 20);
+  assert.strictEqual(res.data.syncedCount, 5);
+});
+

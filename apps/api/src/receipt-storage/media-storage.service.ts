@@ -78,6 +78,8 @@ export class MediaStorageService {
       folderPath?: string;
       suffix?: string;
       channelId?: string;
+      msgId?: string;
+      filename?: string;
     },
   ): Promise<DualUploadResult> {
     const result: DualUploadResult = {};
@@ -124,6 +126,8 @@ export class MediaStorageService {
       folderPath?: string;
       suffix?: string;
       channelId?: string;
+      msgId?: string;
+      filename?: string;
     },
   ): Promise<DualUploadResult> {
     const result: DualUploadResult = {};
@@ -172,6 +176,7 @@ export class MediaStorageService {
       folderPath?: string;
       suffix?: string;
       channelId?: string;
+      msgId?: string;
     },
   ): Promise<DualUploadResult> {
     const result: DualUploadResult = {};

@@ -13,11 +13,17 @@ import {
   getZcaThreadConfig,
   updateZcaThreadConfig,
   getGoogleDriveFolderLink,
+  syncThreadMedia,
   type ZcaStatus,
   type ZcaThread,
   type DriveFolderLinkResult,
 } from './zca-api';
-import type { ThreadBotConfig, UpdateThreadBotConfigDto } from '@zalobot/contracts';
+import type {
+  ThreadBotConfig,
+  UpdateThreadBotConfigDto,
+  SyncThreadMediaDto,
+  SyncThreadMediaResponse,
+} from '@zalobot/contracts';
 
 export const zcaQueryKeys = {
   all: () => ['zca'] as const,
@@ -142,3 +148,16 @@ export function useGoogleDriveFolderLinkQuery(channelId?: string, threadName?: s
     staleTime: 5 * 60 * 1000,
   });
 }
+
+export function useSyncThreadMediaMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ threadId, data }: { threadId: string; data?: SyncThreadMediaDto }) =>
+      syncThreadMedia(threadId, data),
+    onSuccess: (_, variables) => {
+      void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.config(variables.threadId) });
+      void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.configs() });
+    },
+  });
+}
+

@@ -3,6 +3,8 @@ import {
   type IApiResponse,
   type ThreadBotConfig,
   type UpdateThreadBotConfigDto,
+  type SyncThreadMediaDto,
+  type SyncThreadMediaResponse,
 } from '@zalobot/contracts';
 import { httpClient, resolveApiBaseUrl } from '@/shared/api/http-client';
 
@@ -203,3 +205,17 @@ export async function getGoogleDriveFolderLink(
     return { folderPath: 'zalobot', webViewLink: 'https://drive.google.com' };
   }
 }
+
+export async function syncThreadMedia(
+  threadId: string,
+  data?: SyncThreadMediaDto,
+  signal?: AbortSignal,
+): Promise<SyncThreadMediaResponse> {
+  const response = await httpClient.post<IApiResponse<SyncThreadMediaResponse>>(
+    API_ROUTES.zcaSyncThreadMedia(threadId),
+    data || {},
+    { signal },
+  );
+  return response.data.data;
+}
+

@@ -649,3 +649,146 @@ void test('ZcaBotFeatureService processes 1-1 User message with custom triggerPr
   assert.equal(processedInput.passiveOnly, false);
   assert.equal(processedInput.triggerPrefix, '!bot');
 });
+
+void test('ZcaBotFeatureService syncThreadMediaHistory validates login and thread type', async () => {
+  const configService = new ThreadConfigService();
+  const service = new ZcaBotFeatureService(configService);
+
+  const mockZcaServiceNotLoggedIn = {
+    isLoggedIn: () => false,
+  } as unknown as ZcaService;
+
+  service.setZcaService(mockZcaServiceNotLoggedIn);
+
+  await assert.rejects(
+    async () => {
+      await service.syncThreadMediaHistory('thread-123');
+    },
+    { message: /chưa đăng nhập/ },
+  );
+
+  const mockZcaServiceLoggedIn = {
+    isLoggedIn: () => true,
+  } as unknown as ZcaService;
+  service.setZcaService(mockZcaServiceLoggedIn);
+
+  // For 1-1 chat
+  await configService.updateConfig('direct-user-1', {
+    threadType: 'user',
+  });
+
+  const directRes = await service.syncThreadMediaHistory('direct-user-1');
+  assert.equal(directRes.scannedCount, 0);
+  assert.match(directRes.message, /chỉ hỗ trợ các Nhóm chat/);
+});
+
+void test('ZcaBotFeatureService syncThreadMediaHistory scans group media and prevents duplicates', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-media-sync-1';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    mediaBackup: {
+      enabled: true,
+      uploadImages: true,
+      uploadVideos: true,
+    },
+  });
+
+  const syncedSet = new Set<string>();
+  const mockRedisService = {
+    isReady: true,
+    sismember: async (_key: string, member: string) => syncedSet.has(member),
+    sadd: async (_key: string, ...members: string[]) => {
+      members.forEach((m) => syncedSet.add(m));
+      return true;
+    },
+  } as unknown as import('../redis/redis.service').RedisService;
+
+  const uploadedFiles: { id: string; msgId?: string }[] = [];
+  const mockMediaStorageService = {
+    uploadImage: (
+      _sender: string,
+      _buf: Buffer,
+      options?: { msgId?: string },
+    ) => {
+      uploadedFiles.push({ id: `img-${uploadedFiles.length + 1}`, msgId: options?.msgId });
+      return Promise.resolve({
+        drive: { fileId: `drive-img-${uploadedFiles.length}`, webViewLink: 'https://drive.google.com/img' },
+      });
+    },
+    uploadVideo: (
+      _sender: string,
+      _buf: Buffer,
+      options?: { msgId?: string },
+    ) => {
+      uploadedFiles.push({ id: `vid-${uploadedFiles.length + 1}`, msgId: options?.msgId });
+      return Promise.resolve({
+        drive: { fileId: `drive-vid-${uploadedFiles.length}`, webViewLink: 'https://drive.google.com/vid' },
+      });
+    },
+  } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
+
+  const sampleMessages = [
+    {
+      data: {
+        msgId: 'msg-img-1',
+        msgType: 'chat.photo',
+        content: JSON.stringify({ href: 'data:image/jpeg;base64,dGVzdA==' }),
+        uidFrom: 'u1',
+        dName: 'Alice',
+      },
+    },
+    {
+      data: {
+        msgId: 'msg-text-2',
+        msgType: 'chat',
+        content: 'Hello World',
+        uidFrom: 'u2',
+        dName: 'Bob',
+      },
+    },
+    {
+      data: {
+        msgId: 'msg-vid-3',
+        msgType: 'chat.video.msg',
+        content: JSON.stringify({ href: 'data:video/mp4;base64,dGVzdA==' }),
+        uidFrom: 'u1',
+        dName: 'Alice',
+      },
+    },
+  ];
+
+  const mockZcaService = {
+    isLoggedIn: () => true,
+    getGroupChatHistory: async (_groupId: string, _count: number) => ({
+      lastActionId: '1',
+      lastActionIdOther: '1',
+      more: 0,
+      groupMsgs: sampleMessages,
+    }),
+  } as unknown as ZcaService;
+
+  const service = new ZcaBotFeatureService(configService, mockMediaStorageService);
+  service.setZcaService(mockZcaService);
+  service.setRedisService(mockRedisService);
+
+  // First sync run: should upload 2 media files (1 photo, 1 video)
+  const res1 = await service.syncThreadMediaHistory(threadId, { limit: 50 });
+  assert.equal(res1.scannedCount, 3);
+  assert.equal(res1.foundCount, 2);
+  assert.equal(res1.syncedCount, 2);
+  assert.equal(res1.skippedCount, 0);
+  assert.equal(uploadedFiles.length, 2);
+  assert.ok(syncedSet.has('msg-img-1'));
+  assert.ok(syncedSet.has('msg-vid-3'));
+
+  // Second sync run: exact same history, all media should be skipped due to deduplication
+  const res2 = await service.syncThreadMediaHistory(threadId, { limit: 50 });
+  assert.equal(res2.scannedCount, 3);
+  assert.equal(res2.foundCount, 2);
+  assert.equal(res2.syncedCount, 0);
+  assert.equal(res2.skippedCount, 2);
+  assert.equal(uploadedFiles.length, 2, 'No new uploads should be performed on duplicate run');
+});
+

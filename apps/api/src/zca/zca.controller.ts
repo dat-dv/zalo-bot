@@ -11,12 +11,21 @@ import {
   HttpStatus,
   NotFoundException,
   Logger,
+  Optional,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { ZcaService, type AvailableThread } from './zca.service';
 import { ThreadConfigService } from './thread-config.service';
-import type { ThreadBotConfig, UpdateThreadBotConfigDto } from '@zalobot/contracts';
+import { ZcaBotFeatureService } from './zca-bot-feature.service';
+import type {
+  ThreadBotConfig,
+  UpdateThreadBotConfigDto,
+  SyncThreadMediaDto,
+  SyncThreadMediaResponse,
+} from '@zalobot/contracts';
 
 @ApiTags('zca')
 @Controller('zca')
@@ -26,6 +35,9 @@ export class ZcaController {
   constructor(
     private readonly zcaService: ZcaService,
     private readonly threadConfigService: ThreadConfigService,
+    @Optional()
+    @Inject(forwardRef(() => ZcaBotFeatureService))
+    private readonly botFeatureService?: ZcaBotFeatureService,
   ) {}
 
   @Get('status')
@@ -220,5 +232,19 @@ export class ZcaController {
       await this.zcaService.setListenedThreadIds(Array.from(currentListened));
     }
     return { data: { config } };
+  }
+
+  @Post('threads/:threadId/sync-media')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Quét lịch sử và sao lưu media (ảnh, video, file) của kênh lên Google Drive' })
+  public async syncThreadMedia(
+    @Param('threadId') threadId: string,
+    @Body() body?: SyncThreadMediaDto,
+  ): Promise<{ data: SyncThreadMediaResponse }> {
+    if (!this.botFeatureService) {
+      throw new Error('ZcaBotFeatureService chưa được khởi tạo');
+    }
+    const result = await this.botFeatureService.syncThreadMediaHistory(threadId, body);
+    return { data: result };
   }
 }

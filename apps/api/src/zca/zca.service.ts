@@ -53,6 +53,7 @@ import {
   type UndoResponse,
   type DeleteMessageDestination,
   type DeleteMessageResponse,
+  type GetGroupChatHistoryResponse,
 } from './shapes';
 import { HttpProxyAgent } from 'http-proxy-agent';
 import { ZCA_DEFAULT_USER_AGENT, ZCA_MODULE_OPTIONS } from './zca.constants';
@@ -1643,6 +1644,19 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       },
       onlyMe,
     );
+  }
+
+  /**
+   * Lấy lịch sử tin nhắn của một nhóm chat Zalo.
+   */
+  public async getGroupChatHistory(
+    groupId: string,
+    count = 50,
+  ): Promise<GetGroupChatHistoryResponse> {
+    if (!this.api) {
+      throw new Error('Không thể lấy lịch sử trò chuyện: ZCA chưa đăng nhập.');
+    }
+    return this.api.getGroupChatHistory(groupId, count);
   }
 
   /**

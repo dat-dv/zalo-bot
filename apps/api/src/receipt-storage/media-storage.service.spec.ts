@@ -116,3 +116,32 @@ void test('MediaStorageService routes uploads to channel folders when channelId 
   assert.equal(capturedImageFolder, 'zalobot/g-12345/image');
   assert.equal(capturedVideoFolder, 'zalobot/g-12345/video');
 });
+
+void test('MediaStorageService forwards msgId and filename to drive options', async () => {
+  let capturedOptions: { msgId?: string; filename?: string } | undefined;
+
+  const mockDriveService = {
+    uploadImage: (
+      _buf: Buffer,
+      _sender: string,
+      options?: { msgId?: string; filename?: string },
+    ) => {
+      capturedOptions = options;
+      return Promise.resolve({
+        fileId: 'img-1',
+        name: 'img.jpg',
+        folderPath: 'zalobot/g-12345/image',
+      });
+    },
+  } as unknown as GoogleDriveService;
+
+  const service = new MediaStorageService(mockDriveService);
+  await service.uploadImage('user_1', Buffer.from('test'), {
+    channelId: 'g-12345',
+    msgId: 'msg-999',
+    filename: 'custom.png',
+  });
+
+  assert.equal(capturedOptions?.msgId, 'msg-999');
+  assert.equal(capturedOptions?.filename, 'custom.png');
+});

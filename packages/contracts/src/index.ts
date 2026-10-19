@@ -37,6 +37,7 @@ export const API_ROUTES = {
   zcaListenedThreadsToggle: '/api/zca/listened-threads/toggle',
   zcaThreadConfigs: '/api/zca/thread-configs',
   zcaThreadConfig: (threadId: string) => `/api/zca/thread-configs/${threadId}`,
+  zcaSyncThreadMedia: (threadId: string) => `/api/zca/threads/${threadId}/sync-media`,
   driveFolderLink: '/api/drive/folder-link',
   driveOpen: '/api/drive/open',
 } as const;
@@ -1996,3 +1997,18 @@ export type UpdateThreadBotConfigDto = Partial<{
   calendarExtraction: Partial<ThreadCalendarConfig>;
   confirmationRules: Partial<ThreadConfirmationConfig>;
 }>;
+
+export interface SyncThreadMediaDto {
+  limit?: number;
+  mediaTypes?: ('image' | 'video' | 'file' | 'audio')[];
+}
+
+export interface SyncThreadMediaResponse {
+  threadId: string;
+  scannedCount: number;
+  foundCount: number;
+  syncedCount: number;
+  skippedCount: number;
+  failedCount: number;
+  message: string;
+}
