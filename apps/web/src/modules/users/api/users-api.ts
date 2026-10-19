@@ -2,6 +2,8 @@ import {
   API_ROUTES,
   type IApiResponse,
   type IUserListItem,
+  type IUserMergeResult,
+  type IUserMergeSummary,
   UserRole,
   GrantAccessStatus,
 } from '@zalobot/contracts';
@@ -88,4 +90,29 @@ export async function deleteUser(id: string, signal?: AbortSignal): Promise<bool
     { signal },
   );
   return response.data.data.deleted;
+}
+
+export async function getUserMergePreview(
+  sourceUserId: string,
+  targetUserId: string,
+  signal?: AbortSignal,
+): Promise<IUserMergeSummary> {
+  const response = await httpClient.get<IApiResponse<IUserMergeSummary>>(
+    API_ROUTES.usersMergePreview(sourceUserId),
+    { params: { targetUserId }, signal },
+  );
+  return response.data.data;
+}
+
+export async function mergeUser(
+  sourceUserId: string,
+  targetUserId: string,
+  signal?: AbortSignal,
+): Promise<IUserMergeResult> {
+  const response = await httpClient.post<IApiResponse<IUserMergeResult>>(
+    API_ROUTES.usersMerge(sourceUserId),
+    { targetUserId },
+    { signal },
+  );
+  return response.data.data;
 }

@@ -120,7 +120,8 @@ cp .env.example .env
 
 > **Lưu ý cấu hình chính:**
 >
-> - Zalo: `ZALO_BOT_TOKEN`, `ZALO_WEBHOOK_SECRET_TOKEN`, `ZALO_ADMIN_ID`
+> - Zalo: `ZALO_BOT_TOKEN`, `ZALO_WEBHOOK_SECRET_TOKEN`
+> - Admin: không cấu hình qua env — người đầu tiên chat với bot tự thành admin, admin khác được set trên trang Người dùng của dashboard.
 > - Google OAuth: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
 > - Bảo mật: `DATA_ENCRYPTION_KEY`, `DASHBOARD_ACCESS_TOKEN_SECRET`, `DASHBOARD_REFRESH_TOKEN_SECRET`
 > - LLM: `LLM_PROVIDER` (`gemini` / `openai` / `qwen`)

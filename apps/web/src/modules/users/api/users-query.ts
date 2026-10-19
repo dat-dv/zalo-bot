@@ -1,7 +1,12 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { IUserListItem, UserRole, GrantAccessStatus } from '@zalobot/contracts';
+import type {
+  IUserListItem,
+  IUserMergeSummary,
+  UserRole,
+  GrantAccessStatus,
+} from '@zalobot/contracts';
 import {
   getUsers,
   createUser,
@@ -10,10 +15,14 @@ import {
   updateUserRole,
   syncUsersWithZca,
   deleteUser,
+  getUserMergePreview,
+  mergeUser,
 } from './users-api';
 
 export const usersQueryKeys = {
   all: () => ['users'] as const,
+  mergePreview: (sourceUserId: string, targetUserId: string) =>
+    ['users', 'merge-preview', sourceUserId, targetUserId] as const,
 };
 
 export function useUsersQuery(options?: { enabled?: boolean }) {
@@ -98,6 +107,27 @@ export function useDeleteUserMutation() {
     mutationFn: (id: string) => deleteUser(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: usersQueryKeys.all() });
+    },
+  });
+}
+
+export function useUserMergePreviewQuery(sourceUserId: string, targetUserId: string) {
+  return useQuery<IUserMergeSummary>({
+    queryKey: usersQueryKeys.mergePreview(sourceUserId, targetUserId),
+    queryFn: ({ signal }) => getUserMergePreview(sourceUserId, targetUserId, signal),
+    enabled: Boolean(sourceUserId && targetUserId),
+    staleTime: 0,
+  });
+}
+
+export function useMergeUserMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sourceUserId, targetUserId }: { sourceUserId: string; targetUserId: string }) =>
+      mergeUser(sourceUserId, targetUserId),
+    onSuccess: () => {
+      // Merged data affects every user-scoped view (transactions, debts, reminders...).
+      void queryClient.invalidateQueries();
     },
   });
 }

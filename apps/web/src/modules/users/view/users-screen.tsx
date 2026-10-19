@@ -1,7 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { UserRole, GrantAccessStatus, type IUserListItem } from '@zalobot/contracts';
+import {
+  UserRole,
+  GrantAccessStatus,
+  type IUserListItem,
+  type IUserMergeResult,
+} from '@zalobot/contracts';
+import { useLocale } from '@/shared/providers/locale-provider';
+import { MergeUserDialog } from '../presentation/components/merge-user-dialog';
 import {
   useUsersQuery,
   useCreateUserMutation,
@@ -38,6 +45,7 @@ function UserAvatar({ user, name }: { user: IUserListItem; name?: string }) {
 
 export function UsersScreen() {
   const { data: users = [], isLoading, error } = useUsersQuery();
+  const { t } = useLocale();
   const createMutation = useCreateUserMutation();
   const setGrantAccessMutation = useSetGrantAccessMutation();
   const updateMutation = useUpdateUserMutation();
@@ -60,6 +68,9 @@ export function UsersScreen() {
   const [newUserRole, setNewUserRole] = useState<UserRole>(UserRole.USER);
   const [newUserGrantAccess, setNewUserGrantAccess] = useState(true);
   const [formError, setFormError] = useState('');
+
+  // Merge Dialog State
+  const [mergingUser, setMergingUser] = useState<IUserListItem | null>(null);
 
   // Edit Modal State
   const [editingUser, setEditingUser] = useState<IUserListItem | null>(null);
@@ -177,6 +188,16 @@ export function UsersScreen() {
     }
   };
 
+  const handleMerged = (result: IUserMergeResult, sourceName: string, targetName: string) => {
+    setMergingUser(null);
+    const message = t('users.merge.success', { source: sourceName, target: targetName });
+    setSyncMessage(
+      result.sourceWasCurrentSession ? `${message} ${t('users.merge.sessionNotice')}` : message,
+    );
+    setSyncMessageType('success');
+    setTimeout(() => setSyncMessage(''), result.sourceWasCurrentSession ? 15000 : 5000);
+  };
+
   // Filter & Search
   const filteredUsers = users.filter((u) => {
     const q = search.toLowerCase();
@@ -221,7 +242,8 @@ export function UsersScreen() {
             Quản lý người dùng
           </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Duyệt quyền truy cập (Whitelist), quản lý thông tin thành viên và đồng bộ danh bạ từ Zalo.
+            Duyệt quyền truy cập (Whitelist), quản lý thông tin thành viên và đồng bộ danh bạ từ
+            Zalo.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -251,7 +273,12 @@ export function UsersScreen() {
             className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95 dark:bg-indigo-500 dark:hover:bg-indigo-600"
           >
             <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
             <span>Thêm người dùng</span>
           </button>
@@ -555,6 +582,30 @@ export function UsersScreen() {
                             </svg>
                           </button>
 
+                          {/* Gộp tài khoản trùng */}
+                          <button
+                            type="button"
+                            onClick={() => setMergingUser(u)}
+                            title={t('users.merge.actionTitle')}
+                            aria-label={t('users.merge.action')}
+                            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-amber-600 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-amber-400 transition"
+                          >
+                            <svg
+                              className="size-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              aria-hidden="true"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 7v4a4 4 0 004 4h4m0 0l-3-3m3 3l-3 3M8 7a2 2 0 100-4 2 2 0 000 4z"
+                              />
+                            </svg>
+                          </button>
+
                           {/* Cấp quyền / Thu hồi */}
                           <button
                             type="button"
@@ -600,6 +651,15 @@ export function UsersScreen() {
           </div>
         )}
       </div>
+
+      {mergingUser && (
+        <MergeUserDialog
+          source={mergingUser}
+          users={users}
+          onClose={() => setMergingUser(null)}
+          onMerged={handleMerged}
+        />
+      )}
 
       {/* Edit User Modal */}
       {editingUser && (

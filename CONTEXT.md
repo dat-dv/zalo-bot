@@ -33,5 +33,7 @@
 
 - **ZCA (Zalo Client Account)**: Kết nối tài khoản cá nhân Zalo qua giao thức WebSocket và quét mã QR, cho phép bot tham gia các nhóm chat như người dùng thật.
 - **Kênh (Thread / Channel)**: Một cuộc trò chuyện cá nhân (`user`) hoặc nhóm chat (`group`) trên Zalo, có ID nguyên bản (`channelId`) độc lập.
+- **Danh tính kênh Zalo**: Cùng một người có thể có nhiều ID: ID theo app của Zalo Bot chính thức (webhook, 20 ký tự hex) và UID Zalo cá nhân qua ZCA (dạng số). Hệ thống chỉ coi `users.id` là danh tính.
+- **Gộp tài khoản (User Merge)**: Thao tác của admin chuyển toàn bộ dữ liệu của một ID trùng sang người dùng giữ lại, hợp nhất bản ghi trùng (nơi chốn, người liên quan, danh mục), rồi xoá ID trùng. Chạy trong một transaction và không thể hoàn tác.
 - **Phân vùng lưu trữ (Drive Partition)**: Thư mục Google Drive được tạo riêng biệt cho từng kênh theo quy chuẩn `zalobot/<channelId>/<category>` (`bill`, `image`, `video`, `file`, `audio`).
 

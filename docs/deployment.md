@@ -32,7 +32,6 @@ NEXT_PUBLIC_API_URL=https://zalobot.example.com
 ZALO_BOT_TOKEN=replace-with-zalo-bot-token
 ZALO_WEBHOOK_URL=https://zalobot.example.com/webhook
 ZALO_WEBHOOK_SECRET_TOKEN=optional-secret-token
-ZALO_ADMIN_ID=your-admin-zalo-user-id
 
 DATA_ENCRYPTION_KEY=64-hex-characters
 GOOGLE_CLIENT_ID=replace-with-google-client-id

@@ -39,45 +39,23 @@ export class UsersService implements OnModuleInit {
       typeof (this.redisService as unknown as { onReady?: (cb: () => Promise<void>) => void })
         .onReady === 'function'
     ) {
-      (
-        this.redisService as unknown as { onReady: (cb: () => Promise<void>) => void }
-      ).onReady(async () => {
-        await this.refreshMemoryCache();
-      });
+      (this.redisService as unknown as { onReady: (cb: () => Promise<void>) => void }).onReady(
+        async () => {
+          await this.refreshMemoryCache();
+        },
+      );
     }
-  }
-
-  private getEnvAdminIds(): Set<string> {
-    const raw = [
-      process.env.ADMIN_USER_IDS,
-      process.env.ADMIN_USER_ID,
-      process.env.ZALO_ADMIN_ID,
-      process.env.ZALO_ADMIN_USER_ID,
-    ]
-      .filter(Boolean)
-      .join(',');
-    return new Set(
-      raw
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-    );
   }
 
   public async refreshMemoryCache(): Promise<void> {
     try {
-      const envAdminIds = this.getEnvAdminIds();
+      // Admins come only from the DB (first-admin bootstrap or dashboard) plus the bot's own ZCA account.
       const ownId = this.zcaService?.getOwnId();
       if (ownId) {
-        envAdminIds.add(ownId);
-      }
-
-      // Ensure all env admins exist in DB and have role=ADMIN & grantAccess=GRANTED
-      for (const adminId of envAdminIds) {
-        let u = await this.userRepo.findOne({ where: { id: adminId } });
+        let u = await this.userRepo.findOne({ where: { id: ownId } });
         if (!u) {
           u = this.userRepo.create({
-            id: adminId,
+            id: ownId,
             role: UserRole.ADMIN,
             grantAccess: GrantAccessStatus.GRANTED,
             createdAt: new Date(),
@@ -95,7 +73,7 @@ export class UsersService implements OnModuleInit {
       this.adminUserIdsCache.clear();
 
       for (const u of users) {
-        const isAdmin = u.role === UserRole.ADMIN || envAdminIds.has(u.id);
+        const isAdmin = u.role === UserRole.ADMIN || u.id === ownId;
         const isAllowed = isAdmin || u.grantAccess === GrantAccessStatus.GRANTED;
 
         if (isAdmin) {
@@ -168,14 +146,13 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
-   * Get all admin users in the system (from DB role=ADMIN, env ADMIN_USER_IDS, and memory cache)
+   * Get all admin users in the system (from DB role=ADMIN and memory cache)
    */
   public async getAdminUsers(): Promise<UserEntity[]> {
     if (this.adminUserIdsCache.size === 0) {
       await this.refreshMemoryCache();
     }
 
-    const envAdminIds = Array.from(this.getEnvAdminIds());
     let dbAdmins: UserEntity[] = [];
     try {
       if (typeof this.userRepo.find === 'function') {
@@ -205,21 +182,6 @@ export class UsersService implements OnModuleInit {
       }
     }
 
-    for (const envId of envAdminIds) {
-      if (!adminMap.has(envId)) {
-        adminMap.set(envId, {
-          id: envId,
-          role: UserRole.ADMIN,
-          grantAccess: GrantAccessStatus.GRANTED,
-          preferredLocale: 'vi',
-          timezone: 'Asia/Ho_Chi_Minh',
-          status: 'active',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
-      }
-    }
-
     return Array.from(adminMap.values());
   }
 
@@ -229,7 +191,7 @@ export class UsersService implements OnModuleInit {
     if (ownId && ownId === strId) {
       return true;
     }
-    return this.adminUserIdsCache.has(strId) || this.getEnvAdminIds().has(strId);
+    return this.adminUserIdsCache.has(strId);
   }
 
   public isAllowed(userId: string | number): boolean {
@@ -422,7 +384,7 @@ export class UsersService implements OnModuleInit {
     },
   ): Promise<UserEntity> {
     const strId = userId.toString();
-    const isAdmin = role === UserRole.ADMIN || this.getEnvAdminIds().has(strId);
+    const isAdmin = role === UserRole.ADMIN || this.isBotAccount(strId);
     const finalRole: UserRole = isAdmin ? UserRole.ADMIN : role;
     const finalGrantAccess: GrantAccessStatus = isAdmin
       ? GrantAccessStatus.GRANTED
@@ -557,7 +519,13 @@ export class UsersService implements OnModuleInit {
           user.firstName === 'Người dùng Zalo' ||
           user.firstName.trim() === '';
         const zcaName = t.alias || t.name || t.displayName || t.zaloName;
-        if ((isGenericName || !user.firstName || (t.displayName && user.firstName === t.displayName)) && zcaName && user.firstName !== zcaName) {
+        if (
+          (isGenericName ||
+            !user.firstName ||
+            (t.displayName && user.firstName === t.displayName)) &&
+          zcaName &&
+          user.firstName !== zcaName
+        ) {
           user.firstName = zcaName;
           changed = true;
         }
@@ -583,6 +551,22 @@ export class UsersService implements OnModuleInit {
     if (data.avatarUrl !== undefined) user.avatarUrl = data.avatarUrl;
     await this.userRepo.save(user);
     return user;
+  }
+
+  /** True when the ID is the bot's own ZCA account (always recreated as admin on startup). */
+  public isBotAccount(userId: string | number): boolean {
+    const ownId = this.zcaService?.getOwnId();
+    return Boolean(ownId) && ownId === userId.toString().trim();
+  }
+
+  /** Drop caches/whitelist of a merged-away user and rebuild caches for the surviving user. */
+  public async afterUsersMerged(sourceUserId: string, targetUserId: string): Promise<void> {
+    this.adminUserIdsCache.delete(sourceUserId);
+    this.allowedUserIdsCache.delete(sourceUserId);
+    this.lastRequestTimes.delete(sourceUserId);
+    await this.redisService?.delWhitelist(sourceUserId);
+    await this.refreshMemoryCache();
+    this.logger.log(`Caches refreshed after merging ${sourceUserId} into ${targetUserId}.`);
   }
 
   public getUser(id: string): Promise<UserEntity | null> {

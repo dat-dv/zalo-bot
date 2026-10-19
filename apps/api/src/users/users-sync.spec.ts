@@ -88,7 +88,7 @@ void test('UsersService.updateUserProfile updates user display name and phone nu
   assert.equal(savedUser?.firstName, 'Chị Mai Giám Đốc');
 });
 
-void test('UsersService.isAdmin identifies admin via ownId and ZALO_ADMIN_ID', async () => {
+void test('UsersService.isAdmin trusts ownId and DB roles, never env admin variables', async () => {
   process.env.ZALO_ADMIN_ID = 'zalo_admin_999';
 
   const mockRepo = {
@@ -106,17 +106,23 @@ void test('UsersService.isAdmin identifies admin via ownId and ZALO_ADMIN_ID', a
   // 1. Bot own account is automatically admin
   assert.equal(service.isAdmin('bot_account_123'), true);
 
-  // 2. ID from ZALO_ADMIN_ID is admin
-  assert.equal(service.isAdmin('zalo_admin_999'), true);
+  // 2. Legacy env admin variables are ignored
+  assert.equal(service.isAdmin('zalo_admin_999'), false);
+  assert.equal(service.isBotAccount('bot_account_123'), true);
+  assert.equal(service.isBotAccount('zalo_admin_999'), false);
 
   // 3. Random stranger is not admin
   assert.equal(service.isAdmin('random_stranger'), false);
 
-  // 4. registerPendingUser promotes admin to ADMIN & GRANTED
-  const registered = await service.registerPendingUser('zalo_admin_999', 'Admin Văn Đạt');
+  // 4. registerPendingUser promotes the bot account to ADMIN & GRANTED
+  const registered = await service.registerPendingUser('bot_account_123', 'Bot');
   assert.equal(registered.role, 'admin');
   assert.equal(registered.grantAccess, 1);
 
+  // 5. Former env admin is registered as a pending member
+  const pending = await service.registerPendingUser('zalo_admin_999', 'Văn Đạt');
+  assert.equal(pending.role, 'user');
+  assert.equal(pending.grantAccess, 0);
+
   delete process.env.ZALO_ADMIN_ID;
 });
-

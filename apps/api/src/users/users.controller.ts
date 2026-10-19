@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -17,6 +18,8 @@ import { UserRole, GrantAccessStatus } from '@zalobot/contracts';
 import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import { UsersService } from './users.service';
+import { UserMergeService } from './user-merge.service';
+import { MergeUserDto } from './dto/merge-user.dto';
 
 @ApiTags('Users (Admin Only)')
 @ApiBearerAuth('bearer-jwt')
@@ -25,6 +28,7 @@ export class UsersController {
   constructor(
     private readonly users: UsersService,
     private readonly tokens: ReportsTokenService,
+    private readonly userMerge: UserMergeService,
   ) {}
 
   @Get('users')
@@ -115,6 +119,28 @@ export class UsersController {
       });
     }
     return { data: user };
+  }
+
+  @Get('users/:id/merge-preview')
+  @ApiOperation({
+    summary: 'Xem trước dữ liệu sẽ chuyển khi gộp user nguồn vào user đích (Admin Only)',
+  })
+  async previewMerge(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Query('targetUserId') targetUserId: string,
+  ) {
+    this.admin(req);
+    return { data: await this.userMerge.preview(this.id(id), this.id(targetUserId)) };
+  }
+
+  @Post('users/:id/merge')
+  @ApiOperation({
+    summary: 'Gộp toàn bộ dữ liệu của user nguồn vào user đích rồi xoá user nguồn (Admin Only)',
+  })
+  async mergeUser(@Req() req: Request, @Param('id') id: string, @Body() body: MergeUserDto) {
+    const actorId = this.admin(req).toString();
+    return { data: await this.userMerge.merge(this.id(id), body.targetUserId, actorId) };
   }
 
   @Delete('users/:id')
