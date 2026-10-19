@@ -6,10 +6,10 @@ import { CreateBillPendingImageStrategy } from './strategies/create-bill-pending
 import { PendingImageActionDispatcher } from './pending-image-dispatcher.service';
 import { ImageBatchHandler } from './image-batch-handler.service';
 import { PendingImageContext } from './pending-image.interface';
-import { ZaloService } from '../zalo.service';
-import { PendingImageActionService, PendingImageAction } from '../pending-image-action.service';
+import { ZcaService } from '../zca.service';
+import { PendingImageActionService, PendingImageAction } from './pending-image-action.service';
 import { LlmService } from '../../llm/llm.service';
-import { TextToolFactory } from '../text/text-tool.factory';
+import { TextToolFactory } from '../../zalo/text/text-tool.factory';
 import { MediaStorageService } from '../../receipt-storage/media-storage.service';
 import { OcrService } from '../../ocr/ocr.service';
 
@@ -17,12 +17,19 @@ function createMockSetup() {
   const sentMessages: Array<{ chatId: string; text: string }> = [];
 
   const mockZaloService = {
-    sendMessage: (chatId: string, text: string) => {
+    sendMessage: (param1: string, param2: string) => {
+      const isChatId = (s: string) => s.startsWith('chat_') || s.startsWith('u') || s.startsWith('g');
+      const chatId = isChatId(param1) ? param1 : param2;
+      const text = chatId === param1 ? param2 : param1;
+      sentMessages.push({ chatId, text });
+      return Promise.resolve(true);
+    },
+    sendMessageToChat: (chatId: string, text: string) => {
       sentMessages.push({ chatId, text });
       return Promise.resolve(true);
     },
     withChatAction: (_chatId: string, fn: () => Promise<unknown>) => fn(),
-  } as unknown as ZaloService;
+  } as unknown as ZcaService;
 
   const pendingStore = new Map<string, PendingImageAction>();
   const mockPendingService = {
