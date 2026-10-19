@@ -6,6 +6,7 @@ import {
   Param,
   Query,
   Body,
+  Req,
   Res,
   HttpCode,
   HttpStatus,
@@ -16,8 +17,15 @@ import {
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import type { Response } from 'express';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
+import {
+  assertDashboardAdmin,
+  getDashboardUserIdFromBrowser,
+  requireDashboardAdmin,
+} from '../dashboard-auth/dashboard-user';
+import { ReportsTokenService } from '../reports/reports-token.service';
+import { UsersService } from '../users/users.service';
 import { ZcaService, type AvailableThread } from './zca.service';
 import { ThreadConfigService } from './thread-config.service';
 import { ZcaBotFeatureService } from './zca-bot-feature.service';
@@ -28,7 +36,9 @@ import type {
   SyncThreadMediaResponse,
 } from '@zalobot/contracts';
 
+/** Admin-only: every route requires a dashboard access token whose user is an admin. */
 @ApiTags('zca')
+@ApiBearerAuth('bearer-jwt')
 @Controller('zca')
 export class ZcaController {
   private readonly logger = new Logger(ZcaController.name);
@@ -36,6 +46,9 @@ export class ZcaController {
   constructor(
     private readonly zcaService: ZcaService,
     private readonly threadConfigService: ThreadConfigService,
+    private readonly tokens: ReportsTokenService,
+    @Inject(forwardRef(() => UsersService))
+    private readonly usersService: UsersService,
     @Optional()
     @Inject(forwardRef(() => ZcaBotFeatureService))
     private readonly botFeatureService?: ZcaBotFeatureService,
@@ -44,7 +57,8 @@ export class ZcaController {
   @Get('status')
   @ApiOperation({ summary: 'Lấy trạng thái kết nối tài khoản Zalo cá nhân (ZCA)' })
   @ApiResponse({ status: 200, description: 'Trạng thái ZCA' })
-  public getStatus() {
+  public getStatus(@Req() req: Request) {
+    this.admin(req);
     return {
       data: {
         loggedIn: this.zcaService.isLoggedIn(),
@@ -59,7 +73,11 @@ export class ZcaController {
 
   @Get('qr')
   @ApiOperation({ summary: 'Xem ảnh mã QR đăng nhập Zalo dạng ảnh PNG' })
-  public getQrImage(@Res() res: Response): void {
+  public getQrImage(@Req() req: Request, @Res() res: Response, @Query('key') key?: string): void {
+    // Opened via <img src> on the dashboard (refresh cookie) or a link the bot sends to Zalo (?key=).
+    if (!this.zcaService.isQrAccessKeyValid(key)) {
+      assertDashboardAdmin(getDashboardUserIdFromBrowser(req, this.tokens), this.usersService);
+    }
     const buffer = this.zcaService.getLatestQrBuffer();
     if (!buffer) {
       throw new NotFoundException(
@@ -74,9 +92,13 @@ export class ZcaController {
   @Post('login-qr')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Bắt đầu luồng đăng nhập qua mã QR' })
-  public async loginQr(@Body() body?: { forceNew?: boolean }): Promise<{
+  public async loginQr(
+    @Req() req: Request,
+    @Body() body?: { forceNew?: boolean },
+  ): Promise<{
     data: { message: string; qrUrl: string; code: string | null };
   }> {
+    this.admin(req);
     this.logger.log(
       `[ZcaController] Nhận yêu cầu POST /api/zca/login-qr (forceNew: ${Boolean(body?.forceNew)})...`,
     );
@@ -128,8 +150,7 @@ export class ZcaController {
       await new Promise((r) => setTimeout(r, 200));
     }
 
-    const appUrl = process.env.APP_URL || 'http://localhost:3005';
-    const qrUrl = `${appUrl.replace(/\/+$/, '')}/api/zca/qr`;
+    const qrUrl = this.zcaService.getQrImageUrl();
 
     return {
       data: {
@@ -143,7 +164,10 @@ export class ZcaController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Đăng xuất và xóa phiên tài khoản Zalo cá nhân (ZCA)' })
-  public async logout(): Promise<{ data: { success: boolean; message: string } }> {
+  public async logout(
+    @Req() req: Request,
+  ): Promise<{ data: { success: boolean; message: string } }> {
+    this.admin(req);
     this.logger.log('[ZcaController] Nhận yêu cầu POST /api/zca/logout...');
     const result = await this.zcaService.logout();
     return { data: result };
@@ -154,8 +178,10 @@ export class ZcaController {
     summary: 'Lấy danh sách các nhóm và bạn bè để chọn danh sách lắng nghe',
   })
   public async getThreads(
+    @Req() req: Request,
     @Query('refresh') refresh?: string,
   ): Promise<{ data: { threads: AvailableThread[] } }> {
+    this.admin(req);
     const forceRefresh = refresh === 'true' || refresh === '1';
     const threads = await this.zcaService.getAvailableThreads(forceRefresh);
     return { data: { threads } };
@@ -163,7 +189,8 @@ export class ZcaController {
 
   @Get('listened-threads')
   @ApiOperation({ summary: 'Lấy danh sách ID các cuộc trò chuyện đang được lắng nghe' })
-  public getListenedThreads(): { data: { threadIds: string[] } } {
+  public getListenedThreads(@Req() req: Request): { data: { threadIds: string[] } } {
+    this.admin(req);
     return { data: { threadIds: this.zcaService.getListenedThreadIds() } };
   }
 
@@ -172,8 +199,10 @@ export class ZcaController {
     summary: 'Cập nhật danh sách ID các cuộc trò chuyện được phép lắng nghe (Whitelist)',
   })
   public async setListenedThreads(
+    @Req() req: Request,
     @Body() body: { threadIds: string[] },
   ): Promise<{ data: { success: boolean; count: number; threadIds: string[] } }> {
+    this.admin(req);
     const ids = Array.isArray(body?.threadIds) ? body.threadIds : [];
     await this.zcaService.setListenedThreadIds(ids);
     return {
@@ -189,8 +218,10 @@ export class ZcaController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Bật hoặc tắt lắng nghe cho 1 cuộc trò chuyện cụ thể' })
   public async toggleListenedThread(
+    @Req() req: Request,
     @Body() body: { threadId: string },
   ): Promise<{ data: { success: boolean; threadId: string; isListened: boolean } }> {
+    this.admin(req);
     const isListened = await this.zcaService.toggleListenedThread(body.threadId);
     return {
       data: {
@@ -203,15 +234,18 @@ export class ZcaController {
 
   @Get('thread-configs')
   @ApiOperation({ summary: 'Lấy danh sách cấu hình chi tiết cho các cuộc trò chuyện' })
-  public getThreadConfigs(): { data: { configs: ThreadBotConfig[] } } {
+  public getThreadConfigs(@Req() req: Request): { data: { configs: ThreadBotConfig[] } } {
+    this.admin(req);
     return { data: { configs: this.threadConfigService.getAllConfigs() } };
   }
 
   @Get('thread-configs/:threadId')
   @ApiOperation({ summary: 'Lấy cấu hình chi tiết của 1 cuộc trò chuyện cụ thể' })
   public async getThreadConfig(
+    @Req() req: Request,
     @Param('threadId') threadId: string,
   ): Promise<{ data: { config: ThreadBotConfig } }> {
+    this.admin(req);
     const config = await this.threadConfigService.getConfig(threadId);
     return { data: { config } };
   }
@@ -219,9 +253,11 @@ export class ZcaController {
   @Put('thread-configs/:threadId')
   @ApiOperation({ summary: 'Cập nhật cấu hình tính năng của 1 cuộc trò chuyện cụ thể' })
   public async updateThreadConfig(
+    @Req() req: Request,
     @Param('threadId') threadId: string,
     @Body() body: UpdateThreadBotConfigDto,
   ): Promise<{ data: { config: ThreadBotConfig } }> {
+    this.admin(req);
     const config = await this.threadConfigService.updateConfig(threadId, body);
     if (body.isListened !== undefined) {
       const currentListened = new Set(this.zcaService.getListenedThreadIds());
@@ -241,13 +277,19 @@ export class ZcaController {
     summary: 'Quét lịch sử và sao lưu media (ảnh, video, file) của kênh lên Google Drive',
   })
   public async syncThreadMedia(
+    @Req() req: Request,
     @Param('threadId') threadId: string,
     @Body() body?: SyncThreadMediaDto,
   ): Promise<{ data: SyncThreadMediaResponse }> {
+    this.admin(req);
     if (!this.botFeatureService) {
       throw new BadRequestException('ZcaBotFeatureService chưa được khởi tạo');
     }
     const result = await this.botFeatureService.syncThreadMediaHistory(threadId, body);
     return { data: result };
+  }
+
+  private admin(req: Request): string | number {
+    return requireDashboardAdmin(req, this.tokens, this.usersService);
   }
 }

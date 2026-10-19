@@ -15,6 +15,7 @@ metadata:
       - apps/api/src/database/entities/zca-thread-config.entity.ts
       - apps/api/src/zalo/text/text-tool.definitions.ts
       - apps/api/src/google/google-resources.controller.ts
+      - apps/api/src/dashboard-auth/dashboard-user.ts
       - apps/web/src/modules/zca/view/zca-screen.tsx
       - apps/web/src/modules/zca/view/thread-config-modal.tsx
       - apps/web/src/modules/zca/view/sync-media-modal.tsx
@@ -204,9 +205,20 @@ Logic ghép dòng là hàm thuần trong `model/chat-rows.ts`, có unit test ở
 
 Link Google dùng trên trang (thuộc `GoogleResourcesController`): `GET /api/drive/folder-link`, `GET /api/drive/open`, `POST /api/drive/share`, `GET /api/photos/album-link`, `GET /api/photos/open`.
 
-**Giới hạn đã biết**:
-- `ZcaController` không tự kiểm tra token dashboard hay quyền admin trong code.
-- `getThreadPhotosOpenUrl` (web) viết cứng `/api/photos/open` thay vì dùng hằng số trong `API_ROUTES`.
+### Phân quyền
+
+Mọi route của `ZcaController` và 5 route Drive/Photos ở trên đều **chỉ dành cho admin**: request phải mang access token dashboard (`Authorization: Bearer`, web tự gắn qua `httpClient`) và người dùng phải là admin. Thiếu hoặc sai token thì trả **401**, có token nhưng không phải admin thì trả **403**.
+
+**Vì sao phải chặn chặt?** Các route này đăng nhập/đăng xuất tài khoản Zalo cá nhân của bot và đổi nhóm nào được bot lắng nghe. Riêng `GET /api/zca/status` trả về `qrStatus.code`, tức chính nội dung mã QR. Nếu để mở, người ngoài có thể quét mã QR khi admin đang đăng nhập và chiếm phiên ZCA của bot.
+
+**Ngoại lệ cho link mở bằng trình duyệt** (`<img>` hoặc `<a href>` không gửi được header):
+- `GET /api/zca/qr` chấp nhận một trong ba: `?key=<khóa QR>`, Bearer token admin, hoặc cookie `reports_refresh` của admin.
+  - **Khóa QR** là chuỗi ngẫu nhiên 32 byte, sinh mỗi khi bắt đầu một luồng đăng nhập QR mới và bị thu hồi khi luồng kết thúc (thành công hoặc lỗi) hoặc khi logout.
+  - Link bot gửi qua Zalo khi gõ `/zalo-login` và `qrUrl` trả về từ `POST /api/zca/login-qr` đều kèm `?key=…`, nên người nhận link mở được ảnh QR trên điện thoại mà không cần đăng nhập dashboard. Log server không in khóa.
+  - Ảnh QR trên dashboard dùng `getZcaQrImageUrl()` (dựa trên `API_ROUTES.zcaQr`) và xác thực bằng cookie.
+- `GET /api/drive/open` và `GET /api/photos/open` (link "📁 Drive ↗", "📸 Photos ↗") nhận Bearer hoặc cookie `reports_refresh` của admin.
+
+**Xử lý sự cố**: trang Zalo & Người dùng báo 403 nghĩa là tài khoản đang đăng nhập dashboard không phải admin. Link QR trong Zalo báo 401 nghĩa là luồng đăng nhập đó đã kết thúc; hãy gõ lại `/zalo-login` để lấy link mới.
 
 Contracts liên quan trong `packages/contracts`: `ThreadBotConfig`, `UpdateThreadBotConfigDto`, `ThreadDirectInteractionConfig`, `ThreadMediaBackupConfig`, `ThreadExpenseConfig`, `ThreadCalendarConfig`, `ThreadConfirmationConfig`, `SyncThreadMediaDto`, `SyncMediaTimeRange`, `SyncThreadMediaResponse`.
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { GoogleResourcesController } from './google-resources.controller';
@@ -11,6 +11,18 @@ import { GoogleDriveService } from './google-drive.service';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import type { ThreadConfigService } from '../zca/thread-config.service';
 import type { UsersService } from '../users/users.service';
+
+const ADMIN_ID = 'admin-1';
+const adminTokens = {
+  verifyAccessToken: (token: string) => (token === 'valid-token' ? ADMIN_ID : 'user-2'),
+  verifyRefreshToken: (token: string) => {
+    if (token !== 'refresh-admin') throw new UnauthorizedException();
+    return ADMIN_ID;
+  },
+} as unknown as ReportsTokenService;
+const adminUsers = {
+  isAdmin: (id: string | number) => String(id) === ADMIN_ID,
+} as unknown as UsersService;
 
 function createMockRequest(userId = 'test-user'): Request {
   return {
@@ -249,16 +261,21 @@ void test('GoogleResourcesController shareDrive throws BadRequestException when 
   const controller = new GoogleResourcesController(
     {} as unknown as GoogleCalendarService,
     {} as unknown as GoogleTasksService,
-    {} as unknown as ReportsTokenService,
+    adminTokens,
     {
       isSharedAuthorized: () => true,
       hasStorageScopes: () => true,
     } as unknown as GoogleAuthService,
     {} as unknown as GoogleDriveService,
+    undefined,
+    adminUsers,
   );
 
   await assert.rejects(async () => {
-    await controller.shareDrive({ channelId: 'g-123', email: 'invalid-email' });
+    await controller.shareDrive(createMockRequest(ADMIN_ID), {
+      channelId: 'g-123',
+      email: 'invalid-email',
+    });
   }, /Email không hợp lệ/i);
 });
 
@@ -282,15 +299,20 @@ void test('GoogleResourcesController shareDrive successfully shares channel fold
   const controller = new GoogleResourcesController(
     {} as unknown as GoogleCalendarService,
     {} as unknown as GoogleTasksService,
-    {} as unknown as ReportsTokenService,
+    adminTokens,
     {
       isSharedAuthorized: () => true,
       hasStorageScopes: () => true,
     } as unknown as GoogleAuthService,
     mockDrive,
+    undefined,
+    adminUsers,
   );
 
-  const res = await controller.shareDrive({ channelId: 'g-123', email: 'test@gmail.com' });
+  const res = await controller.shareDrive(createMockRequest(ADMIN_ID), {
+    channelId: 'g-123',
+    email: 'test@gmail.com',
+  });
   assert.equal(res.success, true);
   assert.equal(sharedFolder, 'zalobot/g-123');
   assert.equal(sharedEmail, 'test@gmail.com');
@@ -305,12 +327,14 @@ void test('GoogleResourcesController getDriveFolderLink returns root zalobot lin
   const controller = new GoogleResourcesController(
     {} as unknown as GoogleCalendarService,
     {} as unknown as GoogleTasksService,
-    {} as unknown as ReportsTokenService,
+    adminTokens,
     {} as unknown as GoogleAuthService,
     mockDrive,
+    undefined,
+    adminUsers,
   );
 
-  const res = await controller.getDriveFolderLink();
+  const res = await controller.getDriveFolderLink(createMockRequest(ADMIN_ID));
   assert.deepEqual(res, {
     data: {
       folderPath: 'zalobot',
@@ -337,15 +361,15 @@ void test('GoogleResourcesController getDriveFolderLink returns channel folder l
   const controller = new GoogleResourcesController(
     {} as unknown as GoogleCalendarService,
     {} as unknown as GoogleTasksService,
-    {} as unknown as ReportsTokenService,
+    adminTokens,
     {} as unknown as GoogleAuthService,
     mockDrive,
     undefined,
-    undefined,
+    adminUsers,
     mockThreadConfigService,
   );
 
-  const res = await controller.getDriveFolderLink('g-team-channel');
+  const res = await controller.getDriveFolderLink(createMockRequest(ADMIN_ID), 'g-team-channel');
   assert.deepEqual(res, {
     data: {
       folderPath: 'zalobot/g-team-channel',
@@ -372,15 +396,15 @@ void test('GoogleResourcesController getDriveFolderLink uses customFolder if con
   const controller = new GoogleResourcesController(
     {} as unknown as GoogleCalendarService,
     {} as unknown as GoogleTasksService,
-    {} as unknown as ReportsTokenService,
+    adminTokens,
     {} as unknown as GoogleAuthService,
     mockDrive,
     undefined,
-    undefined,
+    adminUsers,
     mockThreadConfigService,
   );
 
-  const res = await controller.getDriveFolderLink('g-custom-channel');
+  const res = await controller.getDriveFolderLink(createMockRequest(ADMIN_ID), 'g-custom-channel');
   assert.deepEqual(res, {
     data: {
       folderPath: 'zalobot/CustomProject',
@@ -397,9 +421,11 @@ void test('GoogleResourcesController openDriveFolder redirects to channel folder
   const controller = new GoogleResourcesController(
     {} as unknown as GoogleCalendarService,
     {} as unknown as GoogleTasksService,
-    {} as unknown as ReportsTokenService,
+    adminTokens,
     {} as unknown as GoogleAuthService,
     mockDrive,
+    undefined,
+    adminUsers,
   );
 
   let redirectedUrl = '';
@@ -409,7 +435,7 @@ void test('GoogleResourcesController openDriveFolder redirects to channel folder
     },
   } as unknown as import('express').Response;
 
-  await controller.openDriveFolder(mockRes, 'g-redirect-channel');
+  await controller.openDriveFolder(createMockRequest(ADMIN_ID), mockRes, 'g-redirect-channel');
   assert.equal(redirectedUrl, 'https://drive.mock/zalobot/g-redirect-channel');
 });
 
@@ -430,6 +456,7 @@ void test('GoogleResourcesController shareDrive stores numeric ZCA group folder 
     },
   } as unknown as ThreadConfigService;
   const mockUsers = {
+    isAdmin: (id: string | number) => String(id) === ADMIN_ID,
     saveDriveFolderInfo: (id: string) => {
       savedUserIds.push(id);
       return Promise.resolve();
@@ -439,7 +466,7 @@ void test('GoogleResourcesController shareDrive stores numeric ZCA group folder 
   const controller = new GoogleResourcesController(
     {} as unknown as GoogleCalendarService,
     {} as unknown as GoogleTasksService,
-    {} as unknown as ReportsTokenService,
+    adminTokens,
     {
       isSharedAuthorized: () => true,
       hasStorageScopes: () => true,
@@ -450,7 +477,85 @@ void test('GoogleResourcesController shareDrive stores numeric ZCA group folder 
     mockThreadConfig,
   );
 
-  await controller.shareDrive({ channelId: '7120342145544273834', email: 'test@gmail.com' });
+  await controller.shareDrive(createMockRequest(ADMIN_ID), {
+    channelId: '7120342145544273834',
+    email: 'test@gmail.com',
+  });
   assert.deepEqual(savedThreadIds, ['7120342145544273834']);
   assert.deepEqual(savedUserIds, []);
+});
+
+void test('GoogleResourcesController shareDrive rejects requests without a dashboard token', async () => {
+  const controller = new GoogleResourcesController(
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as GoogleTasksService,
+    adminTokens,
+    {} as unknown as GoogleAuthService,
+    {} as unknown as GoogleDriveService,
+    undefined,
+    adminUsers,
+  );
+  const req = { headers: {} } as unknown as Request;
+  await assert.rejects(
+    () => controller.shareDrive(req, { channelId: 'g-123', email: 'test@gmail.com' }),
+    UnauthorizedException,
+  );
+});
+
+void test('GoogleResourcesController drive/photos link routes reject non-admin users', async () => {
+  const controller = new GoogleResourcesController(
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as GoogleTasksService,
+    adminTokens,
+    {} as unknown as GoogleAuthService,
+    {} as unknown as GoogleDriveService,
+    undefined,
+    adminUsers,
+  );
+  const userReq = {
+    headers: { authorization: 'Bearer other-token' },
+  } as unknown as Request;
+  await assert.rejects(
+    () => controller.shareDrive(userReq, { channelId: 'g-123', email: 'test@gmail.com' }),
+    ForbiddenException,
+  );
+  await assert.rejects(() => controller.getDriveFolderLink(userReq, 'g-123'), ForbiddenException);
+  await assert.rejects(() => controller.getPhotosAlbumLink(userReq, 'g-123'), ForbiddenException);
+});
+
+void test('GoogleResourcesController open routes accept the admin refresh cookie and reject anonymous calls', async () => {
+  const controller = new GoogleResourcesController(
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as GoogleTasksService,
+    adminTokens,
+    {} as unknown as GoogleAuthService,
+    {
+      getFolderWebLink: (folder: string) => Promise.resolve(`https://drive.mock/${folder}`),
+    } as unknown as GoogleDriveService,
+    undefined,
+    adminUsers,
+  );
+  let redirectedUrl = '';
+  const mockRes = {
+    redirect: (url: string) => {
+      redirectedUrl = url;
+    },
+  } as unknown as import('express').Response;
+
+  const cookieReq = {
+    headers: {},
+    cookies: { reports_refresh: 'refresh-admin' },
+  } as unknown as Request;
+  await controller.openDriveFolder(cookieReq, mockRes);
+  assert.equal(redirectedUrl, 'https://drive.mock/zalobot');
+
+  const anonymousReq = { headers: {}, cookies: {} } as unknown as Request;
+  await assert.rejects(
+    () => controller.openDriveFolder(anonymousReq, mockRes),
+    UnauthorizedException,
+  );
+  await assert.rejects(
+    () => controller.openPhotosAlbum(anonymousReq, mockRes),
+    UnauthorizedException,
+  );
 });

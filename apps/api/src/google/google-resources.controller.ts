@@ -23,7 +23,12 @@ import {
   type ThreadBotConfig,
 } from '@zalobot/contracts';
 import { type calendar_v3, type tasks_v1 } from 'googleapis';
-import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
+import {
+  assertDashboardAdmin,
+  getDashboardUserId,
+  getDashboardUserIdFromBrowser,
+  requireDashboardAdmin,
+} from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import { GoogleCalendarService } from './google-calendar.service';
 import { GoogleTasksService } from './google-tasks.service';
@@ -56,9 +61,12 @@ export class GoogleResourcesController {
     @Optional() private readonly threadConfigService?: ThreadConfigService,
   ) {}
 
+  // Drive/Photos partition routes are admin-only: there is no per-channel membership check, so any
+  // signed-in user could otherwise share or create another chat's folder.
   @Post('drive/share')
-  @ApiOperation({ summary: 'Cấp quyền chia sẻ Google Drive cho thư mục của một channel' })
-  async shareDrive(@Body() body: ShareDriveDto) {
+  @ApiOperation({ summary: 'Cấp quyền chia sẻ Google Drive cho thư mục của một channel (Admin)' })
+  async shareDrive(@Req() req: Request, @Body() body: ShareDriveDto) {
+    this.admin(req);
     if (!this.driveService) {
       throw new BadRequestException('Google Drive service is not available.');
     }
@@ -103,9 +111,15 @@ export class GoogleResourcesController {
   @Get('drive/folder-link')
   @ApiOperation({ summary: 'Lấy đường link xem thư mục Google Drive (root hoặc channel)' })
   async getDriveFolderLink(
+    @Req() req: Request,
     @Query('channelId') channelId?: string,
     @Query('threadName') threadName?: string,
   ) {
+    this.admin(req);
+    return this.resolveDriveFolderLink(channelId, threadName);
+  }
+
+  private async resolveDriveFolderLink(channelId?: string, threadName?: string) {
     if (!this.driveService) {
       return {
         data: {
@@ -178,11 +192,13 @@ export class GoogleResourcesController {
   @Get('drive/open')
   @ApiOperation({ summary: 'Mở trực tiếp thư mục Google Drive của một channel hoặc root' })
   async openDriveFolder(
+    @Req() req: Request,
     @Res() res: Response,
     @Query('channelId') channelId?: string,
     @Query('threadName') threadName?: string,
   ): Promise<void> {
-    const result = await this.getDriveFolderLink(channelId, threadName);
+    this.browserAdmin(req);
+    const result = await this.resolveDriveFolderLink(channelId, threadName);
     const targetUrl = result.data.webViewLink || 'https://drive.google.com';
     res.redirect(targetUrl);
   }
@@ -190,9 +206,15 @@ export class GoogleResourcesController {
   @Get('photos/album-link')
   @ApiOperation({ summary: 'Lấy đường link xem album Google Photos (chung hoặc của channel)' })
   async getPhotosAlbumLink(
+    @Req() req: Request,
     @Query('channelId') channelId?: string,
     @Query('threadName') threadName?: string,
   ) {
+    this.admin(req);
+    return this.resolvePhotosAlbumLink(channelId, threadName);
+  }
+
+  private async resolvePhotosAlbumLink(channelId?: string, threadName?: string) {
     let albumTitle = 'ZaloBot - Hình ảnh';
     let cachedUrl: string | undefined;
 
@@ -261,11 +283,13 @@ export class GoogleResourcesController {
   @Get('photos/open')
   @ApiOperation({ summary: 'Mở trực tiếp Album Google Photos của một channel hoặc chung' })
   async openPhotosAlbum(
+    @Req() req: Request,
     @Res() res: Response,
     @Query('channelId') channelId?: string,
     @Query('threadName') threadName?: string,
   ): Promise<void> {
-    const result = await this.getPhotosAlbumLink(channelId, threadName);
+    this.browserAdmin(req);
+    const result = await this.resolvePhotosAlbumLink(channelId, threadName);
     const targetUrl = result.data.webViewLink || 'https://photos.google.com';
     res.redirect(targetUrl);
   }
@@ -530,6 +554,13 @@ export class GoogleResourcesController {
 
   private userId(req: Request) {
     return getDashboardUserId(req, this.tokens);
+  }
+  private admin(req: Request) {
+    return requireDashboardAdmin(req, this.tokens, this.usersService);
+  }
+  /** `drive/open` and `photos/open` are plain `<a href>` links, so the refresh cookie is accepted. */
+  private browserAdmin(req: Request) {
+    return assertDashboardAdmin(getDashboardUserIdFromBrowser(req, this.tokens), this.usersService);
   }
   private text(value: unknown, name: string) {
     if (typeof value !== 'string' || !value.trim())

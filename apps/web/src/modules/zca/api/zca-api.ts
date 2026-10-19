@@ -160,6 +160,11 @@ export async function updateZcaThreadConfig(
   return response.data.data.config;
 }
 
+/** Loaded by `<img>`, so the API authenticates it with the dashboard refresh cookie. */
+export function getZcaQrImageUrl(cacheBuster: number): string {
+  return `${resolveApiBaseUrl()}${API_ROUTES.zcaQr}?t=${cacheBuster}`;
+}
+
 export interface DriveFolderLinkResult {
   folderPath?: string;
   webViewLink: string;
@@ -189,7 +194,7 @@ export function getThreadDriveLink(
 
 export function getThreadPhotosOpenUrl(threadId?: string, threadName?: string): string {
   const base = resolveApiBaseUrl();
-  const path = '/api/photos/open';
+  const path = API_ROUTES.photosOpen;
   if (!threadId) {
     return `${base}${path}`;
   }

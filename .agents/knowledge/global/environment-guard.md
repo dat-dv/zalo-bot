@@ -10,6 +10,7 @@ metadata:
       - apps/api/src/main.ts
       - apps/api/src/app.module.ts
       - apps/api/src/health/deploy-notify.service.ts
+      - apps/api/src/health/deploy-notify.guard.ts
       - apps/web/next.config.ts
       - apps/web/src/shared/api/http-client.ts
       - apps/web/src/shared/ui/workspace-header.tsx
@@ -40,11 +41,12 @@ Runtime configuration is an explicit deployment contract. Secrets never appear i
 - `APP_URL`, `WEB_ORIGIN`: HTTP(S) URL. `DATABASE_URL`: `postgres://` or `postgresql://` URL.
 - `CORS_ALLOW_ALL`: `true` or `false`. `DATA_ENCRYPTION_KEY`: 64 hex chars. `DEFAULT_TIMEZONE`: valid IANA zone.
 
-Current state: `validateEnvironment()` and `printEnvValidationBanner()` are not called by `main.ts` or any other code, so a missing value does not stop startup; `configuration.ts` fallbacks apply instead (`port` 3005, `CORS_ALLOW_ALL` → `true`, `DATA_ENCRYPTION_KEY` → 64 zeros, `DEFAULT_TIMEZONE` → `Asia/Ho_Chi_Minh`, `WEB_ORIGIN` → `APP_URL`). Deployments must still set every required value.
+Enforcement: `main.ts` calls `validateEnvironment()` right after `loadEnvironment()` and before `NestFactory.create`; on any error it prints `printEnvValidationBanner(errors)` (key, reason, guide; never values) and exits with code 1. So the `configuration.ts` fallbacks (`port` 3005, `CORS_ALLOW_ALL` → `false`, `DATA_ENCRYPTION_KEY` → 64 zeros, `DEFAULT_TIMEZONE` → `Asia/Ho_Chi_Minh`, `WEB_ORIGIN` → `APP_URL`) are only reachable from scripts/tests that read `configuration.ts` without booting `main.ts`. The `CORS_ALLOW_ALL` fallback is `false` as defense in depth.
 
 ## Optional Values (`configuration.ts`)
 
 - Database/cache: `DATABASE_SSL`, `TYPEORM_SYNCHRONIZE`, `REDIS_URL`.
+- Deploy notify: `DEPLOY_NOTIFY_TOKEN` (`deploy.notifyToken`). Unset → deploy-notify routes return 403 (see `backend-runtime-services.md`).
 - Zalo bot: `BOT_NAME` / `ZALO_BOT_NAME`, `ZALO_WEBHOOK_URL` / `WEBHOOK_URL`, `ZALO_WEBHOOK_SECRET_TOKEN`.
 - ZCA: `DATA_DIR` / `ZCA_DATA_DIR`, `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN` (default false), `ZCA_CHECK_UPDATE` (true), `ZCA_LOGGING` (false), `ZCA_AUTO_LOGIN` (false), `ZCA_ENABLE_WELCOME` (false), `ZCA_WELCOME_IMAGE_PATH`.
 - LLM: `LLM_PROVIDER` (`gemini` default; `openai`; `qwen`/`ollama`), `GEMINI_API_KEY`, `GEMINI_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `QWEN_BASE_URL` / `OLLAMA_BASE_URL`, `QWEN_MODEL` / `OLLAMA_MODEL`, `QWEN_API_KEY` / `OLLAMA_API_KEY`.

@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { ZcaService } from './zca.service';
 import { createZcaClient } from './index';
 import type { ZcaPlugin } from './zca.interfaces';
+import { LoginQRCallbackEventType } from 'zca-js';
 import type { Message, Reaction, GroupEvent, FriendEvent } from 'zca-js';
 import type { RedisService } from '../redis/redis.service';
 import { ThreadConfigService } from './thread-config.service';
@@ -424,7 +425,11 @@ void test('ZcaService startListener ignores messages and group events when liste
     isSelf: false,
     data: { content: 'hello to unlistened group', dName: 'User A', uidFrom: 'u1' },
   });
-  assert.strictEqual(dispatchedMessage, null, 'Message must be ignored when listened list is empty');
+  assert.strictEqual(
+    dispatchedMessage,
+    null,
+    'Message must be ignored when listened list is empty',
+  );
 
   // 2. Group event should be ignored
   registeredListeners['group_event']({
@@ -433,7 +438,11 @@ void test('ZcaService startListener ignores messages and group events when liste
     act: 'join',
     data: { updateMembers: ['u1'] },
   });
-  assert.strictEqual(dispatchedGroupEvent, null, 'Group event must be ignored when listened list is empty');
+  assert.strictEqual(
+    dispatchedGroupEvent,
+    null,
+    'Group event must be ignored when listened list is empty',
+  );
 
   // 3. Now allow group-100
   await service.setListenedThreadIds(['group-100']);
@@ -445,7 +454,11 @@ void test('ZcaService startListener ignores messages and group events when liste
     data: { content: 'hello to allowed group', dName: 'User A', uidFrom: 'u1' },
   } as unknown as Message;
   registeredListeners['message'](allowedMsg);
-  assert.strictEqual(dispatchedMessage, allowedMsg, 'Message must be dispatched when thread is listened');
+  assert.strictEqual(
+    dispatchedMessage,
+    allowedMsg,
+    'Message must be dispatched when thread is listened',
+  );
 
   const allowedGroupEvent = {
     threadId: 'group-100',
@@ -455,14 +468,21 @@ void test('ZcaService startListener ignores messages and group events when liste
   } as unknown as GroupEvent;
   registeredListeners['group_event'](allowedGroupEvent);
   await new Promise((r) => setTimeout(r, 10));
-  assert.strictEqual(dispatchedGroupEvent, allowedGroupEvent, 'Group event must be dispatched when thread is listened');
+  assert.strictEqual(
+    dispatchedGroupEvent,
+    allowedGroupEvent,
+    'Group event must be dispatched when thread is listened',
+  );
 });
 
 void test('ZcaService setListenedThreadIds unlistens removed threads in ThreadConfigService', async () => {
   const statusMap = new Map<string, boolean>();
   const mockThreadConfigService = {
     loadConfigs: async () => {},
-    getListenedThreadIds: () => Array.from(statusMap.entries()).filter(([, v]) => v).map(([k]) => k),
+    getListenedThreadIds: () =>
+      Array.from(statusMap.entries())
+        .filter(([, v]) => v)
+        .map(([k]) => k),
     setListened: async (threadId: string, isListened: boolean) => {
       statusMap.set(threadId, isListened);
     },
@@ -488,7 +508,11 @@ void test('ZcaService setListenedThreadIds unlistens removed threads in ThreadCo
 
   // Now update to only listen to thread-B (thread-A is removed)
   await service.setListenedThreadIds(['thread-B']);
-  assert.strictEqual(statusMap.get('thread-A'), false, 'thread-A must be unlistened in ThreadConfigService');
+  assert.strictEqual(
+    statusMap.get('thread-A'),
+    false,
+    'thread-A must be unlistened in ThreadConfigService',
+  );
   assert.strictEqual(statusMap.get('thread-B'), true, 'thread-B must remain listened');
   assert.deepStrictEqual(service.getListenedThreadIds(), ['thread-B']);
 });
@@ -522,4 +546,47 @@ void test('ZcaService passes ZCA-confirmed group type to thread configs and reco
   await service.toggleListenedThread(newGroupId);
   assert.strictEqual(threadConfigService.getConfigSync(newGroupId)?.threadType, 'group');
   assert.strictEqual(await threadConfigService.isGroupThread(newGroupId), true);
+});
+
+void test('ZcaService issues a per-flow QR access key and revokes it when the flow ends', async () => {
+  const mockConfigService = {
+    get: (key: string): string | undefined =>
+      key === 'appUrl' ? 'https://bot.example.com/' : undefined,
+  } as unknown as ConfigService;
+  const service = new ZcaService(mockConfigService);
+  const client = service.getClient();
+  let urlDuringFlow = '';
+  let keyValidDuringFlow = false;
+  client.loginQR = (_options, callback) => {
+    callback?.({
+      type: LoginQRCallbackEventType.QRCodeGenerated,
+      data: {
+        code: 'qr-payload',
+        image: 'data:image/png;base64,AA==',
+        options: { enabledCheckOCR: false, enabledMultiLayer: false },
+        token: 't',
+      },
+      actions: {
+        saveToFile: () => Promise.resolve(),
+        retry: () => undefined,
+        abort: () => undefined,
+      },
+    });
+    urlDuringFlow = service.getQrImageUrl();
+    keyValidDuringFlow = service.isQrAccessKeyValid(
+      new URL(urlDuringFlow).searchParams.get('key') ?? undefined,
+    );
+    return Promise.reject(new Error('stop flow'));
+  };
+
+  assert.strictEqual(service.getQrImageUrl(), 'https://bot.example.com/api/zca/qr');
+  await assert.rejects(() => service.startQrLogin(), /stop flow/);
+
+  const key = new URL(urlDuringFlow).searchParams.get('key') ?? '';
+  assert.ok(key.length >= 32, 'QR URL must carry an access key while the flow is active');
+  assert.strictEqual(keyValidDuringFlow, true);
+  // The flow failed, so its key no longer unlocks the image.
+  assert.strictEqual(service.isQrAccessKeyValid(key), false);
+  assert.strictEqual(service.isQrAccessKeyValid(undefined), false);
+  assert.strictEqual(service.getQrImageUrl(), 'https://bot.example.com/api/zca/qr');
 });

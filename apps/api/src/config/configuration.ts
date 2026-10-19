@@ -41,6 +41,7 @@ export interface AppConfig {
     dashboardRefreshTokenSecret: string;
   };
   security: { encryptionKey: string };
+  deploy: { notifyToken?: string };
   llm: {
     provider: string;
     gemini: {
@@ -95,7 +96,7 @@ export default (): AppConfig => {
     port: readNumberEnv('BE_PORT', readNumberEnv('PORT', 3005)),
     appUrl,
     webOrigin: readEnv('WEB_ORIGIN', appUrl).replace(/\/+$/, ''),
-    cors: { allowAll: readBooleanEnv('CORS_ALLOW_ALL', true) },
+    cors: { allowAll: readBooleanEnv('CORS_ALLOW_ALL', false) },
     database: {
       url: readEnv('DATABASE_URL'),
       ssl: readOptionalEnv('DATABASE_SSL') === 'true',
@@ -132,6 +133,7 @@ export default (): AppConfig => {
       dashboardRefreshTokenSecret: readEnv('DASHBOARD_REFRESH_TOKEN_SECRET'),
     },
     security: { encryptionKey: readEnv('DATA_ENCRYPTION_KEY', '0'.repeat(64)) },
+    deploy: { notifyToken: readOptionalEnv('DEPLOY_NOTIFY_TOKEN') },
     llm: {
       provider: readEnv('LLM_PROVIDER', 'gemini'),
       gemini: {

@@ -17,6 +17,7 @@ import { RemindersModule } from '../reminders/reminders.module';
 import { GoogleModule } from '../google/google.module';
 import { LlmModule } from '../llm/llm.module';
 import { OcrModule } from '../ocr/ocr.module';
+import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 
 // Confirmation & Guards
 import { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
@@ -41,6 +42,7 @@ const COMMON_IMPORTS = [
   forwardRef(() => GoogleModule),
   LlmModule,
   OcrModule,
+  DashboardAuthModule,
 ];
 
 const COMMON_PROVIDERS = [
