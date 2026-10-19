@@ -3,7 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { AgentInput } from '../types/agent-input.type';
 import { TextToolFactory } from './text-tool.factory';
 import { TextToolType } from './text-tool.enum';
-import { ZALO_TOOL_DEFINITIONS } from './text-tool.definitions';
+import {
+  ZALO_TOOL_DEFINITIONS,
+  isTextToolType,
+  selectToolDefinitions,
+} from './text-tool.definitions';
 import { LlmService } from '../../llm/llm.service';
 import { ZaloService } from '../zalo.service';
 import {
@@ -157,6 +161,16 @@ export class TextInputService {
     }
 
     // 3. AI / LLM Tool Calling for natural language processing
+    // Passive mode (un-mentioned group message): the LLM only sees the allowlisted tools, so it
+    // cannot reach admin/storage/report tools; an empty allowlist means nothing to extract.
+    const passiveAllowed = input.passiveOnly ? (input.allowedTools ?? []) : undefined;
+    if (passiveAllowed && passiveAllowed.length === 0) {
+      this.logger.debug(
+        `[TextInputService] Passive mode with no allowed tools in thread ${chatId}, skipping LLM.`,
+      );
+      return;
+    }
+
     const timeZone =
       this.configService?.get<string>('timezone') ||
       process.env.DEFAULT_TIMEZONE ||
@@ -188,9 +202,15 @@ export class TextInputService {
       '- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object (ví dụ đúng: {"amount": 15000, "category": "Ăn uống", "type": "expense", "note": "uống cà phê"}, KHÔNG ĐƯỢC: {"amount": {"amount": 15000}}).';
 
     try {
-      const response = await this.zaloService.withChatAction(chatId, () =>
-        this.llmService.generate(text, ZALO_TOOL_DEFINITIONS, systemInstruction),
-      );
+      const response = passiveAllowed
+        ? await this.llmService.generate(
+            text,
+            selectToolDefinitions(passiveAllowed),
+            this.buildPassiveSystemInstruction(passiveAllowed, dtContext.systemInstructionSnippet),
+          )
+        : await this.zaloService.withChatAction(chatId, () =>
+            this.llmService.generate(text, ZALO_TOOL_DEFINITIONS, systemInstruction),
+          );
 
       const toolCalls =
         response.toolCalls && response.toolCalls.length > 0
@@ -202,6 +222,12 @@ export class TextInputService {
       if (toolCalls.length > 0) {
         this.propagateSharedTransactionContext(toolCalls);
         for (const toolCall of toolCalls) {
+          if (passiveAllowed && !passiveAllowed.some((tool) => tool === toolCall.name)) {
+            this.logger.warn(
+              `[TextInputService] Tool "${toolCall.name}" is outside passive allowlist in thread ${chatId}. Skipping.`,
+            );
+            continue;
+          }
           this.logger.log(
             `LLM resolved tool "${toolCall.name}" with args: ${JSON.stringify(toolCall.args)}`,
           );
@@ -282,6 +308,18 @@ export class TextInputService {
     const chatId = input.chatId || input.senderId;
     const senderId = input.senderId;
     const displayName = input.displayName;
+
+    // An edit may only re-issue the same kind of action: exposing every tool here would let any
+    // group member reach unrelated tools (storage links, reports...) through "edit <code> ...".
+    const editTool = isTextToolType(pending.actionType) ? pending.actionType : undefined;
+    if (!editTool) {
+      await this.zaloService.sendMessage(
+        chatId,
+        `⚠️ Yêu cầu mã "${pending.code}" không hỗ trợ chỉnh sửa. Vui lòng gõ "cancel ${pending.code}" và tạo lại yêu cầu mới.`,
+      );
+      return;
+    }
+
     const timeZone =
       this.configService?.get<string>('timezone') ||
       process.env.DEFAULT_TIMEZONE ||
@@ -307,8 +345,7 @@ export class TextInputService {
       `- Phân tích kỹ yêu cầu điều chỉnh của người dùng dựa trên ngữ cảnh và dữ liệu tham số hiện tại.\n` +
       `- Giữ nguyên các thông tin cũ nếu người dùng không yêu cầu thay đổi.\n` +
       `- Cập nhật, thay đổi hoặc bổ sung các trường thông tin theo đúng yêu cầu mới của người dùng.\n` +
-      `- Gọi lại công cụ (tool call) phù hợp nhất (${pending.actionType} hoặc công cụ tương ứng) với các tham số đã cập nhật hoàn chỉnh để tạo yêu cầu xác nhận mới.\n` +
-      `- Nếu người dùng đổi ý sang hành động khác, hãy gọi công cụ phù hợp với ý định mới.\n\n` +
+      `- Gọi lại công cụ ${editTool} với các tham số đã cập nhật hoàn chỉnh để tạo yêu cầu xác nhận mới.\n\n` +
       `QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n` +
       `- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object.`;
 
@@ -321,10 +358,16 @@ export class TextInputService {
 
     try {
       const response = await this.zaloService.withChatAction(chatId, () =>
-        this.llmService.generate(prompt, ZALO_TOOL_DEFINITIONS, systemInstruction),
+        this.llmService.generate(prompt, selectToolDefinitions([editTool]), systemInstruction),
       );
 
       const toolCall = response.toolCall;
+      if (toolCall && toolCall.name !== editTool) {
+        this.logger.warn(
+          `[TextInputService] Edit of "${pending.code}" resolved tool "${toolCall.name}" instead of "${editTool}". Skipping.`,
+        );
+        return;
+      }
       if (toolCall) {
         this.logger.log(
           `LLM resolved updated tool "${toolCall.name}" with args: ${JSON.stringify(toolCall.args)}`,
@@ -374,6 +417,37 @@ export class TextInputService {
         `⚠️ Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu: ${(err as Error).message}`,
       );
     }
+  }
+
+  private buildPassiveSystemInstruction(
+    allowed: readonly TextToolType[],
+    dateTimeSnippet: string,
+  ): string {
+    const toolHints: Partial<Record<TextToolType, string>> = {
+      [TextToolType.RECORD_TRANSACTION]:
+        '- Thu chi ("ăn trưa 45k", "tiền lương 15tr"): gọi RECORD_TRANSACTION (type, category, amount, occurredAt, placeName, paymentMethod nếu có).',
+      [TextToolType.MANAGE_DEBT]:
+        '- Công nợ ("nợ a 100k", "cho Nam vay 200k"): gọi MANAGE_DEBT (direction receivable/payable, counterparty, amount, occurredAt, dueAt nếu có).',
+      [TextToolType.CREATE_CALENDAR_EVENT]:
+        '- Lịch hẹn ("mai 14h họp dự án"): gọi CREATE_CALENDAR_EVENT với startDateTime/endDateTime ISO 8601.',
+      [TextToolType.SET_REMINDER]:
+        '- Nhắc nhở ("15 phút nữa nhắc tắt bếp"): gọi SET_REMINDER với thời điểm ISO chính xác.',
+    };
+    const hints = allowed
+      .map((tool) => toolHints[tool])
+      .filter((hint): hint is string => Boolean(hint));
+
+    return (
+      `Bạn đang theo dõi thụ động một cuộc trò chuyện nhóm trên Zalo; không ai gọi bạn trực tiếp.\n\n` +
+      `${dateTimeSnippet}\n\n` +
+      'Chỉ gọi tool khi tin nhắn RÕ RÀNG thuộc một trong các trường hợp sau:\n' +
+      `${hints.join('\n')}\n\n` +
+      'Mọi trường hợp khác (chào hỏi, hỏi đáp, yêu cầu link, lệnh quản trị, câu mơ hồ): KHÔNG gọi tool và KHÔNG trả lời.\n\n' +
+      'QUY TẮC KHI GỌI TOOL:\n' +
+      '- Câu có nhiều hành động độc lập: gọi nhiều tool call, mỗi hành động một call.\n' +
+      '- Ngữ cảnh dùng chung (thời gian, địa điểm, phương thức thanh toán) phải điền cho tất cả tool call liên quan.\n' +
+      '- Mọi giá trị tham số PHẢI là giá trị phẳng (string, number, boolean), không lồng object.'
+    );
   }
 
   private propagateSharedTransactionContext(

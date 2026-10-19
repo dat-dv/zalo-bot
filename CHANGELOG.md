@@ -1,5 +1,12 @@
 # Changelog
 
+## [v1.0.82] - 2026-10-19
+
+- fix(zca): tin nhắn nhóm không tag bot (L2) chỉ xử lý cho user đã cấp quyền, im lặng hoàn toàn, AI chỉ nhận tool thu chi/công nợ/lịch hẹn theo cấu hình thread.
+- fix(zca): `edit <mã>` chỉ cho chủ yêu cầu hoặc user đã cấp quyền, và chỉ gọi lại đúng loại thao tác cũ; người không có quyền không thể thu hồi/xoá thẻ chờ của người khác.
+- fix(users): ID nhóm ZCA không còn bị tạo thành user "Chờ phê duyệt" — nhận biết nhóm qua cấu hình thread, `saveDriveFolderInfo` không tự tạo user, đồng bộ ZCA bỏ qua thread nhóm.
+- chore(users): thêm script `npm run users:cleanup-groups --workspace @zalobot/api` (dry-run, `--apply`) để dọn user giả có ID là nhóm.
+
 ## [v1.0.81] - 2026-10-19
 
 - Cập nhật hệ thống.

@@ -221,7 +221,7 @@ void test('ThreadConfigService registers onReady and syncs listened DB records t
 
   // Now Redis connects and triggers onReady
   isRedisReady = true;
-  await readyCallback!();
+  await readyCallback();
 
   // Group 101 should be synced to Redis, Group 102 should NOT
   assert.equal(redisMembers.has('group-101'), true);
@@ -230,3 +230,19 @@ void test('ThreadConfigService registers onReady and syncs listened DB records t
   assert.equal(await service.isThreadListened('group-102'), false);
 });
 
+void test('ThreadConfigService.isGroupThread trusts stored thread type over id prefix', async () => {
+  const mockRepo = {
+    findOneBy: ({ threadId }: { threadId: string }) =>
+      Promise.resolve(
+        threadId === '7120342145544273834'
+          ? ({ threadId, threadType: 'group', isListened: true } as ZcaThreadConfigEntity)
+          : null,
+      ),
+  } as unknown as Repository<ZcaThreadConfigEntity>;
+  const service = new ThreadConfigService(mockRepo);
+
+  assert.equal(await service.isGroupThread('7120342145544273834'), true);
+  assert.equal(await service.isGroupThread('1234567890123456789'), false);
+  assert.equal(await service.isGroupThread('g-legacy'), true);
+  assert.equal(await service.isGroupThread('group_legacy'), true);
+});

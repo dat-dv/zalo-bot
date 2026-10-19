@@ -18,6 +18,12 @@
   - Admin sources: DB `role=admin` only — first user to chat when no admin/granted user exists (`InitialAdminBootstrapGuard` → `bootstrapFirstAdmin`) or role set on the dashboard — plus the bot's own ZCA account (`zcaService.getOwnId()`, recreated as admin by `refreshMemoryCache()`). Env admin variables (`ADMIN_USER_IDS`, `ZALO_ADMIN_ID`, …) are not supported.
   - Manages invite code lifecycle (24h validity).
   - Toggles runtime access privileges (`setGrantAccess`, `banUser`). When access is revoked, existing sessions and Google tokens are suspended.
+- **User record lifecycle**:
+  - The Users module records WHO may interact with the bot. A row is created only by `registerPendingUser` (ZCA L1 direct guard), `bootstrapFirstAdmin`, or dashboard `upsertUser`/`allowUser`.
+  - `saveDriveFolderInfo` only updates an existing user; unknown ids are skipped with a warning (it previously created DENIED users, which turned group ids into fake "pending" rows).
+  - A group thread id is never a user. `syncUsersWithZca` only maps ZCA threads with `type === 'user'`.
+  - L2 passive group text checks `isGrantAccess` silently and never calls `registerPendingUser` (see zca module "Message Flows").
+- **Cleanup script** `apps/api/scripts/cleanup-group-users.ts` (`npm run users:cleanup-groups --workspace @zalobot/api [-- --apply]`): candidates = users whose id equals a `zca_thread_configs.thread_id` with `thread_type='group'`; skips admins and ids with rows in any `userId` table (`finance_*`, `debt*`, `reminders`, `user_categories`, `user_tokens`, `dashboard_exchange_tokens`). Default dry-run prints a table; `--apply` deletes in one transaction (audit subscriber logs each delete) and clears Redis `whitelist:user:<id>` when `REDIS_URL` is set.
 
 ## Account Merge (Duplicate Zalo Identities)
 

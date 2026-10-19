@@ -7,6 +7,24 @@ import type { TransactionConfirmationService } from './confirmation/transaction-
 import type { TextInputService } from '../zalo/text/text-input.service';
 import type { ZcaService } from './zca.service';
 import type { AgentInput } from '../zalo/types/agent-input.type';
+import type { UsersService } from '../users/users.service';
+import { TextToolType } from '../zalo/text/text-tool.enum';
+
+function createUsersServiceMock(options: { granted: string[] }): UsersService & {
+  registered: string[];
+} {
+  const registered: string[] = [];
+  const mock = {
+    registered,
+    isGrantAccess: (id: string) => Promise.resolve(options.granted.includes(id)),
+    checkCooldown: () => ({ allowed: true }),
+    registerPendingUser: (id: string) => {
+      registered.push(id);
+      return Promise.resolve();
+    },
+  };
+  return mock as unknown as UsersService & { registered: string[] };
+}
 
 void test('extractMediaUrl extracts url correctly from string or json or object', () => {
   assert.equal(extractMediaUrl('https://example.com/image.png'), 'https://example.com/image.png');
@@ -423,6 +441,7 @@ void test('ZcaBotFeatureService sets passiveOnly=true for group message without 
 
   const service = new ZcaBotFeatureService(configService);
   service.setTextInputService(mockTextInputService);
+  service.setUsersService(createUsersServiceMock({ granted: ['member-1'] }));
 
   const message = {
     threadId,
@@ -443,6 +462,10 @@ void test('ZcaBotFeatureService sets passiveOnly=true for group message without 
     true,
     'passiveOnly must be true so bot will not chit-chat',
   );
+  assert.deepEqual(processedInput.allowedTools, [
+    TextToolType.RECORD_TRANSACTION,
+    TextToolType.MANAGE_DEBT,
+  ]);
 });
 
 void test('ZcaBotFeatureService sets passiveOnly=false when message uses custom prefix or @bot', async () => {
@@ -1489,3 +1512,178 @@ void test('ZcaBotFeatureService dispatches pending image selections ("1", "2", "
 });
 
 
+
+async function createPassiveGroupScenario(options: {
+  threadId: string;
+  granted: string[];
+  expenseTracking?: boolean;
+  calendarExtraction?: boolean;
+}) {
+  const configService = new ThreadConfigService();
+  await configService.updateConfig(options.threadId, {
+    threadType: 'group',
+    isListened: true,
+    directInteraction: { enabled: false, requireMention: true },
+    expenseTracking: { enabled: options.expenseTracking ?? false, requireConfirm: false },
+    calendarExtraction: { enabled: options.calendarExtraction ?? false, requireConfirm: false },
+  });
+
+  const processed: AgentInput[] = [];
+  const mockTextInputService = {
+    process: (input: AgentInput) => {
+      processed.push(input);
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+
+  const sent: string[] = [];
+  const mockApi = {
+    sendMessage: (msg: string | { msg: string }) => {
+      sent.push(typeof msg === 'string' ? msg : msg.msg);
+      return Promise.resolve({ message: { msgId: 1 }, attachment: [] });
+    },
+  } as unknown as API;
+
+  const usersService = createUsersServiceMock({ granted: options.granted });
+  const service = new ZcaBotFeatureService(configService);
+  service.setTextInputService(mockTextInputService);
+  service.setUsersService(usersService);
+
+  const send = (uidFrom: string, content: string) =>
+    service.onMessage(
+      {
+        threadId: options.threadId,
+        isSelf: false,
+        type: ThreadType.Group,
+        data: { content, uidFrom, dName: 'Member', msgType: 'chat' },
+      } as unknown as Message,
+      mockApi,
+    );
+
+  return { processed, sent, usersService, send };
+}
+
+void test('ZcaBotFeatureService passive text from non-granted user is fully silent', async () => {
+  const scenario = await createPassiveGroupScenario({
+    threadId: 'group-passive-denied',
+    granted: [],
+    expenseTracking: true,
+  });
+
+  await scenario.send('stranger-1', 'ăn trưa 45k');
+
+  assert.equal(scenario.processed.length, 0, 'TextInputService must not be called');
+  assert.equal(scenario.sent.length, 0, 'Bot must not reply');
+  assert.deepEqual(scenario.usersService.registered, [], 'Must not register pending user');
+});
+
+void test('ZcaBotFeatureService passive calendar-only thread allowlists calendar tools', async () => {
+  const scenario = await createPassiveGroupScenario({
+    threadId: 'group-passive-calendar',
+    granted: ['member-1'],
+    calendarExtraction: true,
+  });
+
+  await scenario.send('member-1', 'mai 9h họp');
+
+  assert.equal(scenario.processed.length, 1);
+  assert.deepEqual(scenario.processed[0].allowedTools, [
+    TextToolType.CREATE_CALENDAR_EVENT,
+    TextToolType.SET_REMINDER,
+  ]);
+});
+
+void test('ZcaBotFeatureService passive text does nothing when no passive feature is enabled', async () => {
+  const scenario = await createPassiveGroupScenario({
+    threadId: 'group-passive-off',
+    granted: ['member-1'],
+  });
+
+  await scenario.send('member-1', 'ăn trưa 45k');
+
+  assert.equal(scenario.processed.length, 0);
+});
+
+void test('ZcaBotFeatureService backs up group media of non-granted members (L3)', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-media-non-granted';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    mediaBackup: { enabled: true, uploadImages: true },
+    expenseTracking: { enabled: true, requireConfirm: false },
+  });
+
+  let imageUploaded = false;
+  const mockMediaStorageService = {
+    uploadImage: () => {
+      imageUploaded = true;
+      return Promise.resolve({ drive: { fileId: 'backup-1' } });
+    },
+  } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
+
+  const service = new ZcaBotFeatureService(configService, mockMediaStorageService);
+  service.setUsersService(createUsersServiceMock({ granted: [] }));
+
+  await service.onMessage(
+    {
+      threadId,
+      isSelf: false,
+      type: ThreadType.Group,
+      data: {
+        content: JSON.stringify({ href: 'data:image/jpeg;base64,dGVzdA==' }),
+        uidFrom: 'stranger-1',
+        dName: 'Stranger',
+        msgType: 'chat.photo',
+      },
+    } as unknown as Message,
+    {} as unknown as API,
+  );
+
+  assert.equal(imageUploaded, true);
+});
+
+void test('ZcaBotFeatureService only lets pending owner or granted users edit a pending action', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-edit-gate';
+  await configService.updateConfig(threadId, { threadType: 'group', isListened: true });
+
+  const canEditCalls: Array<(pending: { userId: string }) => Promise<boolean>> = [];
+  const mockConfirmationService = {
+    handleReaction: () => Promise.resolve({ handled: false }),
+    handleCommand: (
+      _senderId: string,
+      _chatId: string,
+      _text: string,
+      _onEdit?: unknown,
+      canEdit?: (pending: { userId: string }) => Promise<boolean>,
+    ) => {
+      if (canEdit) canEditCalls.push(canEdit);
+      return Promise.resolve(true);
+    },
+  } as unknown as TransactionConfirmationService;
+
+  const service = new ZcaBotFeatureService(configService, mockConfirmationService);
+  service.setUsersService(createUsersServiceMock({ granted: ['granted-1'] }));
+
+  const send = (uidFrom: string) =>
+    service.onMessage(
+      {
+        threadId,
+        isSelf: false,
+        type: ThreadType.Group,
+        data: { content: 'edit 123 cho link drive', uidFrom, dName: 'X', msgType: 'chat' },
+      } as unknown as Message,
+      {} as unknown as API,
+    );
+
+  await send('stranger-1');
+  await send('granted-1');
+  await send('owner-1');
+
+  const pending = { userId: 'owner-1' };
+  assert.equal(canEditCalls.length, 3);
+  assert.equal(await canEditCalls[0](pending), false, 'non-granted stranger must be rejected');
+  assert.equal(await canEditCalls[1](pending), true, 'granted member may edit');
+  assert.equal(await canEditCalls[2](pending), true, 'pending owner may edit');
+});

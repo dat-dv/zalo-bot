@@ -26,6 +26,28 @@
     - `confirmationRules`: Reaction toggle, required hearts threshold, timeout minutes.
     - `driveFolderId`, `driveFolderUrl`, `driveFolderPath`: Channel-specific Google Drive partition (`zalobot/<channelId>`).
 
+## Message Flows (`ZcaBotFeatureService.onMessage`)
+
+Shared gates first: self-message rules (`allowSelf`, `isBotSentMessage`) and `isListened`. Responsibility split: **Users module = WHO may interact; thread config = HOW the bot behaves in a thread.**
+
+| Flow | Trigger | User access check | Behavior |
+|---|---|---|---|
+| Pending fast-path | `yes/cancel/edit <code>`, pending image replies | `yes`/`cancel`/reactions: collective (any member). `edit`: pending owner, bot account or granted user only; others ignored silently **before** the card is recalled/deleted (`handleCommand(..., canEdit)`) | `edit` re-issues only the tool of `pending.actionType`; non-tool action types (`create`, `delete`, `BAN_USER`…) cannot be edited (reply: cancel and recreate) |
+| L3 passive media | image/video/file/voice without mention, `mediaBackup` + type flag on | None — group storage, every member is backed up | Auto upload to Drive/Photos; no OCR, no LLM |
+| L1 direct | `@bot`, mention entity, `triggerPrefix`, or `directInteraction.enabled && !requireMention` | `InitialAdminBootstrapGuard` + `GrantAccessGuard` (replies with denial, `registerPendingUser`) + cooldown with reply | Full tool set; free chat per `allowAiChat` |
+| L2 passive text | text without mention, `expenseTracking` and/or `calendarExtraction` on | Silent: owner bypass, else `isGrantAccess` must be true; cooldown (2s, in-memory) drops silently. Never replies, never registers pending users | LLM sees only the allowlist; empty allowlist → no LLM call; tools outside allowlist are skipped; never free chat |
+
+- Passive allowlist (`text-tool.definitions.ts`): `expenseTracking` → `PASSIVE_EXPENSE_TOOLS` (`RECORD_TRANSACTION`, `MANAGE_DEBT`); `calendarExtraction` → `PASSIVE_CALENDAR_TOOLS` (`CREATE_CALENDAR_EVENT`, `SET_REMINDER`). Passed as `AgentInput.allowedTools` with `passiveOnly: true`.
+- Passive LLM call uses a dedicated system instruction listing only allowlisted tools and no typing indicator (`withChatAction`), so un-mentioned chat leaves no visible trace.
+- Known trade-off: L2 shares `UsersService.checkCooldown` with L1, so two expense lines within 2s lose the second one, and a passive message right before `@bot` makes L1 reply "too fast".
+
+## Group vs User Channel Detection
+
+- ZCA group ids are plain numbers (same shape as user UIDs); only legacy Bot API ids carry `g-` / `group_`.
+- `ThreadConfigService.isGroupThread(id)`: stored `threadType` from memory → Redis → DB (never creates a config); fallback `hasLegacyGroupPrefix(id)` only when nothing is stored.
+- Drive folder persistence (`GET_STORAGE_LINKS`, `SHARE_DRIVE`, `google-resources.controller` share/folder-link): group → `ThreadConfigService.saveDriveFolderInfo` only; user → `UsersService.saveDriveFolderInfo` only.
+- `createDefaultThreadConfig`, `saveDriveFolderInfo`/`savePhotosAlbumInfo` (new entity) and `ZcaService.resolveThreadType` use the same rule.
+
 ## Web UI (`ZcaScreen` & `ThreadConfigModal`)
 
 - **Screen (`apps/web/src/modules/zca/view/zca-screen.tsx`)**:

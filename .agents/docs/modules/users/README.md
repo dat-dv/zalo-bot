@@ -27,6 +27,29 @@ Module `apps/api/src/users` và `apps/web/src/modules/users` quản lý danh sá
   - Admin chỉ lấy từ DB (`role = admin`): người đầu tiên chat với bot khi hệ thống chưa có admin hoặc người được cấp quyền nào (`bootstrapFirstAdmin`), hoặc người được set trên dashboard. Ngoài ra tài khoản ZCA của chính bot luôn là admin. **Không còn** cấu hình admin qua biến môi trường (`ADMIN_USER_IDS`, `ZALO_ADMIN_ID`…).
   - Cấm hoặc thu hồi quyền truy cập (`banUser`, `setGrantAccess`).
 
+## 1a. Khi Nào Một User Được Tạo & Dọn User Giả Là Nhóm
+
+Module Users chỉ ghi nhận **ai được tương tác với bot**. Một dòng user chỉ được tạo qua ba đường:
+- `registerPendingUser`: người nhắn bot trực tiếp (L1) lần đầu, vào trạng thái chờ duyệt.
+- `bootstrapFirstAdmin`: người đầu tiên khi hệ thống chưa có admin.
+- Admin thêm trên dashboard.
+
+Các quy tắc đi kèm:
+- `saveDriveFolderInfo` **không còn tự tạo user**. Nếu ID chưa tồn tại, hàm ghi log cảnh báo rồi bỏ qua. Trước đây hàm này tạo user `DENIED` cho bất kỳ ID nào, nên khi bot lưu link Drive của một nhóm ZCA (ID dạng số) thì nhóm đó hiện ở trang Users như một người "Chờ phê duyệt".
+- ID nhóm không bao giờ là user. `syncUsersWithZca` chỉ lấy thread `type = 'user'`, nên không còn chép tên nhóm vào `firstName`.
+- Tin nhắn thụ động (L2) trong nhóm chỉ kiểm tra quyền im lặng, không ghi nhận user chờ duyệt (xem tài liệu module ZCA, mục "Ba luồng xử lý tin nhắn").
+
+**Dọn dữ liệu đã lỡ sinh ra** — script `apps/api/scripts/cleanup-group-users.ts`:
+
+```bash
+npm run users:cleanup-groups --workspace @zalobot/api
+```
+
+- Mặc định chạy **dry-run**: in bảng các user có ID trùng với thread nhóm trong `zca_thread_configs`, cột `action` cho biết `DELETE` hay `SKIP (lý do)`.
+- Script tự bỏ qua admin và mọi ID đã có dữ liệu thật (giao dịch, nơi chốn, công nợ, nhắc nhở, danh mục, token Google, token dashboard). Những dòng này anh xem tay, không tự xoá.
+- Sau khi kiểm tra bảng, chạy lại với `-- --apply`. Script xoá trong một transaction (audit log ghi lại từng dòng xoá) và xoá cache Redis `whitelist:user:<id>` nếu có `REDIS_URL`.
+- Cần Postgres (`DATABASE_URL` trong `.env.local`/`.env`) đang chạy.
+
 ## 2. Gộp Tài Khoản Trùng (Merge)
 
 ### Vì sao có tài khoản trùng?

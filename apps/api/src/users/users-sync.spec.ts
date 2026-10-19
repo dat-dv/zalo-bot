@@ -126,3 +126,30 @@ void test('UsersService.isAdmin trusts ownId and DB roles, never env admin varia
 
   delete process.env.ZALO_ADMIN_ID;
 });
+
+void test('UsersService.syncUsersWithZca never copies group thread names onto users', async () => {
+  const users: UserEntity[] = [
+    { id: '7120342145544273834', firstName: '', role: 'user', grantAccess: 0 } as UserEntity,
+  ];
+  const savedUsers: UserEntity[] = [];
+  const mockRepo = {
+    find: () => Promise.resolve(users),
+    save: (entity: UserEntity) => {
+      savedUsers.push(entity);
+      return Promise.resolve(entity);
+    },
+  } as unknown as Repository<UserEntity>;
+
+  const mockZcaService = {
+    getAvailableThreads: () =>
+      Promise.resolve([
+        { id: '7120342145544273834', name: 'Nhóm Gia Đình', type: 'group', isListened: true },
+      ]),
+  } as unknown as ZcaService;
+
+  const service = new UsersService(mockRepo, undefined, mockZcaService);
+  const result = await service.syncUsersWithZca();
+
+  assert.equal(result.syncedCount, 0);
+  assert.equal(savedUsers.length, 0);
+});

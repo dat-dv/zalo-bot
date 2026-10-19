@@ -1,6 +1,6 @@
 {
   "name": "@zalobot/api",
-  "version": "1.0.81",
+  "version": "1.0.82",
   "description": "Personal Assistant Zalo Bot with NestJS and Google Workspace",
   "author": "",
   "private": true,
@@ -20,6 +20,7 @@
     "start:prod": "node dist/main.js",
     "auth": "tsx scripts/auth.ts",
     "zca:login": "tsx scripts/zca-login.ts",
+    "users:cleanup-groups": "tsx scripts/cleanup-group-users.ts",
     "zalo:webhook:status": "tsx scripts/zalo-webhook.ts status",
     "zalo:webhook:set": "tsx scripts/zalo-webhook.ts set",
     "zalo:webhook:test": "tsx scripts/zalo-webhook.ts test",

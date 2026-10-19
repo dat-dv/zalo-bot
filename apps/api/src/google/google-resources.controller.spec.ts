@@ -10,6 +10,7 @@ import { GoogleAuthService } from './google-auth.service';
 import { GoogleDriveService } from './google-drive.service';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import type { ThreadConfigService } from '../zca/thread-config.service';
+import type { UsersService } from '../users/users.service';
 
 function createMockRequest(userId = 'test-user'): Request {
   return {
@@ -410,4 +411,46 @@ void test('GoogleResourcesController openDriveFolder redirects to channel folder
 
   await controller.openDriveFolder(mockRes, 'g-redirect-channel');
   assert.equal(redirectedUrl, 'https://drive.mock/zalobot/g-redirect-channel');
+});
+
+void test('GoogleResourcesController shareDrive stores numeric ZCA group folder on thread config only', async () => {
+  const mockDrive = {
+    getFolderWebLink: () => Promise.resolve('https://drive.mock/zalobot/7120342145544273834'),
+    shareFolderWithUser: (_folder: string, email: string) =>
+      Promise.resolve({ fileId: 'f1', permissionId: 'p1', emailAddress: email, role: 'reader' }),
+  } as unknown as GoogleDriveService;
+
+  const savedThreadIds: string[] = [];
+  const savedUserIds: string[] = [];
+  const mockThreadConfig = {
+    isGroupThread: (id: string) => Promise.resolve(id === '7120342145544273834'),
+    saveDriveFolderInfo: (id: string) => {
+      savedThreadIds.push(id);
+      return Promise.resolve();
+    },
+  } as unknown as ThreadConfigService;
+  const mockUsers = {
+    saveDriveFolderInfo: (id: string) => {
+      savedUserIds.push(id);
+      return Promise.resolve();
+    },
+  } as unknown as UsersService;
+
+  const controller = new GoogleResourcesController(
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as GoogleTasksService,
+    {} as unknown as ReportsTokenService,
+    {
+      isSharedAuthorized: () => true,
+      hasStorageScopes: () => true,
+    } as unknown as GoogleAuthService,
+    mockDrive,
+    undefined,
+    mockUsers,
+    mockThreadConfig,
+  );
+
+  await controller.shareDrive({ channelId: '7120342145544273834', email: 'test@gmail.com' });
+  assert.deepEqual(savedThreadIds, ['7120342145544273834']);
+  assert.deepEqual(savedUserIds, []);
 });

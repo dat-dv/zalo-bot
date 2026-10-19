@@ -61,3 +61,25 @@ void test('ThreadConfigService.saveDriveFolderInfo updates drive folder fields f
   assert.equal(savedEntity.driveFolderUrl, 'https://drive.google.com/folder_xyz');
   assert.equal(savedEntity.driveFolderPath, 'zalobot/g-thread-123');
 });
+
+void test('UsersService.saveDriveFolderInfo never creates a user for unknown ids (e.g. group ids)', async () => {
+  let saveCalled = false;
+  const mockRepo = {
+    findOne: () => Promise.resolve(null),
+    create: () => {
+      throw new Error('create must not be called');
+    },
+    save: () => {
+      saveCalled = true;
+      return Promise.resolve();
+    },
+  } as unknown as Repository<UserEntity>;
+
+  const service = new UsersService(mockRepo);
+  await service.saveDriveFolderInfo('7120342145544273834', {
+    folderUrl: 'https://drive.google.com/x',
+    folderPath: 'zalobot/7120342145544273834',
+  });
+
+  assert.equal(saveCalled, false);
+});

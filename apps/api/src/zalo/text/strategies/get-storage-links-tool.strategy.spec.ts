@@ -5,6 +5,7 @@ import type { ZaloService } from '../../zalo.service';
 import type { GoogleAuthService } from '../../../google/google-auth.service';
 import type { GoogleDriveService } from '../../../google/google-drive.service';
 import type { ThreadConfigService } from '../../../zca/thread-config.service';
+import type { UsersService } from '../../../users/users.service';
 import type { AgentInput } from '../../types/agent-input.type';
 
 void test('GetStorageLinksToolStrategy outputs channel-specific links and permission help prompt', async () => {
@@ -27,6 +28,7 @@ void test('GetStorageLinksToolStrategy outputs channel-specific links and permis
 
   let savedThreadFolder: Record<string, unknown> | null = null;
   const mockThreadConfig = {
+    isGroupThread: (threadId: string) => Promise.resolve(threadId.startsWith('g-')),
     saveDriveFolderInfo: (threadId: string, info: Record<string, unknown>) => {
       savedThreadFolder = { threadId, ...info };
       return Promise.resolve();
@@ -126,4 +128,53 @@ void test('GetStorageLinksToolStrategy schedules auto-recall after 5 minutes and
 
   // After delay expires, main message should be recalled
   assert.ok(undoneMessages.some((m) => m.msgId === 'main-msg-2'));
+});
+
+void test('GetStorageLinksToolStrategy saves numeric ZCA group folder on thread config, never on users', async () => {
+  const mockZaloService = {
+    sendMessage: () => Promise.resolve(),
+  } as unknown as ZaloService;
+  const mockGoogleAuth = {
+    isSharedAuthorized: () => true,
+    hasStorageScopes: () => true,
+  } as unknown as GoogleAuthService;
+  const mockDrive = {
+    getFolderWebLink: (path: string) => Promise.resolve(`https://drive.mock/${path}`),
+  } as unknown as GoogleDriveService;
+
+  const savedThreadIds: string[] = [];
+  const savedUserIds: string[] = [];
+  const mockThreadConfig = {
+    isGroupThread: (threadId: string) => Promise.resolve(threadId === '7120342145544273834'),
+    saveDriveFolderInfo: (threadId: string) => {
+      savedThreadIds.push(threadId);
+      return Promise.resolve();
+    },
+  } as unknown as ThreadConfigService;
+  const mockUsers = {
+    saveDriveFolderInfo: (userId: string) => {
+      savedUserIds.push(userId);
+      return Promise.resolve();
+    },
+  } as unknown as UsersService;
+
+  const strategy = new GetStorageLinksToolStrategy(
+    mockZaloService,
+    mockGoogleAuth,
+    mockDrive,
+    undefined,
+    mockUsers,
+    mockThreadConfig,
+  );
+
+  await strategy.execute({
+    chatId: '7120342145544273834',
+    senderId: 'user-1',
+    displayName: 'Dat Doan',
+    text: '/drive',
+    input: {} as unknown as AgentInput,
+  });
+
+  assert.deepEqual(savedThreadIds, ['7120342145544273834']);
+  assert.deepEqual(savedUserIds, []);
 });

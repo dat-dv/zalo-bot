@@ -1324,3 +1324,37 @@ void test('Multi-card confirmation flow cleans up all temporary cards and interi
 
   service.clearAll();
 });
+
+void test('TransactionConfirmationService keeps pending intact when canEdit rejects the sender', async () => {
+  const { service, sentMessages } = createTestContext();
+
+  const pending = await service.createPending({
+    userId: 'owner-1',
+    chatId: 'g1',
+    payload: {
+      userId: 'owner-1',
+      type: 'expense',
+      amount: 45000,
+      category: 'Ăn uống',
+      note: 'ăn trưa',
+    },
+  });
+  const sentBefore = sentMessages.length;
+
+  let onEditCalled = false;
+  const handled = await service.handleCommand(
+    'stranger-1',
+    'g1',
+    `edit ${pending.code} cho link drive`,
+    () => {
+      onEditCalled = true;
+      return Promise.resolve();
+    },
+    () => Promise.resolve(false),
+  );
+
+  assert.equal(handled, true);
+  assert.equal(onEditCalled, false);
+  assert.equal(sentMessages.length, sentBefore, 'Rejected edit must stay silent');
+  assert.ok(await service.getPendingByCode(pending.code), 'Pending must not be deleted');
+});

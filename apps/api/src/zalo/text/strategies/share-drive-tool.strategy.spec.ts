@@ -80,6 +80,7 @@ void test('ShareDriveToolStrategy shares channel folder with valid email', async
 
   let savedFolderInfo: Record<string, unknown> | null = null;
   const mockThreadConfig = {
+    isGroupThread: (threadId: string) => Promise.resolve(threadId.startsWith('g-')),
     saveDriveFolderInfo: (threadId: string, info: Record<string, unknown>) => {
       savedFolderInfo = { threadId, ...info };
       return Promise.resolve();

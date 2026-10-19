@@ -5,7 +5,7 @@ import { ZaloService } from '../../zalo.service';
 import { GoogleDriveService, GG_DRIVE_ROOT_FOLDER } from '../../../google/google-drive.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
 import { UsersService } from '../../../users/users.service';
-import { ThreadConfigService } from '../../../zca/thread-config.service';
+import { ThreadConfigService, hasLegacyGroupPrefix } from '../../../zca/thread-config.service';
 import { buildChannelFolder, isValidEmail } from '../../../google/channel-storage.util';
 
 @Injectable()
@@ -70,15 +70,17 @@ export class ShareDriveToolStrategy implements TextToolStrategy {
 
       // Lưu thông tin đường dẫn vào database để tra cứu sau này
       if (webViewLink) {
-        const isGroup = context.chatId.startsWith('g-') || context.chatId.startsWith('group_');
-        if (isGroup && this.threadConfigService) {
-          void this.threadConfigService.saveDriveFolderInfo(context.chatId, {
+        const isGroup = this.threadConfigService
+          ? await this.threadConfigService.isGroupThread(context.chatId)
+          : hasLegacyGroupPrefix(context.chatId);
+        if (isGroup) {
+          void this.threadConfigService?.saveDriveFolderInfo(context.chatId, {
             folderId: res.fileId,
             folderUrl: webViewLink,
             folderPath: channelDrivePath,
           });
-        } else if (this.usersService) {
-          void this.usersService.saveDriveFolderInfo(context.chatId, {
+        } else {
+          void this.usersService?.saveDriveFolderInfo(context.chatId, {
             folderId: res.fileId,
             folderUrl: webViewLink,
             folderPath: channelDrivePath,

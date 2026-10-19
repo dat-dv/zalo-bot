@@ -131,10 +131,12 @@ function createTextInputService(options?: SetupOptions) {
   let llmCallCount = 0;
   let lastLlmPrompt = '';
   let lastLlmInstruction = '';
+  let lastLlmToolNames: string[] = [];
   const mockLlmService = {
-    generate: (prompt: string, _tools?: unknown, systemInstruction?: string) => {
+    generate: (prompt: string, tools?: Array<{ name: string }>, systemInstruction?: string) => {
       llmCallCount++;
       lastLlmPrompt = prompt;
+      lastLlmToolNames = (tools ?? []).map((t) => t.name);
       lastLlmInstruction = systemInstruction || '';
       return Promise.resolve(
         options?.llmResponse || {
@@ -220,6 +222,7 @@ function createTextInputService(options?: SetupOptions) {
     getLlmCallCount: () => llmCallCount,
     getLastLlmPrompt: () => lastLlmPrompt,
     getLastLlmInstruction: () => lastLlmInstruction,
+    getLastLlmToolNames: () => lastLlmToolNames,
   };
 }
 
@@ -974,6 +977,7 @@ void test('TextInputService executes tool when passiveOnly=true and LLM calls RE
     displayName: 'Thành viên',
     text: 'ăn phở 45k',
     passiveOnly: true,
+    allowedTools: [TextToolType.RECORD_TRANSACTION, TextToolType.MANAGE_DEBT],
   });
 
   assert.equal(sentMessages.length, 1, 'Bot must process expense tool in passive mode');
@@ -1154,6 +1158,124 @@ void test('TextInputService does NOT propagate placeName across different timest
   assert.match(sentMessages[0].text, /quán cô Tư/);
   // Transaction 2 should have (trống) for placeName, not quán cô Tư
   assert.match(sentMessages[1].text, /Địa điểm: \(trống\)/);
+
+  confirmationService.clearAll();
+});
+
+void test('TextInputService skips LLM in passive mode when no tool is allowlisted', async () => {
+  const { service, sentMessages, getLlmCallCount } = createTextInputService();
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'g1',
+    displayName: 'Thành viên',
+    text: 'ăn trưa 45k',
+    passiveOnly: true,
+    allowedTools: [],
+  });
+
+  assert.equal(getLlmCallCount(), 0);
+  assert.equal(sentMessages.length, 0);
+});
+
+void test('TextInputService passes only allowlisted tool definitions to LLM in passive mode', async () => {
+  const { service, getLastLlmToolNames } = createTextInputService();
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'g1',
+    displayName: 'Thành viên',
+    text: 'ăn trưa 45k',
+    passiveOnly: true,
+    allowedTools: [TextToolType.RECORD_TRANSACTION],
+  });
+
+  assert.deepEqual(getLastLlmToolNames(), [TextToolType.RECORD_TRANSACTION]);
+});
+
+void test('TextInputService ignores tool outside passive allowlist', async () => {
+  const { service, sentMessages } = createTextInputService({
+    llmResponse: {
+      toolCall: { name: TextToolType.GET_REPORT, args: {} },
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'g1',
+    displayName: 'Thành viên',
+    text: '@drive',
+    passiveOnly: true,
+    allowedTools: [TextToolType.RECORD_TRANSACTION, TextToolType.MANAGE_DEBT],
+  });
+
+  assert.equal(sentMessages.length, 0, 'Tool outside allowlist must not execute');
+});
+
+void test('TextInputService passes full tool definitions in direct mode', async () => {
+  const { service, getLastLlmToolNames } = createTextInputService();
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'User',
+    text: 'link drive ở đâu',
+  });
+
+  assert.ok(getLastLlmToolNames().includes(TextToolType.GET_STORAGE_LINKS));
+  assert.ok(getLastLlmToolNames().length > 4);
+});
+
+void test('TextInputService edit only exposes the pending action tool and ignores other tools', async () => {
+  const { service, sentMessages, confirmationService, getLastLlmToolNames } =
+    createTextInputService({
+      llmResponse: {
+        toolCall: { name: TextToolType.GET_REPORT, args: {} },
+      },
+    });
+
+  const pending = await confirmationService.createPending({
+    userId: 'u1',
+    chatId: 'g1',
+    rawPrompt: 'ăn trưa 45k',
+    payload: { userId: 'u1', type: 'expense', amount: 45000, category: 'Ăn uống', note: 'ăn trưa' },
+  });
+  assert.equal(sentMessages.length, 1);
+
+  await service.handleEditPendingAction(
+    { type: 'text', senderId: 'u2', chatId: 'g1', displayName: 'Khách', text: '' },
+    pending,
+    'cho link drive',
+  );
+
+  assert.deepEqual(getLastLlmToolNames(), [TextToolType.RECORD_TRANSACTION]);
+  assert.equal(sentMessages.length, 1, 'Tool other than the pending action type must not run');
+
+  confirmationService.clearAll();
+});
+
+void test('TextInputService edit refuses pending actions without a matching tool', async () => {
+  const { service, sentMessages, confirmationService, getLlmCallCount } = createTextInputService();
+
+  const pending = await confirmationService.createPending({
+    userId: 'u1',
+    chatId: 'g1',
+    payload: { userId: 'u1', type: 'expense', amount: 45000, category: 'Ăn uống', note: 'ăn trưa' },
+  });
+  const callsBefore = getLlmCallCount();
+
+  await service.handleEditPendingAction(
+    { type: 'text', senderId: 'u1', chatId: 'g1', displayName: 'Đạt', text: '' },
+    { ...pending, actionType: 'create' },
+    'đổi thành 50k',
+  );
+
+  assert.equal(getLlmCallCount(), callsBefore);
+  assert.match(sentMessages[sentMessages.length - 1].text, /không hỗ trợ chỉnh sửa/);
 
   confirmationService.clearAll();
 });

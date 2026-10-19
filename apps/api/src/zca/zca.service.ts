@@ -12,7 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
 import type { ZaloService } from '../zalo/zalo.service';
-import { ThreadConfigService } from './thread-config.service';
+import { ThreadConfigService, hasLegacyGroupPrefix } from './thread-config.service';
 import { ZcaBotFeatureService } from './zca-bot-feature.service';
 import { RedisService } from '../redis/redis.service';
 import {
@@ -540,7 +540,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       return type;
     }
     const config = this.threadConfigService?.getConfigSync?.(strId);
-    if (config?.threadType === 'group' || strId.startsWith('g-')) {
+    if (config?.threadType === 'group' || hasLegacyGroupPrefix(strId)) {
       return ThreadType.Group;
     }
     return ThreadType.User;

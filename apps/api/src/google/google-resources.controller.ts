@@ -31,7 +31,11 @@ import { GoogleAuthService } from './google-auth.service';
 import { GooglePhotosService } from './google-photos.service';
 import { GoogleDriveService, GG_DRIVE_ROOT_FOLDER } from './google-drive.service';
 import { UsersService } from '../users/users.service';
-import { ThreadConfigService, sanitizePathSegment } from '../zca/thread-config.service';
+import {
+  ThreadConfigService,
+  hasLegacyGroupPrefix,
+  sanitizePathSegment,
+} from '../zca/thread-config.service';
 import { ShareDriveDto } from './dto/share-drive.dto';
 import { getChannelDriveFolderPath, isValidEmail } from './channel-storage.util';
 
@@ -74,22 +78,11 @@ export class GoogleResourcesController {
     }
 
     try {
-      const folderId = shareResult.fileId;
-      if (body.channelId.startsWith('g-') || body.channelId.length > 10) {
-        if (this.threadConfigService) {
-          await this.threadConfigService.saveDriveFolderInfo(body.channelId, {
-            folderId,
-            folderUrl: webViewLink,
-            folderPath,
-          });
-        }
-      }
-      if (this.usersService) {
-        await this.usersService.saveDriveFolderInfo(body.channelId, {
-          folderId,
-          folderUrl: webViewLink,
-          folderPath,
-        });
+      const folderInfo = { folderId: shareResult.fileId, folderUrl: webViewLink, folderPath };
+      if (await this.isGroupChannel(body.channelId)) {
+        await this.threadConfigService?.saveDriveFolderInfo(body.channelId, folderInfo);
+      } else {
+        await this.usersService?.saveDriveFolderInfo(body.channelId, folderInfo);
       }
     } catch (err) {
       this.logger.warn(
@@ -159,17 +152,11 @@ export class GoogleResourcesController {
     try {
       const webViewLink = await this.driveService.getFolderWebLink(folderPath);
       if (channelId && webViewLink) {
-        if (this.threadConfigService?.saveDriveFolderInfo) {
-          void this.threadConfigService.saveDriveFolderInfo(channelId, {
-            folderUrl: webViewLink,
-            folderPath,
-          });
-        }
-        if (this.usersService?.saveDriveFolderInfo) {
-          void this.usersService.saveDriveFolderInfo(channelId, {
-            folderUrl: webViewLink,
-            folderPath,
-          });
+        const folderInfo = { folderUrl: webViewLink, folderPath };
+        if (await this.isGroupChannel(channelId)) {
+          void this.threadConfigService?.saveDriveFolderInfo?.(channelId, folderInfo);
+        } else {
+          void this.usersService?.saveDriveFolderInfo?.(channelId, folderInfo);
         }
       }
       return {
@@ -593,5 +580,13 @@ export class GoogleResourcesController {
   private status(value: unknown): 'needsAction' | 'completed' {
     if (value === 'needsAction' || value === 'completed') return value;
     throw new BadRequestException('status is invalid.');
+  }
+
+  /** Group folders live on the thread config; only 1-1 channels map to a user record. */
+  private async isGroupChannel(channelId: string): Promise<boolean> {
+    if (typeof this.threadConfigService?.isGroupThread === 'function') {
+      return this.threadConfigService.isGroupThread(channelId);
+    }
+    return hasLegacyGroupPrefix(channelId);
   }
 }

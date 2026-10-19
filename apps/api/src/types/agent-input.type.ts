@@ -1,3 +1,5 @@
+import type { TextToolType } from '../zalo/text/text-tool.enum';
+
 export type AgentInputType =
   'text' | 'image' | 'video' | 'voice' | 'sticker' | 'event' | 'unsupported';
 
@@ -22,6 +24,8 @@ export interface AgentInput {
   toolArgs?: Record<string, unknown>;
   /** Khi ở chế độ thụ động trong nhóm (không gọi @bot/prefix trực tiếp): chỉ xử lý tool call, tuyệt đối không phản hồi chit-chat */
   passiveOnly?: boolean;
+  /** Chỉ dùng khi `passiveOnly`: danh sách tool LLM được phép gọi. Rỗng/không đặt → không gọi LLM. */
+  allowedTools?: readonly TextToolType[];
   /** Cho phép AI trò chuyện tự do (Chit-chat). Mặc định là true nếu không đặt. */
   allowAiChat?: boolean;
   /** Tiền tố gọi bot tùy chọn (ví dụ: "!", "/") để hỗ trợ cắt tỉa tiền tố trước khi đưa vào LLM */

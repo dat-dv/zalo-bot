@@ -892,6 +892,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     chatId: string,
     text: string,
     onEdit?: (pending: PendingAction, instruction: string) => Promise<void>,
+    canEdit?: (pending: PendingAction) => Promise<boolean>,
   ): Promise<boolean> {
     const trimmed = text.trim();
     if (!trimmed) return false;
@@ -954,7 +955,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         }
       }
 
-      const handled = await this.processEdit(userId, chatId, code, instruction, onEdit);
+      const handled = await this.processEdit(userId, chatId, code, instruction, onEdit, canEdit);
       if (handled) {
         return true;
       }
@@ -969,6 +970,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     code?: string,
     instruction?: string,
     onEdit?: (pending: PendingAction, instruction: string) => Promise<void>,
+    canEdit?: (pending: PendingAction) => Promise<boolean>,
   ): Promise<boolean> {
     let pending: PendingAction | undefined;
 
@@ -993,6 +995,14 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       if (!pending) {
         return false;
       }
+    }
+
+    // Checked before any recall/delete so an unauthorized sender cannot destroy someone else's card.
+    if (canEdit && !(await canEdit(pending))) {
+      this.logger.debug(
+        `Edit of pending "${pending.code}" by ${userId} in ${chatId} rejected silently (no access).`,
+      );
+      return true;
     }
 
     if (Date.now() > pending.expiresAt) {

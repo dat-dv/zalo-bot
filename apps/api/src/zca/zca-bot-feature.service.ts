@@ -41,6 +41,8 @@ import type { PendingImageActionDispatcher } from './pending-image/pending-image
 import type { ImageBatchHandler } from './pending-image/image-batch-handler.service';
 import type { OcrService } from '../ocr/ocr.service';
 import { cleanBotMention } from '../zalo/text/bot-mention.util';
+import { TextToolType } from '../zalo/text/text-tool.enum';
+import { PASSIVE_CALENDAR_TOOLS, PASSIVE_EXPENSE_TOOLS } from '../zalo/text/text-tool.definitions';
 
 function formatErrorMessage(err: unknown): string {
   if (err instanceof Error) {
@@ -596,6 +598,65 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     }
   }
 
+  /** Tools an un-mentioned (passive) text may trigger, derived from the thread's feature flags. */
+  private resolvePassiveAllowedTools(config: ThreadBotConfig): TextToolType[] {
+    const allowed: TextToolType[] = [];
+    if (config.expenseTracking.enabled) allowed.push(...PASSIVE_EXPENSE_TOOLS);
+    if (config.calendarExtraction.enabled) allowed.push(...PASSIVE_CALENDAR_TOOLS);
+    return allowed;
+  }
+
+  /**
+   * Access check for passive (L2) text. Unlike direct guards it never replies, never registers a
+   * pending user and never bootstraps an admin: a member chatting in a tracked group without
+   * mentioning the bot must not trigger any visible reaction.
+   */
+  private async checkPassiveGuards(senderId: string, isOwner: boolean): Promise<boolean> {
+    if (isOwner) return true;
+    if (!this.usersService) return false;
+
+    const isGranted = await this.usersService.isGrantAccess(senderId);
+    if (!isGranted) {
+      this.logger.debug(`[ZcaBotFeature] Passive text from non-granted user ${senderId} ignored.`);
+      return false;
+    }
+
+    if (typeof this.usersService.checkCooldown === 'function') {
+      const cooldown = this.usersService.checkCooldown(senderId);
+      if (!cooldown.allowed) {
+        this.logger.debug(`[ZcaBotFeature] Passive text from ${senderId} dropped by cooldown.`);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private isOwnerSender(message: Message, api: API): boolean {
+    const ownId = typeof api?.getOwnId === 'function' ? api.getOwnId() : '';
+    const senderId = message.data?.uidFrom || '';
+    return Boolean(message.isSelf || (ownId && ownId === senderId));
+  }
+
+  /** `edit <code>` is allowed for the pending owner, the bot account, or any granted user. */
+  private async canEditPending(
+    pending: { userId: string },
+    senderId: string,
+    isOwner: boolean,
+  ): Promise<boolean> {
+    if (isOwner || pending.userId === senderId) return true;
+    return Boolean(await this.usersService?.isGrantAccess(senderId));
+  }
+
+  /**
+   * Message flows after the shared gates (self-message rules, listened thread):
+   * - Pending fast-paths: `yes/cancel/edit <code>` and pending image replies. `edit` is limited to
+   *   the pending owner or granted users and only re-issues the same tool.
+   * - L3 passive media: auto backup per `mediaBackup`, for every member (no user access check).
+   * - L1 direct (`@bot`, mention, prefix, or `requireMention=false`): direct guards with replies,
+   *   full tool set, AI chat per `allowAiChat`.
+   * - L2 passive text: silent access check (granted users only), LLM restricted to the
+   *   `expenseTracking` / `calendarExtraction` allowlist, never free chat.
+   */
   public async onMessage(message: Message, api: API): Promise<void> {
     const threadId = message.threadId;
     const config: ThreadBotConfig = await this.threadConfigService.getConfig(threadId);
@@ -654,6 +715,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
               await this.textInputService.handleEditPendingAction(agentInput, pending, instruction);
             }
           : undefined,
+        (pending) => this.canEditPending(pending, senderId, this.isOwnerSender(message, api)),
       );
       if (handled) {
         this.logger.log(
@@ -1096,26 +1158,14 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
 
     // 8. Text Message Processing
     if (text && this.textInputService) {
-      // Check if all text features are disabled
-      if (
-        !directConfig.enabled &&
-        !isDirectTriggered &&
-        !config.expenseTracking.enabled &&
-        !config.calendarExtraction.enabled
-      ) {
-        return;
-      }
-
-      // If not direct-triggered, only proceed if passive tracking is enabled
-      if (
-        !isDirectTriggered &&
-        !config.expenseTracking.enabled &&
-        !config.calendarExtraction.enabled
-      ) {
-        return;
-      }
-
-      if (isDirectTriggered) {
+      let passiveAllowedTools: TextToolType[] | undefined;
+      if (!isDirectTriggered) {
+        // L2 passive text: only the allowlisted extraction tools, only for granted users.
+        passiveAllowedTools = this.resolvePassiveAllowedTools(config);
+        if (passiveAllowedTools.length === 0) return;
+        const allowed = await this.checkPassiveGuards(senderId, this.isOwnerSender(message, api));
+        if (!allowed) return;
+      } else {
         const allowed = await this.checkDirectGuardsAndCooldown(
           senderId,
           displayName,
@@ -1136,6 +1186,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         text,
         isBot: false,
         passiveOnly: !isDirectTriggered,
+        allowedTools: passiveAllowedTools,
         allowAiChat: directConfig.allowAiChat ?? true,
         triggerPrefix: directConfig.triggerPrefix || undefined,
       };

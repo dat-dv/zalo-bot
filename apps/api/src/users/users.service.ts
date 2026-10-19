@@ -495,7 +495,8 @@ export class UsersService implements OnModuleInit {
 
     const threadMap = new Map<string, AvailableThread>();
     for (const t of threads) {
-      threadMap.set(t.id, t);
+      // Group threads never map to a user record.
+      if (t.type === 'user') threadMap.set(t.id, t);
     }
 
     const users = await this.userRepo.find();
@@ -587,13 +588,12 @@ export class UsersService implements OnModuleInit {
   ): Promise<void> {
     try {
       const strId = userId.toString();
-      let user = await this.userRepo.findOne({ where: { id: strId } });
+      // Users are only created by explicit flows (pending registration, admin bootstrap, dashboard).
+      // Creating one here turned group ids into fake "pending" users.
+      const user = await this.userRepo.findOne({ where: { id: strId } });
       if (!user) {
-        user = this.userRepo.create({
-          id: strId,
-          role: UserRole.USER,
-          grantAccess: GrantAccessStatus.DENIED,
-        });
+        this.logger.warn(`Skip saving Drive folder info: user ${strId} does not exist.`);
+        return;
       }
       if (folderInfo.folderId !== undefined) user.driveFolderId = folderInfo.folderId;
       if (folderInfo.folderUrl !== undefined) user.driveFolderUrl = folderInfo.folderUrl;

@@ -23,6 +23,14 @@ export function sanitizePathSegment(val: string): string {
     .toLowerCase();
 }
 
+/**
+ * Legacy Bot API group ids carry a `g-`/`group_` prefix. ZCA group ids are plain numbers, so this
+ * is only a last-resort fallback after the stored thread config (see `isGroupThread`).
+ */
+export function hasLegacyGroupPrefix(threadId: string): boolean {
+  return threadId.startsWith('g-') || threadId.startsWith('group_');
+}
+
 export function createDefaultThreadConfig(
   threadId: string,
   params?: {
@@ -31,7 +39,7 @@ export function createDefaultThreadConfig(
     isListened?: boolean;
   },
 ): ThreadBotConfig {
-  const isGroup = params?.threadType === 'group' || threadId.startsWith('g-');
+  const isGroup = params?.threadType === 'group' || hasLegacyGroupPrefix(threadId);
   const safeName = params?.threadName ? sanitizePathSegment(params.threadName) : threadId;
 
   return {
@@ -340,6 +348,43 @@ export class ThreadConfigService implements OnModuleInit {
     return ids;
   }
 
+  /**
+   * Whether a channel id is a group chat. Trusts the stored thread config (memory → Redis → DB)
+   * and never creates a config; falls back to the legacy id prefix only when nothing is stored.
+   */
+  public async isGroupThread(threadId: string): Promise<boolean> {
+    const id = String(threadId).trim();
+    if (!id) return false;
+
+    const cached = this.configsMap.get(id);
+    if (cached) return cached.threadType === 'group';
+
+    if (this.redisService?.isReady) {
+      try {
+        const cachedRaw = await this.redisService.get(`${REDIS_KEY_THREAD_CONFIG_PREFIX}${id}`);
+        if (cachedRaw) {
+          const parsed: unknown = JSON.parse(cachedRaw);
+          if (parsed && typeof parsed === 'object' && 'threadType' in parsed) {
+            return parsed.threadType === 'group';
+          }
+        }
+      } catch {
+        // Continue to DB check
+      }
+    }
+
+    if (this.threadConfigRepo && typeof this.threadConfigRepo.findOneBy === 'function') {
+      try {
+        const entity = await this.threadConfigRepo.findOneBy({ threadId: id });
+        if (entity) return entity.threadType === 'group';
+      } catch {
+        // Continue to legacy fallback
+      }
+    }
+
+    return hasLegacyGroupPrefix(id);
+  }
+
   public async isThreadListened(threadId: string): Promise<boolean> {
     const id = String(threadId).trim();
     if (!id || id === 'thread-123') return false;
@@ -583,7 +628,7 @@ export class ThreadConfigService implements OnModuleInit {
         if (!entity && typeof this.threadConfigRepo.create === 'function') {
           entity = this.threadConfigRepo.create({
             threadId,
-            threadType: threadId.startsWith('g-') ? 'group' : 'user',
+            threadType: (await this.isGroupThread(threadId)) ? 'group' : 'user',
             isListened: false,
           });
         }
@@ -621,7 +666,7 @@ export class ThreadConfigService implements OnModuleInit {
         if (!entity && typeof this.threadConfigRepo.create === 'function') {
           entity = this.threadConfigRepo.create({
             threadId,
-            threadType: threadId.startsWith('g-') ? 'group' : 'user',
+            threadType: (await this.isGroupThread(threadId)) ? 'group' : 'user',
             isListened: false,
           });
         }
