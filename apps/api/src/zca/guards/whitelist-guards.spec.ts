@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { InitialAdminBootstrapGuard } from './initial-admin-bootstrap.guard';
 import { GrantAccessGuard } from './grant-access.guard';
-import { AgentInput } from '../types/agent-input.type';
+import { AgentInput } from '../../types/agent-input.type';
 import { UserRole, GrantAccessStatus } from '@zalobot/contracts';
 import { UsersService } from '../../users/users.service';
-import { ZaloService } from '../zalo.service';
+import { ZcaService } from '../zca.service';
 
 void test('InitialAdminBootstrapGuard promotes first user to admin when system has no users', async () => {
   let hasUsers = false;

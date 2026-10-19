@@ -82,6 +82,9 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
     driveFolderId: entity.driveFolderId || undefined,
     driveFolderUrl: entity.driveFolderUrl || undefined,
     driveFolderPath: entity.driveFolderPath || undefined,
+    photosAlbumId: entity.photosAlbumId || undefined,
+    photosAlbumUrl: entity.photosAlbumUrl || undefined,
+    photosAlbumTitle: entity.photosAlbumTitle || undefined,
     directInteraction: {
       enabled: entity.directInteraction?.enabled ?? false,
       requireMention:
@@ -101,6 +104,7 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
       notifyInThread: entity.mediaBackup?.notifyInThread ?? false,
       customFolder: entity.mediaBackup?.customFolder || '',
       fileSuffix: entity.mediaBackup?.fileSuffix || '',
+      photosAlbum: entity.mediaBackup?.photosAlbum || '',
     },
     expenseTracking: {
       enabled: entity.expenseTracking?.enabled ?? false,
@@ -363,6 +367,18 @@ export class ThreadConfigService implements OnModuleInit {
       config.driveFolderPath = update.driveFolderPath;
     }
 
+    if (update.photosAlbumId !== undefined) {
+      config.photosAlbumId = update.photosAlbumId;
+    }
+
+    if (update.photosAlbumUrl !== undefined) {
+      config.photosAlbumUrl = update.photosAlbumUrl;
+    }
+
+    if (update.photosAlbumTitle !== undefined) {
+      config.photosAlbumTitle = update.photosAlbumTitle;
+    }
+
     if (update.directInteraction) {
       config.directInteraction = {
         ...config.directInteraction,
@@ -463,6 +479,9 @@ export class ThreadConfigService implements OnModuleInit {
           driveFolderId: config.driveFolderId,
           driveFolderUrl: config.driveFolderUrl,
           driveFolderPath: config.driveFolderPath,
+          photosAlbumId: config.photosAlbumId,
+          photosAlbumUrl: config.photosAlbumUrl,
+          photosAlbumTitle: config.photosAlbumTitle,
           updatedAt: new Date(config.updatedAt || Date.now()),
         },
         ['threadId'],
@@ -511,32 +530,75 @@ export class ThreadConfigService implements OnModuleInit {
     threadId: string,
     folderInfo: { folderId?: string; folderUrl?: string; folderPath?: string },
   ): Promise<void> {
-    try {
-      if (this.threadConfigRepo) {
+    const config = this.configsMap.get(threadId);
+    if (config) {
+      if (folderInfo.folderId !== undefined) config.driveFolderId = folderInfo.folderId;
+      if (folderInfo.folderUrl !== undefined) config.driveFolderUrl = folderInfo.folderUrl;
+      if (folderInfo.folderPath !== undefined) config.driveFolderPath = folderInfo.folderPath;
+      await this.cacheConfigToRedis(config);
+    }
+
+    if (this.threadConfigRepo && typeof this.threadConfigRepo.findOne === 'function') {
+      try {
         let entity = await this.threadConfigRepo.findOne({ where: { threadId } });
-        if (!entity) {
+        if (!entity && typeof this.threadConfigRepo.create === 'function') {
           entity = this.threadConfigRepo.create({
             threadId,
             threadType: threadId.startsWith('g-') ? 'group' : 'user',
             isListened: false,
           });
         }
-        if (folderInfo.folderId !== undefined) entity.driveFolderId = folderInfo.folderId;
-        if (folderInfo.folderUrl !== undefined) entity.driveFolderUrl = folderInfo.folderUrl;
-        if (folderInfo.folderPath !== undefined) entity.driveFolderPath = folderInfo.folderPath;
-        await this.threadConfigRepo.save(entity);
+        if (entity) {
+          if (folderInfo.folderId !== undefined) entity.driveFolderId = folderInfo.folderId;
+          if (folderInfo.folderUrl !== undefined) entity.driveFolderUrl = folderInfo.folderUrl;
+          if (folderInfo.folderPath !== undefined) entity.driveFolderPath = folderInfo.folderPath;
+          if (typeof this.threadConfigRepo.save === 'function') {
+            await this.threadConfigRepo.save(entity);
+          }
+        }
+      } catch (err) {
+        this.logger.warn(
+          `[ThreadConfigService] Could not save Drive folder info to DB for thread ${threadId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
-      const config = this.configsMap.get(threadId);
-      if (config) {
-        if (folderInfo.folderId !== undefined) config.driveFolderId = folderInfo.folderId;
-        if (folderInfo.folderUrl !== undefined) config.driveFolderUrl = folderInfo.folderUrl;
-        if (folderInfo.folderPath !== undefined) config.driveFolderPath = folderInfo.folderPath;
-        await this.cacheConfigToRedis(config);
+    }
+  }
+
+  public async savePhotosAlbumInfo(
+    threadId: string,
+    albumInfo: { albumId?: string; albumUrl?: string; albumTitle?: string },
+  ): Promise<void> {
+    const config = this.configsMap.get(threadId);
+    if (config) {
+      if (albumInfo.albumId !== undefined) config.photosAlbumId = albumInfo.albumId;
+      if (albumInfo.albumUrl !== undefined) config.photosAlbumUrl = albumInfo.albumUrl;
+      if (albumInfo.albumTitle !== undefined) config.photosAlbumTitle = albumInfo.albumTitle;
+      await this.cacheConfigToRedis(config);
+    }
+
+    if (this.threadConfigRepo && typeof this.threadConfigRepo.findOne === 'function') {
+      try {
+        let entity = await this.threadConfigRepo.findOne({ where: { threadId } });
+        if (!entity && typeof this.threadConfigRepo.create === 'function') {
+          entity = this.threadConfigRepo.create({
+            threadId,
+            threadType: threadId.startsWith('g-') ? 'group' : 'user',
+            isListened: false,
+          });
+        }
+        if (entity) {
+          if (albumInfo.albumId !== undefined) entity.photosAlbumId = albumInfo.albumId;
+          if (albumInfo.albumUrl !== undefined) entity.photosAlbumUrl = albumInfo.albumUrl;
+          if (albumInfo.albumTitle !== undefined) entity.photosAlbumTitle = albumInfo.albumTitle;
+          if (typeof this.threadConfigRepo.save === 'function') {
+            await this.threadConfigRepo.save(entity);
+          }
+        }
+      } catch (err) {
+        this.logger.warn(
+          `[ThreadConfigService] Could not save Photos album info to DB for thread ${threadId}: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
-    } catch (err) {
-      this.logger.warn(
-        `[ThreadConfigService] Could not save Drive folder info for thread ${threadId}: ${err instanceof Error ? err.message : String(err)}`,
-      );
     }
   }
 }
