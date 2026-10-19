@@ -46,8 +46,9 @@ Tài liệu này ánh xạ với tri thức canonical [`finance-domain.md`](../.
 ### 3.4 Thanh toán nợ
 - Endpoint đúng: `GET/POST /api/debts/:id/payments`, `DELETE /api/debts/:id/payments/:paymentId`.
 - Ghi nhận thanh toán chỉ áp dụng cho khoản đang mở và không vượt số còn lại; hệ thống tự sinh một giao dịch dòng tiền (`Thu hồi nợ` là khoản thu, `Trả nợ` là khoản chi) để số dư ví phản ánh đúng.
-- Xoá thanh toán hoàn lại số còn lại, mở lại khoản nợ và tính lại khoản nợ cha.
-- **Lỗi đã biết:** contracts khai báo `API_ROUTES.debtPayments = '/api/debts/payments'` nhưng backend không có route này.
+- Đợt trả lưu `financeTransactionId` trỏ tới giao dịch tự sinh đó (đợt trả cũ không được bổ sung liên kết).
+- Xoá thanh toán hoàn lại số còn lại, mở lại khoản nợ, tính lại khoản nợ cha và xoá luôn giao dịch liên kết, nên sổ thu–chi không còn giao dịch mồ côi.
+- Web gọi qua hằng route động `API_ROUTES.debtPayments(debtId)` và `API_ROUTES.debtPaymentDetail(debtId, paymentId)`.
 
 ### 3.5 Danh mục
 - Lần đầu gọi `GET /api/categories`, nếu người dùng chưa có danh mục nào, hệ thống tự gieo bộ mặc định từ `@zalobot/contracts`.
@@ -64,7 +65,7 @@ Không có API riêng. Danh mục `Điều chỉnh số dư` có sẵn ở cả 
 - Câu "ăn trưa 45k ở Highlands" → LLM gọi tool `RECORD_TRANSACTION` → bot gửi thẻ xác nhận. Nếu nơi chốn chưa tồn tại, bot gửi **thêm một thẻ riêng** `CREATE_PLACE`. Duyệt giao dịch thì thẻ nơi chốn tự thu hồi và nơi chốn vẫn được tạo khi lưu giao dịch.
 - `CREATE_PLACE`, `DELETE_TRANSACTION`, `MANAGE_DEBT`, `GET_REPORT` là các tool liên quan khác. Không có tool LLM cho phân bổ, người liên quan, danh mục hay gộp — các thao tác này chỉ làm trên dashboard.
 - Câu có nhiều giao dịch: LLM trả nhiều tool call, chạy lần lượt. Bot **không gộp** tool call; `propagateSharedTransactionContext` chỉ điền thời gian/nơi chốn/phương thức thanh toán dùng chung cho các giao dịch còn thiếu.
-- **Lỗi đã biết:** thẻ `MANAGE_DEBT` không mang `contactId` hay `createNewContact`, nên khi duyệt `createDebt` sẽ từ chối.
+- `MANAGE_DEBT`: trước khi gửi thẻ, bot tra **danh bạ công nợ** theo tên (và biệt danh nếu người dùng nêu) bằng so khớp chính xác. Đúng 1 người → thẻ gắn `contactId`; không có ai → thẻ đánh dấu `createNewContact` để tạo người mới khi duyệt; trùng tên nhiều người → bot không tạo thẻ mà liệt kê `Tên (biệt danh)` và nhờ nhắn lại kèm biệt danh. Lý do: `createDebt` chỉ nhận khoản nợ khi đã chọn người hoặc xác nhận tạo người mới, tránh ghi nhầm người trùng tên.
 - Lệnh nhanh `/finance` (thu–chi hôm nay) và `/debts` (nợ đang mở) đọc trực tiếp, không qua LLM.
 
 ## 5. Kiểm thử

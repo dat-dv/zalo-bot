@@ -10,7 +10,9 @@ export const API_ROUTES = {
   contactsCombine: '/api/contacts/combine',
   debts: '/api/debts',
   debtsCombine: '/api/debts/combine',
-  debtPayments: '/api/debts/payments',
+  debtPayments: (debtId: string) => `/api/debts/${debtId}/payments`,
+  debtPaymentDetail: (debtId: string, paymentId: string) =>
+    `/api/debts/${debtId}/payments/${paymentId}`,
   expenses: '/api/expenses',
   transactions: '/api/transactions',
   financeAnalytics: '/api/finance/analytics',

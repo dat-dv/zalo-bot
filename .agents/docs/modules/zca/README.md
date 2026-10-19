@@ -129,7 +129,7 @@ Sau đó tin nhắn rơi vào một trong các luồng:
 
 ## 1c. Thả Tim / Phẫn Nộ & Sao Lưu Media Lịch Sử
 
-- **Reaction** chỉ được xử lý khi kênh đang lắng nghe **và** bật `allowReactions`. Bot đọc `gMsgID`/`cMsgID` từ `rMsg` để biết reaction thuộc thẻ chờ nào. ❤️ cộng dồn tới `requiredHearts` (bot báo "❤️ x/y"), 😡 huỷ thao tác.
+- **Reaction** chỉ được xử lý khi kênh đang lắng nghe **và** bật `allowReactions`. Bot đọc `gMsgID`/`cMsgID` từ `rMsg` để biết reaction thuộc thẻ chờ nào. ❤️ cộng dồn tới `requiredHearts` (bot báo "❤️ x/y"), 😡 huỷ thao tác. Mỗi thẻ chờ chép `requiredHearts` từ cấu hình kênh lúc tạo thẻ, nên đổi cấu hình sau đó không ảnh hưởng thẻ đang mở.
 - **Sao lưu media lịch sử** (`POST /api/zca/threads/:threadId/sync-media`, mở từ nút Sao lưu → `SyncMediaModal`):
   - Chọn khoảng thời gian (`1_month`, `2_months`, `3_months`, `6_months`, `all`) và loại media (ảnh, video, file, âm thanh). Tối đa 500 tin mỗi lần.
   - Chỉ hỗ trợ **nhóm**; chat 1-1 trả về thông báo và số đếm 0. ZCA phải đang đăng nhập.

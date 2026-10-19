@@ -26,7 +26,7 @@ function createFinanceService(debt: Partial<DebtEntity>) {
     create: (value: Partial<FinanceTransactionEntity>) => value,
     save: (value: Partial<FinanceTransactionEntity>) => {
       savedTransactions.push(value);
-      return Promise.resolve(value);
+      return Promise.resolve({ id: `tx-${savedTransactions.length}`, ...value });
     },
   };
   const manager = {
@@ -83,6 +83,91 @@ void test('recordDebtPayment records an income when recovering a receivable', as
       occurredAt: new Date('2026-08-24T10:00:00.000Z'),
     },
   ]);
+});
+
+void test('recordDebtPayment links the payment to its auto-created cashflow transaction', async () => {
+  const debt = {
+    id: 'debt-3',
+    userId: '42',
+    direction: 'payable' as const,
+    counterparty: 'Lan',
+    remainingAmount: 300_000,
+    currency: 'VND',
+    status: 'active' as const,
+  };
+  const { service, savedPayments, savedTransactions } = createFinanceService(debt);
+
+  const result = await service.recordDebtPayment(42, debt.id, 100_000);
+
+  assert.equal(savedTransactions.length, 1);
+  assert.equal(savedPayments[0]?.financeTransactionId, 'tx-1');
+  assert.equal(result.payment.financeTransactionId, 'tx-1');
+});
+
+void test('deleteDebtPayment removes the linked cashflow transaction', async () => {
+  const debt = {
+    id: 'debt-4',
+    userId: '42',
+    originalAmount: 300_000,
+    remainingAmount: 200_000,
+    status: 'active' as const,
+  };
+  const payment = {
+    id: 'payment-4',
+    debtId: 'debt-4',
+    userId: '42',
+    amount: 100_000,
+    financeTransactionId: 'tx-9',
+  };
+  const linkedTransaction = { id: 'tx-9', userId: '42' };
+  const removedTransactions: unknown[] = [];
+  const removedPayments: unknown[] = [];
+  const repositories = new Map<unknown, unknown>([
+    [
+      DebtEntity,
+      { findOne: () => Promise.resolve(debt), save: (v: unknown) => Promise.resolve(v) },
+    ],
+    [
+      DebtPaymentEntity,
+      {
+        findOne: () => Promise.resolve(payment),
+        remove: (v: unknown) => {
+          removedPayments.push(v);
+          return Promise.resolve(v);
+        },
+      },
+    ],
+    [
+      FinanceTransactionEntity,
+      {
+        findOne: () => Promise.resolve(linkedTransaction),
+        remove: (v: unknown) => {
+          removedTransactions.push(v);
+          return Promise.resolve(v);
+        },
+      },
+    ],
+  ]);
+  const manager = { getRepository: (entity: unknown) => repositories.get(entity) };
+  const service = new FinanceService(
+    {} as never,
+    {
+      manager: {
+        transaction: (callback: (value: typeof manager) => unknown) =>
+          Promise.resolve(callback(manager)),
+      },
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+
+  assert.equal(await service.deleteDebtPayment(42, 'debt-4', 'payment-4'), true);
+  assert.equal(debt.remainingAmount, 300_000);
+  assert.deepEqual(removedTransactions, [linkedTransaction]);
+  assert.deepEqual(removedPayments, [payment]);
 });
 
 void test('recordDebtPayment records an expense when paying a payable debt', async () => {

@@ -8,7 +8,7 @@
 
 ## Files
 
-- `api/debts-api.ts`: `getDebts` (`GET API_ROUTES.debts`, no query params), `updateDebt` (`PATCH /api/debts/:id`), `createDebtPayment` (`POST API_ROUTES.debtPayments`), `combineDebts` (`POST API_ROUTES.debtsCombine` = `/api/debts/combine`), `deleteDebtPayment` (`DELETE /api/debts/:id/payments/:paymentId`).
+- `api/debts-api.ts`: `getDebts` (`GET API_ROUTES.debts`, no query params), `updateDebt` (`PATCH /api/debts/:id`), `createDebtPayment` (`POST API_ROUTES.debtPayments(debtId)` = `/api/debts/:id/payments`, body without `debtId`, returns the `payment` part of the `{ debt, payment }` response), `combineDebts` (`POST API_ROUTES.debtsCombine` = `/api/debts/combine`), `deleteDebtPayment` (`DELETE API_ROUTES.debtPaymentDetail(debtId, paymentId)`).
 - `api/debts-query.ts`: key `['debts']`; `useDebtsQuery`, `useUpdateDebtMutation`, `useCreateDebtPaymentMutation`, `useDeleteDebtPaymentMutation`, `useCombineDebtsMutation`. Every mutation invalidates `['debts']` and `['dashboard']`.
 - `presentation/components/debts-screen.tsx`, `debts-table.tsx`, `combine-debts-dialog.tsx` (re-exported via `view/`). `DebtsTable` is also used read-only on the Home overview (`id="home-debts"`).
 
@@ -34,14 +34,12 @@
 ## Backend rules (`FinanceService`)
 
 - `PATCH /api/debts/:id`: editing `remainingAmount` sets `status`/`settledAt` (`settled` at 0); `amount` (alternative) keeps the paid part and rejects values below it.
-- `POST /api/debts/:id/payments` (`recordDebtPayment`, one DB transaction): debt must be active and payment ≤ remaining; creates a `debt_payments` row, decrements remaining (settles at 0), and creates a finance transaction: receivable → `income` category `Thu hồi nợ`, payable → `expense` category `Trả nợ`, same amount/currency/contact/date. The payment row is not linked to that transaction (`financeTransactionId` unset).
-- `DELETE /api/debts/:id/payments/:paymentId` (one DB transaction): restores remaining (capped at original), reactivates the debt, recomputes the parent's remaining from its children, deletes the linked finance transaction only when `financeTransactionId` is set (allocation-originated payments).
+- `POST /api/debts/:id/payments` (`recordDebtPayment`, one DB transaction): debt must be active and payment ≤ remaining; decrements remaining (settles at 0), creates a finance transaction (receivable → `income` category `Thu hồi nợ`, payable → `expense` category `Trả nợ`, same amount/currency/contact/date), then creates the `debt_payments` row linked to it via `financeTransactionId`. Payments recorded before this change have no link (not backfilled).
+- `DELETE /api/debts/:id/payments/:paymentId` (one DB transaction): restores remaining (capped at original), reactivates the debt, recomputes the parent's remaining from its children, deletes the linked finance transaction when `financeTransactionId` is set (manual payments and allocation-originated payments).
 - Allocation payments: existing transactions can be allocated to debts via `/api/transactions/:id/allocations` (see dashboard module); those create `debt_payments` with `financeTransactionId`.
 - `POST /api/debts/combine` (one DB transaction): ≥2 caller-owned debts, same direction and same currency, else error. Creates a parent with summed original/remaining amounts; children get `parentDebtId` (FK `ON DELETE SET NULL`); existing grandchildren are re-parented to the new parent (one-level tree).
 - Contact combine with `consolidateDebts: true` reuses `combineDebts` per direction + currency group (see contacts module).
 
 ## Known issues
 
-- Quick Repay is broken: `API_ROUTES.debtPayments` is `/api/debts/payments` but the API only exposes `POST /api/debts/:id/payments`, so `createDebtPayment` gets 404. Not fixed in this doc sync.
-- Payments recorded via `POST /api/debts/:id/payments` do not store `financeTransactionId`, so deleting such a payment leaves its auto-created `Thu hồi nợ`/`Trả nợ` transaction in the ledger.
 - The list is capped at 200 debts (children included) with no pagination.

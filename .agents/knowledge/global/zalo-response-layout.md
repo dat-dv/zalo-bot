@@ -43,7 +43,7 @@ Sensitive mutations (transactions, transaction delete, debts, places, reminders,
 ```
 
 - Text commands: `yes|y|ok|xác nhận [code]`, `cancel|no|hủy|huỷ|bỏ qua [code]`, `yes all`, `cancel all`, `edit|sửa|chỉnh sửa|sửa lại <code> <instruction>`. Without a code, `yes` takes the oldest pending action of the sender; `cancel` and `edit` take the newest.
-- Reactions (ZCA): heart (`/-heart`, `HEART`, `❤️`) adds the reactor to `heartUsers`; confirm when `heartUsers.length >= requiredHearts`. Angry (`:-h`, `ANGRY`, `😡`) cancels. `requiredHearts` defaults to 1 per pending action; thread config `confirmationRules.requiredHearts` (group default 5) is stored but not passed when pending actions are created.
+- Reactions (ZCA): heart (`/-heart`, `HEART`, `❤️`) adds the reactor to `heartUsers`; confirm when `heartUsers.length >= requiredHearts`. Angry (`:-h`, `ANGRY`, `😡`) cancels. `createPendingAction` takes `requiredHearts` from the chat's saved thread config `confirmationRules.requiredHearts` (group default 5) via `ThreadConfigService.findStoredConfig` (read-only, never creates a config); an explicit `requiredHearts` param wins; chats without a saved config (e.g. official webhook) need 1.
 - Authorization: confirm/cancel/edit by code is allowed when the sender owns the action or the command comes from the action's chat.
 
 ## Redis keys (TTL = remaining confirmation time unless noted)

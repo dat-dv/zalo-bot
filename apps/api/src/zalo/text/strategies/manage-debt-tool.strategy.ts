@@ -3,6 +3,7 @@ import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
+import { FinanceService } from '../../../finance/finance.service';
 import { parseAmount } from '../../../llm/utils/tool-arguments.util';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
   constructor(
     private readonly zaloService: ZaloService,
     private readonly confirmationService: TransactionConfirmationService,
+    private readonly financeService: FinanceService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
@@ -35,6 +37,14 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
       typeof rawCounterparty === 'string' && rawCounterparty.trim()
         ? rawCounterparty.trim()
         : 'Người quen';
+
+    const rawAlias =
+      typeof args.counterpartyAlias === 'object' && args.counterpartyAlias !== null
+        ? ((args.counterpartyAlias as Record<string, unknown>).counterpartyAlias ??
+          (args.counterpartyAlias as Record<string, unknown>).value)
+        : args.counterpartyAlias;
+    const counterpartyAlias =
+      typeof rawAlias === 'string' && rawAlias.trim() ? rawAlias.trim() : undefined;
 
     const amount = parseAmount(args.amount);
 
@@ -81,6 +91,26 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
     }
 
     try {
+      // createDebt only accepts a chosen contact or an explicit "create new", so the
+      // contact is resolved here (exact normalized match) before the card is shown.
+      const matches = await this.financeService.resolveContacts(
+        context.senderId,
+        counterparty,
+        counterpartyAlias,
+      );
+      if (matches.length > 1) {
+        const options = matches
+          .map((c) => (c.alias ? `• ${c.displayName} (${c.alias})` : `• ${c.displayName}`))
+          .join('\n');
+        await this.zaloService.sendMessage(
+          context.chatId,
+          `🤔 Có ${matches.length} người tên "${counterparty}" trong danh bạ công nợ:\n${options}\n\n` +
+            'Vui lòng nhắn lại kèm biệt danh để mình ghi đúng người.',
+        );
+        return;
+      }
+      const contact = matches[0];
+
       await this.confirmationService.createPendingDebt({
         userId: context.senderId,
         chatId: context.chatId,
@@ -88,7 +118,10 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
         payload: {
           userId: context.senderId,
           direction,
-          counterparty,
+          counterparty: contact?.displayName ?? counterparty,
+          counterpartyAlias: contact ? contact.alias : counterpartyAlias,
+          contactId: contact?.id,
+          createNewContact: contact ? undefined : true,
           amount,
           note,
           occurredAt: occurredAtStr,

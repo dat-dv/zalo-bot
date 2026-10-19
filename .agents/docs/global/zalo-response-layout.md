@@ -42,7 +42,7 @@ Mọi thao tác nhạy cảm (ghi/xoá thu chi, ghi nợ, tạo nơi chốn, l�
 Cách duyệt:
 - **Gõ lệnh:** `yes <mã>`, `cancel <mã>`, `edit <mã> <nội dung>`, `yes all`, `cancel all` (chấp nhận cả `xác nhận`, `hủy`, `bỏ qua`, `sửa`...). Không ghi mã thì `yes` lấy thẻ cũ nhất, `cancel`/`edit` lấy thẻ mới nhất của người gửi.
 - **Thả cảm xúc (ZCA):** ❤️ cộng một lượt tim, đủ số tim yêu cầu thì duyệt; 😡 huỷ ngay.
-- **Lưu ý:** mỗi thẻ hiện chỉ cần 1 tim. Cấu hình nhóm `confirmationRules.requiredHearts` (mặc định 5 với nhóm) đã lưu nhưng chưa được áp dụng khi tạo thẻ.
+- **Số tim cần duyệt** lấy từ cấu hình kênh `confirmationRules.requiredHearts` (nhóm mặc định 5, cá nhân 1) tại thời điểm tạo thẻ; thẻ ghi rõ "Thả tim (❤️) N lần". Chat chưa có cấu hình lưu sẵn (ví dụ bot webhook chính thức) chỉ cần 1 tim, và việc tra cứu không tự tạo cấu hình mới. Mục đích: trong nhóm, một người không thể tự duyệt thao tác nhạy cảm bằng một tim.
 - Người gửi được duyệt/huỷ/sửa khi là chủ thẻ hoặc đang nhắn trong đúng cuộc trò chuyện chứa thẻ.
 
 ## 3. Khoá Redis

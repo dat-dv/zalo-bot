@@ -16,6 +16,7 @@ import { UsersService } from '../../users/users.service';
 import { GoogleAuthService } from '../../google/google-auth.service';
 import { RedisService } from '../../redis/redis.service';
 import { ZcaService } from '../zca.service';
+import { ThreadConfigService } from '../thread-config.service';
 import type { ZaloService } from '../../zalo/zalo.service';
 import { FINANCE_TRANSACTION_DESCRIPTOR } from './dto-descriptor.util';
 
@@ -34,7 +35,10 @@ interface TestContext {
   revokedTokens: string[];
 }
 
-function createTestContext(redisService?: RedisService): TestContext {
+function createTestContext(
+  redisService?: RedisService,
+  threadConfigService?: ThreadConfigService,
+): TestContext {
   const sentMessages: Array<{ chatId: string | number; text: string }> = [];
   const createdTransactions: CreateFinanceTransactionDto[] = [];
   const deletedTransactions: Array<{ userId: string | number; id: string }> = [];
@@ -144,6 +148,7 @@ function createTestContext(redisService?: RedisService): TestContext {
     mockUsersService,
     mockGoogleAuthService,
     redisService,
+    threadConfigService,
   );
   service.timeoutMs = 50; // 50ms for tests
 
@@ -1415,4 +1420,59 @@ void test('TransactionConfirmationService keeps pending intact when canEdit reje
   assert.equal(onEditCalled, false);
   assert.equal(sentMessages.length, sentBefore, 'Rejected edit must stay silent');
   assert.ok(await service.getPendingByCode(pending.code), 'Pending must not be deleted');
+});
+
+void test('createPendingAction applies the saved requiredHearts of the chat thread', async () => {
+  const threadConfigService = new ThreadConfigService();
+  const groupId = `g-hearts-${Date.now()}`;
+  await threadConfigService.updateConfig(
+    groupId,
+    { confirmationRules: { allowReactions: true, requiredHearts: 5, timeoutMinutes: 5 } },
+    { threadType: 'group' },
+  );
+  const { service } = createTestContext(undefined, threadConfigService);
+  const payload = {
+    userId: 'u1',
+    type: 'expense' as const,
+    amount: 50000,
+    category: 'Ăn uống',
+    note: 'Ăn trưa',
+  };
+
+  const groupPending = await service.createPendingAction({
+    userId: 'u1',
+    chatId: groupId,
+    actionType: 'RECORD_TRANSACTION',
+    title: 'lưu khoản chi',
+    payload,
+    descriptor: FINANCE_TRANSACTION_DESCRIPTOR,
+  });
+  assert.equal(groupPending.requiredHearts, 5);
+
+  // An explicit value still wins over the thread config.
+  const explicitPending = await service.createPendingAction({
+    userId: 'u1',
+    chatId: groupId,
+    actionType: 'RECORD_TRANSACTION',
+    title: 'lưu khoản chi',
+    payload,
+    descriptor: FINANCE_TRANSACTION_DESCRIPTOR,
+    requiredHearts: 2,
+  });
+  assert.equal(explicitPending.requiredHearts, 2);
+
+  // A chat without a saved config (e.g. the official webhook bot) needs one heart and gets no config created.
+  const unknownChat = `webhook-${Date.now()}`;
+  const unknownPending = await service.createPendingAction({
+    userId: 'u1',
+    chatId: unknownChat,
+    actionType: 'RECORD_TRANSACTION',
+    title: 'lưu khoản chi',
+    payload,
+    descriptor: FINANCE_TRANSACTION_DESCRIPTOR,
+  });
+  assert.equal(unknownPending.requiredHearts, 1);
+  assert.equal(await threadConfigService.findStoredConfig(unknownChat), undefined);
+
+  service.clearAll();
 });
