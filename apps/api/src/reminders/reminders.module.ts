@@ -12,7 +12,7 @@ import { ZaloModule } from '../zalo/zalo.module';
   imports: [
     TypeOrmModule.forFeature([ReminderEntity]),
     DashboardAuthModule,
-    UsersModule,
+    forwardRef(() => UsersModule),
     forwardRef(() => ZaloModule),
   ],
   controllers: [RemindersController],

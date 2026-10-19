@@ -70,7 +70,7 @@ import { ImageBatchHandler } from './pending-image/image-batch-handler.service';
 
 @Module({
   imports: [
-    UsersModule,
+    forwardRef(() => UsersModule),
     LlmModule,
     FinanceModule,
     forwardRef(() => RemindersModule),
