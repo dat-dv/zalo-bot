@@ -69,7 +69,6 @@ export const APP_ROUTES = {
 
   contacts: '/contacts',
   places: '/places',
-  users: '/users',
   zca: '/zca',
   settings: '/settings',
 } as const;
@@ -190,8 +189,7 @@ const messages = {
     'nav.reminders': 'Nhắc nhở',
     'nav.reports': 'Tài chính',
     'nav.settings': 'Cài đặt',
-    'nav.users': 'Người dùng',
-    'nav.zca': 'Tài khoản ZCA',
+    'nav.zca': 'Zalo & Người dùng',
     'zca.logout': 'Đăng xuất ZCA',
     'zca.logoutConfirm':
       'Bạn có chắc chắn muốn ngắt kết nối và đăng xuất tài khoản Zalo cá nhân (ZCA) này không?',
@@ -889,8 +887,7 @@ const messages = {
     'nav.reminders': 'Reminders',
     'nav.reports': 'Finance',
     'nav.settings': 'Settings',
-    'nav.users': 'Users',
-    'nav.zca': 'ZCA Account',
+    'nav.zca': 'Zalo & Users',
     'zca.logout': 'Logout ZCA',
     'zca.logoutConfirm':
       'Are you sure you want to disconnect and logout this ZCA personal account?',

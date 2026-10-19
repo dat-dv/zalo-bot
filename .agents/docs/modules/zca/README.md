@@ -57,7 +57,7 @@ Nguyên tắc phân vai: **module Users quyết định AI được tương tác
 
 **Đánh đổi đã biết — cooldown ở L2**: L2 dùng chung cooldown 2 giây (in-memory) với L1. Nếu một người gửi hai dòng chi tiêu cách nhau dưới 2 giây, dòng thứ hai bị bỏ qua im lặng. Nếu họ vừa gửi một tin thụ động rồi `@bot` ngay sau đó, bot sẽ báo "gửi quá nhanh". Bỏ cooldown ở L2 chỉ cần sửa `checkPassiveGuards` trong `zca-bot-feature.service.ts`.
 
-**Cách bật/tắt trên dashboard**: mở `ThreadConfigModal` của nhóm và bật "Phân tích & Quản lý thu chi" (`expenseTracking`) và/hoặc "Phân tích tin nhắn tạo lịch hẹn (Calendar)" (`calendarExtraction`). Muốn bot ghi nhận tin của một thành viên ở L2 thì cấp quyền cho người đó ở trang Users.
+**Cách bật/tắt trên dashboard**: mở `ThreadConfigModal` của nhóm và bật "Phân tích & Quản lý thu chi" (`expenseTracking`) và/hoặc "Phân tích tin nhắn tạo lịch hẹn (Calendar)" (`calendarExtraction`). Muốn bot ghi nhận tin của một thành viên ở L2 thì cấp quyền cho người đó ở trang **Zalo & Người dùng** (cột Quyền tương tác).
 
 ## 1b. Nhận Biết Nhóm Hay Cá Nhân
 
@@ -72,19 +72,46 @@ Nguyên tắc phân vai: **module Users quyết định AI được tương tác
   - Nếu config đã lưu sai loại kênh, `getConfig` sẽ ghi đè bằng loại kênh mới nhận và lưu lại vào DB + Redis. Số tim xác nhận đã cấu hình được giữ nguyên.
   - Dữ liệu cũ tự được sửa: mỗi lần `getAvailableThreads` tải danh sách mới từ ZCA, hàm này chạy ngầm `reconcileThreadTypes`. Hàm chỉ sửa config đã có, không tạo config mới.
 - **Vì sao không dùng migration?** Trong DB, ID nhóm và UID người dùng đều là chuỗi số, nên SQL không phân biệt được; chỉ ZCA biết ID nào là nhóm. Script `users:cleanup-groups` cũng không tự đăng nhập ZCA, vì làm vậy sẽ mở thêm một WebSocket và có thể làm rớt phiên của server.
-- **Sau khi deploy:** mở trang ZCA (danh sách thread) hoặc bấm đồng bộ ở trang Users ít nhất một lần, để các dòng `thread_type` sai được sửa. Sau đó mới chạy `npm run users:cleanup-groups --workspace @zalobot/api` (dry-run trước, rồi thêm `-- --apply`).
+- **Sau khi deploy:** mở trang **Zalo & Người dùng** (danh sách thread) hoặc bấm **Đồng bộ thông tin** ít nhất một lần, để các dòng `thread_type` sai được sửa. Sau đó mới chạy `npm run users:cleanup-groups --workspace @zalobot/api` (dry-run trước, rồi thêm `-- --apply`).
 
 ## 2. Giao Diện Quản Trị Web (`apps/web/src/modules/zca`)
 
-- **Màn hình `ZcaScreen` (`apps/web/src/modules/zca/view/zca-screen.tsx`)**:
-  - Header trạng thái kết nối: Hiển thị trạng thái Online/Offline, thông tin tài khoản Zalo (tên, avatar, UID), thời gian phiên và nút mở modal quét mã QR.
-  - Modal đăng nhập QR (`loginZcaQr`): Tự động nạp mã QR dạng Base64, có cơ chế polling kiểm tra trạng thái đăng nhập thành công và tự động đóng modal.
-  - Bảng danh sách Kênh (Threads Table):
-    - Cột thông tin: Avatar, Tên nhóm/người dùng, Thẻ phân loại (Nhóm / Cá nhân), Thread ID kèm nút sao chép 1-click.
-    - Trạng thái Lắng nghe: Badge và công tắc bật/tắt lắng nghe tức thì (`toggleZcaListenedThread`).
-    - Trạng thái Tương tác & Sao lưu: Badge hiển thị yêu cầu `@bot` hoặc Direct, các icon trạng thái sao lưu Ảnh/Video/File/Voice.
-    - Nút mở thư mục Google Drive trực tiếp nếu đã được tạo.
-    - Nút Cài đặt mở `ThreadConfigModal`.
+Trang này có tên **"Zalo & Người dùng"** (đường dẫn `/zca`). Trang **Người dùng** (`/users`) cũ đã bị xoá và gộp hẳn vào đây.
+
+### Vì sao gộp?
+
+Với chat 1-1, một dòng "Cá nhân" trên ZCA và một dòng trong bảng `users` là **cùng một người Zalo** (`thread.id === users.id`). Trước đây admin phải sang trang ZCA để bật lắng nghe, rồi sang trang Users để cấp quyền, và trang này không thấy trạng thái của trang kia. Bây giờ mỗi dòng có cả hai.
+
+### Hai lớp kiểm soát (cố ý để độc lập)
+
+| Cột | Ý nghĩa | Lưu ở đâu |
+| --- | --- | --- |
+| **Lắng nghe** | Bot có nhận tin nhắn từ cuộc trò chuyện này không | `zca_thread_configs.is_listened` |
+| **Quyền tương tác** | Người này có được dùng tính năng của bot (thu chi, lịch, Drive…) không | `users.grant_access` và `users.role` |
+
+Bật lắng nghe **không** tự cấp quyền, và ngược lại. Ví dụ: bật lắng nghe một nhóm 10 người, nhưng chỉ người nào đã được cấp quyền mới dùng được lệnh.
+
+### Ba loại dòng
+
+- **👥 Nhóm**: chỉ có cột Lắng nghe. Quyền được cấp cho từng người, không cấp cho nhóm.
+- **👤 Cá nhân**: bạn bè ZCA. Nếu người này chưa có trong `users`, cột quyền hiện "Chưa cấp". Bấm **Cấp quyền** thì backend tự tạo bản ghi `users`.
+- **🆔 Người dùng**: có trong `users` nhưng không có trong danh bạ ZCA, ví dụ ID của Zalo Bot chính thức (hex 20 ký tự) hoặc thành viên nhóm chưa kết bạn. Các dòng này vẫn hiện khi chưa đăng nhập ZCA, nên admin luôn duyệt được người mới.
+
+Logic ghép dòng là hàm thuần trong `model/chat-rows.ts`, có unit test ở `chat-rows.spec.ts`.
+
+### Cách duyệt người mới
+
+1. Người dùng nhắn bot, bot trả lời "chưa được cấp quyền" kèm User ID của họ.
+2. Admin mở **Zalo & Người dùng**, bấm thẻ **Quyền tương tác** (hoặc bộ lọc **Chờ duyệt**).
+3. Bấm **Cấp quyền ✓** trên dòng của người đó.
+
+### Thành phần màn hình
+
+- **`ZcaScreen` (`view/zca-screen.tsx`)**: header (làm mới, đăng nhập QR / đăng xuất), 4 thẻ tổng quan (kết nối, số đang lắng nghe, số chờ duyệt, tổng số dòng), thanh công cụ ("Đồng bộ thông tin" lấy tên/avatar/SĐT từ danh bạ ZCA; "+ Thêm người dùng"; link kho Drive), ô nhập ID để bật lắng nghe thủ công, tìm kiếm (không dấu), sắp xếp, bộ lọc và phân trang.
+- **Modal đăng nhập QR**: tự nạp mã QR, polling trạng thái và tự đóng khi đăng nhập thành công.
+- **`ChatTableRow` (`presentation/components/chat-table-row.tsx`)**: một dòng của bảng. Bấm vào nhãn "Đang lắng nghe / Bỏ qua" để bật/tắt lắng nghe; nút Cấp quyền / Thu hồi (thu hồi Admin phải xác nhận); các nút Sao lưu (nhóm), Drive và Cấu hình.
+- **Menu "⋯" (`chat-row-menu.tsx`)**: Sửa thông tin & vai trò, Gộp tài khoản trùng, Xoá người dùng (không áp dụng cho Admin).
+- **`UserFormDialog` (`user-form-dialog.tsx`)**: thêm mới hoặc sửa tên, SĐT, vai trò của người dùng.
 - **Modal Cấu hình Kênh (`ThreadConfigModal`)**:
   - Tùy chỉnh tương tác: Tắt/bật bot, yêu cầu mention `@bot`, đổi tiền tố.
   - Cấu hình sao lưu media: Chọn loại media tải lên Drive (Ảnh, Video, File, Âm thanh), thông báo trong thread.
@@ -105,5 +132,5 @@ Nguyên tắc phân vai: **module Users quyết định AI được tương tác
 ## 4. Kiểm Thử
 
 - Chạy `npm run test --workspace @zalobot/api` để chạy toàn bộ unit tests cho ZCA service và thread config service. Các luồng L1/L2/L3 và chặn `edit` được kiểm tra trong `apps/api/src/zca/zca-bot-feature.service.spec.ts`; danh sách tool thụ động trong `apps/api/src/zalo/text/text-input.service.spec.ts`.
-- Thử tay trong nhóm test: user chưa cấp quyền gõ `ăn trưa 45k` hoặc `@drive` → bot im lặng; gửi ảnh → vẫn được sao lưu. User đã cấp quyền gõ `ăn trưa 45k` → hiện thẻ xác nhận; `@bot /drive` → trả link và **không** sinh user mới ở trang Users.
+- Thử tay trong nhóm test: user chưa cấp quyền gõ `ăn trưa 45k` hoặc `@drive` → bot im lặng; gửi ảnh → vẫn được sao lưu. User đã cấp quyền gõ `ăn trưa 45k` → hiện thẻ xác nhận; `@bot /drive` → trả link và **không** sinh user mới trong bảng người dùng.
 - Chạy `npm run typecheck` và `npm run lint` để kiểm tra an toàn kiểu dữ liệu.

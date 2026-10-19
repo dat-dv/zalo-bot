@@ -59,12 +59,12 @@ Cùng một người có thể nhắn bot qua 2 kênh, và Zalo cấp **2 ID kh�
 - Kênh **Zalo Bot chính thức (webhook)** cũ: ID theo app, 20 ký tự hex (vd `573462d8909179cf2080`).
 - Kênh **ZCA** (tài khoản Zalo cá nhân qua `zca-js`): UID Zalo, dạng số (vd `2285509137317769272`).
 
-`GrantAccessGuard` của ZCA tự lưu mọi ID lạ thành user "Chờ phê duyệt". Vì vậy sau khi chuyển sang ZCA, trang Users hiện 2 dòng cho cùng một người, và dữ liệu cũ (giao dịch, công nợ, Google…) vẫn nằm ở ID cũ.
+`GrantAccessGuard` của ZCA tự lưu mọi ID lạ thành user "Chờ phê duyệt". Vì vậy sau khi chuyển sang ZCA, danh sách người dùng có 2 dòng cho cùng một người, và dữ liệu cũ (giao dịch, công nợ, Google…) vẫn nằm ở ID cũ.
 
 ### Quy trình gộp (bắt buộc làm theo thứ tự)
 
 1. Khuyến nghị `pg_dump` database trước khi gộp lần đầu.
-2. Vào trang **Người dùng**, bấm biểu tượng **Gộp vào…** trên dòng tài khoản **nguồn** (ID cũ, sẽ bị xoá).
+2. Vào trang **Zalo & Người dùng**, mở menu **⋯** trên dòng tài khoản **nguồn** (ID cũ, sẽ bị xoá) và chọn **Gộp tài khoản trùng**.
 3. Chọn **người dùng đích** (ID sẽ được giữ lại) và kiểm tra bảng xem trước: số dòng sẽ chuyển theo từng loại dữ liệu, số chỗ trùng sẽ được hợp nhất, và kết nối Google nào được giữ.
 4. Tích "Tôi hiểu thao tác này không thể hoàn tác" rồi bấm **Gộp tài khoản**.
 5. Nếu vừa gộp chính tài khoản đang đăng nhập dashboard, phiên hiện tại sẽ mất quyền. Mở lại dashboard bằng link mà bot gửi qua Zalo.
@@ -87,18 +87,14 @@ Toàn bộ chạy trong **một transaction**: lỗi ở bất kỳ bước nào
 - **Nút Gộp bị mờ, có cảnh báo vàng**: tài khoản nguồn là tài khoản ZCA của chính bot. Tài khoản này không gộp được vì luôn được tạo lại khi API khởi động.
 - **Lỗi khi gộp**: không có dữ liệu nào bị đổi (transaction đã rollback). Xem log API của `UserMergeService` để biết bước bị lỗi.
 
-## 3. Giao Diện Quản Trị Web (`apps/web/src/modules/users`)
+## 3. Giao Diện Quản Trị Web
 
-- **Màn hình `UsersScreen` (`apps/web/src/modules/users/view/users-screen.tsx`)**:
-  - Thanh công cụ tìm kiếm và bộ lọc nhanh: Tất cả, Đã cấp quyền, Chờ duyệt, Quản trị viên (Admin).
-  - Nút thêm mới người dùng thủ công: Mở modal nhập Zalo User ID, tên, vai trò và trạng thái quyền truy cập ban đầu.
-  - Bảng danh sách người dùng:
-    - Zalo ID kèm nút copy 1-click.
-    - Tên người dùng và avatar mặc định.
-    - Vai trò (`Admin` / `User`) với màu sắc phân biệt.
-    - Trạng thái cấp quyền: Nút gạt bật/tắt quyền truy cập (`useSetGrantAccessMutation`).
-    - Nút xóa người dùng có xác nhận (`useDeleteUserMutation`).
-    - Nút **Gộp vào…** mở `MergeUserDialog` (`presentation/components/merge-user-dialog.tsx`) để gộp tài khoản trùng (xem mục 2).
+- **Không còn trang Người dùng riêng.** Trang `/users` và `UsersScreen` đã bị xoá. Mọi thao tác quản lý người dùng (cấp/thu hồi quyền, thêm, sửa tên/SĐT/vai trò, gộp, xoá, đồng bộ từ ZCA) nằm trên trang **Zalo & Người dùng** (`/zca`). Xem mục 2 trong tài liệu module ZCA.
+- Lý do: một người Zalo vừa là cuộc trò chuyện 1-1 trên ZCA, vừa là một dòng trong `users`. Gộp lại giúp admin thấy và đổi cả **lắng nghe** lẫn **quyền tương tác** ở cùng một chỗ.
+- Thư mục `apps/web/src/modules/users` chỉ còn:
+  - `api/` (`users-api.ts`, `users-query.ts`): trang ZCA và dialog gộp danh bạ (`contacts`) dùng chung.
+  - `presentation/components/merge-user-dialog.tsx`: dialog gộp tài khoản trùng (xem mục 2), được trang ZCA mở từ menu **⋯**.
+- **Backend và bảng `users` không đổi.** `users.id` vẫn là danh tính của toàn hệ thống: giao dịch, công nợ, nhắc lịch và token Google đều tham chiếu tới nó.
 
 ## 4. Các Endpoint API (`API_ROUTES`)
 

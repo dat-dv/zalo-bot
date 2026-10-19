@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { GrantAccessStatus, type IUserListItem, type IUserMergeResult } from '@zalobot/contracts';
 import {
   useZcaStatusQuery,
   useZcaThreadsQuery,
@@ -14,53 +15,68 @@ import {
   useGoogleDriveFolderLinkQuery,
   zcaQueryKeys,
 } from '../api/zca-query';
+import { getThreadDriveOpenUrl, type ZcaThread } from '../api/zca-api';
 import {
-  getThreadDriveLink,
-  getThreadDriveOpenUrl,
-  getThreadPhotosLink,
-  type ZcaThread,
-} from '../api/zca-api';
+  buildChatRows,
+  countChatRows,
+  matchesChatRowFilter,
+  matchesChatRowSearch,
+  sortChatRows,
+  type ChatRow,
+  type ChatRowFilter,
+  type ChatRowSort,
+} from '../model/chat-rows';
+import { ChatTableRow } from '../presentation/components/chat-table-row';
+import { UserFormDialog } from '../presentation/components/user-form-dialog';
+import {
+  ExternalLinkIcon,
+  GoogleDriveIcon,
+  LogoutIcon,
+  QrIcon,
+  RefreshIcon,
+} from '../presentation/components/zca-icons';
 import { ThreadConfigModal } from './thread-config-modal';
 import { SyncMediaModal } from './sync-media-modal';
+import {
+  useDeleteUserMutation,
+  useSetGrantAccessMutation,
+  useSyncUsersWithZcaMutation,
+  useUsersQuery,
+} from '@/modules/users/api/users-query';
+import { MergeUserDialog } from '@/modules/users/presentation/components/merge-user-dialog';
 import { useLocale } from '@/shared/providers/locale-provider';
 
-function normalizeVietnamese(str: string): string {
-  return str
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase()
-    .trim();
+const FILTER_TABS: { key: ChatRowFilter; label: string; activeClass?: string }[] = [
+  { key: 'all', label: 'Tất cả' },
+  { key: 'listened', label: 'Đang lắng nghe' },
+  { key: 'group', label: 'Nhóm chat' },
+  { key: 'personal', label: 'Cá nhân' },
+  { key: 'pending', label: 'Chờ duyệt', activeClass: 'bg-amber-600 text-white dark:bg-amber-500' },
+  {
+    key: 'granted',
+    label: 'Đã cấp quyền',
+    activeClass: 'bg-emerald-600 text-white dark:bg-emerald-500',
+  },
+  { key: 'admin', label: 'Admin', activeClass: 'bg-purple-600 text-white dark:bg-purple-500' },
+];
+
+const SORT_OPTIONS: { value: ChatRowSort; label: string }[] = [
+  { value: 'listened_first', label: 'Đang lắng nghe lên đầu' },
+  { value: 'pending_first', label: 'Chờ duyệt lên đầu' },
+  { value: 'name_asc', label: 'Tên (A → Z)' },
+  { value: 'name_desc', label: 'Tên (Z → A)' },
+  { value: 'group_first', label: 'Nhóm chat trước' },
+  { value: 'user_first', label: 'Cá nhân trước' },
+  { value: 'members_desc', label: 'Nhóm đông thành viên nhất' },
+];
+
+function isChatRowSort(value: string): value is ChatRowSort {
+  return SORT_OPTIONS.some((option) => option.value === value);
 }
 
-function ThreadAvatar({ thread }: { thread: ZcaThread }) {
-  const [imgError, setImgError] = useState(false);
-
-  if (thread.avatar && !imgError) {
-    return (
-      <img
-        alt={thread.name || 'Avatar'}
-        className="size-9 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700 shrink-0"
-        onError={() => setImgError(true)}
-        referrerPolicy="no-referrer"
-        src={thread.avatar}
-      />
-    );
-  }
-
-  return (
-    <div
-      className={`flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
-        thread.type === 'group'
-          ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
-          : 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
-      }`}
-    >
-      {thread.name ? thread.name.charAt(0).toUpperCase() : thread.type === 'group' ? '👥' : '👤'}
-    </div>
-  );
-}
+type UserDialogState =
+  | { mode: 'create'; initialId?: string; initialName?: string }
+  | { mode: 'edit'; user: IUserListItem };
 
 export function ZcaScreen() {
   const { t } = useLocale();
@@ -73,6 +89,7 @@ export function ZcaScreen() {
     isLoading: isThreadsLoading,
     refetch: refetchThreads,
   } = useZcaThreadsQuery({ enabled: Boolean(status?.loggedIn) });
+  const { data: users = [], isLoading: isUsersLoading } = useUsersQuery();
   const { data: threadConfigs = [] } = useZcaThreadConfigsQuery();
   const { data: driveRootData } = useGoogleDriveFolderLinkQuery();
   const queryClient = useQueryClient();
@@ -82,20 +99,28 @@ export function ZcaScreen() {
   const logoutMutation = useLogoutZcaMutation();
   const setListenedMutation = useSetZcaListenedThreadsMutation();
   const toggleListenedMutation = useToggleZcaListenedThreadMutation();
+  const setGrantAccessMutation = useSetGrantAccessMutation();
+  const syncUsersMutation = useSyncUsersWithZcaMutation();
+  const deleteUserMutation = useDeleteUserMutation();
 
   const isLoggingOut = logoutMutation.isPending;
 
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'listened' | 'group' | 'user'>('all');
-  const [sortBy, setSortBy] = useState<
-    'listened_first' | 'name_asc' | 'name_desc' | 'group_first' | 'user_first' | 'members_desc'
-  >('listened_first');
+  const [filter, setFilter] = useState<ChatRowFilter>('all');
+  const [sortBy, setSortBy] = useState<ChatRowSort>('listened_first');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedThreadForConfig, setSelectedThreadForConfig] = useState<ZcaThread | null>(null);
   const [syncThreadTarget, setSyncThreadTarget] = useState<ZcaThread | null>(null);
+  const [userDialog, setUserDialog] = useState<UserDialogState | null>(null);
+  const [mergingUser, setMergingUser] = useState<IUserListItem | null>(null);
+
+  // Thông báo kết quả đồng bộ / gộp tài khoản
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(
+    null,
+  );
 
   const configMap = useMemo(
     () => new Map(threadConfigs.map((c) => [c.threadId, c])),
@@ -133,6 +158,11 @@ export function ZcaScreen() {
   useEffect(() => {
     setCurrentPage(1);
   }, [search, filter, sortBy, pageSize]);
+
+  const showNotice = (type: 'success' | 'error', message: string, durationMs = 5000) => {
+    setNotice({ type, message });
+    setTimeout(() => setNotice(null), durationMs);
+  };
 
   const copyToClipboard = (id: string) => {
     void navigator.clipboard.writeText(id);
@@ -194,81 +224,101 @@ export function ZcaScreen() {
     }
   };
 
-  // Filtered threads with Vietnamese normalization and alias search
-  const filteredThreads = useMemo(() => {
-    const normSearch = normalizeVietnamese(search);
-    return threads.filter((thread) => {
-      if (normSearch) {
-        const matchesName = normalizeVietnamese(thread.name || '').includes(normSearch);
-        const matchesDisplayName = normalizeVietnamese(thread.displayName || '').includes(
-          normSearch,
-        );
-        const matchesAlias = normalizeVietnamese(thread.alias || '').includes(normSearch);
-        const matchesZaloName = normalizeVietnamese(thread.zaloName || '').includes(normSearch);
-        const matchesPhone = (thread.phoneNumber || '').toLowerCase().includes(normSearch);
-        const matchesId = thread.id.toLowerCase().includes(normSearch);
+  // Quyền tương tác gắn với người dùng (users.id), độc lập với việc lắng nghe thread.
+  const handleToggleAccess = async (row: ChatRow) => {
+    const isGranted = row.access === 'granted' || row.access === 'admin';
+    if (
+      row.access === 'admin' &&
+      !confirm(
+        'Người dùng này là Quản trị viên (Admin). Bạn có chắc muốn thu hồi quyền truy cập không?',
+      )
+    ) {
+      return;
+    }
+    try {
+      await setGrantAccessMutation.mutateAsync({
+        id: row.id,
+        grantAccess: isGranted ? GrantAccessStatus.DENIED : GrantAccessStatus.GRANTED,
+      });
+    } catch {
+      showNotice('error', 'Không thể cập nhật quyền tương tác. Vui lòng thử lại.');
+    }
+  };
 
-        if (
-          !matchesName &&
-          !matchesDisplayName &&
-          !matchesAlias &&
-          !matchesZaloName &&
-          !matchesPhone &&
-          !matchesId
-        ) {
-          return false;
-        }
-      }
+  const handleEditUser = (row: ChatRow) => {
+    setUserDialog(
+      row.user
+        ? { mode: 'edit', user: row.user }
+        : { mode: 'create', initialId: row.id, initialName: row.name },
+    );
+  };
 
-      if (filter === 'listened') return thread.isListened;
-      if (filter === 'group') return thread.type === 'group';
-      if (filter === 'user') return thread.type === 'user';
+  const handleMergeUser = (row: ChatRow) => {
+    if (row.user) setMergingUser(row.user);
+  };
 
-      return true;
-    });
-  }, [threads, search, filter]);
+  const handleDeleteUser = async (row: ChatRow) => {
+    if (!row.user) return;
+    if (!confirm(`Bạn có chắc chắn muốn xóa người dùng "${row.name || row.id}" khỏi hệ thống không?`)) {
+      return;
+    }
+    try {
+      await deleteUserMutation.mutateAsync(row.id);
+    } catch {
+      showNotice('error', 'Không thể xoá người dùng. Vui lòng thử lại.');
+    }
+  };
 
-  // Sorted threads
-  const sortedThreads = useMemo(() => {
-    return [...filteredThreads].sort((a, b) => {
-      if (sortBy === 'listened_first') {
-        if (a.isListened !== b.isListened) return a.isListened ? -1 : 1;
-        return (a.name || '').localeCompare(b.name || '', 'vi');
-      }
-      if (sortBy === 'name_asc') {
-        return (a.name || '').localeCompare(b.name || '', 'vi');
-      }
-      if (sortBy === 'name_desc') {
-        return (b.name || '').localeCompare(a.name || '', 'vi');
-      }
-      if (sortBy === 'group_first') {
-        if (a.type !== b.type) return a.type === 'group' ? -1 : 1;
-        return (a.name || '').localeCompare(b.name || '', 'vi');
-      }
-      if (sortBy === 'user_first') {
-        if (a.type !== b.type) return a.type === 'user' ? -1 : 1;
-        return (a.name || '').localeCompare(b.name || '', 'vi');
-      }
-      if (sortBy === 'members_desc') {
-        const memA = a.totalMembers ?? 0;
-        const memB = b.totalMembers ?? 0;
-        if (memA !== memB) return memB - memA;
-        return (a.name || '').localeCompare(b.name || '', 'vi');
-      }
-      return 0;
-    });
-  }, [filteredThreads, sortBy]);
+  const handleMerged = (result: IUserMergeResult, sourceName: string, targetName: string) => {
+    setMergingUser(null);
+    const message = t('users.merge.success', { source: sourceName, target: targetName });
+    showNotice(
+      'success',
+      result.sourceWasCurrentSession ? `${message} ${t('users.merge.sessionNotice')}` : message,
+      result.sourceWasCurrentSession ? 15000 : 5000,
+    );
+  };
 
-  // Paginated threads
-  const totalPages = Math.max(1, Math.ceil(sortedThreads.length / pageSize));
-  const paginatedThreads = useMemo(() => {
-    if (pageSize >= sortedThreads.length) return sortedThreads;
+  const handleSyncUsers = async () => {
+    try {
+      const res = await syncUsersMutation.mutateAsync();
+      showNotice(
+        'success',
+        `Đồng bộ thành công! Đã cập nhật ${res.syncedCount} / ${res.totalUsers} người dùng từ danh bạ Zalo.`,
+      );
+    } catch {
+      showNotice('error', 'Không thể đồng bộ từ ZCA. Hãy đảm bảo bạn đã đăng nhập ZCA.');
+    }
+  };
+
+  const handleDriveOpened = () => {
+    setTimeout(() => {
+      void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.configs() });
+    }, 2000);
+  };
+
+  const chatRows = useMemo(() => buildChatRows(threads, users), [threads, users]);
+  const rowCounts = useMemo(() => countChatRows(chatRows), [chatRows]);
+
+  const filteredRows = useMemo(
+    () =>
+      chatRows.filter(
+        (row) => matchesChatRowSearch(row, search) && matchesChatRowFilter(row, filter),
+      ),
+    [chatRows, search, filter],
+  );
+  const sortedRows = useMemo(() => sortChatRows(filteredRows, sortBy), [filteredRows, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
+  const paginatedRows = useMemo(() => {
+    if (pageSize >= sortedRows.length) return sortedRows;
     const startIndex = (currentPage - 1) * pageSize;
-    return sortedThreads.slice(startIndex, startIndex + pageSize);
-  }, [sortedThreads, currentPage, pageSize]);
+    return sortedRows.slice(startIndex, startIndex + pageSize);
+  }, [sortedRows, currentPage, pageSize]);
 
   const listenedCount = status?.listenedCount ?? threads.filter((t) => t.isListened).length;
   const isRefreshing = refreshThreadsMutation.isPending;
+  const isTableLoading = isUsersLoading || (Boolean(status?.loggedIn) && isThreadsLoading);
 
   return (
     <div className="flex flex-col gap-4 p-1">
@@ -276,11 +326,11 @@ export function ZcaScreen() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            Tài khoản Zalo Cá nhân (ZCA)
+            Zalo & Người dùng
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">
-            Quản lý kết nối tài khoản Zalo cá nhân, danh bạ bạn bè, nhóm chat và cấu hình lắng nghe
-            tin nhắn.
+            Kết nối Zalo cá nhân (ZCA), chọn cuộc trò chuyện bot lắng nghe và cấp quyền tương tác
+            cho từng người.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -321,21 +371,9 @@ export function ZcaScreen() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* Card 1: Trạng thái kết nối */}
         <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Trạng thái kết nối
-            </p>
-            {status?.loggedIn && (
-              <button
-                className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 disabled:opacity-50"
-                disabled={isLoggingOut}
-                onClick={() => void handleLogout()}
-                type="button"
-              >
-                {isLoggingOut ? 'Đang đăng xuất...' : t('zca.logout')}
-              </button>
-            )}
-          </div>
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Trạng thái kết nối
+          </p>
           <div className="mt-2 flex items-center gap-2">
             <span
               className={`inline-flex size-2.5 rounded-full ${
@@ -345,39 +383,30 @@ export function ZcaScreen() {
             <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
               {status?.loggedIn ? 'Đã kết nối ZCA' : 'Chưa đăng nhập'}
             </span>
+            {status?.loggedIn && (
+              <span
+                className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                  status.isListening
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                }`}
+                title="Trình lắng nghe tin nhắn & sự kiện"
+              >
+                {status.isListening ? 'Đang nghe' : 'Tạm dừng'}
+              </span>
+            )}
           </div>
-          <p className="mt-1 text-[11px] text-slate-400 truncate">
+          <p className="mt-1 truncate text-[11px] text-slate-400">
             {status?.loggedIn
               ? `ID tài khoản: ${status.ownId || 'Đang cập nhật'}`
               : 'Hãy quét mã QR để bắt đầu'}
           </p>
         </div>
 
-        {/* Card 2: Trình lắng nghe sự kiện */}
+        {/* Card 2: Danh sách lắng nghe (Whitelist) */}
         <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Lắng nghe tin nhắn & sự kiện
-          </p>
-          <div className="mt-2 flex items-center gap-2">
-            <span
-              className={`inline-flex rounded px-1.5 py-0.5 text-xs font-semibold ${
-                status?.isListening
-                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-              }`}
-            >
-              {status?.isListening ? 'Đang hoạt động' : 'Tạm dừng'}
-            </span>
-          </div>
-          <p className="mt-1 text-[11px] text-slate-400">
-            Tự động kích hoạt khi đăng nhập thành công
-          </p>
-        </div>
-
-        {/* Card 3: Danh sách lắng nghe (Whitelist) */}
-        <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Danh sách lắng nghe (Whitelist)
+            Đang lắng nghe
           </p>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
@@ -392,18 +421,38 @@ export function ZcaScreen() {
           </p>
         </div>
 
+        {/* Card 3: Quyền tương tác */}
+        <button
+          className="rounded-lg border border-amber-200 bg-amber-50/50 p-3.5 text-left shadow-sm transition hover:border-amber-300 dark:border-amber-900/40 dark:bg-amber-950/20"
+          onClick={() => setFilter('pending')}
+          title="Xem những người đang chờ cấp quyền"
+          type="button"
+        >
+          <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+            Quyền tương tác
+          </p>
+          <div className="mt-2 flex items-baseline gap-1.5">
+            <span className="text-lg font-bold text-amber-700 dark:text-amber-300">
+              {rowCounts.pending}
+            </span>
+            <span className="text-xs text-amber-700/80 dark:text-amber-400">chờ duyệt</span>
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+            {rowCounts.granted} người đã được cấp quyền ({rowCounts.admin} admin)
+          </p>
+        </button>
+
         {/* Card 4: Tổng số phát hiện */}
         <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Tổng danh bạ đã nạp
+            Tổng danh bạ & người dùng
           </p>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
-              {threads.length}
+              {chatRows.length}
             </span>
             <span className="text-xs text-slate-500">
-              ({threads.filter((t) => t.type === 'group').length} nhóm,{' '}
-              {threads.filter((t) => t.type === 'user').length} bạn bè)
+              ({rowCounts.group} nhóm, {rowCounts.personal} cá nhân)
             </span>
           </div>
           <p className="mt-1 text-[11px] text-slate-400">
@@ -412,23 +461,63 @@ export function ZcaScreen() {
         </div>
       </div>
 
-      {/* Main Section: Whitelist Management */}
+      {/* Notice Banner */}
+      {notice && (
+        <div
+          className={`flex items-center justify-between rounded-lg border p-3 text-sm font-medium ${
+            notice.type === 'success'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300'
+              : 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300'
+          }`}
+          role="status"
+        >
+          <span>
+            {notice.type === 'success' ? '✅' : '⚠️'} {notice.message}
+          </span>
+          <button
+            aria-label="Đóng thông báo"
+            className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            onClick={() => setNotice(null)}
+            type="button"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Main Section: Danh sách cuộc trò chuyện & người dùng */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-3">
           {/* Header & Quick Action Buttons */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                Danh sách cuộc trò chuyện & Whitelist
+                Cuộc trò chuyện & Người dùng
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Chỉ những nhóm chat hoặc người dùng được bật ở danh sách bên dưới mới được bot tiếp
-                nhận tin nhắn và xử lý các tính năng (thu chi, sao lưu, lịch hẹn...).
+                <strong>Lắng nghe</strong>: bot có nhận tin nhắn từ cuộc trò chuyện đó không.{' '}
+                <strong>Quyền tương tác</strong>: người đó có được dùng các tính năng của bot không.
               </p>
             </div>
 
-            {/* Quick Action: Google Drive Link */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                disabled={syncUsersMutation.isPending}
+                onClick={() => void handleSyncUsers()}
+                title="Đồng bộ tên, avatar và SĐT từ danh bạ Zalo cá nhân (ZCA) sang người dùng"
+                type="button"
+              >
+                <RefreshIcon className={syncUsersMutation.isPending ? 'animate-spin' : ''} />
+                {syncUsersMutation.isPending ? 'Đang đồng bộ...' : 'Đồng bộ thông tin'}
+              </button>
+              <button
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+                onClick={() => setUserDialog({ mode: 'create' })}
+                type="button"
+              >
+                + Thêm người dùng
+              </button>
               <a
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400"
                 href={driveRootData?.webViewLink || getThreadDriveOpenUrl()}
@@ -443,16 +532,16 @@ export function ZcaScreen() {
             </div>
           </div>
 
-          {/* Form thêm ID thủ công */}
+          {/* Form thêm ID thủ công vào danh sách lắng nghe */}
           <form
             className="flex flex-wrap items-center gap-2 rounded-md bg-slate-50 p-2.5 dark:bg-slate-800/60"
             onSubmit={handleAddManualId}
           >
-            <div className="flex-1 min-w-[220px]">
+            <div className="min-w-[220px] flex-1">
               <input
                 className="w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                 onChange={(e) => setManualId(e.target.value)}
-                placeholder="Nhập ID Nhóm hoặc ID Người dùng thủ công (ví dụ: g-123456 hoặc 987654321)..."
+                placeholder="Nhập ID Nhóm hoặc ID Người dùng để bật lắng nghe (ví dụ: g-123456 hoặc 987654321)..."
                 type="text"
                 value={manualId}
               />
@@ -461,18 +550,17 @@ export function ZcaScreen() {
               className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
               type="submit"
             >
-              + Thêm vào Whitelist
+              + Bật lắng nghe ID
             </button>
             {manualError && <p className="w-full text-xs text-rose-500">{manualError}</p>}
           </form>
 
           {/* Search, Sort & Filters */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Search input */}
+            <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
                 <input
-                  className="w-64 rounded border border-slate-300 bg-white pl-7 pr-7 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+                  className="w-64 rounded border border-slate-300 bg-white py-1.5 pl-7 pr-7 text-xs text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Tìm theo tên, gợi nhớ, SĐT, ID..."
                   type="text"
@@ -491,374 +579,109 @@ export function ZcaScreen() {
                 )}
               </div>
 
-              {/* Sort Selector */}
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-500">Sắp xếp:</span>
                 <select
                   className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
-                  onChange={(e) =>
-                    setSortBy(
-                      e.target.value as
-                        | 'listened_first'
-                        | 'name_asc'
-                        | 'name_desc'
-                        | 'group_first'
-                        | 'user_first'
-                        | 'members_desc',
-                    )
-                  }
+                  onChange={(e) => {
+                    if (isChatRowSort(e.target.value)) setSortBy(e.target.value);
+                  }}
                   value={sortBy}
                 >
-                  <option value="listened_first">Đang lắng nghe lên đầu</option>
-                  <option value="name_asc">Tên (A → Z)</option>
-                  <option value="name_desc">Tên (Z → A)</option>
-                  <option value="group_first">Nhóm chat trước</option>
-                  <option value="user_first">Bạn bè trước</option>
-                  <option value="members_desc">Nhóm đông thành viên nhất</option>
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
               {search && (
                 <span className="text-xs text-slate-500">
-                  Tìm thấy <strong>{filteredThreads.length}</strong> kết quả
+                  Tìm thấy <strong>{filteredRows.length}</strong> kết quả
                 </span>
               )}
             </div>
 
-            {/* Filter Tabs */}
-            <div className="flex items-center rounded-md border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800 flex-wrap">
-              <button
-                className={`rounded px-2.5 py-1 text-xs font-medium ${
-                  filter === 'all'
-                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
-                }`}
-                onClick={() => setFilter('all')}
-                type="button"
-              >
-                Tất cả ({threads.length})
-              </button>
-              <button
-                className={`rounded px-2.5 py-1 text-xs font-medium ${
-                  filter === 'listened'
-                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
-                }`}
-                onClick={() => setFilter('listened')}
-                type="button"
-              >
-                Đang lắng nghe ({threads.filter((t) => t.isListened).length})
-              </button>
-              <button
-                className={`rounded px-2.5 py-1 text-xs font-medium ${
-                  filter === 'group'
-                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
-                }`}
-                onClick={() => setFilter('group')}
-                type="button"
-              >
-                Nhóm chat ({threads.filter((t) => t.type === 'group').length})
-              </button>
-              <button
-                className={`rounded px-2.5 py-1 text-xs font-medium ${
-                  filter === 'user'
-                    ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
-                }`}
-                onClick={() => setFilter('user')}
-                type="button"
-              >
-                Bạn bè ({threads.filter((t) => t.type === 'user').length})
-              </button>
+            <div className="flex flex-wrap items-center rounded-md border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800">
+              {FILTER_TABS.map((tab) => (
+                <button
+                  className={`rounded px-2.5 py-1 text-xs font-medium ${
+                    filter === tab.key
+                      ? tab.activeClass ||
+                        'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
+                  }`}
+                  key={tab.key}
+                  onClick={() => setFilter(tab.key)}
+                  type="button"
+                >
+                  {tab.label} ({rowCounts[tab.key]})
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Threads List Table */}
+          {/* Bảng hợp nhất */}
           <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-800">
             <table className="min-w-full divide-y divide-slate-200 text-left text-xs dark:divide-slate-800">
               <thead className="bg-slate-50 dark:bg-slate-800/50">
                 <tr>
-                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300 w-20">
+                  <th className="w-24 px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
                     Loại
                   </th>
                   <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
-                    Cuộc trò chuyện / Liên hệ
+                    Cuộc trò chuyện / Người dùng
                   </th>
-                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300 w-48">
+                  <th className="w-44 px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
                     ID
                   </th>
-                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300 text-center w-40">
-                    Trạng thái lắng nghe
+                  <th className="w-40 px-3.5 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300">
+                    Lắng nghe
                   </th>
-                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300 text-right w-52">
+                  <th className="w-36 px-3.5 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300">
+                    Quyền tương tác
+                  </th>
+                  <th className="w-48 px-3.5 py-2.5 text-right font-semibold text-slate-700 dark:text-slate-300">
                     Thao tác
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
-                {isThreadsLoading ? (
+                {isTableLoading ? (
                   <tr>
-                    <td className="px-4 py-12 text-center text-slate-400" colSpan={5}>
+                    <td className="px-4 py-12 text-center text-slate-400" colSpan={6}>
                       <div className="flex flex-col items-center justify-center gap-2">
-                        <span className="size-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                        <span>Đang tải danh sách nhóm & bạn bè từ Zalo...</span>
+                        <span className="size-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                        <span>Đang tải danh sách nhóm, bạn bè và người dùng...</span>
                       </div>
                     </td>
                   </tr>
-                ) : sortedThreads.length === 0 ? (
+                ) : sortedRows.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-slate-400" colSpan={5}>
-                      {threads.length === 0
-                        ? 'Chưa có cuộc trò chuyện nào được phát hiện. Vui lòng đăng nhập Zalo hoặc thêm ID thủ công ở trên.'
-                        : 'Không tìm thấy cuộc trò chuyện phù hợp với từ khóa hoặc bộ lọc.'}
+                    <td className="px-4 py-8 text-center text-slate-400" colSpan={6}>
+                      {chatRows.length === 0
+                        ? 'Chưa có cuộc trò chuyện hay người dùng nào. Hãy đăng nhập Zalo hoặc thêm thủ công ở trên.'
+                        : 'Không tìm thấy kết quả phù hợp với từ khóa hoặc bộ lọc.'}
                     </td>
                   </tr>
                 ) : (
-                  paginatedThreads.map((thread) => (
-                    <tr
-                      className={`hover:bg-slate-50/70 dark:hover:bg-slate-800/40 ${
-                        thread.isListened ? 'bg-emerald-50/20 dark:bg-emerald-950/10' : ''
-                      }`}
-                      key={thread.id}
-                    >
-                      {/* Cột Loại */}
-                      <td className="px-3.5 py-2.5 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[11px] font-medium ${
-                            thread.type === 'group'
-                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
-                              : 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
-                          }`}
-                        >
-                          {thread.type === 'group' ? '👥 Nhóm' : '👤 Cá nhân'}
-                        </span>
-                      </td>
-
-                      {/* Cột Tên & Avatar & Thông tin nhận diện */}
-                      <td className="px-3.5 py-2.5">
-                        <div className="flex items-center gap-2.5">
-                          <div className="relative shrink-0">
-                            <ThreadAvatar thread={thread} />
-                            {thread.isListened && (
-                              <span
-                                className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900"
-                                title="Đang trong danh sách lắng nghe (Whitelist)"
-                              />
-                            )}
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[280px]">
-                                {thread.name || 'Không có tên'}
-                              </span>
-                              {thread.alias && (
-                                <span className="inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
-                                  🏷️ Gợi nhớ: {thread.alias}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex-wrap">
-                              {thread.type === 'group' ? (
-                                <span>
-                                  👥{' '}
-                                  {typeof thread.totalMembers === 'number'
-                                    ? `${thread.totalMembers.toLocaleString()} thành viên`
-                                    : 'Nhóm chat'}
-                                </span>
-                              ) : (
-                                <>
-                                  {thread.displayName && thread.displayName !== thread.name && (
-                                    <span>Zalo: {thread.displayName}</span>
-                                  )}
-                                  {thread.phoneNumber && (
-                                    <span className="font-mono text-emerald-600 dark:text-emerald-400">
-                                      📞 {thread.phoneNumber}
-                                    </span>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Cột ID */}
-                      <td className="px-3.5 py-2.5 font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          <span className="truncate max-w-[150px]">{thread.id}</span>
-                          <button
-                            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                            onClick={() => copyToClipboard(thread.id)}
-                            title="Sao chép ID"
-                            type="button"
-                          >
-                            {copiedId === thread.id ? (
-                              <span className="text-[10px] text-emerald-600 font-sans">
-                                Đã chép
-                              </span>
-                            ) : (
-                              <CopyIcon />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-
-                      {/* Cột Trạng thái */}
-                      <td className="px-3.5 py-2.5 text-center whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                            thread.isListened
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300'
-                              : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                          }`}
-                        >
-                          {thread.isListened ? '● Đang lắng nghe' : '○ Bỏ qua'}
-                        </span>
-                        {configMap.get(thread.id) && (
-                          <div className="mt-1 flex flex-wrap items-center justify-center gap-1">
-                            {configMap.get(thread.id)?.directInteraction?.enabled && (
-                              <span
-                                className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium ${
-                                  (configMap.get(thread.id)?.directInteraction?.requireMention ??
-                                  true)
-                                    ? 'bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
-                                    : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
-                                }`}
-                                title={
-                                  (configMap.get(thread.id)?.directInteraction?.requireMention ??
-                                  true)
-                                    ? 'Cần @Bot hoặc tiền tố để kích hoạt'
-                                    : 'Trò chuyện tự do (không cần @Bot)'
-                                }
-                              >
-                                {(configMap.get(thread.id)?.directInteraction?.requireMention ??
-                                true)
-                                  ? '🤖 @Bot'
-                                  : '🤖 Tự do'}
-                              </span>
-                            )}
-                            {configMap.get(thread.id)?.mediaBackup.enabled && (
-                              <a
-                                className="inline-flex items-center gap-0.5 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900 transition-colors"
-                                href={getThreadDriveLink(
-                                  thread,
-                                  configMap.get(thread.id),
-                                )}
-                                onClick={() => {
-                                  setTimeout(() => {
-                                    void queryClient.invalidateQueries({
-                                      queryKey: zcaQueryKeys.configs(),
-                                    });
-                                  }, 2000);
-                                }}
-                                rel="noopener noreferrer"
-                                target="_blank"
-                                title={`Mở thư mục Google Drive: ${configMap.get(thread.id)?.driveFolderPath || configMap.get(thread.id)?.mediaBackup.customFolder || `zalobot/${thread.id}`}`}
-                              >
-                                📁 Drive ↗
-                              </a>
-                            )}
-                            {configMap.get(thread.id)?.mediaBackup.enabled && (
-                              <a
-                                className="inline-flex items-center gap-0.5 rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300 dark:hover:bg-indigo-900 transition-colors"
-                                href={getThreadPhotosLink(
-                                  thread,
-                                  configMap.get(thread.id),
-                                )}
-                                rel="noopener noreferrer"
-                                target="_blank"
-                                title={`Mở album Google Photos: ${configMap.get(thread.id)?.photosAlbumTitle || `[Zalo] ${thread.name || thread.id}`}`}
-                              >
-                                📸 Photos ↗
-                              </a>
-                            )}
-                            {configMap.get(thread.id)?.expenseTracking.enabled && (
-                              <span className="inline-flex items-center rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-                                💰 Thu chi
-                              </span>
-                            )}
-                            {configMap.get(thread.id)?.calendarExtraction.enabled && (
-                              <span className="inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-                                📅 Lịch
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Cột Thao tác (Sao lưu media, Google Drive, Google Photos, Cấu hình tính năng & Toggle switch button) */}
-                      <td className="px-3.5 py-2.5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {thread.type === 'group' && (
-                            <button
-                              className="inline-flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:border-blue-300 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/40 transition-colors"
-                              onClick={() => setSyncThreadTarget(thread)}
-                              title="Quét và sao lưu media lịch sử của nhóm lên Google Drive & Google Photos"
-                              type="button"
-                            >
-                              <span>⏳</span>
-                              <span>Sao lưu</span>
-                            </button>
-                          )}
-                          <a
-                            className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400 transition-colors"
-                            href={getThreadDriveLink(
-                              thread,
-                              configMap.get(thread.id),
-                            )}
-                            onClick={() => {
-                              setTimeout(() => {
-                                void queryClient.invalidateQueries({
-                                  queryKey: zcaQueryKeys.configs(),
-                                });
-                              }, 2000);
-                            }}
-                            rel="noopener noreferrer"
-                            target="_blank"
-                            title={`Mở thư mục Google Drive (${configMap.get(thread.id)?.driveFolderPath || configMap.get(thread.id)?.mediaBackup.customFolder || `zalobot/${thread.id}`})`}
-                          >
-                            <GoogleDriveIcon className="size-3.5 shrink-0" />
-                            <span>Drive</span>
-                          </a>
-                          {configMap.get(thread.id)?.mediaBackup.enabled && (
-                            <a
-                              className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-indigo-600 hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-800 dark:text-indigo-300 dark:hover:border-indigo-500 dark:hover:bg-slate-700 dark:hover:text-indigo-200 transition-colors"
-                              href={getThreadPhotosLink(
-                                thread,
-                                configMap.get(thread.id),
-                              )}
-                              rel="noopener noreferrer"
-                              target="_blank"
-                              title={`Mở album Google Photos (${configMap.get(thread.id)?.photosAlbumTitle || `[Zalo] ${thread.name || thread.id}`})`}
-                            >
-                              <span>📸</span>
-                              <span className="hidden sm:inline">Photos</span>
-                            </a>
-                          )}
-                          <button
-                            className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                            onClick={() => setSelectedThreadForConfig(thread)}
-                            title="Cấu hình tính năng bot cho nhóm hoặc cá nhân này"
-                            type="button"
-                          >
-                            ⚙️ Cấu hình
-                          </button>
-                          <button
-                            className={`rounded px-2.5 py-1 text-xs font-semibold transition-colors ${
-                              thread.isListened
-                                ? 'border border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
-                                : 'border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
-                            }`}
-                            onClick={() => handleToggleThread(thread.id)}
-                            type="button"
-                          >
-                            {thread.isListened ? 'Tắt' : 'Bật'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                  paginatedRows.map((row) => (
+                    <ChatTableRow
+                      config={configMap.get(row.id)}
+                      isCopied={copiedId === row.id}
+                      key={`${row.kind}:${row.id}`}
+                      onConfigure={setSelectedThreadForConfig}
+                      onCopyId={copyToClipboard}
+                      onDeleteUser={(r) => void handleDeleteUser(r)}
+                      onDriveOpened={handleDriveOpened}
+                      onEditUser={handleEditUser}
+                      onMergeUser={handleMergeUser}
+                      onSyncMedia={setSyncThreadTarget}
+                      onToggleAccess={(r) => void handleToggleAccess(r)}
+                      onToggleListen={(threadId) => void handleToggleThread(threadId)}
+                      row={row}
+                    />
                   ))
                 )}
               </tbody>
@@ -883,10 +706,10 @@ export function ZcaScreen() {
               <span>
                 Hiển thị{' '}
                 <strong>
-                  {sortedThreads.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} -{' '}
-                  {Math.min(currentPage * pageSize, sortedThreads.length)}
+                  {sortedRows.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} -{' '}
+                  {Math.min(currentPage * pageSize, sortedRows.length)}
                 </strong>{' '}
-                trên <strong>{sortedThreads.length}</strong> cuộc trò chuyện
+                trên <strong>{sortedRows.length}</strong> mục
               </span>
             </div>
 
@@ -1070,125 +893,26 @@ export function ZcaScreen() {
           threadConfig={configMap.get(syncThreadTarget.id)}
         />
       )}
+
+      {/* Add / Edit User Dialog */}
+      {userDialog && (
+        <UserFormDialog
+          initialId={userDialog.mode === 'create' ? userDialog.initialId : undefined}
+          initialName={userDialog.mode === 'create' ? userDialog.initialName : undefined}
+          onClose={() => setUserDialog(null)}
+          user={userDialog.mode === 'edit' ? userDialog.user : undefined}
+        />
+      )}
+
+      {/* Merge Duplicate Users Dialog */}
+      {mergingUser && (
+        <MergeUserDialog
+          onClose={() => setMergingUser(null)}
+          onMerged={handleMerged}
+          source={mergingUser}
+          users={users}
+        />
+      )}
     </div>
-  );
-}
-
-function RefreshIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg
-      className={`size-3.5 ${className}`}
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-    >
-      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-    </svg>
-  );
-}
-
-function QrIcon() {
-  return (
-    <svg
-      className="size-3.5"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-    >
-      <rect height="7" width="7" x="3" y="3" />
-      <rect height="7" width="7" x="14" y="3" />
-      <rect height="7" width="7" x="14" y="14" />
-      <rect height="7" width="7" x="3" y="14" />
-    </svg>
-  );
-}
-
-function CopyIcon() {
-  return (
-    <svg
-      className="size-3"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-    >
-      <rect height="13" rx="2" ry="2" width="13" x="9" y="9" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  );
-}
-
-function GoogleDriveIcon({ className = 'size-4' }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg">
-      <path
-        d="m6.6 66.85 3.85 6.65c.8 1.4 1.9 2.5 3.2 3.3l12.3-21.3-6.75-11.75-12.6 21.85c-.45.75-.45 1.55 0 2.25z"
-        fill="#0066da"
-      />
-      <path
-        d="m43.65 25-12.3-21.3c-1.3.8-2.4 1.9-3.2 3.3l-21.55 37.35 12.6-21.85 12.3-21.3z"
-        fill="#00ac47"
-      />
-      <path
-        d="m73.55 76.8c1.3-.8 2.4-1.9 3.2-3.3l1.6-2.75 3.85-6.65c.45-.7.45-1.5 0-2.25l-20.05-34.75-12.3 21.3 11.4 19.75 12.3 8.65z"
-        fill="#ea4335"
-      />
-      <path
-        d="m43.65 25 12.3-21.3c-1.3-.8-2.9-1.2-4.5-1.2h-15.6c-1.6 0-3.2.4-4.5 1.2z"
-        fill="#00832d"
-      />
-      <path
-        d="m59.8 53.5h-32.3l-12.3 21.3c1.3.8 2.9 1.2 4.5 1.2h47.9c1.6 0 3.2-.4 4.5-1.2z"
-        fill="#2684fc"
-      />
-      <path
-        d="m73.55 76.8-12.3-21.3h-24.6l-6.75 11.7 11.4 19.75c1.3-.8 2.4-1.9 3.2-3.3z"
-        fill="#ffba00"
-      />
-    </svg>
-  );
-}
-
-function ExternalLinkIcon({ className = 'size-3' }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-    >
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-      <polyline points="15 3 21 3 21 9" />
-      <line x1="10" x2="21" y1="14" y2="3" />
-    </svg>
-  );
-}
-
-function LogoutIcon({ className = 'size-3.5' }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      viewBox="0 0 24 24"
-    >
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <polyline points="16 17 21 12 16 7" />
-      <line x1="21" x2="9" y1="12" y2="12" />
-    </svg>
   );
 }

@@ -42,13 +42,12 @@
   9. Delete source user; insert one `audit_logs` row (`tableName=users`, `action=update`, `afterData.operation=merge`, counts). Existing audit rows are never rewritten.
 - **After commit**: `UsersService.afterUsersMerged()` drops source caches + Redis `whitelist:user:<source>` and rebuilds caches. Dashboard sessions of the source ID become invalid (`sourceWasCurrentSession` in result).
 
-## Web UI (`UsersScreen`)
+## Web UI (merged into ZCA page)
 
-- **Screen (`apps/web/src/modules/users/view/users-screen.tsx`)**:
-  - Filter bar supporting queries across all users, granted, pending, and admin tiers.
-  - Interactive "Thêm người dùng" modal with validation.
-  - Data table displaying Zalo ID with 1-click clipboard copy, user avatars, role badges, direct grant-access toggle switch, and delete action with confirmation.
-  - Row action "Merge into…" (every row, incl. admins) opens `MergeUserDialog` (`presentation/components/merge-user-dialog.tsx`): target select (excludes source), live preview (loading skeleton / error / empty / counts), conflict + Google token notes, bot-account warning that blocks merge, mandatory "irreversible" checkbox, destructive confirm. On success: invalidate all queries, banner message; extra notice when the merged source was the signed-in session.
+- There is no standalone Users page anymore: `apps/web/app/(private)/users` and `UsersScreen` were deleted, `APP_ROUTES.users` and `nav.users` removed. All user management (grant/revoke, add, edit name/phone/role, merge, delete, sync from ZCA) is on the "Zalo & Users" page — see zca module "Web UI".
+- `apps/web/src/modules/users` keeps only `api/` (`users-api.ts`, `users-query.ts`; also used by contacts `combine-contacts-dialog.tsx`) and `presentation/components/merge-user-dialog.tsx`.
+- `MergeUserDialog`: target select (excludes source), live preview (loading / error / empty / counts), conflict + Google token notes, bot-account warning that blocks merge, mandatory "irreversible" checkbox, destructive confirm. On success: invalidate all queries; the ZCA page shows a banner (extra notice when the merged source was the signed-in session).
+- Backend API and the `users` table are unchanged; `users.id` remains the system identity.
 
 ## Integration Seams & Contracts
 

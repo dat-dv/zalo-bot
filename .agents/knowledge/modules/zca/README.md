@@ -54,17 +54,26 @@ Shared gates first: self-message rules (`allowSelf`, `isBotSentMessage`) and `is
 - Self-heal of legacy rows: after a successful fresh fetch, `getAvailableThreads` calls `ThreadConfigService.reconcileThreadTypes` (fire-and-forget) with ZCA-confirmed types. It only fixes existing configs and never creates new ones.
 - No SQL migration: numeric group ids and user UIDs cannot be told apart in the DB. `users:cleanup-groups` reads `thread_type='group'`, so run it after the ZCA threads page or Users sync has loaded the thread list once post-deploy.
 
-## Web UI (`ZcaScreen` & `ThreadConfigModal`)
+## Web UI (`ZcaScreen` — page "Zalo & Users", route `APP_ROUTES.zca`)
 
+The former Users page (`/users`) was removed; user management lives here. Nav label key `nav.zca` = "Zalo & Người dùng" / "Zalo & Users".
+
+- **Why one page**: a 1-1 ZCA thread and a `users` row are the same Zalo person (`thread.id === users.id`). Two pages forced admins to toggle listening and access in different places without seeing each other's state.
+- **Two independent controls per person** (deliberately not coupled):
+  - Listening (`zca_thread_configs.is_listened`, `toggleZcaListenedThread`): does the bot receive messages from that thread.
+  - Interaction access (`users.grantAccess` / role, `PATCH usersGrantAccess(id)`): may that person use bot features. Granting on a personal thread with no `users` row creates it (backend `setGrantAccess` upserts).
+- **Row model** (`apps/web/src/modules/zca/model/chat-rows.ts`, pure, tested in `chat-rows.spec.ts`): `buildChatRows(threads, users)` →
+  - `group`: ZCA group thread; access column `n/a` (groups are never users, even if a stray `users` row shares the id).
+  - `personal`: ZCA user thread joined to `users` by id; access `admin|granted|pending`, or `none` when no `users` row.
+  - `user-only`: `users` row without a ZCA thread (webhook 20-hex ids, non-friend group members). Shown even when ZCA is logged out.
+  - Name/avatar prefer ZCA thread data, fall back to `users`.
 - **Screen (`apps/web/src/modules/zca/view/zca-screen.tsx`)**:
-  - Connection status card: Online/Offline indicator, connected profile (name, avatar, UID), session age, and QR modal trigger.
-  - QR Login Modal: Displays dynamic base64 QR code with polling to automatically detect successful authentication.
-  - Threads Table:
-    - Avatar, thread name, type badge (group/user), thread ID with 1-click copy.
-    - Listening switch (`toggleZcaListenedThread`).
-    - Interaction badges (`@bot` required vs Direct) and media backup icons.
-    - Direct Google Drive folder open button.
-    - Settings button triggering `ThreadConfigModal`.
+  - Header: refresh, QR login / logout. QR modal polls status and auto-closes on login.
+  - Cards: connection (+ listener state), listened count, interaction access (pending count, click → `pending` filter), total rows.
+  - Toolbar: "Đồng bộ thông tin" (`usersSyncZca`), "+ Thêm người dùng" (`UserFormDialog` create), Drive root link, manual ID form (adds id to listened list only).
+  - Filters (`ChatRowFilter`): all, listened, group, personal (personal + user-only), pending (`pending|none`), granted (`granted|admin`), admin. Sorts (`ChatRowSort`) incl. `pending_first`. Accent-insensitive search over name, alias, Zalo name, username, phone, id. Pagination.
+  - Columns: type, name/identity, id (copy), Listening (clickable pill + config badges; `—` for user-only), Interaction access (badge + grant/revoke; revoking an admin asks confirmation; `—` for groups), actions.
+  - Actions (`presentation/components/chat-table-row.tsx`): group media backup (`SyncMediaModal`), Drive, `ThreadConfigModal` (thread rows only); "⋯" menu (`chat-row-menu.tsx`, fixed-positioned to escape table overflow) for non-group rows: edit info & role (`UserFormDialog` edit; or create prefilled when no `users` row), merge (`MergeUserDialog` from users module), delete (non-admin, confirm).
 - **Config Modal (`ThreadConfigModal`)**:
   - Controls direct interaction rules, media backup toggles (images, videos, files, audios), confirmation rules, and displays channel Google Drive links.
 
