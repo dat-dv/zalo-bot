@@ -101,7 +101,13 @@ void test('ThreadConfigService persists to DB repo and syncs to Redis', async ()
 
   const mockRepo = {
     find: () => Promise.resolve([] as ZcaThreadConfigEntity[]),
+    findOne: () => Promise.resolve(null),
     findOneBy: () => Promise.resolve(null),
+    create: (dto: Partial<ZcaThreadConfigEntity>) => dto as ZcaThreadConfigEntity,
+    save: (entity: ZcaThreadConfigEntity) => {
+      upserted.push(entity);
+      return Promise.resolve(entity);
+    },
     upsert: (entity: Partial<ZcaThreadConfigEntity>) => {
       upserted.push(entity);
       return Promise.resolve({ identifiers: [], generatedMaps: [], raw: [] });
@@ -152,4 +158,15 @@ void test('ThreadConfigService persists to DB repo and syncs to Redis', async ()
   await service.setListened('thread-123', true);
   assert.equal(await service.isThreadListened('thread-123'), false);
   assert.equal(service.getListenedThreadIds().includes('thread-123'), false);
+
+  // Test savePhotosAlbumInfo
+  await service.savePhotosAlbumInfo(testId, {
+    albumId: 'album_abc_123',
+    albumUrl: 'https://photos.google.com/album/custom-album',
+    albumTitle: '[Zalo] Dat Doan',
+  });
+  const updatedCfg = await service.getConfig(testId);
+  assert.equal(updatedCfg.photosAlbumId, 'album_abc_123');
+  assert.equal(updatedCfg.photosAlbumUrl, 'https://photos.google.com/album/custom-album');
+  assert.equal(updatedCfg.photosAlbumTitle, '[Zalo] Dat Doan');
 });
