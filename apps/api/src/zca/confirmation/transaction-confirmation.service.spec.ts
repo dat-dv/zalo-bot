@@ -1,19 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TransactionConfirmationService } from './transaction-confirmation.service';
-import { ZaloService } from './zalo.service';
 import {
   FinanceService,
   CreateFinanceTransactionDto,
   CreateDebtDto,
-} from '../finance/finance.service';
-import { RemindersService, CreateReminderDto } from '../reminders/reminders.service';
-import { GoogleTasksService, CreateTaskOptions } from '../google/google-tasks.service';
-import { GoogleCalendarService, CreateEventOptions } from '../google/google-calendar.service';
-import { UsersService } from '../users/users.service';
-import { GoogleAuthService } from '../google/google-auth.service';
-import { RedisService } from '../redis/redis.service';
-import { FINANCE_TRANSACTION_DESCRIPTOR } from './confirmation/dto-descriptor.util';
+} from '../../finance/finance.service';
+import { RemindersService, CreateReminderDto } from '../../reminders/reminders.service';
+import { GoogleTasksService, CreateTaskOptions } from '../../google/google-tasks.service';
+import { GoogleCalendarService, CreateEventOptions } from '../../google/google-calendar.service';
+import { UsersService } from '../../users/users.service';
+import { GoogleAuthService } from '../../google/google-auth.service';
+import { RedisService } from '../../redis/redis.service';
+import { FINANCE_TRANSACTION_DESCRIPTOR } from './dto-descriptor.util';
 
 interface TestContext {
   service: TransactionConfirmationService;

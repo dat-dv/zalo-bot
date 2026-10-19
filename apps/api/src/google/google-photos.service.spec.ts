@@ -83,6 +83,13 @@ void test('GooglePhotosService uploads photo and creates media item in album', a
     assert.equal(result.mediaItemId, 'media_item_789');
     assert.equal(result.albumTitle, 'ZaloBot - Hóa đơn');
     assert.equal(result.productUrl, 'https://photos.google.com/photo/media_item_789');
+
+    // Test uploadGeneralPhoto with custom albumTitle
+    const customResult = await service.uploadGeneralPhoto(buffer, 'sender_456', {
+      albumTitle: 'Gia đình nhà ông Bảo Duyên - Zalo Photos',
+    });
+    assert.equal(customResult.albumTitle, 'Gia đình nhà ông Bảo Duyên - Zalo Photos');
+    assert.equal(customResult.mediaItemId, 'media_item_789');
   } finally {
     globalThis.fetch = originalFetch;
   }

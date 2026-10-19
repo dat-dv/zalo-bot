@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  BadRequestException,
   Logger,
   Optional,
   Inject,
@@ -244,7 +245,7 @@ export class ZcaController {
     @Body() body?: SyncThreadMediaDto,
   ): Promise<{ data: SyncThreadMediaResponse }> {
     if (!this.botFeatureService) {
-      throw new Error('ZcaBotFeatureService chưa được khởi tạo');
+      throw new BadRequestException('ZcaBotFeatureService chưa được khởi tạo');
     }
     const result = await this.botFeatureService.syncThreadMediaHistory(threadId, body);
     return { data: result };
