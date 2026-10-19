@@ -12,6 +12,8 @@ import { GoogleCalendarService, CreateEventOptions } from '../../google/google-c
 import { UsersService } from '../../users/users.service';
 import { GoogleAuthService } from '../../google/google-auth.service';
 import { RedisService } from '../../redis/redis.service';
+import { ZcaService } from '../zca.service';
+import type { ZaloService } from '../../zalo/zalo.service';
 import { FINANCE_TRANSACTION_DESCRIPTOR } from './dto-descriptor.util';
 
 interface TestContext {
@@ -47,7 +49,7 @@ function createTestContext(): TestContext {
       sentMessages.push({ chatId, text });
       return Promise.resolve(true);
     },
-  } as unknown as ZaloService;
+  } as unknown as ZcaService;
 
   const mockFinanceService = {
     createTransaction: (dto: CreateFinanceTransactionDto) => {
@@ -856,7 +858,7 @@ void test('TransactionConfirmationService captures messageId from sendMessageWit
       sentMessages.push({ chatId, text });
       return Promise.resolve({ success: true, msgId: 'bot-msg-888' });
     },
-  } as unknown as ZaloService;
+  } as unknown as ZcaService;
 
   const mockFinanceService = {
     createTransaction: (dto: CreateFinanceTransactionDto) => {
@@ -927,7 +929,7 @@ void test('TransactionConfirmationService captures cliMsgId and exposes undoMess
       _undonePayload = { chatId, msgId, cliMsgId };
       return Promise.resolve(true);
     },
-  } as unknown as ZaloService;
+  } as unknown as ZcaService;
 
   const mockFinanceService = {
     createTransaction: () => Promise.resolve({ id: 'tx_1' }),
@@ -978,7 +980,7 @@ void test('TransactionConfirmationService recalls previous message when action i
       recalledCliMsgId = cliMsgId;
       return Promise.resolve(true);
     },
-  } as unknown as ZaloService;
+  } as unknown as ZcaService;
 
   const service = new TransactionConfirmationService(
     mockZaloService,
@@ -1031,7 +1033,7 @@ void test('processConfirm recalls pending confirmation message and formats heart
       recalledCliMsgId = cliMsgId;
       return Promise.resolve(true);
     },
-  } as unknown as ZaloService;
+  } as unknown as ZcaService;
 
   const mockFinanceService = {
     createTransaction: (dto: CreateFinanceTransactionDto) =>
@@ -1108,7 +1110,7 @@ void test('handleTimeout recalls pending card message and sends only timeout not
       recalledCliMsgId = cliMsgId;
       return Promise.resolve(true);
     },
-  } as unknown as ZaloService;
+  } as unknown as ZcaService;
 
   const service = new TransactionConfirmationService(
     mockZaloService,
@@ -1159,7 +1161,7 @@ void test('processCancel recalls pending card message and sends cancellation not
       recalledCliMsgId = cliMsgId;
       return Promise.resolve(true);
     },
-  } as unknown as ZaloService;
+  } as unknown as ZcaService;
 
   const service = new TransactionConfirmationService(
     mockZaloService,
@@ -1225,7 +1227,7 @@ void test('Multi-card confirmation flow cleans up all temporary cards and interi
       recalled.push({ chatId, msgId, cliMsgId });
       return Promise.resolve(true);
     },
-  } as unknown as ZaloService;
+  } as unknown as ZcaService;
 
   const mockFinanceService = {
     resolveOrCreatePlace: (_userId: string, name: string) => Promise.resolve({ id: 'p1', name }),

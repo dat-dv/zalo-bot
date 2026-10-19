@@ -31,7 +31,7 @@ void test('InitialAdminBootstrapGuard promotes first user to admin when system h
       sentMessages.push({ chatId, text });
       return Promise.resolve(true);
     },
-  } as unknown as ZaloService;
+  } as unknown as ZcaService;
 
   const guard = new InitialAdminBootstrapGuard(mockUsersService, mockZaloService);
 
@@ -82,7 +82,7 @@ void test('GrantAccessGuard saves pending user and rejects ungranted users with 
       sentMessages.push({ chatId, text });
       return Promise.resolve(true);
     },
-  } as unknown as ZaloService;
+  } as unknown as ZcaService;
 
   const guard = new GrantAccessGuard(mockUsersService, mockZaloService);
 

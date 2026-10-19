@@ -34,6 +34,17 @@ export class UsersService implements OnModuleInit {
 
   public async onModuleInit(): Promise<void> {
     await this.refreshMemoryCache();
+    if (
+      this.redisService &&
+      typeof (this.redisService as unknown as { onReady?: (cb: () => Promise<void>) => void })
+        .onReady === 'function'
+    ) {
+      (
+        this.redisService as unknown as { onReady: (cb: () => Promise<void>) => void }
+      ).onReady(async () => {
+        await this.refreshMemoryCache();
+      });
+    }
   }
 
   private getEnvAdminIds(): Set<string> {

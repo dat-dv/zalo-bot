@@ -711,6 +711,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     this.api = this.setupApiInstance(api);
 
     this.logger.log('Successfully logged in to Zalo via ZCA.');
+    await this.loadListenedThreads();
     await this.initPlugins(api);
     this.startListener();
 
@@ -888,6 +889,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
           cb.onSuccess?.(ownId);
         }
 
+        await this.loadListenedThreads();
         await this.initPlugins(api);
         this.startListener();
         return api;
@@ -1030,6 +1032,18 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   public async getAvailableThreads(forceRefresh = false): Promise<AvailableThread[]> {
     if (!this.isLoggedIn()) {
       return [];
+    }
+
+    // Always re-sync listenedThreadIds from threadConfigService if available
+    if (this.threadConfigService) {
+      if (forceRefresh || this.listenedThreadIds.size === 0) {
+        await this.loadListenedThreads();
+      } else {
+        const ids = this.threadConfigService.getListenedThreadIds();
+        if (ids.length > 0) {
+          this.listenedThreadIds = new Set(ids.filter((id) => id !== 'thread-123'));
+        }
+      }
     }
 
     // 1. Return fresh cached copy if still valid and not explicitly forced
@@ -1931,7 +1945,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     }
   }
 
-  private async loadListenedThreads(): Promise<void> {
+  public async loadListenedThreads(): Promise<void> {
     try {
       if (this.threadConfigService) {
         await this.threadConfigService.loadConfigs();

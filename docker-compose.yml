@@ -45,6 +45,7 @@ services:
       - path: .env.production
         required: false
     environment:
+      TZ: ${DEFAULT_TIMEZONE:-Asia/Ho_Chi_Minh}
       BE_PORT: ${BE_PORT:-3005}
       DATABASE_URL: postgresql://${POSTGRES_USER:-zalobot}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zalobot}
       DATABASE_SSL: ${DATABASE_SSL:-false}

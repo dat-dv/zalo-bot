@@ -6,7 +6,10 @@ import { TextToolType } from './text-tool.enum';
 import { ZALO_TOOL_DEFINITIONS } from './text-tool.definitions';
 import { LlmService } from '../../llm/llm.service';
 import { ZaloService } from '../zalo.service';
-import { TransactionConfirmationService, PendingAction } from '../../zca/confirmation/transaction-confirmation.service';
+import {
+  TransactionConfirmationService,
+  PendingAction,
+} from '../../zca/confirmation/transaction-confirmation.service';
 import { cleanBotMention } from './bot-mention.util';
 import { PendingImageActionService } from '../../zca/pending-image/pending-image-action.service';
 import { OcrService } from '../../ocr/ocr.service';
@@ -16,6 +19,7 @@ import { PendingImageActionDispatcher } from '../../zca/pending-image/pending-im
 import { CancelPendingImageStrategy } from '../../zca/pending-image/strategies/cancel-pending-image.strategy';
 import { StorageUploadPendingImageStrategy } from '../../zca/pending-image/strategies/storage-upload-pending-image.strategy';
 import { CreateBillPendingImageStrategy } from '../../zca/pending-image/strategies/create-bill-pending-image.strategy';
+import { getVietnamDateTimeContext } from '../../common/utils/datetime.util';
 
 @Injectable()
 export class TextInputService {
@@ -153,9 +157,14 @@ export class TextInputService {
     }
 
     // 3. AI / LLM Tool Calling for natural language processing
-    const now = new Date().toISOString();
+    const timeZone =
+      this.configService?.get<string>('timezone') ||
+      process.env.DEFAULT_TIMEZONE ||
+      'Asia/Ho_Chi_Minh';
+    const dtContext = getVietnamDateTimeContext(new Date(), timeZone);
     const systemInstruction =
-      `Bạn là trợ lý cá nhân thông minh trên Zalo. Thời gian hiện tại là: ${now}.\n` +
+      `Bạn là trợ lý cá nhân thông minh trên Zalo.\n\n` +
+      `${dtContext.systemInstructionSnippet}\n\n` +
       'Nhiệm vụ của bạn:\n' +
       '- Phân tích yêu cầu của người dùng để gọi công cụ (tool call) phù hợp nhất.\n' +
       '- Về công nợ ("nợ a 100k", "cho Nam vay 200k", "mai trả nợ"): gọi MANAGE_DEBT, xác định chính xác direction (receivable: người ta nợ mình, payable: mình nợ người ta), counterparty, amount, occurredAt (nếu có) và dueAt (nếu có).\n' +
@@ -273,7 +282,11 @@ export class TextInputService {
     const chatId = input.chatId || input.senderId;
     const senderId = input.senderId;
     const displayName = input.displayName;
-    const now = new Date().toISOString();
+    const timeZone =
+      this.configService?.get<string>('timezone') ||
+      process.env.DEFAULT_TIMEZONE ||
+      'Asia/Ho_Chi_Minh';
+    const dtContext = getVietnamDateTimeContext(new Date(), timeZone);
 
     const previousInfoLines: string[] = [
       `- Loại thao tác (Tool Call trước đó): ${pending.actionType}`,
@@ -300,7 +313,8 @@ export class TextInputService {
       `- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object.`;
 
     const systemInstruction =
-      `Bạn là trợ lý cá nhân thông minh trên Zalo. Thời gian hiện tại là: ${now}.\n` +
+      `Bạn là trợ lý cá nhân thông minh trên Zalo.\n\n` +
+      `${dtContext.systemInstructionSnippet}\n\n` +
       `Nhiệm vụ: Cập nhật thông tin thao tác dựa trên ngữ cảnh thao tác trước đó và yêu cầu điều chỉnh của người dùng để gọi công cụ phù hợp.\n` +
       `QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n` +
       `- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object.`;

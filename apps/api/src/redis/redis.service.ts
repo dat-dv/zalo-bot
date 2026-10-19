@@ -10,7 +10,19 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
 
   constructor(private readonly configService: ConfigService) {}
 
-  public onModuleInit(): void {
+  private readonly readyCallbacks: (() => void | Promise<void>)[] = [];
+
+  public onReady(callback: () => void | Promise<void>): void {
+    if (this.isReady) {
+      void Promise.resolve(callback()).catch((err) => {
+        this.logger.warn(`Error executing Redis onReady callback: ${(err as Error).message}`);
+      });
+    } else {
+      this.readyCallbacks.push(callback);
+    }
+  }
+
+  public async onModuleInit(): Promise<void> {
     const redisUrl =
       this.configService.get<string>('redis.url') ||
       process.env.REDIS_URL ||
@@ -31,12 +43,26 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         this.logger.log('Connected to Redis successfully.');
       });
 
+      this.client.on('ready', () => {
+        this.isConnected = true;
+        this.logger.log('Redis client is ready to accept commands.');
+        for (const cb of this.readyCallbacks) {
+          void Promise.resolve(cb()).catch((err) => {
+            this.logger.warn(`Error executing Redis onReady callback: ${(err as Error).message}`);
+          });
+        }
+      });
+
       this.client.on('error', (err) => {
         this.isConnected = false;
         this.logger.warn(`Redis client error: ${err.message}`);
       });
 
-      this.client.connect().catch((err) => {
+      this.client.on('close', () => {
+        this.isConnected = false;
+      });
+
+      await this.client.connect().catch((err) => {
         this.logger.warn(`Could not connect to Redis: ${(err as Error).message}`);
       });
     } catch (err) {

@@ -164,6 +164,32 @@ export class ThreadConfigService implements OnModuleInit {
 
   public async onModuleInit(): Promise<void> {
     await this.loadConfigs();
+    if (
+      this.redisService &&
+      typeof (this.redisService as unknown as { onReady?: (cb: () => Promise<void>) => void })
+        .onReady === 'function'
+    ) {
+      (
+        this.redisService as unknown as { onReady: (cb: () => Promise<void>) => void }
+      ).onReady(async () => {
+        await this.syncToRedis();
+      });
+    }
+  }
+
+  public async syncToRedis(): Promise<void> {
+    if (!this.redisService?.isReady) return;
+    try {
+      await this.syncListenedThreadsToRedis();
+      for (const [, cfg] of this.configsMap.entries()) {
+        await this.cacheConfigToRedis(cfg);
+      }
+      this.logger.log(`[ThreadConfigService] Synced configs and whitelist to Redis.`);
+    } catch (err) {
+      this.logger.warn(
+        `[ThreadConfigService] Failed to sync configs to Redis: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   public async loadConfigs(): Promise<void> {
@@ -217,13 +243,7 @@ export class ThreadConfigService implements OnModuleInit {
       }
 
       // 3. Sync to Redis for fast lookups
-      if (this.redisService?.isReady) {
-        await this.syncListenedThreadsToRedis();
-        for (const [, cfg] of this.configsMap.entries()) {
-          await this.cacheConfigToRedis(cfg);
-        }
-        this.logger.log(`[ThreadConfigService] Synced configs and whitelist to Redis.`);
-      }
+      await this.syncToRedis();
 
       this.logger.log(
         `[ThreadConfigService] Initialized with ${this.configsMap.size} thread configs.`,
@@ -324,15 +344,34 @@ export class ThreadConfigService implements OnModuleInit {
     const id = String(threadId).trim();
     if (!id || id === 'thread-123') return false;
 
-    // Fast check via Redis
+    // 1. Fast check in-memory map (guaranteed up-to-date once loaded)
+    const cfg = this.configsMap.get(id);
+    if (cfg !== undefined) {
+      return Boolean(cfg.isListened);
+    }
+
+    // 2. Fast check via Redis
     if (this.redisService?.isReady) {
       const isMember = await this.redisService.sismember(REDIS_KEY_LISTENED_THREADS, id);
       if (isMember) return true;
     }
 
-    // Check in-memory map
-    const cfg = this.configsMap.get(id);
-    return Boolean(cfg?.isListened);
+    // 3. Fallback to PostgreSQL DB if not found in memory
+    if (this.threadConfigRepo) {
+      try {
+        const entity = await this.threadConfigRepo.findOneBy({ threadId: id });
+        if (entity) {
+          const loadedCfg = entityToConfig(entity);
+          this.configsMap.set(id, loadedCfg);
+          await this.cacheConfigToRedis(loadedCfg);
+          return Boolean(loadedCfg.isListened);
+        }
+      } catch {
+        // Continue
+      }
+    }
+
+    return false;
   }
 
   public async updateConfig(

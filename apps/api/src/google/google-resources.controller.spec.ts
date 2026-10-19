@@ -340,6 +340,7 @@ void test('GoogleResourcesController getDriveFolderLink returns channel folder l
     {} as unknown as GoogleAuthService,
     mockDrive,
     undefined,
+    undefined,
     mockThreadConfigService,
   );
 

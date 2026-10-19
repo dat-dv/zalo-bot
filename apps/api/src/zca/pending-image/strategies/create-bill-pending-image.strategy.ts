@@ -8,6 +8,7 @@ import { TextToolFactory } from '../../../zalo/text/text-tool.factory';
 import { TextToolType } from '../../../zalo/text/text-tool.enum';
 import { ZALO_TOOL_DEFINITIONS } from '../../../zalo/text/text-tool.definitions';
 import { fetchImageBuffer } from '../../../common/utils/image-fetcher.util';
+import { getVietnamDateTimeContext } from '../../../common/utils/datetime.util';
 import { PendingImageContext, PendingImageStrategy } from '../pending-image.interface';
 
 @Injectable()
@@ -19,7 +20,16 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
   constructor(
     @Optional()
     @Inject(forwardRef(() => ZcaService))
-    private readonly zcaService?: ZcaService | { sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>; sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown>; withChatAction?: (chatId: string | number, action: () => Promise<unknown>) => Promise<unknown> },
+    private readonly zcaService?:
+      | ZcaService
+      | {
+          sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>;
+          sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown>;
+          withChatAction?: (
+            chatId: string | number,
+            action: () => Promise<unknown>,
+          ) => Promise<unknown>;
+        },
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
     @Optional() private readonly llmService?: LlmService,
     @Optional() private readonly toolFactory?: TextToolFactory,
@@ -33,12 +43,20 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
 
   private async notify(chatId: string, text: string): Promise<void> {
     if (!this.zcaService) return;
-    if ('sendMessageToChat' in this.zcaService && typeof this.zcaService.sendMessageToChat === 'function') {
+    if (
+      'sendMessageToChat' in this.zcaService &&
+      typeof this.zcaService.sendMessageToChat === 'function'
+    ) {
       await this.zcaService.sendMessageToChat(chatId, text);
-    } else if (typeof (this.zcaService as any).isLoggedIn === 'function') {
+    } else if (
+      typeof (this.zcaService as unknown as { isLoggedIn?: () => boolean }).isLoggedIn ===
+      'function'
+    ) {
       await this.zcaService.sendMessage(text, chatId);
     } else if (typeof this.zcaService.sendMessage === 'function') {
-      await (this.zcaService as unknown as { sendMessage(c: string, t: string): Promise<unknown> }).sendMessage(chatId, text);
+      await (
+        this.zcaService as unknown as { sendMessage(c: string, t: string): Promise<unknown> }
+      ).sendMessage(chatId, text);
     }
   }
 
@@ -83,7 +101,7 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
       this.logger.warn(`Failed to read/OCR receipt image: ${(err as Error).message}`);
     }
 
-    const now = new Date().toISOString();
+    const dtContext = getVietnamDateTimeContext(new Date());
     const prompt =
       `Người dùng tải lên một ảnh hóa đơn và chọn [1] TẠO BILL / GHI NHẬN CHI TIÊU.\n` +
       `Ảnh hóa đơn đã được lưu tại: ${activeReceiptUrl}\n` +
@@ -98,28 +116,33 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
       `category (Ăn uống, Mua sắm, Đi lại, Nhà cửa, Sức khỏe, Khác...), ` +
       `note (chi tiết món ăn/nội dung chi tiêu kết hợp ghi chú người dùng), ` +
       `placeName (tên quán/cửa hàng/siêu thị nếu có trên bill), ` +
-      `occurredAt (thời gian ghi trên hóa đơn nếu có, quy đổi sang ISO 8601 dựa trên mốc hiện tại ${now}).\n` +
+      `occurredAt (thời gian ghi trên hóa đơn nếu có, quy đổi sang ISO 8601 dựa trên mốc hiện tại ${dtContext.formattedDateTime} - ${dtContext.isoLocal}).\n` +
       `- Gán trường receiptUrl: "${activeReceiptUrl}".\n` +
       `- Gọi công cụ RECORD_TRANSACTION với các tham số trên để tạo yêu cầu xác nhận.`;
 
     const systemInstruction =
-      `Bạn là trợ lý cá nhân thông minh trên Zalo. Thời gian hiện tại là: ${now}.\n` +
+      `Bạn là trợ lý cá nhân thông minh trên Zalo.\n\n` +
+      `${dtContext.systemInstructionSnippet}\n\n` +
       `Nhiệm vụ: Phân tích hóa đơn đã OCR để gọi công cụ RECORD_TRANSACTION chính xác.\n` +
       `QUY TẮC: Mọi tham số truyền vào arguments PHẢI là giá trị phẳng (primitive: string, number). Luôn truyền đúng receiptUrl: "${activeReceiptUrl}".`;
 
     if (!this.llmService || !this.toolFactory) {
-      await this.notify(
-        context.chatId,
-        '⚠️ Dịch vụ AI hoặc công cụ xử lý hiện chưa sẵn sàng.',
-      );
+      await this.notify(context.chatId, '⚠️ Dịch vụ AI hoặc công cụ xử lý hiện chưa sẵn sàng.');
       return true;
     }
 
     try {
-      const runner = () => this.llmService!.generate(prompt, ZALO_TOOL_DEFINITIONS, systemInstruction);
+      const runner = () =>
+        this.llmService.generate(prompt, ZALO_TOOL_DEFINITIONS, systemInstruction);
       let response;
-      if (this.zcaService && 'withChatAction' in this.zcaService && typeof this.zcaService.withChatAction === 'function') {
-        response = (await this.zcaService.withChatAction(context.chatId, runner)) as Awaited<ReturnType<LlmService['generate']>>;
+      if (
+        this.zcaService &&
+        'withChatAction' in this.zcaService &&
+        typeof this.zcaService.withChatAction === 'function'
+      ) {
+        response = (await this.zcaService.withChatAction(context.chatId, runner)) as Awaited<
+          ReturnType<LlmService['generate']>
+        >;
       } else {
         response = await runner();
       }

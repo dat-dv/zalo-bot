@@ -1020,6 +1020,28 @@ void test('TextInputService includes shared context inheritance rules in systemI
   assert.match(instruction, /KẾ THỪA NGỮ CẢNH DÙNG CHUNG/);
 });
 
+void test('TextInputService includes detailed Vietnam datetime context and weekday in systemInstruction', async () => {
+  const { service, getLastLlmInstruction } = createTextInputService({
+    llmResponse: {
+      text: 'Hôm nay là Thứ Hai',
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'User',
+    text: 'hôm nay ngày bao nhieu',
+  });
+
+  const instruction = getLastLlmInstruction();
+  assert.match(instruction, /THỜI GIAN VÀ NGÀY THÁNG THỰC TẾ/);
+  assert.match(instruction, /Hôm nay là: (Thứ Hai|Thứ Ba|Thứ Tư|Thứ Năm|Thứ Sáu|Thứ Bảy|Chủ Nhật)/);
+  assert.match(instruction, /Múi giờ Asia\/Ho_Chi_Minh/);
+  assert.match(instruction, /TUYỆT ĐỐI KHÔNG tự tính nhầm sang thứ khác/);
+});
+
 void test('TextInputService propagates shared placeName to all sibling transactions when compound request has single location', async () => {
   const { service, sentMessages, confirmationService } = createTextInputService({
     enablePlaceCheck: true,

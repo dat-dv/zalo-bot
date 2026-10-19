@@ -20,11 +20,12 @@ RUN mkdir -p /app/apps/api/node_modules
 FROM node:22-alpine AS runner
 WORKDIR /app
 RUN --mount=type=cache,target=/var/cache/apk \
-    apk add curl && \
+    apk add curl tzdata && \
     mkdir -p /app/data
 
 ARG BE_PORT=3005
 ENV NODE_ENV=production
+ENV TZ=Asia/Ho_Chi_Minh
 ENV BE_PORT=${BE_PORT}
 EXPOSE ${BE_PORT}
 

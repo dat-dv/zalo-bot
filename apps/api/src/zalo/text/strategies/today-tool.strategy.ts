@@ -6,6 +6,7 @@ import { GoogleCalendarService } from '../../../google/google-calendar.service';
 import { GoogleTasksService } from '../../../google/google-tasks.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
 import { FinanceService } from '../../../finance/finance.service';
+import { getStartAndEndOfDayInTz } from '../../../common/utils/datetime.util';
 
 @Injectable()
 export class TodayToolStrategy implements TextToolStrategy {
@@ -24,8 +25,7 @@ export class TodayToolStrategy implements TextToolStrategy {
     const isGoogleConnected = this.googleAuthService.isAuthorized(context.senderId);
 
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const { startOfDay, endOfDay } = getStartAndEndOfDayInTz(now, 'Asia/Ho_Chi_Minh');
 
     let calendarSection = '';
     let tasksSection = '';

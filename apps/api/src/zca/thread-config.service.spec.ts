@@ -170,3 +170,63 @@ void test('ThreadConfigService persists to DB repo and syncs to Redis', async ()
   assert.equal(updatedCfg.photosAlbumUrl, 'https://photos.google.com/album/custom-album');
   assert.equal(updatedCfg.photosAlbumTitle, '[Zalo] Dat Doan');
 });
+
+void test('ThreadConfigService registers onReady and syncs listened DB records to Redis', async () => {
+  const dbRecords: Partial<ZcaThreadConfigEntity>[] = [
+    {
+      threadId: 'group-101',
+      threadName: 'Group 101',
+      threadType: 'group',
+      isListened: true,
+    },
+    {
+      threadId: 'group-102',
+      threadName: 'Group 102',
+      threadType: 'group',
+      isListened: false,
+    },
+  ];
+
+  const redisMembers = new Set<string>();
+  let readyCallback: (() => Promise<void>) | null = null;
+  let isRedisReady = false;
+
+  const mockRepo = {
+    find: () => Promise.resolve(dbRecords as ZcaThreadConfigEntity[]),
+    findOne: () => Promise.resolve(null),
+    findOneBy: () => Promise.resolve(null),
+  } as unknown as Repository<ZcaThreadConfigEntity>;
+
+  const mockRedis = {
+    get isReady() {
+      return isRedisReady;
+    },
+    onReady: (cb: () => Promise<void>) => {
+      readyCallback = cb;
+    },
+    sadd: (_key: string, ...members: string[]) => {
+      members.forEach((m) => redisMembers.add(m));
+      return Promise.resolve(members.length);
+    },
+    sismember: (_key: string, member: string) => Promise.resolve(redisMembers.has(member)),
+    smembers: () => Promise.resolve(Array.from(redisMembers)),
+  } as unknown as RedisService;
+
+  const service = new ThreadConfigService(mockRepo, mockRedis);
+
+  // During onModuleInit, redis is not ready yet
+  await service.onModuleInit();
+  assert.equal(readyCallback !== null, true);
+  assert.equal(redisMembers.size, 0); // Not synced yet because isReady was false
+
+  // Now Redis connects and triggers onReady
+  isRedisReady = true;
+  await readyCallback!();
+
+  // Group 101 should be synced to Redis, Group 102 should NOT
+  assert.equal(redisMembers.has('group-101'), true);
+  assert.equal(redisMembers.has('group-102'), false);
+  assert.equal(await service.isThreadListened('group-101'), true);
+  assert.equal(await service.isThreadListened('group-102'), false);
+});
+
