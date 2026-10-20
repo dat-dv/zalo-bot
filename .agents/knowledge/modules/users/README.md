@@ -61,7 +61,8 @@
 
 | Method | Path | Behavior |
 | --- | --- | --- |
-| GET | `/api/users` | `getUsers()` (ZCA-enriched) |
+| GET | `/api/users` | `getUsers()` (ZCA-enriched) + `linkedContactCount` (one `GROUP BY linked_user_id` query, `UserLinkedContactsService.countByLinkedUser`) |
+| GET | `/api/users/:id/linked-contacts` | `IUserLinkedContactItem[]`: debt contacts in any owner's address book linked to `:id` (`contactId`, `displayName`, `alias`, `ownerUserId`, `ownerName`, `debtCount`, `createdAt`), oldest first |
 | GET | `/api/users/:id` | One user, 404 if missing |
 | POST | `/api/users/sync-zca` | `syncUsersWithZca()` → `{ syncedCount, totalUsers }` |
 | POST | `/api/users` | Upsert `{ id, role?, grantAccess?, firstName?, phoneNumber?, avatarUrl? }` |
@@ -75,10 +76,11 @@
 
 - There is no standalone Users page: user management (grant/revoke, add, edit name/phone/role, merge, delete, sync from ZCA) is on the "Zalo & Users" page — see zca module "Web UI".
 - `apps/web/src/modules/users` keeps only:
-  - `api/users-api.ts`: `getUsers`, `createUser`, `setGrantAccess`, `updateUser`, `updateUserRole`, `syncUsersWithZca`, `deleteUser`, `getUserMergePreview`, `mergeUser`.
-  - `api/users-query.ts`: `usersQueryKeys` (`all`, `mergePreview`), `useUsersQuery`, `useCreateUserMutation`, `useSetGrantAccessMutation`, `useUpdateUserMutation`, `useUpdateUserRoleMutation`, `useSyncUsersWithZcaMutation`, `useDeleteUserMutation`, `useUserMergePreviewQuery`, `useMergeUserMutation` (invalidates all queries). Also used by contacts `combine-contacts-dialog.tsx`.
+  - `api/users-api.ts`: `getUsers`, `createUser`, `setGrantAccess`, `updateUser`, `updateUserRole`, `syncUsersWithZca`, `deleteUser`, `getUserMergePreview`, `mergeUser`, `getUserLinkedContacts`.
+  - `api/users-query.ts`: `usersQueryKeys` (`all`, `mergePreview`, `linkedContacts`), `useUsersQuery` (no retry on 403; `isSuccess` doubles as the "viewer is admin" signal on the contacts page), `useUserLinkedContactsQuery`, `useCreateUserMutation`, `useSetGrantAccessMutation`, `useUpdateUserMutation`, `useUpdateUserRoleMutation`, `useSyncUsersWithZcaMutation`, `useDeleteUserMutation`, `useUserMergePreviewQuery`, `useMergeUserMutation` (invalidates all queries). Also used by contacts `combine-contacts-dialog.tsx`.
   - `presentation/components/merge-user-dialog.tsx` (`MergeUserDialog`): target select (excludes source), live preview (loading / error / empty / counts), conflict + Google token notes, bot-account warning that blocks merge, mandatory "irreversible" checkbox, destructive confirm. On success the ZCA page shows a banner (extra notice when the merged source was the signed-in session).
-- Routes in `API_ROUTES`: `users`, `usersSyncZca`, `usersGrantAccess(id)`, `usersMergePreview(id)`, `usersMerge(id)`; `GET/PATCH/DELETE :id` are built as `${API_ROUTES.users}/${id}`.
-- Contracts: `IUserListItem`, `UserRole`, `GrantAccessStatus`, `USER_MERGE_TABLES`, `UserMergeTable`, `IUserMergeRequest`, `IUserMergeSummary`, `IUserMergeResult`, `IUserMergeConflicts`; i18n keys `users.merge.*` (vi + en).
+  - `presentation/components/linked-contacts-dialog.tsx` (`LinkedContactsDialog`): reverse view of the contact ↔ user link (see contacts module); loading / error+retry / empty / list with owner and debt count, link to `APP_ROUTES.contacts`. Opened from the ZCA row badge "🔗 N" or menu item.
+- Routes in `API_ROUTES`: `users`, `usersSyncZca`, `usersGrantAccess(id)`, `usersMergePreview(id)`, `usersMerge(id)`, `usersLinkedContacts(id)`; `GET/PATCH/DELETE :id` are built as `${API_ROUTES.users}/${id}`.
+- Contracts: `IUserListItem` (`linkedContactCount?`), `IUserLinkedContactItem`, `UserRole`, `GrantAccessStatus`, `USER_MERGE_TABLES`, `UserMergeTable`, `IUserMergeRequest`, `IUserMergeSummary`, `IUserMergeResult`, `IUserMergeConflicts`; i18n keys `users.merge.*`, `users.linkedContacts.*` (vi + en).
 
 - `MergeUserDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard).

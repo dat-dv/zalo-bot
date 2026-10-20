@@ -3,19 +3,23 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
+  Inject,
   NotFoundException,
   Param,
   Patch,
   Post,
   Query,
   Req,
+  forwardRef,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import type { AnalyticsGrain, ITransactionListQuery } from '@zalobot/contracts';
 import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
+import { UsersService } from '../users/users.service';
 import { FinanceService } from './finance.service';
 
 type RecordBody = Record<string, unknown>;
@@ -50,6 +54,8 @@ export class FinanceController {
   constructor(
     private readonly finance: FinanceService,
     private readonly tokens: ReportsTokenService,
+    @Inject(forwardRef(() => UsersService))
+    private readonly users: UsersService,
   ) {}
 
   @Get('finance/analytics')
@@ -332,7 +338,7 @@ export class FinanceController {
         this.optionalString(body.bankCode),
         this.optionalString(body.bankName),
         this.optionalString(body.avatarUrl),
-        body.linkedUserId === null ? null : this.optionalString(body.linkedUserId),
+        this.linkedUserId(req, body),
       ),
     };
   }
@@ -351,7 +357,7 @@ export class FinanceController {
         this.optionalString(body.bankCode),
         this.optionalString(body.bankName),
         this.optionalString(body.avatarUrl),
-        body.linkedUserId === null ? null : this.optionalString(body.linkedUserId),
+        this.linkedUserId(req, body),
       ),
     };
   }
@@ -390,7 +396,7 @@ export class FinanceController {
       displayName: this.optionalString(body.displayName),
       alias: this.optionalString(body.alias),
       descriptor: this.optionalString(body.descriptor),
-      linkedUserId: body.linkedUserId === null ? null : this.optionalString(body.linkedUserId),
+      linkedUserId: this.linkedUserId(req, body),
       consolidateDebts: body.consolidateDebts === true,
     });
 
@@ -628,6 +634,19 @@ export class FinanceController {
     if (typeof value !== 'string' || !value.trim())
       throw new BadRequestException(`${name} is required.`);
     return value.trim();
+  }
+  /**
+   * Chỉ admin mới được gắn/bỏ gắn Người liên quan với tài khoản User, vì chọn user
+   * cần xem danh sách toàn bộ user hệ thống (dữ liệu chỉ dành cho admin).
+   */
+  private linkedUserId(req: Request, body: RecordBody): string | null | undefined {
+    if (body.linkedUserId === undefined) return undefined;
+    if (!this.users.isAdmin(this.userId(req))) {
+      throw new ForbiddenException(
+        'Chỉ admin mới được liên kết người liên quan với tài khoản User.',
+      );
+    }
+    return body.linkedUserId === null ? null : this.optionalString(body.linkedUserId);
   }
   private optionalString(value: unknown): string | undefined {
     return value === undefined || value === null ? undefined : this.string(value, 'value');

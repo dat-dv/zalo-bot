@@ -178,7 +178,8 @@ Logic ghép dòng là hàm thuần trong `model/chat-rows.ts`, có unit test ở
 - **`ZcaScreen` (`view/zca-screen.tsx`)**: header (làm mới, đăng nhập QR / đăng xuất), 4 thẻ tổng quan (kết nối, số đang lắng nghe, số chờ duyệt, tổng số dòng), thanh công cụ ("Đồng bộ thông tin" lấy tên/avatar/SĐT từ danh bạ ZCA; "+ Thêm người dùng"; link kho Drive gốc), ô nhập ID để bật lắng nghe thủ công, tìm kiếm (không dấu), sắp xếp, bộ lọc và phân trang.
 - **Modal đăng nhập QR**: tự nạp mã QR, polling trạng thái và tự đóng khi đăng nhập thành công.
 - **`ChatTableRow` (`presentation/components/chat-table-row.tsx`)**: một dòng của bảng. Bấm vào nhãn "Đang lắng nghe / Bỏ qua" để bật/tắt lắng nghe; nút Cấp quyền / Thu hồi (thu hồi Admin phải xác nhận); nút Sao lưu lịch sử (nhóm, mở `SyncMediaModal`), link Drive, link album Google Photos và nút Cấu hình. Link Drive/Photos dùng URL đã lưu trong cấu hình; chưa có thì trỏ tới `/api/drive/open` hoặc `/api/photos/open` để backend tạo và chuyển hướng.
-- **Menu "⋯" (`chat-row-menu.tsx`)**: Sửa thông tin & vai trò, Gộp tài khoản trùng, Xoá người dùng (không áp dụng cho Admin).
+- **Menu "⋯" (`chat-row-menu.tsx`)**: Sửa thông tin & vai trò, Gộp tài khoản trùng, Xem người liên quan đã gắn, Xoá người dùng (không áp dụng cho Admin).
+- **Badge "🔗 N người liên quan"** cạnh tên người dùng: hiện khi tài khoản đang được gắn với ít nhất một Người liên quan trong danh bạ công nợ. Bấm vào để mở dialog liệt kê (xem tài liệu module users). Nhờ badge này, trang ZCA và trang Người liên quan nối được với nhau theo cả hai chiều.
 - **`UserFormDialog` (`user-form-dialog.tsx`)**: thêm mới hoặc sửa tên, SĐT, vai trò của người dùng.
 - **`SyncMediaModal` (`view/sync-media-modal.tsx`)**: chọn khoảng thời gian và loại media để sao lưu lịch sử nhóm.
 - **Modal Cấu hình Kênh (`ThreadConfigModal`)**:

@@ -37,7 +37,7 @@ Dashboard là dữ liệu tài chính cá nhân, nên backend **không bao giờ
 - **Trả nợ**: `GET/POST /api/debts/:id/payments`, `DELETE /api/debts/:id/payments/:paymentId`.
 - **Báo cáo**: `GET /api/dashboard`, `GET /api/expenses`, `GET /api/finance/analytics?startAt&endAt&grain`.
 - **Lời nhắc**: `GET/POST /api/reminders`, `GET/PATCH/DELETE /api/reminders/:id`.
-- **Người dùng (admin)**: `GET/POST /api/users`, `GET/PATCH/DELETE /api/users/:id`, `POST /api/users/sync-zca` (đồng bộ tên, avatar, SĐT từ danh bạ ZCA), `PATCH /api/users/:id/grant-access`, `GET /api/users/:id/merge-preview?targetUserId=`, `POST /api/users/:id/merge`.
+- **Người dùng (admin)**: `GET/POST /api/users`, `GET/PATCH/DELETE /api/users/:id`, `POST /api/users/sync-zca` (đồng bộ tên, avatar, SĐT từ danh bạ ZCA), `PATCH /api/users/:id/grant-access`, `GET /api/users/:id/merge-preview?targetUserId=`, `POST /api/users/:id/merge`, `GET /api/users/:id/linked-contacts` (Người liên quan đang gắn với user).
 - **Google**: `/api/calendar/events[/:id]`, `/api/tasks[/:id]` — chỉ thao tác trên tài khoản Google đã liên kết của người gọi, không trả OAuth token.
 
 ## Quy tắc nghiệp vụ quan trọng

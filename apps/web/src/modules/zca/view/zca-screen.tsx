@@ -44,6 +44,7 @@ import {
   useUsersQuery,
 } from '@/modules/users/api/users-query';
 import { MergeUserDialog } from '@/modules/users/presentation/components/merge-user-dialog';
+import { LinkedContactsDialog } from '@/modules/users/presentation/components/linked-contacts-dialog';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
 
@@ -117,6 +118,7 @@ export function ZcaScreen() {
   const [syncThreadTarget, setSyncThreadTarget] = useState<ZcaThread | null>(null);
   const [userDialog, setUserDialog] = useState<UserDialogState | null>(null);
   const [mergingUser, setMergingUser] = useState<IUserListItem | null>(null);
+  const [linkedContactsUser, setLinkedContactsUser] = useState<IUserListItem | null>(null);
 
   // Thông báo kết quả đồng bộ / gộp tài khoản
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -254,6 +256,10 @@ export function ZcaScreen() {
 
   const handleMergeUser = (row: ChatRow) => {
     if (row.user) setMergingUser(row.user);
+  };
+
+  const handleViewLinkedContacts = (row: ChatRow) => {
+    if (row.user) setLinkedContactsUser(row.user);
   };
 
   const handleDeleteUser = async (row: ChatRow) => {
@@ -674,6 +680,7 @@ export function ZcaScreen() {
                       onDriveOpened={handleDriveOpened}
                       onEditUser={handleEditUser}
                       onMergeUser={handleMergeUser}
+                      onViewLinkedContacts={handleViewLinkedContacts}
                       onSyncMedia={setSyncThreadTarget}
                       onToggleAccess={(r) => void handleToggleAccess(r)}
                       onToggleListen={(threadId) => void handleToggleThread(threadId)}
@@ -908,6 +915,14 @@ export function ZcaScreen() {
           onMerged={handleMerged}
           source={mergingUser}
           users={users}
+        />
+      )}
+
+      {/* Debt contacts linked to a user account */}
+      {linkedContactsUser && (
+        <LinkedContactsDialog
+          onClose={() => setLinkedContactsUser(null)}
+          user={linkedContactsUser}
         />
       )}
     </div>

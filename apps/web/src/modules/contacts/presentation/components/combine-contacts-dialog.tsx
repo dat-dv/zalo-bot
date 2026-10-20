@@ -23,6 +23,9 @@ export function CombineContactsDialog({
   const { t } = useLocale();
   const combineMutation = useCombineContactsMutation();
   const usersQuery = useUsersQuery({ enabled: isOpen });
+  // API danh sách user chỉ dành cho admin; người dùng thường không thấy ô chọn và để server
+  // tự kế thừa liên kết từ các liên hệ nguồn.
+  const canLinkUsers = usersQuery.isSuccess;
 
   const titleId = useId();
   const descId = useId();
@@ -119,7 +122,7 @@ export function CombineContactsDialog({
         displayName: trimmedName,
         alias: alias.trim() || undefined,
         descriptor: descriptor.trim() || undefined,
-        linkedUserId: linkedUserId || undefined,
+        linkedUserId: canLinkUsers ? linkedUserId || undefined : undefined,
         consolidateDebts,
       });
       onSuccess(selectedContacts.length);
@@ -331,30 +334,32 @@ export function CombineContactsDialog({
           </div>
 
           {/* Linked User Select */}
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="combine-user-select"
-              className="text-xs font-semibold text-slate-700 dark:text-slate-300"
-            >
-              {t('contacts.combineModal.linkedUserLabel')}
-            </label>
-            <select
-              id="combine-user-select"
-              className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
-              value={linkedUserId}
-              onChange={(e) => setLinkedUserId(e.target.value)}
-              disabled={combineMutation.isPending || usersQuery.isLoading}
-            >
-              <option value="">-- {t('common.notSet')} --</option>
-              {usersQuery.data?.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.firstName
-                    ? `${user.firstName} (@${user.username || user.id})`
-                    : user.username || user.id}
-                </option>
-              ))}
-            </select>
-          </div>
+          {canLinkUsers && (
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="combine-user-select"
+                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+              >
+                {t('contacts.combineModal.linkedUserLabel')}
+              </label>
+              <select
+                id="combine-user-select"
+                className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
+                value={linkedUserId}
+                onChange={(e) => setLinkedUserId(e.target.value)}
+                disabled={combineMutation.isPending || usersQuery.isLoading}
+              >
+                <option value="">-- {t('common.notSet')} --</option>
+                {usersQuery.data?.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.firstName
+                      ? `${user.firstName} (@${user.username || user.id})`
+                      : user.username || user.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Consolidate debts checkbox */}
           <div className="flex items-center gap-2 pt-1">

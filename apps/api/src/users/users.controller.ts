@@ -19,6 +19,7 @@ import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import { UsersService } from './users.service';
 import { UserMergeService } from './user-merge.service';
+import { UserLinkedContactsService } from './user-linked-contacts.service';
 import { MergeUserDto } from './dto/merge-user.dto';
 
 @ApiTags('Users (Admin Only)')
@@ -29,13 +30,32 @@ export class UsersController {
     private readonly users: UsersService,
     private readonly tokens: ReportsTokenService,
     private readonly userMerge: UserMergeService,
+    private readonly linkedContacts: UserLinkedContactsService,
   ) {}
 
   @Get('users')
   @ApiOperation({ summary: 'Lấy danh sách người dùng trong hệ thống (Yêu cầu quyền Admin)' })
   async listUsers(@Req() req: Request) {
     this.admin(req);
-    return { data: await this.users.getUsers() };
+    const [users, linkedCounts] = await Promise.all([
+      this.users.getUsers(),
+      this.linkedContacts.countByLinkedUser(),
+    ]);
+    return {
+      data: users.map((user) => ({
+        ...user,
+        linkedContactCount: linkedCounts.get(user.id) ?? 0,
+      })),
+    };
+  }
+
+  @Get('users/:id/linked-contacts')
+  @ApiOperation({
+    summary: 'Danh sách Người liên quan (mọi danh bạ công nợ) đang liên kết tới user (Admin Only)',
+  })
+  async listLinkedContacts(@Req() req: Request, @Param('id') id: string) {
+    this.admin(req);
+    return { data: await this.linkedContacts.listForUser(this.id(id)) };
   }
 
   @Get('users/:id')

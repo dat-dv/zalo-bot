@@ -1,7 +1,9 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import type {
+  IUserLinkedContactItem,
   IUserListItem,
   IUserMergeSummary,
   UserRole,
@@ -16,6 +18,7 @@ import {
   syncUsersWithZca,
   deleteUser,
   getUserMergePreview,
+  getUserLinkedContacts,
   mergeUser,
 } from './users-api';
 
@@ -23,13 +26,30 @@ export const usersQueryKeys = {
   all: () => ['users'] as const,
   mergePreview: (sourceUserId: string, targetUserId: string) =>
     ['users', 'merge-preview', sourceUserId, targetUserId] as const,
+  linkedContacts: (userId: string) => ['users', 'linked-contacts', userId] as const,
 };
 
+const isForbidden = (error: unknown): boolean =>
+  axios.isAxiosError(error) && error.response?.status === 403;
+
+/**
+ * Danh sách user chỉ admin gọi được: `isSuccess` cũng chính là tín hiệu người xem là admin
+ * (người dùng thường nhận 403, không retry).
+ */
 export function useUsersQuery(options?: { enabled?: boolean }) {
   return useQuery<IUserListItem[]>({
     queryKey: usersQueryKeys.all(),
     queryFn: ({ signal }) => getUsers(signal),
     enabled: options?.enabled,
+    retry: (failureCount, error) => !isForbidden(error) && failureCount < 1,
+  });
+}
+
+export function useUserLinkedContactsQuery(userId: string | null) {
+  return useQuery<IUserLinkedContactItem[]>({
+    queryKey: usersQueryKeys.linkedContacts(userId ?? ''),
+    queryFn: ({ signal }) => getUserLinkedContacts(userId ?? '', signal),
+    enabled: Boolean(userId),
   });
 }
 

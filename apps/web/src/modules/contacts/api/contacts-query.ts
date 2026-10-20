@@ -22,6 +22,8 @@ export function useUpdateContactMutation() {
     mutationFn: ({ id, data }) => updateContact(id, data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: contactsQueryKeys.list() });
+      // Số Người liên quan đã gắn hiển thị trên trang ZCA nằm trong danh sách users.
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
       void queryClient.invalidateQueries({ queryKey: ['debts'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
@@ -34,6 +36,7 @@ export function useCombineContactsMutation() {
     mutationFn: (data) => combineContacts(data),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: contactsQueryKeys.list() });
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
       void queryClient.invalidateQueries({ queryKey: ['debts'] });
       void queryClient.invalidateQueries({ queryKey: ['transactions'] });
       void queryClient.invalidateQueries({ queryKey: ['expenses'] });
@@ -48,6 +51,7 @@ export function useDeleteContactMutation() {
     mutationFn: (id) => deleteContact(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: contactsQueryKeys.list() });
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
       void queryClient.invalidateQueries({ queryKey: ['debts'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },

@@ -11,6 +11,7 @@ import {
   useContactsQuery,
   useUpdateContactMutation,
 } from '../../api/contacts-query';
+import { useUsersQuery } from '@/modules/users/api/users-query';
 import { CombineContactsDialog } from './combine-contacts-dialog';
 
 export function ContactsScreen() {
@@ -26,6 +27,8 @@ export function ContactsScreen() {
     phoneNumber: string;
     bankAccountNumber: string;
     bankName: string;
+    /** '' = không liên kết. */
+    linkedUserId: string;
   }>({
     displayName: '',
     alias: '',
@@ -33,6 +36,7 @@ export function ContactsScreen() {
     phoneNumber: '',
     bankAccountNumber: '',
     bankName: '',
+    linkedUserId: '',
   });
   const [isCombineOpen, setIsCombineOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -40,6 +44,10 @@ export function ContactsScreen() {
 
   const contacts = useContactsQuery();
   const updateMutation = useUpdateContactMutation();
+  // Chỉ admin tải được danh sách user, nên cũng chỉ admin được gắn/bỏ gắn liên kết.
+  const usersQuery = useUsersQuery();
+  const canLinkUsers = usersQuery.isSuccess;
+  const linkableUsers = usersQuery.data ?? [];
 
   const refresh = () => void queryClient.invalidateQueries({ queryKey: contactsQueryKeys.list() });
 
@@ -100,6 +108,7 @@ export function ContactsScreen() {
       phoneNumber: contact.phoneNumber || '',
       bankAccountNumber: contact.bankAccountNumber || '',
       bankName: contact.bankName || '',
+      linkedUserId: contact.linkedUserId || '',
     });
   };
 
@@ -113,6 +122,7 @@ export function ContactsScreen() {
       phoneNumber: '',
       bankAccountNumber: '',
       bankName: '',
+      linkedUserId: '',
     });
   };
 
@@ -120,6 +130,8 @@ export function ContactsScreen() {
   const handleSaveEdit = async (id: string) => {
     const trimmedName = editDraft.displayName.trim();
     if (!trimmedName) return;
+    const original = rawList.find((c) => c.id === id);
+    const linkChanged = canLinkUsers && editDraft.linkedUserId !== (original?.linkedUserId || '');
 
     try {
       await updateMutation.mutateAsync({
@@ -131,6 +143,8 @@ export function ContactsScreen() {
           phoneNumber: editDraft.phoneNumber?.trim() || undefined,
           bankAccountNumber: editDraft.bankAccountNumber?.trim() || undefined,
           bankName: editDraft.bankName?.trim() || undefined,
+          // Chỉ gửi khi đổi: API từ chối (403) mọi thay đổi liên kết của người không phải admin.
+          ...(linkChanged ? { linkedUserId: editDraft.linkedUserId || null } : {}),
         },
       });
       setEditingId(null);
@@ -375,6 +389,28 @@ export function ContactsScreen() {
       minWidth: '140px',
       defaultHidden: false,
       cell: (item) => {
+        if (editingId === item.id && canLinkUsers) {
+          return (
+            <select
+              aria-label={t('contacts.inlineEdit.linkedUserLabel')}
+              className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
+              value={editDraft.linkedUserId}
+              onChange={(e) => setEditDraft((prev) => ({ ...prev, linkedUserId: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') handleCancelEdit();
+              }}
+            >
+              <option value="">{t('contacts.inlineEdit.noLinkedUser')}</option>
+              {linkableUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.firstName
+                    ? `${user.firstName} (@${user.username || user.id})`
+                    : user.username || user.id}
+                </option>
+              ))}
+            </select>
+          );
+        }
         if (item.linkedUser) {
           return (
             <span className="inline-flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-950/60 dark:text-sky-300">

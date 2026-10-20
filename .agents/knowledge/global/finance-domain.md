@@ -66,7 +66,7 @@ Identity normalization (`normalizeIdentity`): NFD, strip diacritics, `vi-VN` low
 - `POST /places/combine` body `placeIds` / `targetPlaceId` / `sourcePlaceIds` / `name` (>= 2 distinct ids). Lead = `targetPlaceId`, else most transactions then oldest. Rejects a `name` colliding with a place outside the merge set. Reassigns transactions, removes sources, renames lead. Not wrapped in a DB transaction.
 
 ### Contacts
-- `GET /contacts` lives in `ReportsController` (max 200, with `debtCount`, `transactionCount`, `linkedUser`). `GET/PATCH/DELETE /contacts/:id`, `POST /contacts` in `FinanceController`.
+- `GET /contacts` lives in `ReportsController` (max 200, with `debtCount`, `transactionCount`, `linkedUser`). `GET/PATCH/DELETE /contacts/:id`, `POST /contacts` in `FinanceController`. Changing `linkedUserId` is admin-only and validated (exists, not owner, unique per owner) — see contacts module.
 - `POST /contacts/combine` (>= 2 ids). Lead = `targetContactId`, else: has `linkedUserId` > most debts+transactions > oldest. Lead inherits missing linked user, phone, bank account (+code/name), avatar. Reassigns debts (also rewrites `counterparty`/`counterpartyAlias`) and transactions, removes sources. Optional `consolidateDebts: true` then calls `combineDebts` per direction+currency group of >= 2 top-level debts. `combineContacts` itself is NOT one DB transaction; only each nested `combineDebts` is.
 
 ### Debts

@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
@@ -9,6 +9,7 @@ import {
   LessThan,
   LessThanOrEqual,
   MoreThanOrEqual,
+  Not,
   Repository,
 } from 'typeorm';
 import {
@@ -1120,6 +1121,7 @@ export class FinanceService {
   ): Promise<DebtContactEntity> {
     const displayName = name?.trim();
     if (!displayName) throw new Error('Cần có tên người liên quan.');
+    const linkedUser = await this.resolveLinkedUser(userId, linkedUserId, []);
     return this.contactRepo.save(
       this.contactRepo.create({
         userId: userId.toString(),
@@ -1131,7 +1133,8 @@ export class FinanceService {
         bankCode: bankCode?.trim() || undefined,
         bankName: bankName?.trim() || undefined,
         avatarUrl: avatarUrl?.trim() || undefined,
-        linkedUserId: linkedUserId?.trim() || undefined,
+        linkedUserId: linkedUser?.id,
+        linkedUser: linkedUser ?? undefined,
         normalizedName: this.normalizeIdentity(displayName),
         normalizedAlias: alias ? this.normalizeIdentity(alias) : undefined,
       }),
@@ -1308,10 +1311,53 @@ export class FinanceService {
     if (bankCode !== undefined) contact.bankCode = bankCode?.trim() || undefined;
     if (bankName !== undefined) contact.bankName = bankName?.trim() || undefined;
     if (avatarUrl !== undefined) contact.avatarUrl = avatarUrl?.trim() || undefined;
-    if (linkedUserId !== undefined) contact.linkedUserId = linkedUserId?.trim() || undefined;
+    if (linkedUserId !== undefined) {
+      const linkedUser = await this.resolveLinkedUser(userId, linkedUserId, [contact.id]);
+      // getContact nạp sẵn relation linkedUser; phải gán cả relation lẫn cột, nếu không
+      // TypeORM lấy khoá ngoại từ relation cũ và bỏ qua giá trị mới (lỗi không bỏ liên kết được).
+      contact.linkedUserId = linkedUser?.id ?? null;
+      contact.linkedUser = linkedUser ?? null;
+    }
     contact.normalizedName = this.normalizeIdentity(displayName);
     contact.normalizedAlias = alias ? this.normalizeIdentity(alias) : undefined;
     return this.contactRepo.save(contact);
+  }
+
+  /**
+   * Kiểm tra liên kết Người liên quan ↔ tài khoản User trước khi ghi.
+   * Trả về `undefined` khi không đổi, `null` khi bỏ liên kết, hoặc user cần gắn.
+   * Quy tắc: user phải tồn tại, không phải chính chủ danh bạ, và trong một danh bạ
+   * mỗi user chỉ gắn với tối đa một Người liên quan (trùng thì dùng Gộp liên hệ).
+   */
+  private async resolveLinkedUser(
+    ownerId: number | string,
+    linkedUserId: string | null | undefined,
+    excludeContactIds: string[],
+  ): Promise<UserEntity | null | undefined> {
+    if (linkedUserId === undefined) return undefined;
+    const id = linkedUserId?.trim();
+    if (!id) return null;
+    const owner = ownerId.toString();
+    if (id === owner) {
+      throw new BadRequestException(
+        'Không thể liên kết người liên quan với chính tài khoản của bạn.',
+      );
+    }
+    const user = this.userRepo ? await this.userRepo.findOne({ where: { id } }) : null;
+    if (!user) throw new BadRequestException('Tài khoản User cần liên kết không tồn tại.');
+    const duplicate = await this.contactRepo.findOne({
+      where: {
+        userId: owner,
+        linkedUserId: id,
+        ...(excludeContactIds.length > 0 ? { id: Not(In(excludeContactIds)) } : {}),
+      },
+    });
+    if (duplicate) {
+      throw new ConflictException(
+        `Tài khoản này đã được liên kết với "${duplicate.displayName}". Hãy gộp hai người liên quan nếu đây là cùng một người.`,
+      );
+    }
+    return user;
   }
 
   public async combineContacts(
@@ -1406,11 +1452,14 @@ export class FinanceService {
 
     // Preserve or inherit linked user
     if (input.linkedUserId !== undefined) {
-      targetContact.linkedUserId = input.linkedUserId || undefined;
+      const linkedUser = await this.resolveLinkedUser(uid, input.linkedUserId, allCandidateIds);
+      targetContact.linkedUserId = linkedUser?.id ?? null;
+      targetContact.linkedUser = linkedUser ?? null;
     } else if (!targetContact.linkedUserId) {
       const sourceWithUser = sourceContacts.find((c) => Boolean(c.linkedUserId));
       if (sourceWithUser) {
         targetContact.linkedUserId = sourceWithUser.linkedUserId;
+        targetContact.linkedUser = sourceWithUser.linkedUser ?? null;
       }
     }
 

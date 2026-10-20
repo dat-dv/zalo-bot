@@ -16,6 +16,7 @@
 - **Người liên quan**: Người cho vay hoặc người đi vay của một khoản nợ.
 - **Biệt danh**: Nhãn phân biệt một người liên quan trùng tên với người khác, ví dụ `Trí (Trí Đen)`.
 - **Danh bạ công nợ**: Tập người liên quan riêng của mỗi người dùng. Mỗi người có một mã cố định; việc tra cứu dùng khóa tên/biệt danh đã chuẩn hoá và so khớp chính xác, không tìm gần đúng bằng `LIKE`.
+- **Liên kết tài khoản**: Gắn một Người liên quan với đúng một người dùng zalo của hệ thống (`users.id`). Chỉ admin được gắn/bỏ gắn; trong một danh bạ, mỗi người dùng chỉ gắn với tối đa một Người liên quan.
 - **Số còn lại**: Phần tiền chưa được trả; khoản nợ chỉ hoàn tất khi số này bằng 0.
 
 ## Nhật ký kiểm toán

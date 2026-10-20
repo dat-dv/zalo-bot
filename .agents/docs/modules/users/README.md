@@ -15,6 +15,8 @@ metadata:
       - apps/web/src/modules/users/api/users-api.ts
       - apps/web/src/modules/users/api/users-query.ts
       - apps/web/src/modules/users/presentation/components/merge-user-dialog.tsx
+      - apps/web/src/modules/users/presentation/components/linked-contacts-dialog.tsx
+      - apps/api/src/users/user-linked-contacts.service.ts
 ---
 
 # Module Quản Lý Người Dùng (Users Management)
@@ -115,6 +117,7 @@ Toàn bộ chạy trong **một transaction**: lỗi ở bất kỳ bước nào
 - Thư mục `apps/web/src/modules/users` chỉ còn:
   - `api/users-api.ts` và `api/users-query.ts`: các hàm gọi API và hook TanStack Query, dùng chung cho trang ZCA, `UserFormDialog` và dialog gộp danh bạ (`contacts`).
   - `presentation/components/merge-user-dialog.tsx`: dialog gộp tài khoản trùng (xem mục 4), mở từ menu **⋯** của trang ZCA.
+  - `presentation/components/linked-contacts-dialog.tsx`: dialog **Người liên quan đã gắn**, liệt kê các mục trong danh bạ công nợ (của bất kỳ người dùng nào) đang liên kết với tài khoản này, kèm tên chủ danh bạ và số khoản nợ. Mở bằng badge "🔗 N người liên quan" hoặc menu **⋯**. Dialog này giúp admin trả lời câu hỏi "người này đang có mặt trong sổ nợ của ai" mà không phải mở từng danh bạ. Việc gắn/bỏ gắn thì làm ở trang Người liên quan (xem tài liệu module contacts).
 - **Backend và bảng `users` không đổi.** `users.id` vẫn là danh tính của toàn hệ thống: giao dịch, công nợ, nhắc lịch và token Google đều tham chiếu tới nó.
 
 - `MergeUserDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo).
@@ -123,7 +126,8 @@ Toàn bộ chạy trong **một transaction**: lỗi ở bất kỳ bước nào
 
 | Phương thức | Đường dẫn | Ý nghĩa |
 | --- | --- | --- |
-| GET | `/api/users` | Danh sách người dùng, có bổ sung tên/avatar/biệt danh từ ZCA |
+| GET | `/api/users` | Danh sách người dùng, có bổ sung tên/avatar/biệt danh từ ZCA và `linkedContactCount` (số Người liên quan đang gắn, đếm bằng một truy vấn gộp) |
+| GET | `/api/users/:id/linked-contacts` | Danh sách Người liên quan (mọi danh bạ) đang liên kết với user `:id` |
 | GET | `/api/users/:id` | Một người dùng |
 | POST | `/api/users/sync-zca` | Đồng bộ tên, avatar, SĐT từ danh bạ ZCA |
 | POST | `/api/users` | Thêm hoặc cập nhật người dùng (mặc định vai trò `user`, đã cấp quyền) |

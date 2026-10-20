@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
 import { DebtEntity } from '../database/entities/debt.entity';
@@ -11,6 +11,7 @@ import { UserEntity } from '../database/entities/user.entity';
 import { FinanceService } from './finance.service';
 import { FinanceController } from './finance.controller';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
       UserEntity,
     ]),
     DashboardAuthModule,
+    forwardRef(() => UsersModule),
   ],
   controllers: [FinanceController],
   providers: [FinanceService],

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { ThreadBotConfig } from '@zalobot/contracts';
+import { useLocale } from '@/shared/providers/locale-provider';
 import { getThreadDriveLink, getThreadPhotosLink, type ZcaThread } from '../../api/zca-api';
 import { hasInteractionAccess, type ChatRow } from '../../model/chat-rows';
 import { ChatRowMenu, type ChatRowMenuItem } from './chat-row-menu';
@@ -19,6 +20,7 @@ interface ChatTableRowProps {
   onDriveOpened: () => void;
   onEditUser: (row: ChatRow) => void;
   onMergeUser: (row: ChatRow) => void;
+  onViewLinkedContacts: (row: ChatRow) => void;
   onDeleteUser: (row: ChatRow) => void;
 }
 
@@ -153,9 +155,12 @@ export function ChatTableRow({
   onDriveOpened,
   onEditUser,
   onMergeUser,
+  onViewLinkedContacts,
   onDeleteUser,
 }: ChatTableRowProps) {
+  const { t } = useLocale();
   const { thread } = row;
+  const linkedContactCount = row.user?.linkedContactCount ?? 0;
   const kindBadge = KIND_BADGE[row.kind];
   const isGranted = hasInteractionAccess(row.access);
 
@@ -171,6 +176,11 @@ export function ChatTableRow({
           ...(row.user
             ? [
                 { key: 'merge', label: '🔀 Gộp tài khoản trùng', onSelect: () => onMergeUser(row) },
+                {
+                  key: 'linked-contacts',
+                  label: t('users.linkedContacts.action'),
+                  onSelect: () => onViewLinkedContacts(row),
+                },
                 ...(row.access === 'admin'
                   ? []
                   : [
@@ -222,6 +232,16 @@ export function ChatTableRow({
                 <span className="inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
                   🏷️ Gợi nhớ: {row.alias}
                 </span>
+              )}
+              {linkedContactCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onViewLinkedContacts(row)}
+                  className="inline-flex cursor-pointer items-center rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:bg-sky-950/60 dark:text-sky-300 dark:hover:bg-sky-900"
+                  title={t('users.linkedContacts.action')}
+                >
+                  {t('users.linkedContacts.badge', { count: linkedContactCount })}
+                </button>
               )}
             </div>
             <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">

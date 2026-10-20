@@ -53,11 +53,11 @@ export class DebtContactEntity {
 
   @Index()
   @Column({ name: 'linked_user_id', type: 'varchar', nullable: true })
-  linkedUserId?: string;
+  linkedUserId?: string | null;
 
   @ManyToOne(() => UserEntity, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'linked_user_id' })
-  linkedUser?: UserEntity;
+  linkedUser?: UserEntity | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

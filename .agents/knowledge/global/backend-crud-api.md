@@ -38,14 +38,14 @@ REST surface of `apps/api` (global prefix `/api`). The API is organized by top-l
 | Debt payments | `GET/POST /api/debts/:id/payments` (`amount`, `paymentDate?`, `note?`), `DELETE /api/debts/:id/payments/:paymentId` |
 | Reports | `GET /api/dashboard`, `GET /api/expenses`, `GET /api/finance/analytics?startAt&endAt&grain` |
 | Reminders | `GET/POST /api/reminders`, `GET/PATCH/DELETE /api/reminders/:id` (`title`, `remindAt`, `notifyType`, `repeatType`) |
-| Users (admin) | `GET/POST /api/users`, `GET/PATCH/DELETE /api/users/:id`, `POST /api/users/sync-zca`, `PATCH /api/users/:id/grant-access`, `GET /api/users/:id/merge-preview?targetUserId=`, `POST /api/users/:id/merge` |
+| Users (admin) | `GET/POST /api/users`, `GET/PATCH/DELETE /api/users/:id`, `POST /api/users/sync-zca`, `PATCH /api/users/:id/grant-access`, `GET /api/users/:id/merge-preview?targetUserId=`, `POST /api/users/:id/merge`, `GET /api/users/:id/linked-contacts` |
 | Google | `GET/POST /api/calendar/events`, `GET/PATCH/DELETE /api/calendar/events/:id`, `GET/POST /api/tasks`, `GET/PATCH/DELETE /api/tasks/:id` |
 
 ## Business Rules
 
 - Debt payment (`debt_payments`: `debt_id`, `user_id`, `amount`, `payment_date`, `note`, optional `finance_transaction_id`) lowers `remainingAmount`; at zero the debt becomes `settled` with `settledAt`; deleting a payment reverts the status to `active` when needed.
 - Transaction input fields: `type`, `amount`, `currency?`, `category?`, `paymentMethod?`, `receiptUrl?`, `contactId?`, `placeId?` (`null` unlinks), `placeName?`, `note`, `occurredAt?`.
-- Debt contacts carry `phoneNumber`, `bankAccountNumber`, `bankCode`, `bankName`, `avatarUrl`, `linkedUserId`.
+- Debt contacts carry `phoneNumber`, `bankAccountNumber`, `bankCode`, `bankName`, `avatarUrl`, `linkedUserId` (admin-only to change; see contacts module "Contact ↔ user account link").
 - Reminders track `status` (`pending|completed|snoozed|cancelled`), `snoozeCount`, `snoozedUntil`, `completedAt`; the API does not accept `isTriggered` (scheduler-owned).
 - `DELETE /api/users/:id` removes the user row (via `banUser`) and refuses admins (`404`). Users carry `role`, `grantAccess`, `preferredLocale`, `timezone`, `phoneNumber`, `avatarUrl`, `status`, Drive folder fields.
 - The `invites` table was dropped (migration `DropInvitesTable`); there is no invite API.

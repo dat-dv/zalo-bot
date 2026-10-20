@@ -1,6 +1,7 @@
 import {
   API_ROUTES,
   type IApiResponse,
+  type IUserLinkedContactItem,
   type IUserListItem,
   type IUserMergeResult,
   type IUserMergeSummary,
@@ -112,6 +113,17 @@ export async function mergeUser(
   const response = await httpClient.post<IApiResponse<IUserMergeResult>>(
     API_ROUTES.usersMerge(sourceUserId),
     { targetUserId },
+    { signal },
+  );
+  return response.data.data;
+}
+
+export async function getUserLinkedContacts(
+  id: string,
+  signal?: AbortSignal,
+): Promise<IUserLinkedContactItem[]> {
+  const response = await httpClient.get<IApiResponse<IUserLinkedContactItem[]>>(
+    API_ROUTES.usersLinkedContacts(id),
     { signal },
   );
   return response.data.data;

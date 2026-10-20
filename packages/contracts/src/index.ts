@@ -22,6 +22,7 @@ export const API_ROUTES = {
   usersGrantAccess: (id: string) => `/api/users/${id}/grant-access`,
   usersMergePreview: (id: string) => `/api/users/${id}/merge-preview`,
   usersMerge: (id: string) => `/api/users/${id}/merge`,
+  usersLinkedContacts: (id: string) => `/api/users/${id}/linked-contacts`,
   calendarEvents: '/api/calendar/events',
   tasks: '/api/tasks',
   googleAuthCallback: '/api/oauth2callback',
@@ -131,6 +132,18 @@ const messages = {
     'users.merge.sessionNotice':
       'Bạn vừa gộp chính tài khoản đang đăng nhập. Hãy mở lại dashboard từ link mà bot gửi qua Zalo.',
     'users.merge.error': 'Không thể gộp tài khoản. Vui lòng thử lại.',
+    'users.linkedContacts.action': '🔗 Xem người liên quan đã gắn',
+    'users.linkedContacts.badge': '🔗 {count} người liên quan',
+    'users.linkedContacts.title': 'Người liên quan đã gắn',
+    'users.linkedContacts.description':
+      'Các mục trong danh bạ công nợ của người dùng đang được liên kết với tài khoản {name}.',
+    'users.linkedContacts.loading': 'Đang tải danh sách…',
+    'users.linkedContacts.error': 'Không thể tải danh sách. Vui lòng thử lại.',
+    'users.linkedContacts.empty': 'Chưa có người liên quan nào được gắn với tài khoản này.',
+    'users.linkedContacts.owner': 'Trong danh bạ của {owner}',
+    'users.linkedContacts.debts': '{count} khoản nợ',
+    'users.linkedContacts.openContacts': 'Mở trang Người liên quan',
+    'users.linkedContacts.close': 'Đóng',
     'common.refresh': 'Làm mới',
     'common.retry': 'Thử lại',
     'common.logout': 'Đăng xuất',
@@ -333,6 +346,8 @@ const messages = {
       'Toàn bộ công nợ và giao dịch liên quan sẽ được chuyển sang người liên quan chính. Các liên hệ phụ sẽ bị xóa vĩnh viễn.',
     'contacts.combineModal.confirm': 'Xác nhận gộp',
     'contacts.inlineEdit.saved': 'Đã lưu thay đổi',
+    'contacts.inlineEdit.noLinkedUser': '— Không liên kết —',
+    'contacts.inlineEdit.linkedUserLabel': 'Liên kết với tài khoản User',
     'contacts.combine.success': 'Đã gộp thành công {count} liên hệ',
     'contacts.placeholder.descriptor': 'Nhập địa chỉ quán, ghi chú...',
     'contacts.placeholder.name': 'Tên liên hệ / Quán',
@@ -800,6 +815,18 @@ const messages = {
     'users.merge.sessionNotice':
       'You merged the account you are signed in with. Reopen the dashboard from the link the bot sends you on Zalo.',
     'users.merge.error': 'Unable to merge accounts. Please try again.',
+    'users.linkedContacts.action': '🔗 View linked contacts',
+    'users.linkedContacts.badge': '🔗 {count} contacts',
+    'users.linkedContacts.title': 'Linked contacts',
+    'users.linkedContacts.description':
+      "Debt-contact entries in users' address books that are linked to {name}.",
+    'users.linkedContacts.loading': 'Loading…',
+    'users.linkedContacts.error': 'Unable to load linked contacts. Please try again.',
+    'users.linkedContacts.empty': 'No contacts are linked to this account yet.',
+    'users.linkedContacts.owner': "In {owner}'s contacts",
+    'users.linkedContacts.debts': '{count} debts',
+    'users.linkedContacts.openContacts': 'Open Contacts page',
+    'users.linkedContacts.close': 'Close',
     'common.refresh': 'Refresh',
     'common.retry': 'Try again',
     'common.logout': 'Log out',
@@ -1002,6 +1029,8 @@ const messages = {
       'All linked debts and transactions will be reassigned to the lead contact. Secondary contacts will be permanently deleted.',
     'contacts.combineModal.confirm': 'Confirm Combine',
     'contacts.inlineEdit.saved': 'Changes saved',
+    'contacts.inlineEdit.noLinkedUser': '— Not linked —',
+    'contacts.inlineEdit.linkedUserLabel': 'Link with user account',
     'contacts.combine.success': 'Successfully combined {count} contacts',
     'contacts.placeholder.descriptor': 'Enter address, note...',
     'contacts.placeholder.name': 'Contact / Place name',
@@ -1610,8 +1639,20 @@ export interface IUserListItem {
   phoneNumber?: string;
   alias?: string;
   zaloName?: string;
+  /** Số Người liên quan (trong mọi danh bạ công nợ) đang liên kết tới user này. */
+  linkedContactCount?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface IUserLinkedContactItem {
+  contactId: string;
+  displayName: string;
+  alias?: string;
+  ownerUserId: string;
+  ownerName?: string;
+  debtCount: number;
+  createdAt: string;
 }
 
 export const USER_MERGE_TABLES = [
