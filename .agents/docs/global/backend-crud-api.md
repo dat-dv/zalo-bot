@@ -32,7 +32,7 @@ Dashboard là dữ liệu tài chính cá nhân, nên backend **không bao giờ
 - **Phân bổ giao dịch vào công nợ**: `GET /api/transactions/:id/candidate-debts` (gợi ý khoản nợ phù hợp), `GET/POST /api/transactions/:id/allocations` (body `allocations: [{ debtId, amount, note? }]`), `DELETE /api/transactions/:id/allocations/:allocationId`. Dữ liệu nằm ở bảng `debt_payment_allocations`.
 - **Danh mục**: `GET /api/categories?type=`, `POST /api/categories`, `PATCH/DELETE /api/categories/:id` (bảng `user_categories`, có `color`, `icon`, `isDefault`).
 - **Nơi chốn**: `GET/POST /api/places`, `PATCH/DELETE /api/places/:id`, `POST /api/places/combine` để gộp ít nhất 2 nơi chốn trùng thành một.
-- **Danh bạ công nợ**: `GET /api/contacts` (tối đa 200 người, phục vụ bởi reports controller), `POST /api/contacts`, `GET/PATCH/DELETE /api/contacts/:id`, `POST /api/contacts/combine` (kèm `consolidateDebts: true` để gom nợ của các người được gộp về khoản nợ cha).
+- **Danh bạ công nợ**: `GET /api/contacts` (tối đa 200 người, phục vụ bởi reports controller), `POST /api/contacts`, `GET/PATCH/DELETE /api/contacts/:id`, `POST /api/contacts/combine` (kèm `consolidateDebts: true` để gom nợ của các người được gộp về khoản nợ cha), `POST /api/contacts/sync-users` (admin: đưa người dùng Zalo vào danh bạ của mình và đồng bộ SĐT).
 - **Công nợ**: `GET /api/debts?status=active|settled`, `POST /api/debts`, `GET/PATCH/DELETE /api/debts/:id`, `POST /api/debts/combine` (gộp ≥2 khoản nợ thành khoản cha qua `parent_debt_id`).
 - **Trả nợ**: `GET/POST /api/debts/:id/payments`, `DELETE /api/debts/:id/payments/:paymentId`.
 - **Báo cáo**: `GET /api/dashboard`, `GET /api/expenses`, `GET /api/finance/analytics?startAt&endAt&grain`.

@@ -10,6 +10,7 @@ import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { FinanceService } from './finance.service';
 import { FinanceController } from './finance.controller';
+import { ContactUserSyncService } from './contact-user-sync.service';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 import { UsersModule } from '../users/users.module';
 
@@ -29,7 +30,7 @@ import { UsersModule } from '../users/users.module';
     forwardRef(() => UsersModule),
   ],
   controllers: [FinanceController],
-  providers: [FinanceService],
+  providers: [FinanceService, ContactUserSyncService],
   exports: [FinanceService],
 })
 export class FinanceModule {}

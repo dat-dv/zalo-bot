@@ -4,6 +4,7 @@ import {
   type ICombineContactsRequest,
   type ICombineContactsResponse,
   type IContactListItem,
+  type IContactUserSyncResult,
   type IUpdateContactRequest,
 } from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
@@ -35,6 +36,15 @@ export async function combineContacts(
   const response = await httpClient.post<IApiResponse<ICombineContactsResponse>>(
     API_ROUTES.contactsCombine,
     data,
+    { signal },
+  );
+  return response.data.data;
+}
+
+export async function syncUsersIntoContacts(signal?: AbortSignal): Promise<IContactUserSyncResult> {
+  const response = await httpClient.post<IApiResponse<IContactUserSyncResult>>(
+    API_ROUTES.contactsSyncUsers,
+    undefined,
     { signal },
   );
   return response.data.data;

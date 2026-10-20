@@ -35,6 +35,7 @@ import { UserCategoryEntity } from '../database/entities/user-category.entity';
 import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { toTransactionItem } from './transaction-item.mapper';
+import { fillMissingPhones } from './contact-user-sync';
 
 export const TRANSACTION_LIST_DEFAULT_LIMIT = 100;
 export const TRANSACTION_LIST_MAX_LIMIT = 500;
@@ -1122,13 +1123,14 @@ export class FinanceService {
     const displayName = name?.trim();
     if (!displayName) throw new Error('Cần có tên người liên quan.');
     const linkedUser = await this.resolveLinkedUser(userId, linkedUserId, []);
+    const fill = linkedUser ? await this.backfillLinkedPhones(phoneNumber, linkedUser) : {};
     return this.contactRepo.save(
       this.contactRepo.create({
         userId: userId.toString(),
         displayName,
         alias: alias?.trim() || undefined,
         descriptor: descriptor?.trim() || undefined,
-        phoneNumber: phoneNumber?.trim() || undefined,
+        phoneNumber: phoneNumber?.trim() || fill.contactPhone,
         bankAccountNumber: bankAccountNumber?.trim() || undefined,
         bankCode: bankCode?.trim() || undefined,
         bankName: bankName?.trim() || undefined,
@@ -1141,7 +1143,7 @@ export class FinanceService {
     );
   }
 
-  private normalizeIdentity(value: string): string {
+  public normalizeIdentity(value: string): string {
     return value
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -1317,10 +1319,30 @@ export class FinanceService {
       // TypeORM lấy khoá ngoại từ relation cũ và bỏ qua giá trị mới (lỗi không bỏ liên kết được).
       contact.linkedUserId = linkedUser?.id ?? null;
       contact.linkedUser = linkedUser ?? null;
+      if (linkedUser) {
+        const fill = await this.backfillLinkedPhones(contact.phoneNumber, linkedUser);
+        if (fill.contactPhone) contact.phoneNumber = fill.contactPhone;
+      }
     }
     contact.normalizedName = this.normalizeIdentity(displayName);
     contact.normalizedAlias = alias ? this.normalizeIdentity(alias) : undefined;
     return this.contactRepo.save(contact);
+  }
+
+  /**
+   * Lưu dự phòng SĐT khi gắn liên hệ với user: user trống thì ghi luôn số của liên hệ,
+   * và trả về số cần điền cho liên hệ (nếu liên hệ trống). Không ghi đè phía đã có số.
+   */
+  private async backfillLinkedPhones(
+    contactPhone: string | null | undefined,
+    user: UserEntity,
+  ): Promise<{ contactPhone?: string }> {
+    const fill = fillMissingPhones(contactPhone, user.phoneNumber);
+    if (fill.userPhone && this.userRepo) {
+      user.phoneNumber = fill.userPhone;
+      await this.userRepo.save(user);
+    }
+    return { contactPhone: fill.contactPhone };
   }
 
   /**
@@ -1479,6 +1501,14 @@ export class FinanceService {
     if (!targetContact.avatarUrl) {
       const sAvatar = sourceContacts.find((c) => Boolean(c.avatarUrl?.trim()));
       if (sAvatar) targetContact.avatarUrl = sAvatar.avatarUrl;
+    }
+
+    if (targetContact.linkedUser) {
+      const fill = await this.backfillLinkedPhones(
+        targetContact.phoneNumber,
+        targetContact.linkedUser,
+      );
+      if (fill.contactPhone) targetContact.phoneNumber = fill.contactPhone;
     }
 
     await this.contactRepo.save(targetContact);

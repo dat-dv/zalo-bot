@@ -3,9 +3,16 @@ import type {
   ICombineContactsRequest,
   ICombineContactsResponse,
   IContactListItem,
+  IContactUserSyncResult,
   IUpdateContactRequest,
 } from '@zalobot/contracts';
-import { combineContacts, deleteContact, getContacts, updateContact } from './contacts-api';
+import {
+  combineContacts,
+  deleteContact,
+  getContacts,
+  syncUsersIntoContacts,
+  updateContact,
+} from './contacts-api';
 
 export const contactsQueryKeys = { list: () => ['contacts'] as const };
 
@@ -41,6 +48,18 @@ export function useCombineContactsMutation() {
       void queryClient.invalidateQueries({ queryKey: ['transactions'] });
       void queryClient.invalidateQueries({ queryKey: ['expenses'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+/** Admin: đưa người dùng Zalo vào danh bạ công nợ và đồng bộ SĐT (chạy lại không sinh trùng). */
+export function useSyncUsersIntoContactsMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<IContactUserSyncResult, Error, void>({
+    mutationFn: () => syncUsersIntoContacts(),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: contactsQueryKeys.list() });
+      void queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });
 }

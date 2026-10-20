@@ -8,6 +8,7 @@ export const API_ROUTES = {
   placesCombine: '/api/places/combine',
   contacts: '/api/contacts',
   contactsCombine: '/api/contacts/combine',
+  contactsSyncUsers: '/api/contacts/sync-users',
   debts: '/api/debts',
   debtsCombine: '/api/debts/combine',
   debtPayments: (debtId: string) => `/api/debts/${debtId}/payments`,
@@ -346,6 +347,19 @@ const messages = {
       'Toàn bộ công nợ và giao dịch liên quan sẽ được chuyển sang người liên quan chính. Các liên hệ phụ sẽ bị xóa vĩnh viễn.',
     'contacts.combineModal.confirm': 'Xác nhận gộp',
     'contacts.inlineEdit.saved': 'Đã lưu thay đổi',
+    'contacts.syncUsers.action': '👥 Đồng bộ người dùng Zalo',
+    'contacts.syncUsers.running': 'Đang đồng bộ…',
+    'contacts.syncUsers.result':
+      'Đã thêm {created} người liên quan · điền SĐT {phoneFilled} · {suggestions} gợi ý',
+    'contacts.syncUsers.error': 'Không thể đồng bộ người dùng Zalo. Vui lòng thử lại.',
+    'contacts.syncUsers.suggestionsTitle': 'Gợi ý liên kết (trùng tên)',
+    'contacts.syncUsers.suggestionsHint':
+      'Các người dùng này trùng tên với một người liên quan chưa liên kết. Kiểm tra đúng người rồi bấm Gắn.',
+    'contacts.syncUsers.link': 'Gắn',
+    'contacts.syncUsers.linked': 'Đã gắn',
+    'contacts.syncUsers.dismiss': 'Đóng gợi ý',
+    'contacts.phone.zaloMismatch': 'Zalo: {phone}',
+    'contacts.phone.zaloMismatchTitle': 'Số lưu trên tài khoản User khác số của người liên quan',
     'contacts.inlineEdit.noLinkedUser': '— Không liên kết —',
     'contacts.inlineEdit.linkedUserLabel': 'Liên kết với tài khoản User',
     'contacts.combine.success': 'Đã gộp thành công {count} liên hệ',
@@ -1029,6 +1043,20 @@ const messages = {
       'All linked debts and transactions will be reassigned to the lead contact. Secondary contacts will be permanently deleted.',
     'contacts.combineModal.confirm': 'Confirm Combine',
     'contacts.inlineEdit.saved': 'Changes saved',
+    'contacts.syncUsers.action': '👥 Sync Zalo users',
+    'contacts.syncUsers.running': 'Syncing…',
+    'contacts.syncUsers.result':
+      'Added {created} contacts · filled {phoneFilled} phones · {suggestions} suggestions',
+    'contacts.syncUsers.error': 'Unable to sync Zalo users. Please try again.',
+    'contacts.syncUsers.suggestionsTitle': 'Link suggestions (same name)',
+    'contacts.syncUsers.suggestionsHint':
+      'These users share a name with an unlinked contact. Check it is the same person, then press Link.',
+    'contacts.syncUsers.link': 'Link',
+    'contacts.syncUsers.linked': 'Linked',
+    'contacts.syncUsers.dismiss': 'Dismiss suggestions',
+    'contacts.phone.zaloMismatch': 'Zalo: {phone}',
+    'contacts.phone.zaloMismatchTitle':
+      "The user account's phone differs from this contact's phone",
     'contacts.inlineEdit.noLinkedUser': '— Not linked —',
     'contacts.inlineEdit.linkedUserLabel': 'Link with user account',
     'contacts.combine.success': 'Successfully combined {count} contacts',
@@ -1509,6 +1537,8 @@ export interface IContactListItem {
     username?: string;
     firstName?: string;
     avatarUrl?: string;
+    /** Số lưu trên tài khoản User; khác `phoneNumber` của liên hệ thì UI hiện chỉ báo lệch số. */
+    phoneNumber?: string;
   };
   debtCount?: number;
   transactionCount?: number;
@@ -1961,6 +1991,21 @@ export interface IUpdateContactRequest {
   bankName?: string;
   avatarUrl?: string;
   linkedUserId?: string | null;
+}
+
+export interface IContactUserSyncSuggestion {
+  userId: string;
+  userName: string;
+  contactId: string;
+  contactName: string;
+}
+
+/** Kết quả đưa người dùng Zalo vào danh bạ công nợ của admin (`POST /api/contacts/sync-users`). */
+export interface IContactUserSyncResult {
+  created: number;
+  phoneFilled: number;
+  /** User trùng tên với liên hệ chưa gắn: không tự tạo/tự gắn, để admin xác nhận. */
+  suggestions: IContactUserSyncSuggestion[];
 }
 
 export interface ICombineContactsRequest {

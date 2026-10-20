@@ -14,6 +14,9 @@ metadata:
       - apps/api/src/finance/finance.controller.ts
       - apps/api/src/finance/finance-contact-link.spec.ts
       - apps/api/src/database/entities/debt-contact.entity.ts
+      - apps/api/src/finance/contact-user-sync.ts
+      - apps/api/src/finance/contact-user-sync.service.ts
+      - apps/api/src/users/users.service.ts
 ---
 
 # Module danh bạ công nợ (contacts)
@@ -51,6 +54,23 @@ Quy tắc nghiệp vụ:
 - Không được gắn Người liên quan với chính chủ danh bạ, và tài khoản được gắn phải tồn tại. Vi phạm một trong hai điều này thì API trả **400**.
 - Bỏ liên kết: chọn "Không liên kết" rồi lưu, web sẽ gửi `linkedUserId: null`. Trước đây thao tác này không có tác dụng vì TypeORM lưu theo relation cũ đã nạp sẵn. Giờ backend gán cả cột lẫn relation.
 - Bot **không** tự liên kết khi ghi nợ; liên kết chỉ được tạo trên web.
+- **Lưu dự phòng số điện thoại.** Zalo thường ẩn số, nên khi liên hệ đã gắn với user thì hai bên bù số cho nhau, với nguyên tắc **chỉ điền vào chỗ trống, không bao giờ ghi đè**:
+  - Lúc gắn: liên hệ chưa có số thì lấy số của user, và user chưa có số thì lấy số của liên hệ.
+  - Khi số của user thay đổi (admin sửa trên trang ZCA, thêm user, hoặc bấm "Đồng bộ thông tin" từ ZCA): số mới được điền vào các liên hệ đã gắn mà còn trống số.
+  - Nếu hai bên có hai số khác nhau thì hệ thống giữ cả hai, và cột Số điện thoại hiện chip vàng `Zalo: <số>` để anh tự quyết định giữ số nào.
+
+## Đồng bộ người dùng Zalo vào danh bạ
+
+**Vì sao cần**: Danh sách user trước đây chỉ nằm ở trang ZCA. Tính năng này đưa từng người dùng Zalo vào danh bạ công nợ của admin, để xem chung một bảng và lưu dự phòng số điện thoại của họ.
+
+- Nút **"👥 Đồng bộ người dùng Zalo"** nằm trên thanh công cụ trang Contacts và chỉ admin thấy. Bấm bao nhiêu lần cũng không sinh trùng. Tính năng này không tự chạy khi tải trang, để một thao tác xem dữ liệu không âm thầm ghi dữ liệu.
+- User được đưa vào **danh bạ của chính admin đang bấm**. Hệ thống bỏ qua bản thân admin và tài khoản ZCA của bot.
+- Hệ thống xử lý từng user như sau:
+  - **Đã có liên hệ gắn với user này:** chỉ đồng bộ số điện thoại.
+  - **Có liên hệ chưa gắn trùng tên** (ví dụ anh đã có "Trí" trong sổ nợ): **không tạo mới, không tự gắn**, mà hiện trong khung **Gợi ý liên kết** để anh kiểm tra rồi bấm **Gắn**. Không tạo mới vì nếu có thêm một "Trí" nữa, câu "cho Trí mượn 30k" đang khớp đúng một người sẽ thành trùng tên và bot phải hỏi lại. Không tự gắn vì trùng tên chưa chắc là cùng một người.
+  - **Còn lại:** tạo Người liên quan mới, gắn sẵn với user, kèm số điện thoại và avatar. Tên lấy theo thứ tự: tên đã lưu, rồi username, rồi `Zalo <4 số cuối ID>`.
+- Sau khi chạy, toast báo "Đã thêm X · điền SĐT Y · Z gợi ý".
+- Kiểm thử: `apps/api/src/finance/contact-user-sync.spec.ts`.
 - Kiểm thử: `apps/api/src/finance/finance-contact-link.spec.ts`.
 
 ## Gộp liên hệ

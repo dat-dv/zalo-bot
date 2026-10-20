@@ -33,7 +33,7 @@ REST surface of `apps/api` (global prefix `/api`). The API is organized by top-l
 | Allocations | `GET /api/transactions/:id/candidate-debts`, `GET/POST /api/transactions/:id/allocations` (body `allocations: [{ debtId, amount, note? }]`), `DELETE /api/transactions/:id/allocations/:allocationId` (`debt_payment_allocations`) |
 | Categories | `GET /api/categories?type=`, `POST /api/categories` (`type`, `name`, `color?`, `icon?`), `PATCH/DELETE /api/categories/:id` (`user_categories`) |
 | Places | `GET/POST /api/places`, `PATCH/DELETE /api/places/:id`, `POST /api/places/combine` (`placeIds` and/or `targetPlaceId` + `sourcePlaceIds`, optional `name`; ≥2 distinct ids) |
-| Contacts | `GET /api/contacts` (max 200, served by reports controller), `GET/PATCH/DELETE /api/contacts/:id`, `POST /api/contacts`, `POST /api/contacts/combine` (≥2 ids; optional `consolidateDebts: true`) |
+| Contacts | `GET /api/contacts` (max 200, served by reports controller), `GET/PATCH/DELETE /api/contacts/:id`, `POST /api/contacts`, `POST /api/contacts/combine` (≥2 ids; optional `consolidateDebts: true`), `POST /api/contacts/sync-users` (admin: users → caller's contacts + phone backup) |
 | Debts | `GET /api/debts?status=active\|settled` (reports controller), `GET/PATCH/DELETE /api/debts/:id`, `POST /api/debts`, `POST /api/debts/combine` (`debtIds` ≥2 → parent debt via `parent_debt_id`) |
 | Debt payments | `GET/POST /api/debts/:id/payments` (`amount`, `paymentDate?`, `note?`), `DELETE /api/debts/:id/payments/:paymentId` |
 | Reports | `GET /api/dashboard`, `GET /api/expenses`, `GET /api/finance/analytics?startAt&endAt&grain` |

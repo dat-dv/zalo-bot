@@ -212,6 +212,7 @@ export class ReportsController {
               username: contact.linkedUser.username,
               firstName: contact.linkedUser.firstName,
               avatarUrl: contact.linkedUser.avatarUrl,
+              phoneNumber: contact.linkedUser.phoneNumber,
             }
           : undefined,
         debtCount: contact.debtCount ?? 0,

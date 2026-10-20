@@ -1,7 +1,8 @@
 import { Injectable, Logger, OnModuleInit, Optional, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { UserEntity } from '../database/entities/user.entity';
+import { DebtContactEntity } from '../database/entities/debt-contact.entity';
 import {
   UserRole,
   GrantAccessStatus,
@@ -30,6 +31,9 @@ export class UsersService implements OnModuleInit {
     @Optional()
     @Inject(forwardRef(() => ZcaService))
     private readonly zcaService?: ZcaService,
+    @Optional()
+    @InjectRepository(DebtContactEntity)
+    private readonly contactRepo?: Repository<DebtContactEntity>,
   ) {}
 
   public async onModuleInit(): Promise<void> {
@@ -415,6 +419,7 @@ export class UsersService implements OnModuleInit {
       if (extra?.phoneNumber) existing.phoneNumber = extra.phoneNumber;
     }
     await this.userRepo.save(existing);
+    if (extra?.phoneNumber) await this.fillLinkedContactPhones(strId, extra.phoneNumber);
 
     if (finalRole === UserRole.ADMIN) this.adminUserIdsCache.add(strId);
     else this.adminUserIdsCache.delete(strId);
@@ -514,6 +519,7 @@ export class UsersService implements OnModuleInit {
           user.phoneNumber = t.phoneNumber;
           changed = true;
         }
+        if (user.phoneNumber) await this.fillLinkedContactPhones(user.id, user.phoneNumber);
         const isGenericName =
           !user.firstName ||
           user.firstName === 'bạn' ||
@@ -551,7 +557,25 @@ export class UsersService implements OnModuleInit {
     if (data.phoneNumber !== undefined) user.phoneNumber = data.phoneNumber;
     if (data.avatarUrl !== undefined) user.avatarUrl = data.avatarUrl;
     await this.userRepo.save(user);
+    if (data.phoneNumber) await this.fillLinkedContactPhones(id, data.phoneNumber);
     return user;
+  }
+
+  /**
+   * Lưu dự phòng SĐT (Zalo hay ẩn số): điền số của user vào các Người liên quan đã gắn
+   * với user này mà còn trống số. Không ghi đè số đã có trong danh bạ.
+   */
+  public async fillLinkedContactPhones(userId: string, phoneNumber: string): Promise<number> {
+    const phone = phoneNumber.trim();
+    if (!phone || !this.contactRepo) return 0;
+    const [nullResult, emptyResult] = await Promise.all([
+      this.contactRepo.update(
+        { linkedUserId: userId, phoneNumber: IsNull() },
+        { phoneNumber: phone },
+      ),
+      this.contactRepo.update({ linkedUserId: userId, phoneNumber: '' }, { phoneNumber: phone }),
+    ]);
+    return (nullResult.affected ?? 0) + (emptyResult.affected ?? 0);
   }
 
   /** True when the ID is the bot's own ZCA account (always recreated as admin on startup). */

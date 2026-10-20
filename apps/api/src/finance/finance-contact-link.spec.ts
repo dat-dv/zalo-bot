@@ -37,6 +37,7 @@ function createService(input: {
   duplicate?: DebtContactEntity | null;
 }) {
   const saved: DebtContactEntity[] = [];
+  const savedUsers: UserEntity[] = [];
   const service = new FinanceService(
     {} as never,
     {} as never,
@@ -57,9 +58,13 @@ function createService(input: {
     {
       findOne: (opts: { where: { id: string } }) =>
         Promise.resolve((input.users ?? []).find((u) => u.id === opts.where.id) ?? null),
+      save: (u: UserEntity) => {
+        savedUsers.push(u);
+        return Promise.resolve(u);
+      },
     } as never,
   );
-  return { service, saved };
+  return { service, saved, savedUsers };
 }
 
 function update(service: FinanceService, linkedUserId: string | null | undefined) {
@@ -140,6 +145,7 @@ function createController(isAdmin: boolean) {
     } as never,
     {} as never,
     { isAdmin: () => isAdmin } as never,
+    {} as never,
   );
   // userId() is stubbed, so the request object itself is never read.
   Reflect.set(controller, 'userId', () => OWNER);
@@ -190,4 +196,30 @@ void test('toLinkedContactItems maps owners and debt counts', () => {
       ['c-2', '77', undefined, undefined, 0],
     ],
   );
+});
+
+void test('linking backfills an empty contact phone from the user and never overwrites', async () => {
+  const withPhone = { ...user('u-9'), phoneNumber: '0909' } as UserEntity;
+  const { service, saved, savedUsers } = createService({
+    existing: contact(),
+    users: [withPhone],
+  });
+
+  await update(service, 'u-9');
+
+  assert.equal(saved[0].phoneNumber, '0909');
+  assert.equal(savedUsers.length, 0);
+});
+
+void test('linking backfills an empty user phone from the contact', async () => {
+  const noPhone = user('u-9');
+  const { service, saved, savedUsers } = createService({
+    existing: contact({ phoneNumber: '0911' }),
+    users: [noPhone],
+  });
+
+  await update(service, 'u-9');
+
+  assert.equal(saved[0].phoneNumber, '0911');
+  assert.equal(savedUsers[0]?.phoneNumber, '0911');
 });

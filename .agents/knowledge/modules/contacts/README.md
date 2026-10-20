@@ -46,6 +46,16 @@
 - **Validation** (`FinanceService.resolveLinkedUser`): `undefined` = unchanged; `null`/empty = unlink; otherwise the user must exist (400), must not be the address-book owner (400), and must not already be linked to another contact of the same owner (409, message suggests Combine). Contacts of different owners may link to the same user. Combine excludes all candidate contacts from the duplicate check.
 - Writes set both `linkedUserId` and the `linkedUser` relation: `getContact` loads the relation, and TypeORM would otherwise persist the stale relation FK (old bug: unlink did nothing).
 - Bot flows never set the link (no auto-link from mentions/UID).
+- **Phone backup** (Zalo often hides numbers; `fillMissingPhones` in `apps/api/src/finance/contact-user-sync.ts`): fill-empty-only, never overwrite. On link (create/update/combine) the contact takes the user's phone if empty, and the user takes the contact's phone if empty (`FinanceService.backfillLinkedPhones`). When a user's phone is set (`UsersService.updateUserProfile`, `upsertUser`, `syncUsersWithZca`), `UsersService.fillLinkedContactPhones` fills linked contacts whose phone is null/empty. Both phones set and different → both kept; UI shows chip `Zalo: <user phone>` (`contacts.phone.zaloMismatch`). `GET /api/contacts` returns `linkedUser.phoneNumber` for this.
+
+## Sync Zalo users into contacts (`POST /api/contacts/sync-users`, admin only)
+
+- **Why**: show every system user in the admin's own debt-contact table (users table is otherwise only on the ZCA page) and back up their phones.
+- Manual, idempotent button "👥 Đồng bộ người dùng Zalo" (toolbar, admins only). Not run on page load (no writes in reads).
+- Target address book = the calling admin's. Skips the admin itself and the bot ZCA account.
+- Pure planner `planContactUserSync` per user: already linked contact in this book → phone sync only; an UNLINKED contact with the same normalized name → suggestion only (no auto-create: would make bot debt text like "cho Trí mượn 30k" ambiguous; no auto-link: same name ≠ same person); otherwise create contact (`displayName` = `firstName` → `username` → `Zalo <id tail>`, phone, avatar, `linkedUserId`). Same-name contacts already linked to another user do not block creation.
+- Result `IContactUserSyncResult { created, phoneFilled, suggestions[] }` → toast + amber suggestions panel; "Link" sends `PATCH` with current `displayName/alias/descriptor` + `linkedUserId` (PATCH clears alias/descriptor when omitted). API error messages (e.g. 409) are shown in the toast.
+- Service `ContactUserSyncService` (`apps/api/src/finance/contact-user-sync.service.ts`); tests `contact-user-sync.spec.ts`.
 - Tests: `apps/api/src/finance/finance-contact-link.spec.ts`.
 
 ## Backend combine semantics (`FinanceService.combineContacts`)

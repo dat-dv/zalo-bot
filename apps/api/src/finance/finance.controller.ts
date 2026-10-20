@@ -21,6 +21,7 @@ import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import { UsersService } from '../users/users.service';
 import { FinanceService } from './finance.service';
+import { ContactUserSyncService } from './contact-user-sync.service';
 
 type RecordBody = Record<string, unknown>;
 
@@ -56,6 +57,7 @@ export class FinanceController {
     private readonly tokens: ReportsTokenService,
     @Inject(forwardRef(() => UsersService))
     private readonly users: UsersService,
+    private readonly contactUserSync: ContactUserSyncService,
   ) {}
 
   @Get('finance/analytics')
@@ -360,6 +362,16 @@ export class FinanceController {
         this.linkedUserId(req, body),
       ),
     };
+  }
+
+  @Post('contacts/sync-users')
+  @ApiOperation({
+    summary: 'Đưa người dùng Zalo vào danh bạ công nợ của admin và đồng bộ SĐT (Admin Only)',
+  })
+  async syncUsersIntoContacts(@Req() req: Request) {
+    const userId = this.userId(req);
+    if (!this.users.isAdmin(userId)) throw new ForbiddenException();
+    return { data: await this.contactUserSync.syncUsersIntoContacts(userId) };
   }
 
   @Post('contacts/combine')

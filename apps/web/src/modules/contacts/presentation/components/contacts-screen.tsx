@@ -2,17 +2,33 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { localeTag, type IContactListItem } from '@zalobot/contracts';
+import axios from 'axios';
+import {
+  localeTag,
+  type IContactListItem,
+  type IContactUserSyncSuggestion,
+} from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 
 import {
   contactsQueryKeys,
   useContactsQuery,
+  useSyncUsersIntoContactsMutation,
   useUpdateContactMutation,
 } from '../../api/contacts-query';
 import { useUsersQuery } from '@/modules/users/api/users-query';
 import { CombineContactsDialog } from './combine-contacts-dialog';
+
+/** Lấy thông báo lỗi nghiệp vụ từ API (vd. 409 "đã liên kết với …") thay vì câu chung của axios. */
+function apiErrorMessage(error: unknown): string | undefined {
+  if (!axios.isAxiosError(error)) return undefined;
+  const data: unknown = error.response?.data;
+  if (typeof data === 'object' && data !== null && 'message' in data) {
+    return typeof data.message === 'string' ? data.message : undefined;
+  }
+  return undefined;
+}
 
 export function ContactsScreen() {
   const queryClient = useQueryClient();
@@ -40,6 +56,8 @@ export function ContactsScreen() {
   });
   const [isCombineOpen, setIsCombineOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<IContactUserSyncSuggestion[]>([]);
+  const [linkedSuggestions, setLinkedSuggestions] = useState<Set<string>>(new Set());
   const [, startTransition] = useTransition();
 
   const contacts = useContactsQuery();
@@ -48,6 +66,44 @@ export function ContactsScreen() {
   const usersQuery = useUsersQuery();
   const canLinkUsers = usersQuery.isSuccess;
   const linkableUsers = usersQuery.data ?? [];
+  const syncUsersMutation = useSyncUsersIntoContactsMutation();
+
+  const handleSyncUsers = async () => {
+    try {
+      const result = await syncUsersMutation.mutateAsync();
+      setSuggestions(result.suggestions);
+      setLinkedSuggestions(new Set());
+      showToast(
+        t('contacts.syncUsers.result', {
+          created: result.created,
+          phoneFilled: result.phoneFilled,
+          suggestions: result.suggestions.length,
+        }),
+      );
+    } catch {
+      showToast(t('contacts.syncUsers.error'));
+    }
+  };
+
+  // Gắn theo gợi ý: gửi lại tên/biệt danh/mô tả hiện có vì PATCH xoá alias/descriptor khi bỏ trống.
+  const handleLinkSuggestion = async (suggestion: IContactUserSyncSuggestion) => {
+    const target = rawList.find((c) => c.id === suggestion.contactId);
+    if (!target) return;
+    try {
+      await updateMutation.mutateAsync({
+        id: target.id,
+        data: {
+          displayName: target.displayName,
+          alias: target.alias || undefined,
+          descriptor: target.descriptor || undefined,
+          linkedUserId: suggestion.userId,
+        },
+      });
+      setLinkedSuggestions((prev) => new Set(prev).add(suggestion.contactId));
+    } catch (error: unknown) {
+      showToast(apiErrorMessage(error) ?? t('contacts.syncUsers.error'));
+    }
+  };
 
   const refresh = () => void queryClient.invalidateQueries({ queryKey: contactsQueryKeys.list() });
 
@@ -315,6 +371,16 @@ export function ContactsScreen() {
             onDoubleClick={() => handleStartEdit(item)}
           >
             {item.phoneNumber || '—'}
+            {item.linkedUser?.phoneNumber &&
+              item.phoneNumber &&
+              item.linkedUser.phoneNumber !== item.phoneNumber && (
+                <span
+                  className="ml-1.5 rounded bg-amber-50 px-1 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
+                  title={t('contacts.phone.zaloMismatchTitle')}
+                >
+                  {t('contacts.phone.zaloMismatch', { phone: item.linkedUser.phoneNumber })}
+                </span>
+              )}
           </span>
         );
       },
@@ -553,12 +619,79 @@ export function ContactsScreen() {
         </section>
       ) : (
         <section className="grid gap-3">
+          {suggestions.length > 0 && (
+            <section
+              aria-label={t('contacts.syncUsers.suggestionsTitle')}
+              className="rounded border border-amber-200 bg-amber-50/60 px-3 py-2 text-xs dark:border-amber-900 dark:bg-amber-950/30"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="font-semibold text-amber-800 dark:text-amber-200">
+                    {t('contacts.syncUsers.suggestionsTitle')}
+                  </h3>
+                  <p className="mt-0.5 text-amber-700 dark:text-amber-300">
+                    {t('contacts.syncUsers.suggestionsHint')}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="shrink-0 cursor-pointer rounded px-1 text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                  onClick={() => setSuggestions([])}
+                  aria-label={t('contacts.syncUsers.dismiss')}
+                  title={t('contacts.syncUsers.dismiss')}
+                >
+                  ✕
+                </button>
+              </div>
+              <ul className="mt-2 grid gap-1">
+                {suggestions.map((suggestion) => {
+                  const isLinked = linkedSuggestions.has(suggestion.contactId);
+                  return (
+                    <li
+                      key={`${suggestion.userId}:${suggestion.contactId}`}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded bg-white px-2 py-1 dark:bg-slate-900"
+                    >
+                      <span className="text-slate-700 dark:text-slate-200">
+                        👤 {suggestion.userName}{' '}
+                        <span className="font-mono text-[10.5px] text-slate-400">
+                          #{suggestion.userId.slice(-6)}
+                        </span>{' '}
+                        ↔ {suggestion.contactName}
+                      </span>
+                      <button
+                        type="button"
+                        className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-default disabled:opacity-60 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                        onClick={() => void handleLinkSuggestion(suggestion)}
+                        disabled={isLinked || updateMutation.isPending}
+                      >
+                        {isLinked
+                          ? `✓ ${t('contacts.syncUsers.linked')}`
+                          : t('contacts.syncUsers.link')}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
           <DataPanel
             title={t('contacts.title')}
             description={t('contacts.subtitle')}
             counter={t('table.rowsCount', { count: filteredContacts.length })}
             toolbar={
               <div className="flex flex-wrap items-center gap-1.5">
+                {canLinkUsers && (
+                  <button
+                    type="button"
+                    className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                    onClick={() => void handleSyncUsers()}
+                    disabled={syncUsersMutation.isPending}
+                  >
+                    {syncUsersMutation.isPending
+                      ? t('contacts.syncUsers.running')
+                      : t('contacts.syncUsers.action')}
+                  </button>
+                )}
                 {selectedIds.size >= 2 && (
                   <button
                     type="button"

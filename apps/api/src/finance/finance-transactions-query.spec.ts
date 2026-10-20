@@ -134,6 +134,7 @@ void test('GET /api/transactions rejects malformed query parameters', async () =
     } as never,
     {} as never,
     {} as never,
+    {} as never,
   );
   // userId() is stubbed below, so the request object itself is never read.
   const req = {} as Request;
