@@ -196,7 +196,124 @@ void test('GET /api/transactions rejects malformed query parameters', async () =
     startAt: '2026-09-01T00:00:00.000Z',
     endAt: undefined,
     search: 'lương',
+    categories: undefined,
+    note: undefined,
+    placeIds: undefined,
+    createdByUserIds: undefined,
+    hasReceipt: undefined,
+    amountMin: undefined,
+    amountMax: undefined,
     limit: 50,
     offset: 100,
   });
+});
+
+void test('GET /api/transactions parses column filters and rejects malformed ones', async () => {
+  const calls: unknown[] = [];
+  const controller = new FinanceController(
+    {
+      queryTransactions: (query: unknown) => {
+        calls.push(query);
+        return Promise.resolve({});
+      },
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+  const req = {} as Request;
+  Reflect.set(controller, 'actorId', () => '42');
+
+  await assert.rejects(
+    controller.listTransactions(req, { hasReceipt: 'yes' }),
+    BadRequestException,
+  );
+  await assert.rejects(controller.listTransactions(req, { amountMin: '-1' }), BadRequestException);
+  await assert.rejects(
+    controller.listTransactions(req, { amountMin: '500', amountMax: '100' }),
+    BadRequestException,
+  );
+  await assert.rejects(
+    controller.listTransactions(req, {
+      categories: Array.from({ length: 51 }, (_, i) => `c${i}`),
+    }),
+    BadRequestException,
+  );
+  assert.equal(calls.length, 0);
+
+  await controller.listTransactions(req, {
+    categories: [' Ăn uống ', 'Đi lại', 'Ăn uống', ''],
+    note: '  phở ',
+    placeIds: 'none',
+    createdByUserIds: ['u1'],
+    hasReceipt: 'false',
+    amountMin: '1000',
+    amountMax: '50000',
+  });
+  assert.deepEqual(calls[0], {
+    type: undefined,
+    startAt: undefined,
+    endAt: undefined,
+    search: undefined,
+    categories: ['Ăn uống', 'Đi lại'],
+    note: 'phở',
+    placeIds: ['none'],
+    createdByUserIds: ['u1'],
+    hasReceipt: false,
+    amountMin: 1000,
+    amountMax: 50000,
+    limit: undefined,
+    offset: undefined,
+  });
+});
+
+void test('queryTransactions applies column filters as AND conditions on every branch', async () => {
+  const { service, findAndCountCalls } = createService([]);
+
+  await service.queryTransactions({
+    categories: ['Ăn uống'],
+    note: 'phở',
+    createdByUserIds: ['u1', 'u2'],
+    hasReceipt: true,
+    amountMin: 10_000,
+    placeIds: ['p1', 'none'],
+    search: 'bún',
+  });
+
+  const where = findAndCountCalls[0].where;
+  assert.ok(Array.isArray(where));
+  // 2 place branches (ids, no place) x 3 search branches.
+  assert.equal(where.length, 6);
+  for (const condition of where) {
+    assert.ok(condition.createdByUserId);
+    assert.ok(condition.receiptUrl);
+    assert.ok(condition.amount);
+    // The category/note filters survive even on the search branch for the same column.
+    assert.ok(condition.category);
+    assert.ok(condition.note);
+  }
+  assert.ok('placeId' in where[0]);
+  assert.ok('placeId' in where[3]);
+});
+
+void test('queryTransactions lists period creators and categories as filter options', async () => {
+  const { service } = createService([]);
+  const rows: LedgerRow[] = [
+    { ...LEDGER[0], createdByUserId: 'u3', createdByName: 'Ngoài kỳ', category: 'Lương' },
+    { ...LEDGER[2], createdByUserId: 'u2', createdByName: 'An', category: 'Đi lại' },
+    { ...LEDGER[3], createdByUserId: 'u1', createdByName: 'Cũ', category: 'Ăn uống' },
+    { ...LEDGER[4], createdByUserId: 'u1', createdByName: 'Cũ', category: 'Ăn uống' },
+  ];
+  Reflect.set(service, 'loadLedgerRows', () => Promise.resolve(rows));
+  Reflect.set(service, 'userRepo', {
+    find: () => Promise.resolve([{ id: 'u1', firstName: 'Bình' }]),
+  });
+
+  const result = await service.queryTransactions({ startAt: '2026-09-01T00:00:00.000Z' });
+
+  assert.deepEqual(result.facets.creators, [
+    { id: 'u2', name: 'An' },
+    { id: 'u1', name: 'Bình' },
+  ]);
+  assert.deepEqual(result.facets.categories, ['Ăn uống', 'Đi lại']);
 });

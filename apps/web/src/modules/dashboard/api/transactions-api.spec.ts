@@ -14,6 +14,7 @@ void test('listTransactions sends period, type, search and paging as query param
     offset: 100,
     summary: { income: 0, expense: 0, count: 0 },
     ledgerBalance: 1_500_000,
+    facets: { creators: [], categories: [] },
   };
 
   const originalGet = httpClient.get;
@@ -36,6 +37,24 @@ void test('listTransactions sends period, type, search and paging as query param
     assert.equal(capturedUrl, API_ROUTES.transactions);
     assert.deepEqual(capturedParams, query);
     assert.equal(res.ledgerBalance, 1_500_000);
+  } finally {
+    httpClient.get = originalGet;
+  }
+});
+
+void test('listTransactions sends list filters as repeated query keys', async () => {
+  let capturedConfig: Parameters<typeof httpClient.getUri>[0];
+  const originalGet = httpClient.get;
+  httpClient.get = ((url: string, config?: Parameters<typeof httpClient.getUri>[0]) => {
+    capturedConfig = { ...config, url };
+    return Promise.resolve({ data: { data: {} } });
+  }) as typeof httpClient.get;
+
+  try {
+    await listTransactions({ categories: ['Ăn, uống', 'Đi lại'], placeIds: ['none'] });
+    const uri = new URL(httpClient.getUri(capturedConfig), 'http://localhost');
+    assert.deepEqual(uri.searchParams.getAll('categories'), ['Ăn, uống', 'Đi lại']);
+    assert.deepEqual(uri.searchParams.getAll('placeIds'), ['none']);
   } finally {
     httpClient.get = originalGet;
   }

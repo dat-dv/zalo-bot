@@ -29,7 +29,7 @@ REST surface of `apps/api` (global prefix `/api`). The API is organized by top-l
 
 | Area | Endpoints |
 | --- | --- |
-| Transactions | `GET /api/transactions?type&startAt&endAt&search&limit&offset` (→ `ITransactionListResponse`, see finance-domain), `GET/PATCH/DELETE /api/transactions/:id`, `POST /api/transactions` |
+| Transactions | `GET /api/transactions?type&startAt&endAt&search&categories&note&placeIds&createdByUserIds&hasReceipt&amountMin&amountMax&limit&offset` (→ `ITransactionListResponse`, see finance-domain), `GET/PATCH/DELETE /api/transactions/:id`, `POST /api/transactions` |
 | Receipt image | `GET /api/transactions/:id/receipt` (Bearer or refresh cookie; any signed-in user) |
 | Allocations | `GET /api/transactions/:id/candidate-debts`, `GET/POST /api/transactions/:id/allocations` (body `allocations: [{ debtId, amount, note? }]`), `DELETE /api/transactions/:id/allocations/:allocationId` (`debt_payment_allocations`) |
 | Categories | `GET /api/categories?type=`, `POST /api/categories` (`type`, `name`, `color?`, `icon?`), `PATCH/DELETE /api/categories/:id` (`user_categories`) |

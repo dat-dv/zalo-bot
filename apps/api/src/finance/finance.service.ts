@@ -1,7 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
+  And,
   Between,
+  FindOperator,
   FindOptionsWhere,
   ILike,
   In,
@@ -10,6 +12,7 @@ import {
   LessThanOrEqual,
   MoreThanOrEqual,
   Not,
+  Raw,
   Repository,
 } from 'typeorm';
 import {
@@ -23,6 +26,8 @@ import {
   type IAnalyticsCategoryBreakdown,
   type ICandidateDebtItem,
   type IDebtAllocationItem,
+  TRANSACTION_FILTER_NO_PLACE,
+  type ITransactionCreatorFacet,
   type ITransactionListQuery,
   type ITransactionListResponse,
   type ITransactionItem,
@@ -48,6 +53,18 @@ export interface LedgerRow {
   amount: number;
   occurredAt: Date;
   createdAt: Date;
+  /** Only used to build the filter options. */
+  category?: string | null;
+  createdByUserId?: string | null;
+  createdByName?: string | null;
+}
+
+/** Combines a column filter with the search branch on the same column (both must hold). */
+function allOf<T>(
+  left: FindOperator<T> | undefined,
+  right: FindOperator<T> | undefined,
+): FindOperator<T> | undefined {
+  return left && right ? And(left, right) : (left ?? right);
 }
 
 export interface LedgerComputation {
@@ -627,7 +644,16 @@ export class FinanceService {
   /** Ledger rows only (no relations) — cheap enough to load the whole personal ledger. */
   private loadLedgerRows(): Promise<LedgerRow[]> {
     return this.transactionRepo.find({
-      select: { id: true, type: true, amount: true, occurredAt: true, createdAt: true },
+      select: {
+        id: true,
+        type: true,
+        amount: true,
+        occurredAt: true,
+        createdAt: true,
+        category: true,
+        createdByUserId: true,
+        createdByName: true,
+      },
     });
   }
 
@@ -654,14 +680,45 @@ export class FinanceService {
     else if (endAt) base.occurredAt = LessThanOrEqual(endAt);
     if (query.type) base.type = query.type;
 
-    const search = query.search?.trim();
-    const where: FindOptionsWhere<FinanceTransactionEntity>[] = search
+    // Column filters (AND); list filters match any of their values.
+    const categoryFilter = query.categories?.length ? In(query.categories) : undefined;
+    const noteText = query.note?.trim();
+    const noteFilter = noteText ? ILike(`%${noteText}%`) : undefined;
+    if (categoryFilter) base.category = categoryFilter;
+    if (noteFilter) base.note = noteFilter;
+    if (query.createdByUserIds?.length) base.createdByUserId = In(query.createdByUserIds);
+    if (query.hasReceipt !== undefined) {
+      // Blank receipt URLs count as "no receipt", matching ITransactionItem.hasReceipt.
+      base.receiptUrl = Raw((column) =>
+        query.hasReceipt
+          ? `NULLIF(TRIM(${column}), '') IS NOT NULL`
+          : `NULLIF(TRIM(${column}), '') IS NULL`,
+      );
+    }
+    const { amountMin, amountMax } = query;
+    if (amountMin !== undefined && amountMax !== undefined)
+      base.amount = Between(amountMin, amountMax);
+    else if (amountMin !== undefined) base.amount = MoreThanOrEqual(amountMin);
+    else if (amountMax !== undefined) base.amount = LessThanOrEqual(amountMax);
+
+    // "No place" is its own OR branch next to the selected place ids.
+    const placeIds = query.placeIds?.filter((id) => id !== TRANSACTION_FILTER_NO_PLACE) ?? [];
+    const includeNoPlace = query.placeIds?.includes(TRANSACTION_FILTER_NO_PLACE) ?? false;
+    const placeBranches: FindOptionsWhere<FinanceTransactionEntity>[] = query.placeIds?.length
       ? [
-          { ...base, category: ILike(`%${search}%`) },
-          { ...base, note: ILike(`%${search}%`) },
-          { ...base, place: { name: ILike(`%${search}%`) } },
+          ...(placeIds.length ? [{ ...base, placeId: In(placeIds) }] : []),
+          ...(includeNoPlace ? [{ ...base, placeId: IsNull() }] : []),
         ]
       : [base];
+
+    const search = query.search?.trim();
+    const where: FindOptionsWhere<FinanceTransactionEntity>[] = search
+      ? placeBranches.flatMap((branch) => [
+          { ...branch, category: allOf(categoryFilter, ILike(`%${search}%`)) },
+          { ...branch, note: allOf(noteFilter, ILike(`%${search}%`)) },
+          { ...branch, place: { name: ILike(`%${search}%`) } },
+        ])
+      : placeBranches;
 
     const [ledgerRows, [entities, total]] = await Promise.all([
       this.loadLedgerRows(),
@@ -675,18 +732,24 @@ export class FinanceService {
     ]);
 
     const { runningBalances, ledgerBalance } = computeLedger(ledgerRows);
-    // Period totals ignore type/search so the summary strip always shows both income and expense.
-    const summary = { income: 0, expense: 0, count: 0 };
-    for (const row of ledgerRows) {
+    // Period totals and filter options ignore type/search/column filters, so the summary strip shows
+    // the whole period and the filter dropdowns do not shrink as filters are applied.
+    const periodRows = ledgerRows.filter((row) => {
       const time = row.occurredAt.getTime();
-      if (startAt && time < startAt.getTime()) continue;
-      if (endAt && time > endAt.getTime()) continue;
-      summary.count += 1;
+      return !(startAt && time < startAt.getTime()) && !(endAt && time > endAt.getTime());
+    });
+    const summary = { income: 0, expense: 0, count: periodRows.length };
+    for (const row of periodRows) {
       if (row.type === 'income') summary.income += row.amount;
       else summary.expense += row.amount;
     }
-
-    const items = await this.toTransactionItems(entities);
+    const categories = [
+      ...new Set(periodRows.map((row) => row.category?.trim()).filter((c): c is string => !!c)),
+    ].sort((a, b) => a.localeCompare(b, 'vi'));
+    const [items, creators] = await Promise.all([
+      this.toTransactionItems(entities),
+      this.creatorFacets(periodRows),
+    ]);
     return {
       items: items.map((item) => ({
         ...item,
@@ -697,7 +760,31 @@ export class FinanceService {
       offset,
       summary,
       ledgerBalance,
+      facets: { creators, categories },
     };
+  }
+
+  /** Creators of the given rows, named like the table rows (current profile name, then snapshot). */
+  private async creatorFacets(rows: readonly LedgerRow[]): Promise<ITransactionCreatorFacet[]> {
+    const snapshots = new Map<string, string>();
+    for (const row of rows) {
+      if (!row.createdByUserId) continue;
+      const snapshot = row.createdByName?.trim();
+      if (!snapshots.has(row.createdByUserId) || (snapshot && !snapshots.get(row.createdByUserId)))
+        snapshots.set(row.createdByUserId, snapshot ?? '');
+    }
+    if (!snapshots.size) return [];
+
+    const users = this.userRepo
+      ? await this.userRepo.find({
+          where: { id: In([...snapshots.keys()]) },
+          select: { id: true, firstName: true },
+        })
+      : [];
+    const profileNames = new Map(users.map((u) => [u.id, u.firstName?.trim() ?? '']));
+    return [...snapshots]
+      .map(([id, snapshot]) => ({ id, name: profileNames.get(id) || snapshot || id }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
   }
 
   public getTransaction(id: string): Promise<FinanceTransactionEntity | null> {

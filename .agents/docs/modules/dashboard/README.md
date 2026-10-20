@@ -13,6 +13,8 @@ metadata:
       - apps/web/src/modules/dashboard/presentation/components/dashboard-home-screen.tsx
       - apps/web/src/modules/dashboard/presentation/components/transactions-screen.tsx
       - apps/web/src/modules/dashboard/presentation/components/transactions-table.tsx
+      - apps/web/src/modules/dashboard/presentation/components/transaction-column-filters.ts
+      - apps/web/src/modules/dashboard/presentation/components/column-filter-popover.tsx
       - apps/web/src/modules/dashboard/presentation/components/analytics-screen.tsx
       - apps/web/src/modules/dashboard/presentation/components/places-screen.tsx
       - apps/web/src/modules/dashboard/presentation/components/combine-places-dialog.tsx
@@ -71,6 +73,14 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - **Tải thêm**: mỗi lần tải 100 dòng; nếu kỳ có nhiều hơn, cuối bảng có nút "Tải thêm" và bộ đếm hiện "Đã tải X/Y dòng". Khi đổi kỳ/bộ lọc, dữ liệu cũ vẫn hiển thị đến khi dữ liệu mới về.
 - Bộ lọc kỳ mặc định theo tháng; thanh chọn kỳ mặc định có Tuần / Tháng / Quý / Năm, đồng bộ lên URL (`?period=&ref=`). Dải xu hướng: tổng thu/chi lấy từ `summary` của server (chính xác cho cả kỳ, gồm cả thu và chi bất kể đang lọc loại nào); biểu đồ cột vẽ từ các dòng đã tải.
 - Bộ lọc loại Tất cả / Thu / Chi đồng bộ với `?type=` — đây là lý do `/expenses` và `/income` chỉ cần chuyển hướng về đây. Ô tìm kiếm theo danh mục, ghi chú, tên nơi chốn. Nút Cân chỉnh số dư.
+- **Lọc theo cột (trên header)**: các cột Loại, Danh mục, Ghi chú, Nơi chốn, Người tạo, Ảnh, Số tiền có nút hình phễu; cột đang lọc có chấm xanh. Bấm vào mở bảng chọn (trên điện thoại hiện dạng sheet dưới đáy màn hình):
+  - Loại: Tất cả / Thu / Chi — dùng chung trạng thái với nút trên toolbar.
+  - Danh mục, Người tạo: chọn nhiều; danh sách lấy từ server (`facets`) theo kỳ đang xem, nên có cả danh mục gõ tay chưa cấu hình. Danh sách không co lại khi đang lọc, để dễ chọn thêm.
+  - Nơi chốn: chọn nhiều từ danh sách nơi chốn, kèm mục "Không có nơi chốn".
+  - Ghi chú: gõ nội dung cần chứa; Số tiền: nhập khoảng Từ–Đến (gõ ngược thì tự đảo). Hai ô này chờ 400ms sau khi gõ mới gọi API.
+  - Ảnh: Tất cả / Có ảnh / Không có ảnh.
+  
+  Việc lọc **chạy ở backend** (`GET /api/transactions`), nên tổng số dòng, nút "Tải thêm" và bộ đếm luôn đúng với toàn bộ dữ liệu chứ không chỉ các dòng đã tải. Các bộ lọc kết hợp kiểu VÀ với nhau, với kỳ và với ô tìm kiếm. Bộ lọc lưu trên URL nên F5 hoặc gửi link cho người khác vẫn giữ nguyên. Khi có bộ lọc cột, toolbar hiện nút "Xoá tất cả bộ lọc (N)". Dải tổng thu/chi và Số dư lũy kế **không** thay đổi theo bộ lọc cột — chúng luôn phản ánh cả kỳ / cả sổ.
 - **Sổ chung**: hệ thống chỉ có một kho tài chính, nên mọi thành viên vào trang này đều thấy cùng một sổ. Cột **Người tạo** cho biết ai đã ghi khoản đó và ghi từ đâu ("Nhóm <tên>", "Chat riêng" hay "Dashboard"); giao dịch cũ chưa có thông tin hiện "—".
 - **Ảnh hoá đơn**: mặc định cột **Ảnh** chỉ hiện icon 🧾 ở dòng có ảnh và **không tải ảnh**; nút 🖼 trên header cột bật/tắt chế độ xem trước, khi bật mọi dòng hiện ảnh nguyên khung (không bị cắt, cao khoảng 64px) và cột tự rộng ra. Trạng thái này không lưu qua F5 (giống nút ẩn số tiền) để trang không tự tải hàng loạt ảnh. Bấm icon hoặc ảnh để xem lớn trong hộp thoại, kèm nút "Mở ảnh" sang tab mới. Web không dùng thẳng link Drive vì file Drive là riêng tư; API dùng token Google của người tạo để tải hộ. Ảnh được API tải hộ từ Drive/CDN Zalo; nếu không tải được (token Google hết hạn, file đã xoá) sẽ hiện "Không tải được ảnh".
 - **Xem đầy đủ**: mọi dòng đều có nút mở rộng ▶ ở ô Ghi chú, hiện khối chi tiết gồm người tạo, nguồn, thời điểm tạo, phương thức, tiền tệ, ghi chú đầy đủ (không bị cắt) và ảnh lớn; nếu có phân bổ công nợ thì bảng phân bổ nằm ngay bên dưới.

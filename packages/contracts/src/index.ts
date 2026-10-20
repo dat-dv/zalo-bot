@@ -223,6 +223,18 @@ const messages = {
     'transactions.receipt.view': 'Xem ảnh hoá đơn',
     'transactions.receipt.showAll': 'Hiện ảnh hoá đơn',
     'transactions.receipt.hideAll': 'Ẩn ảnh hoá đơn',
+    'table.columnFilter.open': 'Lọc theo {column}',
+    'table.columnFilter.clear': 'Xoá lọc',
+    'table.columnFilter.clearAll': 'Xoá tất cả bộ lọc',
+    'table.columnFilter.search': 'Tìm…',
+    'table.columnFilter.contains': 'Chứa nội dung…',
+    'table.columnFilter.noOptions': 'Không có lựa chọn',
+    'table.columnFilter.min': 'Từ',
+    'table.columnFilter.max': 'Đến',
+    'table.columnFilter.any': 'Tất cả',
+    'table.columnFilter.hasReceipt': 'Có ảnh',
+    'table.columnFilter.noReceipt': 'Không có ảnh',
+    'table.columnFilter.noPlace': 'Không có nơi chốn',
     'transactions.details.title': 'Chi tiết giao dịch',
     'transactions.details.createdBy': 'Người tạo',
     'transactions.details.source': 'Nguồn',
@@ -932,6 +944,18 @@ const messages = {
     'transactions.receipt.view': 'View receipt image',
     'transactions.receipt.showAll': 'Show receipt images',
     'transactions.receipt.hideAll': 'Hide receipt images',
+    'table.columnFilter.open': 'Filter by {column}',
+    'table.columnFilter.clear': 'Clear filter',
+    'table.columnFilter.clearAll': 'Clear all filters',
+    'table.columnFilter.search': 'Search…',
+    'table.columnFilter.contains': 'Contains…',
+    'table.columnFilter.noOptions': 'No options',
+    'table.columnFilter.min': 'From',
+    'table.columnFilter.max': 'To',
+    'table.columnFilter.any': 'All',
+    'table.columnFilter.hasReceipt': 'With image',
+    'table.columnFilter.noReceipt': 'Without image',
+    'table.columnFilter.noPlace': 'No place',
     'transactions.details.title': 'Transaction details',
     'transactions.details.createdBy': 'Created by',
     'transactions.details.source': 'Source',
@@ -1960,13 +1984,32 @@ export interface ITransactionItem {
 
 export type TransactionSource = 'zalo' | 'dashboard';
 
+/** `placeIds` entry selecting transactions without a place. */
+export const TRANSACTION_FILTER_NO_PLACE = 'none';
+
 export interface ITransactionListQuery {
   type?: TransactionType;
   startAt?: string;
   endAt?: string;
   search?: string;
+  /** Exact category names (OR). */
+  categories?: string[];
+  /** Note contains (case-insensitive). */
+  note?: string;
+  /** Place ids (OR); `TRANSACTION_FILTER_NO_PLACE` matches rows without a place. */
+  placeIds?: string[];
+  /** Creator user ids (OR). */
+  createdByUserIds?: string[];
+  hasReceipt?: boolean;
+  amountMin?: number;
+  amountMax?: number;
   limit?: number;
   offset?: number;
+}
+
+export interface ITransactionCreatorFacet {
+  id: string;
+  name: string;
 }
 
 export interface ITransactionListItem extends ITransactionItem {
@@ -1983,6 +2026,8 @@ export interface ITransactionListResponse {
   summary: { income: number; expense: number; count: number };
   /** All-time income minus expense. */
   ledgerBalance: number;
+  /** Filter options over the whole period (ignores type/search/column filters). */
+  facets: { creators: ITransactionCreatorFacet[]; categories: string[] };
 }
 
 export interface ICreateTransactionRequest {

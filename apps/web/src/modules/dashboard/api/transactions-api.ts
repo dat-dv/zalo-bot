@@ -15,7 +15,9 @@ export async function listTransactions(
 ): Promise<ITransactionListResponse> {
   const response = await httpClient.get<IApiResponse<ITransactionListResponse>>(
     API_ROUTES.transactions,
-    { params: query, signal },
+    // Lists go out as repeated keys (`categories=a&categories=b`), which the API reads as arrays;
+    // this keeps values containing commas intact.
+    { params: query, paramsSerializer: { indexes: null }, signal },
   );
   return response.data.data;
 }

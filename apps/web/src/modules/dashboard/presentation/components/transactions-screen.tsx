@@ -2,18 +2,23 @@
 
 import { useState, useMemo, useCallback, useEffect, useTransition } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import {
-  DEFAULT_INCOME_CATEGORIES,
-  DEFAULT_EXPENSE_CATEGORIES,
-  type TransactionType,
-} from '@zalobot/contracts';
+import { DEFAULT_INCOME_CATEGORIES, DEFAULT_EXPENSE_CATEGORIES } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataPanel } from '@/shared/ui/data-table';
 import {
   TransactionsTable,
   type TransactionEditDraft,
+  type TransactionFilterOptions,
   type TransactionTableItem,
 } from './transactions-table';
+import {
+  countActiveColumnFilters,
+  EMPTY_TRANSACTION_COLUMN_FILTERS,
+  parseTransactionColumnFilters,
+  toTransactionListFilterQuery,
+  writeTransactionColumnFilters,
+  type TransactionColumnFilters,
+} from './transaction-column-filters';
 import { DebtAllocationModal } from './debt-allocation-modal';
 import { DeleteTransactionModal } from './delete-transaction-modal';
 import { AdjustBalanceModal } from './adjust-balance-modal';
@@ -29,8 +34,6 @@ import {
   useUpdateTransactionMutation,
 } from '../../api/transactions-query';
 
-type FilterType = 'all' | TransactionType;
-
 const SEARCH_DEBOUNCE_MS = 300;
 
 export function TransactionsScreen() {
@@ -41,9 +44,10 @@ export function TransactionsScreen() {
 
   const periodFilter = usePeriodFilter('month');
 
-  const currentTypeParam = searchParams.get('type');
-  const activeFilter: FilterType =
-    currentTypeParam === 'income' || currentTypeParam === 'expense' ? currentTypeParam : 'all';
+  // The URL is the source of truth for column filters, so reload and shared links keep them.
+  const columnFilters = useMemo(() => parseTransactionColumnFilters(searchParams), [searchParams]);
+  const activeFilter = columnFilters.type;
+  const activeColumnFilterCount = countActiveColumnFilters(columnFilters);
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -72,13 +76,13 @@ export function TransactionsScreen() {
   // Filtering happens on the server; the 'all' grain sends no date bounds.
   const listQuery = useMemo(
     () => ({
-      type: activeFilter === 'all' ? undefined : activeFilter,
+      ...toTransactionListFilterQuery(columnFilters),
       startAt: periodFilter.grain === 'all' ? undefined : periodFilter.startDate.toISOString(),
       endAt: periodFilter.grain === 'all' ? undefined : periodFilter.endDate.toISOString(),
       search: debouncedSearch || undefined,
     }),
     [
-      activeFilter,
+      columnFilters,
       periodFilter.grain,
       periodFilter.startDate,
       periodFilter.endDate,
@@ -91,18 +95,27 @@ export function TransactionsScreen() {
   const updateMutation = useUpdateTransactionMutation();
   const deleteMutation = useDeleteTransactionMutation();
 
-  const setFilter = useCallback(
-    (type: FilterType) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (type === 'all') {
-        params.delete('type');
-      } else {
-        params.set('type', type);
-      }
-      const query = params.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname);
+  const setColumnFilters = useCallback(
+    (next: TransactionColumnFilters) => {
+      const query = writeTransactionColumnFilters(
+        new URLSearchParams(searchParams.toString()),
+        next,
+      ).toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     },
     [router, pathname, searchParams],
+  );
+  const setFilter = useCallback(
+    (type: TransactionColumnFilters['type']) => setColumnFilters({ ...columnFilters, type }),
+    [columnFilters, setColumnFilters],
+  );
+  const clearColumnFilters = useCallback(
+    () =>
+      setColumnFilters({
+        ...EMPTY_TRANSACTION_COLUMN_FILTERS,
+        type: columnFilters.type,
+      }),
+    [columnFilters.type, setColumnFilters],
   );
 
   const pages = transactionsQuery.data?.pages;
@@ -119,6 +132,15 @@ export function TransactionsScreen() {
   const placeSuggestions = useMemo(
     () => (placesQuery.data ?? []).map((place) => place.name),
     [placesQuery.data],
+  );
+  const filterFacets = firstPage?.facets;
+  const filterOptions = useMemo<TransactionFilterOptions>(
+    () => ({
+      categories: filterFacets?.categories ?? [],
+      places: (placesQuery.data ?? []).map((place) => ({ id: place.id, name: place.name })),
+      creators: filterFacets?.creators ?? [],
+    }),
+    [filterFacets, placesQuery.data],
   );
 
   const categorySuggestions = useMemo(() => {
@@ -320,6 +342,18 @@ export function TransactionsScreen() {
                 <span>⚖️</span>
                 {t('transactions.balanceAdjust.actionButton')}
               </button>
+              {activeColumnFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={clearColumnFilters}
+                  className="inline-flex h-6 min-h-6 cursor-pointer items-center gap-1 rounded-[3px] border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/60"
+                >
+                  {t('table.columnFilter.clearAll')}
+                  <span className="rounded-full bg-sky-600 px-1.5 text-[10px] leading-4 font-semibold text-white dark:bg-sky-500">
+                    {activeColumnFilterCount}
+                  </span>
+                </button>
+              )}
               <input
                 type="search"
                 className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
@@ -349,6 +383,9 @@ export function TransactionsScreen() {
             categorySuggestions={categorySuggestions}
             placeSuggestions={placeSuggestions}
             isPending={updateMutation.isPending}
+            columnFilters={columnFilters}
+            onChangeColumnFilters={setColumnFilters}
+            filterOptions={filterOptions}
           />
           {transactionsQuery.hasNextPage && (
             <div className="flex justify-center border-t border-slate-200 py-2 dark:border-slate-800">

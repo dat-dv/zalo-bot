@@ -1,5 +1,11 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { localeTag, type TransactionType, type ITransactionItem } from '@zalobot/contracts';
+import {
+  localeTag,
+  TRANSACTION_FILTER_NO_PLACE,
+  type ITransactionCreatorFacet,
+  type TransactionType,
+  type ITransactionItem,
+} from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
@@ -10,6 +16,18 @@ import {
   ReceiptColumnHeader,
   ReceiptImage,
 } from './transaction-receipt';
+import {
+  ChoiceFilter,
+  ColumnFilterHeader,
+  OptionsFilter,
+  RangeFilter,
+  TextFilter,
+} from './column-filter-popover';
+import {
+  EMPTY_TRANSACTION_COLUMN_FILTERS,
+  type ReceiptFilter,
+  type TransactionColumnFilters,
+} from './transaction-column-filters';
 
 export type TransactionTableItem = ITransactionItem & {
   runningBalance?: number;
@@ -43,7 +61,19 @@ export type TransactionsTableProps = {
   onChangeEditDraft?: React.Dispatch<React.SetStateAction<TransactionEditDraft>>;
   isPending?: boolean;
   extraHeaderActions?: ReactNode;
+  /** Server-side column filters; header filter buttons render only when `onChangeColumnFilters` is set. */
+  columnFilters?: TransactionColumnFilters;
+  onChangeColumnFilters?: (next: TransactionColumnFilters) => void;
+  filterOptions?: TransactionFilterOptions;
 };
+
+export type TransactionFilterOptions = {
+  categories: string[];
+  places: Array<{ id: string; name: string }>;
+  creators: ITransactionCreatorFacet[];
+};
+
+const EMPTY_FILTER_OPTIONS: TransactionFilterOptions = { categories: [], places: [], creators: [] };
 
 export function TransactionsTable({
   id = 'transactions-table',
@@ -63,6 +93,9 @@ export function TransactionsTable({
   onOpenAllocate,
   onChangeEditDraft,
   isPending = false,
+  columnFilters = EMPTY_TRANSACTION_COLUMN_FILTERS,
+  onChangeColumnFilters,
+  filterOptions = EMPTY_FILTER_OPTIONS,
 }: TransactionsTableProps) {
   const { locale, t } = useLocale();
   const { money, isMoneyVisible } = useMoneyVisibility();
@@ -83,10 +116,50 @@ export function TransactionsTable({
         timeStyle: 'short',
       }).format(new Date(value));
 
+    const filters = columnFilters;
+    const setFilters = onChangeColumnFilters;
+    const patch = (next: Partial<TransactionColumnFilters>) =>
+      setFilters?.({ ...filters, ...next });
+    /** Header with a filter button when filtering is enabled, else the plain label. */
+    const filterHeader = (
+      label: string,
+      active: boolean,
+      clear: Partial<TransactionColumnFilters>,
+      body: ReactNode,
+      align: 'left' | 'right' = 'left',
+    ): ReactNode =>
+      setFilters ? (
+        <ColumnFilterHeader
+          label={label}
+          active={active}
+          onClear={() => patch(clear)}
+          align={align}
+        >
+          {body}
+        </ColumnFilterHeader>
+      ) : (
+        label
+      );
+
     const list: DataTableColumn<TransactionTableItem>[] = [
       {
         id: 'type',
-        header: t('dashboard.columns.direction'),
+        label: t('dashboard.columns.direction'),
+        header: filterHeader(
+          t('dashboard.columns.direction'),
+          filters.type !== 'all',
+          { type: 'all' },
+          <ChoiceFilter
+            name="transactions-filter-type"
+            value={filters.type}
+            onChange={(type) => patch({ type })}
+            options={[
+              { value: 'all', label: t('table.filter.all') },
+              { value: 'income', label: t('table.filter.income') },
+              { value: 'expense', label: t('table.filter.expense') },
+            ]}
+          />,
+        ),
         minWidth: '90px',
         cell: (item) => {
           if (editingId === item.id && editDraft && onChangeEditDraft) {
@@ -125,7 +198,17 @@ export function TransactionsTable({
       },
       {
         id: 'category',
-        header: t('dashboard.columns.category'),
+        label: t('dashboard.columns.category'),
+        header: filterHeader(
+          t('dashboard.columns.category'),
+          filters.categories.length > 0,
+          { categories: [] },
+          <OptionsFilter
+            options={filterOptions.categories.map((name) => ({ value: name, label: name }))}
+            selected={filters.categories}
+            onChange={(categories) => patch({ categories })}
+          />,
+        ),
         minWidth: '150px',
         hideable: false,
         cell: (item) => {
@@ -166,7 +249,13 @@ export function TransactionsTable({
       },
       {
         id: 'note',
-        header: t('dashboard.columns.note'),
+        label: t('dashboard.columns.note'),
+        header: filterHeader(
+          t('dashboard.columns.note'),
+          filters.note.trim() !== '',
+          { note: '' },
+          <TextFilter value={filters.note} onChange={(note) => patch({ note })} />,
+        ),
         minWidth: '160px',
         cell: (item) => {
           if (
@@ -256,7 +345,20 @@ export function TransactionsTable({
       },
       {
         id: 'place',
-        header: t('dashboard.columns.place'),
+        label: t('dashboard.columns.place'),
+        header: filterHeader(
+          t('dashboard.columns.place'),
+          filters.placeIds.length > 0,
+          { placeIds: [] },
+          <OptionsFilter
+            options={[
+              { value: TRANSACTION_FILTER_NO_PLACE, label: t('table.columnFilter.noPlace') },
+              ...filterOptions.places.map((place) => ({ value: place.id, label: place.name })),
+            ]}
+            selected={filters.placeIds}
+            onChange={(placeIds) => patch({ placeIds })}
+          />,
+        ),
         minWidth: '170px',
         cell: (item) => {
           if (
@@ -295,7 +397,20 @@ export function TransactionsTable({
       },
       {
         id: 'createdBy',
-        header: t('dashboard.columns.createdBy'),
+        label: t('dashboard.columns.createdBy'),
+        header: filterHeader(
+          t('dashboard.columns.createdBy'),
+          filters.createdByUserIds.length > 0,
+          { createdByUserIds: [] },
+          <OptionsFilter
+            options={filterOptions.creators.map((creator) => ({
+              value: creator.id,
+              label: creator.name,
+            }))}
+            selected={filters.createdByUserIds}
+            onChange={(createdByUserIds) => patch({ createdByUserIds })}
+          />,
+        ),
         minWidth: '150px',
         cell: (item) => {
           const source = describeTransactionSource(item, t);
@@ -325,18 +440,50 @@ export function TransactionsTable({
       {
         id: 'receipt',
         header: (
-          <ReceiptColumnHeader
-            showPreview={showReceiptPreview}
-            onToggle={() => setShowReceiptPreview((prev) => !prev)}
-          />
+          <span className="inline-flex items-center gap-1">
+            <ReceiptColumnHeader
+              showPreview={showReceiptPreview}
+              onToggle={() => setShowReceiptPreview((prev) => !prev)}
+            />
+            {setFilters && (
+              <ColumnFilterHeader
+                label={t('dashboard.columns.receipt')}
+                hideLabel
+                active={filters.receipt !== 'any'}
+                onClear={() => patch({ receipt: 'any' })}
+              >
+                <ChoiceFilter<ReceiptFilter>
+                  name="transactions-filter-receipt"
+                  value={filters.receipt}
+                  onChange={(receipt) => patch({ receipt })}
+                  options={[
+                    { value: 'any', label: t('table.columnFilter.any') },
+                    { value: 'yes', label: t('table.columnFilter.hasReceipt') },
+                    { value: 'no', label: t('table.columnFilter.noReceipt') },
+                  ]}
+                />
+              </ColumnFilterHeader>
+            )}
+          </span>
         ),
         label: t('dashboard.columns.receipt'),
-        minWidth: showReceiptPreview ? '112px' : '72px',
+        minWidth: showReceiptPreview ? '112px' : onChangeColumnFilters ? '96px' : '72px',
         cell: (item) => <ReceiptCell item={item} showPreview={showReceiptPreview} />,
       },
       {
         id: 'amount',
-        header: t('dashboard.columns.amount'),
+        label: t('dashboard.columns.amount'),
+        header: filterHeader(
+          t('dashboard.columns.amount'),
+          filters.amountMin !== '' || filters.amountMax !== '',
+          { amountMin: '', amountMax: '' },
+          <RangeFilter
+            min={filters.amountMin}
+            max={filters.amountMax}
+            onChange={({ min, max }) => patch({ amountMin: min, amountMax: max })}
+          />,
+          'right',
+        ),
         align: 'right',
         minWidth: '140px',
         hideable: false,
@@ -576,6 +723,9 @@ export function TransactionsTable({
     categorySuggestions,
     placeSuggestions,
     showReceiptPreview,
+    columnFilters,
+    onChangeColumnFilters,
+    filterOptions,
     t,
   ]);
 

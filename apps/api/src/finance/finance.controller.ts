@@ -35,6 +35,8 @@ import { parseReceiptSource } from './receipt-source';
 /** Receipt proxy limits: receipts are phone photos, far below this. */
 const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
 const RECEIPT_FETCH_TIMEOUT_MS = 10_000;
+/** Cap on values per multi-select list filter, keeping the IN (...) clause bounded. */
+const TRANSACTION_FILTER_MAX_VALUES = 50;
 
 type RecordBody = Record<string, unknown>;
 
@@ -700,10 +702,27 @@ export class FinanceController {
         throw new BadRequestException(`${name} must be an integer >= ${min}.`);
       return parsed;
     };
+    // Repeated params (`?categories=a&categories=b`) arrive as an array, a single one as a string.
+    const list = (value: unknown, name: string): string[] | undefined => {
+      if (value === undefined || value === '') return undefined;
+      const raw = Array.isArray(value) ? value : [value];
+      if (!raw.every((item): item is string => typeof item === 'string'))
+        throw new BadRequestException(`${name} must be a list of strings.`);
+      const items = [...new Set(raw.map((item) => item.trim()).filter(Boolean))];
+      if (items.length > TRANSACTION_FILTER_MAX_VALUES)
+        throw new BadRequestException(
+          `${name} accepts at most ${TRANSACTION_FILTER_MAX_VALUES} values.`,
+        );
+      return items.length ? items : undefined;
+    };
     const startAt = date(query.startAt, 'startAt');
     const endAt = date(query.endAt, 'endAt');
     if (startAt && endAt && startAt > endAt)
       throw new BadRequestException('startAt must be before endAt.');
+    const amountMin = integer(query.amountMin, 'amountMin', 0);
+    const amountMax = integer(query.amountMax, 'amountMax', 0);
+    if (amountMin !== undefined && amountMax !== undefined && amountMin > amountMax)
+      throw new BadRequestException('amountMin must not exceed amountMax.');
     return {
       type:
         query.type === undefined || query.type === ''
@@ -712,6 +731,16 @@ export class FinanceController {
       startAt,
       endAt,
       search: typeof query.search === 'string' ? query.search.trim() || undefined : undefined,
+      categories: list(query.categories, 'categories'),
+      note: typeof query.note === 'string' ? query.note.trim() || undefined : undefined,
+      placeIds: list(query.placeIds, 'placeIds'),
+      createdByUserIds: list(query.createdByUserIds, 'createdByUserIds'),
+      hasReceipt:
+        query.hasReceipt === undefined || query.hasReceipt === ''
+          ? undefined
+          : this.enum(query.hasReceipt, ['true', 'false'] as const, 'hasReceipt') === 'true',
+      amountMin,
+      amountMax,
       limit: integer(query.limit, 'limit', 1),
       offset: integer(query.offset, 'offset', 0),
     };
