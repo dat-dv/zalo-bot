@@ -23,7 +23,7 @@ REST surface of `apps/api` (global prefix `/api`). The API is organized by top-l
 - Caller identity comes only from the dashboard Bearer access token (`getDashboardUserId`). No endpoint accepts a client `userId` for scoping.
 - Finance data (transactions, places, contacts, debts, payments, allocations, categories) is ONE shared store: every signed-in user reads and writes all of it; the token only authenticates (see finance-domain). Reminder, calendar, and task records stay scoped to the caller; calendar/task calls act on the caller's linked Google account. OAuth tokens and audit rows are never returned.
 - `/api/users*` requires admin (`UsersService.isAdmin`: the ZCA own account or a user with admin role); otherwise `403`.
-- Known gap: `POST /api/drive/share`, `GET /api/drive/folder-link`, `GET /api/drive/open`, `GET /api/photos/album-link`, `GET /api/photos/open` do not verify the dashboard token.
+- `POST /api/drive/share`, `GET /api/drive/folder-link`, `GET /api/photos/album-link` require a dashboard admin (`requireDashboardAdmin`, Bearer); `GET /api/drive/open`, `GET /api/photos/open` are `<a href>` links and accept the Bearer token or the dashboard refresh cookie, admin only (`getDashboardUserIdFromBrowser` + `assertDashboardAdmin`). 401 without a token, 403 for non-admins.
 
 ## Endpoints
 

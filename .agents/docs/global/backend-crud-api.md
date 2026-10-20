@@ -24,7 +24,7 @@ API (`apps/api`) không chia theo `src/modules/<feature>` mà theo từng vùng 
 Backend **không bao giờ** nhận `userId` từ client. Người gọi được xác định duy nhất từ access token dashboard (header `Authorization: Bearer ...`). Dữ liệu tài chính là **kho chung** nên mọi người dùng đã đăng nhập đều thấy như nhau; còn lời nhắc, lịch, việc cần làm vẫn theo từng người nên không ai xem được của người khác dù đoán được ID.
 
 - Nhóm `/api/users*` chỉ dành cho admin (tài khoản ZCA của chính bot hoặc user có role admin); người khác nhận `403`.
-- Lưu ý hiện trạng: các endpoint `drive/share`, `drive/folder-link`, `drive/open`, `photos/album-link`, `photos/open` chưa kiểm tra token dashboard — cần xử lý ở task riêng nếu muốn khóa chặt.
+- Các endpoint `drive/share`, `drive/folder-link`, `photos/album-link` chỉ dành cho admin dashboard (Bearer token). `drive/open`, `photos/open` là link mở trực tiếp (`<a href>`) nên chấp nhận Bearer hoặc cookie refresh, cũng chỉ admin. Thiếu token trả 401, không phải admin trả 403. Lý do: không có kiểm tra "người gọi thuộc kênh", nên để mở thì người ngoài có thể chia sẻ thư mục Drive của nhóm khác cho email bất kỳ.
 
 ## Danh sách endpoint theo nghiệp vụ
 

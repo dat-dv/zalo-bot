@@ -1,6 +1,6 @@
 # Walkthrough: Một kho tài chính duy nhất — bỏ `user_id` khỏi dữ liệu tài chính
 
-Trạng thái: **đã thực hiện** theo `implementation_plan.md` (phương án bỏ hẳn `user_id`, anh duyệt 2026-10-20). Chưa commit, chưa deploy.
+Trạng thái: **đã thực hiện** theo `implementation_plan.md` (phương án bỏ hẳn `user_id`, anh duyệt 2026-10-20). Đã merge vào `main` (`ee3c24b`, v1.0.98) và deploy production.
 
 ## 1. Thay đổi code
 
@@ -49,6 +49,20 @@ Trạng thái: **đã thực hiện** theo `implementation_plan.md` (phương á
 1. Backup: `docker exec postgres-rn8pasb6jb1jz4toyhghxaqi-<ts> sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > zalobot-before-remove-user-scope.sql`
 2. Deploy; migration tự chạy khi API khởi động.
 3. Kiểm tra: `SELECT count(*) FROM finance_transactions;` → 19; `\d finance_transactions` không còn `user_id`; đăng nhập 2 tài khoản khác nhau đều thấy 19 giao dịch.
+
+## 4a. Kết quả trên production (2026-10-20)
+
+Coolify tự deploy commit `ee3c24b` (v1.0.98) ngay sau khi push `main`; **không có backup DB trước migration**. Kiểm tra sau deploy:
+
+| Kiểm tra | Kết quả |
+|---|---|
+| `typeorm_migrations` | `RemoveFinanceUserScope1724790000000` đã chạy (08:28 UTC) |
+| `count(*) finance_transactions` | 19 (không mất dòng) |
+| `created_by_user_id` | đủ 19 dòng: `2285509137317769272` 9, `2099328425338516056` 5, `573462d8909179cf2080` 3, `effcda102859c1079848` 1, `5369142156728714489` 1 |
+| `audit_logs` | `merged: { places: 2, contacts: 0, categories: 19, unlinkedContacts: 0 }` (19 danh mục = bộ mặc định bị seed lặp ở mỗi sổ cũ) |
+| Cột `user_id` | chỉ còn ở `dashboard_exchange_tokens`, `reminders` |
+
+Còn mở (không ảnh hưởng dữ liệu): 10 giao dịch có người tạo là `2285509137317769272` và `effcda102859c1079848`, hai ID không có dòng `users`, nên cột "Người tạo" có thể hiện "—". Nếu xác nhận đó là ID cũ của Văn Đạt thì chuyển `created_by_user_id` sang `2099328425338516056` bằng tay.
 
 ## 5. Rủi ro còn lại
 - Thẻ chờ duyệt đang nằm trong Redis lúc deploy vẫn chứa `userId` cũ trong payload; trường thừa này bị bỏ qua khi ghi, không gây lỗi.

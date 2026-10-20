@@ -20,15 +20,15 @@
 
 ## Lỗi/khoảng trống code phát hiện (đã ghi "known issue" trong docs, chưa sửa)
 **Bảo mật**
-1. `ZcaController` và 5 endpoint drive/photos trong `google-resources.controller.ts` không kiểm tra dashboard token/admin.
-2. `/health/deploy`, `/deploy/*` không có guard.
-3. `validateEnvironment()` không được gọi; thiếu env sẽ rơi về default (`CORS_ALLOW_ALL=true`, `DATA_ENCRYPTION_KEY` toàn số 0).
+1. ~~`ZcaController` và 5 endpoint drive/photos trong `google-resources.controller.ts` không kiểm tra dashboard token/admin.~~ → Đã xử lý (commit `7b2720e`, 2026-10-19).
+2. ~~`/health/deploy`, `/deploy/*` không có guard.~~ → Đã xử lý (commit `7b2720e`, 2026-10-19).
+3. ~~`validateEnvironment()` không được gọi; thiếu env sẽ rơi về default (`CORS_ALLOW_ALL=true`, `DATA_ENCRYPTION_KEY` toàn số 0).~~ → Đã xử lý (commit `7b2720e`, 2026-10-19).
 
 **Chức năng**
-4. Quick Repay: web gọi `POST /api/debts/payments`, backend chỉ có `POST /api/debts/:id/payments` → 404.
-5. `MANAGE_DEBT` từ chat: payload thiếu `contactId`/`createNewContact` → `createDebt` từ chối khi xác nhận.
-6. `confirmationRules.requiredHearts` không được truyền vào `createPendingAction` → luôn duyệt với 1 tim.
-7. Debt payment không gắn `financeTransactionId`; xoá payment để lại giao dịch mồ côi.
+4. ~~Quick Repay: web gọi `POST /api/debts/payments`, backend chỉ có `POST /api/debts/:id/payments` → 404.~~ → Đã xử lý (commit `c84c8ca`, 2026-10-19).
+5. ~~`MANAGE_DEBT` từ chat: payload thiếu `contactId`/`createNewContact` → `createDebt` từ chối khi xác nhận.~~ → Đã xử lý (commit `c84c8ca`, 2026-10-19).
+6. ~~`confirmationRules.requiredHearts` không được truyền vào `createPendingAction` → luôn duyệt với 1 tim.~~ → Đã xử lý (commit `c84c8ca`, 2026-10-19).
+7. ~~Debt payment không gắn `financeTransactionId`; xoá payment để lại giao dịch mồ côi.~~ → Đã xử lý (commit `c84c8ca`, 2026-10-19).
 8. ~~Trang Transactions chỉ thấy 20 giao dịch tháng hiện tại; `AdjustBalanceModal` dùng số dư tháng thay vì số dư sổ cái.~~ → Đã xử lý (2026-10-20, task `transactions-ledger-api`).
 9. Combine places/contacts và xoá transaction không bọc DB transaction; xoá transaction không tính lại `status/settledAt` của nợ.
 10. `GET /api/debts` trả cả nợ con (trùng); `ExpensesScreen` (không còn route) hiển thị cột API không trả.
