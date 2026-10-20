@@ -1,5 +1,18 @@
+import { findTriggerPrefix } from '@zalobot/contracts';
+
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Strips the first configured prefix the text starts with ("!ăn trưa 40k" -> "ăn trưa 40k"). */
+function stripTriggerPrefix(text: string, triggerPrefixes: readonly string[]): string {
+  const prefix = findTriggerPrefix(text, triggerPrefixes);
+  if (!prefix) return text;
+  return text
+    .trimStart()
+    .slice(prefix.length)
+    .replace(/^[\s,:.-]+/, '')
+    .trim();
 }
 
 /**
@@ -10,21 +23,17 @@ function escapeRegex(str: string): string {
  * 3. @Bot ngay sau slash command (ví dụ: "/dashboard @Bot Teétajjsne", "/dashboard@Bot")
  * 4. @Bot ở giữa câu (ví dụ: "nhắc @Bot ngày mai họp")
  */
-export function cleanBotMention(text: string, botName = 'Bot', triggerPrefix?: string): string {
+export function cleanBotMention(
+  text: string,
+  botName = 'Bot',
+  triggerPrefixes: readonly string[] = [],
+): string {
   if (!text) return '';
   let result = text.trim();
   if (!result) return '';
 
-  // 0. Loại bỏ tiền tố gọi bot tùy chọn (triggerPrefix) nếu có ở đầu câu (ví dụ: "!ăn trưa 40k" -> "ăn trưa 40k")
-  if (triggerPrefix && triggerPrefix.trim()) {
-    const tp = triggerPrefix.trim();
-    if (result.startsWith(tp)) {
-      result = result
-        .slice(tp.length)
-        .replace(/^[\s,:.-]+/, '')
-        .trim();
-    }
-  }
+  // 0. Loại bỏ tiền tố gọi bot (một trong triggerPrefixes) nếu có ở đầu câu
+  result = stripTriggerPrefix(result, triggerPrefixes);
 
   const cleanName = (botName || 'Bot').replace(/^@/, '').trim();
   const baseNames = [cleanName, 'Bot Finance Assistant', 'Finance Assistant', 'Bot', 'bot'];
@@ -58,16 +67,8 @@ export function cleanBotMention(text: string, botName = 'Bot', triggerPrefix?: s
   result = result.replace(/^\[(?:hình ảnh|hinh anh|ảnh|anh|image|photo)\]\s*/i, '').trim();
   result = result.replace(/\s*\[(?:hình ảnh|hinh anh|ảnh|anh|image|photo)\]$/i, '').trim();
 
-  // Loại bỏ lại triggerPrefix nếu người dùng gõ "@bot !ăn trưa 40k"
-  if (triggerPrefix && triggerPrefix.trim()) {
-    const tp = triggerPrefix.trim();
-    if (result.startsWith(tp)) {
-      result = result
-        .slice(tp.length)
-        .replace(/^[\s,:.-]+/, '')
-        .trim();
-    }
-  }
+  // Loại bỏ lại tiền tố nếu người dùng gõ "@bot !ăn trưa 40k"
+  result = stripTriggerPrefix(result, triggerPrefixes);
 
   return result;
 }

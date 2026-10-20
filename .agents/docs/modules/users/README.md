@@ -61,7 +61,7 @@ Các quy tắc đi kèm:
 - `saveDriveFolderInfo` **không tự tạo user**. Nếu ID chưa tồn tại, hàm ghi log cảnh báo rồi bỏ qua. Trước đây hàm này tạo user `DENIED` cho bất kỳ ID nào, nên khi bot lưu link Drive của một nhóm ZCA (ID dạng số) thì nhóm đó hiện như một người "Chờ phê duyệt".
 - **Lưu dự phòng số điện thoại**: mỗi khi số của user được cập nhật (admin sửa, thêm user, hoặc "Đồng bộ thông tin" từ ZCA), hệ thống điền số đó vào các Người liên quan đã gắn với user mà còn trống số. Số đã có trong danh bạ không bị ghi đè. Lưu ý: "Đồng bộ thông tin" vẫn ghi đè `users.phoneNumber` nếu Zalo trả về một số khác, vì hiện chưa có tính năng khoá số nhập tay.
 - ID nhóm không bao giờ là user. `syncUsersWithZca` chỉ lấy thread `type = 'user'` và chỉ điền avatar, SĐT, tên (khi tên đang trống hoặc chung chung).
-- Tin nhắn thụ động (L2) trong nhóm chỉ kiểm tra quyền im lặng, không ghi nhận user chờ duyệt (xem tài liệu module ZCA, mục "Ba luồng xử lý tin nhắn").
+- Tin nhắn nhóm không gọi bot (không @mention, không tiền tố) bị bỏ qua trước khi kiểm tra quyền, nên không ghi nhận user chờ duyệt (xem tài liệu module ZCA, mục "Luồng xử lý tin nhắn").
 
 **Dọn dữ liệu đã lỡ sinh ra** — script `apps/api/scripts/cleanup-group-users.ts`:
 

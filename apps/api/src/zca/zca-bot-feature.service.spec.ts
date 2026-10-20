@@ -15,7 +15,6 @@ import type { TextInputService } from '../zalo/text/text-input.service';
 import type { ZcaService } from './zca.service';
 import type { AgentInput } from '../zalo/types/agent-input.type';
 import type { UsersService } from '../users/users.service';
-import { TextToolType } from '../zalo/text/text-tool.enum';
 
 function createUsersServiceMock(options: { granted: string[] }): UsersService & {
   registered: string[];
@@ -145,7 +144,6 @@ void test('ZcaBotFeatureService ignores isSelf message when allowSelf is false',
     isListened: true,
     directInteraction: {
       enabled: true,
-      requireMention: false,
       allowSelf: false,
     },
   });
@@ -183,7 +181,6 @@ void test('ZcaBotFeatureService processes isSelf message when allowSelf is true 
     isListened: true,
     directInteraction: {
       enabled: true,
-      requireMention: false,
       allowSelf: true,
     },
   });
@@ -229,7 +226,6 @@ void test('ZcaBotFeatureService drops isSelf message when allowSelf is true but 
     isListened: true,
     directInteraction: {
       enabled: true,
-      requireMention: false,
       allowSelf: true,
     },
   });
@@ -275,7 +271,6 @@ void test('ZcaBotFeatureService processes isSelf message when ZCA_SELF_LISTEN en
       isListened: true,
       directInteraction: {
         enabled: true,
-        requireMention: false,
         allowSelf: false, // thread config is false, but env is true!
       },
     });
@@ -330,7 +325,6 @@ void test('ZcaBotFeatureService processes @bot mention in listened group even if
     isListened: true,
     directInteraction: {
       enabled: false, // directInteraction is disabled
-      requireMention: true,
       allowSelf: false,
     },
   });
@@ -402,7 +396,7 @@ void test('ZcaBotFeatureService strips leading bot mention before pending comman
   await configService.updateConfig(threadId, {
     threadType: 'group',
     isListened: true,
-    directInteraction: { enabled: true, requireMention: true, allowAiChat: true },
+    directInteraction: { enabled: true, allowAiChat: true },
   });
 
   const commandTexts: string[] = [];
@@ -515,19 +509,15 @@ void test('ZcaBotFeatureService passes onEdit handler to confirmationService.han
   assert.equal(editCalledWithInstruction, 'change location to Office');
 });
 
-void test('ZcaBotFeatureService sets passiveOnly=true for group message without @bot or prefix when expenseTracking is enabled', async () => {
+void test('ZcaBotFeatureService ignores a group expense message that neither mentions the bot nor uses a prefix', async () => {
   const configService = new ThreadConfigService();
-  const threadId = 'group-passive-tracking-test';
+  const threadId = 'group-no-mention-expense-test';
   await configService.updateConfig(threadId, {
     isListened: true,
     directInteraction: {
-      enabled: false,
-      requireMention: true,
-      triggerPrefix: '!',
-    },
-    expenseTracking: {
       enabled: true,
-      requireConfirm: false,
+      triggerPrefixes: ['!'],
+      allowAiChat: true,
     },
   });
 
@@ -548,7 +538,7 @@ void test('ZcaBotFeatureService sets passiveOnly=true for group message without 
     isSelf: false,
     type: ThreadType.Group,
     data: {
-      content: 'hello bot',
+      content: 'Chủ nhật rồi mua đồ bơi hết 300k ở lê trọng tấn',
       uidFrom: 'member-1',
       dName: 'Thành viên',
       msgType: 'chat',
@@ -556,27 +546,17 @@ void test('ZcaBotFeatureService sets passiveOnly=true for group message without 
   } as unknown as Message;
 
   await service.onMessage(message, {} as unknown as API);
-  assert.ok(processedInput, 'Message should be forwarded for passive expense detection');
-  assert.equal(
-    processedInput.passiveOnly,
-    true,
-    'passiveOnly must be true so bot will not chit-chat',
-  );
-  assert.deepEqual(processedInput.allowedTools, [
-    TextToolType.RECORD_TRANSACTION,
-    TextToolType.MANAGE_DEBT,
-  ]);
+  assert.equal(processedInput, null, 'Un-addressed group text must never reach the AI');
 });
 
-void test('ZcaBotFeatureService sets passiveOnly=false when message uses custom prefix or @bot', async () => {
+void test('ZcaBotFeatureService processes group messages using any configured prefix (case-insensitive) or @bot', async () => {
   const configService = new ThreadConfigService();
   const threadId = 'group-prefix-test';
   await configService.updateConfig(threadId, {
     isListened: true,
     directInteraction: {
       enabled: true,
-      requireMention: true,
-      triggerPrefix: '!',
+      triggerPrefixes: ['!', 'bot:'],
       allowAiChat: true,
     },
   });
@@ -608,7 +588,7 @@ void test('ZcaBotFeatureService sets passiveOnly=false when message uses custom 
     {} as unknown as API,
   );
 
-  // 2. Message with @Bot (even though prefix "!" is configured, @Bot still works!)
+  // 2. Message with @Bot (even though prefixes are configured, @Bot still works!)
   await service.onMessage(
     {
       threadId,
@@ -624,13 +604,28 @@ void test('ZcaBotFeatureService sets passiveOnly=false when message uses custom 
     {} as unknown as API,
   );
 
-  assert.equal(processedInputs.length, 2);
-  assert.equal(processedInputs[0].passiveOnly, false);
-  assert.equal(processedInputs[0].triggerPrefix, '!');
-  assert.equal(processedInputs[1].passiveOnly, false);
+  // 3. Second prefix, written in upper case
+  await service.onMessage(
+    {
+      threadId,
+      isSelf: false,
+      type: ThreadType.Group,
+      data: {
+        content: 'BOT: cà phê 30k',
+        uidFrom: 'u3',
+        dName: 'User 3',
+        msgType: 'chat',
+      },
+    } as unknown as Message,
+    {} as unknown as API,
+  );
+
+  assert.equal(processedInputs.length, 3);
+  assert.deepEqual(processedInputs[0].triggerPrefixes, ['bot:', '!']);
+  assert.equal(processedInputs[2].text, 'BOT: cà phê 30k');
 });
 
-void test('ZcaBotFeatureService ignores 1-1 User message without @bot or prefix when requireMention is true (default)', async () => {
+void test('ZcaBotFeatureService processes 1-1 User text without @bot or prefix (a private chat already addresses the bot)', async () => {
   const configService = new ThreadConfigService();
   const threadId = 'user-direct-no-mention-test';
   await configService.updateConfig(threadId, {
@@ -638,17 +633,8 @@ void test('ZcaBotFeatureService ignores 1-1 User message without @bot or prefix 
     isListened: true,
     directInteraction: {
       enabled: true,
-      requireMention: true,
-      triggerPrefix: '!bot',
+      triggerPrefixes: ['!bot'],
       allowAiChat: true,
-    },
-    expenseTracking: {
-      enabled: false,
-      requireConfirm: false,
-    },
-    calendarExtraction: {
-      enabled: false,
-      requireConfirm: false,
     },
   });
 
@@ -663,7 +649,7 @@ void test('ZcaBotFeatureService ignores 1-1 User message without @bot or prefix 
   const service = new ZcaBotFeatureService(configService);
   service.setTextInputService(mockTextInputService);
 
-  // Message "ê bot ơi" has no @bot and does not start with "!bot" -> should be ignored
+  // Message "ê bot ơi" has no @bot and does not start with "!bot", but it is a 1-1 chat
   await service.onMessage(
     {
       threadId,
@@ -679,7 +665,7 @@ void test('ZcaBotFeatureService ignores 1-1 User message without @bot or prefix 
     {} as unknown as API,
   );
 
-  assert.equal(processedInput, null, 'Message without @bot or prefix in 1-1 chat must be ignored');
+  assert.ok(processedInput, 'Text in a 1-1 chat with the bot must be processed');
 });
 
 void test('ZcaBotFeatureService processes 1-1 User message with @bot even when custom triggerPrefix is configured', async () => {
@@ -690,8 +676,7 @@ void test('ZcaBotFeatureService processes 1-1 User message with @bot even when c
     isListened: true,
     directInteraction: {
       enabled: true,
-      requireMention: true,
-      triggerPrefix: '!bot',
+      triggerPrefixes: ['!bot'],
       allowAiChat: true,
     },
   });
@@ -724,7 +709,6 @@ void test('ZcaBotFeatureService processes 1-1 User message with @bot even when c
   );
 
   assert.ok(processedInput, 'Message with @bot in 1-1 chat must be processed');
-  assert.equal(processedInput.passiveOnly, false);
 });
 
 void test('ZcaBotFeatureService processes 1-1 User message with custom triggerPrefix (!bot)', async () => {
@@ -735,8 +719,7 @@ void test('ZcaBotFeatureService processes 1-1 User message with custom triggerPr
     isListened: true,
     directInteraction: {
       enabled: true,
-      requireMention: true,
-      triggerPrefix: '!bot',
+      triggerPrefixes: ['!bot'],
       allowAiChat: true,
     },
   });
@@ -769,8 +752,7 @@ void test('ZcaBotFeatureService processes 1-1 User message with custom triggerPr
   );
 
   assert.ok(processedInput, 'Message with !bot prefix in 1-1 chat must be processed');
-  assert.equal(processedInput.passiveOnly, false);
-  assert.equal(processedInput.triggerPrefix, '!bot');
+  assert.deepEqual(processedInput.triggerPrefixes, ['!bot']);
 });
 
 void test('ZcaBotFeatureService syncThreadMediaHistory validates login and thread type', async () => {
@@ -1075,7 +1057,6 @@ void test('ZcaBotFeatureService handles quote-reply to an image with @bot and ru
     isListened: true,
     directInteraction: {
       enabled: true,
-      requireMention: true,
       allowAiChat: true,
     },
   });
@@ -1180,7 +1161,7 @@ void test('ZcaBotFeatureService runs OCR on a real-shaped quoted photo and feeds
   await configService.updateConfig(threadId, {
     threadType: 'group',
     isListened: true,
-    directInteraction: { enabled: true, requireMention: true, allowAiChat: true },
+    directInteraction: { enabled: true, allowAiChat: true },
   });
 
   let processedInput: AgentInput | null = null;
@@ -1227,7 +1208,7 @@ void test('ZcaBotFeatureService still forwards a quoted photo when OCR finds no 
   await configService.updateConfig(threadId, {
     threadType: 'group',
     isListened: true,
-    directInteraction: { enabled: true, requireMention: true, allowAiChat: true },
+    directInteraction: { enabled: true, allowAiChat: true },
   });
 
   let processedInput: AgentInput | null = null;
@@ -1295,7 +1276,6 @@ void test('ZcaBotFeatureService handles quote-reply to an image with @bot lưu �
     isListened: true,
     directInteraction: {
       enabled: true,
-      requireMention: true,
     },
   });
 
@@ -1378,7 +1358,6 @@ void test('ZcaBotFeatureService handles direct image with caption @bot lưu ản
     isListened: true,
     directInteraction: {
       enabled: true,
-      requireMention: true,
     },
   });
 
@@ -1443,7 +1422,7 @@ void test('ZcaBotFeatureService handles direct image with caption @bot lưu ản
   assert.match(sentReplies[1], /https:\/\/drive\.google\.com\/img-direct-1/);
 });
 
-void test('ZcaBotFeatureService in 1-1 chat without caption triggers ImageBatchHandler', async () => {
+void test('ZcaBotFeatureService in 1-1 chat without caption only stores the photo (no menu, no OCR)', async () => {
   const configService = new ThreadConfigService();
   const threadId = 'direct-batch-test';
   await configService.updateConfig(threadId, {
@@ -1479,9 +1458,8 @@ void test('ZcaBotFeatureService in 1-1 chat without caption triggers ImageBatchH
 
   await service.onMessage(message, {} as unknown as API);
 
-  assert.ok(batchHandledInput, 'ImageBatchHandler should be called for 1-1 photo with no caption');
-  assert.equal(batchHandledChatId, threadId);
-  assert.equal(batchHandledInput.imageUrl, 'https://example.com/bill.jpg');
+  assert.equal(batchHandledInput, null, 'A photo without text must not open the image menu');
+  assert.equal(batchHandledChatId, '');
 });
 
 void test('ZcaBotFeatureService in group without @bot does silent backup only and no interactive prompt', async () => {
@@ -1496,7 +1474,6 @@ void test('ZcaBotFeatureService in group without @bot does silent backup only an
     },
     directInteraction: {
       enabled: true,
-      requireMention: true,
     },
   });
 
@@ -1563,7 +1540,6 @@ void test('ZcaBotFeatureService handles direct video upload when tagged @bot', a
     isListened: true,
     directInteraction: {
       enabled: true,
-      requireMention: true,
     },
   });
 
@@ -1625,7 +1601,6 @@ void test('ZcaBotFeatureService blocks direct interaction if GrantAccessGuard de
     isListened: true,
     directInteraction: {
       enabled: true,
-      requireMention: true,
     },
   });
 
@@ -1669,7 +1644,6 @@ void test('ZcaBotFeatureService rate limits via UsersService.checkCooldown', asy
     isListened: true,
     directInteraction: {
       enabled: true,
-      requireMention: true,
     },
   });
 
@@ -1766,19 +1740,12 @@ void test('ZcaBotFeatureService dispatches pending image selections ("1", "2", "
   );
 });
 
-async function createPassiveGroupScenario(options: {
-  threadId: string;
-  granted: string[];
-  expenseTracking?: boolean;
-  calendarExtraction?: boolean;
-}) {
+async function createGroupScenario(options: { threadId: string; granted: string[] }) {
   const configService = new ThreadConfigService();
   await configService.updateConfig(options.threadId, {
     threadType: 'group',
     isListened: true,
-    directInteraction: { enabled: false, requireMention: true },
-    expenseTracking: { enabled: options.expenseTracking ?? false, requireConfirm: false },
-    calendarExtraction: { enabled: options.calendarExtraction ?? false, requireConfirm: false },
+    directInteraction: { enabled: true, triggerPrefixes: ['!'], allowAiChat: true },
   });
 
   const processed: AgentInput[] = [];
@@ -1816,45 +1783,30 @@ async function createPassiveGroupScenario(options: {
   return { processed, sent, usersService, send };
 }
 
-void test('ZcaBotFeatureService passive text from non-granted user is fully silent', async () => {
-  const scenario = await createPassiveGroupScenario({
-    threadId: 'group-passive-denied',
-    granted: [],
-    expenseTracking: true,
+void test('ZcaBotFeatureService ignores un-addressed group text from a granted member without any reaction', async () => {
+  const scenario = await createGroupScenario({
+    threadId: 'group-unaddressed-granted',
+    granted: ['member-1'],
   });
 
-  await scenario.send('stranger-1', 'ăn trưa 45k');
+  await scenario.send('member-1', 'ăn trưa 45k');
+  await scenario.send('member-1', 'mai 9h họp');
 
   assert.equal(scenario.processed.length, 0, 'TextInputService must not be called');
   assert.equal(scenario.sent.length, 0, 'Bot must not reply');
   assert.deepEqual(scenario.usersService.registered, [], 'Must not register pending user');
 });
 
-void test('ZcaBotFeatureService passive calendar-only thread allowlists calendar tools', async () => {
-  const scenario = await createPassiveGroupScenario({
-    threadId: 'group-passive-calendar',
+void test('ZcaBotFeatureService forwards group text from a granted member once it uses a prefix', async () => {
+  const scenario = await createGroupScenario({
+    threadId: 'group-prefixed-granted',
     granted: ['member-1'],
-    calendarExtraction: true,
   });
 
-  await scenario.send('member-1', 'mai 9h họp');
+  await scenario.send('member-1', '!ăn trưa 45k');
 
   assert.equal(scenario.processed.length, 1);
-  assert.deepEqual(scenario.processed[0].allowedTools, [
-    TextToolType.CREATE_CALENDAR_EVENT,
-    TextToolType.SET_REMINDER,
-  ]);
-});
-
-void test('ZcaBotFeatureService passive text does nothing when no passive feature is enabled', async () => {
-  const scenario = await createPassiveGroupScenario({
-    threadId: 'group-passive-off',
-    granted: ['member-1'],
-  });
-
-  await scenario.send('member-1', 'ăn trưa 45k');
-
-  assert.equal(scenario.processed.length, 0);
+  assert.equal(scenario.processed[0].text, '!ăn trưa 45k');
 });
 
 void test('ZcaBotFeatureService backs up group media of non-granted members (L3)', async () => {
@@ -1864,7 +1816,6 @@ void test('ZcaBotFeatureService backs up group media of non-granted members (L3)
     threadType: 'group',
     isListened: true,
     mediaBackup: { enabled: true, uploadImages: true },
-    expenseTracking: { enabled: true, requireConfirm: false },
   });
 
   let imageUploaded = false;

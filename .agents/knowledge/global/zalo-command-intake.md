@@ -25,15 +25,15 @@ Human guide: [Zalo Command Intake](../../docs/global/zalo-command-intake.md).
    - If `zalo.secretToken` (`ZALO_WEBHOOK_SECRET_TOKEN`) is set, header `X-Bot-Api-Secret-Token` must match; mismatch returns `200 { ok: false }` and drops the event.
    - Raw body is parsed by `ZaloMessageParser.parse` (via `normalizeZaloWebhookPayload`) into `AgentInput` with type `event` (follow/unfollow), `video`, `image`, `voice`, `sticker`, `text`, or `unsupported`. Processing is fire-and-forget; the controller replies `{ ok: true }` immediately.
    - `InputProcessor.process`: ignore no-sender and bot messages -> `InitialAdminBootstrapGuard` (first user becomes admin) -> `GrantAccessGuard` (admin or granted users only) -> cooldown `UsersService.checkCooldown` (2 s per user, in-memory, admins exempt) -> dispatch by type. Text -> `TextInputService`; image -> caption to text flow or `ImageBatchHandler`; video -> `MediaStorageService.uploadVideo`; voice -> "under development" reply (no transcription); follow -> `START`.
-2. **Personal Zalo account (ZCA, `zca-js`)** — `ZcaService` / `ZcaBotFeatureService`. QR login via `/zlogin` (admin). Per-thread config `zca_thread_configs`; direct-interaction defaults `enabled: false`, `requireMention: true`, `triggerPrefix: ''`. Uses `GrantAccessGuard` but not the cooldown. Messages go to `TextInputService`; reactions go to `TransactionConfirmationService.handleReaction`.
+2. **Personal Zalo account (ZCA, `zca-js`)** — `ZcaService` / `ZcaBotFeatureService`. QR login via `/zlogin` (admin). Per-thread config `zca_thread_configs`; direct-interaction defaults `enabled: false`, `triggerPrefixes: []`. Group messages reach the AI only with an @mention or a thread prefix; 1-1 text always does; media without text is only backed up. Uses `GrantAccessGuard` but not the cooldown. Messages go to `TextInputService`; reactions go to `TransactionConfirmationService.handleReaction`.
 
 ## TextInputService order
 
 1. Clean bot mention / trigger prefix.
 2. Pending confirmation commands (`TransactionConfirmationService.handleCommand`, in `apps/api/src/zca/confirmation/`): `yes|y|ok|xác nhận [code]`, `cancel|no|hủy|bỏ qua [code]`, `yes all` / `cancel all`, `edit|sửa <code> <instruction>`.
 3. Pending image choices (`1`, `2`, `hủy`) via `PendingImageActionDispatcher`; a lone `1`/`2` with nothing pending gets a hint.
-4. Fast-path commands (`TextToolFactory.resolveFastPathToolType`) — skipped silently in passive mode.
-5. LLM tool calling (`LlmService`, see [LLM Providers](llm-providers.md)); no tool -> conversation reply unless passive or `allowAiChat === false`. When free chat is allowed (`allowAiChat !== false`, `undefined` = on), the tool prompt gets `CHIT_CHAT_INSTRUCTION` (answer general questions, never refuse as "only a finance assistant", flag possibly stale real-time info) and a no-tool reply triggers a second tool-free `generate` (`generateChitChatReply`); its text is sent, falling back to the first-pass text when empty or failed. Not applied to passive, `edit <code>`, or the LLM-error fallback.
+4. Fast-path commands (`TextToolFactory.resolveFastPathToolType`).
+5. LLM tool calling (`LlmService`, see [LLM Providers](llm-providers.md)); no tool -> conversation reply unless `allowAiChat === false`. When free chat is allowed (`allowAiChat !== false`, `undefined` = on), the tool prompt gets `CHIT_CHAT_INSTRUCTION` (answer general questions, never refuse as "only a finance assistant", flag possibly stale real-time info) and a no-tool reply triggers a second tool-free `generate` (`generateChitChatReply`); its text is sent, falling back to the first-pass text when empty or failed. Not applied to `edit <code>` or the LLM-error fallback.
 
 ## Fast-path commands
 

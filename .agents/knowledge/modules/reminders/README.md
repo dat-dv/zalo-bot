@@ -45,6 +45,6 @@ Contracts: `IReminderListItem`, `IUpdateReminderRequest` (`@zalobot/contracts`).
 
 ## Chat creation & confirmation
 
-- `SET_REMINDER` is an LLM tool (`ZALO_TOOL_DEFINITIONS`) and part of the passive calendar allowlist (`PASSIVE_CALENDAR_TOOLS`).
+- `SET_REMINDER` is an LLM tool (`ZALO_TOOL_DEFINITIONS`); in ZCA groups it is reachable only from messages that mention the bot or use a thread prefix.
 - The pending action is stored in Redis as JSON; on confirm, `parseReminderPayload` (`apps/api/src/zca/confirmation/transaction-confirmation.service.ts`) revives `remindAt` from ISO string into a `Date` (`toValidReminderDate` in `reminders.service.ts`) before `RemindersService.createReminder`.
 - Fast-path `/reminders` (`RemindersQuickToolStrategy`) lists upcoming reminders in chat.

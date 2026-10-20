@@ -54,10 +54,16 @@ void test('cleanBotMention cleans image placeholders and group mentions', () => 
   assert.equal(cleanBotMention('@Bot Finance Assistant'), '');
 });
 
-void test('cleanBotMention cleans triggerPrefix if provided', () => {
-  assert.equal(cleanBotMention('!ăn trưa 40k', 'Bot', '!'), 'ăn trưa 40k');
-  assert.equal(cleanBotMention('@bot !ăn trưa 40k', 'Bot', '!'), 'ăn trưa 40k');
-  assert.equal(cleanBotMention('!@bot ăn trưa 40k', 'Bot', '!'), 'ăn trưa 40k');
-  assert.equal(cleanBotMention('/bot: /dashboard', 'Bot', '/bot:'), '/dashboard');
-  assert.equal(cleanBotMention('!/dashboard', 'Bot', '!'), '/dashboard');
+void test('cleanBotMention cleans one of the configured trigger prefixes', () => {
+  assert.equal(cleanBotMention('!ăn trưa 40k', 'Bot', ['!']), 'ăn trưa 40k');
+  assert.equal(cleanBotMention('@bot !ăn trưa 40k', 'Bot', ['!']), 'ăn trưa 40k');
+  assert.equal(cleanBotMention('!@bot ăn trưa 40k', 'Bot', ['!']), 'ăn trưa 40k');
+  assert.equal(cleanBotMention('/bot: /dashboard', 'Bot', ['/bot:']), '/dashboard');
+  assert.equal(cleanBotMention('!/dashboard', 'Bot', ['!']), '/dashboard');
+});
+
+void test('cleanBotMention matches any prefix case-insensitively, longest first', () => {
+  assert.equal(cleanBotMention('BOT: cà phê 30k', 'Bot', ['!', 'bot:']), 'cà phê 30k');
+  assert.equal(cleanBotMention('bot: cà phê 30k', 'Bot', ['b', 'bot:']), 'cà phê 30k');
+  assert.equal(cleanBotMention('?cà phê 30k', 'Bot', ['!', 'bot:']), '?cà phê 30k');
 });

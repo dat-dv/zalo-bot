@@ -950,58 +950,6 @@ void test('TextInputService cancels all pending actions when user sends "cancel 
   confirmationService.clearAll();
 });
 
-void test('TextInputService remains completely silent when passiveOnly=true and no tool was called', async () => {
-  const { service, sentMessages } = createTextInputService({
-    llmResponse: {
-      text: 'Chào bạn! Mình có thể giúp gì cho bạn hôm nay?',
-    },
-  });
-
-  await service.process({
-    type: 'text',
-    senderId: 'u1',
-    chatId: 'g1',
-    displayName: 'Thành viên',
-    text: 'hello bot',
-    passiveOnly: true,
-  });
-
-  assert.equal(
-    sentMessages.length,
-    0,
-    'Bot must not send any message in passive mode when no tool called',
-  );
-});
-
-void test('TextInputService executes tool when passiveOnly=true and LLM calls RECORD_TRANSACTION', async () => {
-  const { service, sentMessages } = createTextInputService({
-    llmResponse: {
-      toolCall: {
-        name: TextToolType.RECORD_TRANSACTION,
-        args: {
-          type: 'expense',
-          amount: 45000,
-          category: 'Ăn uống',
-          note: 'ăn phở',
-        },
-      },
-    },
-  });
-
-  await service.process({
-    type: 'text',
-    senderId: 'u1',
-    chatId: 'g1',
-    displayName: 'Thành viên',
-    text: 'ăn phở 45k',
-    passiveOnly: true,
-    allowedTools: [TextToolType.RECORD_TRANSACTION, TextToolType.MANAGE_DEBT],
-  });
-
-  assert.equal(sentMessages.length, 1, 'Bot must process expense tool in passive mode');
-  assert.match(sentMessages[0].text, /45\.000/);
-});
-
 void test('TextInputService remains silent when allowAiChat=false and LLM returns conversational response', async () => {
   const { service, sentMessages } = createTextInputService({
     llmResponse: {
@@ -1271,59 +1219,6 @@ void test('TextInputService does NOT propagate placeName across different timest
   assert.match(sentMessages[1].text, /Địa điểm: \(trống\)/);
 
   confirmationService.clearAll();
-});
-
-void test('TextInputService skips LLM in passive mode when no tool is allowlisted', async () => {
-  const { service, sentMessages, getLlmCallCount } = createTextInputService();
-
-  await service.process({
-    type: 'text',
-    senderId: 'u1',
-    chatId: 'g1',
-    displayName: 'Thành viên',
-    text: 'ăn trưa 45k',
-    passiveOnly: true,
-    allowedTools: [],
-  });
-
-  assert.equal(getLlmCallCount(), 0);
-  assert.equal(sentMessages.length, 0);
-});
-
-void test('TextInputService passes only allowlisted tool definitions to LLM in passive mode', async () => {
-  const { service, getLastLlmToolNames } = createTextInputService();
-
-  await service.process({
-    type: 'text',
-    senderId: 'u1',
-    chatId: 'g1',
-    displayName: 'Thành viên',
-    text: 'ăn trưa 45k',
-    passiveOnly: true,
-    allowedTools: [TextToolType.RECORD_TRANSACTION],
-  });
-
-  assert.deepEqual(getLastLlmToolNames(), [TextToolType.RECORD_TRANSACTION]);
-});
-
-void test('TextInputService ignores tool outside passive allowlist', async () => {
-  const { service, sentMessages } = createTextInputService({
-    llmResponse: {
-      toolCall: { name: TextToolType.GET_REPORT, args: {} },
-    },
-  });
-
-  await service.process({
-    type: 'text',
-    senderId: 'u1',
-    chatId: 'g1',
-    displayName: 'Thành viên',
-    text: '@drive',
-    passiveOnly: true,
-    allowedTools: [TextToolType.RECORD_TRANSACTION, TextToolType.MANAGE_DEBT],
-  });
-
-  assert.equal(sentMessages.length, 0, 'Tool outside allowlist must not execute');
 });
 
 void test('TextInputService passes full tool definitions in direct mode', async () => {

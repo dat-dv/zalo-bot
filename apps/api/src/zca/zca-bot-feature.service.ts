@@ -28,11 +28,12 @@ import {
 } from './shapes';
 import { fetchImageBuffer } from '../common/utils/image-fetcher.util';
 import type { AgentInput } from '../types/agent-input.type';
-import type {
-  ThreadBotConfig,
-  ThreadDirectInteractionConfig,
-  SyncThreadMediaDto,
-  SyncThreadMediaResponse,
+import {
+  findTriggerPrefix,
+  type ThreadBotConfig,
+  type ThreadDirectInteractionConfig,
+  type SyncThreadMediaDto,
+  type SyncThreadMediaResponse,
 } from '@zalobot/contracts';
 import { RedisService } from '../redis/redis.service';
 import type { InitialAdminBootstrapGuard } from './guards/initial-admin-bootstrap.guard';
@@ -42,8 +43,6 @@ import type { PendingImageActionDispatcher } from './pending-image/pending-image
 import type { ImageBatchHandler } from './pending-image/image-batch-handler.service';
 import type { OcrService } from '../ocr/ocr.service';
 import { cleanBotMention } from '../zalo/text/bot-mention.util';
-import { TextToolType } from '../zalo/text/text-tool.enum';
-import { PASSIVE_CALENDAR_TOOLS, PASSIVE_EXPENSE_TOOLS } from '../zalo/text/text-tool.definitions';
 
 function formatErrorMessage(err: unknown): string {
   if (err instanceof Error) {
@@ -153,7 +152,7 @@ export function stripBotMentions(
   mentions: unknown,
   ownId: string,
   botName: string,
-  triggerPrefix?: string,
+  triggerPrefixes: readonly string[] = [],
 ): string {
   let result = text;
   if (ownId && Array.isArray(mentions)) {
@@ -179,7 +178,7 @@ export function stripBotMentions(
       .replace(/\s+/g, ' ')
       .trim();
   }
-  return cleanBotMention(result, botName, triggerPrefix);
+  return cleanBotMention(result, botName, triggerPrefixes);
 }
 
 const OCR_CONTEXT_MAX_CHARS = 2000;
@@ -770,39 +769,6 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     }
   }
 
-  /** Tools an un-mentioned (passive) text may trigger, derived from the thread's feature flags. */
-  private resolvePassiveAllowedTools(config: ThreadBotConfig): TextToolType[] {
-    const allowed: TextToolType[] = [];
-    if (config.expenseTracking.enabled) allowed.push(...PASSIVE_EXPENSE_TOOLS);
-    if (config.calendarExtraction.enabled) allowed.push(...PASSIVE_CALENDAR_TOOLS);
-    return allowed;
-  }
-
-  /**
-   * Access check for passive (L2) text. Unlike direct guards it never replies, never registers a
-   * pending user and never bootstraps an admin: a member chatting in a tracked group without
-   * mentioning the bot must not trigger any visible reaction.
-   */
-  private async checkPassiveGuards(senderId: string, isOwner: boolean): Promise<boolean> {
-    if (isOwner) return true;
-    if (!this.usersService) return false;
-
-    const isGranted = await this.usersService.isGrantAccess(senderId);
-    if (!isGranted) {
-      this.logger.debug(`[ZcaBotFeature] Passive text from non-granted user ${senderId} ignored.`);
-      return false;
-    }
-
-    if (typeof this.usersService.checkCooldown === 'function') {
-      const cooldown = this.usersService.checkCooldown(senderId);
-      if (!cooldown.allowed) {
-        this.logger.debug(`[ZcaBotFeature] Passive text from ${senderId} dropped by cooldown.`);
-        return false;
-      }
-    }
-    return true;
-  }
-
   private resolveBotName(): string {
     return (
       this.configService?.get<string>('zalo.botName') ||
@@ -833,10 +799,11 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
    * - Pending fast-paths: `yes/cancel/edit <code>` and pending image replies. `edit` is limited to
    *   the pending owner or granted users and only re-issues the same tool.
    * - L3 passive media: auto backup per `mediaBackup`, for every member (no user access check).
-   * - L1 direct (`@bot`, mention, prefix, or `requireMention=false`): direct guards with replies,
+   *   A media message that does not address the bot stops there: stored, never OCR'd or sent to AI.
+   * - L1 direct: in a group the message must @mention the bot or start with one of the thread's
+   *   `triggerPrefixes`; in a 1-1 chat any text addresses the bot. Direct guards with replies,
    *   full tool set, AI chat per `allowAiChat`.
-   * - L2 passive text: silent access check (granted users only), LLM restricted to the
-   *   `expenseTracking` / `calendarExtraction` allowlist, never free chat.
+   * - Anything else is ignored without an LLM call: the bot only works when someone asks it to.
    */
   public async onMessage(message: Message, api: API): Promise<void> {
     const threadId = message.threadId;
@@ -854,11 +821,11 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
 
     const directConfig: ThreadDirectInteractionConfig = config.directInteraction ?? {
       enabled: true,
-      requireMention: true,
-      triggerPrefix: '',
+      triggerPrefixes: [],
       allowAiChat: true,
       allowSelf: false,
     };
+    const triggerPrefixes = directConfig.triggerPrefixes ?? [];
 
     if (message.isSelf) {
       if (!directConfig.allowSelf && !this.isSelfListenEnabled()) {
@@ -887,7 +854,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         isGroupMessage(message) ? message.data.mentions : undefined,
         typeof api?.getOwnId === 'function' ? api.getOwnId() : '',
         this.resolveBotName(),
-        directConfig.triggerPrefix,
+        triggerPrefixes,
       );
       const handled = await this.confirmationService.handleCommand(
         senderId,
@@ -1063,7 +1030,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       }
     }
 
-    // 4. Resolve Direct Trigger vs Passive Tracking
+    // 4. Resolve whether the message addresses the bot
     const ownId = (api as unknown as { getOwnId?: () => string })?.getOwnId?.() || '';
     const botName = this.resolveBotName();
     const cleanBotName = (botName || 'Bot').replace(/^@/, '').trim();
@@ -1073,28 +1040,13 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       .join('|');
     const botNameRegex = new RegExp(`@(?:bot|zalo|finance|trợ lý|${botNamePattern})`, 'i');
     const hasMention = (ownId && isMentioned(message, ownId)) || botNameRegex.test(text);
-    const hasPrefix = Boolean(
-      directConfig.triggerPrefix && text.trim().startsWith(directConfig.triggerPrefix),
-    );
+    const hasPrefix = findTriggerPrefix(text, triggerPrefixes) !== null;
 
+    // Groups always need a mention or prefix; a 1-1 chat with the bot account is already addressed
+    // to it. A media message without text never counts: it is only backed up (L3).
     const isGroup = message.type === ThreadType.Group;
-    const requireMention =
-      directConfig.requireMention !== undefined ? directConfig.requireMention : true;
-    let isDirectTriggered = false;
-    if (directConfig.enabled) {
-      if (!requireMention) {
-        isDirectTriggered = true;
-      } else {
-        isDirectTriggered = Boolean(hasMention || hasPrefix);
-      }
-    } else if (hasMention || (directConfig.triggerPrefix && hasPrefix)) {
-      isDirectTriggered = true;
-    }
-
-    // In 1-1 chat, sending an image without caption is direct interaction
-    if (!isGroup && isImage && !text.trim()) {
-      isDirectTriggered = true;
-    }
+    const hasText = text.trim().length > 0;
+    const isDirectTriggered = Boolean(hasMention || hasPrefix || (!isGroup && hasText));
 
     // Single number "1" or "2" fast-path hint when no image is pending
     if (text && /^[12]$/.test(text.trim()) && isDirectTriggered) {
@@ -1129,7 +1081,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       );
       if (!allowed) return;
 
-      const cleanedText = cleanBotMention(text, botName, directConfig.triggerPrefix);
+      const cleanedText = cleanBotMention(text, botName, triggerPrefixes);
 
       // 5a. Quoted media storage upload request (e.g. "@bot lưu ảnh này lên drive")
       if (isStorageUploadInstruction(cleanedText)) {
@@ -1167,9 +1119,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
           text: promptText,
           imageUrl: activeReceiptUrl,
           isBot: false,
-          passiveOnly: false,
           allowAiChat: directConfig.allowAiChat ?? true,
-          triggerPrefix: directConfig.triggerPrefix || undefined,
+          triggerPrefixes,
         });
       }
       return;
@@ -1178,33 +1129,6 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     // 6. Direct Image Message Processing
     if (isImage) {
       const { url: mediaUrl } = extractMediaMeta(message.data?.content);
-
-      // In 1-1 chat without caption: trigger ImageBatchHandler (interactive menu)
-      if (!isGroup && !text.trim()) {
-        const allowed = await this.checkDirectGuardsAndCooldown(
-          senderId,
-          displayName,
-          threadId,
-          text,
-          message.type,
-          api,
-          Boolean(message.isSelf),
-        );
-        if (!allowed) return;
-
-        if (this.imageBatchHandler && mediaUrl) {
-          const agentInput: AgentInput = {
-            type: 'image',
-            senderId,
-            chatId: threadId,
-            displayName,
-            imageUrl: mediaUrl,
-            isBot: false,
-          };
-          await this.imageBatchHandler.handle(agentInput, threadId);
-        }
-        return;
-      }
 
       // If image has caption and is direct-triggered (e.g. tagged @bot in group or captioned in 1-1)
       if (isDirectTriggered && mediaUrl) {
@@ -1219,7 +1143,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         );
         if (!allowed) return;
 
-        const cleanedText = cleanBotMention(text, botName, directConfig.triggerPrefix);
+        const cleanedText = cleanBotMention(text, botName, triggerPrefixes);
 
         // 6a. Direct image captioned with request to save to Drive (e.g. "@bot lưu ảnh này lên drive")
         if (isStorageUploadInstruction(cleanedText)) {
@@ -1254,15 +1178,14 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
             text: promptText,
             imageUrl: activeReceiptUrl,
             isBot: false,
-            passiveOnly: false,
             allowAiChat: directConfig.allowAiChat ?? true,
-            triggerPrefix: directConfig.triggerPrefix || undefined,
+            triggerPrefixes,
           });
         }
         return;
       }
 
-      // Casual image in group without @bot: already backed up (if enabled), do nothing else
+      // Image that does not address the bot: already backed up (if enabled), do nothing else
       return;
     }
 
@@ -1306,27 +1229,18 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       return;
     }
 
-    // 8. Text Message Processing
-    if (text && this.textInputService) {
-      let passiveAllowedTools: TextToolType[] | undefined;
-      if (!isDirectTriggered) {
-        // L2 passive text: only the allowlisted extraction tools, only for granted users.
-        passiveAllowedTools = this.resolvePassiveAllowedTools(config);
-        if (passiveAllowedTools.length === 0) return;
-        const allowed = await this.checkPassiveGuards(senderId, this.isOwnerSender(message, api));
-        if (!allowed) return;
-      } else {
-        const allowed = await this.checkDirectGuardsAndCooldown(
-          senderId,
-          displayName,
-          threadId,
-          text,
-          message.type,
-          api,
-          Boolean(message.isSelf),
-        );
-        if (!allowed) return;
-      }
+    // 8. Text Message Processing: only text that addresses the bot reaches the AI.
+    if (text && this.textInputService && isDirectTriggered) {
+      const allowed = await this.checkDirectGuardsAndCooldown(
+        senderId,
+        displayName,
+        threadId,
+        text,
+        message.type,
+        api,
+        Boolean(message.isSelf),
+      );
+      if (!allowed) return;
 
       const agentInput: AgentInput = {
         type: 'text',
@@ -1335,10 +1249,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         displayName,
         text,
         isBot: false,
-        passiveOnly: !isDirectTriggered,
-        allowedTools: passiveAllowedTools,
         allowAiChat: directConfig.allowAiChat ?? true,
-        triggerPrefix: directConfig.triggerPrefix || undefined,
+        triggerPrefixes,
       };
 
       try {

@@ -86,7 +86,7 @@ export class TextInputService {
       process.env.BOT_NAME ||
       process.env.ZALO_BOT_NAME ||
       'Bot';
-    const text = cleanBotMention(rawText, botName, input.triggerPrefix);
+    const text = cleanBotMention(rawText, botName, input.triggerPrefixes);
     input.text = text;
     const chatId = input.chatId || input.senderId;
     const senderId = input.senderId;
@@ -94,11 +94,6 @@ export class TextInputService {
 
     // Bỏ qua nếu tin nhắn ảnh nhưng không có nội dung text hợp lệ sau khi làm sạch mention
     if (!text && input.type === 'image') {
-      return;
-    }
-
-    // Nếu tin nhắn rỗng sau khi làm sạch mention/prefix và đang ở chế độ thụ động
-    if (!text && input.passiveOnly) {
       return;
     }
 
@@ -144,9 +139,6 @@ export class TextInputService {
 
     // Nếu người dùng chỉ gõ số "1" hoặc "2" đơn lẻ nhưng hiện không có ảnh nào chờ xử lý (tránh LLM gọi nhầm tool)
     if (/^[12]$/.test(text.trim())) {
-      if (input.passiveOnly) {
-        return;
-      }
       await this.zaloService.sendMessage(
         chatId,
         '💡 Hiện không có hình ảnh hoặc giao dịch nào đang chờ xử lý. Bạn có thể gửi ảnh mới hoặc nhập yêu cầu cụ thể (Ví dụ: "ăn trưa 45k", "mai 9h họp").',
@@ -157,9 +149,6 @@ export class TextInputService {
     // 2. Fast-path for deterministic commands (/start, /help, /echo, /ping, /reset)
     const fastPath = this.toolFactory.resolveFastPathToolType(text);
     if (fastPath) {
-      if (input.passiveOnly) {
-        return;
-      }
       const strategy = this.toolFactory.getStrategy(fastPath);
       await strategy.execute({
         input,
@@ -172,16 +161,6 @@ export class TextInputService {
     }
 
     // 3. AI / LLM Tool Calling for natural language processing
-    // Passive mode (un-mentioned group message): the LLM only sees the allowlisted tools, so it
-    // cannot reach admin/storage/report tools; an empty allowlist means nothing to extract.
-    const passiveAllowed = input.passiveOnly ? (input.allowedTools ?? []) : undefined;
-    if (passiveAllowed && passiveAllowed.length === 0) {
-      this.logger.debug(
-        `[TextInputService] Passive mode with no allowed tools in thread ${chatId}, skipping LLM.`,
-      );
-      return;
-    }
-
     const timeZone =
       this.configService?.get<string>('timezone') ||
       process.env.DEFAULT_TIMEZONE ||
@@ -214,15 +193,9 @@ export class TextInputService {
       (input.allowAiChat !== false ? `\n\n${CHIT_CHAT_INSTRUCTION}` : '');
 
     try {
-      const response = passiveAllowed
-        ? await this.llmService.generate(
-            text,
-            selectToolDefinitions(passiveAllowed),
-            this.buildPassiveSystemInstruction(passiveAllowed, dtContext.systemInstructionSnippet),
-          )
-        : await this.zaloService.withChatAction(chatId, () =>
-            this.llmService.generate(text, ZALO_TOOL_DEFINITIONS, systemInstruction),
-          );
+      const response = await this.zaloService.withChatAction(chatId, () =>
+        this.llmService.generate(text, ZALO_TOOL_DEFINITIONS, systemInstruction),
+      );
 
       const toolCalls =
         response.toolCalls && response.toolCalls.length > 0
@@ -234,12 +207,6 @@ export class TextInputService {
       if (toolCalls.length > 0) {
         this.propagateSharedTransactionContext(toolCalls);
         for (const toolCall of toolCalls) {
-          if (passiveAllowed && !passiveAllowed.some((tool) => tool === toolCall.name)) {
-            this.logger.warn(
-              `[TextInputService] Tool "${toolCall.name}" is outside passive allowlist in thread ${chatId}. Skipping.`,
-            );
-            continue;
-          }
           this.logger.log(
             `LLM resolved tool "${toolCall.name}" with args: ${JSON.stringify(toolCall.args)}`,
           );
@@ -251,7 +218,7 @@ export class TextInputService {
             this.logger.warn(
               `Strategy for tool "${toolCall.name}" not found. Falling back to CONVERSATION.`,
             );
-            if (input.passiveOnly || input.allowAiChat === false) {
+            if (input.allowAiChat === false) {
               return;
             }
             strategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
@@ -269,16 +236,7 @@ export class TextInputService {
         return;
       }
 
-      // Plain AI conversational reply
-      // Nếu là chế độ thụ động trong nhóm (passiveOnly) hoặc tắt tính năng trò chuyện tự do (allowAiChat === false):
-      // TUYỆT ĐỐI IM LẶNG, KHÔNG PHẢN HỒI RA CHAT!
-      if (input.passiveOnly) {
-        this.logger.debug(
-          `[TextInputService] Passive message did not trigger any tool in thread ${chatId}. Remaining silent.`,
-        );
-        return;
-      }
-
+      // Plain AI conversational reply; free chat disabled (allowAiChat === false) means stay silent.
       if (input.allowAiChat === false) {
         this.logger.debug(
           `[TextInputService] allowAiChat is disabled in thread ${chatId}. Remaining silent.`,
@@ -303,7 +261,7 @@ export class TextInputService {
       });
     } catch (err) {
       this.logger.error(`Error in LLM text processing: ${(err as Error).message}`);
-      if (input.passiveOnly || input.allowAiChat === false) {
+      if (input.allowAiChat === false) {
         return;
       }
       // Fallback to conversation strategy
@@ -398,7 +356,7 @@ export class TextInputService {
           this.logger.warn(
             `Strategy for tool "${toolCall.name}" not found. Falling back to CONVERSATION.`,
           );
-          if (input.passiveOnly || input.allowAiChat === false) {
+          if (input.allowAiChat === false) {
             return;
           }
           strategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
@@ -416,7 +374,7 @@ export class TextInputService {
       }
 
       // Plain AI conversational reply if LLM didn't return a tool call
-      if (input.passiveOnly || input.allowAiChat === false) {
+      if (input.allowAiChat === false) {
         return;
       }
       const conversationStrategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
@@ -456,37 +414,6 @@ export class TextInputService {
       this.logger.warn(`[TextInputService] Chit-chat generation failed: ${message}`);
       return undefined;
     }
-  }
-
-  private buildPassiveSystemInstruction(
-    allowed: readonly TextToolType[],
-    dateTimeSnippet: string,
-  ): string {
-    const toolHints: Partial<Record<TextToolType, string>> = {
-      [TextToolType.RECORD_TRANSACTION]:
-        '- Thu chi ("ăn trưa 45k", "tiền lương 15tr"): gọi RECORD_TRANSACTION (type, category, amount, occurredAt, placeName, paymentMethod nếu có).',
-      [TextToolType.MANAGE_DEBT]:
-        '- Công nợ ("nợ a 100k", "cho Nam vay 200k"): gọi MANAGE_DEBT (direction receivable/payable, counterparty, amount, occurredAt, dueAt nếu có).',
-      [TextToolType.CREATE_CALENDAR_EVENT]:
-        '- Lịch hẹn ("mai 14h họp dự án"): gọi CREATE_CALENDAR_EVENT với startDateTime/endDateTime ISO 8601.',
-      [TextToolType.SET_REMINDER]:
-        '- Nhắc nhở ("15 phút nữa nhắc tắt bếp"): gọi SET_REMINDER với thời điểm ISO chính xác.',
-    };
-    const hints = allowed
-      .map((tool) => toolHints[tool])
-      .filter((hint): hint is string => Boolean(hint));
-
-    return (
-      `Bạn đang theo dõi thụ động một cuộc trò chuyện nhóm trên Zalo; không ai gọi bạn trực tiếp.\n\n` +
-      `${dateTimeSnippet}\n\n` +
-      'Chỉ gọi tool khi tin nhắn RÕ RÀNG thuộc một trong các trường hợp sau:\n' +
-      `${hints.join('\n')}\n\n` +
-      'Mọi trường hợp khác (chào hỏi, hỏi đáp, yêu cầu link, lệnh quản trị, câu mơ hồ): KHÔNG gọi tool và KHÔNG trả lời.\n\n' +
-      'QUY TẮC KHI GỌI TOOL:\n' +
-      '- Câu có nhiều hành động độc lập: gọi nhiều tool call, mỗi hành động một call.\n' +
-      '- Ngữ cảnh dùng chung (thời gian, địa điểm, phương thức thanh toán) phải điền cho tất cả tool call liên quan.\n' +
-      '- Mọi giá trị tham số PHẢI là giá trị phẳng (string, number, boolean), không lồng object.'
-    );
   }
 
   private propagateSharedTransactionContext(

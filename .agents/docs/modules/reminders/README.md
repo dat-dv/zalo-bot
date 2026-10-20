@@ -61,7 +61,7 @@ Mọi endpoint đều lọc theo người dùng đang đăng nhập dashboard. C
 
 ## 6. Tạo lời nhắc từ chat
 
-- AI dùng tool `SET_REMINDER`. Tool này cũng nằm trong danh sách được phép ở luồng thụ động L2 khi nhóm bật `calendarExtraction` (xem tài liệu module ZCA).
+- AI dùng tool `SET_REMINDER`. Trong nhóm Zalo, tin nhắn chỉ tới được AI khi người gửi @mention bot hoặc dùng tiền tố của nhóm (xem tài liệu module ZCA).
 - Thao tác chờ duyệt được lưu trong Redis dưới dạng JSON, nên `remindAt` bị biến thành chuỗi. Khi người dùng xác nhận, `parseReminderPayload` (trong `transaction-confirmation.service.ts`) chuyển lại thành `Date` bằng `toValidReminderDate` trước khi tạo lời nhắc. Thiếu bước này thì việc tạo lời nhắc sẽ lỗi.
 - Lệnh nhanh `/reminders` (hoặc `/reminder`) liệt kê các lời nhắc sắp tới ngay trong chat.
 

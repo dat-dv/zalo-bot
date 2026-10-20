@@ -9,6 +9,7 @@ import {
 } from '../api/zca-query';
 import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
 import { getThreadDriveLink, getThreadPhotosLink } from '../api/zca-api';
+import { TriggerPrefixInput } from '../presentation/components/trigger-prefix-input';
 
 interface ThreadConfigModalProps {
   threadId: string;
@@ -48,8 +49,7 @@ export function ThreadConfigModal({
         photosAlbumTitle: config.photosAlbumTitle,
         directInteraction: {
           enabled: config.directInteraction?.enabled ?? false,
-          requireMention: config.directInteraction?.requireMention ?? true,
-          triggerPrefix: config.directInteraction?.triggerPrefix || '',
+          triggerPrefixes: config.directInteraction?.triggerPrefixes ?? [],
           allowAiChat: config.directInteraction?.allowAiChat ?? false,
           allowSelf: config.directInteraction?.allowSelf ?? false,
         },
@@ -63,14 +63,6 @@ export function ThreadConfigModal({
           customFolder: config.mediaBackup?.customFolder || '',
           fileSuffix: config.mediaBackup?.fileSuffix || '',
           photosAlbum: config.mediaBackup?.photosAlbum || '',
-        },
-        expenseTracking: config.expenseTracking || {
-          enabled: false,
-          requireConfirm: false,
-        },
-        calendarExtraction: config.calendarExtraction || {
-          enabled: false,
-          requireConfirm: false,
         },
         confirmationRules: config.confirmationRules || {
           allowReactions: false,
@@ -99,8 +91,6 @@ export function ThreadConfigModal({
       photosAlbumTitle: form.photosAlbumTitle,
       directInteraction: form.directInteraction,
       mediaBackup: form.mediaBackup,
-      expenseTracking: form.expenseTracking,
-      calendarExtraction: form.calendarExtraction,
       confirmationRules: form.confirmationRules,
     };
 
@@ -210,8 +200,7 @@ export function ThreadConfigModal({
                       directInteraction: {
                         ...form.directInteraction,
                         enabled: e.target.checked,
-                        requireMention: form.directInteraction?.requireMention ?? true,
-                        triggerPrefix: form.directInteraction?.triggerPrefix ?? '',
+                        triggerPrefixes: form.directInteraction?.triggerPrefixes ?? [],
                         allowAiChat: form.directInteraction?.allowAiChat ?? true,
                       },
                     })
@@ -224,36 +213,11 @@ export function ThreadConfigModal({
 
             {(form.directInteraction?.enabled ?? false) && (
               <div className="mt-3.5 flex flex-col gap-3 pl-7">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                      Bắt buộc tag/mention (@Bot) hoặc Tiền tố mới phản hồi
-                    </span>
-                    <p className="text-[10px] text-slate-400">
-                      {threadType === 'group'
-                        ? 'Chỉ phản hồi khi có @Bot hoặc tiền tố. Tránh bot tự do trả lời gây loãng nhóm.'
-                        : 'Chỉ phản hồi khi có @Bot hoặc tiền tố. Tránh bot tự động trả lời tin nhắn riêng của bạn bè/người quen.'}
-                    </p>
-                  </div>
-                  <label className="relative inline-flex cursor-pointer items-center">
-                    <input
-                      checked={form.directInteraction?.requireMention ?? true}
-                      className="peer sr-only"
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          directInteraction: {
-                            ...form.directInteraction,
-                            enabled: form.directInteraction?.enabled ?? false,
-                            requireMention: e.target.checked,
-                          },
-                        })
-                      }
-                      type="checkbox"
-                    />
-                    <div className="peer h-4 w-7 rounded-full bg-slate-300 peer-checked:bg-blue-600 peer-focus:outline-none dark:bg-slate-700 after:absolute after:top-[1px] after:left-[1px] after:size-3.5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full" />
-                  </label>
-                </div>
+                <p className="rounded bg-slate-50 px-2.5 py-2 text-[11px] text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
+                  {threadType === 'group'
+                    ? 'Trong nhóm, bot chỉ phản hồi khi được @mention hoặc tin nhắn bắt đầu bằng một tiền tố bên dưới. Ảnh không kèm chữ chỉ được lưu; muốn bot đọc ảnh hãy reply ảnh và @Bot.'
+                    : 'Chat riêng với bot: mọi tin nhắn chữ đều được xử lý, không cần @mention. Ảnh không kèm chữ chỉ được lưu.'}
+                </p>
 
                 <div className="flex items-center justify-between">
                   <div>
@@ -261,8 +225,8 @@ export function ThreadConfigModal({
                       Cho phép AI trò chuyện tự do (Chit-chat)
                     </span>
                     <p className="text-[10px] text-slate-400">
-                      AI sẽ phản hồi tự nhiên cho các câu hỏi tổng quát ngoài các tác vụ tài
-                      chính/lịch
+                      Khi được gọi (@Bot, tiền tố hoặc chat riêng), AI trả lời tự nhiên cả các câu
+                      hỏi tổng quát ngoài tác vụ tài chính/lịch
                     </p>
                   </div>
                   <label className="relative inline-flex cursor-pointer items-center">
@@ -275,7 +239,6 @@ export function ThreadConfigModal({
                           directInteraction: {
                             ...form.directInteraction,
                             enabled: form.directInteraction?.enabled ?? false,
-                            requireMention: form.directInteraction?.requireMention ?? true,
                             allowAiChat: e.target.checked,
                           },
                         })
@@ -306,7 +269,6 @@ export function ThreadConfigModal({
                           directInteraction: {
                             ...form.directInteraction,
                             enabled: form.directInteraction?.enabled ?? false,
-                            requireMention: form.directInteraction?.requireMention ?? true,
                             allowAiChat: form.directInteraction?.allowAiChat ?? false,
                             allowSelf: e.target.checked,
                           },
@@ -318,32 +280,19 @@ export function ThreadConfigModal({
                   </label>
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
-                    Tiền tố gọi bot nhanh (Prefix tùy chọn)
-                  </label>
-                  <input
-                    className="mt-1 w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        directInteraction: {
-                          ...form.directInteraction,
-                          enabled: form.directInteraction?.enabled ?? false,
-                          requireMention: form.directInteraction?.requireMention ?? true,
-                          triggerPrefix: e.target.value,
-                        },
-                      })
-                    }
-                    placeholder="VD: / hoặc ! hoặc bot: (để trống nếu chỉ dùng tag)"
-                    type="text"
-                    value={form.directInteraction?.triggerPrefix || ''}
-                  />
-                  <p className="mt-0.5 text-[10px] text-slate-400">
-                    Tin nhắn bắt đầu bằng tiền tố này sẽ kích hoạt bot nhanh (mặc định luôn hỗ trợ
-                    gọi @Bot)
-                  </p>
-                </div>
+                <TriggerPrefixInput
+                  onChange={(triggerPrefixes) =>
+                    setForm({
+                      ...form,
+                      directInteraction: {
+                        ...form.directInteraction,
+                        enabled: form.directInteraction?.enabled ?? false,
+                        triggerPrefixes,
+                      },
+                    })
+                  }
+                  value={form.directInteraction?.triggerPrefixes ?? []}
+                />
               </div>
             )}
           </div>
@@ -632,125 +581,7 @@ export function ThreadConfigModal({
             )}
           </div>
 
-          {/* Feature 2: Phân tích & Ghi nhận Thu - Chi */}
-          <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">💰</span>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                    Phân tích & Quản lý thu chi
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Tự động phát hiện tin nhắn chứa giao dịch thu chi và gợi ý ghi sổ
-                  </p>
-                </div>
-              </div>
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input
-                  checked={form.expenseTracking.enabled}
-                  className="peer sr-only"
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      expenseTracking: {
-                        ...form.expenseTracking,
-                        enabled: e.target.checked,
-                      },
-                    })
-                  }
-                  type="checkbox"
-                />
-                <div className="peer h-5 w-9 rounded-full bg-slate-300 peer-checked:bg-blue-600 peer-focus:outline-none dark:bg-slate-700 after:absolute after:top-[2px] after:left-[2px] after:size-4 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full" />
-              </label>
-            </div>
-
-            {form.expenseTracking.enabled && (
-              <div className="mt-3 flex items-center justify-between pl-7">
-                <span className="text-xs text-slate-600 dark:text-slate-400">
-                  Gửi thẻ hỏi xác nhận trước khi lưu vào hệ thống
-                </span>
-                <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                  <input
-                    checked={form.expenseTracking.requireConfirm}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        expenseTracking: {
-                          ...form.expenseTracking,
-                          requireConfirm: e.target.checked,
-                        },
-                      })
-                    }
-                    type="checkbox"
-                  />
-                  <span className="font-medium text-slate-700 dark:text-slate-300">Bắt buộc</span>
-                </label>
-              </div>
-            )}
-          </div>
-
-          {/* Feature 3: Phân tích tin nhắn tạo lịch (Google Calendar) */}
-          <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">📅</span>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                    Phân tích tin nhắn tạo lịch hẹn (Calendar)
-                  </h4>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Tự động phát hiện cuộc hẹn, deadline, lịch họp và gợi ý thêm vào Google Calendar
-                  </p>
-                </div>
-              </div>
-              <label className="relative inline-flex cursor-pointer items-center">
-                <input
-                  checked={form.calendarExtraction.enabled}
-                  className="peer sr-only"
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      calendarExtraction: {
-                        ...form.calendarExtraction,
-                        enabled: e.target.checked,
-                      },
-                    })
-                  }
-                  type="checkbox"
-                />
-                <div className="peer h-5 w-9 rounded-full bg-slate-300 peer-checked:bg-blue-600 peer-focus:outline-none dark:bg-slate-700 after:absolute after:top-[2px] after:left-[2px] after:size-4 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full" />
-              </label>
-            </div>
-
-            {form.calendarExtraction.enabled && (
-              <div className="mt-3 flex items-center justify-between pl-7">
-                <span className="text-xs text-slate-600 dark:text-slate-400">
-                  Gửi thẻ hỏi xác nhận trước khi thêm vào Google Calendar
-                </span>
-                <label className="flex items-center gap-1.5 text-xs cursor-pointer">
-                  <input
-                    checked={form.calendarExtraction.requireConfirm}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        calendarExtraction: {
-                          ...form.calendarExtraction,
-                          requireConfirm: e.target.checked,
-                        },
-                      })
-                    }
-                    type="checkbox"
-                  />
-                  <span className="font-medium text-slate-700 dark:text-slate-300">Bắt buộc</span>
-                </label>
-              </div>
-            )}
-          </div>
-
-          {/* Feature 4: Quy tắc xác nhận (Reactions & Timeout) */}
+          {/* Feature 2: Quy tắc xác nhận (Reactions & Timeout) */}
           <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
               <div className="flex items-center gap-2">

@@ -88,23 +88,20 @@ function RowAvatar({ row }: { row: ChatRow }) {
 
 function ConfigBadges({ row, config }: { row: ChatRow; config: ThreadBotConfig }) {
   const thread = row.thread;
-  const requireMention = config.directInteraction?.requireMention ?? true;
+  const isGroup = row.kind === 'group';
+  const prefixes = config.directInteraction?.triggerPrefixes ?? [];
   return (
     <div className="mt-1 flex flex-wrap items-center justify-center gap-1">
       {config.directInteraction?.enabled && (
         <span
-          className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium ${
-            requireMention
-              ? 'bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
-              : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
-          }`}
+          className="inline-flex items-center rounded bg-purple-50 px-1.5 py-0.5 text-[9px] font-medium text-purple-700 dark:bg-purple-950 dark:text-purple-300"
           title={
-            requireMention
-              ? 'Cần @Bot hoặc tiền tố để kích hoạt'
-              : 'Trò chuyện tự do (không cần @Bot)'
+            isGroup
+              ? `Cần @Bot${prefixes.length > 0 ? ` hoặc tiền tố ${prefixes.join(' ')}` : ''} để kích hoạt`
+              : 'Chat riêng: mọi tin nhắn chữ đều gửi tới bot'
           }
         >
-          {requireMention ? '🤖 @Bot' : '🤖 Tự do'}
+          {isGroup ? '🤖 @Bot' : '🤖 Chat riêng'}
         </span>
       )}
       {thread && config.mediaBackup.enabled && (
@@ -128,16 +125,6 @@ function ConfigBadges({ row, config }: { row: ChatRow; config: ThreadBotConfig }
         >
           📸 Photos ↗
         </a>
-      )}
-      {config.expenseTracking.enabled && (
-        <span className="inline-flex items-center rounded bg-emerald-50 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-          💰 Thu chi
-        </span>
-      )}
-      {config.calendarExtraction.enabled && (
-        <span className="inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
-          📅 Lịch
-        </span>
       )}
     </div>
   );

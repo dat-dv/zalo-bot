@@ -2256,16 +2256,6 @@ export interface ThreadMediaBackupConfig {
   photosAlbum?: string;
 }
 
-export interface ThreadExpenseConfig {
-  enabled: boolean;
-  requireConfirm: boolean;
-}
-
-export interface ThreadCalendarConfig {
-  enabled: boolean;
-  requireConfirm: boolean;
-}
-
 export interface ThreadConfirmationConfig {
   allowReactions: boolean;
   requiredHearts: number;
@@ -2274,10 +2264,57 @@ export interface ThreadConfirmationConfig {
 
 export interface ThreadDirectInteractionConfig {
   enabled: boolean;
-  requireMention: boolean;
-  triggerPrefix?: string;
+  /** Prefixes that address the bot in a group, besides an @mention. Matched case-insensitively. */
+  triggerPrefixes: string[];
   allowAiChat?: boolean;
   allowSelf?: boolean;
+}
+
+export const TRIGGER_PREFIX_LIMITS = {
+  MAX_COUNT: 10,
+  MAX_LENGTH: 20,
+} as const;
+
+/** Why a candidate prefix is rejected, or `null` when it is usable. */
+export type TriggerPrefixError = 'empty' | 'whitespace' | 'too_long' | 'duplicate' | 'too_many';
+
+export function validateTriggerPrefix(
+  candidate: string,
+  existing: readonly string[],
+): TriggerPrefixError | null {
+  const value = candidate.trim();
+  if (!value) return 'empty';
+  if (/\s/.test(value)) return 'whitespace';
+  if (value.length > TRIGGER_PREFIX_LIMITS.MAX_LENGTH) return 'too_long';
+  const lower = value.toLowerCase();
+  if (existing.some((prefix) => prefix.toLowerCase() === lower)) return 'duplicate';
+  if (existing.length >= TRIGGER_PREFIX_LIMITS.MAX_COUNT) return 'too_many';
+  return null;
+}
+
+/**
+ * Cleans a stored or submitted prefix list: drops invalid and duplicate entries, caps the count,
+ * and orders longest first so `bot:` wins over `b` when matching.
+ * Accepts the legacy single `triggerPrefix` string still present in older rows.
+ */
+export function normalizeTriggerPrefixes(input: {
+  triggerPrefixes?: readonly unknown[];
+  triggerPrefix?: unknown;
+}): string[] {
+  const candidates: unknown[] = [...(input.triggerPrefixes ?? []), input.triggerPrefix];
+  const result: string[] = [];
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string') continue;
+    if (validateTriggerPrefix(candidate, result) === null) result.push(candidate.trim());
+  }
+  return result.sort((a, b) => b.length - a.length);
+}
+
+/** Returns the configured prefix the text starts with (case-insensitive), or `null`. */
+export function findTriggerPrefix(text: string, prefixes: readonly string[]): string | null {
+  const head = text.trimStart().toLowerCase();
+  const sorted = [...prefixes].sort((a, b) => b.length - a.length);
+  return sorted.find((prefix) => prefix && head.startsWith(prefix.toLowerCase())) ?? null;
 }
 
 export interface ThreadBotConfig {
@@ -2293,8 +2330,6 @@ export interface ThreadBotConfig {
   photosAlbumTitle?: string;
   directInteraction: ThreadDirectInteractionConfig;
   mediaBackup: ThreadMediaBackupConfig;
-  expenseTracking: ThreadExpenseConfig;
-  calendarExtraction: ThreadCalendarConfig;
   confirmationRules: ThreadConfirmationConfig;
   updatedAt?: number;
 }
@@ -2311,8 +2346,6 @@ export type UpdateThreadBotConfigDto = Partial<{
   photosAlbumTitle: string;
   directInteraction: Partial<ThreadDirectInteractionConfig>;
   mediaBackup: Partial<ThreadMediaBackupConfig>;
-  expenseTracking: Partial<ThreadExpenseConfig>;
-  calendarExtraction: Partial<ThreadCalendarConfig>;
   confirmationRules: Partial<ThreadConfirmationConfig>;
 }>;
 

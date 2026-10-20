@@ -59,10 +59,10 @@ Failure contract: providers never throw to callers; they return `{ text }` with 
 
 `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`.
 
-- Names are `TextToolType` enum values; `TextToolFactory.getStrategy(name)` maps each to a strategy. Unknown name -> `CONVERSATION` (or silence in passive / `allowAiChat === false`).
-- `selectToolDefinitions(allowed)` returns an ordered subset. Passive (un-mentioned) group messages expose only `PASSIVE_EXPENSE_TOOLS` (`RECORD_TRANSACTION`, `MANAGE_DEBT`) and/or `PASSIVE_CALENDAR_TOOLS` (`CREATE_CALENDAR_EVENT`, `SET_REMINDER`) per thread config; empty allowlist skips the LLM.
+- Names are `TextToolType` enum values; `TextToolFactory.getStrategy(name)` maps each to a strategy. Unknown name -> `CONVERSATION` (or silence when `allowAiChat === false`).
+- `selectToolDefinitions(allowed)` returns an ordered subset; used by `edit <code>` to expose only the pending action's tool. Un-mentioned ZCA group messages never reach the LLM.
 - `edit <code>` re-prompts with only the pending action's own tool; a different tool name in the reply is ignored.
-- Free chat (`allowAiChat !== false`, non-passive): tool prompt includes `CHIT_CHAT_INSTRUCTION`; a reply without tool calls is regenerated once with `tools = undefined` so the tool catalog does not bias it toward refusals (costs 2 LLM calls per chit-chat message). No real-time/web grounding: time-sensitive answers come from model knowledge with a staleness note.
+- Free chat (`allowAiChat !== false`): tool prompt includes `CHIT_CHAT_INSTRUCTION`; a reply without tool calls is regenerated once with `tools = undefined` so the tool catalog does not bias it toward refusals (costs 2 LLM calls per chit-chat message). No real-time/web grounding: time-sensitive answers come from model knowledge with a staleness note.
 - Fast-path commands (`/start`, `/finance`, …) never reach the LLM.
 
 ## Shared context propagation

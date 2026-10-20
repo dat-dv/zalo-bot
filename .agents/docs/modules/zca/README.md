@@ -40,7 +40,7 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
 - **Xử lý tin nhắn & reaction (`ZcaBotFeatureService`)**: xem mục 1a và 1c.
 - **Cấu hình theo kênh (`ThreadConfigService`, entity `ZcaThreadConfigEntity`, bảng `zca_thread_configs`)**: đọc theo thứ tự bộ nhớ → Redis `zca:thread_config:<id>` (24 giờ) → DB. Danh sách thread đang lắng nghe lưu ở Redis `zca:listened_threads`.
 - **Xác nhận thao tác (`TransactionConfirmationService`)**: mã `yes/cancel/edit <mã>`, thả tim/phẫn nộ, thu hồi thẻ chờ.
-- **Ảnh chờ xử lý (`pending-image/`)**: khi người dùng gửi ảnh không chú thích trong chat 1-1, `ImageBatchHandler` gom ảnh trong 1 giây rồi hỏi "1 tạo bill / 2 lưu ảnh". Ảnh được giữ 5 phút (bộ nhớ + Redis `pending:image:user:<userId>`). Câu trả lời được `PendingImageActionDispatcher` chuyển tới một trong ba strategy:
+- **Ảnh chờ xử lý (`pending-image/`)**: `ImageBatchHandler` gom ảnh trong 1 giây rồi hỏi "1 tạo bill / 2 lưu ảnh"; ảnh được giữ 5 phút (bộ nhớ + Redis `pending:image:user:<userId>`). **Từ khi chuyển sang "chỉ làm khi được gọi", ZCA không còn mở menu này cho ảnh không kèm chữ** (ảnh đó chỉ được lưu, xem mục 1a), nên không phát sinh ảnh chờ mới từ ZCA. Dispatcher vẫn trả lời nếu còn ảnh chờ, chuyển câu trả lời tới một trong ba strategy:
   - `1` hoặc `tạo bill [ghi chú]` → OCR + AI ghi giao dịch.
   - `2` hoặc `lưu drive/ảnh/photo` → tải lên Drive và Google Photos.
   - `hủy`, `cancel`, `bỏ qua`, `không`… → huỷ.
@@ -51,9 +51,8 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
 | Nhóm cấu hình | Trường | Mặc định | Ý nghĩa |
 | --- | --- | --- | --- |
 | Chung | `isListened` | tắt | Bot có nhận tin từ kênh này không |
-| Tương tác trực tiếp | `enabled` | tắt | Bật chế độ trò chuyện trực tiếp |
-| | `requireMention` | **bật cho mọi loại kênh** | Phải tag `@bot`, mention hoặc dùng tiền tố mới kích hoạt L1 |
-| | `triggerPrefix` | rỗng | Tiền tố riêng, ví dụ `!bot` |
+| Tương tác trực tiếp | `enabled` | tắt | Mở phần cấu hình tương tác trực tiếp trên dashboard; việc định tuyến tin nhắn không phụ thuộc cờ này |
+| | `triggerPrefixes` | rỗng | Danh sách tiền tố gọi bot trong nhóm, ví dụ `!`, `bot:`. Không phân biệt hoa thường, không chứa dấu cách, 1–20 ký tự, tối đa 10 cái |
 | | `allowAiChat` | tắt | Cho phép trò chuyện tự do ở L1: bot trả lời cả câu hỏi ngoài tài chính/lịch (gọi LLM thêm một lần không kèm tool). Tắt thì bot im lặng với tin không gọi tool |
 | | `allowSelf` | tắt | Xử lý cả tin do chính tài khoản bot gửi |
 | Sao lưu media | `enabled` + `uploadImages/Videos/Files/Audios` | tắt hết | Tự sao lưu theo từng loại (L3) |
@@ -61,18 +60,17 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
 | | `customFolder` | `zalobot/<tên nhóm>` nếu biết tên | Thư mục Drive tuỳ chỉnh |
 | | `fileSuffix` | `_<tên hoặc id>` | Hậu tố tên file |
 | | `photosAlbum` | rỗng | Tên album Google Photos tuỳ chỉnh |
-| Thu chi thụ động | `expenseTracking.enabled` / `requireConfirm` | tắt / tắt | Bật tool thu chi ở L2 |
-| Lịch thụ động | `calendarExtraction.enabled` / `requireConfirm` | tắt / tắt | Bật tool lịch ở L2 |
 | Quy tắc xác nhận | `allowReactions` | tắt | Cho phép duyệt/huỷ bằng ❤️/😡 |
 | | `requiredHearts` | nhóm `5`, cá nhân `1` | Số tim cần để duyệt |
 | | `timeoutMinutes` | `5` | Thời hạn thẻ chờ |
 | Lưu trữ | `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | trống | Thư mục Drive `zalobot/<channelId>` và album Photos riêng của nhóm |
 
 Lưu ý:
-- Bật lắng nghe một kênh đang tắt tương tác trực tiếp thì hệ thống tự bật `directInteraction.enabled` kèm `allowAiChat` (vẫn giữ `requireMention`).
-- **Giới hạn đã biết**: `requireConfirm` của thu chi và lịch được lưu và sửa được trên modal nhưng backend chưa đọc tới, nên bật/tắt không đổi hành vi.
+- Bật lắng nghe một kênh đang tắt tương tác trực tiếp thì hệ thống tự bật `directInteraction.enabled` kèm `allowAiChat` (giữ nguyên danh sách tiền tố).
+- **Dữ liệu cũ**: kênh lưu từ trước có thể còn một chuỗi `triggerPrefix` đơn. Hệ thống tự gộp nó vào `triggerPrefixes` mỗi khi đọc (DB, Redis, file JSON cũ) và bỏ khoá cũ ở lần lưu sau. Trường `requireMention` không còn: nhóm luôn phải @mention hoặc dùng tiền tố.
+- **Đã gỡ bỏ**: hai cấu hình "Thu chi thụ động" (`expenseTracking`) và "Lịch thụ động" (`calendarExtraction`). Migration `1724800000000-DropZcaPassiveTrackingColumns` xoá hai cột này và xoá `requireMention` khỏi `direct_interaction`. Migration không khôi phục được giá trị cũ khi chạy `down`.
 
-## 1a. Ba Luồng Xử Lý Tin Nhắn (L1 / L2 / L3)
+## 1a. Luồng Xử Lý Tin Nhắn (L1 / L3)
 
 Nguyên tắc phân vai: **module Users quyết định AI được tương tác với bot**, còn **cấu hình thread quyết định bot làm GÌ trong thread đó**.
 
@@ -88,8 +86,14 @@ Sau đó tin nhắn rơi vào một trong các luồng:
 
 **Lệnh chờ duyệt có tag bot**: người dùng trong nhóm hay gõ kèm tag, ví dụ `@Đen edit 125 …` hoặc `@bot yes 123`. Trước khi khớp lệnh, hệ thống gỡ tag **của bot**. Cách gỡ ưu tiên dựa trên dữ liệu mention Zalo gửi kèm (uid bot, vị trí, độ dài), vì tên hiển thị của bot trong nhóm ("Đen") có thể khác `botName` cấu hình; sau đó mới gỡ các bí danh `@bot`. Tag người khác được giữ nguyên để tin thường không bị hiểu nhầm thành lệnh. Trước đây tag đứng đầu làm lệnh `edit` không khớp, nên bot coi cả câu là yêu cầu mới và tạo thêm một thẻ chờ (ví dụ sự kiện có tiêu đề "Edit 125 …").
 | **L3 – Media thụ động** | Ảnh/video/file/voice, thread bật `mediaBackup` và bật loại tương ứng | Không kiểm tra — kho Drive là của cả nhóm | Sao lưu lên Drive và album Photos của nhóm, chống trùng bằng Redis `zca:synced_media:<threadId>`; không OCR, không gọi AI |
-| **L1 – Gọi trực tiếp** | Có `@bot`/tên bot, mention, tiền tố, hoặc thread bật tương tác và tắt `requireMention`; ảnh không chú thích trong chat 1-1 | Đầy đủ: bootstrap admin, `GrantAccessGuard` (báo từ chối, ghi nhận user chờ duyệt), cooldown có thông báo; tài khoản bot được miễn | Dùng toàn bộ tool, trò chuyện tự do theo `allowAiChat` |
-| **L2 – Văn bản thụ động** | Tin nhắn chữ không kích hoạt bot, thread bật `expenseTracking` và/hoặc `calendarExtraction` | **Im lặng**: chỉ user đã được cấp quyền (hoặc tài khoản bot); không gửi tin từ chối, không ghi nhận user chờ duyệt | AI chỉ thấy tool trong danh sách cho phép; không có tool nào bật thì không gọi AI; không bao giờ trò chuyện tự do |
+| **L1 – Gọi trực tiếp** | **Nhóm**: có `@bot`/tên bot, mention bot, hoặc tin bắt đầu bằng một tiền tố của kênh (không phân biệt hoa thường). **Chat riêng 1-1**: mọi tin có chữ. Ảnh/video không kèm chữ không bao giờ tính là gọi bot | Đầy đủ: bootstrap admin, `GrantAccessGuard` (báo từ chối, ghi nhận user chờ duyệt), cooldown có thông báo; tài khoản bot được miễn | Dùng toàn bộ tool, trò chuyện tự do theo `allowAiChat` |
+| **Không gọi bot** | Mọi trường hợp còn lại: tin nhóm không mention/tiền tố, media không kèm chữ | Không kiểm tra | **Bỏ qua hoàn toàn**: không gọi AI, không trả lời |
+
+**Vì sao bot chỉ làm khi được gọi?** Trước đây có luồng "L2 – văn bản thụ động": nhóm bật thu chi hoặc lịch thì **mọi** tin chữ của người đã được cấp quyền đều được gửi cho AI để dò xem có khoản chi hay lịch hẹn không. Hệ quả:
+- Tốn request: mỗi tin "ok", "haha", "chờ xíu" cũng là một lần gọi Gemini, dù gần như không bao giờ ra tool nào. Nhóm sôi nổi có thể chạm giới hạn rate limit, khiến cả lệnh `@bot` thật cũng lỗi.
+- Ghi nhầm: người dùng kể chuyện ("chủ nhật rồi mua đồ bơi 300k") mà không định ghi sổ, bot vẫn tạo thẻ xác nhận.
+
+Giờ nguyên tắc là **người dùng chủ động gọi thì bot mới làm việc**. Ngoại lệ duy nhất là chat riêng 1-1 với tài khoản bot (nhắn riêng cho bot đã là gọi bot) và Zalo Bot chính thức qua webhook (`apps/api/src/zalo/input-processor.service.ts`), vốn là kênh riêng nên không chặn theo mention.
 
 **Ảnh và video ở L1**:
 - **Trả lời trích dẫn (quote) một ảnh/video kèm `@bot`**: nếu câu lệnh là yêu cầu lưu (ví dụ "@bot lưu ảnh này lên drive") thì tải lên Drive/Photos; nếu không thì **bắt buộc OCR ảnh** để làm ngữ cảnh rồi mới chuyển cho AI. Ví dụ quote ảnh thực đơn quán rồi gõ "@bot tạo lịch hẹn chiều nay" → AI đọc được tên quán, địa chỉ trong ảnh để điền vào sự kiện.
@@ -97,27 +101,19 @@ Sau đó tin nhắn rơi vào một trong các luồng:
   - **Prompt trung tính**: văn bản OCR được gửi kèm nhãn "có thể sai chính tả", không còn gọi là "hoá đơn", nên AI tự chọn tool phù hợp (thu chi, lịch, task, nhắc việc). OCR cắt tối đa 2.000 ký tự. Nếu OCR không đọc được chữ, bot vẫn gửi yêu cầu kèm ghi chú "ảnh không đọc được chữ". Nếu người dùng chỉ tag bot mà không dặn gì, mặc định là "Ghi nhận hóa đơn này".
   - **Kiểm tra log**: mỗi lần chạy có dòng `Quoted image in thread … -> OCR N chars`. Nội dung OCR chỉ in ở mức DEBUG để tránh lộ dữ liệu.
 - **Gửi ảnh kèm chú thích có `@bot`**: tách y như trên (lưu, hoặc OCR bắt buộc làm ngữ cảnh). Hai luồng dùng chung `prepareImageOcrContext`; ảnh vẫn được lưu vào Drive như bill để link không chết khi CDN Zalo hết hạn.
-- **Ảnh không chú thích trong chat 1-1**: hiện menu ảnh chờ (mục 1).
-- **Ảnh trong nhóm không tag bot**: chỉ sao lưu L3 nếu được bật.
+- **Ảnh không kèm chữ (nhóm lẫn chat 1-1)**: chỉ sao lưu L3 nếu kênh bật `mediaBackup` + lưu ảnh; không OCR, không hỏi menu. Kênh tắt sao lưu thì ảnh bị bỏ qua.
+- **Muốn bot đọc ảnh đã gửi**: reply (quote) ảnh đó và @mention bot hoặc dùng tiền tố (chat 1-1 thì chỉ cần nhắn chữ khi reply). Bot OCR ảnh được quote rồi ghép với nội dung tin để làm nhiệm vụ tiếp theo (luồng quote ở trên).
 - **Video có `@bot`**: tải lên Drive/Photos và trả lời tóm tắt.
 - Mọi tin của kênh đang lắng nghe được đệm lại (200 tin gần nhất, Redis `zca:buffered_msgs:<threadId>`, 7 ngày) để dùng khi API lịch sử của Zalo không khả dụng.
 
-**Danh sách tool cho phép ở L2** (`apps/api/src/zalo/text/text-tool.definitions.ts`):
-- `expenseTracking` bật → `RECORD_TRANSACTION`, `MANAGE_DEBT`.
-- `calendarExtraction` bật → `CREATE_CALENDAR_EVENT`, `SET_REMINDER`.
-
 **Bộ tool đầy đủ ở L1** (`ZALO_TOOL_DEFINITIONS`, gọi qua `LlmService`) gồm 14 tool: `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`.
-
-**Vì sao L2 phải im lặng và giới hạn tool?** Trước đây, tin nhắn không tag bot vẫn được đưa cho AI kèm đủ 14 tool. Ví dụ một thành viên gõ `@drive` trong nhóm, AI hiểu thành `GET_STORAGE_LINKS` và bot trả lời link Drive, dù không ai gọi bot và người gõ chưa được cấp quyền. Giờ AI ở L2 chỉ nhận một system prompt riêng mô tả đúng các tool được phép, và tool ngoài danh sách bị bỏ qua dù AI có trả về. Ở L2 bot cũng không hiện trạng thái "đang soạn tin", để người trong nhóm không thấy bot phản ứng với mọi tin nhắn.
 
 **Vì sao `edit <mã>` bị giới hạn?** Lệnh `edit` chạy trước mọi guard. Trước đây nó còn gửi đủ tool cho AI, nên ai trong nhóm cũng có thể "sửa" một thẻ chờ thành yêu cầu khác (ví dụ lấy link Drive). Giờ:
 - Người không có quyền gõ `edit` thì bị bỏ qua im lặng; thẻ chờ **không** bị thu hồi hay xoá.
 - AI chỉ được gọi lại đúng tool của thao tác gốc. Muốn đổi sang loại thao tác khác thì `cancel <mã>` rồi nhắn lại.
 - Thao tác không ứng với tool (ví dụ cấm user) không chỉnh sửa được; bot sẽ hướng dẫn hủy và tạo lại.
 
-**Đánh đổi đã biết — cooldown ở L2**: L2 dùng chung cooldown 2 giây (in-memory) với L1. Nếu một người gửi hai dòng chi tiêu cách nhau dưới 2 giây, dòng thứ hai bị bỏ qua im lặng. Nếu họ vừa gửi một tin thụ động rồi `@bot` ngay sau đó, bot sẽ báo "gửi quá nhanh". Bỏ cooldown ở L2 chỉ cần sửa `checkPassiveGuards` trong `zca-bot-feature.service.ts`.
-
-**Cách bật/tắt trên dashboard**: mở `ThreadConfigModal` của nhóm và bật "Phân tích & Quản lý thu chi" (`expenseTracking`) và/hoặc "Phân tích tin nhắn tạo lịch hẹn (Calendar)" (`calendarExtraction`). Muốn bot ghi nhận tin của một thành viên ở L2 thì cấp quyền cho người đó ở trang **Zalo & Người dùng** (cột Quyền tương tác).
+**Cách đặt tiền tố trên dashboard**: mở `ThreadConfigModal` của kênh → mục "Tương tác Bot trực tiếp" → ô "Tiền tố gọi bot nhanh". Gõ tiền tố rồi nhấn Enter (hoặc dấu phẩy, hoặc nút "Thêm"); bấm × để xoá. Ô báo lỗi ngay nếu tiền tố có dấu cách, quá 20 ký tự, trùng (không phân biệt hoa thường) hoặc đã đủ 10 cái. Nếu đặt tiền tố `/`, modal cảnh báo vì `/dashboard` sẽ bị cắt thành `dashboard`. Khi tin khớp nhiều tiền tố, tiền tố dài nhất được ưu tiên (`bot:` thắng `b`). Logic kiểm tra dùng chung giữa API và web nằm trong `packages/contracts` (`validateTriggerPrefix`, `normalizeTriggerPrefixes`, `findTriggerPrefix`).
 
 ## 1b. Nhận Biết Nhóm Hay Cá Nhân
 
@@ -185,9 +181,8 @@ Logic ghép dòng là hàm thuần trong `model/chat-rows.ts`, có unit test ở
 - **`SyncMediaModal` (`view/sync-media-modal.tsx`)**: chọn khoảng thời gian và loại media để sao lưu lịch sử nhóm.
 - **Modal Cấu hình Kênh (`ThreadConfigModal`)**:
   - Lắng nghe kênh.
-  - Tương tác trực tiếp: bật/tắt, bắt buộc mention `@bot`, cho phép trò chuyện AI, xử lý tin của chính bot, tiền tố kích hoạt.
+  - Tương tác trực tiếp: bật/tắt, ghi chú quy tắc gọi bot (nhóm cần @mention/tiền tố, chat riêng thì không), cho phép trò chuyện AI, xử lý tin của chính bot, ô nhập nhiều tiền tố dạng chip (`presentation/components/trigger-prefix-input.tsx`).
   - Sao lưu media: bật/tắt, chọn loại (ảnh, video, file, âm thanh), thông báo trong nhóm, thư mục Drive tuỳ chỉnh, hậu tố file, tên album Photos.
-  - Thu chi thụ động và lịch thụ động (bật/tắt, `requireConfirm`).
   - Quy tắc xác nhận: thả tim, số tim tối thiểu, thời gian timeout (phút).
   - Link thư mục Drive và album Photos của kênh.
 
@@ -237,7 +232,7 @@ Contracts liên quan trong `packages/contracts`: `ThreadBotConfig`, `UpdateThrea
 
 ## 5. Kiểm Thử
 
-- Chạy `npm run test --workspace @zalobot/api` để chạy unit test cho ZCA service, thread config service, controller, chào mừng nhóm và ảnh chờ. Các luồng L1/L2/L3 và chặn `edit` được kiểm tra trong `apps/api/src/zca/zca-bot-feature.service.spec.ts`; danh sách tool thụ động trong `apps/api/src/zalo/text/text-input.service.spec.ts`.
+- Chạy `npm run test --workspace @zalobot/api` để chạy unit test cho ZCA service, thread config service, controller, chào mừng nhóm và ảnh chờ. Các luồng L1/L3, quy tắc chỉ xử lý khi được gọi (kể cả nhiều tiền tố) và chặn `edit` được kiểm tra trong `apps/api/src/zca/zca-bot-feature.service.spec.ts`; chuẩn hoá tiền tố trong `thread-config.service.spec.ts` và `bot-mention.util.spec.ts`.
 - Test web: `apps/web/src/modules/zca/model/chat-rows.spec.ts`, `api/zca-drive-link.spec.ts`, `api/zca-sync-media.spec.ts`.
 - Thử tay trong nhóm test: user chưa cấp quyền gõ `ăn trưa 45k` hoặc `@drive` → bot im lặng; gửi ảnh → vẫn được sao lưu. User đã cấp quyền gõ `ăn trưa 45k` → hiện thẻ xác nhận; `@bot /drive` → trả link và **không** sinh user mới trong bảng người dùng.
 - Chạy `npm run typecheck` và `npm run lint` để kiểm tra an toàn kiểu dữ liệu.

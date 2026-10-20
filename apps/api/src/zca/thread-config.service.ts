@@ -4,7 +4,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ThreadBotConfig, UpdateThreadBotConfigDto } from '@zalobot/contracts';
+import {
+  normalizeTriggerPrefixes,
+  type ThreadBotConfig,
+  type ThreadDirectInteractionConfig,
+  type UpdateThreadBotConfigDto,
+} from '@zalobot/contracts';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 import { RedisService } from '../redis/redis.service';
 
@@ -38,6 +43,35 @@ export interface ThreadConfigMeta {
   threadType?: ThreadKind;
 }
 
+/** Shape a stored `directInteraction` may still have from before `triggerPrefixes` existed. */
+type StoredDirectInteraction = Partial<ThreadDirectInteractionConfig> & {
+  triggerPrefix?: unknown;
+  requireMention?: unknown;
+};
+
+/** Keeps only current fields; folds the legacy single `triggerPrefix` into `triggerPrefixes`. */
+export function normalizeDirectInteraction(
+  raw: StoredDirectInteraction | undefined,
+): ThreadDirectInteractionConfig {
+  return {
+    enabled: raw?.enabled ?? false,
+    triggerPrefixes: normalizeTriggerPrefixes({
+      triggerPrefixes: raw?.triggerPrefixes,
+      triggerPrefix: raw?.triggerPrefix,
+    }),
+    allowAiChat: raw?.allowAiChat ?? false,
+    allowSelf: raw?.allowSelf ?? false,
+  };
+}
+
+/** Redis and the legacy JSON file may hold configs written by older versions. */
+function normalizeCachedConfig(
+  raw: ThreadBotConfig & { expenseTracking?: unknown; calendarExtraction?: unknown },
+): ThreadBotConfig {
+  const { expenseTracking: _expense, calendarExtraction: _calendar, ...config } = raw;
+  return { ...config, directInteraction: normalizeDirectInteraction(config.directInteraction) };
+}
+
 export function createDefaultThreadConfig(
   threadId: string,
   params?: {
@@ -56,8 +90,7 @@ export function createDefaultThreadConfig(
     isListened: params?.isListened ?? false,
     directInteraction: {
       enabled: false,
-      requireMention: true,
-      triggerPrefix: '',
+      triggerPrefixes: [],
       allowAiChat: false,
       allowSelf: false,
     },
@@ -70,14 +103,6 @@ export function createDefaultThreadConfig(
       notifyInThread: false,
       customFolder: params?.threadName ? `zalobot/${safeName}` : '',
       fileSuffix: safeName ? `_${safeName}` : '',
-    },
-    expenseTracking: {
-      enabled: false,
-      requireConfirm: false,
-    },
-    calendarExtraction: {
-      enabled: false,
-      requireConfirm: false,
     },
     confirmationRules: {
       allowReactions: false,
@@ -100,16 +125,7 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
     photosAlbumId: entity.photosAlbumId || undefined,
     photosAlbumUrl: entity.photosAlbumUrl || undefined,
     photosAlbumTitle: entity.photosAlbumTitle || undefined,
-    directInteraction: {
-      enabled: entity.directInteraction?.enabled ?? false,
-      requireMention:
-        entity.directInteraction?.requireMention !== undefined
-          ? entity.directInteraction.requireMention
-          : true,
-      triggerPrefix: entity.directInteraction?.triggerPrefix || '',
-      allowAiChat: entity.directInteraction?.allowAiChat ?? false,
-      allowSelf: entity.directInteraction?.allowSelf ?? false,
-    },
+    directInteraction: normalizeDirectInteraction(entity.directInteraction),
     mediaBackup: {
       enabled: entity.mediaBackup?.enabled ?? false,
       uploadImages: entity.mediaBackup?.uploadImages ?? false,
@@ -120,14 +136,6 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
       customFolder: entity.mediaBackup?.customFolder || '',
       fileSuffix: entity.mediaBackup?.fileSuffix || '',
       photosAlbum: entity.mediaBackup?.photosAlbum || '',
-    },
-    expenseTracking: {
-      enabled: entity.expenseTracking?.enabled ?? false,
-      requireConfirm: entity.expenseTracking?.requireConfirm ?? false,
-    },
-    calendarExtraction: {
-      enabled: entity.calendarExtraction?.enabled ?? false,
-      requireConfirm: entity.calendarExtraction?.requireConfirm ?? false,
     },
     confirmationRules: {
       allowReactions: entity.confirmationRules?.allowReactions ?? false,
@@ -242,8 +250,9 @@ export class ThreadConfigService implements OnModuleInit {
           const raw = await fs.promises.readFile(candidateConfigsPath, 'utf8');
           const parsed = JSON.parse(raw) as Record<string, ThreadBotConfig>;
           if (parsed && typeof parsed === 'object') {
-            for (const [id, config] of Object.entries(parsed)) {
-              if (id === 'thread-123' || config.threadId === 'thread-123') continue;
+            for (const [id, storedConfig] of Object.entries(parsed)) {
+              if (id === 'thread-123' || storedConfig.threadId === 'thread-123') continue;
+              const config = normalizeCachedConfig(storedConfig);
               this.configsMap.set(id, config);
               if (this.threadConfigRepo) {
                 await this.saveConfigToDb(config);
@@ -348,7 +357,7 @@ export class ThreadConfigService implements OnModuleInit {
       try {
         const cachedRaw = await this.redisService.get(`${REDIS_KEY_THREAD_CONFIG_PREFIX}${id}`);
         if (cachedRaw) {
-          const config = JSON.parse(cachedRaw) as ThreadBotConfig;
+          const config = normalizeCachedConfig(JSON.parse(cachedRaw) as ThreadBotConfig);
           this.configsMap.set(id, config);
           return config;
         }
@@ -511,30 +520,16 @@ export class ThreadConfigService implements OnModuleInit {
     }
 
     if (update.directInteraction) {
-      config.directInteraction = {
+      config.directInteraction = normalizeDirectInteraction({
         ...config.directInteraction,
         ...update.directInteraction,
-      };
+      });
     }
 
     if (update.mediaBackup) {
       config.mediaBackup = {
         ...config.mediaBackup,
         ...update.mediaBackup,
-      };
-    }
-
-    if (update.expenseTracking) {
-      config.expenseTracking = {
-        ...config.expenseTracking,
-        ...update.expenseTracking,
-      };
-    }
-
-    if (update.calendarExtraction) {
-      config.calendarExtraction = {
-        ...config.calendarExtraction,
-        ...update.calendarExtraction,
       };
     }
 
@@ -574,11 +569,7 @@ export class ThreadConfigService implements OnModuleInit {
       isListened && !config.directInteraction?.enabled
         ? {
             enabled: true,
-            requireMention:
-              config.directInteraction?.requireMention !== undefined
-                ? config.directInteraction.requireMention
-                : true,
-            triggerPrefix: config.directInteraction?.triggerPrefix || '',
+            triggerPrefixes: config.directInteraction?.triggerPrefixes ?? [],
             allowAiChat: true,
             allowSelf: config.directInteraction?.allowSelf ?? false,
           }
@@ -608,8 +599,6 @@ export class ThreadConfigService implements OnModuleInit {
           isListened: Boolean(config.isListened),
           directInteraction: config.directInteraction,
           mediaBackup: config.mediaBackup,
-          expenseTracking: config.expenseTracking,
-          calendarExtraction: config.calendarExtraction,
           confirmationRules: config.confirmationRules,
           driveFolderId: config.driveFolderId,
           driveFolderUrl: config.driveFolderUrl,

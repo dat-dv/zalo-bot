@@ -6,6 +6,7 @@ import type { ZcaThreadConfigEntity } from '../database/entities/zca-thread-conf
 import {
   ThreadConfigService,
   createDefaultThreadConfig,
+  normalizeDirectInteraction,
   sanitizePathSegment,
 } from './thread-config.service';
 
@@ -23,7 +24,7 @@ void test('createDefaultThreadConfig creates sensible defaults for group vs user
   assert.equal(groupConfig.threadType, 'group');
   assert.equal(groupConfig.isListened, false);
   assert.equal(groupConfig.directInteraction.enabled, false);
-  assert.equal(groupConfig.directInteraction.requireMention, true);
+  assert.deepEqual(groupConfig.directInteraction.triggerPrefixes, []);
   assert.equal(groupConfig.directInteraction.allowAiChat, false);
   assert.equal(groupConfig.directInteraction.allowSelf, false);
   assert.equal(groupConfig.mediaBackup.enabled, false);
@@ -32,10 +33,6 @@ void test('createDefaultThreadConfig creates sensible defaults for group vs user
   assert.equal(groupConfig.mediaBackup.uploadFiles, false);
   assert.equal(groupConfig.mediaBackup.uploadAudios, false);
   assert.equal(groupConfig.mediaBackup.notifyInThread, false);
-  assert.equal(groupConfig.expenseTracking.enabled, false);
-  assert.equal(groupConfig.expenseTracking.requireConfirm, false);
-  assert.equal(groupConfig.calendarExtraction.enabled, false);
-  assert.equal(groupConfig.calendarExtraction.requireConfirm, false);
   assert.equal(groupConfig.confirmationRules.allowReactions, false);
   assert.equal(groupConfig.mediaBackup.fileSuffix, '_team_dev');
   assert.equal(groupConfig.confirmationRules.requiredHearts, 5);
@@ -47,9 +44,7 @@ void test('createDefaultThreadConfig creates sensible defaults for group vs user
   assert.equal(userConfig.threadType, 'user');
   assert.equal(userConfig.confirmationRules.requiredHearts, 1);
   assert.equal(userConfig.directInteraction.enabled, false);
-  assert.equal(userConfig.directInteraction.requireMention, true);
-  assert.equal(userConfig.expenseTracking.enabled, false);
-  assert.equal(userConfig.calendarExtraction.enabled, false);
+  assert.ok(!('expenseTracking' in userConfig));
   assert.equal(userConfig.confirmationRules.allowReactions, false);
 });
 
@@ -71,10 +66,6 @@ void test('ThreadConfigService updates and retrieves thread configs', async () =
       fileSuffix: '_duan_x',
       customFolder: 'zalobot/DuanX',
     },
-    expenseTracking: {
-      enabled: true,
-      requireConfirm: false,
-    },
     confirmationRules: {
       allowReactions: true,
       requiredHearts: 3,
@@ -86,7 +77,6 @@ void test('ThreadConfigService updates and retrieves thread configs', async () =
   assert.equal(updated.mediaBackup.enabled, true);
   assert.equal(updated.mediaBackup.fileSuffix, '_duan_x');
   assert.equal(updated.mediaBackup.customFolder, 'zalobot/DuanX');
-  assert.equal(updated.expenseTracking.requireConfirm, false);
   assert.equal(updated.confirmationRules.requiredHearts, 3);
   assert.equal(updated.confirmationRules.timeoutMinutes, 10);
 
@@ -348,4 +338,28 @@ void test('reconcileThreadTypes fixes wrong stored types and never creates confi
   assert.equal(rows.get('5854445174804412080')?.threadType, 'user');
   assert.equal(rows.has('9999999999999999999'), false);
   assert.equal(service.getConfigSync('9999999999999999999'), undefined);
+});
+
+void test('normalizeDirectInteraction folds the legacy single prefix and drops requireMention', () => {
+  const normalized = normalizeDirectInteraction({
+    enabled: true,
+    triggerPrefix: '!',
+    requireMention: false,
+    allowAiChat: true,
+  });
+  assert.deepEqual(normalized, {
+    enabled: true,
+    triggerPrefixes: ['!'],
+    allowAiChat: true,
+    allowSelf: false,
+  });
+});
+
+void test('ThreadConfigService stores a cleaned prefix list on update', async () => {
+  const service = new ThreadConfigService();
+  const threadId = `prefix-${Date.now()}`;
+  const updated = await service.updateConfig(threadId, {
+    directInteraction: { triggerPrefixes: ['!', ' bot: ', 'BOT:', 'có dấu cách', ''] },
+  });
+  assert.deepEqual(updated.directInteraction.triggerPrefixes, ['bot:', '!']);
 });

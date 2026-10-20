@@ -339,18 +339,6 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
   },
 ];
 
-/** Tools a passive (un-mentioned) group message may trigger when `expenseTracking` is enabled. */
-export const PASSIVE_EXPENSE_TOOLS: readonly TextToolType[] = [
-  TextToolType.RECORD_TRANSACTION,
-  TextToolType.MANAGE_DEBT,
-];
-
-/** Tools a passive (un-mentioned) group message may trigger when `calendarExtraction` is enabled. */
-export const PASSIVE_CALENDAR_TOOLS: readonly TextToolType[] = [
-  TextToolType.CREATE_CALENDAR_EVENT,
-  TextToolType.SET_REMINDER,
-];
-
 /** Subset of `ZALO_TOOL_DEFINITIONS` limited to `allowed`, preserving the original order. */
 export function selectToolDefinitions(allowed: readonly TextToolType[]): LlmToolDefinition[] {
   const allowedSet = new Set<string>(allowed);

@@ -55,4 +55,4 @@ Khi người dùng nhắn tự nhiên, `LlmService` chọn một tool trong `ZAL
 
 - `RECORD_TRANSACTION` ghi **một** giao dịch mỗi lần gọi (bắt buộc `type`, `amount`; tùy chọn `category`, `note`, `occurredAt`, `placeName`, `paymentMethod`, `receiptUrl`). Không có tool ghi hàng loạt.
 - Nếu `placeName` chưa có trong danh sách nơi chốn của người dùng, bot tạo thêm một thao tác chờ duyệt `CREATE_PLACE` đi kèm (Companion Action) chứ không tạo người liên quan công nợ.
-- Tin nhắn nhóm không nhắc tên bot chỉ được kích hoạt nhóm tool thụ động: `RECORD_TRANSACTION`, `MANAGE_DEBT` (khi bật theo dõi chi tiêu) hoặc `CREATE_CALENDAR_EVENT`, `SET_REMINDER` (khi bật trích xuất lịch).
+- Tin nhắn nhóm ZCA chỉ tới được các tool này khi @mention bot hoặc bắt đầu bằng tiền tố của nhóm; tin không gọi bot không bao giờ được gửi cho AI (xem tài liệu module ZCA).

@@ -28,7 +28,7 @@ Hướng dẫn này ánh xạ trực tiếp với tri thức canonical [`zalo-co
 
 ### 1.2 Tài khoản Zalo cá nhân (ZCA, `zca-js`)
 - Admin đăng nhập bằng QR qua lệnh `/zlogin`. Bot khi đó tham gia nhóm như người thật.
-- Mỗi cuộc trò chuyện có cấu hình riêng trong bảng `zca_thread_configs`. Mặc định tương tác trực tiếp **tắt** (`enabled: false`), **bắt buộc nhắc tên bot** (`requireMention: true`) và **không có tiền tố** (`triggerPrefix: ''`).
+- Mỗi cuộc trò chuyện có cấu hình riêng trong bảng `zca_thread_configs`. Mặc định tương tác trực tiếp **tắt** (`enabled: false`) và **không có tiền tố** (`triggerPrefixes: []`). Trong nhóm, tin nhắn luôn phải @mention bot hoặc bắt đầu bằng một tiền tố mới tới được AI; chat riêng 1-1 thì tin chữ nào cũng được xử lý; ảnh không kèm chữ chỉ được lưu.
 - Kênh ZCA dùng `GrantAccessGuard` nhưng không áp dụng cooldown. Thả cảm xúc được chuyển cho `TransactionConfirmationService.handleReaction`.
 
 ## 2. Thứ tự xử lý trong `TextInputService`
