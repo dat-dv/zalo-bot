@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import {
   Between,
   FindOptionsWhere,
+  ILike,
   In,
   IsNull,
   LessThan,
@@ -21,6 +22,8 @@ import {
   type IAnalyticsCategoryBreakdown,
   type ICandidateDebtItem,
   type IDebtAllocationItem,
+  type ITransactionListQuery,
+  type ITransactionListResponse,
 } from '@zalobot/contracts';
 import { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
 import { DebtEntity } from '../database/entities/debt.entity';
@@ -30,6 +33,44 @@ import { DebtPaymentAllocationEntity } from '../database/entities/debt-payment-a
 import { UserCategoryEntity } from '../database/entities/user-category.entity';
 import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
 import { UserEntity } from '../database/entities/user.entity';
+import { toTransactionItem } from './transaction-item.mapper';
+
+export const TRANSACTION_LIST_DEFAULT_LIMIT = 100;
+export const TRANSACTION_LIST_MAX_LIMIT = 500;
+
+export interface LedgerRow {
+  id: string;
+  type: 'income' | 'expense';
+  amount: number;
+  occurredAt: Date;
+  createdAt: Date;
+}
+
+export interface LedgerComputation {
+  /** Balance right after each transaction, keyed by transaction id. */
+  runningBalances: Map<string, number>;
+  ledgerBalance: number;
+}
+
+/**
+ * Walks the whole ledger chronologically (occurredAt, createdAt, id) so a row's running balance is
+ * the real wallet balance after it, regardless of which page or filter displays the row.
+ */
+export function computeLedger(rows: readonly LedgerRow[]): LedgerComputation {
+  const sorted = [...rows].sort(
+    (a, b) =>
+      a.occurredAt.getTime() - b.occurredAt.getTime() ||
+      a.createdAt.getTime() - b.createdAt.getTime() ||
+      a.id.localeCompare(b.id),
+  );
+  const runningBalances = new Map<string, number>();
+  let balance = 0;
+  for (const row of sorted) {
+    balance += row.type === 'income' ? row.amount : -row.amount;
+    runningBalances.set(row.id, balance);
+  }
+  return { runningBalances, ledgerBalance: balance };
+}
 
 export interface CreateFinanceTransactionDto {
   userId: number | string;
@@ -541,6 +582,85 @@ export class FinanceService {
       order: { occurredAt: 'DESC' },
       take: 200,
     });
+  }
+
+  /** Ledger rows only (no relations) — cheap enough to load the whole personal ledger. */
+  private loadLedgerRows(userId: number | string): Promise<LedgerRow[]> {
+    return this.transactionRepo.find({
+      where: { userId: userId.toString() },
+      select: { id: true, type: true, amount: true, occurredAt: true, createdAt: true },
+    });
+  }
+
+  public async getLedgerBalance(userId: number | string): Promise<number> {
+    return computeLedger(await this.loadLedgerRows(userId)).ledgerBalance;
+  }
+
+  public async queryTransactions(
+    userId: number | string,
+    query: ITransactionListQuery,
+  ): Promise<ITransactionListResponse> {
+    const limit = Math.min(
+      Math.max(Math.trunc(query.limit ?? TRANSACTION_LIST_DEFAULT_LIMIT), 1),
+      TRANSACTION_LIST_MAX_LIMIT,
+    );
+    const offset = Math.max(Math.trunc(query.offset ?? 0), 0);
+    const startAt = query.startAt ? new Date(query.startAt) : undefined;
+    const endAt = query.endAt ? new Date(query.endAt) : undefined;
+    if (startAt && Number.isNaN(startAt.getTime()))
+      throw new Error('Mốc thời gian bắt đầu không hợp lệ.');
+    if (endAt && Number.isNaN(endAt.getTime()))
+      throw new Error('Mốc thời gian kết thúc không hợp lệ.');
+
+    const base: FindOptionsWhere<FinanceTransactionEntity> = { userId: userId.toString() };
+    if (startAt && endAt) base.occurredAt = Between(startAt, endAt);
+    else if (startAt) base.occurredAt = MoreThanOrEqual(startAt);
+    else if (endAt) base.occurredAt = LessThanOrEqual(endAt);
+    if (query.type) base.type = query.type;
+
+    const search = query.search?.trim();
+    const where: FindOptionsWhere<FinanceTransactionEntity>[] = search
+      ? [
+          { ...base, category: ILike(`%${search}%`) },
+          { ...base, note: ILike(`%${search}%`) },
+          { ...base, place: { name: ILike(`%${search}%`) } },
+        ]
+      : [base];
+
+    const [ledgerRows, [entities, total]] = await Promise.all([
+      this.loadLedgerRows(userId),
+      this.transactionRepo.findAndCount({
+        where,
+        relations: { place: true, allocations: { debt: true } },
+        order: { occurredAt: 'DESC', createdAt: 'DESC', id: 'DESC' },
+        skip: offset,
+        take: limit,
+      }),
+    ]);
+
+    const { runningBalances, ledgerBalance } = computeLedger(ledgerRows);
+    // Period totals ignore type/search so the summary strip always shows both income and expense.
+    const summary = { income: 0, expense: 0, count: 0 };
+    for (const row of ledgerRows) {
+      const time = row.occurredAt.getTime();
+      if (startAt && time < startAt.getTime()) continue;
+      if (endAt && time > endAt.getTime()) continue;
+      summary.count += 1;
+      if (row.type === 'income') summary.income += row.amount;
+      else summary.expense += row.amount;
+    }
+
+    return {
+      items: entities.map((entity) => ({
+        ...toTransactionItem(entity),
+        runningBalance: runningBalances.get(entity.id) ?? 0,
+      })),
+      total,
+      limit,
+      offset,
+      summary,
+      ledgerBalance,
+    };
   }
 
   public getTransaction(

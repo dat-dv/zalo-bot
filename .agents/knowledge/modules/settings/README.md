@@ -20,7 +20,7 @@
 - **Categories tab**: two `DataPanel`s (expense, income). Each has client search by name, inline add (`settings.categories.addExpense` / `addIncome`; Enter saves, Escape cancels), inline rename (double-click or Edit; Enter/Escape), delete with `window.confirm`. Action buttons use `flex-nowrap whitespace-nowrap` / `shrink-0`. Loading and empty (`settings.categories.empty`) states come from the table; error state shows an alert with Retry.
 - **Preferences tab** (static info + tools):
   - Language and Theme: informational rows with a "Supported" badge (no switcher here).
-  - Wallet & Balance: button opens `AdjustBalanceModal` (`@/modules/dashboard/presentation/components/adjust-balance-modal`) to reconcile the ledger balance with a real wallet balance.
+  - Wallet & Balance: button opens `AdjustBalanceModal` (`@/modules/dashboard/presentation/components/adjust-balance-modal`) to reconcile the ledger balance with a real wallet balance; `currentBalance` = `dashboard.finance.ledgerBalance` (all-time income − expense).
   - React Scan: toggle bound to `useReactScan()`.
 
 ## React Scan (known gap)

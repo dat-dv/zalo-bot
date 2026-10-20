@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import type { AnalyticsGrain } from '@zalobot/contracts';
+import type { AnalyticsGrain, ITransactionListQuery } from '@zalobot/contracts';
 import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import { FinanceService } from './finance.service';
@@ -65,9 +65,16 @@ export class FinanceController {
   }
 
   @Get('transactions')
-  @ApiOperation({ summary: 'Lấy danh sách giao dịch thu/chi' })
-  async listTransactions(@Req() req: Request, @Query('type') type?: 'income' | 'expense') {
-    return { data: await this.finance.listTransactions(this.userId(req), type) };
+  @ApiOperation({
+    summary: 'Lấy danh sách giao dịch thu/chi theo kỳ, kèm số dư lũy kế và số dư sổ cái',
+  })
+  async listTransactions(@Req() req: Request, @Query() query: Record<string, unknown>) {
+    return {
+      data: await this.finance.queryTransactions(
+        this.userId(req),
+        this.transactionListQuery(query),
+      ),
+    };
   }
 
   @Get('transactions/:id')
@@ -576,6 +583,37 @@ export class FinanceController {
   async deleteDebt(@Req() req: Request, @Param('id') id: string) {
     if (!(await this.finance.deleteDebt(this.userId(req), id))) throw new NotFoundException();
     return { data: { deleted: true } };
+  }
+
+  private transactionListQuery(query: Record<string, unknown>): ITransactionListQuery {
+    const date = (value: unknown, name: string): string | undefined => {
+      if (value === undefined || value === '') return undefined;
+      const iso = typeof value === 'string' ? toOptionalIsoDate(value) : undefined;
+      if (!iso) throw new BadRequestException(`${name} must be an ISO date.`);
+      return iso;
+    };
+    const integer = (value: unknown, name: string, min: number): number | undefined => {
+      if (value === undefined || value === '') return undefined;
+      const parsed = typeof value === 'string' ? Number(value) : Number.NaN;
+      if (!Number.isInteger(parsed) || parsed < min)
+        throw new BadRequestException(`${name} must be an integer >= ${min}.`);
+      return parsed;
+    };
+    const startAt = date(query.startAt, 'startAt');
+    const endAt = date(query.endAt, 'endAt');
+    if (startAt && endAt && startAt > endAt)
+      throw new BadRequestException('startAt must be before endAt.');
+    return {
+      type:
+        query.type === undefined || query.type === ''
+          ? undefined
+          : this.enum(query.type, ['income', 'expense'] as const, 'type'),
+      startAt,
+      endAt,
+      search: typeof query.search === 'string' ? query.search.trim() || undefined : undefined,
+      limit: integer(query.limit, 'limit', 1),
+      offset: integer(query.offset, 'offset', 0),
+    };
   }
 
   private userId(req: Request): string | number {

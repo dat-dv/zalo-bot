@@ -5,6 +5,7 @@ metadata:
     type: documentation
     depends_on:
       - apps/api/src/finance/finance.service.ts
+      - apps/api/src/finance/transaction-item.mapper.ts
       - apps/api/src/finance/finance.controller.ts
       - apps/api/src/reports/reports.controller.ts
       - apps/api/src/database/entities/finance-place.entity.ts
@@ -48,7 +49,7 @@ Identity normalization (`normalizeIdentity`): NFD, strip diacritics, `vi-VN` low
 ## REST API (all under `/api`, dashboard access token, caller-scoped)
 
 ### Transactions
-- `GET /transactions?type=income|expense` — newest 200, with place, contact, allocations.
+- `GET /transactions` — query `type?`, `startAt?`, `endAt?` (ISO; `startAt <= endAt`), `search?` (ILIKE on category, note, place name), `limit?` (default 100, max 500), `offset?`. Invalid params → 400. Returns `ITransactionListResponse { items, total, limit, offset, summary, ledgerBalance }` ordered `occurredAt, createdAt, id` DESC. `items[].runningBalance` = wallet balance after that row computed over the caller's whole ledger in chronological order (`computeLedger`), independent of filters/paging. `summary { income, expense, count }` covers the period only (ignores `type`/`search`). `ledgerBalance` = all-time income − expense (`getLedgerBalance`, also exposed as dashboard `finance.ledgerBalance`). Entity → DTO mapping shared with the dashboard via `toTransactionItem`. `listTransactions` (newest 200) remains for the chat `DELETE_TRANSACTION` tool.
 - `GET/PATCH/DELETE /transactions/:id`, `POST /transactions`.
 - Body accepts `placeId` or `placeName`. `placeId` must belong to caller; `placeName` resolves-or-creates a place; `placeId: null` unlinks.
 - `PATCH` guards: cannot change `type` while allocations exist; new `amount` cannot be below allocated sum.

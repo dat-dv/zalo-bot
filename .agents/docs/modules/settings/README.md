@@ -41,7 +41,7 @@ Tiêu đề trang, nút Làm mới và Đăng xuất do `WorkspaceHeader` của 
   - Có trạng thái đang tải, rỗng và lỗi (kèm nút Thử lại).
 - **Tuỳ chọn**:
   - Ngôn ngữ và Giao diện Sáng/Tối: chỉ là dòng thông tin kèm nhãn "Đã hỗ trợ", không có công tắc đổi ở đây.
-  - **Quản lý số dư & Cân chỉnh ví**: nút `⚖️` mở `AdjustBalanceModal` (thuộc module dashboard) để cân số dư sổ sách với số dư ví thật.
+  - **Quản lý số dư & Cân chỉnh ví**: nút `⚖️` mở `AdjustBalanceModal` (thuộc module dashboard) để cân số dư sổ sách với số dư ví thật. Số dư trên sổ lấy từ `finance.ledgerBalance` của payload dashboard (tổng thu − tổng chi toàn thời gian), không phải số dư của tháng.
   - Công tắc **React Scan**.
 
 ## 4. React Scan — giới hạn đã biết

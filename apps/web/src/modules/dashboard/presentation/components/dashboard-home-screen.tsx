@@ -459,7 +459,7 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
       {/* Adjust Balance Modal */}
       <AdjustBalanceModal
         isOpen={isAdjustBalanceOpen}
-        currentBalance={data.finance.balance}
+        currentBalance={data.finance.ledgerBalance}
         onClose={() => setIsAdjustBalanceOpen(false)}
         onSuccess={(msg) => msg && showToast(msg)}
       />

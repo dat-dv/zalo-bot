@@ -505,7 +505,7 @@ export function SettingsScreen() {
       {/* Adjust Balance Modal */}
       <AdjustBalanceModal
         isOpen={isAdjustBalanceOpen}
-        currentBalance={dashboard.data?.finance.balance ?? 0}
+        currentBalance={dashboard.data?.finance.ledgerBalance ?? 0}
         onClose={() => setIsAdjustBalanceOpen(false)}
         onSuccess={(msg) => msg && showToast(msg)}
       />

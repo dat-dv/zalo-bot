@@ -12,6 +12,7 @@ import { RemindersService } from '../reminders/reminders.service';
 import { UsersService } from '../users/users.service';
 import { DebtEntity } from '../database/entities/debt.entity';
 import { ReportsTokenService } from './reports-token.service';
+import { toTransactionItem } from '../finance/transaction-item.mapper';
 
 function toIsoDate(value: unknown, fallback?: string): string {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
@@ -120,14 +121,17 @@ export class ReportsController {
     const googleConnected = this.googleAuth.isAuthorized(userId);
     const calendarPromise = this.getCalendarEvents(googleConnected, userId, now);
     const tasksPromise = this.getTasks(googleConnected, userId);
-    const [summary, debts, reminders, activity, calendar, tasks] = await Promise.all([
-      this.finance.getSummary(userId, startAt, endAt),
-      this.finance.getActiveDebts(userId),
-      this.reminders.getUserUpcomingReminders(userId),
-      this.audit.listRecent(userId, 10),
-      calendarPromise,
-      tasksPromise,
-    ]);
+    const [summary, ledgerBalance, debts, reminders, activity, calendar, tasks] = await Promise.all(
+      [
+        this.finance.getSummary(userId, startAt, endAt),
+        this.finance.getLedgerBalance(userId),
+        this.finance.getActiveDebts(userId),
+        this.reminders.getUserUpcomingReminders(userId),
+        this.audit.listRecent(userId, 10),
+        calendarPromise,
+        tasksPromise,
+      ],
+    );
     const receivable = debts
       .filter((item) => item.direction === 'receivable')
       .reduce((total, item) => total + item.remainingAmount, 0);
@@ -142,27 +146,11 @@ export class ReportsController {
           income: summary.income,
           expense: summary.expense,
           balance: summary.balance,
+          ledgerBalance,
           receivable,
           payable,
         },
-        transactions: summary.transactions.slice(0, 20).map((item) => ({
-          id: item.id,
-          type: item.type,
-          category: item.category,
-          note: item.note,
-          amount: item.amount,
-          placeId: item.placeId,
-          placeName: item.place?.name,
-          occurredAt: toIsoDate(item.occurredAt),
-          allocations: item.allocations?.map((alloc) => ({
-            id: alloc.id,
-            amount: alloc.amount,
-            debtId: alloc.debtId,
-            note: alloc.note,
-            counterparty: alloc.debt?.counterparty,
-            remainingAmount: alloc.debt?.remainingAmount,
-          })),
-        })),
+        transactions: summary.transactions.slice(0, 20).map((item) => toTransactionItem(item)),
         debts: debts.map((item) => this.mapDebt(item)),
         calendar: calendar.map((item) => ({
           id: item.id || item.etag || item.summary || 'event',

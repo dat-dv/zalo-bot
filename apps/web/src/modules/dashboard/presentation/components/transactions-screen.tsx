@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useTransition } from 'react';
+import { useState, useMemo, useCallback, useEffect, useTransition } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import {
   DEFAULT_INCOME_CATEGORIES,
@@ -21,15 +21,17 @@ import { usePeriodFilter } from '@/shared/hooks/use-period-filter';
 import { PeriodFilterToolbar } from '@/shared/ui/period-filter-toolbar';
 import { TrendSummaryStrip } from '@/shared/ui/trend-summary-strip';
 import { SessionStateScreen } from '@/modules/auth/view/session-state-screen';
-import { useDashboardQuery } from '../../api/dashboard-query';
 import { useCategoriesQuery } from '@/modules/settings/api/categories-query';
 import { usePlacesQuery } from '../../api/places-query';
 import {
   useDeleteTransactionMutation,
+  useTransactionsInfiniteQuery,
   useUpdateTransactionMutation,
 } from '../../api/transactions-query';
 
 type FilterType = 'all' | TransactionType;
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 export function TransactionsScreen() {
   const router = useRouter();
@@ -44,6 +46,7 @@ export function TransactionsScreen() {
     currentTypeParam === 'income' || currentTypeParam === 'expense' ? currentTypeParam : 'all';
 
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [allocatingTransaction, setAllocatingTransaction] = useState<TransactionTableItem | null>(
     null,
@@ -61,7 +64,28 @@ export function TransactionsScreen() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  const dashboard = useDashboardQuery();
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  // Filtering happens on the server; the 'all' grain sends no date bounds.
+  const listQuery = useMemo(
+    () => ({
+      type: activeFilter === 'all' ? undefined : activeFilter,
+      startAt: periodFilter.grain === 'all' ? undefined : periodFilter.startDate.toISOString(),
+      endAt: periodFilter.grain === 'all' ? undefined : periodFilter.endDate.toISOString(),
+      search: debouncedSearch || undefined,
+    }),
+    [
+      activeFilter,
+      periodFilter.grain,
+      periodFilter.startDate,
+      periodFilter.endDate,
+      debouncedSearch,
+    ],
+  );
+  const transactionsQuery = useTransactionsInfiniteQuery(listQuery);
   const categoriesQuery = useCategoriesQuery();
   const placesQuery = usePlacesQuery();
   const updateMutation = useUpdateTransactionMutation();
@@ -81,31 +105,15 @@ export function TransactionsScreen() {
     [router, pathname, searchParams],
   );
 
-  const rawList = useMemo<TransactionTableItem[]>(() => {
-    const list = dashboard.data?.transactions ?? [];
-    if (!list.length) return [];
-
-    // Sort chronologically ascending to calculate running balance
-    const sortedAsc = [...list].sort(
-      (a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
-    );
-
-    let running = 0;
-    const balanceMap = new Map<string, number>();
-    for (const item of sortedAsc) {
-      if (item.type === 'income') {
-        running += item.amount;
-      } else {
-        running -= item.amount;
-      }
-      balanceMap.set(item.id, running);
-    }
-
-    return list.map((item) => ({
-      ...item,
-      runningBalance: balanceMap.get(item.id) ?? 0,
-    }));
-  }, [dashboard.data?.transactions]);
+  const pages = transactionsQuery.data?.pages;
+  // runningBalance comes from the server and reflects the whole ledger, not just the loaded rows.
+  const rawList = useMemo<TransactionTableItem[]>(
+    () => (pages ?? []).flatMap((page) => page.items),
+    [pages],
+  );
+  const firstPage = pages?.[0];
+  const totalRows = firstPage?.total ?? 0;
+  const ledgerBalance = firstPage?.ledgerBalance ?? 0;
 
   const configuredCategories = useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
   const placeSuggestions = useMemo(
@@ -129,44 +137,17 @@ export function TransactionsScreen() {
     return Array.from(set).sort();
   }, [configuredCategories, rawList, editDraft.type]);
 
-  const periodTransactions = useMemo(() => {
-    return rawList.filter((item) => periodFilter.isItemInPeriod(item.occurredAt));
-  }, [rawList, periodFilter]);
-
-  const { periodIncome, periodExpense, periodBuckets } = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-    for (const item of periodTransactions) {
-      if (item.type === 'income') {
-        income += item.amount;
-      } else {
-        expense += item.amount;
-      }
-    }
-    const buckets = periodFilter.generateBuckets(periodTransactions);
-    return {
-      periodIncome: income,
-      periodExpense: expense,
-      periodBuckets: buckets,
-    };
-  }, [periodTransactions, periodFilter]);
-
-  const filteredTransactions = useMemo(() => {
-    return periodTransactions.filter((item) => {
-      if (activeFilter !== 'all' && item.type !== activeFilter) return false;
-      if (!search.trim()) return true;
-      const q = search.toLowerCase();
-      return (
-        item.category.toLowerCase().includes(q) ||
-        (item.note?.toLowerCase().includes(q) ?? false) ||
-        (item.placeName?.toLowerCase().includes(q) ?? false)
-      );
-    });
-  }, [periodTransactions, activeFilter, search]);
+  // Totals are exact for the whole period (server summary); chart buckets use the loaded rows.
+  const periodIncome = firstPage?.summary.income ?? 0;
+  const periodExpense = firstPage?.summary.expense ?? 0;
+  const periodBuckets = useMemo(
+    () => periodFilter.generateBuckets(rawList),
+    [rawList, periodFilter],
+  );
 
   const maxAmount = useMemo(() => {
-    return Math.max(...periodTransactions.map((t) => t.amount), 1);
-  }, [periodTransactions]);
+    return Math.max(...rawList.map((t) => t.amount), 1);
+  }, [rawList]);
 
   const showToast = useCallback(
     (message: string) => {
@@ -269,8 +250,8 @@ export function TransactionsScreen() {
     showToast(t('transactions.allocation.success'));
   }, [showToast, t]);
 
-  if (dashboard.isError) {
-    return <SessionStateScreen reason="expired" onRetry={() => void dashboard.refetch()} />;
+  if (transactionsQuery.isError) {
+    return <SessionStateScreen reason="expired" onRetry={() => void transactionsQuery.refetch()} />;
   }
 
   return (
@@ -291,7 +272,11 @@ export function TransactionsScreen() {
 
         <DataPanel
           title={t('transactions.title')}
-          counter={t('table.rowsCount', { count: filteredTransactions.length })}
+          counter={
+            rawList.length < totalRows
+              ? t('table.loadedOf', { loaded: rawList.length, total: totalRows })
+              : t('table.rowsCount', { count: totalRows })
+          }
           toolbar={
             <div className="flex flex-wrap items-center gap-1.5 max-[640px]:w-full max-[640px]:flex-col max-[640px]:items-stretch">
               <button
@@ -349,8 +334,8 @@ export function TransactionsScreen() {
           <TransactionsTable
             id="transactions"
             ariaLabel={t('transactions.title')}
-            transactions={filteredTransactions}
-            loading={dashboard.isLoading}
+            transactions={rawList}
+            loading={transactionsQuery.isLoading}
             emptyMessage={t('dashboard.noTransactions')}
             maxAmount={maxAmount}
             editingId={editingId}
@@ -365,6 +350,18 @@ export function TransactionsScreen() {
             placeSuggestions={placeSuggestions}
             isPending={updateMutation.isPending}
           />
+          {transactionsQuery.hasNextPage && (
+            <div className="flex justify-center border-t border-slate-200 py-2 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => void transactionsQuery.fetchNextPage()}
+                disabled={transactionsQuery.isFetchingNextPage}
+                className="inline-flex h-7 min-h-7 cursor-pointer items-center rounded-[3px] border border-slate-300 bg-white px-3 text-[11.5px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                {t('table.loadMore')}
+              </button>
+            </div>
+          )}
         </DataPanel>
       </section>
 
@@ -385,7 +382,7 @@ export function TransactionsScreen() {
 
       <AdjustBalanceModal
         isOpen={isAdjustBalanceOpen}
-        currentBalance={dashboard.data?.finance.balance ?? 0}
+        currentBalance={ledgerBalance}
         onClose={() => setIsAdjustBalanceOpen(false)}
         onSuccess={(msg) => msg && showToast(msg)}
       />

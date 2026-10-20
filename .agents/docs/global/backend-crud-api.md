@@ -28,7 +28,7 @@ Dashboard là dữ liệu tài chính cá nhân, nên backend **không bao giờ
 
 ## Danh sách endpoint theo nghiệp vụ
 
-- **Giao dịch thu chi**: `GET /api/transactions?type=income|expense`, `POST /api/transactions`, `GET/PATCH/DELETE /api/transactions/:id`. Gửi `placeId: null` để bỏ liên kết nơi chốn.
+- **Giao dịch thu chi**: `GET /api/transactions` (lọc `type`, `startAt`, `endAt`, `search`, phân trang `limit`/`offset`; trả kèm số dư lũy kế, tổng kỳ và số dư sổ cái), `POST /api/transactions`, `GET/PATCH/DELETE /api/transactions/:id`. Gửi `placeId: null` để bỏ liên kết nơi chốn.
 - **Phân bổ giao dịch vào công nợ**: `GET /api/transactions/:id/candidate-debts` (gợi ý khoản nợ phù hợp), `GET/POST /api/transactions/:id/allocations` (body `allocations: [{ debtId, amount, note? }]`), `DELETE /api/transactions/:id/allocations/:allocationId`. Dữ liệu nằm ở bảng `debt_payment_allocations`.
 - **Danh mục**: `GET /api/categories?type=`, `POST /api/categories`, `PATCH/DELETE /api/categories/:id` (bảng `user_categories`, có `color`, `icon`, `isDefault`).
 - **Nơi chốn**: `GET/POST /api/places`, `PATCH/DELETE /api/places/:id`, `POST /api/places/combine` để gộp ít nhất 2 nơi chốn trùng thành một.

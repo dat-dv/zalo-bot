@@ -6,6 +6,7 @@ metadata:
     depends_on:
       - .agents/knowledge/global/finance-domain.md
       - apps/api/src/finance/finance.service.ts
+      - apps/api/src/finance/transaction-item.mapper.ts
       - apps/api/src/finance/finance.controller.ts
 ---
 
@@ -30,6 +31,7 @@ Tài liệu này ánh xạ với tri thức canonical [`finance-domain.md`](../.
 ## 3. Quy tắc nghiệp vụ quan trọng
 
 ### 3.1 Giao dịch
+- **Danh sách** `GET /api/transactions`: lọc theo kỳ (`startAt`/`endAt`), loại, từ khoá (danh mục, ghi chú, tên nơi chốn), phân trang `limit` (mặc định 100, tối đa 500) + `offset`; tham số sai trả 400. Mỗi dòng có `runningBalance` = số dư ví ngay sau giao dịch đó, tính trên **toàn bộ** sổ theo thứ tự thời gian, nên không đổi dù đang lọc hay đang ở trang nào. Kèm `summary` (tổng thu/chi của cả kỳ, không phụ thuộc loại/từ khoá) và `ledgerBalance` (tổng thu − tổng chi toàn thời gian — con số dùng để cân chỉnh số dư).
 - Khi tạo/sửa, có thể truyền `placeId` (phải là nơi chốn của chính mình) hoặc `placeName` (tự tìm hoặc tạo mới). Truyền `placeId: null` để gỡ nơi chốn.
 - Không được đổi loại thu/chi khi giao dịch đang có phân bổ công nợ; không được giảm số tiền xuống dưới tổng đã phân bổ.
 - **Xoá giao dịch**: nếu có phân bổ, hệ thống cộng trả lại số còn lại cho từng khoản nợ, xoá phân bổ và các bản ghi thanh toán liên kết rồi mới xoá giao dịch. Lưu ý: luồng này không chạy trong một transaction DB và không tính lại trạng thái `settled` của khoản nợ.

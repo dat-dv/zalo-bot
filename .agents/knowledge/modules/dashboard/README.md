@@ -43,7 +43,8 @@
 
 ## Transactions (`TransactionsScreen`)
 
-- Data: `dashboard.transactions` only (current month, ≤20 rows). Running balance per row is computed client-side from those rows starting at 0.
+- Data: `useTransactionsInfiniteQuery` → `GET /api/transactions` with `type` (from `?type=`), `startAt`/`endAt` (period bounds; omitted for the `all` grain) and `search` (300 ms debounce). Filtering is server-side. Pages of `TRANSACTIONS_PAGE_SIZE` = 100 rows; a **Load more** button under the table fetches the next page while `offset + loaded < total`. Counter shows `table.loadedOf` until all rows are loaded. `keepPreviousData` keeps rows visible while a new period/filter loads.
+- Running balance per row = server `runningBalance` (wallet balance after that transaction over the whole ledger, filter-independent). `TrendSummaryStrip` totals = server `summary` (whole period, both types); its buckets use loaded rows only.
 - `usePeriodFilter('month')` + `PeriodFilterToolbar` (default grains `week / month / quarter / year`; URL `?period=&ref=`), `TrendSummaryStrip`.
 - Type filter pills All / Income / Expense synced to `?type=`; search over category, note, place name; Adjust balance button.
 - `TransactionsTable` (`id="transactions"`) columns: type badge, category (non-hideable), note, place, amount (non-hideable, proportional bar), running balance, occurredAt, actions (non-hideable, `minWidth: 130px`, Edit + Delete).
@@ -51,7 +52,7 @@
 - Save is disabled when the type changes on a transaction with allocations, or the amount drops below the allocated sum (title explains why).
 - Allocations: note cell shows an expand chevron and a `🔗 N allocations` badge (opens `DebtAllocationModal`); while editing, a `🔗` action button opens it too. Expanded row (`renderExpandedRow`, full `colSpan`) lists counterparty, amount, note per allocation.
 - Delete opens `DeleteTransactionModal`: summary (type, category, place, amount, time, note), balance impact (expense → emerald `+amount`; income → amber `-amount`), rose warning when allocations exist (their debt balances will be restored). Escape/backdrop close unless pending.
-- Dashboard query error → `SessionStateScreen reason="expired"` (retry = refetch).
+- Transactions query error → `SessionStateScreen reason="expired"` (retry = refetch). The screen no longer reads `/api/dashboard`.
 
 ## `DebtAllocationModal`
 
@@ -61,7 +62,7 @@
 
 ## `AdjustBalanceModal`
 
-- Opened from Home quick links, Transactions toolbar, Settings. `currentBalance` = `dashboard.finance.balance`.
+- Opened from Home quick links, Transactions toolbar, Settings. `currentBalance` = all-time ledger balance: `ledgerBalance` from the transactions list response on Transactions, `dashboard.finance.ledgerBalance` on Home and Settings.
 - User enters target balance; diff > 0 creates an `income`, diff < 0 an `expense` with category `t('category.balanceAdjustment')` (`Điều chỉnh số dư` / `Balance Adjustment` by locale), editable auto note, datetime. Diff 0 makes submit a no-op. Uses `useCreateTransactionMutation`.
 
 ## Analytics (`AnalyticsScreen`)
@@ -100,5 +101,5 @@
 
 ## Known issues
 
-- Transactions page and Home only see the current month's 20 newest transactions; older periods in the period filter appear empty and running balance is relative to those rows.
-- `AdjustBalanceModal` treats `finance.balance` (current-month net) as the current ledger balance, so the adjustment amount is wrong whenever earlier months exist.
+- Home's Transactions panel and the "Balance" KPI still use the dashboard payload (current month; panel ≤20 rows) by design.
+- Trend buckets on Transactions only cover loaded rows when a period has more than one page.

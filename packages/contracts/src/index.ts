@@ -200,6 +200,8 @@ const messages = {
     'table.ordinal': 'STT',
     'table.id': 'ID',
     'table.rowsCount': '{count} dòng',
+    'table.loadMore': 'Tải thêm',
+    'table.loadedOf': 'Đã tải {loaded}/{total} dòng',
     'table.total': 'Tổng: {total}',
     'table.columnSettings': 'Cài đặt cột',
     'table.columnVisibility': 'Ẩn/hiện cột',
@@ -867,6 +869,8 @@ const messages = {
     'table.ordinal': 'No.',
     'table.id': 'ID',
     'table.rowsCount': '{count} rows',
+    'table.loadMore': 'Load more',
+    'table.loadedOf': 'Loaded {loaded}/{total} rows',
     'table.total': 'Total: {total}',
     'table.columnSettings': 'Column settings',
     'table.columnVisibility': 'Toggle columns',
@@ -1655,6 +1659,7 @@ export interface IDashboardData {
     income: number;
     expense: number;
     balance: number;
+    ledgerBalance: number;
     receivable: number;
     payable: number;
   };
@@ -1854,6 +1859,31 @@ export interface ITransactionItem {
     counterparty?: string;
     remainingAmount?: number;
   }>;
+}
+
+export interface ITransactionListQuery {
+  type?: TransactionType;
+  startAt?: string;
+  endAt?: string;
+  search?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface ITransactionListItem extends ITransactionItem {
+  /** Wallet balance right after this transaction, over the user's whole ledger (filter-independent). */
+  runningBalance: number;
+}
+
+export interface ITransactionListResponse {
+  items: ITransactionListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  /** Totals over the whole period (ignores type/search and pagination). */
+  summary: { income: number; expense: number; count: number };
+  /** All-time income minus expense. */
+  ledgerBalance: number;
 }
 
 export interface ICreateTransactionRequest {

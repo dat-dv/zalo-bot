@@ -29,7 +29,7 @@
 5. `MANAGE_DEBT` từ chat: payload thiếu `contactId`/`createNewContact` → `createDebt` từ chối khi xác nhận.
 6. `confirmationRules.requiredHearts` không được truyền vào `createPendingAction` → luôn duyệt với 1 tim.
 7. Debt payment không gắn `financeTransactionId`; xoá payment để lại giao dịch mồ côi.
-8. Trang Transactions chỉ thấy 20 giao dịch tháng hiện tại; `AdjustBalanceModal` dùng số dư tháng thay vì số dư sổ cái.
+8. ~~Trang Transactions chỉ thấy 20 giao dịch tháng hiện tại; `AdjustBalanceModal` dùng số dư tháng thay vì số dư sổ cái.~~ → Đã xử lý (2026-10-20, task `transactions-ledger-api`).
 9. Combine places/contacts và xoá transaction không bọc DB transaction; xoá transaction không tính lại `status/settledAt` của nợ.
 10. `GET /api/debts` trả cả nợ con (trùng); `ExpensesScreen` (không còn route) hiển thị cột API không trả.
 11. Toggle React Scan, `requireConfirm` của expenseTracking/calendarExtraction, reminder `notifyType='call'` không có tác dụng.

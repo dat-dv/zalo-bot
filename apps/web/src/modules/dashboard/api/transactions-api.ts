@@ -3,9 +3,22 @@ import {
   type IApiResponse,
   type ICreateTransactionRequest,
   type ITransactionItem,
+  type ITransactionListQuery,
+  type ITransactionListResponse,
   type IUpdateTransactionRequest,
 } from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
+
+export async function listTransactions(
+  query: ITransactionListQuery,
+  signal?: AbortSignal,
+): Promise<ITransactionListResponse> {
+  const response = await httpClient.get<IApiResponse<ITransactionListResponse>>(
+    API_ROUTES.transactions,
+    { params: query, signal },
+  );
+  return response.data.data;
+}
 
 export async function createTransaction(
   data: ICreateTransactionRequest,

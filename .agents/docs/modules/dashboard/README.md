@@ -52,9 +52,9 @@ Layout riêng tư (`app/(private)/layout.tsx`) render thanh điều hướng `Ap
 
 ## Payload dashboard và giới hạn dữ liệu
 
-`GET /api/dashboard` trả về: thông tin người dùng (`isAdmin`, `googleConnected`), tổng thu/chi/số dư **của tháng hiện tại**, phải thu/phải trả, **tối đa 20 giao dịch mới nhất của tháng hiện tại** (kèm nơi chốn và phân bổ nợ), các khoản nợ đang mở, sự kiện lịch và việc cần làm sắp tới (nếu đã kết nối Google), tối đa 10 nhắc nhở, 10 hoạt động gần nhất trong nhật ký kiểm toán, và số liệu admin (chỉ admin).
+`GET /api/dashboard` trả về: thông tin người dùng (`isAdmin`, `googleConnected`), tổng thu/chi/số dư **của tháng hiện tại**, phải thu/phải trả, **tối đa 20 giao dịch mới nhất của tháng hiện tại** (kèm nơi chốn và phân bổ nợ), `finance.ledgerBalance` (số dư sổ cái toàn thời gian), các khoản nợ đang mở, sự kiện lịch và việc cần làm sắp tới (nếu đã kết nối Google), tối đa 10 nhắc nhở, 10 hoạt động gần nhất trong nhật ký kiểm toán, và số liệu admin (chỉ admin).
 
-Hệ quả nghiệp vụ cần biết: trang Thu chi **không có API danh sách riêng** — nó dùng chính 20 giao dịch này. Chọn kỳ cũ hơn tháng hiện tại sẽ thấy rỗng.
+Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sách riêng (`GET /api/transactions`, xem bên dưới) nên xem được mọi kỳ.
 
 ## Trang Tổng quan (`DashboardHomeScreen`)
 
@@ -66,9 +66,11 @@ Hệ quả nghiệp vụ cần biết: trang Thu chi **không có API danh sách
 
 ## Trang Thu chi (`TransactionsScreen`)
 
-- Bộ lọc kỳ mặc định theo tháng; thanh chọn kỳ mặc định có Tuần / Tháng / Quý / Năm, đồng bộ lên URL (`?period=&ref=`). Có dải xu hướng thu–chi.
+- **Nguồn dữ liệu**: `useTransactionsInfiniteQuery` gọi `GET /api/transactions` với kỳ đang chọn (`startAt`/`endAt`; kỳ "Tất cả" thì không gửi), loại (`?type=`) và từ khoá tìm kiếm (chờ 300ms sau khi gõ). Lọc diễn ra ở server, nên chọn tháng cũ, quý hay năm đều ra đúng dữ liệu.
+- **Tải thêm**: mỗi lần tải 100 dòng; nếu kỳ có nhiều hơn, cuối bảng có nút "Tải thêm" và bộ đếm hiện "Đã tải X/Y dòng". Khi đổi kỳ/bộ lọc, dữ liệu cũ vẫn hiển thị đến khi dữ liệu mới về.
+- Bộ lọc kỳ mặc định theo tháng; thanh chọn kỳ mặc định có Tuần / Tháng / Quý / Năm, đồng bộ lên URL (`?period=&ref=`). Dải xu hướng: tổng thu/chi lấy từ `summary` của server (chính xác cho cả kỳ, gồm cả thu và chi bất kể đang lọc loại nào); biểu đồ cột vẽ từ các dòng đã tải.
 - Bộ lọc loại Tất cả / Thu / Chi đồng bộ với `?type=` — đây là lý do `/expenses` và `/income` chỉ cần chuyển hướng về đây. Ô tìm kiếm theo danh mục, ghi chú, tên nơi chốn. Nút Cân chỉnh số dư.
-- Bảng (`id="transactions"`): Loại, Danh mục, Ghi chú, Nơi chốn, Số tiền (có thanh tỷ lệ), Số dư lũy kế, Thời gian, Thao tác (rộng tối thiểu 130px: Sửa, Xoá). Số dư lũy kế được tính ở client trên chính các dòng đang có, bắt đầu từ 0.
+- Bảng (`id="transactions"`): Loại, Danh mục, Ghi chú, Nơi chốn, Số tiền (có thanh tỷ lệ), Số dư lũy kế, Thời gian, Thao tác (rộng tối thiểu 130px: Sửa, Xoá). **Số dư lũy kế** do server tính: là số dư ví ngay sau giao dịch đó, tính trên toàn bộ sổ của người dùng — không phụ thuộc kỳ, loại hay từ khoá đang lọc.
 - **Sửa trực tiếp**: loại, danh mục, ghi chú (bắt buộc), số tiền (> 0), nơi chốn, thời gian.
   - Danh mục và Nơi chốn dùng chung combobox `CategoryAutocomplete`: click/focus để mở, gõ để lọc, mũi tên lên/xuống + `Enter` để chọn, `Escape` lần đầu đóng danh sách, lần hai huỷ sửa; cho phép gõ giá trị mới. Danh sách nổi trên bảng (portal) nên không bị cắt bởi vùng cuộn.
   - Gợi ý danh mục: danh mục người dùng cấu hình theo đúng loại Thu/Chi, danh mục đã dùng của loại đó, và danh mục mặc định. Gợi ý nơi chốn: danh sách nơi chốn đã lưu.
@@ -76,7 +78,7 @@ Hệ quả nghiệp vụ cần biết: trang Thu chi **không có API danh sách
   - Không cho lưu nếu giao dịch đã có phân bổ nợ mà đổi loại Thu/Chi, hoặc giảm số tiền xuống dưới tổng đã phân bổ (tooltip nút Lưu giải thích lý do).
 - **Phân bổ nợ**: ô Ghi chú có nút mở rộng ▶/▼ và badge `🔗 N phân bổ` (bấm để mở `DebtAllocationModal`); khi đang sửa có thêm nút `🔗` ở cột thao tác. Dòng mở rộng liệt kê người liên quan, số tiền, ghi chú của từng phân bổ.
 - **Xoá giao dịch**: mở `DeleteTransactionModal` thay cho hộp xác nhận của trình duyệt. Modal tóm tắt giao dịch và nói rõ tác động lên số dư: xoá khoản **chi** → số dư tăng lại (`+số tiền`, màu xanh ngọc); xoá khoản **thu** → số dư giảm (`-số tiền`, màu hổ phách); nếu có phân bổ nợ → cảnh báo đỏ rằng số nợ còn lại của các khoản liên quan sẽ được khôi phục. Đóng bằng `Escape` hoặc bấm nền (trừ khi đang xử lý).
-- Lỗi tải dashboard → màn hình "Phiên hết hạn".
+- Lỗi tải danh sách giao dịch → màn hình "Phiên hết hạn" có nút thử lại.
 
 ## Phân bổ giao dịch vào công nợ (`DebtAllocationModal`)
 
@@ -89,7 +91,7 @@ Hệ quả nghiệp vụ cần biết: trang Thu chi **không có API danh sách
 
 - Mở từ thanh liên kết nhanh trang chủ, thanh công cụ trang Thu chi và trang Cài đặt.
 - Người dùng nhập số dư thực tế; chênh lệch dương sinh khoản **thu**, chênh lệch âm sinh khoản **chi**, danh mục "Điều chỉnh số dư" (theo ngôn ngữ đang chọn), ghi chú tự sinh có thể sửa, chọn thời điểm. Chênh lệch bằng 0 thì không làm gì.
-- Lỗi đã biết: "số dư hiện tại" lấy từ `finance.balance` của payload — tức là **thu trừ chi của tháng hiện tại**, không phải số dư toàn thời gian, nên số tiền điều chỉnh sẽ sai nếu đã có dữ liệu các tháng trước.
+- "Số dư trên sổ hiện tại" là **số dư sổ cái toàn thời gian** (tổng thu − tổng chi): trang Thu chi lấy `ledgerBalance` từ API danh sách, trang chủ và Cài đặt lấy `finance.ledgerBalance` từ payload dashboard. Nhờ vậy số tiền điều chỉnh luôn đúng bất kể có dữ liệu các tháng trước.
 
 ## Trang Phân tích (`AnalyticsScreen`)
 
@@ -130,7 +132,7 @@ Hệ quả nghiệp vụ cần biết: trang Thu chi **không có API danh sách
 
 ## Lỗi/hạn chế đã biết
 
-- Trang chủ và trang Thu chi chỉ thấy 20 giao dịch mới nhất của tháng hiện tại; số dư lũy kế chỉ tương đối trên các dòng đó.
-- Cân chỉnh số dư dùng số dư của tháng hiện tại làm số dư sổ (xem mục Cân chỉnh số dư).
+- Bảng Giao dịch và thẻ "Số dư" trên trang chủ vẫn theo tháng hiện tại (bảng tối đa 20 dòng) — đây là chủ đích, trang Thu chi mới là nơi xem đầy đủ.
+- Khi một kỳ có hơn 100 giao dịch, biểu đồ cột của dải xu hướng chỉ phản ánh các dòng đã tải (tổng thu/chi vẫn chính xác).
 
 Khi dữ liệu dashboard sai hoặc rỗng, kiểm tra payload `GET /api/dashboard` trước khi sửa cột hiển thị. Các bảng dùng primitive trong `src/shared/ui`, không tạo primitive riêng trong module.
