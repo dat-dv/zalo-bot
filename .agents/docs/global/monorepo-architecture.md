@@ -79,8 +79,12 @@ Chi tiết: [Phiên Dashboard](dashboard-session.md).
 Tối ưu build:
 
 1. Root `.dockerignore` loại `node_modules`, `dist`, `.next`, `out`, `.git`, `.env*` để context nhỏ và không lọt secret.
-2. Dockerfile API và web đều 2 stage (`builder` → `runner`); API runner chỉ chứa `dist` và `node_modules`, web runner là Nginx chứa thư mục `out`.
-3. BuildKit cache mount (`RUN --mount=type=cache,target=/root/.npm npm ci`) chia sẻ cache npm giữa các lần build.
+2. **Giữ cache `npm ci` dù version tự tăng.** Hook `.githooks/pre-commit` tự tăng `version` ở mọi `package.json` sau mỗi commit. Nếu Dockerfile copy thẳng các file này thì layer luôn đổi và `npm ci` phải cài lại từ đầu ở mỗi lần deploy (~45–55 giây mỗi service). Vì vậy cả 2 Dockerfile có stage `manifests` đặt mọi `version` (gồm cả `package-lock.json`) về `0.0.0`; các stage sau lấy file bằng `COPY --from=manifests`, Docker so cache theo nội dung file nên `npm ci` chỉ chạy lại khi dependency thật sự thay đổi.
+3. **Image API chỉ chứa thư viện chạy thật.** Stage `prod-deps` cài `npm ci --omit=dev` riêng cho workspace `@zalobot/api` và `@zalobot/contracts`; runner lấy `node_modules` từ stage này nên không kèm thư viện của web (Next.js, React…) hay devDependencies (TypeScript, Nest CLI…). Image nhỏ hơn giúp bước export/nén layer khi deploy nhanh hơn đáng kể. Builder cũng chỉ cài theo workspace của mình (API không cài thư viện web, web không cài thư viện API).
+4. Runner API vẫn copy `package.json` và `CHANGELOG.md` **thật** (không phải bản đã đặt version 0.0.0), vì thông báo deploy (`health/deploy-notify.service.ts`) đọc version lúc chạy.
+5. BuildKit cache mount (`RUN --mount=type=cache,target=/root/.npm`) chia sẻ cache npm giữa các lần build.
+
+Khi thêm dependency mới cho API, hãy kiểm tra nó nằm trong `dependencies` (không phải `devDependencies`) nếu cần lúc chạy; nếu không, container sẽ lỗi `Cannot find module` vì runner không có devDependencies.
 
 ## Quản lý cơ sở dữ liệu & TypeORM Migrations
 
