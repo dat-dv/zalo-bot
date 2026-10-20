@@ -13,7 +13,12 @@ export class ImageBatchHandler implements OnModuleDestroy {
   constructor(
     @Optional()
     @Inject(forwardRef(() => ZcaService))
-    private readonly zcaService?: ZcaService | { sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>; sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown> },
+    private readonly zcaService?:
+      | ZcaService
+      | {
+          sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>;
+          sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown>;
+        },
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
   ) {}
 
@@ -59,12 +64,17 @@ export class ImageBatchHandler implements OnModuleDestroy {
 
   private async notify(targetChatId: string, text: string): Promise<void> {
     if (!this.zcaService) return;
-    if ('sendMessageToChat' in this.zcaService && typeof this.zcaService.sendMessageToChat === 'function') {
+    if (
+      'sendMessageToChat' in this.zcaService &&
+      typeof this.zcaService.sendMessageToChat === 'function'
+    ) {
       await this.zcaService.sendMessageToChat(targetChatId, text);
     } else if (typeof (this.zcaService as any).isLoggedIn === 'function') {
       await this.zcaService.sendMessage(text, targetChatId);
     } else if (typeof this.zcaService.sendMessage === 'function') {
-      await (this.zcaService as unknown as { sendMessage(c: string, t: string): Promise<unknown> }).sendMessage(targetChatId, text);
+      await (
+        this.zcaService as unknown as { sendMessage(c: string, t: string): Promise<unknown> }
+      ).sendMessage(targetChatId, text);
     }
   }
 

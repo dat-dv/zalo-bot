@@ -18,7 +18,8 @@ function createMockSetup() {
 
   const mockZaloService = {
     sendMessage: (param1: string, param2: string) => {
-      const isChatId = (s: string) => s.startsWith('chat_') || s.startsWith('u') || s.startsWith('g');
+      const isChatId = (s: string) =>
+        s.startsWith('chat_') || s.startsWith('u') || s.startsWith('g');
       const chatId = isChatId(param1) ? param1 : param2;
       const text = chatId === param1 ? param2 : param1;
       sentMessages.push({ chatId, text });

@@ -184,11 +184,11 @@ export class ThreadConfigService implements OnModuleInit {
       typeof (this.redisService as unknown as { onReady?: (cb: () => Promise<void>) => void })
         .onReady === 'function'
     ) {
-      (
-        this.redisService as unknown as { onReady: (cb: () => Promise<void>) => void }
-      ).onReady(async () => {
-        await this.syncToRedis();
-      });
+      (this.redisService as unknown as { onReady: (cb: () => Promise<void>) => void }).onReady(
+        async () => {
+          await this.syncToRedis();
+        },
+      );
     }
   }
 

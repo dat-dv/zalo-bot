@@ -11,7 +11,12 @@ export class GrantAccessGuard {
     private readonly usersService: UsersService,
     @Optional()
     @Inject(forwardRef(() => ZcaService))
-    private readonly zcaService?: ZcaService | { sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>; sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown> },
+    private readonly zcaService?:
+      | ZcaService
+      | {
+          sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>;
+          sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown>;
+        },
   ) {}
 
   /**
@@ -57,7 +62,10 @@ export class GrantAccessGuard {
       `💡 Sau khi Quản trị viên phê duyệt trên Dashboard, bạn có thể gửi lại tin nhắn để bắt đầu sử dụng nhé!`;
 
     if (this.zcaService) {
-      if ('sendMessageToChat' in this.zcaService && typeof this.zcaService.sendMessageToChat === 'function') {
+      if (
+        'sendMessageToChat' in this.zcaService &&
+        typeof this.zcaService.sendMessageToChat === 'function'
+      ) {
         await this.zcaService.sendMessageToChat(targetChatId, rejectionMessage);
       } else if (typeof (this.zcaService as any).isLoggedIn === 'function') {
         await this.zcaService.sendMessage(rejectionMessage, targetChatId);

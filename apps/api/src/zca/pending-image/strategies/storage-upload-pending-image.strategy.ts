@@ -16,7 +16,12 @@ export class StorageUploadPendingImageStrategy implements PendingImageStrategy {
   constructor(
     @Optional()
     @Inject(forwardRef(() => ZcaService))
-    private readonly zcaService?: ZcaService | { sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>; sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown> },
+    private readonly zcaService?:
+      | ZcaService
+      | {
+          sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>;
+          sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown>;
+        },
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
     @Optional() private readonly mediaStorageService?: MediaStorageService,
   ) {}
@@ -27,12 +32,17 @@ export class StorageUploadPendingImageStrategy implements PendingImageStrategy {
 
   private async notify(chatId: string, text: string): Promise<void> {
     if (!this.zcaService) return;
-    if ('sendMessageToChat' in this.zcaService && typeof this.zcaService.sendMessageToChat === 'function') {
+    if (
+      'sendMessageToChat' in this.zcaService &&
+      typeof this.zcaService.sendMessageToChat === 'function'
+    ) {
       await this.zcaService.sendMessageToChat(chatId, text);
     } else if (typeof (this.zcaService as any).isLoggedIn === 'function') {
       await this.zcaService.sendMessage(text, chatId);
     } else if (typeof this.zcaService.sendMessage === 'function') {
-      await (this.zcaService as unknown as { sendMessage(c: string, t: string): Promise<unknown> }).sendMessage(chatId, text);
+      await (
+        this.zcaService as unknown as { sendMessage(c: string, t: string): Promise<unknown> }
+      ).sendMessage(chatId, text);
     }
   }
 

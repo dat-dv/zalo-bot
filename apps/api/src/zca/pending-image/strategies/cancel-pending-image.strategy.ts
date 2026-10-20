@@ -13,7 +13,12 @@ export class CancelPendingImageStrategy implements PendingImageStrategy {
   constructor(
     @Optional()
     @Inject(forwardRef(() => ZcaService))
-    private readonly zcaService?: ZcaService | { sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>; sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown> },
+    private readonly zcaService?:
+      | ZcaService
+      | {
+          sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>;
+          sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown>;
+        },
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
   ) {}
 
@@ -27,12 +32,20 @@ export class CancelPendingImageStrategy implements PendingImageStrategy {
       await this.pendingImageActionService.clearPending(context.senderId);
     }
     if (this.zcaService) {
-      if ('sendMessageToChat' in this.zcaService && typeof this.zcaService.sendMessageToChat === 'function') {
-        await this.zcaService.sendMessageToChat(context.chatId, '❌ Đã hủy yêu cầu xử lý hình ảnh.');
+      if (
+        'sendMessageToChat' in this.zcaService &&
+        typeof this.zcaService.sendMessageToChat === 'function'
+      ) {
+        await this.zcaService.sendMessageToChat(
+          context.chatId,
+          '❌ Đã hủy yêu cầu xử lý hình ảnh.',
+        );
       } else if (typeof (this.zcaService as any).isLoggedIn === 'function') {
         await this.zcaService.sendMessage('❌ Đã hủy yêu cầu xử lý hình ảnh.', context.chatId);
       } else if (typeof this.zcaService.sendMessage === 'function') {
-        await (this.zcaService as unknown as { sendMessage(c: string, t: string): Promise<unknown> }).sendMessage(context.chatId, '❌ Đã hủy yêu cầu xử lý hình ảnh.');
+        await (
+          this.zcaService as unknown as { sendMessage(c: string, t: string): Promise<unknown> }
+        ).sendMessage(context.chatId, '❌ Đã hủy yêu cầu xử lý hình ảnh.');
       }
     }
     return true;

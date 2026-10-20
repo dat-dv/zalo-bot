@@ -93,75 +93,44 @@ export function localeTag(locale: SupportedLocale): 'vi-VN' | 'en-US' {
 type TranslationValues = Record<string, string | number>;
 const messages = {
   vi: {
-    'users.merge.action':
-      'Gộp vào…',
-    'users.merge.actionTitle':
-      'Gộp tài khoản trùng này vào một người dùng khác',
-    'users.merge.title':
-      'Gộp tài khoản',
+    'users.merge.action': 'Gộp vào…',
+    'users.merge.actionTitle': 'Gộp tài khoản trùng này vào một người dùng khác',
+    'users.merge.title': 'Gộp tài khoản',
     'users.merge.description':
       'Toàn bộ dữ liệu của {source} sẽ được chuyển sang người dùng đích, sau đó {source} bị xoá khỏi hệ thống.',
-    'users.merge.sourceLabel':
-      'Tài khoản nguồn (sẽ bị xoá)',
-    'users.merge.targetLabel':
-      'Gộp vào người dùng',
-    'users.merge.targetPlaceholder':
-      'Chọn người dùng đích',
-    'users.merge.noTargets':
-      'Không có người dùng nào khác để gộp.',
-    'users.merge.previewTitle':
-      'Dữ liệu sẽ được chuyển',
-    'users.merge.previewHint':
-      'Chọn người dùng đích để xem trước dữ liệu sẽ được chuyển.',
-    'users.merge.previewLoading':
-      'Đang tính toán dữ liệu cần chuyển…',
-    'users.merge.previewError':
-      'Không thể tải bản xem trước. Vui lòng thử lại.',
-    'users.merge.previewEmpty':
-      'Tài khoản nguồn không có dữ liệu nào cần chuyển.',
-    'users.merge.table.financeTransactions':
-      'Giao dịch thu chi',
-    'users.merge.table.financePlaces':
-      'Nơi chốn',
-    'users.merge.table.userCategories':
-      'Danh mục',
-    'users.merge.table.debts':
-      'Khoản nợ',
-    'users.merge.table.debtContacts':
-      'Người liên quan (danh bạ nợ)',
-    'users.merge.table.debtPayments':
-      'Lần trả nợ',
-    'users.merge.table.debtPaymentAllocations':
-      'Phân bổ trả nợ',
-    'users.merge.table.reminders':
-      'Lời nhắc',
-    'users.merge.table.googleToken':
-      'Kết nối Google',
+    'users.merge.sourceLabel': 'Tài khoản nguồn (sẽ bị xoá)',
+    'users.merge.targetLabel': 'Gộp vào người dùng',
+    'users.merge.targetPlaceholder': 'Chọn người dùng đích',
+    'users.merge.noTargets': 'Không có người dùng nào khác để gộp.',
+    'users.merge.previewTitle': 'Dữ liệu sẽ được chuyển',
+    'users.merge.previewHint': 'Chọn người dùng đích để xem trước dữ liệu sẽ được chuyển.',
+    'users.merge.previewLoading': 'Đang tính toán dữ liệu cần chuyển…',
+    'users.merge.previewError': 'Không thể tải bản xem trước. Vui lòng thử lại.',
+    'users.merge.previewEmpty': 'Tài khoản nguồn không có dữ liệu nào cần chuyển.',
+    'users.merge.table.financeTransactions': 'Giao dịch thu chi',
+    'users.merge.table.financePlaces': 'Nơi chốn',
+    'users.merge.table.userCategories': 'Danh mục',
+    'users.merge.table.debts': 'Khoản nợ',
+    'users.merge.table.debtContacts': 'Người liên quan (danh bạ nợ)',
+    'users.merge.table.debtPayments': 'Lần trả nợ',
+    'users.merge.table.debtPaymentAllocations': 'Phân bổ trả nợ',
+    'users.merge.table.reminders': 'Lời nhắc',
+    'users.merge.table.googleToken': 'Kết nối Google',
     'users.merge.conflicts':
       'Trùng lặp sẽ được hợp nhất vào bản ghi của người dùng đích: {places} nơi chốn, {contacts} người liên quan, {categories} danh mục.',
-    'users.merge.googleToken.keepSource':
-      'Giữ kết nối Google của tài khoản nguồn.',
-    'users.merge.googleToken.keepTarget':
-      'Giữ kết nối Google của người dùng đích.',
-    'users.merge.googleToken.none':
-      'Tài khoản nguồn chưa kết nối Google.',
+    'users.merge.googleToken.keepSource': 'Giữ kết nối Google của tài khoản nguồn.',
+    'users.merge.googleToken.keepTarget': 'Giữ kết nối Google của người dùng đích.',
+    'users.merge.googleToken.none': 'Tài khoản nguồn chưa kết nối Google.',
     'users.merge.botAccountWarning': 'Không thể gộp tài khoản ZCA của chính bot.',
-    'users.merge.irreversible':
-      'Tôi hiểu thao tác này không thể hoàn tác.',
-    'users.merge.confirm':
-      'Gộp tài khoản',
-    'users.merge.merging':
-      'Đang gộp…',
-    'users.merge.cancel':
-      'Hủy',
-    'users.merge.close':
-      'Đóng',
-    'users.merge.success':
-      'Đã gộp {source} vào {target}.',
+    'users.merge.irreversible': 'Tôi hiểu thao tác này không thể hoàn tác.',
+    'users.merge.confirm': 'Gộp tài khoản',
+    'users.merge.merging': 'Đang gộp…',
+    'users.merge.cancel': 'Hủy',
+    'users.merge.close': 'Đóng',
+    'users.merge.success': 'Đã gộp {source} vào {target}.',
     'users.merge.sessionNotice':
       'Bạn vừa gộp chính tài khoản đang đăng nhập. Hãy mở lại dashboard từ link mà bot gửi qua Zalo.',
-    'users.merge.error':
-      'Không thể gộp tài khoản. Vui lòng thử lại.',
+    'users.merge.error': 'Không thể gộp tài khoản. Vui lòng thử lại.',
     'common.refresh': 'Làm mới',
     'common.retry': 'Thử lại',
     'common.logout': 'Đăng xuất',
@@ -791,75 +760,44 @@ const messages = {
     'public.terms.contactDescription': 'Liên hệ hỗ trợ: {email}.',
   },
   en: {
-    'users.merge.action':
-      'Merge into…',
-    'users.merge.actionTitle':
-      'Merge this duplicate account into another user',
-    'users.merge.title':
-      'Merge accounts',
+    'users.merge.action': 'Merge into…',
+    'users.merge.actionTitle': 'Merge this duplicate account into another user',
+    'users.merge.title': 'Merge accounts',
     'users.merge.description':
       'All data of {source} will be moved to the target user, then {source} will be removed from the system.',
-    'users.merge.sourceLabel':
-      'Source account (will be removed)',
-    'users.merge.targetLabel':
-      'Merge into user',
-    'users.merge.targetPlaceholder':
-      'Select target user',
-    'users.merge.noTargets':
-      'There are no other users to merge into.',
-    'users.merge.previewTitle':
-      'Data to be moved',
-    'users.merge.previewHint':
-      'Select a target user to preview the data that will be moved.',
-    'users.merge.previewLoading':
-      'Calculating data to move…',
-    'users.merge.previewError':
-      'Unable to load the merge preview. Please try again.',
-    'users.merge.previewEmpty':
-      'The source account has no data to move.',
-    'users.merge.table.financeTransactions':
-      'Transactions',
-    'users.merge.table.financePlaces':
-      'Places',
-    'users.merge.table.userCategories':
-      'Categories',
-    'users.merge.table.debts':
-      'Debts',
-    'users.merge.table.debtContacts':
-      'Debt contacts',
-    'users.merge.table.debtPayments':
-      'Debt payments',
-    'users.merge.table.debtPaymentAllocations':
-      'Debt payment allocations',
-    'users.merge.table.reminders':
-      'Reminders',
-    'users.merge.table.googleToken':
-      'Google connection',
+    'users.merge.sourceLabel': 'Source account (will be removed)',
+    'users.merge.targetLabel': 'Merge into user',
+    'users.merge.targetPlaceholder': 'Select target user',
+    'users.merge.noTargets': 'There are no other users to merge into.',
+    'users.merge.previewTitle': 'Data to be moved',
+    'users.merge.previewHint': 'Select a target user to preview the data that will be moved.',
+    'users.merge.previewLoading': 'Calculating data to move…',
+    'users.merge.previewError': 'Unable to load the merge preview. Please try again.',
+    'users.merge.previewEmpty': 'The source account has no data to move.',
+    'users.merge.table.financeTransactions': 'Transactions',
+    'users.merge.table.financePlaces': 'Places',
+    'users.merge.table.userCategories': 'Categories',
+    'users.merge.table.debts': 'Debts',
+    'users.merge.table.debtContacts': 'Debt contacts',
+    'users.merge.table.debtPayments': 'Debt payments',
+    'users.merge.table.debtPaymentAllocations': 'Debt payment allocations',
+    'users.merge.table.reminders': 'Reminders',
+    'users.merge.table.googleToken': 'Google connection',
     'users.merge.conflicts':
       'Duplicates will be folded into the target user records: {places} places, {contacts} contacts, {categories} categories.',
-    'users.merge.googleToken.keepSource':
-      'The source account Google connection will be kept.',
-    'users.merge.googleToken.keepTarget':
-      'The target user Google connection will be kept.',
-    'users.merge.googleToken.none':
-      'The source account has no Google connection.',
+    'users.merge.googleToken.keepSource': 'The source account Google connection will be kept.',
+    'users.merge.googleToken.keepTarget': 'The target user Google connection will be kept.',
+    'users.merge.googleToken.none': 'The source account has no Google connection.',
     'users.merge.botAccountWarning': "The bot's own ZCA account cannot be merged.",
-    'users.merge.irreversible':
-      'I understand this action cannot be undone.',
-    'users.merge.confirm':
-      'Merge accounts',
-    'users.merge.merging':
-      'Merging…',
-    'users.merge.cancel':
-      'Cancel',
-    'users.merge.close':
-      'Close',
-    'users.merge.success':
-      'Merged {source} into {target}.',
+    'users.merge.irreversible': 'I understand this action cannot be undone.',
+    'users.merge.confirm': 'Merge accounts',
+    'users.merge.merging': 'Merging…',
+    'users.merge.cancel': 'Cancel',
+    'users.merge.close': 'Close',
+    'users.merge.success': 'Merged {source} into {target}.',
     'users.merge.sessionNotice':
       'You merged the account you are signed in with. Reopen the dashboard from the link the bot sends you on Zalo.',
-    'users.merge.error':
-      'Unable to merge accounts. Please try again.',
+    'users.merge.error': 'Unable to merge accounts. Please try again.',
     'common.refresh': 'Refresh',
     'common.retry': 'Try again',
     'common.logout': 'Log out',

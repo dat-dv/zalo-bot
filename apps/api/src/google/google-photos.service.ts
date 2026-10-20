@@ -290,7 +290,13 @@ export class GooglePhotosService {
   public async uploadBillPhoto(
     buffer: Buffer,
     senderId: string,
-    options?: { note?: string; extension?: string; occurredAt?: Date; albumTitle?: string; albumId?: string },
+    options?: {
+      note?: string;
+      extension?: string;
+      occurredAt?: Date;
+      albumTitle?: string;
+      albumId?: string;
+    },
     userId?: number | string,
   ): Promise<PhotosUploadResult> {
     const date = options?.occurredAt || new Date();

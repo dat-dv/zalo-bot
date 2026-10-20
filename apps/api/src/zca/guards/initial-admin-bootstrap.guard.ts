@@ -11,7 +11,12 @@ export class InitialAdminBootstrapGuard {
     private readonly usersService: UsersService,
     @Optional()
     @Inject(forwardRef(() => ZcaService))
-    private readonly zcaService?: ZcaService | { sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>; sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown> },
+    private readonly zcaService?:
+      | ZcaService
+      | {
+          sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>;
+          sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown>;
+        },
   ) {}
 
   /**
@@ -40,7 +45,10 @@ export class InitialAdminBootstrapGuard {
         `💡 Giờ bạn có thể bắt đầu sử dụng bot, hoặc gõ /help để xem danh sách lệnh nhé!`;
 
       if (this.zcaService) {
-        if ('sendMessageToChat' in this.zcaService && typeof this.zcaService.sendMessageToChat === 'function') {
+        if (
+          'sendMessageToChat' in this.zcaService &&
+          typeof this.zcaService.sendMessageToChat === 'function'
+        ) {
           await this.zcaService.sendMessageToChat(targetChatId, welcomeAdminMessage);
         } else if (typeof (this.zcaService as any).isLoggedIn === 'function') {
           await this.zcaService.sendMessage(welcomeAdminMessage, targetChatId);
