@@ -4,7 +4,12 @@ import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { CategoryAutocomplete } from '@/shared/ui/category-autocomplete';
-import { describeTransactionSource, ReceiptImage, ReceiptThumbnail } from './transaction-receipt';
+import {
+  describeTransactionSource,
+  ReceiptCell,
+  ReceiptColumnHeader,
+  ReceiptImage,
+} from './transaction-receipt';
 
 export type TransactionTableItem = ITransactionItem & {
   runningBalance?: number;
@@ -62,6 +67,8 @@ export function TransactionsTable({
   const { locale, t } = useLocale();
   const { money, isMoneyVisible } = useMoneyVisibility();
   const [expandedAllocationIds, setExpandedAllocationIds] = useState<Set<string>>(new Set());
+  // Not persisted: every page load starts with icons only, so receipts are fetched on demand.
+  const [showReceiptPreview, setShowReceiptPreview] = useState(false);
 
   const computedMaxAmount = useMemo(() => {
     if (typeof maxAmount === 'number' && maxAmount > 0) return maxAmount;
@@ -317,9 +324,15 @@ export function TransactionsTable({
       },
       {
         id: 'receipt',
-        header: t('dashboard.columns.receipt'),
-        minWidth: '60px',
-        cell: (item) => <ReceiptThumbnail item={item} />,
+        header: (
+          <ReceiptColumnHeader
+            showPreview={showReceiptPreview}
+            onToggle={() => setShowReceiptPreview((prev) => !prev)}
+          />
+        ),
+        label: t('dashboard.columns.receipt'),
+        minWidth: showReceiptPreview ? '112px' : '72px',
+        cell: (item) => <ReceiptCell item={item} showPreview={showReceiptPreview} />,
       },
       {
         id: 'amount',
@@ -562,6 +575,7 @@ export function TransactionsTable({
     onStartEdit,
     categorySuggestions,
     placeSuggestions,
+    showReceiptPreview,
     t,
   ]);
 
