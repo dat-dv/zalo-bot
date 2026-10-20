@@ -57,7 +57,6 @@ function createFinanceService(debt: Partial<DebtEntity>) {
 void test('recordDebtPayment records an income when recovering a receivable', async () => {
   const debt = {
     id: 'debt-1',
-    userId: '42',
     direction: 'receivable' as const,
     counterparty: 'Nam',
     contactId: 'contact-1',
@@ -67,13 +66,12 @@ void test('recordDebtPayment records an income when recovering a receivable', as
   };
   const { service, savedPayments, savedTransactions } = createFinanceService(debt);
 
-  await service.recordDebtPayment(42, debt.id, 200_000, '2026-08-24T10:00:00.000Z', 'Chuyển khoản');
+  await service.recordDebtPayment(debt.id, 200_000, '2026-08-24T10:00:00.000Z', 'Chuyển khoản');
 
   assert.equal(debt.remainingAmount, 300_000);
   assert.equal(savedPayments.length, 1);
   assert.deepEqual(savedTransactions, [
     {
-      userId: '42',
       type: 'income',
       amount: 200_000,
       currency: 'VND',
@@ -88,7 +86,6 @@ void test('recordDebtPayment records an income when recovering a receivable', as
 void test('recordDebtPayment links the payment to its auto-created cashflow transaction', async () => {
   const debt = {
     id: 'debt-3',
-    userId: '42',
     direction: 'payable' as const,
     counterparty: 'Lan',
     remainingAmount: 300_000,
@@ -97,7 +94,7 @@ void test('recordDebtPayment links the payment to its auto-created cashflow tran
   };
   const { service, savedPayments, savedTransactions } = createFinanceService(debt);
 
-  const result = await service.recordDebtPayment(42, debt.id, 100_000);
+  const result = await service.recordDebtPayment(debt.id, 100_000);
 
   assert.equal(savedTransactions.length, 1);
   assert.equal(savedPayments[0]?.financeTransactionId, 'tx-1');
@@ -107,7 +104,6 @@ void test('recordDebtPayment links the payment to its auto-created cashflow tran
 void test('deleteDebtPayment removes the linked cashflow transaction', async () => {
   const debt = {
     id: 'debt-4',
-    userId: '42',
     originalAmount: 300_000,
     remainingAmount: 200_000,
     status: 'active' as const,
@@ -115,11 +111,10 @@ void test('deleteDebtPayment removes the linked cashflow transaction', async () 
   const payment = {
     id: 'payment-4',
     debtId: 'debt-4',
-    userId: '42',
     amount: 100_000,
     financeTransactionId: 'tx-9',
   };
-  const linkedTransaction = { id: 'tx-9', userId: '42' };
+  const linkedTransaction = { id: 'tx-9' };
   const removedTransactions: unknown[] = [];
   const removedPayments: unknown[] = [];
   const repositories = new Map<unknown, unknown>([
@@ -164,7 +159,7 @@ void test('deleteDebtPayment removes the linked cashflow transaction', async () 
     {} as never,
   );
 
-  assert.equal(await service.deleteDebtPayment(42, 'debt-4', 'payment-4'), true);
+  assert.equal(await service.deleteDebtPayment('debt-4', 'payment-4'), true);
   assert.equal(debt.remainingAmount, 300_000);
   assert.deepEqual(removedTransactions, [linkedTransaction]);
   assert.deepEqual(removedPayments, [payment]);
@@ -173,7 +168,6 @@ void test('deleteDebtPayment removes the linked cashflow transaction', async () 
 void test('recordDebtPayment records an expense when paying a payable debt', async () => {
   const debt = {
     id: 'debt-2',
-    userId: '42',
     direction: 'payable' as const,
     counterparty: 'Lan',
     remainingAmount: 200_000,
@@ -182,12 +176,11 @@ void test('recordDebtPayment records an expense when paying a payable debt', asy
   };
   const { service, savedTransactions } = createFinanceService(debt);
 
-  await service.recordDebtPayment(42, debt.id, 200_000);
+  await service.recordDebtPayment(debt.id, 200_000);
 
   assert.equal(debt.remainingAmount, 0);
   assert.equal(debt.status, 'settled');
   assert.deepEqual(savedTransactions[0], {
-    userId: '42',
     type: 'expense',
     amount: 200_000,
     currency: 'VND',
@@ -220,7 +213,6 @@ void test('createTransaction reuses a user-scoped place instead of creating a de
       save: (value: Partial<FinancePlaceEntity>) => {
         storedPlace = {
           id: 'place-1',
-          userId: '42',
           name: value.name || 'Highlands Coffee',
           normalizedName: value.normalizedName || 'highlands coffee',
           createdAt: new Date(),
@@ -232,14 +224,12 @@ void test('createTransaction reuses a user-scoped place instead of creating a de
   );
 
   await service.createTransaction({
-    userId: 42,
     type: 'expense',
     amount: 45_000,
     note: 'Cà phê sáng',
     placeName: 'Highlands Coffee',
   });
   await service.createTransaction({
-    userId: 42,
     type: 'expense',
     amount: 30_000,
     note: 'Trà đào',
@@ -257,7 +247,6 @@ void test('FinanceService.resolvePlaces finds places matching normalized name', 
   const mockPlaces: FinancePlaceEntity[] = [
     {
       id: 'place-tch',
-      userId: '42',
       name: 'The Coffee House Tô Hiệu',
       normalizedName: 'the coffee house to hieu',
       createdAt: new Date(),
@@ -273,20 +262,19 @@ void test('FinanceService.resolvePlaces finds places matching normalized name', 
     {} as never,
     {} as never,
     {
-      find: (opts: { where: { userId: string; normalizedName: string } }) => {
-        assert.equal(opts.where.userId, '42');
+      find: (opts: { where: { normalizedName: string } }) => {
         assert.equal(opts.where.normalizedName, 'the coffee house to hieu');
         return Promise.resolve(mockPlaces);
       },
     } as never,
   );
 
-  const found = await service.resolvePlaces(42, 'The Coffee House Tô Hiệu');
+  const found = await service.resolvePlaces('The Coffee House Tô Hiệu');
   assert.equal(found.length, 1);
   assert.equal(found[0]?.id, 'place-tch');
   assert.equal(found[0]?.name, 'The Coffee House Tô Hiệu');
 
-  const empty = await service.resolvePlaces(42, '   ');
+  const empty = await service.resolvePlaces('   ');
   assert.equal(empty.length, 0);
 });
 
@@ -294,7 +282,6 @@ void test('FinanceService.getAnalyticsReport computes cumulative balance and ope
   const transactions: FinanceTransactionEntity[] = [
     {
       id: 'tx-1',
-      userId: '42',
       type: 'income',
       amount: 10_000_000,
       currency: 'VND',
@@ -306,7 +293,6 @@ void test('FinanceService.getAnalyticsReport computes cumulative balance and ope
     },
     {
       id: 'tx-2',
-      userId: '42',
       type: 'expense',
       amount: 2_000_000,
       currency: 'VND',
@@ -318,7 +304,6 @@ void test('FinanceService.getAnalyticsReport computes cumulative balance and ope
     },
     {
       id: 'tx-3',
-      userId: '42',
       type: 'income',
       amount: 5_000_000,
       currency: 'VND',
@@ -330,7 +315,6 @@ void test('FinanceService.getAnalyticsReport computes cumulative balance and ope
     },
     {
       id: 'tx-4',
-      userId: '42',
       type: 'expense',
       amount: 1_000_000,
       currency: 'VND',
@@ -345,7 +329,6 @@ void test('FinanceService.getAnalyticsReport computes cumulative balance and ope
   const transactionRepository = {
     find: (opts?: {
       where?: {
-        userId?: string;
         occurredAt?: { _type?: string; _value?: unknown; value?: unknown };
       };
     }) => {
@@ -403,7 +386,6 @@ void test('FinanceService.getAnalyticsReport computes cumulative balance and ope
   );
 
   const report = await service.getAnalyticsReport(
-    42,
     '2026-08-01T00:00:00.000Z',
     '2026-08-31T23:59:59.999Z',
     'month',
@@ -443,7 +425,6 @@ void test('FinanceService.getAnalyticsReport separates income and expense with i
   const transactions: FinanceTransactionEntity[] = [
     {
       id: 'tx-1',
-      userId: '42',
       type: 'income',
       amount: 10_000_000,
       currency: 'VND',
@@ -455,7 +436,6 @@ void test('FinanceService.getAnalyticsReport separates income and expense with i
     },
     {
       id: 'tx-2',
-      userId: '42',
       type: 'expense',
       amount: 550_000,
       currency: 'VND',
@@ -467,7 +447,6 @@ void test('FinanceService.getAnalyticsReport separates income and expense with i
     },
     {
       id: 'tx-3',
-      userId: '42',
       type: 'expense',
       amount: 227_000,
       currency: 'VND',
@@ -503,7 +482,6 @@ void test('FinanceService.getAnalyticsReport separates income and expense with i
   );
 
   const report = await service.getAnalyticsReport(
-    42,
     '2026-08-01T00:00:00.000Z',
     '2026-08-31T23:59:59.999Z',
     'month',
@@ -533,7 +511,6 @@ void test('FinanceService.getAnalyticsReport separates income and expense with i
 void test('allocateTransactionToDebts allocates funds to multiple debts atomically', async () => {
   const mockTransaction: Partial<FinanceTransactionEntity> = {
     id: 'tx-1',
-    userId: '42',
     type: 'income',
     amount: 5_000_000,
     currency: 'VND',
@@ -542,7 +519,6 @@ void test('allocateTransactionToDebts allocates funds to multiple debts atomical
 
   const debt1: Partial<DebtEntity> = {
     id: 'debt-1',
-    userId: '42',
     direction: 'receivable',
     counterparty: 'Trí',
     originalAmount: 3_000_000,
@@ -553,7 +529,6 @@ void test('allocateTransactionToDebts allocates funds to multiple debts atomical
 
   const debt2: Partial<DebtEntity> = {
     id: 'debt-2',
-    userId: '42',
     direction: 'receivable',
     counterparty: 'Trí',
     originalAmount: 4_000_000,
@@ -619,7 +594,7 @@ void test('allocateTransactionToDebts allocates funds to multiple debts atomical
     {} as never,
   );
 
-  const result = await service.allocateTransactionToDebts(42, 'tx-1', [
+  const result = await service.allocateTransactionToDebts('tx-1', [
     { debtId: 'debt-1', amount: 3_000_000 },
     { debtId: 'debt-2', amount: 2_000_000 },
   ]);
@@ -637,7 +612,6 @@ void test('allocateTransactionToDebts allocates funds to multiple debts atomical
 void test('allocateTransactionToDebts rejects when allocated sum exceeds transaction amount', async () => {
   const mockTransaction: Partial<FinanceTransactionEntity> = {
     id: 'tx-2',
-    userId: '42',
     type: 'income',
     amount: 1_000_000,
   };
@@ -666,7 +640,7 @@ void test('allocateTransactionToDebts rejects when allocated sum exceeds transac
   );
 
   await assert.rejects(
-    () => service.allocateTransactionToDebts(42, 'tx-2', [{ debtId: 'debt-1', amount: 2_000_000 }]),
+    () => service.allocateTransactionToDebts('tx-2', [{ debtId: 'debt-1', amount: 2_000_000 }]),
     /vượt quá số tiền giao dịch/,
   );
 });
@@ -674,7 +648,6 @@ void test('allocateTransactionToDebts rejects when allocated sum exceeds transac
 void test('FinanceService.combineDebts combines debts into a parent debt hierarchy', async () => {
   const child1: Partial<DebtEntity> = {
     id: 'debt-a',
-    userId: '42',
     direction: 'receivable',
     counterparty: 'Nguyễn Văn A',
     originalAmount: 500_000,
@@ -684,7 +657,6 @@ void test('FinanceService.combineDebts combines debts into a parent debt hierarc
   };
   const child2: Partial<DebtEntity> = {
     id: 'debt-b',
-    userId: '42',
     direction: 'receivable',
     counterparty: 'Nguyễn Văn A',
     originalAmount: 300_000,
@@ -736,7 +708,7 @@ void test('FinanceService.combineDebts combines debts into a parent debt hierarc
     {} as never,
   );
 
-  const result = await service.combineDebts(42, {
+  const result = await service.combineDebts({
     debtIds: ['debt-a', 'debt-b'],
     note: 'Gộp nợ anh A',
   });
@@ -753,14 +725,12 @@ void test('FinanceService.combineDebts combines debts into a parent debt hierarc
 void test('FinanceService.combineDebts rejects debts with mismatched directions', async () => {
   const debt1: Partial<DebtEntity> = {
     id: 'debt-1',
-    userId: '42',
     direction: 'receivable',
     originalAmount: 500_000,
     remainingAmount: 500_000,
   };
   const debt2: Partial<DebtEntity> = {
     id: 'debt-2',
-    userId: '42',
     direction: 'payable',
     originalAmount: 300_000,
     remainingAmount: 300_000,
@@ -781,7 +751,7 @@ void test('FinanceService.combineDebts rejects debts with mismatched directions'
   );
 
   await assert.rejects(
-    () => service.combineDebts(42, { debtIds: ['debt-1', 'debt-2'] }),
+    () => service.combineDebts({ debtIds: ['debt-1', 'debt-2'] }),
     /Chỉ có thể gộp các khoản nợ cùng chiều/,
   );
 });
@@ -798,7 +768,7 @@ void test('FinanceService.combineDebts rejects when fewer than 2 debts provided'
   );
 
   await assert.rejects(
-    () => service.combineDebts(42, { debtIds: ['debt-1'] }),
+    () => service.combineDebts({ debtIds: ['debt-1'] }),
     /Cần chọn ít nhất 2 khoản nợ để gộp/,
   );
 });
@@ -806,7 +776,6 @@ void test('FinanceService.combineDebts rejects when fewer than 2 debts provided'
 void test('FinanceService.combineDebts rejects debts with mismatched currencies', async () => {
   const debt1: Partial<DebtEntity> = {
     id: 'debt-1',
-    userId: '42',
     direction: 'receivable',
     currency: 'VND',
     originalAmount: 500_000,
@@ -814,7 +783,6 @@ void test('FinanceService.combineDebts rejects debts with mismatched currencies'
   };
   const debt2: Partial<DebtEntity> = {
     id: 'debt-2',
-    userId: '42',
     direction: 'receivable',
     currency: 'USD',
     originalAmount: 100,
@@ -836,7 +804,7 @@ void test('FinanceService.combineDebts rejects debts with mismatched currencies'
   );
 
   await assert.rejects(
-    () => service.combineDebts(42, { debtIds: ['debt-1', 'debt-2'] }),
+    () => service.combineDebts({ debtIds: ['debt-1', 'debt-2'] }),
     /Chỉ có thể gộp các khoản nợ có cùng đơn vị tiền tệ/,
   );
 });
@@ -845,7 +813,6 @@ void test('FinanceService.getSummary calculates income, expense, balance with fi
   const transactions: FinanceTransactionEntity[] = [
     {
       id: 'tx-1',
-      userId: '42',
       type: 'income',
       amount: 15_000_000,
       currency: 'VND',
@@ -857,7 +824,6 @@ void test('FinanceService.getSummary calculates income, expense, balance with fi
     },
     {
       id: 'tx-2',
-      userId: '42',
       type: 'expense',
       amount: 5_000_000,
       currency: 'VND',
@@ -883,11 +849,7 @@ void test('FinanceService.getSummary calculates income, expense, balance with fi
     {} as never,
   );
 
-  const summary = await service.getSummary(
-    42,
-    '2026-08-01T00:00:00.000Z',
-    '2026-08-31T23:59:59.999Z',
-  );
+  const summary = await service.getSummary('2026-08-01T00:00:00.000Z', '2026-08-31T23:59:59.999Z');
   assert.equal(summary.income, 15_000_000);
   assert.equal(summary.expense, 5_000_000);
   assert.equal(summary.balance, 10_000_000);
@@ -898,7 +860,6 @@ void test('FinanceService.listTransactions queries transactions with relations a
   const mockTransactions: FinanceTransactionEntity[] = [
     {
       id: 'tx-1',
-      userId: '42',
       type: 'expense',
       amount: 50_000,
       currency: 'VND',
@@ -928,11 +889,10 @@ void test('FinanceService.listTransactions queries transactions with relations a
     {} as never,
   );
 
-  const list = await service.listTransactions(42, 'expense');
+  const list = await service.listTransactions('expense');
   assert.equal(list.length, 1);
   assert.equal(list[0]?.amount, 50_000);
-  assert.deepEqual((findCalledWith as { where: { userId: string; type: string } }).where, {
-    userId: '42',
+  assert.deepEqual((findCalledWith as { where: { type: string } }).where, {
     type: 'expense',
   });
 });
@@ -940,7 +900,6 @@ void test('FinanceService.listTransactions queries transactions with relations a
 void test('FinanceService.updateTransaction blocks changing type when allocations exist', async () => {
   const mockTx: Partial<FinanceTransactionEntity> = {
     id: 'tx-alloc-1',
-    userId: '42',
     type: 'income',
     amount: 1_000_000,
     category: 'Thu hồi nợ',
@@ -948,7 +907,6 @@ void test('FinanceService.updateTransaction blocks changing type when allocation
     allocations: [
       {
         id: 'alloc-1',
-        userId: '42',
         financeTransactionId: 'tx-alloc-1',
         debtId: 'debt-1',
         amount: 600_000,
@@ -976,7 +934,7 @@ void test('FinanceService.updateTransaction blocks changing type when allocation
 
   await assert.rejects(
     async () => {
-      await service.updateTransaction(42, 'tx-alloc-1', { type: 'expense' });
+      await service.updateTransaction('tx-alloc-1', { type: 'expense' });
     },
     {
       name: 'Error',
@@ -988,7 +946,6 @@ void test('FinanceService.updateTransaction blocks changing type when allocation
 void test('FinanceService.updateTransaction blocks reducing amount below total allocated amount', async () => {
   const mockTx: Partial<FinanceTransactionEntity> = {
     id: 'tx-alloc-2',
-    userId: '42',
     type: 'expense',
     amount: 1_000_000,
     category: 'Trả nợ',
@@ -996,7 +953,6 @@ void test('FinanceService.updateTransaction blocks reducing amount below total a
     allocations: [
       {
         id: 'alloc-1',
-        userId: '42',
         financeTransactionId: 'tx-alloc-2',
         debtId: 'debt-1',
         amount: 400_000,
@@ -1006,7 +962,6 @@ void test('FinanceService.updateTransaction blocks reducing amount below total a
       } as DebtPaymentAllocationEntity,
       {
         id: 'alloc-2',
-        userId: '42',
         financeTransactionId: 'tx-alloc-2',
         debtId: 'debt-2',
         amount: 300_000,
@@ -1035,7 +990,7 @@ void test('FinanceService.updateTransaction blocks reducing amount below total a
   // Total allocated is 700_000. Reducing amount to 500_000 should fail.
   await assert.rejects(
     async () => {
-      await service.updateTransaction(42, 'tx-alloc-2', { amount: 500_000 });
+      await service.updateTransaction('tx-alloc-2', { amount: 500_000 });
     },
     {
       name: 'Error',
@@ -1045,14 +1000,13 @@ void test('FinanceService.updateTransaction blocks reducing amount below total a
   );
 
   // Updating amount to 800_000 (>= 700_000) should succeed.
-  const updated = await service.updateTransaction(42, 'tx-alloc-2', { amount: 800_000 });
+  const updated = await service.updateTransaction('tx-alloc-2', { amount: 800_000 });
   assert.equal(updated?.amount, 800_000);
 });
 
 void test('FinanceService.deleteTransaction restores debt remaining amount when deleting transaction with allocations', async () => {
   const mockTx: Partial<FinanceTransactionEntity> = {
     id: 'tx-del-1',
-    userId: '42',
     type: 'expense',
     amount: 1_000_000,
     category: 'Trả nợ',
@@ -1062,14 +1016,12 @@ void test('FinanceService.deleteTransaction restores debt remaining amount when 
   const mockAllocations: Partial<DebtPaymentAllocationEntity>[] = [
     {
       id: 'alloc-1',
-      userId: '42',
       financeTransactionId: 'tx-del-1',
       debtId: 'debt-1',
       amount: 400_000,
     },
     {
       id: 'alloc-2',
-      userId: '42',
       financeTransactionId: 'tx-del-1',
       debtId: 'debt-2',
       amount: 300_000,
@@ -1077,8 +1029,8 @@ void test('FinanceService.deleteTransaction restores debt remaining amount when 
   ];
 
   const mockDebts: Partial<DebtEntity>[] = [
-    { id: 'debt-1', userId: '42', remainingAmount: 600_000 },
-    { id: 'debt-2', userId: '42', remainingAmount: 200_000 },
+    { id: 'debt-1', remainingAmount: 600_000 },
+    { id: 'debt-2', remainingAmount: 200_000 },
   ];
 
   let removedTx: unknown = null;
@@ -1127,7 +1079,7 @@ void test('FinanceService.deleteTransaction restores debt remaining amount when 
     {} as never,
   );
 
-  const result = await service.deleteTransaction(42, 'tx-del-1');
+  const result = await service.deleteTransaction('tx-del-1');
   assert.equal(result, true);
   assert.deepEqual(removedTx, mockTx);
 
@@ -1137,14 +1089,13 @@ void test('FinanceService.deleteTransaction restores debt remaining amount when 
   assert.equal(debt1?.remainingAmount, 1_000_000);
   assert.equal(debt2?.remainingAmount, 500_000);
 
-  assert.deepEqual(deletedAllocCriteria, { financeTransactionId: 'tx-del-1', userId: '42' });
-  assert.deepEqual(deletedPaymentCriteria, { financeTransactionId: 'tx-del-1', userId: '42' });
+  assert.deepEqual(deletedAllocCriteria, { financeTransactionId: 'tx-del-1' });
+  assert.deepEqual(deletedPaymentCriteria, { financeTransactionId: 'tx-del-1' });
 });
 
 void test('FinanceService.combinePlaces selects highest transaction count as lead, reassigns transactions, and updates name', async () => {
   const placeA: FinancePlaceEntity = {
     id: 'place-a',
-    userId: '42',
     name: 'Highlands',
     normalizedName: 'highlands',
     createdAt: new Date('2026-01-01'),
@@ -1152,16 +1103,13 @@ void test('FinanceService.combinePlaces selects highest transaction count as lea
   };
   const placeB: FinancePlaceEntity = {
     id: 'place-b',
-    userId: '42',
     name: 'Highlands Coffee',
     normalizedName: 'highlands coffee',
     createdAt: new Date('2026-01-02'),
     updatedAt: new Date('2026-01-02'),
   };
 
-  const transactionsOfA: Partial<FinanceTransactionEntity>[] = [
-    { id: 'tx-1', userId: '42', placeId: 'place-a' },
-  ];
+  const transactionsOfA: Partial<FinanceTransactionEntity>[] = [{ id: 'tx-1', placeId: 'place-a' }];
 
   let removedPlaces: FinancePlaceEntity[] = [];
   let savedPlace: FinancePlaceEntity | undefined;
@@ -1169,7 +1117,7 @@ void test('FinanceService.combinePlaces selects highest transaction count as lea
 
   const service = new FinanceService(
     {
-      count: (opts: { where: { placeId: string; userId: string } }) => {
+      count: (opts: { where: { placeId: string } }) => {
         if (opts.where.placeId === 'place-a') return Promise.resolve(1);
         if (opts.where.placeId === 'place-b') return Promise.resolve(5);
         return Promise.resolve(0);
@@ -1199,7 +1147,7 @@ void test('FinanceService.combinePlaces selects highest transaction count as lea
     } as never,
   );
 
-  const result = await service.combinePlaces(42, {
+  const result = await service.combinePlaces({
     placeIds: ['place-a', 'place-b'],
     name: 'Highlands Coffee Landmark',
   });
@@ -1227,7 +1175,6 @@ void test('FinanceService.combinePlaces selects highest transaction count as lea
 void test('FinanceService.combinePlaces respects explicit targetPlaceId', async () => {
   const placeA: FinancePlaceEntity = {
     id: 'place-a',
-    userId: '42',
     name: 'Phúc Long',
     normalizedName: 'phuc long',
     createdAt: new Date('2026-01-01'),
@@ -1235,7 +1182,6 @@ void test('FinanceService.combinePlaces respects explicit targetPlaceId', async 
   };
   const placeB: FinancePlaceEntity = {
     id: 'place-b',
-    userId: '42',
     name: 'Phúc Long Tea & Coffee',
     normalizedName: 'phuc long tea and coffee',
     createdAt: new Date('2026-01-02'),
@@ -1243,8 +1189,8 @@ void test('FinanceService.combinePlaces respects explicit targetPlaceId', async 
   };
 
   const transactionsOfB: Partial<FinanceTransactionEntity>[] = [
-    { id: 'tx-10', userId: '42', placeId: 'place-b' },
-    { id: 'tx-11', userId: '42', placeId: 'place-b' },
+    { id: 'tx-10', placeId: 'place-b' },
+    { id: 'tx-11', placeId: 'place-b' },
   ];
 
   let removedPlaces: FinancePlaceEntity[] = [];
@@ -1252,7 +1198,7 @@ void test('FinanceService.combinePlaces respects explicit targetPlaceId', async 
 
   const service = new FinanceService(
     {
-      count: (opts: { where: { placeId: string; userId: string } }) => {
+      count: (opts: { where: { placeId: string } }) => {
         if (opts.where.placeId === 'place-a') return Promise.resolve(1);
         if (opts.where.placeId === 'place-b') return Promise.resolve(10);
         return Promise.resolve(0);
@@ -1279,7 +1225,7 @@ void test('FinanceService.combinePlaces respects explicit targetPlaceId', async 
     } as never,
   );
 
-  const result = await service.combinePlaces(42, {
+  const result = await service.combinePlaces({
     placeIds: ['place-a', 'place-b'],
     targetPlaceId: 'place-a',
   });
@@ -1302,7 +1248,6 @@ void test('FinanceService.combinePlaces respects explicit targetPlaceId', async 
 void test('combineContacts prioritizes contact linked to User as lead over one with more resources', async () => {
   const contactWithUser: DebtContactEntity = {
     id: 'c-user',
-    userId: '42',
     displayName: 'Thành (User)',
     normalizedName: 'thanh user',
     linkedUserId: 'user-99',
@@ -1312,7 +1257,6 @@ void test('combineContacts prioritizes contact linked to User as lead over one w
 
   const contactWithManyResources: DebtContactEntity = {
     id: 'c-many',
-    userId: '42',
     displayName: 'Thành bạn thân',
     normalizedName: 'thanh ban than',
     phoneNumber: '0901234567',
@@ -1321,11 +1265,11 @@ void test('combineContacts prioritizes contact linked to User as lead over one w
   };
 
   const debtsOfMany: Partial<DebtEntity>[] = [
-    { id: 'debt-1', userId: '42', contactId: 'c-many', counterparty: 'Thành bạn thân' },
+    { id: 'debt-1', contactId: 'c-many', counterparty: 'Thành bạn thân' },
   ];
   const txsOfMany: Partial<FinanceTransactionEntity>[] = [
-    { id: 'tx-1', userId: '42', contactId: 'c-many' },
-    { id: 'tx-2', userId: '42', contactId: 'c-many' },
+    { id: 'tx-1', contactId: 'c-many' },
+    { id: 'tx-2', contactId: 'c-many' },
   ];
 
   const savedContacts: DebtContactEntity[] = [];
@@ -1335,7 +1279,7 @@ void test('combineContacts prioritizes contact linked to User as lead over one w
 
   const service = new FinanceService(
     {
-      count: (opts: { where: { contactId: string; userId: string } }) => {
+      count: (opts: { where: { contactId: string } }) => {
         if (opts.where.contactId === 'c-user') return Promise.resolve(1);
         if (opts.where.contactId === 'c-many') return Promise.resolve(10);
         return Promise.resolve(0);
@@ -1347,7 +1291,7 @@ void test('combineContacts prioritizes contact linked to User as lead over one w
       },
     } as never,
     {
-      count: (opts: { where: { contactId: string; userId: string } }) => {
+      count: (opts: { where: { contactId: string } }) => {
         if (opts.where.contactId === 'c-user') return Promise.resolve(1);
         if (opts.where.contactId === 'c-many') return Promise.resolve(5);
         return Promise.resolve(0);
@@ -1375,7 +1319,7 @@ void test('combineContacts prioritizes contact linked to User as lead over one w
     {} as never,
   );
 
-  const result = await service.combineContacts(42, {
+  const result = await service.combineContacts({
     contactIds: ['c-user', 'c-many'],
     displayName: 'Thành Đã Gộp',
   });
@@ -1404,7 +1348,6 @@ void test('combineContacts prioritizes contact linked to User as lead over one w
 void test('combineContacts prioritizes candidate with most total resources when neither has linked user', async () => {
   const contactA: DebtContactEntity = {
     id: 'c-a',
-    userId: '42',
     displayName: 'Quán A',
     normalizedName: 'quan a',
     createdAt: new Date('2026-01-01'),
@@ -1413,23 +1356,20 @@ void test('combineContacts prioritizes candidate with most total resources when 
 
   const contactB: DebtContactEntity = {
     id: 'c-b',
-    userId: '42',
     displayName: 'Quán B',
     normalizedName: 'quan b',
     createdAt: new Date('2026-01-02'),
     updatedAt: new Date('2026-01-02'),
   };
 
-  const txsOfA: Partial<FinanceTransactionEntity>[] = [
-    { id: 'tx-a1', userId: '42', contactId: 'c-a' },
-  ];
+  const txsOfA: Partial<FinanceTransactionEntity>[] = [{ id: 'tx-a1', contactId: 'c-a' }];
 
   let savedTxs: Partial<FinanceTransactionEntity>[] = [];
   let removedContacts: DebtContactEntity[] = [];
 
   const service = new FinanceService(
     {
-      count: (opts: { where: { contactId: string; userId: string } }) => {
+      count: (opts: { where: { contactId: string } }) => {
         if (opts.where.contactId === 'c-a') return Promise.resolve(2);
         if (opts.where.contactId === 'c-b') return Promise.resolve(8);
         return Promise.resolve(0);
@@ -1459,7 +1399,7 @@ void test('combineContacts prioritizes candidate with most total resources when 
     {} as never,
   );
 
-  const result = await service.combineContacts(42, {
+  const result = await service.combineContacts({
     contactIds: ['c-a', 'c-b'],
   });
 

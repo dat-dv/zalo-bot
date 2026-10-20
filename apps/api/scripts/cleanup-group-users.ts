@@ -19,33 +19,26 @@ import { UserRole } from '@zalobot/contracts';
 import { UserEntity } from '../src/database/entities/user.entity';
 import { ZcaThreadConfigEntity } from '../src/database/entities/zca-thread-config.entity';
 import { FinanceTransactionEntity } from '../src/database/entities/finance-transaction.entity';
-import { FinancePlaceEntity } from '../src/database/entities/finance-place.entity';
 import { UserTokenEntity } from '../src/database/entities/user-token.entity';
 import { DebtContactEntity } from '../src/database/entities/debt-contact.entity';
-import { DebtEntity } from '../src/database/entities/debt.entity';
-import { DebtPaymentEntity } from '../src/database/entities/debt-payment.entity';
-import { DebtPaymentAllocationEntity } from '../src/database/entities/debt-payment-allocation.entity';
 import { ReminderEntity } from '../src/database/entities/reminder.entity';
-import { UserCategoryEntity } from '../src/database/entities/user-category.entity';
 import { DashboardExchangeTokenEntity } from '../src/database/entities/dashboard-exchange-token.entity';
 
 interface LinkedTable {
   label: string;
   entity: EntityTarget<ObjectLiteral>;
+  /** Column that points at `users.id`. */
+  key: string;
 }
 
-// Every table keyed by `userId`. A candidate with rows here is real data and is never auto-deleted.
+// Every table that references a user. A candidate with rows here is real data and is never
+// auto-deleted. Finance data is shared (no owner column), so only authorship and links count.
 const LINKED_TABLES: LinkedTable[] = [
-  { label: 'finance_transactions', entity: FinanceTransactionEntity },
-  { label: 'finance_places', entity: FinancePlaceEntity },
-  { label: 'user_tokens', entity: UserTokenEntity },
-  { label: 'debt_contacts', entity: DebtContactEntity },
-  { label: 'debts', entity: DebtEntity },
-  { label: 'debt_payments', entity: DebtPaymentEntity },
-  { label: 'debt_payment_allocations', entity: DebtPaymentAllocationEntity },
-  { label: 'reminders', entity: ReminderEntity },
-  { label: 'user_categories', entity: UserCategoryEntity },
-  { label: 'dashboard_exchange_tokens', entity: DashboardExchangeTokenEntity },
+  { label: 'finance_transactions', entity: FinanceTransactionEntity, key: 'createdByUserId' },
+  { label: 'debt_contacts', entity: DebtContactEntity, key: 'linkedUserId' },
+  { label: 'user_tokens', entity: UserTokenEntity, key: 'userId' },
+  { label: 'reminders', entity: ReminderEntity, key: 'userId' },
+  { label: 'dashboard_exchange_tokens', entity: DashboardExchangeTokenEntity, key: 'userId' },
 ];
 
 interface Candidate {
@@ -71,7 +64,7 @@ async function findCandidates(): Promise<Candidate[]> {
     if (user.role === UserRole.ADMIN) blockedBy.push('role=admin');
     for (const table of LINKED_TABLES) {
       const count = await AppDataSource.getRepository(table.entity).count({
-        where: { userId: user.id },
+        where: { [table.key]: user.id },
       });
       if (count > 0) blockedBy.push(`${table.label}=${count}`);
     }

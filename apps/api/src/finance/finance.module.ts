@@ -10,7 +10,6 @@ import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 import { FinanceService } from './finance.service';
-import { LedgerService } from './ledger.service';
 import { FinanceController } from './finance.controller';
 import { ContactUserSyncService } from './contact-user-sync.service';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
@@ -33,7 +32,7 @@ import { UsersModule } from '../users/users.module';
     forwardRef(() => UsersModule),
   ],
   controllers: [FinanceController],
-  providers: [FinanceService, ContactUserSyncService, LedgerService],
-  exports: [FinanceService, LedgerService],
+  providers: [FinanceService, ContactUserSyncService],
+  exports: [FinanceService],
 })
 export class FinanceModule {}

@@ -31,10 +31,6 @@ export class DebtPaymentEntity {
   @JoinColumn({ name: 'finance_transaction_id' })
   financeTransaction?: FinanceTransactionEntity;
 
-  @Index()
-  @Column({ name: 'user_id', type: 'varchar' })
-  userId: string;
-
   @Column({ type: 'integer' })
   amount: number;
 

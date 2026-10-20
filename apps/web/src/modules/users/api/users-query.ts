@@ -3,7 +3,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import type {
-  ILedgerInfo,
   IUserLinkedContactItem,
   IUserListItem,
   IUserMergeSummary,
@@ -21,23 +20,13 @@ import {
   getUserMergePreview,
   getUserLinkedContacts,
   mergeUser,
-  getLedgerInfo,
-  setLedgerOwner,
-  consolidateLedger,
 } from './users-api';
-import { contactsQueryKeys } from '@/modules/contacts/api/contacts-query';
-import { dashboardQueryKeys } from '@/modules/dashboard/api/dashboard-query';
-import { placesQueryKeys } from '@/modules/dashboard/api/places-query';
-import { transactionsQueryKeys } from '@/modules/dashboard/api/transactions-query';
-import { debtsQueryKeys } from '@/modules/debts/api/debts-query';
-import { expensesQueryKeys } from '@/modules/expenses/api/expenses-query';
 
 export const usersQueryKeys = {
   all: () => ['users'] as const,
   mergePreview: (sourceUserId: string, targetUserId: string) =>
     ['users', 'merge-preview', sourceUserId, targetUserId] as const,
   linkedContacts: (userId: string) => ['users', 'linked-contacts', userId] as const,
-  ledger: () => ['users', 'ledger'] as const,
 };
 
 const isForbidden = (error: unknown): boolean =>
@@ -157,52 +146,8 @@ export function useMergeUserMutation() {
     mutationFn: ({ sourceUserId, targetUserId }: { sourceUserId: string; targetUserId: string }) =>
       mergeUser(sourceUserId, targetUserId),
     onSuccess: () => {
-      // Merged data affects every user-scoped view (transactions, debts, reminders...).
+      // Merged identities affect creator names, contact links, reminders and the user list.
       void queryClient.invalidateQueries();
-    },
-  });
-}
-
-/** Sổ thu chi chung (admin): chủ sổ hiện tại và các sổ khác có thể gộp vào. */
-export function useLedgerQuery(options?: { enabled?: boolean }) {
-  return useQuery<ILedgerInfo>({
-    queryKey: usersQueryKeys.ledger(),
-    queryFn: ({ signal }) => getLedgerInfo(signal),
-    enabled: options?.enabled,
-    retry: (failureCount, error) => !isForbidden(error) && failureCount < 1,
-  });
-}
-
-/** Đổi chủ sổ làm thay đổi sổ mà mọi màn hình tài chính đang đọc. */
-export function useSetLedgerOwnerMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (userId: string | null) => setLedgerOwner(userId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: usersQueryKeys.ledger() });
-      void queryClient.invalidateQueries({ queryKey: transactionsQueryKeys.all });
-      void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.detail() });
-    },
-  });
-}
-
-/** Gộp dữ liệu cũ: giao dịch, nơi chốn, danh bạ, công nợ đều chuyển sang sổ của chủ sổ. */
-export function useConsolidateLedgerMutation() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => consolidateLedger(),
-    onSuccess: () => {
-      for (const queryKey of [
-        usersQueryKeys.ledger(),
-        transactionsQueryKeys.all,
-        dashboardQueryKeys.detail(),
-        expensesQueryKeys.list(),
-        debtsQueryKeys.list(),
-        contactsQueryKeys.list(),
-        placesQueryKeys.all,
-      ]) {
-        void queryClient.invalidateQueries({ queryKey });
-      }
     },
   });
 }

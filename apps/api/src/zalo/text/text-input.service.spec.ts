@@ -108,7 +108,7 @@ function createTextInputService(options?: SetupOptions) {
         expense: 2000000,
         balance: 3000000,
       } as never),
-    resolvePlaces: (_userId: string | number, name: string) => {
+    resolvePlaces: (name: string) => {
       if (options?.existingPlaces) {
         const norm = name.trim().toLowerCase();
         const found = options.existingPlaces.filter((p: string) => p.trim().toLowerCase() === norm);
@@ -118,7 +118,7 @@ function createTextInputService(options?: SetupOptions) {
       }
       return Promise.resolve([]);
     },
-    resolveOrCreatePlace: (_userId: string | number, name: string) =>
+    resolveOrCreatePlace: (name: string) =>
       Promise.resolve({ id: 'pl_1', name, normalizedName: name }),
   } as unknown as FinanceService;
 
@@ -699,7 +699,6 @@ void test('TextInputService handles "edit <mã> <nội dung>" by feeding context
     chatId: 'c1',
     rawPrompt: 'ăn trưa 45k',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 45000,
       category: 'Ăn uống',
@@ -1354,7 +1353,7 @@ void test('TextInputService edit only exposes the pending action tool and ignore
     userId: 'u1',
     chatId: 'g1',
     rawPrompt: 'ăn trưa 45k',
-    payload: { userId: 'u1', type: 'expense', amount: 45000, category: 'Ăn uống', note: 'ăn trưa' },
+    payload: { type: 'expense', amount: 45000, category: 'Ăn uống', note: 'ăn trưa' },
   });
   assert.equal(sentMessages.length, 1);
 
@@ -1376,7 +1375,7 @@ void test('TextInputService edit refuses pending actions without a matching tool
   const pending = await confirmationService.createPending({
     userId: 'u1',
     chatId: 'g1',
-    payload: { userId: 'u1', type: 'expense', amount: 45000, category: 'Ăn uống', note: 'ăn trưa' },
+    payload: { type: 'expense', amount: 45000, category: 'Ăn uống', note: 'ăn trưa' },
   });
   const callsBefore = getLlmCallCount();
 

@@ -19,10 +19,6 @@ export class FinanceTransactionEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Index()
-  @Column({ name: 'user_id', type: 'varchar' })
-  userId: string;
-
   @Column({ type: 'varchar' })
   type: 'income' | 'expense';
 
@@ -60,7 +56,7 @@ export class FinanceTransactionEntity {
   @Column({ type: 'varchar' })
   note: string;
 
-  /** Who sent the message / used the dashboard to create this row (ledger owner may differ). */
+  /** Who sent the message / used the dashboard to create this row (display only; finance data is shared). */
   @Index()
   @Column({ name: 'created_by_user_id', type: 'varchar', nullable: true })
   createdByUserId?: string;

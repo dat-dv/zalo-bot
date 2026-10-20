@@ -76,7 +76,7 @@ void test('computeLedger walks occurredAt, then createdAt, and returns the all-t
 void test('queryTransactions keeps running balances from the whole ledger when filtering a period and type', async () => {
   const { service, findAndCountCalls, findCalls } = createService([LEDGER[2]]);
 
-  const result = await service.queryTransactions(42, {
+  const result = await service.queryTransactions({
     type: 'expense',
     startAt: '2026-09-01T00:00:00.000Z',
     endAt: '2026-09-30T23:59:59.999Z',
@@ -89,23 +89,24 @@ void test('queryTransactions keeps running balances from the whole ledger when f
   assert.equal(result.ledgerBalance, 8_200_000);
   // Summary covers the whole period (both types), independent of the type filter.
   assert.deepEqual(result.summary, { income: 1_000_000, expense: 800_000, count: 3 });
-  assert.equal(findCalls[0].where && 'userId' in findCalls[0].where, true);
+  // Finance data is shared: the ledger walk and the page never filter by user.
+  assert.equal(findCalls[0].where, undefined);
   const where = findAndCountCalls[0].where;
   assert.ok(Array.isArray(where));
   assert.equal(where.length, 1);
-  assert.equal(where[0].userId, '42');
+  assert.equal('userId' in where[0], false);
   assert.equal(where[0].type, 'expense');
 });
 
-void test('queryTransactions searches category, note and place name for the caller only', async () => {
+void test('queryTransactions searches category, note and place name across the shared ledger', async () => {
   const { service, findAndCountCalls } = createService([]);
 
-  await service.queryTransactions('42', { search: '  phở ' });
+  await service.queryTransactions({ search: '  phở ' });
 
   const where = findAndCountCalls[0].where;
   assert.ok(Array.isArray(where));
   assert.equal(where.length, 3);
-  for (const condition of where) assert.equal(condition.userId, '42');
+  for (const condition of where) assert.equal('userId' in condition, false);
   assert.ok('category' in where[0]);
   assert.ok('note' in where[1]);
   assert.ok('place' in where[2]);
@@ -114,7 +115,7 @@ void test('queryTransactions searches category, note and place name for the call
 void test('queryTransactions clamps limit and offset and reports the total', async () => {
   const { service, findAndCountCalls } = createService([LEDGER[0]], 1234);
 
-  const result = await service.queryTransactions(42, { limit: 10_000, offset: -5 });
+  const result = await service.queryTransactions({ limit: 10_000, offset: -5 });
 
   assert.equal(findAndCountCalls[0].take, TRANSACTION_LIST_MAX_LIMIT);
   assert.equal(findAndCountCalls[0].skip, 0);
@@ -123,11 +124,41 @@ void test('queryTransactions clamps limit and offset and reports the total', asy
   assert.equal(result.total, 1234);
 });
 
+void test('createTransaction stores the author but no owner, so every user reads the row', async () => {
+  const created: Partial<FinanceTransactionEntity>[] = [];
+  const service = new FinanceService(
+    {
+      create: (data: Partial<FinanceTransactionEntity>) => {
+        created.push(data);
+        return data;
+      },
+      save: (entity: unknown) => Promise.resolve(entity),
+    } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+
+  await service.createTransaction({
+    type: 'expense',
+    amount: 13_000,
+    note: 'cà phê',
+    createdByUserId: 'diệu-hằng',
+    source: 'zalo',
+  });
+
+  assert.equal(created[0].createdByUserId, 'diệu-hằng');
+  assert.equal('userId' in created[0], false);
+});
+
 void test('GET /api/transactions rejects malformed query parameters', async () => {
   const calls: unknown[] = [];
   const controller = new FinanceController(
     {
-      queryTransactions: (_userId: unknown, query: unknown) => {
+      queryTransactions: (query: unknown) => {
         calls.push(query);
         return Promise.resolve({});
       },
@@ -135,7 +166,6 @@ void test('GET /api/transactions rejects malformed query parameters', async () =
     {} as never,
     {} as never,
     {} as never,
-    { resolveLedgerUserId: (id: string | number) => Promise.resolve(String(id)) } as never,
   );
   // actorId() is stubbed below, so the request object itself is never read.
   const req = {} as Request;

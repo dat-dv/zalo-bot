@@ -36,7 +36,7 @@ function createTestContext(
   } as unknown as ZaloService;
 
   const mockFinanceService = {
-    getTransaction: (_userId: string, id: string) => {
+    getTransaction: (id: string) => {
       return Promise.resolve(mockTransactions[id] || null);
     },
     getLatestTransaction: () => {
@@ -67,7 +67,6 @@ function createTestContext(
 void test('DeleteTransactionToolStrategy creates pending delete when transactionId is provided in toolArgs', async () => {
   const dummyTx = {
     id: '88ca5db0-5e4a-4f10-af57-48fcb57e48b7',
-    userId: 'u1',
     type: 'expense',
     amount: 50000,
     currency: 'VND',
@@ -104,7 +103,6 @@ void test('DeleteTransactionToolStrategy creates pending delete when transaction
 void test('DeleteTransactionToolStrategy extracts UUID from raw user text if toolArgs transactionId is missing', async () => {
   const dummyTx = {
     id: '88ca5db0-5e4a-4f10-af57-48fcb57e48b7',
-    userId: 'u1',
     type: 'expense',
     amount: 75000,
     currency: 'VND',

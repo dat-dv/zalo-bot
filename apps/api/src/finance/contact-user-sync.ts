@@ -29,14 +29,13 @@ export interface ContactUserSyncPlan {
 }
 
 /**
- * Quyết định thuần (không I/O) cho việc đưa users vào danh bạ của `ownerId`:
+ * Quyết định thuần (không I/O) cho việc đưa users vào danh bạ công nợ chung (bỏ qua tài khoản bot):
  * - đã có liên hệ gắn user → chỉ đồng bộ số;
  * - có liên hệ CHƯA gắn trùng tên → chỉ gợi ý (tự tạo sẽ biến "cho Trí mượn 30k" thành trùng tên,
  *   tự gắn có thể nhầm người);
  * - còn lại → tạo liên hệ mới gắn user.
  */
 export function planContactUserSync(input: {
-  ownerId: string;
   users: UserEntity[];
   contacts: DebtContactEntity[];
   isBotAccount: (userId: string) => boolean;
@@ -52,7 +51,7 @@ export function planContactUserSync(input: {
   const suggestedContactIds = new Set<string>();
 
   for (const user of input.users) {
-    if (user.id === input.ownerId || input.isBotAccount(user.id)) continue;
+    if (input.isBotAccount(user.id)) continue;
     const linked = linkedByUser.get(user.id);
     if (linked) {
       plan.linked.push({ user, contact: linked });

@@ -23,7 +23,6 @@ import { Request, Response } from 'express';
 import type { AnalyticsGrain, ITransactionListQuery } from '@zalobot/contracts';
 import { GoogleDriveService } from '../google/google-drive.service';
 import {
-  assertDashboardAdmin,
   getDashboardUserId,
   getDashboardUserIdFromBrowser,
 } from '../dashboard-auth/dashboard-user';
@@ -31,7 +30,6 @@ import { ReportsTokenService } from '../reports/reports-token.service';
 import { UsersService } from '../users/users.service';
 import { FinanceService } from './finance.service';
 import { ContactUserSyncService } from './contact-user-sync.service';
-import { LedgerService } from './ledger.service';
 import { parseReceiptSource } from './receipt-source';
 
 /** Receipt proxy limits: receipts are phone photos, far below this. */
@@ -73,33 +71,10 @@ export class FinanceController {
     @Inject(forwardRef(() => UsersService))
     private readonly users: UsersService,
     private readonly contactUserSync: ContactUserSyncService,
-    private readonly ledger: LedgerService,
     @Optional() private readonly moduleRef?: ModuleRef,
   ) {}
 
   private readonly logger = new Logger(FinanceController.name);
-
-  @Get('finance/ledger')
-  @ApiOperation({ summary: 'Sổ chung: chủ sổ và các sổ khác có thể gộp (Admin Only)' })
-  async getLedger(@Req() req: Request) {
-    assertDashboardAdmin(this.actorId(req), this.users);
-    return { data: await this.ledger.getInfo() };
-  }
-
-  @Patch('finance/ledger/owner')
-  @ApiOperation({ summary: 'Đặt hoặc bỏ chủ sổ chung (Admin Only)' })
-  async setLedgerOwner(@Req() req: Request, @Body() body: RecordBody) {
-    assertDashboardAdmin(this.actorId(req), this.users);
-    const userId = body.userId === null ? null : this.string(body.userId, 'userId');
-    return { data: { ownerUserId: await this.ledger.setOwner(userId) } };
-  }
-
-  @Post('finance/ledger/consolidate')
-  @ApiOperation({ summary: 'Gộp dữ liệu tài chính của mọi sổ khác vào sổ chung (Admin Only)' })
-  async consolidateLedger(@Req() req: Request) {
-    const actor = assertDashboardAdmin(this.actorId(req), this.users);
-    return { data: await this.ledger.consolidate(String(actor)) };
-  }
 
   /**
    * Streams a transaction's receipt image. Opened directly by `<img src>`, so it also accepts the
@@ -108,9 +83,8 @@ export class FinanceController {
   @Get('transactions/:id/receipt')
   @ApiOperation({ summary: 'Xem ảnh hoá đơn của giao dịch' })
   async getTransactionReceipt(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
-    const actor = getDashboardUserIdFromBrowser(req, this.tokens);
-    const ledgerUserId = await this.ledger.resolveLedgerUserId(actor);
-    const tx = await this.finance.getTransaction(ledgerUserId, id);
+    getDashboardUserIdFromBrowser(req, this.tokens);
+    const tx = await this.finance.getTransaction(id);
     const source = parseReceiptSource(tx?.receiptUrl);
     if (!tx || !source) throw new NotFoundException('Giao dịch không có ảnh hoá đơn.');
 
@@ -120,10 +94,9 @@ export class FinanceController {
       if (source.kind === 'drive') {
         const drive = this.moduleRef?.get(GoogleDriveService, { strict: false });
         if (!drive) throw new Error('GoogleDriveService unavailable');
-        ({ content, mimeType } = await drive.downloadFile(
-          source.fileId,
-          tx.createdByUserId || tx.userId,
-        ));
+        // Drive receipts live in the creator's Drive, so only their Google token can read them.
+        if (!tx.createdByUserId) throw new Error('Receipt has no creator to read Drive with');
+        ({ content, mimeType } = await drive.downloadFile(source.fileId, tx.createdByUserId));
       } else {
         const upstream = await fetch(source.url, {
           signal: AbortSignal.timeout(RECEIPT_FETCH_TIMEOUT_MS),
@@ -155,12 +128,8 @@ export class FinanceController {
     @Query('endAt') endAt?: string,
     @Query('grain') grain?: AnalyticsGrain,
   ) {
-    const data = await this.finance.getAnalyticsReport(
-      await this.ledgerUserId(req),
-      startAt,
-      endAt,
-      grain,
-    );
+    this.authenticate(req);
+    const data = await this.finance.getAnalyticsReport(startAt, endAt, grain);
     return { data };
   }
 
@@ -169,27 +138,26 @@ export class FinanceController {
     summary: 'Lấy danh sách giao dịch thu/chi theo kỳ, kèm số dư lũy kế và số dư sổ cái',
   })
   async listTransactions(@Req() req: Request, @Query() query: Record<string, unknown>) {
+    this.authenticate(req);
     return {
-      data: await this.finance.queryTransactions(
-        await this.ledgerUserId(req),
-        this.transactionListQuery(query),
-      ),
+      data: await this.finance.queryTransactions(this.transactionListQuery(query)),
     };
   }
 
   @Get('transactions/:id')
   async getTransaction(@Req() req: Request, @Param('id') id: string) {
+    this.authenticate(req);
     return {
-      data: await this.required(this.finance.getTransaction(await this.ledgerUserId(req), id)),
+      data: await this.required(this.finance.getTransaction(id)),
     };
   }
 
   @Post('transactions')
   async createTransaction(@Req() req: Request, @Body() body: RecordBody) {
+    this.authenticate(req);
     return {
       data: await this.finance.createTransaction({
         ...this.transactionInput(body),
-        userId: await this.ledgerUserId(req),
         createdByUserId: String(this.actorId(req)),
         source: 'dashboard',
       }),
@@ -198,34 +166,33 @@ export class FinanceController {
 
   @Patch('transactions/:id')
   async updateTransaction(@Req() req: Request, @Param('id') id: string, @Body() body: RecordBody) {
+    this.authenticate(req);
     return {
       data: await this.required(
-        this.finance.updateTransaction(
-          await this.ledgerUserId(req),
-          id,
-          this.transactionInput(body, true),
-        ),
+        this.finance.updateTransaction(id, this.transactionInput(body, true)),
       ),
     };
   }
 
   @Delete('transactions/:id')
   async deleteTransaction(@Req() req: Request, @Param('id') id: string) {
-    if (!(await this.finance.deleteTransaction(await this.ledgerUserId(req), id)))
-      throw new NotFoundException();
+    this.authenticate(req);
+    if (!(await this.finance.deleteTransaction(id))) throw new NotFoundException();
     return { data: { deleted: true } };
   }
 
   @Get('transactions/:id/candidate-debts')
   @ApiOperation({ summary: 'Lấy danh sách công nợ ứng viên cho giao dịch' })
   async listCandidateDebts(@Req() req: Request, @Param('id') id: string) {
-    return { data: await this.finance.listCandidateDebts(await this.ledgerUserId(req), id) };
+    this.authenticate(req);
+    return { data: await this.finance.listCandidateDebts(id) };
   }
 
   @Get('transactions/:id/allocations')
   @ApiOperation({ summary: 'Lấy danh sách phân bổ công nợ của giao dịch' })
   async getTransactionAllocations(@Req() req: Request, @Param('id') id: string) {
-    return { data: await this.finance.getTransactionAllocations(await this.ledgerUserId(req), id) };
+    this.authenticate(req);
+    return { data: await this.finance.getTransactionAllocations(id) };
   }
 
   @Post('transactions/:id/allocations')
@@ -235,6 +202,7 @@ export class FinanceController {
     @Param('id') id: string,
     @Body() body: RecordBody,
   ) {
+    this.authenticate(req);
     const rawAllocations = Array.isArray(body.allocations) ? body.allocations : [];
     const allocations = rawAllocations.map((item) => {
       const rec = (item && typeof item === 'object' ? item : {}) as Record<string, unknown>;
@@ -245,11 +213,7 @@ export class FinanceController {
       };
     });
     return {
-      data: await this.finance.allocateTransactionToDebts(
-        await this.ledgerUserId(req),
-        id,
-        allocations,
-      ),
+      data: await this.finance.allocateTransactionToDebts(id, allocations),
     };
   }
 
@@ -260,9 +224,8 @@ export class FinanceController {
     @Param('id') id: string,
     @Param('allocationId') allocationId: string,
   ) {
-    if (
-      !(await this.finance.deleteDebtAllocation(await this.ledgerUserId(req), id, allocationId))
-    ) {
+    this.authenticate(req);
+    if (!(await this.finance.deleteDebtAllocation(id, allocationId))) {
       throw new NotFoundException();
     }
     return { data: { deleted: true } };
@@ -271,7 +234,8 @@ export class FinanceController {
   @Get('categories')
   @ApiOperation({ summary: 'Lấy danh sách danh mục thu/chi' })
   async listCategories(@Req() req: Request, @Query('type') type?: 'income' | 'expense') {
-    const categories = await this.finance.listCategories(await this.ledgerUserId(req), type);
+    this.authenticate(req);
+    const categories = await this.finance.listCategories(type);
     return {
       data: categories.map((cat) => ({
         id: cat.id,
@@ -289,6 +253,7 @@ export class FinanceController {
   @Post('categories')
   @ApiOperation({ summary: 'Tạo danh mục thu/chi mới' })
   async createCategory(@Req() req: Request, @Body() body: RecordBody) {
+    this.authenticate(req);
     const type = this.string(body.type, 'type');
     if (type !== 'income' && type !== 'expense') {
       throw new BadRequestException('Loại danh mục phải là income hoặc expense.');
@@ -296,7 +261,7 @@ export class FinanceController {
     const name = this.string(body.name, 'name');
     const color = this.optionalString(body.color);
     const icon = this.optionalString(body.icon);
-    const cat = await this.finance.createCategory(await this.ledgerUserId(req), {
+    const cat = await this.finance.createCategory({
       type,
       name,
       color,
@@ -319,10 +284,11 @@ export class FinanceController {
   @Patch('categories/:id')
   @ApiOperation({ summary: 'Cập nhật danh mục thu/chi' })
   async updateCategory(@Req() req: Request, @Param('id') id: string, @Body() body: RecordBody) {
+    this.authenticate(req);
     const name = this.optionalString(body.name);
     const color = this.optionalString(body.color);
     const icon = this.optionalString(body.icon);
-    const cat = await this.finance.updateCategory(await this.ledgerUserId(req), id, {
+    const cat = await this.finance.updateCategory(id, {
       name,
       color,
       icon,
@@ -345,7 +311,8 @@ export class FinanceController {
   @Delete('categories/:id')
   @ApiOperation({ summary: 'Xóa danh mục thu/chi' })
   async deleteCategory(@Req() req: Request, @Param('id') id: string) {
-    const deleted = await this.finance.deleteCategory(await this.ledgerUserId(req), id);
+    this.authenticate(req);
+    const deleted = await this.finance.deleteCategory(id);
     if (!deleted) throw new NotFoundException('Không tìm thấy danh mục.');
     return { data: { deleted: true } };
   }
@@ -353,31 +320,25 @@ export class FinanceController {
   @Get('places')
   @ApiOperation({ summary: 'Lấy danh sách nơi chốn/cửa hàng' })
   async listPlaces(@Req() req: Request) {
-    const places = await this.finance.listPlaces(await this.ledgerUserId(req));
+    this.authenticate(req);
+    const places = await this.finance.listPlaces();
     return { data: places.map((place) => this.placeResponse(place)) };
   }
 
   @Post('places')
   @ApiOperation({ summary: 'Tạo nơi chốn/cửa hàng' })
   async createPlace(@Req() req: Request, @Body() body: RecordBody) {
+    this.authenticate(req);
     return {
-      data: this.placeResponse(
-        await this.finance.createPlace(
-          await this.ledgerUserId(req),
-          this.string(body.name, 'name'),
-        ),
-      ),
+      data: this.placeResponse(await this.finance.createPlace(this.string(body.name, 'name'))),
     };
   }
 
   @Patch('places/:id')
   @ApiOperation({ summary: 'Cập nhật nơi chốn/cửa hàng' })
   async updatePlace(@Req() req: Request, @Param('id') id: string, @Body() body: RecordBody) {
-    const place = await this.finance.updatePlace(
-      await this.ledgerUserId(req),
-      id,
-      this.string(body.name, 'name'),
-    );
+    this.authenticate(req);
+    const place = await this.finance.updatePlace(id, this.string(body.name, 'name'));
     if (!place) throw new NotFoundException('Không tìm thấy nơi chốn.');
     return { data: this.placeResponse(place) };
   }
@@ -385,7 +346,8 @@ export class FinanceController {
   @Delete('places/:id')
   @ApiOperation({ summary: 'Xóa nơi chốn/cửa hàng' })
   async deletePlace(@Req() req: Request, @Param('id') id: string) {
-    if (!(await this.finance.deletePlace(await this.ledgerUserId(req), id))) {
+    this.authenticate(req);
+    if (!(await this.finance.deletePlace(id))) {
       throw new NotFoundException('Không tìm thấy nơi chốn.');
     }
     return { data: { deleted: true } };
@@ -394,6 +356,7 @@ export class FinanceController {
   @Post('places/combine')
   @ApiOperation({ summary: 'Gộp nhiều nơi chốn/địa điểm thành một nơi chốn chính' })
   async combinePlaces(@Req() req: Request, @Body() body: RecordBody) {
+    this.authenticate(req);
     const rawPlaceIds = Array.isArray(body.placeIds)
       ? body.placeIds.filter(
           (item): item is string => typeof item === 'string' && Boolean(item.trim()),
@@ -416,7 +379,7 @@ export class FinanceController {
       );
     }
 
-    const result = await this.finance.combinePlaces(await this.ledgerUserId(req), {
+    const result = await this.finance.combinePlaces({
       placeIds,
       targetPlaceId,
       name: this.optionalString(body.name),
@@ -433,14 +396,15 @@ export class FinanceController {
 
   @Get('contacts/:id')
   async getContact(@Req() req: Request, @Param('id') id: string) {
-    return { data: await this.required(this.finance.getContact(await this.ledgerUserId(req), id)) };
+    this.authenticate(req);
+    return { data: await this.required(this.finance.getContact(id)) };
   }
 
   @Post('contacts')
   async createContact(@Req() req: Request, @Body() body: RecordBody) {
+    this.authenticate(req);
     return {
       data: await this.finance.createContact(
-        await this.ledgerUserId(req),
         this.string(body.displayName, 'displayName'),
         this.optionalString(body.alias),
         this.optionalString(body.descriptor),
@@ -456,9 +420,9 @@ export class FinanceController {
 
   @Patch('contacts/:id')
   async updateContact(@Req() req: Request, @Param('id') id: string, @Body() body: RecordBody) {
+    this.authenticate(req);
     return {
       data: await this.finance.updateContact(
-        await this.ledgerUserId(req),
         id,
         this.string(body.displayName, 'displayName'),
         this.optionalString(body.alias),
@@ -478,16 +442,17 @@ export class FinanceController {
     summary: 'Đưa người dùng Zalo vào danh bạ công nợ của admin và đồng bộ SĐT (Admin Only)',
   })
   async syncUsersIntoContacts(@Req() req: Request) {
+    this.authenticate(req);
     if (!this.users.isAdmin(this.actorId(req))) throw new ForbiddenException();
-    // Contacts live in the shared ledger when a ledger owner is set.
     return {
-      data: await this.contactUserSync.syncUsersIntoContacts(await this.ledgerUserId(req)),
+      data: await this.contactUserSync.syncUsersIntoContacts(),
     };
   }
 
   @Post('contacts/combine')
   @ApiOperation({ summary: 'Gộp nhiều liên hệ thành một liên hệ chính' })
   async combineContacts(@Req() req: Request, @Body() body: RecordBody) {
+    this.authenticate(req);
     const targetContactId = this.optionalString(body.targetContactId);
     const rawSourceContactIds = Array.isArray(body.sourceContactIds)
       ? body.sourceContactIds.filter(
@@ -512,7 +477,7 @@ export class FinanceController {
       throw new BadRequestException('Phải chọn ít nhất 2 người liên quan để gộp.');
     }
 
-    const result = await this.finance.combineContacts(await this.ledgerUserId(req), {
+    const result = await this.finance.combineContacts({
       targetContactId,
       sourceContactIds: rawSourceContactIds,
       contactIds,
@@ -549,6 +514,7 @@ export class FinanceController {
   @Post('debts/combine')
   @ApiOperation({ summary: 'Gộp nhiều khoản nợ thành một khoản nợ cha' })
   async combineDebts(@Req() req: Request, @Body() body: RecordBody) {
+    this.authenticate(req);
     const debtIds = Array.isArray(body.debtIds)
       ? body.debtIds.filter(
           (item): item is string => typeof item === 'string' && Boolean(item.trim()),
@@ -558,7 +524,7 @@ export class FinanceController {
       throw new BadRequestException('debtIds must contain at least 2 debt IDs to combine.');
     }
 
-    const result = await this.finance.combineDebts(await this.ledgerUserId(req), {
+    const result = await this.finance.combineDebts({
       debtIds,
       counterparty: this.optionalString(body.counterparty),
       counterpartyAlias: this.optionalString(body.counterpartyAlias),
@@ -614,22 +580,23 @@ export class FinanceController {
 
   @Delete('contacts/:id')
   async deleteContact(@Req() req: Request, @Param('id') id: string) {
-    if (!(await this.finance.deleteContact(await this.ledgerUserId(req), id)))
-      throw new NotFoundException();
+    this.authenticate(req);
+    if (!(await this.finance.deleteContact(id))) throw new NotFoundException();
     return { data: { deleted: true } };
   }
 
   @Get('debts/:id')
   async getDebt(@Req() req: Request, @Param('id') id: string) {
-    return { data: await this.required(this.finance.getDebt(await this.ledgerUserId(req), id)) };
+    this.authenticate(req);
+    return { data: await this.required(this.finance.getDebt(id)) };
   }
 
   @Post('debts')
   async createDebt(@Req() req: Request, @Body() body: RecordBody) {
+    this.authenticate(req);
     const direction = this.enum(body.direction, ['receivable', 'payable'] as const, 'direction');
     return {
       data: await this.finance.createDebt({
-        userId: await this.ledgerUserId(req),
         direction,
         counterparty: this.string(body.counterparty, 'counterparty'),
         counterpartyAlias: this.optionalString(body.counterpartyAlias),
@@ -646,9 +613,10 @@ export class FinanceController {
 
   @Patch('debts/:id')
   async updateDebt(@Req() req: Request, @Param('id') id: string, @Body() body: RecordBody) {
+    this.authenticate(req);
     return {
       data: await this.required(
-        this.finance.updateDebt(await this.ledgerUserId(req), id, {
+        this.finance.updateDebt(id, {
           direction:
             body.direction === undefined
               ? undefined
@@ -677,17 +645,18 @@ export class FinanceController {
   @Get('debts/:id/payments')
   @ApiOperation({ summary: 'Lấy lịch sử thanh toán của khoản nợ' })
   async getDebtPayments(@Req() req: Request, @Param('id') id: string) {
+    this.authenticate(req);
     return {
-      data: await this.finance.getDebtPayments(await this.ledgerUserId(req), id),
+      data: await this.finance.getDebtPayments(id),
     };
   }
 
   @Post('debts/:id/payments')
   @ApiOperation({ summary: 'Ghi nhận một lần thanh toán nợ' })
   async recordPayment(@Req() req: Request, @Param('id') id: string, @Body() body: RecordBody) {
+    this.authenticate(req);
     return {
       data: await this.finance.recordDebtPayment(
-        await this.ledgerUserId(req),
         id,
         this.number(body.amount, 'amount'),
         this.optionalString(body.paymentDate),
@@ -703,7 +672,8 @@ export class FinanceController {
     @Param('id') id: string,
     @Param('paymentId') paymentId: string,
   ) {
-    if (!(await this.finance.deleteDebtPayment(await this.ledgerUserId(req), id, paymentId))) {
+    this.authenticate(req);
+    if (!(await this.finance.deleteDebtPayment(id, paymentId))) {
       throw new NotFoundException();
     }
     return { data: { deleted: true } };
@@ -711,8 +681,8 @@ export class FinanceController {
 
   @Delete('debts/:id')
   async deleteDebt(@Req() req: Request, @Param('id') id: string) {
-    if (!(await this.finance.deleteDebt(await this.ledgerUserId(req), id)))
-      throw new NotFoundException();
+    this.authenticate(req);
+    if (!(await this.finance.deleteDebt(id))) throw new NotFoundException();
     return { data: { deleted: true } };
   }
 
@@ -751,9 +721,9 @@ export class FinanceController {
   private actorId(req: Request): string | number {
     return getDashboardUserId(req, this.tokens);
   }
-  /** Whose ledger the request reads/writes: the shared-ledger owner when set, else the actor. */
-  private ledgerUserId(req: Request): Promise<string> {
-    return this.ledger.resolveLedgerUserId(this.actorId(req));
+  /** Requires a signed-in dashboard user; finance data itself is shared, never scoped by user. */
+  private authenticate(req: Request): void {
+    this.actorId(req);
   }
   private async required<T>(result: Promise<T | null>): Promise<T> {
     const value = await result;

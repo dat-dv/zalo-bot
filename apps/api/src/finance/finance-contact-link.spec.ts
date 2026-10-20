@@ -8,12 +8,11 @@ import { DebtContactEntity } from '../database/entities/debt-contact.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { toLinkedContactItems } from '../users/user-linked-contacts.service';
 
-const OWNER = '42';
+const ACTOR = '42';
 
 function contact(overrides: Partial<DebtContactEntity> = {}): DebtContactEntity {
   return {
     id: 'c-1',
-    userId: OWNER,
     displayName: 'Trí',
     normalizedName: 'tri',
     createdAt: new Date('2026-01-01'),
@@ -69,7 +68,6 @@ function createService(input: {
 
 function update(service: FinanceService, linkedUserId: string | null | undefined) {
   return service.updateContact(
-    OWNER,
     'c-1',
     'Trí',
     undefined,
@@ -112,10 +110,13 @@ void test('updateContact without linkedUserId keeps the current link', async () 
   assert.equal(saved[0].linkedUserId, 'u-9');
 });
 
-void test('updateContact rejects linking a contact to the address-book owner', async () => {
-  const { service } = createService({ existing: contact(), users: [user(OWNER)] });
+void test('updateContact may link any existing user, including the one editing', async () => {
+  // The contact directory is shared, so no account owns it and none is excluded from linking.
+  const { service, saved } = createService({ existing: contact(), users: [user(ACTOR)] });
 
-  await assert.rejects(update(service, OWNER), BadRequestException);
+  await update(service, ACTOR);
+
+  assert.equal(saved[0].linkedUserId, ACTOR);
 });
 
 void test('updateContact rejects an unknown user id', async () => {
@@ -124,7 +125,7 @@ void test('updateContact rejects an unknown user id', async () => {
   await assert.rejects(update(service, 'u-missing'), BadRequestException);
 });
 
-void test('updateContact rejects a user already linked to another contact of the same owner', async () => {
+void test('updateContact rejects a user already linked to another contact in the shared directory', async () => {
   const { service } = createService({
     existing: contact(),
     users: [user('u-9')],
@@ -146,10 +147,9 @@ function createController(isAdmin: boolean) {
     {} as never,
     { isAdmin: () => isAdmin } as never,
     {} as never,
-    { resolveLedgerUserId: (id: string | number) => Promise.resolve(String(id)) } as never,
   );
   // actorId() is stubbed, so the request object itself is never read.
-  Reflect.set(controller, 'actorId', () => OWNER);
+  Reflect.set(controller, 'actorId', () => ACTOR);
   return { controller, calls };
 }
 
@@ -170,31 +170,30 @@ void test('PATCH /api/contacts/:id forbids non-admins from changing the linked u
 void test('PATCH /api/contacts/:id lets non-admins edit other fields and passes null for admins', async () => {
   const member = createController(false);
   await member.controller.updateContact({} as Request, 'c-1', { displayName: 'Trí' });
-  assert.equal(member.calls[0][10], undefined);
+  assert.equal(member.calls[0][9], undefined);
 
   const admin = createController(true);
   await admin.controller.updateContact({} as Request, 'c-1', {
     displayName: 'Trí',
     linkedUserId: null,
   });
-  assert.equal(admin.calls[0][10], null);
+  assert.equal(admin.calls[0][9], null);
 });
 
-void test('toLinkedContactItems maps owners and debt counts', () => {
+void test('toLinkedContactItems maps aliases and debt counts', () => {
   const items = toLinkedContactItems(
     [
       contact({ id: 'c-1', alias: 'Trí Đen', linkedUserId: 'u-9' }),
-      contact({ id: 'c-2', userId: '77', linkedUserId: 'u-9' }),
+      contact({ id: 'c-2', linkedUserId: 'u-9' }),
     ],
-    [user(OWNER)],
     new Map([['c-1', 3]]),
   );
 
   assert.deepEqual(
-    items.map((i) => [i.contactId, i.ownerUserId, i.ownerName, i.alias, i.debtCount]),
+    items.map((i) => [i.contactId, i.alias, i.debtCount]),
     [
-      ['c-1', OWNER, `User ${OWNER}`, 'Trí Đen', 3],
-      ['c-2', '77', undefined, undefined, 0],
+      ['c-1', 'Trí Đen', 3],
+      ['c-2', undefined, 0],
     ],
   );
 });

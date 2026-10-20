@@ -77,7 +77,6 @@ export function computeLedger(rows: readonly LedgerRow[]): LedgerComputation {
 }
 
 export interface CreateFinanceTransactionDto {
-  userId: number | string;
   type: 'income' | 'expense';
   amount: number;
   currency?: string;
@@ -90,7 +89,7 @@ export interface CreateFinanceTransactionDto {
   placeName?: string;
   note: string;
   occurredAt?: string;
-  /** Who created the row (Zalo sender or dashboard user); `userId` is the ledger it belongs to. */
+  /** Who created the row (Zalo sender or dashboard user); display only, never a filter. */
   createdByUserId?: string;
   createdByName?: string;
   source?: 'zalo' | 'dashboard';
@@ -105,7 +104,6 @@ export interface FinanceSummary {
 }
 
 export interface CreateDebtDto {
-  userId: number | string;
   direction: 'receivable' | 'payable';
   counterparty: string;
   counterpartyAlias?: string;
@@ -260,22 +258,18 @@ export class FinanceService {
     return entities.map((entity) => toTransactionItem(entity, lookups));
   }
 
-  public async resolveOrCreatePlace(
-    userId: number | string,
-    placeName: string,
-  ): Promise<FinancePlaceEntity | null> {
+  public async resolveOrCreatePlace(placeName: string): Promise<FinancePlaceEntity | null> {
     const trimmed = placeName?.trim();
     if (!trimmed) return null;
     const normalizedName = this.normalizeIdentity(trimmed);
     const existing = await this.placeRepo.findOne({
-      where: { userId: userId.toString(), normalizedName },
+      where: { normalizedName },
     });
     if (existing) {
       return existing;
     }
     return this.placeRepo.save(
       this.placeRepo.create({
-        userId: userId.toString(),
         name: trimmed,
         normalizedName,
       }),
@@ -300,10 +294,9 @@ export class FinanceService {
       throw new Error('Cần có nội dung cho khoản thu hoặc chi.');
     }
 
-    const placeId = await this.resolvePlaceId(dto.userId, dto.placeId, dto.placeName);
+    const placeId = await this.resolvePlaceId(dto.placeId, dto.placeName);
 
     const transaction = this.transactionRepo.create({
-      userId: dto.userId.toString(),
       type: dto.type,
       amount,
       currency: dto.currency?.trim() || 'VND',
@@ -322,14 +315,8 @@ export class FinanceService {
     return this.transactionRepo.save(transaction);
   }
 
-  public async getSummary(
-    userId: number | string,
-    startAt?: string,
-    endAt?: string,
-  ): Promise<FinanceSummary> {
-    const where: FindOptionsWhere<FinanceTransactionEntity> = {
-      userId: userId.toString(),
-    };
+  public async getSummary(startAt?: string, endAt?: string): Promise<FinanceSummary> {
+    const where: FindOptionsWhere<FinanceTransactionEntity> = {};
 
     if (startAt && endAt) {
       const startDate = new Date(startAt);
@@ -363,14 +350,13 @@ export class FinanceService {
   }
 
   public async getAnalyticsReport(
-    userId: number | string,
     startAt?: string,
     endAt?: string,
     grain: AnalyticsGrain = 'month',
   ): Promise<IFinanceAnalyticsResponse> {
-    const summary = await this.getSummary(userId, startAt, endAt);
-    const allTimeSummary = startAt || endAt ? await this.getSummary(userId) : summary;
-    const debts = await this.getActiveDebts(userId);
+    const summary = await this.getSummary(startAt, endAt);
+    const allTimeSummary = startAt || endAt ? await this.getSummary() : summary;
+    const debts = await this.getActiveDebts();
 
     const receivableTotal = debts
       .filter((d) => d.direction === 'receivable')
@@ -391,7 +377,6 @@ export class FinanceService {
       if (!Number.isNaN(startDate.getTime())) {
         const priorTransactions = await this.transactionRepo.find({
           where: {
-            userId: userId.toString(),
             occurredAt: LessThan(startDate),
           },
         });
@@ -624,13 +609,8 @@ export class FinanceService {
     return buckets;
   }
 
-  public async listTransactions(
-    userId: number | string,
-    type?: 'income' | 'expense',
-  ): Promise<FinanceTransactionEntity[]> {
-    const where: FindOptionsWhere<FinanceTransactionEntity> = {
-      userId: userId.toString(),
-    };
+  public async listTransactions(type?: 'income' | 'expense'): Promise<FinanceTransactionEntity[]> {
+    const where: FindOptionsWhere<FinanceTransactionEntity> = {};
     if (type) where.type = type;
     return this.transactionRepo.find({
       where,
@@ -645,21 +625,17 @@ export class FinanceService {
   }
 
   /** Ledger rows only (no relations) — cheap enough to load the whole personal ledger. */
-  private loadLedgerRows(userId: number | string): Promise<LedgerRow[]> {
+  private loadLedgerRows(): Promise<LedgerRow[]> {
     return this.transactionRepo.find({
-      where: { userId: userId.toString() },
       select: { id: true, type: true, amount: true, occurredAt: true, createdAt: true },
     });
   }
 
-  public async getLedgerBalance(userId: number | string): Promise<number> {
-    return computeLedger(await this.loadLedgerRows(userId)).ledgerBalance;
+  public async getLedgerBalance(): Promise<number> {
+    return computeLedger(await this.loadLedgerRows()).ledgerBalance;
   }
 
-  public async queryTransactions(
-    userId: number | string,
-    query: ITransactionListQuery,
-  ): Promise<ITransactionListResponse> {
+  public async queryTransactions(query: ITransactionListQuery): Promise<ITransactionListResponse> {
     const limit = Math.min(
       Math.max(Math.trunc(query.limit ?? TRANSACTION_LIST_DEFAULT_LIMIT), 1),
       TRANSACTION_LIST_MAX_LIMIT,
@@ -672,7 +648,7 @@ export class FinanceService {
     if (endAt && Number.isNaN(endAt.getTime()))
       throw new Error('Mốc thời gian kết thúc không hợp lệ.');
 
-    const base: FindOptionsWhere<FinanceTransactionEntity> = { userId: userId.toString() };
+    const base: FindOptionsWhere<FinanceTransactionEntity> = {};
     if (startAt && endAt) base.occurredAt = Between(startAt, endAt);
     else if (startAt) base.occurredAt = MoreThanOrEqual(startAt);
     else if (endAt) base.occurredAt = LessThanOrEqual(endAt);
@@ -688,7 +664,7 @@ export class FinanceService {
       : [base];
 
     const [ledgerRows, [entities, total]] = await Promise.all([
-      this.loadLedgerRows(userId),
+      this.loadLedgerRows(),
       this.transactionRepo.findAndCount({
         where,
         relations: { place: true, allocations: { debt: true } },
@@ -724,12 +700,9 @@ export class FinanceService {
     };
   }
 
-  public getTransaction(
-    userId: number | string,
-    id: string,
-  ): Promise<FinanceTransactionEntity | null> {
+  public getTransaction(id: string): Promise<FinanceTransactionEntity | null> {
     return this.transactionRepo.findOne({
-      where: { id, userId: userId.toString() },
+      where: { id },
       relations: { place: true, contact: true, allocations: { debt: true } },
     });
   }
@@ -739,35 +712,27 @@ export class FinanceService {
    * member's transaction; falls back to the ledger's latest for rows created before creator tracking.
    */
   public async getLatestTransaction(
-    userId: number | string,
     createdByUserId?: string,
   ): Promise<FinanceTransactionEntity | null> {
     if (createdByUserId) {
       const own = await this.transactionRepo.findOne({
-        where: { userId: userId.toString(), createdByUserId },
+        where: { createdByUserId },
         order: { createdAt: 'DESC' },
       });
       if (own) return own;
     }
-    return this.transactionRepo.findOne({
-      where: { userId: userId.toString() },
-      order: { createdAt: 'DESC' },
-    });
+    return this.transactionRepo.findOne({ where: {}, order: { createdAt: 'DESC' } });
   }
 
-  public findReceiptTransaction(
-    userId: number | string,
-    receiptUrl: string,
-  ): Promise<FinanceTransactionEntity | null> {
-    return this.transactionRepo.findOne({ where: { userId: userId.toString(), receiptUrl } });
+  public findReceiptTransaction(receiptUrl: string): Promise<FinanceTransactionEntity | null> {
+    return this.transactionRepo.findOne({ where: { receiptUrl } });
   }
 
   public async updateTransaction(
-    userId: number | string,
     id: string,
     input: UpdateTransactionDto,
   ): Promise<FinanceTransactionEntity | null> {
-    const transaction = await this.getTransaction(userId, id);
+    const transaction = await this.getTransaction(id);
     if (!transaction) return null;
 
     const currentAllocations = transaction.allocations || [];
@@ -800,7 +765,7 @@ export class FinanceService {
       transaction.receiptUrl = input.receiptUrl.trim() || undefined;
     if (input.contactId !== undefined) transaction.contactId = input.contactId || undefined;
     if (input.placeId !== undefined || input.placeName !== undefined) {
-      transaction.placeId = await this.resolvePlaceId(userId, input.placeId, input.placeName);
+      transaction.placeId = await this.resolvePlaceId(input.placeId, input.placeName);
     }
     if (input.note !== undefined) {
       if (!input.note.trim()) throw new Error('Cần có nội dung cho khoản thu hoặc chi.');
@@ -814,21 +779,17 @@ export class FinanceService {
     return this.transactionRepo.save(transaction);
   }
 
-  public async resolvePlaces(userId: number | string, name: string): Promise<FinancePlaceEntity[]> {
+  public async resolvePlaces(name: string): Promise<FinancePlaceEntity[]> {
     const normalizedName = this.normalizeIdentity(name);
     if (!normalizedName) return [];
     return this.placeRepo.find({
-      where: { userId: userId.toString(), normalizedName },
+      where: { normalizedName },
       order: { createdAt: 'ASC' },
     });
   }
 
-  public async listPlaces(
-    userId: number | string,
-  ): Promise<(FinancePlaceEntity & { transactionCount?: number })[]> {
-    const uid = userId.toString();
+  public async listPlaces(): Promise<(FinancePlaceEntity & { transactionCount?: number })[]> {
     const places = await this.placeRepo.find({
-      where: { userId: uid },
       order: { name: 'ASC', createdAt: 'ASC' },
       take: 200,
     });
@@ -841,8 +802,7 @@ export class FinanceService {
             .createQueryBuilder('t')
             .select('t.place_id', 'placeId')
             .addSelect('COUNT(*)', 'count')
-            .where('t.user_id = :userId', { userId: uid })
-            .andWhere('t.place_id IS NOT NULL')
+            .where('t.place_id IS NOT NULL')
             .groupBy('t.place_id')
             .getRawMany();
 
@@ -870,28 +830,24 @@ export class FinanceService {
     );
   }
 
-  public getPlace(userId: number | string, id: string): Promise<FinancePlaceEntity | null> {
-    return this.placeRepo.findOne({ where: { id, userId: userId.toString() } });
+  public getPlace(id: string): Promise<FinancePlaceEntity | null> {
+    return this.placeRepo.findOne({ where: { id } });
   }
 
-  public async createPlace(userId: number | string, name: string): Promise<FinancePlaceEntity> {
-    const place = await this.resolveOrCreatePlace(userId, name);
+  public async createPlace(name: string): Promise<FinancePlaceEntity> {
+    const place = await this.resolveOrCreatePlace(name);
     if (!place) throw new Error('Tên nơi chốn không được để trống.');
     return place;
   }
 
-  public async updatePlace(
-    userId: number | string,
-    id: string,
-    name: string,
-  ): Promise<FinancePlaceEntity | null> {
-    const place = await this.getPlace(userId, id);
+  public async updatePlace(id: string, name: string): Promise<FinancePlaceEntity | null> {
+    const place = await this.getPlace(id);
     if (!place) return null;
     const trimmed = name.trim();
     if (!trimmed) throw new Error('Tên nơi chốn không được để trống.');
     const normalizedName = this.normalizeIdentity(trimmed);
     const duplicate = await this.placeRepo.findOne({
-      where: { userId: userId.toString(), normalizedName },
+      where: { normalizedName },
     });
     if (duplicate && duplicate.id !== id) throw new Error('Nơi chốn này đã tồn tại.');
     place.name = trimmed;
@@ -899,25 +855,21 @@ export class FinanceService {
     return this.placeRepo.save(place);
   }
 
-  public async deletePlace(userId: number | string, id: string): Promise<boolean> {
-    const place = await this.getPlace(userId, id);
+  public async deletePlace(id: string): Promise<boolean> {
+    const place = await this.getPlace(id);
     if (!place) return false;
     await this.placeRepo.remove(place);
     return true;
   }
 
-  public async combinePlaces(
-    userId: number | string,
-    input: CombinePlacesDto,
-  ): Promise<CombinePlacesResult> {
-    const uid = userId.toString();
+  public async combinePlaces(input: CombinePlacesDto): Promise<CombinePlacesResult> {
     const uniqueIds = Array.from(new Set((input.placeIds || []).filter(Boolean)));
     if (uniqueIds.length < 2) {
       throw new Error('Cần chọn ít nhất 2 nơi chốn để gộp.');
     }
 
     const places = await this.placeRepo.find({
-      where: { id: In(uniqueIds), userId: uid },
+      where: { id: In(uniqueIds) },
     });
     if (places.length < 2) {
       throw new Error('Không tìm thấy đủ nơi chốn hợp lệ để gộp.');
@@ -929,7 +881,7 @@ export class FinanceService {
       let count = 0;
       if (typeof this.transactionRepo.count === 'function') {
         count = await this.transactionRepo.count({
-          where: { placeId: p.id, userId: uid },
+          where: { placeId: p.id },
         });
       }
       countMap.set(p.id, count);
@@ -964,7 +916,7 @@ export class FinanceService {
 
     // Ensure desiredName does not conflict with another existing place outside this merge set
     const duplicate = await this.placeRepo.findOne({
-      where: { userId: uid, normalizedName },
+      where: { normalizedName },
     });
     if (duplicate && !uniqueIds.includes(duplicate.id)) {
       throw new Error('Tên nơi chốn này đã tồn tại ở một địa điểm khác.');
@@ -973,7 +925,7 @@ export class FinanceService {
     // Reassign transactions from source places to lead place
     let affectedTransactionsCount = 0;
     const transactions = await this.transactionRepo.find({
-      where: { placeId: In(sourceIds), userId: uid },
+      where: { placeId: In(sourceIds) },
     });
     if (transactions.length > 0) {
       for (const tx of transactions) {
@@ -999,19 +951,17 @@ export class FinanceService {
     };
   }
 
-  public async deleteTransaction(userId: number | string, id: string): Promise<boolean> {
-    const transaction = await this.getTransaction(userId, id);
+  public async deleteTransaction(id: string): Promise<boolean> {
+    const transaction = await this.getTransaction(id);
     if (!transaction) return false;
-
-    const uid = userId.toString();
     const existingAllocs = await this.allocationRepo.find({
-      where: { financeTransactionId: id, userId: uid },
+      where: { financeTransactionId: id },
     });
 
     if (existingAllocs.length > 0) {
       const debtIds = Array.from(new Set(existingAllocs.map((a) => a.debtId)));
       const debts = await this.debtRepo.find({
-        where: { id: In(debtIds), userId: uid },
+        where: { id: In(debtIds) },
       });
       const debtMap = new Map(debts.map((d) => [d.id, d]));
 
@@ -1026,8 +976,8 @@ export class FinanceService {
         await this.debtRepo.save(debts);
       }
 
-      await this.allocationRepo.delete({ financeTransactionId: id, userId: uid });
-      await this.debtPaymentRepo.delete({ financeTransactionId: id, userId: uid });
+      await this.allocationRepo.delete({ financeTransactionId: id });
+      await this.debtPaymentRepo.delete({ financeTransactionId: id });
     }
 
     await this.transactionRepo.remove(transaction);
@@ -1055,11 +1005,11 @@ export class FinanceService {
     let contact: DebtContactEntity | null = null;
     if (dto.contactId) {
       contact = await this.contactRepo.findOne({
-        where: { id: dto.contactId, userId: dto.userId.toString() },
+        where: { id: dto.contactId },
       });
       if (!contact) throw new Error('Không tìm thấy người liên quan đã chọn.');
     } else if (dto.createNewContact) {
-      contact = await this.createContact(dto.userId, dto.counterparty, dto.counterpartyAlias);
+      contact = await this.createContact(dto.counterparty, dto.counterpartyAlias);
     } else {
       throw new Error('Cần chọn người trong danh bạ hoặc xác nhận tạo người mới.');
     }
@@ -1070,7 +1020,6 @@ export class FinanceService {
 
     return this.debtRepo.save(
       this.debtRepo.create({
-        userId: dto.userId.toString(),
         direction: dto.direction,
         contactId: contact.id,
         counterparty: contact.displayName,
@@ -1086,16 +1035,11 @@ export class FinanceService {
     );
   }
 
-  public async resolveContacts(
-    userId: number | string,
-    name: string,
-    alias?: string,
-  ): Promise<DebtContactEntity[]> {
+  public async resolveContacts(name: string, alias?: string): Promise<DebtContactEntity[]> {
     const normalizedName = this.normalizeIdentity(name);
     const normalizedAlias = alias ? this.normalizeIdentity(alias) : undefined;
     if (!normalizedName) return [];
     const where: FindOptionsWhere<DebtContactEntity> = {
-      userId: userId.toString(),
       normalizedName,
     };
     if (normalizedAlias) {
@@ -1107,12 +1051,10 @@ export class FinanceService {
     });
   }
 
-  public async listContacts(
-    userId: number | string,
-  ): Promise<(DebtContactEntity & { debtCount?: number; transactionCount?: number })[]> {
-    const uid = userId.toString();
+  public async listContacts(): Promise<
+    (DebtContactEntity & { debtCount?: number; transactionCount?: number })[]
+  > {
     const contacts = await this.contactRepo.find({
-      where: { userId: uid },
       relations: { linkedUser: true },
       order: { displayName: 'ASC', createdAt: 'DESC' },
       take: 200,
@@ -1128,8 +1070,7 @@ export class FinanceService {
           .createQueryBuilder('d')
           .select('d.contact_id', 'contactId')
           .addSelect('COUNT(*)', 'count')
-          .where('d.user_id = :userId', { userId: uid })
-          .andWhere('d.contact_id IS NOT NULL')
+          .where('d.contact_id IS NOT NULL')
           .groupBy('d.contact_id')
           .getRawMany();
         for (const item of debtCounts) {
@@ -1147,8 +1088,7 @@ export class FinanceService {
             .createQueryBuilder('t')
             .select('t.contact_id', 'contactId')
             .addSelect('COUNT(*)', 'count')
-            .where('t.user_id = :userId', { userId: uid })
-            .andWhere('t.contact_id IS NOT NULL')
+            .where('t.contact_id IS NOT NULL')
             .groupBy('t.contact_id')
             .getRawMany();
         for (const item of txCounts) {
@@ -1167,22 +1107,21 @@ export class FinanceService {
     );
   }
 
-  public getContact(userId: number | string, id: string): Promise<DebtContactEntity | null> {
+  public getContact(id: string): Promise<DebtContactEntity | null> {
     return this.contactRepo.findOne({
-      where: { id, userId: userId.toString() },
+      where: { id },
       relations: { linkedUser: true },
     });
   }
 
-  public async deleteContact(userId: number | string, id: string): Promise<boolean> {
-    const contact = await this.getContact(userId, id);
+  public async deleteContact(id: string): Promise<boolean> {
+    const contact = await this.getContact(id);
     if (!contact) return false;
     await this.contactRepo.remove(contact);
     return true;
   }
 
   public async createContact(
-    userId: number | string,
     name: string,
     alias?: string,
     descriptor?: string,
@@ -1195,11 +1134,10 @@ export class FinanceService {
   ): Promise<DebtContactEntity> {
     const displayName = name?.trim();
     if (!displayName) throw new Error('Cần có tên người liên quan.');
-    const linkedUser = await this.resolveLinkedUser(userId, linkedUserId, []);
+    const linkedUser = await this.resolveLinkedUser(linkedUserId, []);
     const fill = linkedUser ? await this.backfillLinkedPhones(phoneNumber, linkedUser) : {};
     return this.contactRepo.save(
       this.contactRepo.create({
-        userId: userId.toString(),
         displayName,
         alias: alias?.trim() || undefined,
         descriptor: descriptor?.trim() || undefined,
@@ -1227,36 +1165,32 @@ export class FinanceService {
   }
 
   private async resolvePlaceId(
-    userId: number | string,
     placeId?: string | null,
     placeName?: string,
   ): Promise<string | undefined> {
     if (placeId === null) return undefined;
     if (placeId) {
-      const place = await this.getPlace(userId, placeId);
+      const place = await this.getPlace(placeId);
       if (!place) throw new Error('Không tìm thấy nơi chốn đã chọn.');
       return place.id;
     }
     if (placeName?.trim()) {
-      return (await this.resolveOrCreatePlace(userId, placeName))?.id;
+      return (await this.resolveOrCreatePlace(placeName))?.id;
     }
     return undefined;
   }
 
-  public async getActiveDebts(userId: number | string): Promise<DebtEntity[]> {
+  public async getActiveDebts(): Promise<DebtEntity[]> {
     return this.debtRepo.find({
-      where: { userId: userId.toString(), status: 'active', parentDebtId: IsNull() },
+      where: { status: 'active', parentDebtId: IsNull() },
       relations: { contact: true, payments: true },
       order: { occurredAt: 'DESC', createdAt: 'DESC', id: 'DESC' },
     });
   }
 
-  public async listDebts(
-    userId: number | string,
-    status?: 'active' | 'settled',
-  ): Promise<DebtEntity[]> {
+  public async listDebts(status?: 'active' | 'settled'): Promise<DebtEntity[]> {
     return this.debtRepo.find({
-      where: status ? { userId: userId.toString(), status } : { userId: userId.toString() },
+      where: status ? { status } : {},
       relations: {
         contact: true,
         payments: { financeTransaction: true },
@@ -1272,9 +1206,9 @@ export class FinanceService {
     });
   }
 
-  public getDebt(userId: number | string, id: string): Promise<DebtEntity | null> {
+  public getDebt(id: string): Promise<DebtEntity | null> {
     return this.debtRepo.findOne({
-      where: { id, userId: userId.toString() },
+      where: { id },
       relations: {
         contact: true,
         payments: { financeTransaction: true },
@@ -1285,12 +1219,8 @@ export class FinanceService {
     });
   }
 
-  public async updateDebt(
-    userId: number | string,
-    id: string,
-    input: UpdateDebtDto,
-  ): Promise<DebtEntity | null> {
-    const debt = await this.getDebt(userId, id);
+  public async updateDebt(id: string, input: UpdateDebtDto): Promise<DebtEntity | null> {
+    const debt = await this.getDebt(id);
     if (!debt) return null;
     if (input.direction) debt.direction = input.direction;
     if (input.counterparty !== undefined) {
@@ -1352,16 +1282,15 @@ export class FinanceService {
     return this.debtRepo.save(debt);
   }
 
-  public async listExpenses(userId: number | string): Promise<FinanceTransactionEntity[]> {
+  public async listExpenses(): Promise<FinanceTransactionEntity[]> {
     return this.transactionRepo.find({
-      where: { userId: userId.toString(), type: 'expense' },
+      where: { type: 'expense' },
       order: { occurredAt: 'DESC' },
       take: 200,
     });
   }
 
   public async updateContact(
-    userId: number | string,
     contactId: string,
     name: string,
     alias?: string,
@@ -1373,7 +1302,7 @@ export class FinanceService {
     avatarUrl?: string,
     linkedUserId?: string | null,
   ): Promise<DebtContactEntity> {
-    const contact = await this.getContact(userId, contactId);
+    const contact = await this.getContact(contactId);
     if (!contact) throw new Error('Không tìm thấy người trong danh bạ công nợ.');
     const displayName = name?.trim();
     if (!displayName) throw new Error('Tên không được để trống.');
@@ -1387,7 +1316,7 @@ export class FinanceService {
     if (bankName !== undefined) contact.bankName = bankName?.trim() || undefined;
     if (avatarUrl !== undefined) contact.avatarUrl = avatarUrl?.trim() || undefined;
     if (linkedUserId !== undefined) {
-      const linkedUser = await this.resolveLinkedUser(userId, linkedUserId, [contact.id]);
+      const linkedUser = await this.resolveLinkedUser(linkedUserId, [contact.id]);
       // getContact nạp sẵn relation linkedUser; phải gán cả relation lẫn cột, nếu không
       // TypeORM lấy khoá ngoại từ relation cũ và bỏ qua giá trị mới (lỗi không bỏ liên kết được).
       contact.linkedUserId = linkedUser?.id ?? null;
@@ -1421,28 +1350,20 @@ export class FinanceService {
   /**
    * Kiểm tra liên kết Người liên quan ↔ tài khoản User trước khi ghi.
    * Trả về `undefined` khi không đổi, `null` khi bỏ liên kết, hoặc user cần gắn.
-   * Quy tắc: user phải tồn tại, không phải chính chủ danh bạ, và trong một danh bạ
-   * mỗi user chỉ gắn với tối đa một Người liên quan (trùng thì dùng Gộp liên hệ).
+   * Quy tắc: user phải tồn tại, và trong danh bạ chung mỗi user chỉ gắn với tối đa
+   * một Người liên quan (trùng thì dùng Gộp liên hệ).
    */
   private async resolveLinkedUser(
-    ownerId: number | string,
     linkedUserId: string | null | undefined,
     excludeContactIds: string[],
   ): Promise<UserEntity | null | undefined> {
     if (linkedUserId === undefined) return undefined;
     const id = linkedUserId?.trim();
     if (!id) return null;
-    const owner = ownerId.toString();
-    if (id === owner) {
-      throw new BadRequestException(
-        'Không thể liên kết người liên quan với chính tài khoản của bạn.',
-      );
-    }
     const user = this.userRepo ? await this.userRepo.findOne({ where: { id } }) : null;
     if (!user) throw new BadRequestException('Tài khoản User cần liên kết không tồn tại.');
     const duplicate = await this.contactRepo.findOne({
       where: {
-        userId: owner,
         linkedUserId: id,
         ...(excludeContactIds.length > 0 ? { id: Not(In(excludeContactIds)) } : {}),
       },
@@ -1455,11 +1376,7 @@ export class FinanceService {
     return user;
   }
 
-  public async combineContacts(
-    userId: number | string,
-    input: CombineContactsDto,
-  ): Promise<CombineContactsResult> {
-    const uid = userId.toString();
+  public async combineContacts(input: CombineContactsDto): Promise<CombineContactsResult> {
     const allCandidateIds = Array.from(
       new Set(
         [
@@ -1475,7 +1392,7 @@ export class FinanceService {
     }
 
     const contacts = await this.contactRepo.find({
-      where: { id: In(allCandidateIds), userId: uid },
+      where: { id: In(allCandidateIds) },
       relations: { linkedUser: true },
     });
 
@@ -1492,10 +1409,10 @@ export class FinanceService {
       let debtCount = 0;
       let txCount = 0;
       if (typeof this.debtRepo.count === 'function') {
-        debtCount = await this.debtRepo.count({ where: { contactId: c.id, userId: uid } });
+        debtCount = await this.debtRepo.count({ where: { contactId: c.id } });
       }
       if (typeof this.transactionRepo.count === 'function') {
-        txCount = await this.transactionRepo.count({ where: { contactId: c.id, userId: uid } });
+        txCount = await this.transactionRepo.count({ where: { contactId: c.id } });
       }
       resourceCountMap.set(c.id, { debtCount, txCount, total: debtCount + txCount });
     }
@@ -1547,7 +1464,7 @@ export class FinanceService {
 
     // Preserve or inherit linked user
     if (input.linkedUserId !== undefined) {
-      const linkedUser = await this.resolveLinkedUser(uid, input.linkedUserId, allCandidateIds);
+      const linkedUser = await this.resolveLinkedUser(input.linkedUserId, allCandidateIds);
       targetContact.linkedUserId = linkedUser?.id ?? null;
       targetContact.linkedUser = linkedUser ?? null;
     } else if (!targetContact.linkedUserId) {
@@ -1590,7 +1507,7 @@ export class FinanceService {
     let affectedDebtsCount = 0;
     if (sourceIds.length > 0) {
       const debts = await this.debtRepo.find({
-        where: { contactId: In(sourceIds), userId: uid },
+        where: { contactId: In(sourceIds) },
       });
       if (debts.length > 0) {
         for (const debt of debts) {
@@ -1607,7 +1524,7 @@ export class FinanceService {
     let affectedTransactionsCount = 0;
     if (sourceIds.length > 0) {
       const transactions = await this.transactionRepo.find({
-        where: { contactId: In(sourceIds), userId: uid },
+        where: { contactId: In(sourceIds) },
       });
       if (transactions.length > 0) {
         for (const tx of transactions) {
@@ -1626,7 +1543,7 @@ export class FinanceService {
     // Consolidate debts if requested
     if (input.consolidateDebts) {
       const allContactDebts = await this.debtRepo.find({
-        where: { contactId: targetContact.id, userId: uid, parentDebtId: IsNull() },
+        where: { contactId: targetContact.id, parentDebtId: IsNull() },
       });
       for (const dir of ['receivable', 'payable'] as const) {
         const dirDebts = allContactDebts.filter((d) => d.direction === dir);
@@ -1639,7 +1556,7 @@ export class FinanceService {
         }
         for (const [curr, group] of byCurrency) {
           if (group.length >= 2) {
-            await this.combineDebts(userId, {
+            await this.combineDebts({
               debtIds: group.map((d) => d.id),
               contactId: targetContact.id,
               counterparty: targetContact.displayName,
@@ -1659,18 +1576,14 @@ export class FinanceService {
     };
   }
 
-  public async combineDebts(
-    userId: number | string,
-    input: CombineDebtsDto,
-  ): Promise<CombineDebtsResult> {
-    const uid = userId.toString();
+  public async combineDebts(input: CombineDebtsDto): Promise<CombineDebtsResult> {
     const uniqueIds = Array.from(new Set((input.debtIds || []).filter(Boolean)));
     if (uniqueIds.length < 2) {
       throw new Error('Cần chọn ít nhất 2 khoản nợ để gộp.');
     }
 
     const debts = await this.debtRepo.find({
-      where: { id: In(uniqueIds), userId: uid },
+      where: { id: In(uniqueIds) },
       relations: { contact: true, payments: true, children: true },
     });
 
@@ -1719,7 +1632,6 @@ export class FinanceService {
 
     return this.debtRepo.manager.transaction(async (manager) => {
       const parentDebt = manager.create(DebtEntity, {
-        userId: uid,
         contactId,
         direction,
         counterparty,
@@ -1764,7 +1676,6 @@ export class FinanceService {
   }
 
   public async recordDebtPayment(
-    userId: number | string,
     debtId: string,
     amount: number,
     paymentDate?: string,
@@ -1781,7 +1692,7 @@ export class FinanceService {
       const debtPaymentRepo = manager.getRepository(DebtPaymentEntity);
       const transactionRepo = manager.getRepository(FinanceTransactionEntity);
       const debt = await debtRepo.findOne({
-        where: { id: debtId, userId: userId.toString(), status: 'active' },
+        where: { id: debtId, status: 'active' },
       });
       if (!debt) throw new Error('Không tìm thấy khoản nợ đang mở.');
       if (payment > debt.remainingAmount) throw new Error('Số tiền trả lớn hơn số nợ còn lại.');
@@ -1797,7 +1708,6 @@ export class FinanceService {
 
       const cashflow = await transactionRepo.save(
         transactionRepo.create({
-          userId: userId.toString(),
           type: isRecovery ? 'income' : 'expense',
           amount: payment,
           currency: debt.currency,
@@ -1812,7 +1722,6 @@ export class FinanceService {
       const paymentRecord = await debtPaymentRepo.save(
         debtPaymentRepo.create({
           debtId: debt.id,
-          userId: userId.toString(),
           financeTransactionId: cashflow.id,
           amount: payment,
           paymentDate: pDate,
@@ -1824,35 +1733,27 @@ export class FinanceService {
     });
   }
 
-  public async getDebtPayments(
-    userId: number | string,
-    debtId: string,
-  ): Promise<DebtPaymentEntity[]> {
+  public async getDebtPayments(debtId: string): Promise<DebtPaymentEntity[]> {
     return this.debtPaymentRepo.find({
-      where: { debtId, userId: userId.toString() },
+      where: { debtId },
       relations: { financeTransaction: true },
       order: { paymentDate: 'DESC', createdAt: 'DESC' },
     });
   }
 
-  public async deleteDebtPayment(
-    userId: number | string,
-    debtId: string,
-    paymentId: string,
-  ): Promise<boolean> {
-    const uid = userId.toString();
+  public async deleteDebtPayment(debtId: string, paymentId: string): Promise<boolean> {
     return this.debtRepo.manager.transaction(async (manager) => {
       const debtRepo = manager.getRepository(DebtEntity);
       const debtPaymentRepo = manager.getRepository(DebtPaymentEntity);
       const transactionRepo = manager.getRepository(FinanceTransactionEntity);
 
       const payment = await debtPaymentRepo.findOne({
-        where: { id: paymentId, debtId, userId: uid },
+        where: { id: paymentId, debtId },
       });
       if (!payment) return false;
 
       const debt = await debtRepo.findOne({
-        where: { id: debtId, userId: uid },
+        where: { id: debtId },
       });
       if (debt) {
         debt.remainingAmount = Math.min(debt.originalAmount, debt.remainingAmount + payment.amount);
@@ -1864,7 +1765,7 @@ export class FinanceService {
 
         if (debt.parentDebtId) {
           const parent = await debtRepo.findOne({
-            where: { id: debt.parentDebtId, userId: uid },
+            where: { id: debt.parentDebtId },
             relations: { children: true },
           });
           if (parent && parent.children) {
@@ -1883,7 +1784,7 @@ export class FinanceService {
 
       if (payment.financeTransactionId) {
         const tx = await transactionRepo.findOne({
-          where: { id: payment.financeTransactionId, userId: uid },
+          where: { id: payment.financeTransactionId },
         });
         if (tx) {
           await transactionRepo.remove(tx);
@@ -1895,13 +1796,9 @@ export class FinanceService {
     });
   }
 
-  public async listCandidateDebts(
-    userId: number | string,
-    transactionId: string,
-  ): Promise<ICandidateDebtItem[]> {
-    const uid = userId.toString();
+  public async listCandidateDebts(transactionId: string): Promise<ICandidateDebtItem[]> {
     const transaction = await this.transactionRepo.findOne({
-      where: { id: transactionId, userId: uid },
+      where: { id: transactionId },
       relations: { contact: true },
     });
     if (!transaction) {
@@ -1911,7 +1808,7 @@ export class FinanceService {
     const targetDirection = transaction.type === 'income' ? 'receivable' : 'payable';
 
     const existingAllocations = await this.allocationRepo.find({
-      where: { financeTransactionId: transactionId, userId: uid },
+      where: { financeTransactionId: transactionId },
     });
     const allocatedMap = new Map<string, number>();
     for (const alloc of existingAllocations) {
@@ -1919,7 +1816,6 @@ export class FinanceService {
     }
 
     const where: FindOptionsWhere<DebtEntity> = {
-      userId: uid,
       direction: targetDirection,
     };
     if (transaction.contactId) {
@@ -1960,20 +1856,15 @@ export class FinanceService {
     return candidates;
   }
 
-  public async getTransactionAllocations(
-    userId: number | string,
-    transactionId: string,
-  ): Promise<IDebtAllocationItem[]> {
-    const uid = userId.toString();
+  public async getTransactionAllocations(transactionId: string): Promise<IDebtAllocationItem[]> {
     const allocations = await this.allocationRepo.find({
-      where: { financeTransactionId: transactionId, userId: uid },
+      where: { financeTransactionId: transactionId },
       relations: { debt: { contact: true } },
       order: { createdAt: 'ASC' },
     });
 
     return allocations.map((alloc) => ({
       id: alloc.id,
-      userId: alloc.userId,
       financeTransactionId: alloc.financeTransactionId,
       debtId: alloc.debtId,
       amount: alloc.amount,
@@ -1993,11 +1884,9 @@ export class FinanceService {
   }
 
   public async allocateTransactionToDebts(
-    userId: number | string,
     transactionId: string,
     allocations: Array<{ debtId: string; amount: number; note?: string }>,
   ): Promise<{ allocations: IDebtAllocationItem[]; remainingUnallocated: number }> {
-    const uid = userId.toString();
     return this.transactionRepo.manager.transaction(async (manager) => {
       const txRepo = manager.getRepository(FinanceTransactionEntity);
       const debtRepo = manager.getRepository(DebtEntity);
@@ -2005,7 +1894,7 @@ export class FinanceService {
       const debtPaymentRepo = manager.getRepository(DebtPaymentEntity);
 
       const tx = await txRepo.findOne({
-        where: { id: transactionId, userId: uid },
+        where: { id: transactionId },
       });
       if (!tx) {
         throw new Error('Không tìm thấy giao dịch thu/chi.');
@@ -2035,7 +1924,7 @@ export class FinanceService {
       }
 
       const existingAllocs = await allocRepo.find({
-        where: { financeTransactionId: transactionId, userId: uid },
+        where: { financeTransactionId: transactionId },
       });
 
       const allDebtIds = Array.from(
@@ -2045,7 +1934,7 @@ export class FinanceService {
       const debts =
         allDebtIds.length > 0
           ? await debtRepo.find({
-              where: { id: In(allDebtIds), userId: uid },
+              where: { id: In(allDebtIds) },
               relations: { contact: true },
             })
           : [];
@@ -2060,8 +1949,8 @@ export class FinanceService {
       }
 
       // 2. Clear previous allocations and linked payments
-      await allocRepo.delete({ financeTransactionId: transactionId, userId: uid });
-      await debtPaymentRepo.delete({ financeTransactionId: transactionId, userId: uid });
+      await allocRepo.delete({ financeTransactionId: transactionId });
+      await debtPaymentRepo.delete({ financeTransactionId: transactionId });
 
       // 3. Apply new allocations
       const expectedDirection = tx.type === 'income' ? 'receivable' : 'payable';
@@ -2094,7 +1983,6 @@ export class FinanceService {
 
         const allocEntity = await allocRepo.save(
           allocRepo.create({
-            userId: uid,
             financeTransactionId: tx.id,
             debtId: debt.id,
             amount: item.amount,
@@ -2108,7 +1996,6 @@ export class FinanceService {
         await debtPaymentRepo.save(
           debtPaymentRepo.create({
             debtId: debt.id,
-            userId: uid,
             financeTransactionId: tx.id,
             amount: item.amount,
             paymentDate: tx.occurredAt || new Date(),
@@ -2131,7 +2018,6 @@ export class FinanceService {
       return {
         allocations: savedAllocations.map((alloc) => ({
           id: alloc.id,
-          userId: alloc.userId,
           financeTransactionId: alloc.financeTransactionId,
           debtId: alloc.debtId,
           amount: alloc.amount,
@@ -2153,24 +2039,19 @@ export class FinanceService {
     });
   }
 
-  public async deleteDebtAllocation(
-    userId: number | string,
-    transactionId: string,
-    allocationId: string,
-  ): Promise<boolean> {
-    const uid = userId.toString();
+  public async deleteDebtAllocation(transactionId: string, allocationId: string): Promise<boolean> {
     return this.transactionRepo.manager.transaction(async (manager) => {
       const allocRepo = manager.getRepository(DebtPaymentAllocationEntity);
       const debtRepo = manager.getRepository(DebtEntity);
       const debtPaymentRepo = manager.getRepository(DebtPaymentEntity);
 
       const alloc = await allocRepo.findOne({
-        where: { id: allocationId, financeTransactionId: transactionId, userId: uid },
+        where: { id: allocationId, financeTransactionId: transactionId },
       });
       if (!alloc) return false;
 
       const debt = await debtRepo.findOne({
-        where: { id: alloc.debtId, userId: uid },
+        where: { id: alloc.debtId },
       });
       if (debt) {
         debt.remainingAmount += alloc.amount;
@@ -2184,7 +2065,6 @@ export class FinanceService {
       await debtPaymentRepo.delete({
         financeTransactionId: transactionId,
         debtId: alloc.debtId,
-        userId: uid,
         amount: alloc.amount,
       });
 
@@ -2193,26 +2073,22 @@ export class FinanceService {
     });
   }
 
-  public async deleteDebt(userId: number | string, debtId: string): Promise<boolean> {
+  public async deleteDebt(debtId: string): Promise<boolean> {
     const debt = await this.debtRepo.findOne({
-      where: { id: debtId, userId: userId.toString() },
+      where: { id: debtId },
     });
     if (!debt) return false;
     await this.debtRepo.remove(debt);
     return true;
   }
 
-  public async listCategories(
-    userId: number | string,
-    type?: 'income' | 'expense',
-  ): Promise<UserCategoryEntity[]> {
-    const uid = userId.toString();
-    const count = await this.userCategoryRepo.count({ where: { userId: uid } });
+  public async listCategories(type?: 'income' | 'expense'): Promise<UserCategoryEntity[]> {
+    const count = await this.userCategoryRepo.count();
     if (count === 0) {
-      await this.seedDefaultCategories(userId);
+      await this.seedDefaultCategories();
     }
 
-    const where: { userId: string; type?: 'income' | 'expense' } = { userId: uid };
+    const where: { type?: 'income' | 'expense' } = {};
     if (type) {
       where.type = type;
     }
@@ -2222,14 +2098,12 @@ export class FinanceService {
     });
   }
 
-  public async seedDefaultCategories(userId: number | string): Promise<void> {
-    const uid = userId.toString();
+  public async seedDefaultCategories(): Promise<void> {
     const entities: UserCategoryEntity[] = [];
 
     for (const name of DEFAULT_EXPENSE_CATEGORIES) {
       entities.push(
         this.userCategoryRepo.create({
-          userId: uid,
           type: 'expense',
           name,
           isDefault: true,
@@ -2240,7 +2114,6 @@ export class FinanceService {
     for (const name of DEFAULT_INCOME_CATEGORIES) {
       entities.push(
         this.userCategoryRepo.create({
-          userId: uid,
           type: 'income',
           name,
           isDefault: true,
@@ -2251,25 +2124,20 @@ export class FinanceService {
     await this.userCategoryRepo.save(entities);
   }
 
-  public async createCategory(
-    userId: number | string,
-    input: ICreateCategoryRequest,
-  ): Promise<UserCategoryEntity> {
-    const uid = userId.toString();
+  public async createCategory(input: ICreateCategoryRequest): Promise<UserCategoryEntity> {
     const name = input.name?.trim();
     if (!name) {
       throw new Error('Tên danh mục không được để trống.');
     }
 
     const existing = await this.userCategoryRepo.findOne({
-      where: { userId: uid, type: input.type, name },
+      where: { type: input.type, name },
     });
     if (existing) {
       throw new Error('Danh mục này đã tồn tại.');
     }
 
     const category = this.userCategoryRepo.create({
-      userId: uid,
       type: input.type,
       name,
       color: input.color?.trim() || undefined,
@@ -2280,13 +2148,11 @@ export class FinanceService {
   }
 
   public async updateCategory(
-    userId: number | string,
     id: string,
     input: IUpdateCategoryRequest,
   ): Promise<UserCategoryEntity | null> {
-    const uid = userId.toString();
     const category = await this.userCategoryRepo.findOne({
-      where: { id, userId: uid },
+      where: { id },
     });
     if (!category) return null;
 
@@ -2296,7 +2162,7 @@ export class FinanceService {
         throw new Error('Tên danh mục không được để trống.');
       }
       const existing = await this.userCategoryRepo.findOne({
-        where: { userId: uid, type: category.type, name },
+        where: { type: category.type, name },
       });
       if (existing && existing.id !== id) {
         throw new Error('Tên danh mục này đã tồn tại.');
@@ -2315,10 +2181,9 @@ export class FinanceService {
     return this.userCategoryRepo.save(category);
   }
 
-  public async deleteCategory(userId: number | string, id: string): Promise<boolean> {
-    const uid = userId.toString();
+  public async deleteCategory(id: string): Promise<boolean> {
     const category = await this.userCategoryRepo.findOne({
-      where: { id, userId: uid },
+      where: { id },
     });
     if (!category) return false;
     await this.userCategoryRepo.remove(category);

@@ -8,10 +8,9 @@ metadata:
       - apps/api/src/finance/finance.service.ts
       - apps/api/src/finance/transaction-item.mapper.ts
       - apps/api/src/finance/finance.controller.ts
-      - apps/api/src/finance/ledger.service.ts
-      - apps/api/src/finance/finance-data-mover.ts
       - apps/api/src/finance/receipt-source.ts
       - apps/api/src/database/migrations/1724780000000-AddSharedLedgerAndTransactionCreator.ts
+      - apps/api/src/database/migrations/1724790000000-RemoveFinanceUserScope.ts
 ---
 
 # Nghiệp vụ tài chính (Backend)
@@ -20,23 +19,31 @@ Tài liệu này ánh xạ với tri thức canonical [`finance-domain.md`](../.
 
 ## 1. Phạm vi và lý do tồn tại
 
-`apps/api/src/finance` là phần lõi nghiệp vụ Thu–chi và Công nợ của bot. Mọi dữ liệu luôn gắn với đúng một người dùng (lấy từ access token dashboard hoặc người gửi tin Zalo), nên không có API nào cho phép đọc hay sửa dữ liệu của người khác. Đây là module backend thuần, không có module `finance` bên web.
+`apps/api/src/finance` là phần lõi nghiệp vụ Thu–chi và Công nợ của bot. Toàn hệ thống chỉ có **một kho tài chính chung**: ai đăng nhập dashboard hay nhắn bot (đã được cấp quyền) cũng xem và thao tác trên toàn bộ dữ liệu. Đây là module backend thuần, không có module `finance` bên web.
 
-## 1a. Sổ chung (một chủ sổ cho cả hệ thống)
+## 1a. Một kho tài chính chung (không chia theo người dùng)
 
-**Vì sao?** Gia đình/nhóm dùng chung một quỹ chi tiêu. Trước đây mỗi người nhắn bot thì giao dịch vào sổ riêng của người đó, nên khoản Diệu Hằng ghi không hiện trên dashboard của Văn Đạt. Sổ chung gom mọi thứ về một nơi.
+**Vì sao?** Gia đình/nhóm dùng chung một quỹ chi tiêu. Trước đây mỗi bảng tài chính có cột `user_id` và mọi truy vấn lọc theo người đang thao tác, nên khoản Diệu Hằng ghi không hiện trên dashboard của Văn Đạt; thêm vào đó một người có nhiều ID Zalo (ID webhook dạng hex, UID ZCA dạng số) khiến dữ liệu bị xé ra nhiều "sổ". Phương án "chủ sổ" từng được thử nhưng vẫn để lọt trường hợp chưa chọn chủ sổ, nên đã **bỏ hẳn**.
 
-- Admin chọn **chủ sổ** ở trang "Zalo & Users" (cột `users.is_ledger_owner`, tối đa một người). Khi đã có chủ sổ, **mọi** dữ liệu tài chính (thu chi, nơi chốn, danh bạ công nợ, công nợ, thanh toán, phân bổ, danh mục) của bất kỳ ai nhắn bot hay thao tác trên dashboard đều ghi/đọc vào sổ của chủ sổ. Ai có quyền dùng bot vào dashboard cũng thấy cùng một sổ.
-- Chưa chọn chủ sổ thì hệ thống chạy như cũ (mỗi người một sổ).
-- **Không dùng chung**: nhắc nhở, Google Tasks/Calendar, upload Drive/Photos (vẫn dùng token Google của người gửi), quyền admin. Người được duyệt thẻ xác nhận (`yes <code>`, ❤️) vẫn theo quy tắc cũ.
-- Thẻ xác nhận tạo trước khi đặt chủ sổ vẫn vào sổ chung, vì lúc xác nhận hệ thống xác định lại sổ đích.
-- **Gộp dữ liệu cũ** (nút "Gộp dữ liệu cũ vào sổ chung"): xem trước số lượng theo từng sổ (kể cả ID không còn tài khoản), rồi chuyển toàn bộ vào sổ chủ trong **một transaction DB**. Trùng nơi chốn/người liên quan/danh mục thì gộp lại. **Người tạo** của từng giao dịch được ghi lại trước khi chuyển. Không xoá tài khoản nào, có ghi nhật ký kiểm toán. **Không hoàn tác được** — sao lưu DB trước (`pg_dump`).
-- Code: `LedgerService` (xác định sổ, đặt chủ sổ, xem trước, gộp), `finance-data-mover.ts` (logic chuyển dữ liệu, dùng chung với Gộp tài khoản trùng).
+- Các bảng `finance_transactions`, `finance_places`, `debt_contacts`, `debts`, `debt_payments`, `debt_payment_allocations`, `user_categories` **không còn cột `user_id`**. `FinanceService` không nhận tham số người dùng và không lọc theo người dùng. Không còn cột `users.is_ledger_owner`, không còn khối "Sổ thu chi chung" trên trang "Zalo & Users".
+- **Người tạo** giao dịch chỉ để hiển thị (ai ghi, ghi từ đâu), không bao giờ dùng để lọc.
+- **Vẫn theo từng người** (không phải dữ liệu tài chính): nhắc nhở, Google Tasks/Calendar, upload Drive/Photos (dùng token Google của người gửi), thẻ xác nhận chờ duyệt, quyền admin.
+- API tài chính trên dashboard vẫn **bắt buộc đăng nhập** (thiếu token → 401); đăng nhập chỉ để xác thực, không để giới hạn dữ liệu.
+- Nhật ký kiểm toán: `actor_id` của dòng tài chính lấy theo người tạo, nên mục "Hoạt động gần đây" vẫn thấy giao dịch mình ghi.
+
+### Migration gộp dữ liệu cũ (`1724790000000-RemoveFinanceUserScope`)
+Chạy tự động một lần khi API khởi động, trong **một transaction DB**:
+1. Điền **người tạo** cho giao dịch cũ bằng `user_id` cũ của chính nó.
+2. Gộp bản ghi trùng giữa các sổ cũ: nơi chốn trùng tên chuẩn hoá; người liên quan trùng tên + biệt danh (bản giữ lại là bản tạo sớm nhất, được bù số điện thoại/avatar/liên kết tài khoản còn thiếu, không ghi đè); danh mục trùng loại + tên. Giao dịch và công nợ được trỏ về bản giữ lại.
+3. Mỗi tài khoản chỉ còn liên kết với tối đa một người liên quan (giữ liên kết sớm nhất).
+4. Ghi một dòng nhật ký kiểm toán chứa số lượng của từng sổ cũ, rồi xoá cột `user_id` và `users.is_ledger_owner`; tên nơi chốn trở thành duy nhất toàn hệ thống.
+
+**Không hoàn tác được**: `down()` chỉ thêm lại cột rỗng. Trước khi deploy phải sao lưu DB (`pg_dump`); muốn quay lại thì khôi phục bản sao lưu và deploy commit cũ.
 
 ## 1b. Người tạo và ảnh hoá đơn
 
-- Mỗi giao dịch lưu **người tạo** (`created_by_user_id`, tên lúc tạo `created_by_name`), **nguồn** (`zalo` / `dashboard`) và **kênh Zalo** (`source_chat_id`). Trên dashboard hiện tên hiện tại của người tạo và "Nhóm <tên>" / "Chat riêng" / "Dashboard". Giao dịch cũ chưa có thông tin hiện "—" (sau khi gộp sổ thì có người tạo).
-- **Ảnh hoá đơn** xem qua `GET /api/transactions/:id/receipt`: API tự tải ảnh từ Drive bằng token Google của người tạo, hoặc từ CDN Zalo, rồi trả về trình duyệt. Link Drive gốc là riêng tư nên web không dùng trực tiếp. Chỉ chấp nhận host Drive và CDN Zalo (chống SSRF), tối đa 10MB, chỉ trả về nội dung ảnh. Lỗi (token Google hết hạn, file bị xoá) → web hiện "Không tải được ảnh".
+- Mỗi giao dịch lưu **người tạo** (`created_by_user_id`, tên lúc tạo `created_by_name`), **nguồn** (`zalo` / `dashboard`) và **kênh Zalo** (`source_chat_id`). Trên dashboard hiện tên hiện tại của người tạo và "Nhóm <tên>" / "Chat riêng" / "Dashboard". Giao dịch cũ được migration điền người tạo từ `user_id` cũ; nếu không tra được tên thì hiện "—".
+- **Ảnh hoá đơn** xem qua `GET /api/transactions/:id/receipt` (mọi người dùng đã đăng nhập đều xem được): API tự tải ảnh từ Drive bằng token Google của người tạo, hoặc từ CDN Zalo, rồi trả về trình duyệt. Link Drive gốc là riêng tư nên web không dùng trực tiếp. Chỉ chấp nhận host Drive và CDN Zalo (chống SSRF), tối đa 10MB, chỉ trả về nội dung ảnh. Lỗi (token Google hết hạn, file bị xoá) → web hiện "Không tải được ảnh".
 - Lệnh xoá "giao dịch vừa tạo" qua chat ưu tiên giao dịch của chính người nhắn, không xoá nhầm của thành viên khác.
 
 ## 2. Các khái niệm chính
@@ -53,7 +60,7 @@ Tài liệu này ánh xạ với tri thức canonical [`finance-domain.md`](../.
 
 ### 3.1 Giao dịch
 - **Danh sách** `GET /api/transactions`: lọc theo kỳ (`startAt`/`endAt`), loại, từ khoá (danh mục, ghi chú, tên nơi chốn), phân trang `limit` (mặc định 100, tối đa 500) + `offset`; tham số sai trả 400. Mỗi dòng có `runningBalance` = số dư ví ngay sau giao dịch đó, tính trên **toàn bộ** sổ theo thứ tự thời gian, nên không đổi dù đang lọc hay đang ở trang nào. Kèm `summary` (tổng thu/chi của cả kỳ, không phụ thuộc loại/từ khoá) và `ledgerBalance` (tổng thu − tổng chi toàn thời gian — con số dùng để cân chỉnh số dư).
-- Khi tạo/sửa, có thể truyền `placeId` (phải là nơi chốn của chính mình) hoặc `placeName` (tự tìm hoặc tạo mới). Truyền `placeId: null` để gỡ nơi chốn.
+- Khi tạo/sửa, có thể truyền `placeId` (phải là nơi chốn đang tồn tại) hoặc `placeName` (tự tìm hoặc tạo mới). Truyền `placeId: null` để gỡ nơi chốn.
 - Không được đổi loại thu/chi khi giao dịch đang có phân bổ công nợ; không được giảm số tiền xuống dưới tổng đã phân bổ.
 - **Xoá giao dịch**: nếu có phân bổ, hệ thống cộng trả lại số còn lại cho từng khoản nợ, xoá phân bổ và các bản ghi thanh toán liên kết rồi mới xoá giao dịch. Lưu ý: luồng này không chạy trong một transaction DB và không tính lại trạng thái `settled` của khoản nợ.
 
@@ -74,8 +81,8 @@ Tài liệu này ánh xạ với tri thức canonical [`finance-domain.md`](../.
 - Web gọi qua hằng route động `API_ROUTES.debtPayments(debtId)` và `API_ROUTES.debtPaymentDetail(debtId, paymentId)`.
 
 ### 3.5 Danh mục
-- Lần đầu gọi `GET /api/categories`, nếu người dùng chưa có danh mục nào, hệ thống tự gieo bộ mặc định từ `@zalobot/contracts`.
-- Tên danh mục là duy nhất theo người dùng + loại. Giao dịch lưu danh mục dạng chữ, không phải khoá ngoại, nên đổi tên danh mục không tự đổi giao dịch cũ.
+- Danh mục dùng chung cho cả hệ thống. Lần đầu gọi `GET /api/categories` mà chưa có danh mục nào, hệ thống tự gieo bộ mặc định từ `@zalobot/contracts`.
+- Tên danh mục là duy nhất theo loại. Giao dịch lưu danh mục dạng chữ, không phải khoá ngoại, nên đổi tên danh mục không tự đổi giao dịch cũ.
 
 ### 3.6 Điều chỉnh số dư
 Không có API riêng. Danh mục `Điều chỉnh số dư` có sẵn ở cả hai loại. Web tạo một giao dịch thường: chênh lệch dương là khoản thu, âm là khoản chi. Cách này giữ được lịch sử dòng tiền thay vì sửa trực tiếp con số.

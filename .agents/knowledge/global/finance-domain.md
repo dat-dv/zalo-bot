@@ -18,10 +18,10 @@ metadata:
       - apps/api/src/zalo/text/strategies/record-transaction-tool.strategy.ts
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
       - packages/contracts/src/index.ts
-      - apps/api/src/finance/ledger.service.ts
-      - apps/api/src/finance/finance-data-mover.ts
       - apps/api/src/finance/receipt-source.ts
       - apps/api/src/database/migrations/1724780000000-AddSharedLedgerAndTransactionCreator.ts
+      - apps/api/src/database/migrations/1724790000000-RemoveFinanceUserScope.ts
+      - apps/api/src/database/audit-log.subscriber.ts
 ---
 
 # Finance Domain (Backend)
@@ -32,48 +32,47 @@ Human guide: [Finance Domain](../../docs/global/finance-domain.md).
 
 ## Purpose
 
-`apps/api/src/finance` (`FinanceService`, `FinanceController`) owns caller-scoped income/expense transactions, places, debt contacts, debts, debt payments, transaction-to-debt allocations, and user categories. It is backend-only; there is no `apps/web/src/modules/finance`. Web UX lives in the dashboard module docs.
+`apps/api/src/finance` (`FinanceService`, `FinanceController`) owns the single, system-wide store of income/expense transactions, places, debt contacts, debts, debt payments, transaction-to-debt allocations, and user categories. It is backend-only; there is no `apps/web/src/modules/finance`. Web UX lives in the dashboard module docs.
 
-## Shared ledger (single ledger owner)
+## Single shared finance store
 
-- `users.is_ledger_owner` (unique partial index: at most one owner). `LedgerService.resolveLedgerUserId(actorId)` returns the owner id when set, else `actorId` (per-user ledgers, backward compatible). Owner id cached in memory; `setOwner` refreshes it.
-- With an owner, ALL finance data (transactions, places, contacts, debts, payments, allocations, categories) is read and written under the owner's `user_id`:
-  - Dashboard: `FinanceController.ledgerUserId(req)` for every finance route; `ReportsController` dashboard finance block, `/contacts`, `/debts`, `/expenses`.
-  - Zalo chat: 8 strategies (record, manage-debt, create-place, delete, today, get-report, finance-quick, debts-quick) resolve the ledger from `senderId`; `TransactionConfirmationService` re-resolves `payload.userId` / `pending.userId` at commit, so cards queued before an owner was set still land in the shared ledger. Who may confirm a card is unchanged (`pending.userId` = sender).
-  - Not shared: reminders, Google Tasks/Calendar, Drive/Photos uploads (sender's Google token), admin role.
-- Any user allowed to use the bot sees the same shared ledger on the dashboard.
-- Admin API: `GET /finance/ledger` → `ILedgerInfo` (owner + every other `user_id` found in finance tables, incl. ids without a users row, with counts); `PATCH /finance/ledger/owner` `{ userId | null }`; `POST /finance/ledger/consolidate` → `ILedgerConsolidateResult`.
-- Consolidation (one DB transaction, audit-logged, no user deleted): backfill `created_by_user_id = user_id` where null, then `moveFinanceData(manager, source, owner)` for every other ledger. `moveFinanceData` (`finance-data-mover.ts`) de-duplicates places (normalized name), contacts (name + alias) and categories (type + name), then repoints transactions, debts, payments, allocations. `UserMergeService` reuses it (plus `linkedUserId` / `createdByUserId` remap, since an identity merge is the same person).
+- **Rule**: the system has exactly ONE finance store. Every user (any dashboard login, any Zalo ID messaging the bot) reads and writes ALL finance data. There is no per-user ledger and no "ledger owner".
+- Finance tables have **no `user_id`**: `finance_transactions`, `finance_places`, `debt_contacts`, `debts`, `debt_payments`, `debt_payment_allocations`, `user_categories`. `FinanceService` methods take no user argument and never filter by user. `users.is_ledger_owner`, `LedgerService`, `finance-data-mover.ts` and the `/finance/ledger*` admin API were removed.
+- Who did it is display-only: `finance_transactions.created_by_user_id` / `created_by_name` / `source` / `source_chat_id` (see below). Never used as a filter.
+- Still per user (not finance): reminders, Google Tasks/Calendar, Drive/Photos uploads (sender's Google token), pending confirmation cards (`pending.userId` = sender), admin role, audit `actor_id`.
+- Dashboard finance routes still require a signed-in user (`FinanceController.authenticate(req)` → Bearer token, 401 otherwise); authentication only, not scoping.
+- Audit: `AuditLogSubscriber` sets `actor_id` = row `userId`, else `createdByUserId` (finance rows have no owner), so dashboard activity still shows the transactions a user created.
+- Migration `1724790000000-RemoveFinanceUserScope` (plain SQL, one transaction, idempotent guard on `finance_transactions.user_id`): backfill `created_by_user_id = user_id` where null; fold duplicates across old ledgers — places by `normalized_name` (repoint `finance_transactions.place_id`), contacts by `normalized_name + COALESCE(normalized_alias,'')` (keeper = earliest, inherits missing phone/avatar/linked user; repoint `debts.contact_id`, `finance_transactions.contact_id`), categories by `type + lower(trim(name))`; keep only the earliest contact link per `linked_user_id`; write one `audit_logs` row (`operation: remove-finance-user-scope`, per-ledger counts before); drop `user_id` (+ indexes) on the 7 tables, add unique `UQ_finance_places_normalized_name`; drop `users.is_ledger_owner`. `down()` restores empty columns only — the old split needs the pre-migration backup.
 
 ## Transaction creator and receipt
 
-- `finance_transactions` columns: `created_by_user_id`, `created_by_name` (display-name snapshot), `source` (`zalo` | `dashboard`), `source_chat_id` (Zalo thread). Chat writes sender id/name + chat id; dashboard writes the signed-in user + `source = 'dashboard'`. Older rows are null (shown as "—"), except after consolidation (`created_by_user_id` backfilled).
+- `finance_transactions` columns: `created_by_user_id`, `created_by_name` (display-name snapshot), `source` (`zalo` | `dashboard`), `source_chat_id` (Zalo thread). Chat writes sender id/name + chat id; dashboard writes the signed-in user + `source = 'dashboard'`. Rows older than creator tracking got `created_by_user_id` backfilled from their former `user_id` by the migration; `created_by_name` may be null (UI falls back to the user's current name or "—").
 - DTO (`toTransactionItems`): `createdByName` = current `users.firstName` of the creator (batched lookup), fallback snapshot; `sourceChatName`/`sourceChatType` from `zca_thread_configs` (batched); `hasReceipt` — the raw `receiptUrl` is never sent to the web.
-- `GET /transactions/:id/receipt` streams the image: auth via Bearer or the dashboard refresh cookie (`getDashboardUserIdFromBrowser`, so `<img src>` works); row must belong to the caller's ledger (else 404). `parseReceiptSource`: Drive link → `GoogleDriveService.downloadFile(fileId, createdByUserId || userId)`; Zalo CDN (`https`, host ending `.zadn.vn`, `.zdn.vn`, `.zalo.me`, `.zaloapp.com`) → server fetch (10 s timeout); any other host → 404 (no open proxy/SSRF). Max 10 MB, only `image/*` relayed, `Cache-Control: private, max-age=3600`.
-- `getLatestTransaction(ledger, senderId)` prefers the sender's own latest row so "xoá giao dịch vừa tạo" never picks another member's row.
+- `GET /transactions/:id/receipt` streams the image: auth via Bearer or the dashboard refresh cookie (`getDashboardUserIdFromBrowser`, so `<img src>` works); any signed-in user may view it (404 when the row or receipt is missing). `parseReceiptSource`: Drive link → `GoogleDriveService.downloadFile(fileId, createdByUserId)` (404 when no creator: only the creator's Google token can read their Drive); Zalo CDN (`https`, host ending `.zadn.vn`, `.zdn.vn`, `.zalo.me`, `.zaloapp.com`) → server fetch (10 s timeout); any other host → 404 (no open proxy/SSRF). Max 10 MB, only `image/*` relayed, `Cache-Control: private, max-age=3600`.
+- `getLatestTransaction(senderId)` prefers the sender's own latest row (by `created_by_user_id`) so "xoá giao dịch vừa tạo" never picks another member's row; falls back to the newest row overall.
 
 ## Data model
 
 | Table | Notes |
 | --- | --- |
 | `finance_transactions` | `type` income/expense, positive integer `amount` (VND), `currency` default `VND`, `category` default `Khác`, required `note`, `occurredAt` default now, optional `paymentMethod`, `receiptUrl`, `contact_id`, `place_id`. |
-| `finance_places` | Merchant/venue. Unique `(user_id, normalized_name)` (`UQ_finance_places_user_normalized_name`). Distinct from debt contacts. |
-| `debt_contacts` | People/counterparties. Lookup by normalized name (+ optional normalized alias), exact match. |
+| `finance_places` | Merchant/venue. Unique `normalized_name` (`UQ_finance_places_normalized_name`). Distinct from debt contacts. |
+| `debt_contacts` | People/counterparties, one shared directory. Lookup by normalized name (+ optional normalized alias), exact match. |
 | `debts` | `direction` receivable/payable, `originalAmount`, `remainingAmount`, `status` active/settled, `settledAt`, optional `parent_debt_id` (self-reference). |
 | `debt_payments` | Repayments; optional `finance_transaction_id`. |
 | `debt_payment_allocations` | Links a transaction amount to a debt. |
-| `user_categories` | Per-user income/expense category list. |
+| `user_categories` | Shared income/expense category list (table name kept). Seeded with defaults when empty. |
 
 Foreign keys: `finance_transactions.place_id` and `.contact_id` -> `ON DELETE SET NULL` (deleting a place/contact never deletes history); `debts.contact_id` and `debts.parent_debt_id` -> `SET NULL`; `debt_payments.debt_id` -> `CASCADE`, `.finance_transaction_id` -> `SET NULL`; allocations -> `CASCADE` on both transaction and debt.
 
 Identity normalization (`normalizeIdentity`): NFD, strip diacritics, `vi-VN` lowercase, non-letter/digit runs -> single space, trim. Used for places and contacts.
 
-## REST API (all under `/api`, dashboard access token, caller-scoped)
+## REST API (all under `/api`, dashboard access token required, data is system-wide)
 
 ### Transactions
-- `GET /transactions` — query `type?`, `startAt?`, `endAt?` (ISO; `startAt <= endAt`), `search?` (ILIKE on category, note, place name), `limit?` (default 100, max 500), `offset?`. Invalid params → 400. Returns `ITransactionListResponse { items, total, limit, offset, summary, ledgerBalance }` ordered `occurredAt, createdAt, id` DESC. `items[].runningBalance` = wallet balance after that row computed over the caller's whole ledger in chronological order (`computeLedger`), independent of filters/paging. `summary { income, expense, count }` covers the period only (ignores `type`/`search`). `ledgerBalance` = all-time income − expense (`getLedgerBalance`, also exposed as dashboard `finance.ledgerBalance`). Entity → DTO mapping shared with the dashboard via `toTransactionItem`. `listTransactions` (newest 200) remains for the chat `DELETE_TRANSACTION` tool.
+- `GET /transactions` — query `type?`, `startAt?`, `endAt?` (ISO; `startAt <= endAt`), `search?` (ILIKE on category, note, place name), `limit?` (default 100, max 500), `offset?`. Invalid params → 400. Returns `ITransactionListResponse { items, total, limit, offset, summary, ledgerBalance }` ordered `occurredAt, createdAt, id` DESC. `items[].runningBalance` = wallet balance after that row computed over the whole shared ledger in chronological order (`computeLedger`), independent of filters/paging. `summary { income, expense, count }` covers the period only (ignores `type`/`search`). `ledgerBalance` = all-time income − expense (`getLedgerBalance`, also exposed as dashboard `finance.ledgerBalance`). Entity → DTO mapping shared with the dashboard via `toTransactionItem`. `listTransactions` (newest 200) remains for the chat `DELETE_TRANSACTION` tool.
 - `GET/PATCH/DELETE /transactions/:id`, `POST /transactions`.
-- Body accepts `placeId` or `placeName`. `placeId` must belong to caller; `placeName` resolves-or-creates a place; `placeId: null` unlinks.
+- Body accepts `placeId` or `placeName`. `placeId` must exist; `placeName` resolves-or-creates a place; `placeId: null` unlinks.
 - `PATCH` guards: cannot change `type` while allocations exist; new `amount` cannot be below allocated sum.
 - `DELETE` (not one DB transaction): for each allocation, `debt.remainingAmount += allocation.amount`; deletes the transaction's allocations and linked `debt_payments`; removes the transaction. Debt `status`/`settledAt` are not recomputed on this path.
 
@@ -88,7 +87,7 @@ Identity normalization (`normalizeIdentity`): NFD, strip diacritics, `vi-VN` low
 - `POST /places/combine` body `placeIds` / `targetPlaceId` / `sourcePlaceIds` / `name` (>= 2 distinct ids). Lead = `targetPlaceId`, else most transactions then oldest. Rejects a `name` colliding with a place outside the merge set. Reassigns transactions, removes sources, renames lead. Not wrapped in a DB transaction.
 
 ### Contacts
-- `GET /contacts` lives in `ReportsController` (max 200, with `debtCount`, `transactionCount`, `linkedUser`). `GET/PATCH/DELETE /contacts/:id`, `POST /contacts` in `FinanceController`. Changing `linkedUserId` is admin-only and validated (exists, not owner, unique per owner) — see contacts module.
+- `GET /contacts` lives in `ReportsController` (max 200, with `debtCount`, `transactionCount`, `linkedUser`). `GET/PATCH/DELETE /contacts/:id`, `POST /contacts` in `FinanceController`. Changing `linkedUserId` is admin-only and validated (user exists, not linked to another contact) — see contacts module.
 - `POST /contacts/combine` (>= 2 ids). Lead = `targetContactId`, else: has `linkedUserId` > most debts+transactions > oldest. Lead inherits missing linked user, phone, bank account (+code/name), avatar. Reassigns debts (also rewrites `counterparty`/`counterpartyAlias`) and transactions, removes sources. Optional `consolidateDebts: true` then calls `combineDebts` per direction+currency group of >= 2 top-level debts. `combineContacts` itself is NOT one DB transaction; only each nested `combineDebts` is.
 
 ### Debts
@@ -106,7 +105,7 @@ Identity normalization (`normalizeIdentity`): NFD, strip diacritics, `vi-VN` low
 
 ### Categories
 - `GET /categories?type=` seeds defaults on first call when the user has none (`seedDefaultCategories`, `isDefault: true`) from `DEFAULT_EXPENSE_CATEGORIES` / `DEFAULT_INCOME_CATEGORIES` in `@zalobot/contracts`.
-- `POST /categories` (`type`, `name`, `color?`, `icon?`; unique per user+type+name), `PATCH /categories/:id`, `DELETE /categories/:id`.
+- `POST /categories` (`type`, `name`, `color?`, `icon?`; unique per type+name), `PATCH /categories/:id`, `DELETE /categories/:id`.
 - Transactions store category as free text; categories are not foreign keys.
 
 ### Balance adjustment

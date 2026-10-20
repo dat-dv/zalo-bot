@@ -11,16 +11,10 @@ import {
 import { AuditLogEntity } from '../database/entities/audit-log.entity';
 import { DashboardExchangeTokenEntity } from '../database/entities/dashboard-exchange-token.entity';
 import { DebtContactEntity } from '../database/entities/debt-contact.entity';
-import { DebtPaymentAllocationEntity } from '../database/entities/debt-payment-allocation.entity';
-import { DebtPaymentEntity } from '../database/entities/debt-payment.entity';
-import { DebtEntity } from '../database/entities/debt.entity';
-import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
 import { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
 import { ReminderEntity } from '../database/entities/reminder.entity';
-import { UserCategoryEntity } from '../database/entities/user-category.entity';
 import { UserTokenEntity } from '../database/entities/user-token.entity';
 import { UserEntity } from '../database/entities/user.entity';
-import { categoryKey, contactKey, moveFinanceData } from '../finance/finance-data-mover';
 import {
   USER_MERGE_UNIT_OF_WORK,
   USER_MERGE_USERS_PORT,
@@ -64,7 +58,9 @@ export function chooseGoogleToken(
 
 /**
  * Merges a duplicate user identity (e.g. the legacy Zalo webhook app-scoped ID) into the
- * canonical user (e.g. the ZCA UID). All data moves atomically in one transaction.
+ * canonical user (e.g. the ZCA UID). Finance data is shared and has no owner, so only the
+ * person's own traces move: authorship, contact links, reminders and the Google token.
+ * Everything happens atomically in one transaction.
  */
 @Injectable()
 export class UserMergeService {
@@ -95,12 +91,13 @@ export class UserMergeService {
       const source = await this.requireUser(manager, sourceId);
       const target = await this.requireUser(manager, targetId);
 
-      await moveFinanceData(manager, sourceId, targetId);
-      // Identity merge: the source person *is* the target, so links and authorship follow too.
+      // Identity merge: the source person *is* the target, so links and authorship follow.
+      // A user links to at most one contact: when the target already has one, the source's
+      // links are dropped instead of creating a second link.
       await manager.update(
         DebtContactEntity,
         { linkedUserId: sourceId },
-        { linkedUserId: targetId },
+        { linkedUserId: snapshot.conflicts.linkedContacts > 0 ? null : targetId },
       );
       await manager.update(
         FinanceTransactionEntity,
@@ -152,37 +149,23 @@ export class UserMergeService {
     await this.requireUser(manager, targetId);
 
     const bySource = { where: { userId: sourceId } };
+    const sourceLinkedContacts = await manager.count(DebtContactEntity, {
+      where: { linkedUserId: sourceId },
+    });
+    const targetLinkedContacts = await manager.count(DebtContactEntity, {
+      where: { linkedUserId: targetId },
+    });
     const counts: Record<UserMergeTable, number> = {
-      financeTransactions: await manager.count(FinanceTransactionEntity, bySource),
-      financePlaces: await manager.count(FinancePlaceEntity, bySource),
-      userCategories: await manager.count(UserCategoryEntity, bySource),
-      debts: await manager.count(DebtEntity, bySource),
-      debtContacts: await manager.count(DebtContactEntity, bySource),
-      debtPayments: await manager.count(DebtPaymentEntity, bySource),
-      debtPaymentAllocations: await manager.count(DebtPaymentAllocationEntity, bySource),
+      financeTransactions: await manager.count(FinanceTransactionEntity, {
+        where: { createdByUserId: sourceId },
+      }),
+      debtContacts: sourceLinkedContacts,
       reminders: await manager.count(ReminderEntity, bySource),
       googleToken: await manager.count(UserTokenEntity, bySource),
     };
 
     const conflicts: IUserMergeConflicts = {
-      places: await this.countOverlap(
-        (userId) => manager.find(FinancePlaceEntity, { where: { userId } }),
-        sourceId,
-        targetId,
-        (p) => p.normalizedName,
-      ),
-      contacts: await this.countOverlap(
-        (userId) => manager.find(DebtContactEntity, { where: { userId } }),
-        sourceId,
-        targetId,
-        contactKey,
-      ),
-      categories: await this.countOverlap(
-        (userId) => manager.find(UserCategoryEntity, { where: { userId } }),
-        sourceId,
-        targetId,
-        categoryKey,
-      ),
+      linkedContacts: targetLinkedContacts > 0 ? sourceLinkedContacts : 0,
       googleToken: chooseGoogleToken(
         await manager.findOne(UserTokenEntity, { where: { userId: sourceId } }),
         await manager.findOne(UserTokenEntity, { where: { userId: targetId } }),
@@ -202,17 +185,6 @@ export class UserMergeService {
     const user = await manager.findOne(UserEntity, { where: { id } });
     if (!user) throw new NotFoundException(`User ${id} not found.`);
     return user;
-  }
-
-  private async countOverlap<E extends { userId: string }>(
-    load: (userId: string) => Promise<E[]>,
-    sourceId: string,
-    targetId: string,
-    key: (row: E) => string,
-  ): Promise<number> {
-    const [sourceRows, targetRows] = await Promise.all([load(sourceId), load(targetId)]);
-    const targetKeys = new Set(targetRows.map(key));
-    return sourceRows.filter((row) => targetKeys.has(key(row))).length;
   }
 
   private async mergeGoogleToken(

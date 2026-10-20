@@ -19,10 +19,6 @@ export class DebtEntity {
   id: string;
 
   @Index()
-  @Column({ name: 'user_id', type: 'varchar' })
-  userId: string;
-
-  @Index()
   @Column({ name: 'contact_id', type: 'varchar', nullable: true })
   contactId?: string;
 

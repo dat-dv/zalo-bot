@@ -151,9 +151,6 @@ The former Users page (`/users`) was removed; user management lives here. Nav la
 
 - QR login modal, `ThreadConfigModal`, `SyncMediaModal`, `UserFormDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard). `ThreadConfigModal` no longer caps its form at `75vh`; the panel scrolls.
 
-### Shared ledger on this page
-- Admins see `SharedLedgerPanel` (users module) above the chats/users table; user rows of the ledger owner show a "Chủ sổ" badge (`ChatTableRow` prop `isLedgerOwner`, from `useLedgerQuery`, enabled only when `useUsersQuery` succeeded = admin).
-
 ## Integration Seams & Contracts
 
 - `API_ROUTES`: `zcaStatus`, `zcaQr`, `zcaLoginQr`, `zcaLogout`, `zcaThreads`, `zcaListenedThreads`, `zcaListenedThreadsToggle`, `zcaThreadConfigs`, `zcaThreadConfig(threadId)`, `zcaSyncThreadMedia(threadId)`, `driveFolderLink`, `driveOpen`, `photosAlbumLink`, `photosOpen`. Web builds the QR image URL with `getZcaQrImageUrl()` (`API_ROUTES.zcaQr` on `resolveApiBaseUrl()`).

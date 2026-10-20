@@ -38,32 +38,31 @@
 - Phone backup: `updateUserProfile`, `upsertUser`, `syncUsersWithZca` call `fillLinkedContactPhones(userId, phone)` → fills linked `debt_contacts` with null/empty phone (never overwrites). `syncUsersWithZca` still overwrites `users.phoneNumber` when ZCA returns a different non-empty number (no manual-phone lock).
 - `getUsers()` enriches rows with ZCA thread data (`alias`, `displayName`, `zaloName`, avatar/phone fallback) without writing.
 - L2 passive group text checks `isGrantAccess` silently and never calls `registerPendingUser` (see zca module "Message Flows").
-- **Cleanup script** `apps/api/scripts/cleanup-group-users.ts` (`npm run users:cleanup-groups --workspace @zalobot/api [-- --apply]`): candidates = users whose id equals a `zca_thread_configs.thread_id` with `thread_type='group'`; skips admins and ids with rows in any `userId` table (`finance_*`, `debt*`, `reminders`, `user_categories`, `user_tokens`, `dashboard_exchange_tokens`). Default dry-run prints a table; `--apply` deletes in one transaction (audit subscriber logs each delete) and clears Redis `whitelist:user:<id>` when `REDIS_URL` is set.
+- **Cleanup script** `apps/api/scripts/cleanup-group-users.ts` (`npm run users:cleanup-groups --workspace @zalobot/api [-- --apply]`): candidates = users whose id equals a `zca_thread_configs.thread_id` with `thread_type='group'`; skips admins and ids still referenced by real data (`finance_transactions.created_by_user_id`, `debt_contacts.linked_user_id`, `user_tokens`, `reminders`, `dashboard_exchange_tokens` by `user_id`; finance tables have no owner column). Default dry-run prints a table; `--apply` deletes in one transaction (audit subscriber logs each delete) and clears Redis `whitelist:user:<id>` when `REDIS_URL` is set.
 
 ## Account Merge (Duplicate Zalo Identities)
 
-- **Why**: One person can reach the bot through two channels with different IDs — the legacy official Zalo Bot webhook gives an app-scoped ID (20-hex, e.g. `573462d8909179cf2080`), ZCA (`zca-js`) gives the personal Zalo UID (numeric). `GrantAccessGuard` (ZCA) auto-registers unknown IDs as pending users, so the same person appears twice and their data is split. `users.id` is the only identity; there is no identity-link table.
+- **Why**: One person can reach the bot through two channels with different IDs — the legacy official Zalo Bot webhook gives an app-scoped ID (20-hex, e.g. `573462d8909179cf2080`), ZCA (`zca-js`) gives the personal Zalo UID (numeric). `GrantAccessGuard` (ZCA) auto-registers unknown IDs as pending users, so the same person appears twice (authorship, contact links, reminders and Google token split across IDs; finance data itself is shared, see global/finance-domain.md). `users.id` is the only identity; there is no identity-link table.
 - **Service**: `UserMergeService` (`apps/api/src/users/user-merge.service.ts`) with DI tokens `USER_MERGE_UNIT_OF_WORK` (wraps `DataSource.manager` / `DataSource.transaction`) and `USER_MERGE_USERS_PORT` (`UsersService`), declared in `user-merge.types.ts`.
-- **Preview** (`preview(source, target)`): read-only; per-table counts (`USER_MERGE_TABLES`), conflicts (places, contacts, categories), Google token decision, `sourceIsBotAccount`.
+- **Preview** (`preview(source, target)`): read-only; counts (`USER_MERGE_TABLES` = `financeTransactions` created by source, `debtContacts` linked to source, `reminders`, `googleToken`), conflicts (`linkedContacts` = source links that will be dropped because the target already links to a contact; Google token decision), `sourceIsBotAccount`.
 - **Merge** (`merge(source, target, actor)`), single transaction, all-or-nothing:
   1. Reject self-merge, unknown users, and the bot's own ZCA account as source (`isBotAccount`) — it is recreated as admin on every startup.
-  2. `finance_places` with same `normalizedName` on target: repoint `finance_transactions.placeId`, delete source place; move the rest.
-  3. `debt_contacts` with same `normalizedName|normalizedAlias`: repoint `debts.contactId` and `finance_transactions.contactId`, delete source contact; move the rest; rewrite `linkedUserId` source → target.
-  4. `user_categories` with same `type|lower(trim(name))`: delete source copy (transactions store the category name); move the rest.
-  5. Move `userId` on `finance_transactions`, `debts`, `debt_payments`, `debt_payment_allocations`, `reminders`.
-  6. `user_tokens` (Google): keep the only token, else the one with a refresh token, else the newest `updatedAt`.
-  7. Delete source `dashboard_exchange_tokens`.
-  8. Target profile: fill empty `firstName/username/phoneNumber/avatarUrl/driveFolder*` from source; role ADMIN if either is admin; `grantAccess` GRANTED if either granted or admin; earliest `createdAt`.
-  9. Delete source user; insert one `audit_logs` row (`tableName=users`, `action=update`, `afterData.operation=merge`, counts). Existing audit rows are never rewritten.
+  2. Finance rows are shared and untouched (no owner column); only authorship follows: `finance_transactions.createdByUserId` source → target.
+  3. `debt_contacts.linkedUserId` source → target; if the target already links to a contact (a user links to at most one), the source links are set to `null` instead.
+  4. Move `reminders.userId`.
+  5. `user_tokens` (Google): keep the only token, else the one with a refresh token, else the newest `updatedAt`.
+  6. Delete source `dashboard_exchange_tokens`.
+  7. Target profile: fill empty `firstName/username/phoneNumber/avatarUrl/driveFolder*` from source; role ADMIN if either is admin; `grantAccess` GRANTED if either granted or admin; earliest `createdAt`.
+  8. Delete source user; insert one `audit_logs` row (`tableName=users`, `action=update`, `afterData.operation=merge`, counts). Existing audit rows are never rewritten.
 - **After commit**: `UsersService.afterUsersMerged()` drops source caches + Redis `whitelist:user:<source>` and rebuilds caches. Dashboard sessions of the source ID become invalid (`sourceWasCurrentSession` in result).
-- Tests (`user-merge.service.spec.ts`): token choice, preview validation, preview counts/conflicts, merge moves/folds/keeps admin/audits, "merge is refused when the source is the bot own ZCA account", rollback on failure.
+- Tests (`user-merge.service.spec.ts`): token choice, preview validation, preview counts/conflicts, merge moves authorship+links and keeps shared finance rows/admin/audits, drops the source link when the target already has one, "merge is refused when the source is the bot own ZCA account", rollback on failure.
 
 ## Backend API (`UsersController`, admin only via `UsersService.isAdmin(dashboard user)`)
 
 | Method | Path | Behavior |
 | --- | --- | --- |
 | GET | `/api/users` | `getUsers()` (ZCA-enriched) + `linkedContactCount` (one `GROUP BY linked_user_id` query, `UserLinkedContactsService.countByLinkedUser`) |
-| GET | `/api/users/:id/linked-contacts` | `IUserLinkedContactItem[]`: debt contacts in any owner's address book linked to `:id` (`contactId`, `displayName`, `alias`, `ownerUserId`, `ownerName`, `debtCount`, `createdAt`), oldest first |
+| GET | `/api/users/:id/linked-contacts` | `IUserLinkedContactItem[]`: contacts of the shared debt directory linked to `:id` (`contactId`, `displayName`, `alias`, `debtCount`, `createdAt`), oldest first |
 | GET | `/api/users/:id` | One user, 404 if missing |
 | POST | `/api/users/sync-zca` | `syncUsersWithZca()` → `{ syncedCount, totalUsers }` |
 | POST | `/api/users` | Upsert `{ id, role?, grantAccess?, firstName?, phoneNumber?, avatarUrl? }` |
@@ -78,10 +77,9 @@
 - There is no standalone Users page: user management (grant/revoke, add, edit name/phone/role, merge, delete, sync from ZCA) is on the "Zalo & Users" page — see zca module "Web UI".
 - `apps/web/src/modules/users` keeps only:
   - `api/users-api.ts`: `getUsers`, `createUser`, `setGrantAccess`, `updateUser`, `updateUserRole`, `syncUsersWithZca`, `deleteUser`, `getUserMergePreview`, `mergeUser`, `getUserLinkedContacts`.
-  - `api/users-query.ts`: `usersQueryKeys` (`all`, `mergePreview`, `linkedContacts`), `useUsersQuery` (no retry on 403; `isSuccess` doubles as the "viewer is admin" signal on the contacts page), `useUserLinkedContactsQuery`, `useCreateUserMutation`, `useSetGrantAccessMutation`, `useUpdateUserMutation`, `useUpdateUserRoleMutation`, `useSyncUsersWithZcaMutation`, `useDeleteUserMutation`, `useUserMergePreviewQuery`, `useMergeUserMutation` (invalidates all queries). Also used by contacts `combine-contacts-dialog.tsx`.
+  - `api/users-query.ts`: `usersQueryKeys` (`all`, `mergePreview`, `linkedContacts`), `useUsersQuery` (no retry on 403; `isSuccess` doubles as the "viewer is admin" signal on the contacts page), `useUserLinkedContactsQuery`, `useCreateUserMutation`, `useSetGrantAccessMutation`, `useUpdateUserMutation`, `useUpdateUserRoleMutation`, `useSyncUsersWithZcaMutation`, `useDeleteUserMutation`, `useUserMergePreviewQuery`, `useMergeUserMutation` (invalidates all queries: creator names, links, reminders, users). Also used by contacts `combine-contacts-dialog.tsx`.
   - `presentation/components/merge-user-dialog.tsx` (`MergeUserDialog`): target select (excludes source), live preview (loading / error / empty / counts), conflict + Google token notes, bot-account warning that blocks merge, mandatory "irreversible" checkbox, destructive confirm. On success the ZCA page shows a banner (extra notice when the merged source was the signed-in session).
-  - `presentation/components/linked-contacts-dialog.tsx` (`LinkedContactsDialog`): reverse view of the contact ↔ user link (see contacts module); loading / error+retry / empty / list with owner and debt count, link to `APP_ROUTES.contacts`. Opened from the ZCA row badge "🔗 N" or menu item.
-- Shared ledger (admin): `presentation/components/shared-ledger-panel.tsx` (`SharedLedgerPanel`: current owner badge or `ledger.noOwner`, user select + "Đặt làm chủ sổ", "Bỏ chủ sổ", consolidate button disabled without owner; loading / error+retry; notices via the ZCA page banner) and `consolidate-ledger-dialog.tsx` (per-ledger counts, "Không có tài khoản" badge for orphaned ids, empty state, pending confirm, inline error). Hooks `useLedgerQuery` (`usersQueryKeys.ledger()`), `useSetLedgerOwnerMutation` (invalidates ledger, transactions, dashboard), `useConsolidateLedgerMutation` (also expenses, debts, contacts, places). API: `getLedgerInfo`, `setLedgerOwner`, `consolidateLedger` → `API_ROUTES.ledger`, `ledgerOwner`, `ledgerConsolidate`. Backend rules: global/finance-domain.md.
+  - `presentation/components/linked-contacts-dialog.tsx` (`LinkedContactsDialog`): reverse view of the contact ↔ user link (see contacts module); loading / error+retry / empty / list with alias and debt count, link to `APP_ROUTES.contacts`. Opened from the ZCA row badge "🔗 N" or menu item.
 - Routes in `API_ROUTES`: `users`, `usersSyncZca`, `usersGrantAccess(id)`, `usersMergePreview(id)`, `usersMerge(id)`, `usersLinkedContacts(id)`; `GET/PATCH/DELETE :id` are built as `${API_ROUTES.users}/${id}`.
 - Contracts: `IUserListItem` (`linkedContactCount?`), `IUserLinkedContactItem`, `UserRole`, `GrantAccessStatus`, `USER_MERGE_TABLES`, `UserMergeTable`, `IUserMergeRequest`, `IUserMergeSummary`, `IUserMergeResult`, `IUserMergeConflicts`; i18n keys `users.merge.*`, `users.linkedContacts.*` (vi + en).
 

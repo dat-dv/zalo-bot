@@ -24,7 +24,7 @@ interface TestContext {
   service: TransactionConfirmationService;
   sentMessages: Array<{ chatId: string | number; text: string }>;
   createdTransactions: CreateFinanceTransactionDto[];
-  deletedTransactions: Array<{ userId: string | number; id: string }>;
+  deletedTransactions: Array<{ id: string }>;
   createdDebts: CreateDebtDto[];
   createdReminders: CreateReminderDto[];
   createdTasks: Array<CreateTaskOptions & { userId: string }>;
@@ -41,7 +41,7 @@ function createTestContext(
 ): TestContext {
   const sentMessages: Array<{ chatId: string | number; text: string }> = [];
   const createdTransactions: CreateFinanceTransactionDto[] = [];
-  const deletedTransactions: Array<{ userId: string | number; id: string }> = [];
+  const deletedTransactions: Array<{ id: string }> = [];
   const createdDebts: CreateDebtDto[] = [];
   const createdReminders: CreateReminderDto[] = [];
   const createdTasks: Array<CreateTaskOptions & { userId: string }> = [];
@@ -80,8 +80,8 @@ function createTestContext(
         note: dto.note,
       } as never);
     },
-    deleteTransaction: (userId: string | number, id: string) => {
-      deletedTransactions.push({ userId, id });
+    deleteTransaction: (id: string) => {
+      deletedTransactions.push({ id });
       return Promise.resolve(true);
     },
   } as unknown as FinanceService;
@@ -175,7 +175,6 @@ void test('TransactionConfirmationService creates pending transaction with 3-dig
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 15000,
       category: 'Ăn uống',
@@ -202,7 +201,6 @@ void test('TransactionConfirmationService confirms transaction with "yes <mã>"'
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 15000,
       category: 'Ăn uống',
@@ -228,7 +226,6 @@ void test('TransactionConfirmationService cancels transaction with "cancel <mã>
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 50000,
       category: 'Ăn uống',
@@ -252,7 +249,6 @@ void test('TransactionConfirmationService notifies when timeout expires', async 
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 30000,
       category: 'Khác',
@@ -359,7 +355,6 @@ void test('TransactionConfirmationService creates and confirms debt with strict 
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       direction: 'receivable',
       counterparty: 'Huy',
       amount: 200000,
@@ -614,7 +609,6 @@ void test('TransactionConfirmationService edits transaction with "edit <mã> <n�
     chatId: 'c1',
     rawPrompt: 'ăn trưa 45k',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 45000,
       category: 'Ăn uống',
@@ -655,7 +649,6 @@ void test('TransactionConfirmationService prompts for content when "edit <mã>" 
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 45000,
       category: 'Ăn uống',
@@ -682,7 +675,6 @@ void test('TransactionConfirmationService edits without code using user latest p
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 45000,
       category: 'Ăn uống',
@@ -716,7 +708,6 @@ void test('TransactionConfirmationService rejects edit from another user or wron
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 45000,
       category: 'Ăn uống',
@@ -746,7 +737,6 @@ void test('TransactionConfirmationService cancels pending action via ANGRY react
     actionType: 'RECORD_TRANSACTION',
     title: 'lưu khoản chi',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 50000,
       category: 'Ăn uống',
@@ -782,7 +772,7 @@ void test('TransactionConfirmationService ignores reactions on messages other th
     chatId: 'c1',
     actionType: 'RECORD_TRANSACTION',
     title: 'lưu khoản chi',
-    payload: { userId: 'u1', type: 'expense', amount: 70000, category: 'Ăn uống', note: 'Trưa' },
+    payload: { type: 'expense', amount: 70000, category: 'Ăn uống', note: 'Trưa' },
     descriptor: FINANCE_TRANSACTION_DESCRIPTOR,
     messageId: 'card-125',
   });
@@ -832,7 +822,7 @@ void test('TransactionConfirmationService matches a reaction on the card by cliM
     chatId: 'c1',
     actionType: 'RECORD_TRANSACTION',
     title: 'lưu khoản chi',
-    payload: { userId: 'u1', type: 'expense', amount: 30000, category: 'Đi lại', note: 'Grab' },
+    payload: { type: 'expense', amount: 30000, category: 'Đi lại', note: 'Grab' },
     descriptor: FINANCE_TRANSACTION_DESCRIPTOR,
     messageId: 'card-200',
   });
@@ -863,7 +853,6 @@ void test('TransactionConfirmationService confirms pending action via HEART reac
     actionType: 'RECORD_TRANSACTION',
     title: 'lưu khoản chi',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 100000,
       category: 'Ăn uống',
@@ -933,7 +922,6 @@ void test('TransactionConfirmationService preserves pending action if edit is ca
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 45000,
       category: 'Ăn uống',
@@ -962,7 +950,6 @@ void test('TransactionConfirmationService preserves pending action if onEdit thr
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 45000,
       category: 'Ăn uống',
@@ -1024,7 +1011,6 @@ void test('TransactionConfirmationService captures messageId from sendMessageWit
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 50000,
       category: 'Ăn uống',
@@ -1092,7 +1078,6 @@ void test('TransactionConfirmationService captures cliMsgId and exposes undoMess
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 50000,
       category: 'Ăn uống',
@@ -1134,7 +1119,6 @@ void test('TransactionConfirmationService recalls previous message when action i
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 450000,
       category: 'Mua sắm',
@@ -1189,7 +1173,6 @@ void test('processConfirm recalls pending confirmation message and formats heart
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 450000,
       category: 'Mua sắm',
@@ -1265,7 +1248,6 @@ void test('handleTimeout recalls pending card message and sends only timeout not
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       name: 'tiệm bánh tráng đầu đường gò xoài',
     },
   });
@@ -1315,7 +1297,6 @@ void test('processCancel recalls pending card message and sends cancellation not
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 30000,
       category: 'Ăn uống',
@@ -1373,7 +1354,7 @@ void test('Multi-card confirmation flow cleans up all temporary cards and interi
   } as unknown as ZcaService;
 
   const mockFinanceService = {
-    resolveOrCreatePlace: (_userId: string, name: string) => Promise.resolve({ id: 'p1', name }),
+    resolveOrCreatePlace: (name: string) => Promise.resolve({ id: 'p1', name }),
     createTransaction: (dto: CreateFinanceTransactionDto) =>
       Promise.resolve({
         id: 'tx_1',
@@ -1401,7 +1382,6 @@ void test('Multi-card confirmation flow cleans up all temporary cards and interi
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       name: 'đối diện ctgroup',
     },
   });
@@ -1414,7 +1394,6 @@ void test('Multi-card confirmation flow cleans up all temporary cards and interi
     userId: 'u1',
     chatId: 'c1',
     payload: {
-      userId: 'u1',
       type: 'expense',
       amount: 20000,
       category: 'Ăn uống',
@@ -1475,7 +1454,6 @@ void test('TransactionConfirmationService keeps pending intact when canEdit reje
     userId: 'owner-1',
     chatId: 'g1',
     payload: {
-      userId: 'owner-1',
       type: 'expense',
       amount: 45000,
       category: 'Ăn uống',
@@ -1512,7 +1490,6 @@ void test('createPendingAction applies the saved requiredHearts of the chat thre
   );
   const { service } = createTestContext(undefined, threadConfigService);
   const payload = {
-    userId: 'u1',
     type: 'expense' as const,
     amount: 50000,
     category: 'Ăn uống',

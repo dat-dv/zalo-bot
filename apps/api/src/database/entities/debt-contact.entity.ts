@@ -15,10 +15,6 @@ export class DebtContactEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Index()
-  @Column({ name: 'user_id', type: 'varchar' })
-  userId: string;
-
   @Column({ name: 'display_name', type: 'varchar' })
   displayName: string;
 

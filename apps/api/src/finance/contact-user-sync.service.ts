@@ -21,14 +21,12 @@ export class ContactUserSyncService {
     private readonly users: UsersService,
   ) {}
 
-  public async syncUsersIntoContacts(ownerId: number | string): Promise<IContactUserSyncResult> {
-    const owner = ownerId.toString();
+  public async syncUsersIntoContacts(): Promise<IContactUserSyncResult> {
     const [users, contacts] = await Promise.all([
       this.userRepo.find({ order: { createdAt: 'ASC' } }),
-      this.contactRepo.find({ where: { userId: owner } }),
+      this.contactRepo.find(),
     ]);
     const plan = planContactUserSync({
-      ownerId: owner,
       users,
       contacts,
       isBotAccount: (id) => this.users.isBotAccount(id),
@@ -44,7 +42,6 @@ export class ContactUserSyncService {
       if (phoneNumber) phoneFilled++;
       contactsToSave.push(
         this.contactRepo.create({
-          userId: owner,
           displayName,
           normalizedName: this.finance.normalizeIdentity(displayName),
           phoneNumber,

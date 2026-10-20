@@ -12,7 +12,6 @@ import { RemindersService } from '../reminders/reminders.service';
 import { UsersService } from '../users/users.service';
 import { DebtEntity } from '../database/entities/debt.entity';
 import { ReportsTokenService } from './reports-token.service';
-import { LedgerService } from '../finance/ledger.service';
 
 function toIsoDate(value: unknown, fallback?: string): string {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
@@ -50,7 +49,6 @@ export class ReportsController {
     private readonly reminders: RemindersService,
     private readonly users: UsersService,
     private readonly tokens: ReportsTokenService,
-    private readonly ledger: LedgerService,
   ) {}
 
   @Get('access')
@@ -116,8 +114,7 @@ export class ReportsController {
   @ApiOperation({ summary: 'Lấy dữ liệu tổng quan cho Dashboard' })
   public async dashboard(@Req() req: Request) {
     const userId = this.getAccessUserId(req);
-    // Finance figures come from the shared ledger; calendar, tasks, reminders stay personal.
-    const ledgerUserId = await this.ledger.resolveLedgerUserId(userId);
+    // Finance figures are system-wide; calendar, tasks, reminders stay personal.
     const now = new Date();
     const startAt = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const endAt = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
@@ -126,9 +123,9 @@ export class ReportsController {
     const tasksPromise = this.getTasks(googleConnected, userId);
     const [summary, ledgerBalance, debts, reminders, activity, calendar, tasks] = await Promise.all(
       [
-        this.finance.getSummary(ledgerUserId, startAt, endAt),
-        this.finance.getLedgerBalance(ledgerUserId),
-        this.finance.getActiveDebts(ledgerUserId),
+        this.finance.getSummary(startAt, endAt),
+        this.finance.getLedgerBalance(),
+        this.finance.getActiveDebts(),
         this.reminders.getUserUpcomingReminders(userId),
         this.audit.listRecent(userId, 10),
         calendarPromise,
@@ -195,8 +192,8 @@ export class ReportsController {
   @ApiBearerAuth('bearer-jwt')
   @ApiOperation({ summary: 'Lấy danh sách danh bạ người dùng' })
   public async contacts(@Req() req: Request) {
-    const userId = this.getAccessUserId(req);
-    const contacts = await this.finance.listContacts(await this.ledger.resolveLedgerUserId(userId));
+    this.getAccessUserId(req);
+    const contacts = await this.finance.listContacts();
     return {
       data: contacts.map((contact) => ({
         id: contact.id,
@@ -230,11 +227,8 @@ export class ReportsController {
   @ApiBearerAuth('bearer-jwt')
   @ApiOperation({ summary: 'Lấy danh sách các khoản nợ / cho vay' })
   public async debts(@Req() req: Request, @Query('status') status?: 'active' | 'settled') {
-    const userId = this.getAccessUserId(req);
-    const debts = await this.finance.listDebts(
-      await this.ledger.resolveLedgerUserId(userId),
-      status,
-    );
+    this.getAccessUserId(req);
+    const debts = await this.finance.listDebts(status);
     return {
       data: debts.map((debt) => this.mapDebt(debt)),
     };
@@ -276,8 +270,8 @@ export class ReportsController {
   @ApiBearerAuth('bearer-jwt')
   @ApiOperation({ summary: 'Lấy danh sách các khoản chi tiêu' })
   public async expenses(@Req() req: Request) {
-    const userId = this.getAccessUserId(req);
-    const expenses = await this.finance.listExpenses(await this.ledger.resolveLedgerUserId(userId));
+    this.getAccessUserId(req);
+    const expenses = await this.finance.listExpenses();
     return {
       data: expenses.map((expense) => ({
         id: expense.id,

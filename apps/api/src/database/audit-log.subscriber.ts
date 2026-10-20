@@ -50,7 +50,13 @@ export class AuditLogSubscriber implements EntitySubscriberInterface {
       tableName,
       recordId: recordId || undefined,
       action,
-      actorId: typeof data.userId === 'string' ? data.userId : undefined,
+      // Finance rows are shared (no owner), so their author is the actor.
+      actorId:
+        typeof data.userId === 'string'
+          ? data.userId
+          : typeof data.createdByUserId === 'string'
+            ? data.createdByUserId
+            : undefined,
       beforeData: this.redact(beforeData),
       afterData: this.redact(afterData),
     });

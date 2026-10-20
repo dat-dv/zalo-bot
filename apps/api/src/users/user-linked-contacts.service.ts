@@ -1,10 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import type { IUserLinkedContactItem } from '@zalobot/contracts';
 import { DebtContactEntity } from '../database/entities/debt-contact.entity';
 import { DebtEntity } from '../database/entities/debt.entity';
-import { UserEntity } from '../database/entities/user.entity';
 
 interface CountRow {
   key: string;
@@ -13,7 +12,7 @@ interface CountRow {
 
 /**
  * Chiều ngược của liên kết Người liên quan → User: cho trang ZCA (admin) biết
- * một tài khoản đang được gắn trong danh bạ công nợ của những ai.
+ * một tài khoản đang được gắn với Người liên quan nào trong danh bạ công nợ chung.
  */
 @Injectable()
 export class UserLinkedContactsService {
@@ -22,8 +21,6 @@ export class UserLinkedContactsService {
     private readonly contactRepo: Repository<DebtContactEntity>,
     @InjectRepository(DebtEntity)
     private readonly debtRepo: Repository<DebtEntity>,
-    @InjectRepository(UserEntity)
-    private readonly userRepo: Repository<UserEntity>,
   ) {}
 
   /** Một truy vấn GROUP BY cho cả bảng user, tránh N+1 trên danh sách. */
@@ -45,8 +42,6 @@ export class UserLinkedContactsService {
     });
     if (contacts.length === 0) return [];
 
-    const ownerIds = [...new Set(contacts.map((c) => c.userId))];
-    const owners = await this.userRepo.find({ where: { id: In(ownerIds) } });
     const debtRows = await this.debtRepo
       .createQueryBuilder('debt')
       .select('debt.contact_id', 'key')
@@ -55,7 +50,7 @@ export class UserLinkedContactsService {
       .groupBy('debt.contact_id')
       .getRawMany<CountRow>();
 
-    return toLinkedContactItems(contacts, owners, toCountMap(debtRows));
+    return toLinkedContactItems(contacts, toCountMap(debtRows));
   }
 }
 
@@ -65,20 +60,13 @@ export function toCountMap(rows: CountRow[]): Map<string, number> {
 
 export function toLinkedContactItems(
   contacts: DebtContactEntity[],
-  owners: UserEntity[],
   debtCounts: Map<string, number>,
 ): IUserLinkedContactItem[] {
-  const ownerById = new Map(owners.map((owner) => [owner.id, owner]));
-  return contacts.map((contact) => {
-    const owner = ownerById.get(contact.userId);
-    return {
-      contactId: contact.id,
-      displayName: contact.displayName,
-      alias: contact.alias || undefined,
-      ownerUserId: contact.userId,
-      ownerName: owner?.firstName || owner?.username || undefined,
-      debtCount: debtCounts.get(contact.id) ?? 0,
-      createdAt: new Date(contact.createdAt).toISOString(),
-    };
-  });
+  return contacts.map((contact) => ({
+    contactId: contact.id,
+    displayName: contact.displayName,
+    alias: contact.alias || undefined,
+    debtCount: debtCounts.get(contact.id) ?? 0,
+    createdAt: new Date(contact.createdAt).toISOString(),
+  }));
 }

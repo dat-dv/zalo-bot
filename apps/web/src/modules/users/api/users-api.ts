@@ -1,9 +1,6 @@
 import {
   API_ROUTES,
   type IApiResponse,
-  type ILedgerConsolidateResult,
-  type ILedgerInfo,
-  type ISetLedgerOwnerRequest,
   type IUserLinkedContactItem,
   type IUserListItem,
   type IUserMergeResult,
@@ -127,33 +124,6 @@ export async function getUserLinkedContacts(
 ): Promise<IUserLinkedContactItem[]> {
   const response = await httpClient.get<IApiResponse<IUserLinkedContactItem[]>>(
     API_ROUTES.usersLinkedContacts(id),
-    { signal },
-  );
-  return response.data.data;
-}
-
-export async function getLedgerInfo(signal?: AbortSignal): Promise<ILedgerInfo> {
-  const response = await httpClient.get<IApiResponse<ILedgerInfo>>(API_ROUTES.ledger, { signal });
-  return response.data.data;
-}
-
-export async function setLedgerOwner(
-  userId: string | null,
-  signal?: AbortSignal,
-): Promise<{ ownerUserId: string | null }> {
-  const body: ISetLedgerOwnerRequest = { userId };
-  const response = await httpClient.patch<IApiResponse<{ ownerUserId: string | null }>>(
-    API_ROUTES.ledgerOwner,
-    body,
-    { signal },
-  );
-  return response.data.data;
-}
-
-export async function consolidateLedger(signal?: AbortSignal): Promise<ILedgerConsolidateResult> {
-  const response = await httpClient.post<IApiResponse<ILedgerConsolidateResult>>(
-    API_ROUTES.ledgerConsolidate,
-    {},
     { signal },
   );
   return response.data.data;

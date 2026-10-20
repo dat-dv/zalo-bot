@@ -18,7 +18,7 @@ This directory contains system-wide business policies, cross-cutting architectur
 - [Web UI Direction](web-ui-direction.md): Shared data-dense dashboard, accessibility requirements, and global client UI state (Zustand stores).
 - [Backend CRUD API](backend-crud-api.md): Ownership-safe REST operations for finance, reminders, users, ZCA, Calendar, and Tasks.
 - [Backend Exception Filter](backend-exception-filter.md): Global NestJS exception filter mapping TypeORM/HttpException into uniform error payloads.
-- [Finance Domain](finance-domain.md): Backend finance rules — places, debts, payments, allocations, categories, analytics, and LLM tools.
+- [Finance Domain](finance-domain.md): Backend finance rules — single shared finance store (no per-user scoping), places, debts, payments, allocations, categories, analytics, and LLM tools.
 - [Financial Report Contracts](financial-report-contracts.md): Report/analytics response contracts consumed by the dashboard.
 - [LLM Providers](llm-providers.md): `LlmService`, provider selection via `LLM_PROVIDER`, and Zalo tool definitions.
 - [Backend Runtime Services](backend-runtime-services.md): Health/deploy notify, Redis, OCR, media storage, reminder scheduler, audit, Google resource links.

@@ -13,10 +13,6 @@ export class UserCategoryEntity {
   id: string;
 
   @Index()
-  @Column({ name: 'user_id', type: 'varchar' })
-  userId: string;
-
-  @Index()
   @Column({ type: 'varchar' })
   type: 'income' | 'expense';
 

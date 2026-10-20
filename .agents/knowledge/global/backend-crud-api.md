@@ -21,7 +21,7 @@ REST surface of `apps/api` (global prefix `/api`). The API is organized by top-l
 ## Identity & Scoping
 
 - Caller identity comes only from the dashboard Bearer access token (`getDashboardUserId`). No endpoint accepts a client `userId` for scoping.
-- Finance, reminder, calendar, and task records are always scoped to the caller. Calendar/task calls act on the caller's linked Google account; OAuth tokens and audit rows are never returned.
+- Finance data (transactions, places, contacts, debts, payments, allocations, categories) is ONE shared store: every signed-in user reads and writes all of it; the token only authenticates (see finance-domain). Reminder, calendar, and task records stay scoped to the caller; calendar/task calls act on the caller's linked Google account. OAuth tokens and audit rows are never returned.
 - `/api/users*` requires admin (`UsersService.isAdmin`: the ZCA own account or a user with admin role); otherwise `403`.
 - Known gap: `POST /api/drive/share`, `GET /api/drive/folder-link`, `GET /api/drive/open`, `GET /api/photos/album-link`, `GET /api/photos/open` do not verify the dashboard token.
 
@@ -30,12 +30,11 @@ REST surface of `apps/api` (global prefix `/api`). The API is organized by top-l
 | Area | Endpoints |
 | --- | --- |
 | Transactions | `GET /api/transactions?type&startAt&endAt&search&limit&offset` (→ `ITransactionListResponse`, see finance-domain), `GET/PATCH/DELETE /api/transactions/:id`, `POST /api/transactions` |
-| Shared ledger (admin) | `GET /api/finance/ledger`, `PATCH /api/finance/ledger/owner` `{ userId \| null }`, `POST /api/finance/ledger/consolidate` — see finance-domain |
-| Receipt image | `GET /api/transactions/:id/receipt` (Bearer or refresh cookie; caller ledger only) |
+| Receipt image | `GET /api/transactions/:id/receipt` (Bearer or refresh cookie; any signed-in user) |
 | Allocations | `GET /api/transactions/:id/candidate-debts`, `GET/POST /api/transactions/:id/allocations` (body `allocations: [{ debtId, amount, note? }]`), `DELETE /api/transactions/:id/allocations/:allocationId` (`debt_payment_allocations`) |
 | Categories | `GET /api/categories?type=`, `POST /api/categories` (`type`, `name`, `color?`, `icon?`), `PATCH/DELETE /api/categories/:id` (`user_categories`) |
 | Places | `GET/POST /api/places`, `PATCH/DELETE /api/places/:id`, `POST /api/places/combine` (`placeIds` and/or `targetPlaceId` + `sourcePlaceIds`, optional `name`; ≥2 distinct ids) |
-| Contacts | `GET /api/contacts` (max 200, served by reports controller), `GET/PATCH/DELETE /api/contacts/:id`, `POST /api/contacts`, `POST /api/contacts/combine` (≥2 ids; optional `consolidateDebts: true`), `POST /api/contacts/sync-users` (admin: users → caller's contacts + phone backup) |
+| Contacts | `GET /api/contacts` (max 200, served by reports controller), `GET/PATCH/DELETE /api/contacts/:id`, `POST /api/contacts`, `POST /api/contacts/combine` (≥2 ids; optional `consolidateDebts: true`), `POST /api/contacts/sync-users` (admin: users → shared contacts + phone backup) |
 | Debts | `GET /api/debts?status=active\|settled` (reports controller), `GET/PATCH/DELETE /api/debts/:id`, `POST /api/debts`, `POST /api/debts/combine` (`debtIds` ≥2 → parent debt via `parent_debt_id`) |
 | Debt payments | `GET/POST /api/debts/:id/payments` (`amount`, `paymentDate?`, `note?`), `DELETE /api/debts/:id/payments/:paymentId` |
 | Reports | `GET /api/dashboard`, `GET /api/expenses`, `GET /api/finance/analytics?startAt&endAt&grain` |
@@ -45,7 +44,7 @@ REST surface of `apps/api` (global prefix `/api`). The API is organized by top-l
 
 ## Business Rules
 
-- Debt payment (`debt_payments`: `debt_id`, `user_id`, `amount`, `payment_date`, `note`, optional `finance_transaction_id`) lowers `remainingAmount`; at zero the debt becomes `settled` with `settledAt`; deleting a payment reverts the status to `active` when needed.
+- Debt payment (`debt_payments`: `debt_id`, `amount`, `payment_date`, `note`, optional `finance_transaction_id`) lowers `remainingAmount`; at zero the debt becomes `settled` with `settledAt`; deleting a payment reverts the status to `active` when needed.
 - Transaction input fields: `type`, `amount`, `currency?`, `category?`, `paymentMethod?`, `receiptUrl?`, `contactId?`, `placeId?` (`null` unlinks), `placeName?`, `note`, `occurredAt?`.
 - Debt contacts carry `phoneNumber`, `bankAccountNumber`, `bankCode`, `bankName`, `avatarUrl`, `linkedUserId` (admin-only to change; see contacts module "Contact ↔ user account link").
 - Reminders track `status` (`pending|completed|snoozed|cancelled`), `snoozeCount`, `snoozedUntil`, `completedAt`; the API does not accept `isTriggered` (scheduler-owned).

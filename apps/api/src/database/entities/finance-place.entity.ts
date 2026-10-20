@@ -2,21 +2,16 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  Index,
   PrimaryGeneratedColumn,
   Unique,
   UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('finance_places')
-@Unique('UQ_finance_places_user_normalized_name', ['userId', 'normalizedName'])
+@Unique('UQ_finance_places_normalized_name', ['normalizedName'])
 export class FinancePlaceEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
-  @Index()
-  @Column({ name: 'user_id', type: 'varchar' })
-  userId: string;
 
   @Column({ type: 'varchar' })
   name: string;

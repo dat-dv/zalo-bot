@@ -16,10 +16,6 @@ export class DebtPaymentAllocationEntity {
   id: string;
 
   @Index()
-  @Column({ name: 'user_id', type: 'varchar' })
-  userId: string;
-
-  @Index()
   @Column({ name: 'finance_transaction_id', type: 'varchar' })
   financeTransactionId: string;
 

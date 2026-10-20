@@ -29,9 +29,9 @@ Tài liệu này ánh xạ trực tiếp với tri thức canonical [`README.md`
 
 ## API và cache
 
-- `GET /api/contacts` (`ReportsController`): chỉ trả liên hệ của người đang đăng nhập, sắp theo tên A→Z rồi ngày tạo mới nhất, tối đa 200 dòng. Mỗi liên hệ có: tên, biệt danh, mô tả (`descriptor`), số điện thoại, số tài khoản, mã/tên ngân hàng, avatar, `linkedUserId` và `linkedUser` (tài khoản Zalo được liên kết), `debtCount`, `transactionCount`, thời điểm tạo/cập nhật.
+- `GET /api/contacts` (`ReportsController`): trả danh bạ công nợ **chung** của cả hệ thống (ai đăng nhập cũng thấy như nhau), sắp theo tên A→Z rồi ngày tạo mới nhất, tối đa 200 dòng. Mỗi liên hệ có: tên, biệt danh, mô tả (`descriptor`), số điện thoại, số tài khoản, mã/tên ngân hàng, avatar, `linkedUserId` và `linkedUser` (tài khoản Zalo được liên kết), `debtCount`, `transactionCount`, thời điểm tạo/cập nhật.
 - `PATCH /api/contacts/:id`: sửa thông tin. `POST /api/contacts/combine`: gộp. `DELETE /api/contacts/:id`: xoá (có hook `useDeleteContactMutation` nhưng giao diện hiện **không** có nút xoá).
-- Sau khi sửa/xoá: làm mới cache `contacts`, `users`, `debts`, `dashboard`. Sau khi gộp: thêm cả `transactions` và `expenses` vì giao dịch cũng được chuyển chủ. `users` được làm mới để số "🔗 N người liên quan" trên trang ZCA luôn đúng.
+- Sau khi sửa/xoá: làm mới cache `contacts`, `users`, `debts`, `dashboard`. Sau khi gộp: thêm cả `transactions` và `expenses` vì giao dịch được trỏ sang người liên quan chính. `users` được làm mới để số "🔗 N người liên quan" trên trang ZCA luôn đúng.
 
 ## Màn hình danh bạ
 
@@ -45,13 +45,13 @@ Tài liệu này ánh xạ trực tiếp với tri thức canonical [`README.md`
 
 ## Liên kết với tài khoản User
 
-**Vì sao cần**: Người liên quan chỉ là một cái tên trong danh bạ công nợ của một người dùng. Liên kết cho biết "anh Trí trong sổ nợ của tôi chính là tài khoản Zalo X trong hệ thống" (`users.id`). Trang **Zalo & Người dùng** dùng liên kết này để hiện chiều ngược lại: một tài khoản đang được gắn trong danh bạ của những ai.
+**Vì sao cần**: Người liên quan chỉ là một cái tên trong danh bạ công nợ chung. Liên kết cho biết "anh Trí trong sổ nợ chính là tài khoản Zalo X trong hệ thống" (`users.id`). Trang **Zalo & Người dùng** dùng liên kết này để hiện chiều ngược lại: một tài khoản đang là Người liên quan nào.
 
 Quy tắc nghiệp vụ:
 
 - **Chỉ admin được gắn hoặc bỏ gắn.** Muốn chọn user phải xem được toàn bộ danh sách user, mà danh sách này chỉ admin được xem. Nếu người dùng thường gửi `linkedUserId` (kể cả `null`), API trả **403**. Không gửi trường này thì liên kết giữ nguyên.
-- **Trong một danh bạ, mỗi tài khoản chỉ gắn với tối đa một Người liên quan.** Nếu trùng, API trả **409** kèm tên liên hệ đang giữ liên kết. Khi đó hãy dùng **Gộp liên hệ**, vì hai bản ghi này thực chất là cùng một người. Danh bạ của những người khác nhau vẫn có thể cùng gắn tới một tài khoản.
-- Không được gắn Người liên quan với chính chủ danh bạ, và tài khoản được gắn phải tồn tại. Vi phạm một trong hai điều này thì API trả **400**.
+- **Trong danh bạ chung, mỗi tài khoản chỉ gắn với tối đa một Người liên quan.** Nếu trùng, API trả **409** kèm tên liên hệ đang giữ liên kết. Khi đó hãy dùng **Gộp liên hệ**, vì hai bản ghi này thực chất là cùng một người.
+- Tài khoản được gắn phải tồn tại, nếu không API trả **400**. Danh bạ không có chủ nên được gắn với bất kỳ tài khoản nào, kể cả tài khoản đang thao tác.
 - Bỏ liên kết: chọn "Không liên kết" rồi lưu, web sẽ gửi `linkedUserId: null`. Trước đây thao tác này không có tác dụng vì TypeORM lưu theo relation cũ đã nạp sẵn. Giờ backend gán cả cột lẫn relation.
 - Bot **không** tự liên kết khi ghi nợ; liên kết chỉ được tạo trên web.
 - **Lưu dự phòng số điện thoại.** Zalo thường ẩn số, nên khi liên hệ đã gắn với user thì hai bên bù số cho nhau, với nguyên tắc **chỉ điền vào chỗ trống, không bao giờ ghi đè**:
@@ -61,10 +61,10 @@ Quy tắc nghiệp vụ:
 
 ## Đồng bộ người dùng Zalo vào danh bạ
 
-**Vì sao cần**: Danh sách user trước đây chỉ nằm ở trang ZCA. Tính năng này đưa từng người dùng Zalo vào danh bạ công nợ của admin, để xem chung một bảng và lưu dự phòng số điện thoại của họ.
+**Vì sao cần**: Danh sách user trước đây chỉ nằm ở trang ZCA. Tính năng này đưa từng người dùng Zalo vào danh bạ công nợ chung, để xem chung một bảng và lưu dự phòng số điện thoại của họ.
 
 - Nút **"👥 Đồng bộ người dùng Zalo"** nằm trên thanh công cụ trang Contacts và chỉ admin thấy. Bấm bao nhiêu lần cũng không sinh trùng. Tính năng này không tự chạy khi tải trang, để một thao tác xem dữ liệu không âm thầm ghi dữ liệu.
-- User được đưa vào **danh bạ của chính admin đang bấm**. Hệ thống bỏ qua bản thân admin và tài khoản ZCA của bot.
+- User được đưa vào **danh bạ chung**. Hệ thống chỉ bỏ qua tài khoản ZCA của bot (admin cũng được thêm như mọi người).
 - Hệ thống xử lý từng user như sau:
   - **Đã có liên hệ gắn với user này:** chỉ đồng bộ số điện thoại.
   - **Có liên hệ chưa gắn trùng tên** (ví dụ anh đã có "Trí" trong sổ nợ): **không tạo mới, không tự gắn**, mà hiện trong khung **Gợi ý liên kết** để anh kiểm tra rồi bấm **Gắn**. Không tạo mới vì nếu có thêm một "Trí" nữa, câu "cho Trí mượn 30k" đang khớp đúng một người sẽ thành trùng tên và bot phải hỏi lại. Không tự gắn vì trùng tên chưa chắc là cùng một người.

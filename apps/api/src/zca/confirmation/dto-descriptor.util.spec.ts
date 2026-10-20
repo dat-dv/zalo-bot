@@ -20,7 +20,6 @@ import { CreateEventOptions } from '../../google/google-calendar.service';
 void test('DtoDescriptor strictly typechecks full DTO shape and displays (trống) for empty fields', () => {
   // Test 1: Finance Transaction with missing fields
   const txDto: CreateFinanceTransactionDto = {
-    userId: 'u1',
     type: 'expense',
     amount: 15000,
     note: 'cà phê',
@@ -42,7 +41,6 @@ void test('DtoDescriptor strictly typechecks full DTO shape and displays (trốn
 
 void test('DEBT_DESCRIPTOR renders Vietnamese direction and empty fields appropriately', () => {
   const debtDto: CreateDebtDto = {
-    userId: 'u1',
     direction: 'receivable',
     counterparty: 'Nam',
     amount: 500000,

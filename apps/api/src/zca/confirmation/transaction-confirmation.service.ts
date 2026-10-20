@@ -5,7 +5,6 @@ import {
   CreateFinanceTransactionDto,
   CreateDebtDto,
 } from '../../finance/finance.service';
-import { LedgerService, resolveLedgerUserIdOrSelf } from '../../finance/ledger.service';
 import {
   RemindersService,
   CreateReminderDto,
@@ -144,7 +143,6 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     @Optional() private readonly googleAuthService?: GoogleAuthService,
     @Optional() private readonly redisService?: RedisService,
     @Optional() private readonly threadConfigService?: ThreadConfigService,
-    @Optional() private readonly ledger?: LedgerService,
   ) {
     this.zaloService = {
       sendMessage: async (chatId: string | number, text: string) => {
@@ -1201,8 +1199,6 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         case 'RECORD_TRANSACTION':
         case 'create': {
           const payload = pending.payload as unknown as CreateFinanceTransactionDto;
-          // Re-resolve at commit so cards queued before a ledger owner was set still land in it.
-          payload.userId = await resolveLedgerUserIdOrSelf(this.ledger, payload.userId);
           const tx = await this.financeService.createTransaction(payload);
           const typeLabel = payload.type === 'income' ? '🟢 Khoản thu' : '🔴 Khoản chi';
           const cardContent = renderDtoConfirmationCard(
@@ -1247,10 +1243,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         case 'delete': {
           const payload = (pending.payload ||
             pending.deletePayload) as unknown as DeleteTransactionDto;
-          const success = await this.financeService.deleteTransaction(
-            await resolveLedgerUserIdOrSelf(this.ledger, pending.userId),
-            payload.transactionId,
-          );
+          const success = await this.financeService.deleteTransaction(payload.transactionId);
           if (success) {
             if (!silent) {
               const typeLabel = payload.type === 'income' ? 'khoản thu' : 'khoản chi';
@@ -1272,7 +1265,6 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         }
         case 'MANAGE_DEBT': {
           const payload = pending.payload as unknown as CreateDebtDto;
-          payload.userId = await resolveLedgerUserIdOrSelf(this.ledger, payload.userId);
           const debt = await this.financeService.createDebt(payload);
           if (!silent) {
             const cardContent = renderDtoConfirmationCard(
@@ -1422,16 +1414,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         }
         case 'CREATE_PLACE': {
           const payload = pending.payload as unknown as CreatePlaceDto;
-          const place = await this.financeService.resolveOrCreatePlace(
-            await resolveLedgerUserIdOrSelf(this.ledger, pending.userId),
-            payload.name,
-          );
+          const place = await this.financeService.resolveOrCreatePlace(payload.name);
           if (!silent) {
             const cardContent = renderDtoConfirmationCard(
-              {
-                userId: pending.userId,
-                name: place?.name || payload.name,
-              },
+              { name: place?.name || payload.name },
               PLACE_DESCRIPTOR,
             );
             const header = options?.isHeartConfirmed
@@ -1452,7 +1438,6 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         }
         default: {
           const payload = pending.payload as unknown as CreateFinanceTransactionDto;
-          payload.userId = await resolveLedgerUserIdOrSelf(this.ledger, payload.userId);
           await this.financeService.createTransaction(payload);
           if (!silent) {
             const header = options?.isHeartConfirmed

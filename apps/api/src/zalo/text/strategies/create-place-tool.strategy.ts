@@ -4,7 +4,6 @@ import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
 import { FinanceService } from '../../../finance/finance.service';
-import { LedgerService, resolveLedgerUserIdOrSelf } from '../../../finance/ledger.service';
 
 @Injectable()
 export class CreatePlaceToolStrategy implements TextToolStrategy {
@@ -15,11 +14,9 @@ export class CreatePlaceToolStrategy implements TextToolStrategy {
     private readonly zaloService: ZaloService,
     private readonly confirmationService: TransactionConfirmationService,
     @Optional() private readonly financeService?: FinanceService,
-    @Optional() private readonly ledger?: LedgerService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
-    const ledgerUserId = await resolveLedgerUserIdOrSelf(this.ledger, context.senderId);
     const args = context.toolArgs ?? {};
 
     const rawName =
@@ -38,7 +35,7 @@ export class CreatePlaceToolStrategy implements TextToolStrategy {
     }
 
     if (this.financeService) {
-      const existing = await this.financeService.resolvePlaces(ledgerUserId, name);
+      const existing = await this.financeService.resolvePlaces(name);
       if (existing.length > 0) {
         await this.zaloService.sendMessage(
           context.chatId,
@@ -61,7 +58,6 @@ export class CreatePlaceToolStrategy implements TextToolStrategy {
         userId: context.senderId,
         chatId: context.chatId,
         payload: {
-          userId: ledgerUserId,
           name,
         },
         rawPrompt: context.text,

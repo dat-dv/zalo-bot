@@ -5,7 +5,6 @@ import { UserEntity } from '../database/entities/user.entity';
 import { fillMissingPhones, planContactUserSync, userDisplayName } from './contact-user-sync';
 import { ContactUserSyncService } from './contact-user-sync.service';
 
-const OWNER = '1';
 const BOT = '999';
 const normalize = (value: string) =>
   value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
@@ -17,7 +16,6 @@ function user(id: string, firstName?: string, phoneNumber?: string): UserEntity 
 function contact(overrides: Partial<DebtContactEntity>): DebtContactEntity {
   return {
     id: 'c-x',
-    userId: OWNER,
     displayName: 'X',
     normalizedName: 'x',
     createdAt: new Date('2026-01-01'),
@@ -40,16 +38,9 @@ void test('userDisplayName falls back to username, then the id tail', () => {
   assert.equal(userDisplayName(user('123456')), 'Zalo 3456');
 });
 
-void test('planContactUserSync creates, keeps linked, suggests same-name and skips owner/bot', () => {
+void test('planContactUserSync creates, keeps linked, suggests same-name and skips the bot', () => {
   const plan = planContactUserSync({
-    ownerId: OWNER,
-    users: [
-      user(OWNER, 'Admin'),
-      user(BOT, 'Bot'),
-      user('10', 'Nam'),
-      user('11', 'Trí'),
-      user('12', 'Hùng'),
-    ],
+    users: [user(BOT, 'Bot'), user('10', 'Nam'), user('11', 'Trí'), user('12', 'Hùng')],
     contacts: [
       contact({ id: 'c-tri', displayName: 'Trí', normalizedName: 'tri', alias: 'Đen' }),
       contact({ id: 'c-hung', displayName: 'Hùng', normalizedName: 'hung', linkedUserId: '12' }),
@@ -73,7 +64,6 @@ void test('planContactUserSync creates, keeps linked, suggests same-name and ski
 
 void test('planContactUserSync creates a new contact when the same-name contact is linked to someone else', () => {
   const plan = planContactUserSync({
-    ownerId: OWNER,
     users: [user('11', 'Trí')],
     contacts: [contact({ id: 'c-tri', normalizedName: 'tri', linkedUserId: '77' })],
     isBotAccount: () => false,
@@ -111,7 +101,7 @@ void test('syncUsersIntoContacts saves new linked contacts, fills phones and is 
     { isBotAccount: () => false } as never,
   );
 
-  const first = await service.syncUsersIntoContacts(OWNER);
+  const first = await service.syncUsersIntoContacts();
   assert.deepEqual(first, { created: 1, phoneFilled: 2, suggestions: [] });
   const nam = contacts.find((c) => c.linkedUserId === '10');
   assert.equal(nam?.displayName, 'Nam');
@@ -119,6 +109,6 @@ void test('syncUsersIntoContacts saves new linked contacts, fills phones and is 
   assert.equal(contacts.find((c) => c.id === 'c-hung')?.phoneNumber, '0912');
   assert.equal(savedUsers.length, 0);
 
-  const second = await service.syncUsersIntoContacts(OWNER);
+  const second = await service.syncUsersIntoContacts();
   assert.deepEqual(second, { created: 0, phoneFilled: 0, suggestions: [] });
 });

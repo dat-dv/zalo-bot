@@ -1,9 +1,8 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { FinanceService } from '../../../finance/finance.service';
-import { LedgerService, resolveLedgerUserIdOrSelf } from '../../../finance/ledger.service';
 import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
 import { cleanToolArguments } from '../../../llm/utils/tool-arguments.util';
 import { FinanceTransactionEntity } from '../../../database/entities/finance-transaction.entity';
@@ -17,11 +16,9 @@ export class DeleteTransactionToolStrategy implements TextToolStrategy {
     private readonly zaloService: ZaloService,
     private readonly financeService: FinanceService,
     private readonly confirmationService: TransactionConfirmationService,
-    @Optional() private readonly ledger?: LedgerService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
-    const ledgerUserId = await resolveLedgerUserIdOrSelf(this.ledger, context.senderId);
     const rawArgs = context.toolArgs || {};
     const args = cleanToolArguments(rawArgs);
 
@@ -44,7 +41,7 @@ export class DeleteTransactionToolStrategy implements TextToolStrategy {
     let transaction: FinanceTransactionEntity | null = null;
 
     if (targetId) {
-      transaction = await this.financeService.getTransaction(ledgerUserId, targetId);
+      transaction = await this.financeService.getTransaction(targetId);
     }
 
     if (!transaction) {
@@ -60,12 +57,9 @@ export class DeleteTransactionToolStrategy implements TextToolStrategy {
           lowerQ.includes('vừa tạo') ||
           lowerQ.includes('vừa xong')
         ) {
-          transaction = await this.financeService.getLatestTransaction(
-            ledgerUserId,
-            context.senderId,
-          );
+          transaction = await this.financeService.getLatestTransaction(context.senderId);
         } else {
-          const list = await this.financeService.listTransactions(ledgerUserId);
+          const list = await this.financeService.listTransactions();
           // Find matching transaction by note or category
           transaction =
             list.find(

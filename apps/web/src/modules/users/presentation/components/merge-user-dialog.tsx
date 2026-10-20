@@ -22,12 +22,7 @@ interface MergeUserDialogProps {
 
 const TABLE_LABEL_KEYS: Record<UserMergeTable, TranslationKey> = {
   financeTransactions: 'users.merge.table.financeTransactions',
-  financePlaces: 'users.merge.table.financePlaces',
-  userCategories: 'users.merge.table.userCategories',
-  debts: 'users.merge.table.debts',
   debtContacts: 'users.merge.table.debtContacts',
-  debtPayments: 'users.merge.table.debtPayments',
-  debtPaymentAllocations: 'users.merge.table.debtPaymentAllocations',
   reminders: 'users.merge.table.reminders',
   googleToken: 'users.merge.table.googleToken',
 };
@@ -198,16 +193,9 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
                   ))}
                 </dl>
               )}
-              {summary.conflicts.places +
-                summary.conflicts.contacts +
-                summary.conflicts.categories >
-                0 && (
+              {summary.conflicts.linkedContacts > 0 && (
                 <p className="text-xs text-slate-600 dark:text-slate-300">
-                  {t('users.merge.conflicts', {
-                    places: summary.conflicts.places,
-                    contacts: summary.conflicts.contacts,
-                    categories: summary.conflicts.categories,
-                  })}
+                  {t('users.merge.conflicts', { contacts: summary.conflicts.linkedContacts })}
                 </p>
               )}
               <p className="text-xs text-slate-600 dark:text-slate-300">

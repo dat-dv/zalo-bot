@@ -7,11 +7,8 @@ import type { UserMergeManager, UserMergeUnitOfWork, UserMergeUsersPort } from '
 import { AuditLogEntity } from '../database/entities/audit-log.entity';
 import { DashboardExchangeTokenEntity } from '../database/entities/dashboard-exchange-token.entity';
 import { DebtContactEntity } from '../database/entities/debt-contact.entity';
-import { DebtEntity } from '../database/entities/debt.entity';
-import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
 import { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
 import { ReminderEntity } from '../database/entities/reminder.entity';
-import { UserCategoryEntity } from '../database/entities/user-category.entity';
 import { UserTokenEntity } from '../database/entities/user-token.entity';
 import { UserEntity } from '../database/entities/user.entity';
 
@@ -142,37 +139,20 @@ function seedDuplicate(): Array<[EntityTarget<ObjectLiteral>, Row[]]> {
       ],
     ],
     [
-      FinancePlaceEntity,
-      [
-        { id: 'p-old-dup', userId: OLD, normalizedName: 'highlands' },
-        { id: 'p-old-only', userId: OLD, normalizedName: 'circle k' },
-        { id: 'p-new', userId: NEW, normalizedName: 'highlands' },
-      ],
-    ],
-    [
       DebtContactEntity,
       [
-        { id: 'c-old', userId: OLD, normalizedName: 'tri', normalizedAlias: 'tri den' },
-        { id: 'c-new', userId: NEW, normalizedName: 'tri', normalizedAlias: 'tri den' },
-        { id: 'c-link', userId: 'someone', normalizedName: 'dat', linkedUserId: OLD },
-      ],
-    ],
-    [
-      UserCategoryEntity,
-      [
-        { id: 'cat-old-dup', userId: OLD, type: 'expense', name: 'Ăn uống' },
-        { id: 'cat-old-only', userId: OLD, type: 'expense', name: 'Xăng xe' },
-        { id: 'cat-new', userId: NEW, type: 'expense', name: 'ăn uống ' },
+        { id: 'c-link', normalizedName: 'dat', linkedUserId: OLD },
+        { id: 'c-other', normalizedName: 'hang', linkedUserId: 'someone-else' },
       ],
     ],
     [
       FinanceTransactionEntity,
       [
-        { id: 't1', userId: OLD, placeId: 'p-old-dup', contactId: 'c-old' },
-        { id: 't2', userId: OLD, placeId: 'p-old-only' },
+        { id: 't1', createdByUserId: OLD, placeId: 'p-1', contactId: 'c-other' },
+        { id: 't2', createdByUserId: OLD },
+        { id: 't3', createdByUserId: NEW },
       ],
     ],
-    [DebtEntity, [{ id: 'd1', userId: OLD, contactId: 'c-old' }]],
     [ReminderEntity, [{ id: 'r1', userId: OLD }]],
     [UserTokenEntity, [{ userId: OLD, refreshToken: 'rt', updatedAt: new Date('2026-10-12') }]],
     [DashboardExchangeTokenEntity, [{ id: 'x1', userId: OLD }]],
@@ -197,17 +177,15 @@ void test('preview rejects self-merge and unknown users', async () => {
 void test('preview reports counts and conflicts without writing', async () => {
   const { service, manager } = setup(seedDuplicate());
   const summary = await service.preview(OLD, NEW);
-  assert.equal(summary.counts.financeTransactions, 2);
-  assert.equal(summary.counts.financePlaces, 2);
-  assert.equal(summary.counts.googleToken, 1);
   assert.deepEqual(
-    { ...summary.conflicts },
-    { places: 1, contacts: 1, categories: 1, googleToken: 'keep-source' },
+    { ...summary.counts },
+    { financeTransactions: 2, debtContacts: 1, reminders: 1, googleToken: 1 },
   );
+  assert.deepEqual({ ...summary.conflicts }, { linkedContacts: 0, googleToken: 'keep-source' });
   assert.equal(manager.tables.get(UserEntity)?.length, 2);
 });
 
-void test('merge moves data, folds duplicates, keeps admin rights and audits', async () => {
+void test('merge moves authorship and links, keeps shared finance data, admin rights and audits', async () => {
   const { service, manager, merged } = setup(seedDuplicate());
   const result = await service.merge(OLD, NEW, OLD);
   const rows = (e: EntityTarget<ObjectLiteral>) => manager.tables.get(e) ?? [];
@@ -223,27 +201,22 @@ void test('merge moves data, folds duplicates, keeps admin rights and audits', a
   assert.equal(users[0].driveFolderId, 'drive-1');
   assert.deepEqual(users[0].createdAt, new Date('2026-10-11'));
 
+  // Shared finance rows stay as they are; only who wrote them follows the identity.
+  const tx = rows(FinanceTransactionEntity);
   assert.deepEqual(
-    rows(FinancePlaceEntity).map((p) => [p.id, p.userId]),
+    tx.map((t) => [t.id, t.createdByUserId]),
     [
-      ['p-old-only', NEW],
-      ['p-new', NEW],
+      ['t1', NEW],
+      ['t2', NEW],
+      ['t3', NEW],
     ],
   );
-  const tx = rows(FinanceTransactionEntity);
-  assert.ok(tx.every((t) => t.userId === NEW));
-  assert.equal(tx.find((t) => t.id === 't1')?.placeId, 'p-new');
-  assert.equal(tx.find((t) => t.id === 't1')?.contactId, 'c-new');
-  assert.equal(rows(DebtEntity)[0].contactId, 'c-new');
-  assert.equal(rows(DebtEntity)[0].userId, NEW);
-  assert.deepEqual(
-    rows(DebtContactEntity).map((c) => c.id),
-    ['c-new', 'c-link'],
-  );
+  assert.equal(tx.find((t) => t.id === 't1')?.placeId, 'p-1');
+  assert.equal(tx.find((t) => t.id === 't1')?.contactId, 'c-other');
   assert.equal(rows(DebtContactEntity).find((c) => c.id === 'c-link')?.linkedUserId, NEW);
-  assert.deepEqual(
-    rows(UserCategoryEntity).map((c) => c.id),
-    ['cat-old-only', 'cat-new'],
+  assert.equal(
+    rows(DebtContactEntity).find((c) => c.id === 'c-other')?.linkedUserId,
+    'someone-else',
   );
   assert.equal(rows(ReminderEntity)[0].userId, NEW);
   assert.deepEqual(
@@ -258,6 +231,23 @@ void test('merge moves data, folds duplicates, keeps admin rights and audits', a
   assert.equal(audit[0].actorId, OLD);
 });
 
+void test('merge drops the source contact link when the target already has one', async () => {
+  const seed = seedDuplicate().map(([entity, rows]): [EntityTarget<ObjectLiteral>, Row[]] =>
+    entity === DebtContactEntity
+      ? [entity, [...rows, { id: 'c-target', normalizedName: 'dat 2', linkedUserId: NEW }]]
+      : [entity, rows],
+  );
+  const { service, manager } = setup(seed);
+
+  const summary = await service.preview(OLD, NEW);
+  assert.equal(summary.conflicts.linkedContacts, 1);
+
+  await service.merge(OLD, NEW, NEW);
+  const contacts = manager.tables.get(DebtContactEntity) ?? [];
+  assert.equal(contacts.find((c) => c.id === 'c-link')?.linkedUserId, null);
+  assert.equal(contacts.find((c) => c.id === 'c-target')?.linkedUserId, NEW);
+});
+
 void test('merge is refused when the source is the bot own ZCA account', async () => {
   const { service, manager } = setup(seedDuplicate(), OLD);
   await assert.rejects(() => service.merge(OLD, NEW, NEW), /bot's own ZCA account/);
@@ -269,6 +259,10 @@ void test('merge rolls back everything when a step fails', async () => {
   manager.failOnUpdateOf = ReminderEntity;
   await assert.rejects(() => service.merge(OLD, NEW, NEW), /boom/);
   assert.equal(manager.tables.get(UserEntity)?.length, 2);
-  assert.ok((manager.tables.get(FinanceTransactionEntity) ?? []).every((t) => t.userId === OLD));
+  assert.equal(
+    (manager.tables.get(FinanceTransactionEntity) ?? []).find((t) => t.id === 't1')
+      ?.createdByUserId,
+    OLD,
+  );
   assert.equal(merged.length, 0);
 });

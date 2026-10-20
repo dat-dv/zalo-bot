@@ -2,16 +2,15 @@
 
 ## Thu–chi
 
-- **Giao dịch**: Một khoản tiền đã phát sinh, thuộc đúng một người dùng zalo.
+- **Giao dịch**: Một khoản tiền đã phát sinh, thuộc **sổ chung** của cả hệ thống và ghi nhận **người tạo**.
 - **Khoản thu**: Giao dịch làm tăng tiền nhận được, ví dụ lương, hoàn tiền hoặc bán hàng.
 - **Khoản chi**: Giao dịch làm giảm tiền đã dùng, ví dụ ăn uống, đi lại hoặc mua sắm.
 - **Số tiền**: Giá trị dương, lưu bằng đồng Việt Nam (VND), không lưu đơn vị nghìn hoặc triệu.
 - **Danh mục**: Nhãn ngắn để nhóm giao dịch, chẳng hạn `Ăn uống`, `Đi lại`, `Lương`; khi không rõ dùng `Khác`.
 - **Ngày phát sinh**: Thời điểm giao dịch xảy ra. Nếu người dùng không nêu, mặc định là thời điểm họ nhắn bot.
 
-- **Sổ chung**: Toàn hệ thống dùng một sổ thu chi duy nhất thuộc về **chủ sổ**; ai nhắn bot hay thao tác trên dashboard cũng ghi vào và xem sổ này. Chưa chọn chủ sổ thì mỗi người dùng một sổ riêng.
-- **Chủ sổ**: Người dùng duy nhất (admin chọn) mà mọi dữ liệu tài chính được ghi dưới `user_id` của họ.
-- **Người tạo**: Người đã ghi giao dịch (người gửi tin Zalo hoặc người dùng dashboard), lưu riêng với chủ sở hữu sổ; kèm **nguồn** (nhóm Zalo, chat riêng hoặc dashboard).
+- **Sổ chung**: Toàn hệ thống chỉ có một kho tài chính (thu chi, nơi chốn, danh bạ công nợ, công nợ, danh mục), không thuộc về người dùng nào; ai nhắn bot hay thao tác trên dashboard cũng ghi vào và xem toàn bộ kho này. Không có sổ riêng theo người dùng.
+- **Người tạo**: Người đã ghi giao dịch (người gửi tin Zalo hoặc người dùng dashboard), kèm **nguồn** (nhóm Zalo, chat riêng hoặc dashboard). Chỉ để hiển thị, không dùng để lọc dữ liệu.
 
 ## Công nợ
 
@@ -19,8 +18,8 @@
 - **Khoản phải trả**: Tiền người dùng đang nợ người khác, thường phát sinh khi người dùng vay hoặc mua chịu.
 - **Người liên quan**: Người cho vay hoặc người đi vay của một khoản nợ.
 - **Biệt danh**: Nhãn phân biệt một người liên quan trùng tên với người khác, ví dụ `Trí (Trí Đen)`.
-- **Danh bạ công nợ**: Tập người liên quan riêng của mỗi người dùng. Mỗi người có một mã cố định; việc tra cứu dùng khóa tên/biệt danh đã chuẩn hoá và so khớp chính xác, không tìm gần đúng bằng `LIKE`.
-- **Liên kết tài khoản**: Gắn một Người liên quan với đúng một người dùng zalo của hệ thống (`users.id`). Chỉ admin được gắn/bỏ gắn; trong một danh bạ, mỗi người dùng chỉ gắn với tối đa một Người liên quan.
+- **Danh bạ công nợ**: Tập người liên quan dùng chung cho cả hệ thống. Mỗi người có một mã cố định; việc tra cứu dùng khóa tên/biệt danh đã chuẩn hoá và so khớp chính xác, không tìm gần đúng bằng `LIKE`.
+- **Liên kết tài khoản**: Gắn một Người liên quan với đúng một người dùng zalo của hệ thống (`users.id`). Chỉ admin được gắn/bỏ gắn; trong danh bạ chung, mỗi người dùng chỉ gắn với tối đa một Người liên quan.
 - **Lưu dự phòng số điện thoại**: Người liên quan và người dùng zalo đã liên kết bù số điện thoại cho nhau, chỉ điền khi bên kia đang trống, không ghi đè.
 - **Số còn lại**: Phần tiền chưa được trả; khoản nợ chỉ hoàn tất khi số này bằng 0.
 
@@ -40,6 +39,6 @@
 - **ZCA (Zalo Client Account)**: Kết nối tài khoản cá nhân Zalo qua giao thức WebSocket và quét mã QR, cho phép bot tham gia các nhóm chat như người dùng thật.
 - **Kênh (Thread / Channel)**: Một cuộc trò chuyện cá nhân (`user`) hoặc nhóm chat (`group`) trên Zalo, có ID nguyên bản (`channelId`) độc lập.
 - **Danh tính kênh Zalo**: Cùng một người có thể có nhiều ID: ID theo app của Zalo Bot chính thức (webhook, 20 ký tự hex) và UID Zalo cá nhân qua ZCA (dạng số). Hệ thống chỉ coi `users.id` là danh tính.
-- **Gộp tài khoản (User Merge)**: Thao tác của admin chuyển toàn bộ dữ liệu của một ID trùng sang người dùng giữ lại, hợp nhất bản ghi trùng (nơi chốn, người liên quan, danh mục), rồi xoá ID trùng. Chạy trong một transaction và không thể hoàn tác.
+- **Gộp tài khoản (User Merge)**: Thao tác của admin chuyển dấu vết của một ID trùng (người tạo giao dịch, liên kết người liên quan, lời nhắc, token Google) sang người dùng giữ lại, rồi xoá ID trùng. Dữ liệu tài chính là sổ chung nên không phải di chuyển. Chạy trong một transaction và không thể hoàn tác.
 - **Phân vùng lưu trữ (Drive Partition)**: Thư mục Google Drive được tạo riêng biệt cho từng kênh theo quy chuẩn `zalobot/<channelId>/<category>` (`bill`, `image`, `video`, `file`, `audio`).
 

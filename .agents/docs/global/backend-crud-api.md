@@ -21,7 +21,7 @@ API (`apps/api`) không chia theo `src/modules/<feature>` mà theo từng vùng 
 
 ## Vì sao phải khóa theo token
 
-Dashboard là dữ liệu tài chính cá nhân, nên backend **không bao giờ** nhận `userId` từ client. Người gọi được xác định duy nhất từ access token dashboard (header `Authorization: Bearer ...`). Nhờ vậy một người không thể xem giao dịch, công nợ hay lời nhắc của người khác dù đoán được ID.
+Backend **không bao giờ** nhận `userId` từ client. Người gọi được xác định duy nhất từ access token dashboard (header `Authorization: Bearer ...`). Dữ liệu tài chính là **kho chung** nên mọi người dùng đã đăng nhập đều thấy như nhau; còn lời nhắc, lịch, việc cần làm vẫn theo từng người nên không ai xem được của người khác dù đoán được ID.
 
 - Nhóm `/api/users*` chỉ dành cho admin (tài khoản ZCA của chính bot hoặc user có role admin); người khác nhận `403`.
 - Lưu ý hiện trạng: các endpoint `drive/share`, `drive/folder-link`, `drive/open`, `photos/album-link`, `photos/open` chưa kiểm tra token dashboard — cần xử lý ở task riêng nếu muốn khóa chặt.
@@ -29,12 +29,12 @@ Dashboard là dữ liệu tài chính cá nhân, nên backend **không bao giờ
 ## Danh sách endpoint theo nghiệp vụ
 
 - **Giao dịch thu chi**: `GET /api/transactions` (lọc `type`, `startAt`, `endAt`, `search`, phân trang `limit`/`offset`; trả kèm số dư lũy kế, tổng kỳ và số dư sổ cái), `POST /api/transactions`, `GET/PATCH/DELETE /api/transactions/:id`. Gửi `placeId: null` để bỏ liên kết nơi chốn.
-- **Sổ chung (admin)**: `GET /api/finance/ledger` (chủ sổ + các sổ khác kèm số lượng), `PATCH /api/finance/ledger/owner` (body `{ userId }`, `null` để bỏ), `POST /api/finance/ledger/consolidate` (gộp dữ liệu cũ). Khi có chủ sổ, mọi endpoint tài chính đọc/ghi sổ của chủ sổ.
-- **Ảnh hoá đơn**: `GET /api/transactions/:id/receipt` — trả ảnh của giao dịch trong sổ của người xem, xác thực bằng Bearer hoặc cookie refresh để `<img>` dùng trực tiếp.
+- **Kho tài chính chung**: mọi endpoint tài chính (giao dịch, nơi chốn, danh bạ công nợ, công nợ, danh mục) đọc/ghi một kho duy nhất cho cả hệ thống; token chỉ để xác thực, không để giới hạn dữ liệu. Không còn API "chủ sổ" (`/api/finance/ledger*`).
+- **Ảnh hoá đơn**: `GET /api/transactions/:id/receipt` — trả ảnh của giao dịch (mọi người dùng đã đăng nhập), xác thực bằng Bearer hoặc cookie refresh để `<img>` dùng trực tiếp.
 - **Phân bổ giao dịch vào công nợ**: `GET /api/transactions/:id/candidate-debts` (gợi ý khoản nợ phù hợp), `GET/POST /api/transactions/:id/allocations` (body `allocations: [{ debtId, amount, note? }]`), `DELETE /api/transactions/:id/allocations/:allocationId`. Dữ liệu nằm ở bảng `debt_payment_allocations`.
 - **Danh mục**: `GET /api/categories?type=`, `POST /api/categories`, `PATCH/DELETE /api/categories/:id` (bảng `user_categories`, có `color`, `icon`, `isDefault`).
 - **Nơi chốn**: `GET/POST /api/places`, `PATCH/DELETE /api/places/:id`, `POST /api/places/combine` để gộp ít nhất 2 nơi chốn trùng thành một.
-- **Danh bạ công nợ**: `GET /api/contacts` (tối đa 200 người, phục vụ bởi reports controller), `POST /api/contacts`, `GET/PATCH/DELETE /api/contacts/:id`, `POST /api/contacts/combine` (kèm `consolidateDebts: true` để gom nợ của các người được gộp về khoản nợ cha), `POST /api/contacts/sync-users` (admin: đưa người dùng Zalo vào danh bạ của mình và đồng bộ SĐT).
+- **Danh bạ công nợ**: `GET /api/contacts` (tối đa 200 người, phục vụ bởi reports controller), `POST /api/contacts`, `GET/PATCH/DELETE /api/contacts/:id`, `POST /api/contacts/combine` (kèm `consolidateDebts: true` để gom nợ của các người được gộp về khoản nợ cha), `POST /api/contacts/sync-users` (admin: đưa người dùng Zalo vào danh bạ chung và đồng bộ SĐT).
 - **Công nợ**: `GET /api/debts?status=active|settled`, `POST /api/debts`, `GET/PATCH/DELETE /api/debts/:id`, `POST /api/debts/combine` (gộp ≥2 khoản nợ thành khoản cha qua `parent_debt_id`).
 - **Trả nợ**: `GET/POST /api/debts/:id/payments`, `DELETE /api/debts/:id/payments/:paymentId`.
 - **Báo cáo**: `GET /api/dashboard`, `GET /api/expenses`, `GET /api/finance/analytics?startAt&endAt&grain`.

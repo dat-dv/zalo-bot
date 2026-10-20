@@ -65,7 +65,6 @@ export function formatCurrencyVN(amount?: number | null, currency?: string): str
  * Mọi field thay đổi trong CreateFinanceTransactionDto sẽ được TypeScript typecheck kiểm tra chặt chẽ.
  */
 export const FINANCE_TRANSACTION_DESCRIPTOR: DtoDescriptor<CreateFinanceTransactionDto> = {
-  userId: { label: 'Người dùng', hidden: true },
   type: {
     label: 'Phân loại',
     order: 1,
@@ -166,7 +165,6 @@ export const DELETE_TRANSACTION_DESCRIPTOR: DtoDescriptor<DeleteTransactionDto> 
  * Strict Descriptor cho CreateDebtDto (Quản lý công nợ).
  */
 export const DEBT_DESCRIPTOR: DtoDescriptor<CreateDebtDto> = {
-  userId: { label: 'Người dùng', hidden: true },
   direction: {
     label: 'Phân loại',
     order: 1,
@@ -419,7 +417,6 @@ export const BAN_USER_DESCRIPTOR: DtoDescriptor<BanUserDto> = {
  * DTO đại diện cho việc tạo mới nơi chốn (FinancePlace).
  */
 export interface CreatePlaceDto {
-  userId: string;
   name: string;
 }
 
@@ -427,7 +424,6 @@ export interface CreatePlaceDto {
  * Strict Descriptor cho CreatePlaceDto.
  */
 export const PLACE_DESCRIPTOR: DtoDescriptor<CreatePlaceDto> = {
-  userId: { label: 'Người dùng', hidden: true },
   name: {
     label: 'Tên nơi chốn / địa điểm',
     order: 1,

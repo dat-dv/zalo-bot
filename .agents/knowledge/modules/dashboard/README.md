@@ -49,7 +49,7 @@
 - Type filter pills All / Income / Expense synced to `?type=`; search over category, note, place name; Adjust balance button.
 - `TransactionsTable` (`id="transactions"`) columns: type badge, category (non-hideable), note, place, **created by** (creator name + source line `Nhóm <name>` / `Chat riêng` / `Dashboard`, `—` when unknown), **receipt** (32px thumbnail when `hasReceipt`, click → lightbox `Modal` with full image + "Mở ảnh" new tab), amount (non-hideable; proportional bar only while amounts are revealed), running balance, occurredAt, actions (non-hideable, `minWidth: 130px`, Edit + Delete).
 - Every row is expandable (chevron in the note cell): details panel (creator, source, createdAt, payment method, currency, full wrapped note, large receipt image) followed by the allocations sub-table when present. Receipt `<img>` src = `getTransactionReceiptUrl(id)` (`API_ROUTES.transactionReceipt`, cookie-authenticated, lazy, inline error "Không tải được ảnh"). Components: `transaction-receipt.tsx` (`describeTransactionSource`, `ReceiptImage`, `ReceiptThumbnail`).
-- With a shared-ledger owner set (see global/finance-domain), every user sees the same ledger here; the creator column tells members apart.
+- Finance data is one shared store (see global/finance-domain): every user sees the same ledger here; the creator column tells members apart.
 - Inline edit: type, category and place via shared `CategoryAutocomplete` (portal listbox; focus/click opens, typing filters, ArrowUp/Down + Enter selects, first Escape closes menu, next Escape cancels; free text allowed), note (required), amount (>0), occurredAt. Category options: configured categories of the edited type (`useCategoriesQuery`), historical categories of that type, `DEFAULT_INCOME_CATEGORIES`/`DEFAULT_EXPENSE_CATEGORIES`. Place options: `usePlacesQuery` names. Save sends `placeName`, or `placeId: null` when the place is cleared (detaches only).
 - Save is disabled when the type changes on a transaction with allocations, or the amount drops below the allocated sum (title explains why).
 - Allocations: note cell shows an expand chevron and a `🔗 N allocations` badge (opens `DebtAllocationModal`); while editing, a `🔗` action button opens it too. Expanded row (`renderExpandedRow`, full `colSpan`) lists counterparty, amount, note per allocation.
@@ -58,7 +58,7 @@
 
 ## `DebtAllocationModal`
 
-- Loads `useCandidateDebtsQuery` and `useTransactionAllocationsQuery` (stable `EMPTY_*` fallbacks). Candidates: caller's debts with direction `income→receivable`, `expense→payable`, filtered by the transaction's `contactId` when set, newest first, excluding fully paid debts not already allocated.
+- Loads `useCandidateDebtsQuery` and `useTransactionAllocationsQuery` (stable `EMPTY_*` fallbacks). Candidates: shared-ledger debts with direction `income→receivable`, `expense→payable`, filtered by the transaction's `contactId` when set, newest first, excluding fully paid debts not already allocated.
 - Shows total / allocated / unallocated, per-debt amount + note inputs, "allocate max" helper (min of unallocated and debt remaining). Client validates totals; server errors shown inline.
 - Submit `POST /api/transactions/:id/allocations` **replaces** the transaction's whole allocation set (reverts old allocations and their `debt_payments`, applies new ones atomically). Rows with amount 0 are dropped, so removing an allocation = saving it with 0.
 

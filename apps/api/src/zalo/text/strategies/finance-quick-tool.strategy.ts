@@ -1,9 +1,8 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { FinanceService } from '../../../finance/finance.service';
-import { LedgerService, resolveLedgerUserIdOrSelf } from '../../../finance/ledger.service';
 
 @Injectable()
 export class FinanceQuickToolStrategy implements TextToolStrategy {
@@ -13,14 +12,12 @@ export class FinanceQuickToolStrategy implements TextToolStrategy {
   constructor(
     private readonly zaloService: ZaloService,
     private readonly financeService: FinanceService,
-    @Optional() private readonly ledger?: LedgerService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
-    const ledgerUserId = await resolveLedgerUserIdOrSelf(this.ledger, context.senderId);
     try {
       const { startAt, endAt } = this.financeService.getTodayRange();
-      const summary = await this.financeService.getSummary(ledgerUserId, startAt, endAt);
+      const summary = await this.financeService.getSummary(startAt, endAt);
 
       const recentTxLines = summary.transactions.slice(0, 5).map((t, idx) => {
         const icon = t.type === 'income' ? '🟢 Thu' : '🔴 Chi';

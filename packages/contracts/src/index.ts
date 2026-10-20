@@ -30,9 +30,6 @@ export const API_ROUTES = {
   swaggerDocs: '/api/docs',
   transactionCandidateDebts: (id: string) => `/api/transactions/${id}/candidate-debts`,
   transactionReceipt: (id: string) => `/api/transactions/${id}/receipt`,
-  ledger: '/api/finance/ledger',
-  ledgerOwner: '/api/finance/ledger/owner',
-  ledgerConsolidate: '/api/finance/ledger/consolidate',
   transactionAllocations: (id: string) => `/api/transactions/${id}/allocations`,
   transactionAllocationDetail: (txId: string, allocId: string) =>
     `/api/transactions/${txId}/allocations/${allocId}`,
@@ -103,7 +100,7 @@ const messages = {
     'users.merge.actionTitle': 'Gộp tài khoản trùng này vào một người dùng khác',
     'users.merge.title': 'Gộp tài khoản',
     'users.merge.description':
-      'Toàn bộ dữ liệu của {source} sẽ được chuyển sang người dùng đích, sau đó {source} bị xoá khỏi hệ thống.',
+      'Dấu vết của {source} (người tạo giao dịch, liên kết người liên quan, lời nhắc, kết nối Google) sẽ được chuyển sang người dùng đích, sau đó {source} bị xoá khỏi hệ thống. Dữ liệu tài chính là kho chung nên không cần chuyển.',
     'users.merge.sourceLabel': 'Tài khoản nguồn (sẽ bị xoá)',
     'users.merge.targetLabel': 'Gộp vào người dùng',
     'users.merge.targetPlaceholder': 'Chọn người dùng đích',
@@ -113,17 +110,12 @@ const messages = {
     'users.merge.previewLoading': 'Đang tính toán dữ liệu cần chuyển…',
     'users.merge.previewError': 'Không thể tải bản xem trước. Vui lòng thử lại.',
     'users.merge.previewEmpty': 'Tài khoản nguồn không có dữ liệu nào cần chuyển.',
-    'users.merge.table.financeTransactions': 'Giao dịch thu chi',
-    'users.merge.table.financePlaces': 'Nơi chốn',
-    'users.merge.table.userCategories': 'Danh mục',
-    'users.merge.table.debts': 'Khoản nợ',
-    'users.merge.table.debtContacts': 'Người liên quan (danh bạ nợ)',
-    'users.merge.table.debtPayments': 'Lần trả nợ',
-    'users.merge.table.debtPaymentAllocations': 'Phân bổ trả nợ',
+    'users.merge.table.financeTransactions': 'Giao dịch do tài khoản này ghi',
+    'users.merge.table.debtContacts': 'Người liên quan đã liên kết',
     'users.merge.table.reminders': 'Lời nhắc',
     'users.merge.table.googleToken': 'Kết nối Google',
     'users.merge.conflicts':
-      'Trùng lặp sẽ được hợp nhất vào bản ghi của người dùng đích: {places} nơi chốn, {contacts} người liên quan, {categories} danh mục.',
+      'Người dùng đích đã liên kết với một người liên quan, nên {contacts} liên kết của tài khoản nguồn sẽ bị gỡ.',
     'users.merge.googleToken.keepSource': 'Giữ kết nối Google của tài khoản nguồn.',
     'users.merge.googleToken.keepTarget': 'Giữ kết nối Google của người dùng đích.',
     'users.merge.googleToken.none': 'Tài khoản nguồn chưa kết nối Google.',
@@ -141,11 +133,10 @@ const messages = {
     'users.linkedContacts.badge': '🔗 {count} người liên quan',
     'users.linkedContacts.title': 'Người liên quan đã gắn',
     'users.linkedContacts.description':
-      'Các mục trong danh bạ công nợ của người dùng đang được liên kết với tài khoản {name}.',
+      'Các mục trong danh bạ công nợ chung đang được liên kết với tài khoản {name}.',
     'users.linkedContacts.loading': 'Đang tải danh sách…',
     'users.linkedContacts.error': 'Không thể tải danh sách. Vui lòng thử lại.',
     'users.linkedContacts.empty': 'Chưa có người liên quan nào được gắn với tài khoản này.',
-    'users.linkedContacts.owner': 'Trong danh bạ của {owner}',
     'users.linkedContacts.debts': '{count} khoản nợ',
     'users.linkedContacts.openContacts': 'Mở trang Người liên quan',
     'users.linkedContacts.close': 'Đóng',
@@ -220,27 +211,6 @@ const messages = {
     'table.rowsCount': '{count} dòng',
     'table.loadMore': 'Tải thêm',
     'table.loadedOf': 'Đã tải {loaded}/{total} dòng',
-    'ledger.title': 'Sổ thu chi chung',
-    'ledger.description':
-      'Khi có chủ sổ, mọi người dùng ghi thu chi vào sổ của chủ sổ và ai vào dashboard cũng thấy cùng một sổ.',
-    'ledger.owner': 'Chủ sổ',
-    'ledger.noOwner': 'Chưa có chủ sổ — mỗi người dùng một sổ riêng',
-    'ledger.setOwner': 'Đặt làm chủ sổ',
-    'ledger.clearOwner': 'Bỏ chủ sổ',
-    'ledger.ownerSaved': 'Đã cập nhật chủ sổ',
-    'ledger.consolidate.button': 'Gộp dữ liệu cũ vào sổ chung',
-    'ledger.consolidate.title': 'Gộp dữ liệu cũ vào sổ chung',
-    'ledger.consolidate.subtitle':
-      'Dữ liệu tài chính của các sổ dưới đây sẽ chuyển vào sổ của {owner}. Người tạo của từng giao dịch được giữ nguyên và không tài khoản nào bị xoá. Không thể hoàn tác — hãy sao lưu cơ sở dữ liệu trước.',
-    'ledger.consolidate.empty': 'Không còn sổ nào khác để gộp.',
-    'ledger.consolidate.noAccount': 'Không có tài khoản',
-    'ledger.consolidate.confirm': 'Xác nhận gộp',
-    'ledger.consolidate.success': 'Đã gộp {count} sổ vào sổ chung',
-    'ledger.counts.transactions': 'Giao dịch',
-    'ledger.counts.places': 'Nơi chốn',
-    'ledger.counts.contacts': 'Người liên quan',
-    'ledger.counts.debts': 'Công nợ',
-    'ledger.counts.categories': 'Danh mục',
     'dashboard.columns.createdBy': 'Người tạo',
     'dashboard.columns.receipt': 'Ảnh',
     'transactions.source.dashboard': 'Dashboard',
@@ -837,7 +807,7 @@ const messages = {
     'users.merge.actionTitle': 'Merge this duplicate account into another user',
     'users.merge.title': 'Merge accounts',
     'users.merge.description':
-      'All data of {source} will be moved to the target user, then {source} will be removed from the system.',
+      'Traces of {source} (transaction authorship, contact links, reminders, Google connection) move to the target user, then {source} is removed from the system. Finance data is shared, so it does not move.',
     'users.merge.sourceLabel': 'Source account (will be removed)',
     'users.merge.targetLabel': 'Merge into user',
     'users.merge.targetPlaceholder': 'Select target user',
@@ -847,17 +817,12 @@ const messages = {
     'users.merge.previewLoading': 'Calculating data to move…',
     'users.merge.previewError': 'Unable to load the merge preview. Please try again.',
     'users.merge.previewEmpty': 'The source account has no data to move.',
-    'users.merge.table.financeTransactions': 'Transactions',
-    'users.merge.table.financePlaces': 'Places',
-    'users.merge.table.userCategories': 'Categories',
-    'users.merge.table.debts': 'Debts',
-    'users.merge.table.debtContacts': 'Debt contacts',
-    'users.merge.table.debtPayments': 'Debt payments',
-    'users.merge.table.debtPaymentAllocations': 'Debt payment allocations',
+    'users.merge.table.financeTransactions': 'Transactions recorded by this account',
+    'users.merge.table.debtContacts': 'Linked contacts',
     'users.merge.table.reminders': 'Reminders',
     'users.merge.table.googleToken': 'Google connection',
     'users.merge.conflicts':
-      'Duplicates will be folded into the target user records: {places} places, {contacts} contacts, {categories} categories.',
+      'The target user is already linked to a contact, so {contacts} link(s) of the source account will be removed.',
     'users.merge.googleToken.keepSource': 'The source account Google connection will be kept.',
     'users.merge.googleToken.keepTarget': 'The target user Google connection will be kept.',
     'users.merge.googleToken.none': 'The source account has no Google connection.',
@@ -875,11 +840,10 @@ const messages = {
     'users.linkedContacts.badge': '🔗 {count} contacts',
     'users.linkedContacts.title': 'Linked contacts',
     'users.linkedContacts.description':
-      "Debt-contact entries in users' address books that are linked to {name}.",
+      'Entries in the shared debt-contact directory that are linked to {name}.',
     'users.linkedContacts.loading': 'Loading…',
     'users.linkedContacts.error': 'Unable to load linked contacts. Please try again.',
     'users.linkedContacts.empty': 'No contacts are linked to this account yet.',
-    'users.linkedContacts.owner': "In {owner}'s contacts",
     'users.linkedContacts.debts': '{count} debts',
     'users.linkedContacts.openContacts': 'Open Contacts page',
     'users.linkedContacts.close': 'Close',
@@ -954,27 +918,6 @@ const messages = {
     'table.rowsCount': '{count} rows',
     'table.loadMore': 'Load more',
     'table.loadedOf': 'Loaded {loaded}/{total} rows',
-    'ledger.title': 'Shared ledger',
-    'ledger.description':
-      'With a ledger owner set, every user records income and expenses into the ledger of the owner, and everyone sees the same ledger on the dashboard.',
-    'ledger.owner': 'Ledger owner',
-    'ledger.noOwner': 'No ledger owner — each user has their own ledger',
-    'ledger.setOwner': 'Make ledger owner',
-    'ledger.clearOwner': 'Remove ledger owner',
-    'ledger.ownerSaved': 'Ledger owner updated',
-    'ledger.consolidate.button': 'Merge old data into the shared ledger',
-    'ledger.consolidate.title': 'Merge old data into the shared ledger',
-    'ledger.consolidate.subtitle':
-      'Finance data from the ledgers below moves into the ledger of {owner}. Each transaction keeps its creator and no account is deleted. This cannot be undone — back up the database first.',
-    'ledger.consolidate.empty': 'There are no other ledgers to merge.',
-    'ledger.consolidate.noAccount': 'No account',
-    'ledger.consolidate.confirm': 'Confirm merge',
-    'ledger.consolidate.success': 'Merged {count} ledger(s) into the shared ledger',
-    'ledger.counts.transactions': 'Transactions',
-    'ledger.counts.places': 'Places',
-    'ledger.counts.contacts': 'Contacts',
-    'ledger.counts.debts': 'Debts',
-    'ledger.counts.categories': 'Categories',
     'dashboard.columns.createdBy': 'Created by',
     'dashboard.columns.receipt': 'Receipt',
     'transactions.source.dashboard': 'Dashboard',
@@ -1629,7 +1572,6 @@ export interface IContactListItem {
 export interface IDebtPaymentItem {
   id: string;
   debtId: string;
-  userId: string;
   financeTransactionId?: string;
   amount: number;
   paymentDate: string;
@@ -1639,7 +1581,6 @@ export interface IDebtPaymentItem {
 
 export interface IDebtAllocationItem {
   id: string;
-  userId: string;
   financeTransactionId: string;
   debtId: string;
   amount: number;
@@ -1759,20 +1700,13 @@ export interface IUserLinkedContactItem {
   contactId: string;
   displayName: string;
   alias?: string;
-  ownerUserId: string;
-  ownerName?: string;
   debtCount: number;
   createdAt: string;
 }
 
 export const USER_MERGE_TABLES = [
   'financeTransactions',
-  'financePlaces',
-  'userCategories',
-  'debts',
   'debtContacts',
-  'debtPayments',
-  'debtPaymentAllocations',
   'reminders',
   'googleToken',
 ] as const;
@@ -1786,9 +1720,8 @@ export interface IUserMergeRequest {
 }
 
 export interface IUserMergeConflicts {
-  places: number;
-  contacts: number;
-  categories: number;
+  /** Source contact links dropped because the target already links to a contact. */
+  linkedContacts: number;
   googleToken: UserMergeGoogleTokenDecision;
 }
 
@@ -2002,7 +1935,7 @@ export interface ITransactionItem {
   placeName?: string;
   occurredAt: string;
   createdAt?: string;
-  /** Who recorded it (Zalo sender or dashboard user); in a shared ledger this differs per row. */
+  /** Who recorded it (Zalo sender or dashboard user); display only, finance data is shared. */
   createdByUserId?: string;
   createdByName?: string;
   source?: TransactionSource;
@@ -2023,40 +1956,6 @@ export interface ITransactionItem {
 
 export type TransactionSource = 'zalo' | 'dashboard';
 
-/** Finance rows per ledger (`user_id`), used to preview the shared-ledger consolidation. */
-export interface ILedgerDataCounts {
-  transactions: number;
-  places: number;
-  contacts: number;
-  debts: number;
-  categories: number;
-}
-
-export interface ILedgerSource {
-  userId: string;
-  name?: string;
-  /** False for ledgers whose user row no longer exists (orphaned data). */
-  hasAccount: boolean;
-  counts: ILedgerDataCounts;
-}
-
-/** `GET /api/finance/ledger` (admin): current owner and the other ledgers that can be merged in. */
-export interface ILedgerInfo {
-  ownerUserId: string | null;
-  ownerName?: string;
-  sources: ILedgerSource[];
-}
-
-export interface ISetLedgerOwnerRequest {
-  userId: string | null;
-}
-
-export interface ILedgerConsolidateResult {
-  ownerUserId: string;
-  mergedUserIds: string[];
-  counts: ILedgerDataCounts;
-}
-
 export interface ITransactionListQuery {
   type?: TransactionType;
   startAt?: string;
@@ -2067,7 +1966,7 @@ export interface ITransactionListQuery {
 }
 
 export interface ITransactionListItem extends ITransactionItem {
-  /** Wallet balance right after this transaction, over the user's whole ledger (filter-independent). */
+  /** Wallet balance right after this transaction, over the whole shared ledger (filter-independent). */
   runningBalance: number;
 }
 

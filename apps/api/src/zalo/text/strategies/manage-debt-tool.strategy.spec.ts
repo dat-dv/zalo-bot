@@ -15,7 +15,7 @@ interface TestContext {
 }
 
 function contact(id: string, displayName: string, alias?: string): DebtContactEntity {
-  return { id, userId: 'u1', displayName, alias } as DebtContactEntity;
+  return { id, displayName, alias } as DebtContactEntity;
 }
 
 function createTestContext(matches: DebtContactEntity[]): TestContext {
@@ -31,7 +31,7 @@ function createTestContext(matches: DebtContactEntity[]): TestContext {
   } as unknown as ZaloService;
 
   const mockFinanceService = {
-    resolveContacts: (_userId: string, name: string, alias?: string) => {
+    resolveContacts: (name: string, alias?: string) => {
       resolveCalls.push({ name, alias });
       return Promise.resolve(matches);
     },

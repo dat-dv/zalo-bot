@@ -17,10 +17,6 @@ metadata:
       - apps/web/src/modules/users/presentation/components/merge-user-dialog.tsx
       - apps/web/src/modules/users/presentation/components/linked-contacts-dialog.tsx
       - apps/api/src/users/user-linked-contacts.service.ts
-      - apps/web/src/modules/users/presentation/components/shared-ledger-panel.tsx
-      - apps/web/src/modules/users/presentation/components/consolidate-ledger-dialog.tsx
-      - apps/api/src/finance/ledger.service.ts
-      - apps/api/src/finance/finance-data-mover.ts
 ---
 
 # Module Quản Lý Người Dùng (Users Management)
@@ -74,7 +70,7 @@ npm run users:cleanup-groups --workspace @zalobot/api
 ```
 
 - Mặc định chạy **dry-run**: in bảng các user có ID trùng với thread nhóm trong `zca_thread_configs`, cột `action` cho biết `DELETE` hay `SKIP (lý do)`.
-- Script tự bỏ qua admin và mọi ID đã có dữ liệu thật (giao dịch, nơi chốn, công nợ, nhắc nhở, danh mục, token Google, token dashboard). Những dòng này cần xem tay, không tự xoá.
+- Script tự bỏ qua admin và mọi ID đã có dữ liệu thật (là người tạo giao dịch, đang liên kết với người liên quan, có nhắc nhở, token Google, token dashboard). Dữ liệu tài chính dùng chung nên không thuộc về ID nào. Những dòng này cần xem tay, không tự xoá.
 - Sau khi kiểm tra bảng, chạy lại với `-- --apply`. Script xoá trong một transaction (audit log ghi lại từng dòng xoá) và xoá cache Redis `whitelist:user:<id>` nếu có `REDIS_URL`.
 - Cần Postgres (`DATABASE_URL` trong `.env.local`/`.env`) đang chạy.
 
@@ -87,13 +83,13 @@ Cùng một người có thể nhắn bot qua 2 kênh, và Zalo cấp **2 ID kh�
 - Kênh **Zalo Bot chính thức (webhook)** cũ: ID theo app, 20 ký tự hex (vd `573462d8909179cf2080`).
 - Kênh **ZCA** (tài khoản Zalo cá nhân qua `zca-js`): UID Zalo, dạng số (vd `2285509137317769272`).
 
-`GrantAccessGuard` của ZCA tự lưu mọi ID lạ thành user "Chờ phê duyệt". Vì vậy sau khi chuyển sang ZCA, danh sách người dùng có 2 dòng cho cùng một người, và dữ liệu cũ (giao dịch, công nợ, Google…) vẫn nằm ở ID cũ.
+`GrantAccessGuard` của ZCA tự lưu mọi ID lạ thành user "Chờ phê duyệt". Vì vậy sau khi chuyển sang ZCA, danh sách người dùng có 2 dòng cho cùng một người, và dấu vết cũ (người tạo giao dịch, liên kết người liên quan, lời nhắc, Google…) vẫn nằm ở ID cũ. Bản thân dữ liệu tài chính là kho chung nên không bị tách theo ID.
 
 ### Quy trình gộp (bắt buộc làm theo thứ tự)
 
 1. Khuyến nghị `pg_dump` database trước khi gộp lần đầu.
 2. Vào trang **Zalo & Người dùng**, mở menu **⋯** trên dòng tài khoản **nguồn** (ID cũ, sẽ bị xoá) và chọn **Gộp tài khoản trùng**.
-3. Chọn **người dùng đích** (ID sẽ được giữ lại) và kiểm tra bảng xem trước: số dòng sẽ chuyển theo từng loại dữ liệu, số chỗ trùng sẽ được hợp nhất, và kết nối Google nào được giữ.
+3. Chọn **người dùng đích** (ID sẽ được giữ lại) và kiểm tra bảng xem trước: số giao dịch do ID nguồn ghi, số người liên quan đang liên kết, số lời nhắc, liên kết nào sẽ bị gỡ (nếu user đích đã liên kết sẵn một người liên quan) và kết nối Google nào được giữ.
 4. Tích "Tôi hiểu thao tác này không thể hoàn tác" rồi bấm **Gộp tài khoản**.
 5. Nếu vừa gộp chính tài khoản đang đăng nhập dashboard, phiên hiện tại sẽ mất quyền. Mở lại dashboard bằng link mà bot gửi qua Zalo.
 
@@ -101,10 +97,9 @@ Cùng một người có thể nhắn bot qua 2 kênh, và Zalo cấp **2 ID kh�
 
 Toàn bộ chạy trong **một transaction**: lỗi ở bất kỳ bước nào thì không có gì thay đổi.
 
-- **Nơi chốn** trùng tên (đã chuẩn hoá): giao dịch được trỏ sang nơi chốn của user đích, bản trùng của user nguồn bị xoá.
-- **Người liên quan** trùng tên + biệt danh: khoản nợ và giao dịch được trỏ sang người liên quan của user đích, bản trùng bị xoá. Liên kết `linkedUserId` cũng được đổi sang user đích.
-- **Danh mục** trùng tên: bản của user nguồn bị xoá. Giao dịch lưu tên danh mục nên không mất dữ liệu.
-- **Giao dịch, khoản nợ, lần trả nợ, phân bổ trả nợ, lời nhắc**: chuyển sang user đích.
+- **Dữ liệu tài chính** (giao dịch, nơi chốn, người liên quan, công nợ, danh mục) là kho chung nên **không di chuyển**; chỉ cột **Người tạo** của giao dịch do ID nguồn ghi được đổi sang user đích.
+- **Liên kết người liên quan** (`linkedUserId`) của ID nguồn chuyển sang user đích. Vì mỗi tài khoản chỉ liên kết tối đa một người liên quan, nếu user đích đã có liên kết thì liên kết của ID nguồn bị gỡ.
+- **Lời nhắc**: chuyển sang user đích.
 - **Kết nối Google**: nếu chỉ một bên có thì giữ bên đó. Nếu cả hai cùng có thì giữ token có refresh token, còn hoà thì giữ token mới hơn.
 - **Hồ sơ user đích**: các trường đang trống (tên, SĐT, avatar, thư mục Drive) được lấy từ user nguồn. Giữ quyền Admin và "Đã cấp quyền" nếu một trong hai có. Ngày kết nối lấy ngày sớm hơn.
 - Xoá user nguồn và ghi **một** dòng nhật ký kiểm toán mới. Nhật ký cũ giữ nguyên, không bị sửa.
@@ -122,9 +117,8 @@ Toàn bộ chạy trong **một transaction**: lỗi ở bất kỳ bước nào
 - Thư mục `apps/web/src/modules/users` chỉ còn:
   - `api/users-api.ts` và `api/users-query.ts`: các hàm gọi API và hook TanStack Query, dùng chung cho trang ZCA, `UserFormDialog` và dialog gộp danh bạ (`contacts`).
   - `presentation/components/merge-user-dialog.tsx`: dialog gộp tài khoản trùng (xem mục 4), mở từ menu **⋯** của trang ZCA.
-  - `presentation/components/linked-contacts-dialog.tsx`: dialog **Người liên quan đã gắn**, liệt kê các mục trong danh bạ công nợ (của bất kỳ người dùng nào) đang liên kết với tài khoản này, kèm tên chủ danh bạ và số khoản nợ. Mở bằng badge "🔗 N người liên quan" hoặc menu **⋯**. Dialog này giúp admin trả lời câu hỏi "người này đang có mặt trong sổ nợ của ai" mà không phải mở từng danh bạ. Việc gắn/bỏ gắn thì làm ở trang Người liên quan (xem tài liệu module contacts).
-  - `presentation/components/shared-ledger-panel.tsx` và `consolidate-ledger-dialog.tsx`: khối **Sổ thu chi chung** (chỉ admin). Chọn người làm **chủ sổ** để mọi người dùng ghi thu chi chung vào một sổ; nút **Gộp dữ liệu cũ vào sổ chung** mở hộp thoại xem trước số giao dịch/nơi chốn/người liên quan/công nợ/danh mục của từng sổ (kể cả ID không còn tài khoản) trước khi xác nhận. Quy tắc nghiệp vụ xem `global/finance-domain.md` mục "Sổ chung".
-- **Bảng `users` có thêm cột `is_ledger_owner`** (tối đa một chủ sổ). `users.id` vẫn là danh tính của toàn hệ thống: giao dịch, công nợ, nhắc lịch và token Google đều tham chiếu tới nó.
+  - `presentation/components/linked-contacts-dialog.tsx`: dialog **Người liên quan đã gắn**, liệt kê các mục trong danh bạ công nợ chung đang liên kết với tài khoản này, kèm biệt danh và số khoản nợ. Mở bằng badge "🔗 N người liên quan" hoặc menu **⋯**. Dialog này giúp admin trả lời câu hỏi "tài khoản này là người liên quan nào trong sổ nợ". Việc gắn/bỏ gắn thì làm ở trang Người liên quan (xem tài liệu module contacts).
+- `users.id` là danh tính của toàn hệ thống: người tạo giao dịch, liên kết người liên quan, nhắc lịch và token Google đều tham chiếu tới nó. Dữ liệu tài chính không thuộc về user nào (không còn cột `is_ledger_owner`, xem `global/finance-domain.md`).
 
 - `MergeUserDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo).
 
@@ -145,6 +139,6 @@ Toàn bộ chạy trong **một transaction**: lỗi ở bất kỳ bước nào
 
 ## 7. Kiểm Thử
 
-- Chạy `npm run test --workspace @zalobot/api`. Test gộp tài khoản ở `apps/api/src/users/user-merge.service.spec.ts`: chọn token Google, chặn tự gộp/ID không tồn tại, xem trước, chuyển dữ liệu và hợp nhất bản trùng, giữ quyền admin, **từ chối khi ID nguồn là tài khoản ZCA của chính bot** ("merge is refused when the source is the bot own ZCA account"), và rollback khi lỗi.
+- Chạy `npm run test --workspace @zalobot/api`. Test gộp tài khoản ở `apps/api/src/users/user-merge.service.spec.ts`: chọn token Google, chặn tự gộp/ID không tồn tại, xem trước, chuyển người tạo + liên kết mà không đụng dữ liệu tài chính, gỡ liên kết nguồn khi user đích đã có, giữ quyền admin, **từ chối khi ID nguồn là tài khoản ZCA của chính bot** ("merge is refused when the source is the bot own ZCA account"), và rollback khi lỗi.
 - `users-sync.spec.ts` kiểm tra đồng bộ ZCA (không chép tên nhóm vào user) và việc admin không lấy từ biến môi trường; `users-drive-folder.spec.ts` kiểm tra lưu thư mục Drive không tạo user mới.
 - Chạy `npm run typecheck` và `npm run lint`.

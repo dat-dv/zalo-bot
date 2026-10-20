@@ -97,9 +97,6 @@ export function LinkedContactsDialog({ user, onClose }: LinkedContactsDialogProp
                       </span>
                     )}
                   </div>
-                  <div className="truncate text-xs text-slate-500 dark:text-slate-400">
-                    {t('users.linkedContacts.owner', { owner: item.ownerName || item.ownerUserId })}
-                  </div>
                 </div>
                 <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                   {t('users.linkedContacts.debts', { count: item.debtCount })}

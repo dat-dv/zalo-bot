@@ -4,7 +4,7 @@
 
 ## Purpose
 
-`apps/web/src/modules/debts` shows the authenticated user's receivables and payables (active and settled) on `/debts`, with inline editing, quick full repayment, payment history, and consolidation of several debts under one parent.
+`apps/web/src/modules/debts` shows the system-wide (shared) receivables and payables (active and settled) on `/debts`, with inline editing, quick full repayment, payment history, and consolidation of several debts under one parent.
 
 ## Files
 
@@ -14,7 +14,7 @@
 
 ## API data
 
-- `GET /api/debts?status=active|settled` (`ReportsController` → `FinanceService.listDebts`): caller-scoped `debtRepo.find` ordered `occurredAt DESC, createdAt DESC, id DESC`, `take: 200`, with relations contact, payments (+ finance transaction), children (+ contact, payments), parentDebt. The web never sends `status`; filtering is client-side.
+- `GET /api/debts?status=active|settled` (`ReportsController` → `FinanceService.listDebts`): unscoped `debtRepo.find` (shared finance store) ordered `occurredAt DESC, createdAt DESC, id DESC`, `take: 200`, with relations contact, payments (+ finance transaction), children (+ contact, payments), parentDebt. The web never sends `status`; filtering is client-side.
 - Item (`mapDebt`): `id`, `direction`, `counterparty`, `counterpartyAlias`, `contactId`, `parentDebtId`, `originalAmount`, `remainingAmount`, `status` (fallback from `remainingAmount`), `currency`, `note`, `occurredAt` (falls back to `createdAt`), `dueAt`, `settledAt`, `createdAt`, `updatedAt`, `childCount`, `children[]`, `payments[]` (`id`, `debtId`, `amount`, `paymentDate`, `note`, `financeTransactionId`, `createdAt`).
 - Child debts also appear as their own items (with `parentDebtId`); the table shows only roots and renders children inside the parent's expanded panel.
 
@@ -39,7 +39,7 @@
 - `POST /api/debts/:id/payments` (`recordDebtPayment`, one DB transaction): debt must be active and payment ≤ remaining; decrements remaining (settles at 0), creates a finance transaction (receivable → `income` category `Thu hồi nợ`, payable → `expense` category `Trả nợ`, same amount/currency/contact/date), then creates the `debt_payments` row linked to it via `financeTransactionId`. Payments recorded before this change have no link (not backfilled).
 - `DELETE /api/debts/:id/payments/:paymentId` (one DB transaction): restores remaining (capped at original), reactivates the debt, recomputes the parent's remaining from its children, deletes the linked finance transaction when `financeTransactionId` is set (manual payments and allocation-originated payments).
 - Allocation payments: existing transactions can be allocated to debts via `/api/transactions/:id/allocations` (see dashboard module); those create `debt_payments` with `financeTransactionId`.
-- `POST /api/debts/combine` (one DB transaction): ≥2 caller-owned debts, same direction and same currency, else error. Creates a parent with summed original/remaining amounts; children get `parentDebtId` (FK `ON DELETE SET NULL`); existing grandchildren are re-parented to the new parent (one-level tree).
+- `POST /api/debts/combine` (one DB transaction): ≥2 existing debts, same direction and same currency, else error. Creates a parent with summed original/remaining amounts; children get `parentDebtId` (FK `ON DELETE SET NULL`); existing grandchildren are re-parented to the new parent (one-level tree).
 - Contact combine with `consolidateDebts: true` reuses `combineDebts` per direction + currency group (see contacts module).
 
 ## Known issues
