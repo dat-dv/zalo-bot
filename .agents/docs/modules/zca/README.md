@@ -184,6 +184,8 @@ Logic ghép dòng là hàm thuần trong `model/chat-rows.ts`, có unit test ở
   - Quy tắc xác nhận: thả tim, số tim tối thiểu, thời gian timeout (phút).
   - Link thư mục Drive và album Photos của kênh.
 
+- Modal QR đăng nhập, `ThreadConfigModal`, `SyncMediaModal`, `UserFormDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo). `ThreadConfigModal` bỏ giới hạn `75vh` riêng của form, giờ cả panel cuộn.
+
 ## 3. Các Endpoint API
 
 `ZcaController` (`/api/zca`):

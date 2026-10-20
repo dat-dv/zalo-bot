@@ -45,6 +45,7 @@ import {
 } from '@/modules/users/api/users-query';
 import { MergeUserDialog } from '@/modules/users/presentation/components/merge-user-dialog';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
 
 const FILTER_TABS: { key: ChatRowFilter; label: string; activeClass?: string }[] = [
   { key: 'all', label: 'Tất cả' },
@@ -118,9 +119,7 @@ export function ZcaScreen() {
   const [mergingUser, setMergingUser] = useState<IUserListItem | null>(null);
 
   // Thông báo kết quả đồng bộ / gộp tài khoản
-  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(
-    null,
-  );
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const configMap = useMemo(
     () => new Map(threadConfigs.map((c) => [c.threadId, c])),
@@ -259,7 +258,9 @@ export function ZcaScreen() {
 
   const handleDeleteUser = async (row: ChatRow) => {
     if (!row.user) return;
-    if (!confirm(`Bạn có chắc chắn muốn xóa người dùng "${row.name || row.id}" khỏi hệ thống không?`)) {
+    if (
+      !confirm(`Bạn có chắc chắn muốn xóa người dùng "${row.name || row.id}" khỏi hệ thống không?`)
+    ) {
       return;
     }
     try {
@@ -405,9 +406,7 @@ export function ZcaScreen() {
 
         {/* Card 2: Danh sách lắng nghe (Whitelist) */}
         <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Đang lắng nghe
-          </p>
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Đang lắng nghe</p>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
               {listenedCount}
@@ -428,9 +427,7 @@ export function ZcaScreen() {
           title="Xem những người đang chờ cấp quyền"
           type="button"
         >
-          <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
-            Quyền tương tác
-          </p>
+          <p className="text-xs font-medium text-amber-700 dark:text-amber-400">Quyền tương tác</p>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="text-lg font-bold text-amber-700 dark:text-amber-300">
               {rowCounts.pending}
@@ -741,137 +738,137 @@ export function ZcaScreen() {
       </div>
 
       {/* QR Login Modal */}
-      {isQrModalOpen && (
+      <Modal
+        open={isQrModalOpen}
+        onDismiss={() => setIsQrModalOpen(false)}
+        ariaLabel="Đăng nhập Zalo cá nhân (ZCA)"
+        backdropClassName="bg-slate-900/60 backdrop-blur-sm"
+        panelClassName="max-w-sm rounded-lg border border-slate-200 bg-white px-5 dark:border-slate-800 dark:bg-slate-900"
+      >
         <div
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm"
-          role="dialog"
+          className={`${MODAL_STICKY_HEADER} flex items-center justify-between border-b border-slate-100 bg-white pt-5 pb-3 dark:border-slate-800 dark:bg-slate-900`}
         >
-          <div className="relative w-full max-w-sm rounded-lg border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Đăng nhập Zalo cá nhân (ZCA)
-              </h3>
-              <button
-                className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                onClick={() => setIsQrModalOpen(false)}
-                type="button"
-              >
-                ✕
-              </button>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+            Đăng nhập Zalo cá nhân (ZCA)
+          </h3>
+          <button
+            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            onClick={() => setIsQrModalOpen(false)}
+            type="button"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="my-4 flex flex-col items-center gap-3 text-center">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Mở ứng dụng Zalo trên điện thoại, chọn biểu tượng <strong>Quét mã QR</strong> và xác
+            nhận đăng nhập.
+          </p>
+
+          {/* QR Image Container */}
+          <div className="flex size-56 items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-950">
+            <img
+              alt="Mã QR đăng nhập Zalo"
+              className="size-full object-contain"
+              onError={() => {
+                // Retry with new timestamp if not ready
+                setTimeout(() => setQrTimestamp(Date.now()), 1500);
+              }}
+              src={getZcaQrImageUrl(qrTimestamp)}
+            />
+          </div>
+
+          {/* Dynamic QR Scan Status Banner */}
+          {status?.qrStatus?.phase === 'scanned' ? (
+            <div className="w-full flex items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-300">
+              <span className="size-2 rounded-full bg-blue-500 animate-ping" />
+              <span>
+                📱 Đã quét bởi <strong>{status.qrStatus.scannedBy || 'bạn'}</strong>! Vui lòng bấm{' '}
+                <strong>Xác nhận đăng nhập</strong> trên điện thoại.
+              </span>
             </div>
-
-            <div className="my-4 flex flex-col items-center gap-3 text-center">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                Mở ứng dụng Zalo trên điện thoại, chọn biểu tượng <strong>Quét mã QR</strong> và xác
-                nhận đăng nhập.
-              </p>
-
-              {/* QR Image Container */}
-              <div className="flex size-56 items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-950">
-                <img
-                  alt="Mã QR đăng nhập Zalo"
-                  className="size-full object-contain"
-                  onError={() => {
-                    // Retry with new timestamp if not ready
-                    setTimeout(() => setQrTimestamp(Date.now()), 1500);
-                  }}
-                  src={getZcaQrImageUrl(qrTimestamp)}
-                />
+          ) : status?.qrStatus?.phase === 'confirmed' ||
+            status?.qrStatus?.phase === 'logging_in' ? (
+            <div className="w-full flex items-center justify-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300">
+              <span className="size-2 rounded-full bg-indigo-500 animate-ping" />
+              <span>🔄 Đã xác nhận trên điện thoại! Đang hoàn tất thiết lập kết nối...</span>
+            </div>
+          ) : status?.qrStatus?.phase === 'expired' ? (
+            <div className="w-full flex flex-col items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300">
+              <div className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-amber-500" />
+                <span>⏰ Mã QR đã hết hạn.</span>
               </div>
-
-              {/* Dynamic QR Scan Status Banner */}
-              {status?.qrStatus?.phase === 'scanned' ? (
-                <div className="w-full flex items-center justify-center gap-2 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-300">
-                  <span className="size-2 rounded-full bg-blue-500 animate-ping" />
-                  <span>
-                    📱 Đã quét bởi <strong>{status.qrStatus.scannedBy || 'bạn'}</strong>! Vui lòng
-                    bấm <strong>Xác nhận đăng nhập</strong> trên điện thoại.
-                  </span>
-                </div>
-              ) : status?.qrStatus?.phase === 'confirmed' ||
-                status?.qrStatus?.phase === 'logging_in' ? (
-                <div className="w-full flex items-center justify-center gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950/50 dark:text-indigo-300">
-                  <span className="size-2 rounded-full bg-indigo-500 animate-ping" />
-                  <span>🔄 Đã xác nhận trên điện thoại! Đang hoàn tất thiết lập kết nối...</span>
-                </div>
-              ) : status?.qrStatus?.phase === 'expired' ? (
-                <div className="w-full flex flex-col items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300">
-                  <div className="flex items-center gap-2">
-                    <span className="size-2 rounded-full bg-amber-500" />
-                    <span>⏰ Mã QR đã hết hạn.</span>
-                  </div>
-                  <button
-                    className="mt-1 font-semibold underline hover:text-amber-900 dark:hover:text-amber-100"
-                    onClick={() => void handleOpenQrLogin(true)}
-                    type="button"
-                  >
-                    Tạo mã mới ngay
-                  </button>
-                </div>
-              ) : status?.qrStatus?.phase === 'declined' ? (
-                <div className="w-full flex flex-col items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300">
-                  <span>❌ Yêu cầu đăng nhập đã bị từ chối trên điện thoại.</span>
-                  <button
-                    className="mt-1 font-semibold underline hover:text-rose-900 dark:hover:text-rose-100"
-                    onClick={() => void handleOpenQrLogin(true)}
-                    type="button"
-                  >
-                    Thử lại mã mới
-                  </button>
-                </div>
-              ) : status?.qrStatus?.phase === 'failed' ? (
-                <div className="w-full flex flex-col items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300">
-                  <span>
-                    ⚠️ Đăng nhập thất bại: {status.qrStatus.error || status.qrStatus.message}
-                  </span>
-                  <button
-                    className="mt-1 font-semibold underline hover:text-rose-900 dark:hover:text-rose-100"
-                    onClick={() => void handleOpenQrLogin(true)}
-                    type="button"
-                  >
-                    Thử tạo lại mã QR
-                  </button>
-                </div>
-              ) : status?.qrStatus?.phase === 'success' ? (
-                <div className="w-full flex items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300">
-                  <span>✅ Đăng nhập thành công! Đang đồng bộ dữ liệu...</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span className="size-2 rounded-full bg-amber-500 animate-ping" />
-                  <span className="text-[11px] text-slate-500">
-                    Đang chờ quét và xác nhận trên điện thoại...
-                  </span>
-                </div>
-              )}
-
-              {qrCodeString && (
-                <div className="w-full rounded bg-slate-100 p-2 text-[10px] font-mono break-all dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                  {qrCodeString}
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
               <button
-                className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+                className="mt-1 font-semibold underline hover:text-amber-900 dark:hover:text-amber-100"
                 onClick={() => void handleOpenQrLogin(true)}
                 type="button"
               >
-                Làm mới mã QR
-              </button>
-              <button
-                className="rounded bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900"
-                onClick={() => setIsQrModalOpen(false)}
-                type="button"
-              >
-                Đóng
+                Tạo mã mới ngay
               </button>
             </div>
-          </div>
+          ) : status?.qrStatus?.phase === 'declined' ? (
+            <div className="w-full flex flex-col items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300">
+              <span>❌ Yêu cầu đăng nhập đã bị từ chối trên điện thoại.</span>
+              <button
+                className="mt-1 font-semibold underline hover:text-rose-900 dark:hover:text-rose-100"
+                onClick={() => void handleOpenQrLogin(true)}
+                type="button"
+              >
+                Thử lại mã mới
+              </button>
+            </div>
+          ) : status?.qrStatus?.phase === 'failed' ? (
+            <div className="w-full flex flex-col items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300">
+              <span>⚠️ Đăng nhập thất bại: {status.qrStatus.error || status.qrStatus.message}</span>
+              <button
+                className="mt-1 font-semibold underline hover:text-rose-900 dark:hover:text-rose-100"
+                onClick={() => void handleOpenQrLogin(true)}
+                type="button"
+              >
+                Thử tạo lại mã QR
+              </button>
+            </div>
+          ) : status?.qrStatus?.phase === 'success' ? (
+            <div className="w-full flex items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300">
+              <span>✅ Đăng nhập thành công! Đang đồng bộ dữ liệu...</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="size-2 rounded-full bg-amber-500 animate-ping" />
+              <span className="text-[11px] text-slate-500">
+                Đang chờ quét và xác nhận trên điện thoại...
+              </span>
+            </div>
+          )}
+
+          {qrCodeString && (
+            <div className="w-full rounded bg-slate-100 p-2 text-[10px] font-mono break-all dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+              {qrCodeString}
+            </div>
+          )}
         </div>
-      )}
+
+        <div
+          className={`${MODAL_STICKY_FOOTER} flex justify-end gap-2 border-t border-slate-100 bg-white pt-3 pb-5 dark:border-slate-800 dark:bg-slate-900`}
+        >
+          <button
+            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+            onClick={() => void handleOpenQrLogin(true)}
+            type="button"
+          >
+            Làm mới mã QR
+          </button>
+          <button
+            className="rounded bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900"
+            onClick={() => setIsQrModalOpen(false)}
+            type="button"
+          >
+            Đóng
+          </button>
+        </div>
+      </Modal>
 
       {/* Thread Feature Config Modal */}
       {selectedThreadForConfig && (

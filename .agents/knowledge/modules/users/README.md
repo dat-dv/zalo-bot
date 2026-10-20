@@ -80,3 +80,5 @@
   - `presentation/components/merge-user-dialog.tsx` (`MergeUserDialog`): target select (excludes source), live preview (loading / error / empty / counts), conflict + Google token notes, bot-account warning that blocks merge, mandatory "irreversible" checkbox, destructive confirm. On success the ZCA page shows a banner (extra notice when the merged source was the signed-in session).
 - Routes in `API_ROUTES`: `users`, `usersSyncZca`, `usersGrantAccess(id)`, `usersMergePreview(id)`, `usersMerge(id)`; `GET/PATCH/DELETE :id` are built as `${API_ROUTES.users}/${id}`.
 - Contracts: `IUserListItem`, `UserRole`, `GrantAccessStatus`, `USER_MERGE_TABLES`, `UserMergeTable`, `IUserMergeRequest`, `IUserMergeSummary`, `IUserMergeResult`, `IUserMergeConflicts`; i18n keys `users.merge.*` (vi + en).
+
+- `MergeUserDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard).

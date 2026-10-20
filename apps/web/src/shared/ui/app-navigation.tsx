@@ -6,6 +6,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { APP_ROUTES, type TranslationKey } from '@zalobot/contracts';
 import { useTheme } from '@/shared/providers/theme-provider';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { useBodyScrollLock } from '@/shared/hooks/use-body-scroll-lock';
 
 export type NavigationPage =
   | 'home'
@@ -141,13 +142,12 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
     };
     if (isOpen) {
       window.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
     }
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
     };
   }, [isOpen]);
+  useBodyScrollLock(isOpen);
 
   const isItemActive = (item: NavItem): boolean => {
     if (active) return active === item.page;
@@ -195,7 +195,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
 
       <aside
         id="app-navigation-drawer"
-        className={`flex h-full w-[210px] flex-col justify-between rounded border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900 max-[960px]:fixed max-[960px]:inset-y-0 max-[960px]:left-0 max-[960px]:z-[60] max-[960px]:h-screen max-[960px]:max-w-[85vw] max-[960px]:w-[280px] max-[960px]:rounded-none max-[960px]:border-y-0 max-[960px]:border-l-0 max-[960px]:border-r-slate-700 max-[960px]:px-3 max-[960px]:py-3.5 max-[960px]:shadow-[4px_0_24px_rgba(0,0,0,0.15)] max-[960px]:transition-transform max-[960px]:duration-[250ms] max-[960px]:ease-out ${isOpen ? 'max-[960px]:translate-x-0' : 'max-[960px]:-translate-x-full'}`}
+        className={`flex h-full w-[210px] flex-col justify-between rounded border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900 max-[960px]:fixed max-[960px]:inset-y-0 max-[960px]:left-0 max-[960px]:z-[60] max-[960px]:h-dvh max-[960px]:max-w-[85vw] max-[960px]:w-[280px] max-[960px]:rounded-none max-[960px]:border-y-0 max-[960px]:border-l-0 max-[960px]:border-r-slate-700 max-[960px]:px-3 max-[960px]:py-3.5 max-[960px]:shadow-[4px_0_24px_rgba(0,0,0,0.15)] max-[960px]:transition-transform max-[960px]:duration-[250ms] max-[960px]:ease-out ${isOpen ? 'max-[960px]:translate-x-0' : 'max-[960px]:-translate-x-full'}`}
         aria-label={t('nav.personalSpace')}
       >
         <div className="mb-3.5 block max-[960px]:flex max-[960px]:items-center max-[960px]:justify-between">

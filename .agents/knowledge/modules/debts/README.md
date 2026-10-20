@@ -31,6 +31,8 @@
 - Combine: button when 2+ roots selected opens `CombineDebtsDialog` (note, due date; shows errors and disables submit on direction or currency mismatch). Success clears selection and refreshes.
 - Screen refresh/retry invalidates `['debts']` and `['contacts']`. No delete-debt action is rendered.
 
+- `CombineDebtsDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard).
+
 ## Backend rules (`FinanceService`)
 
 - `PATCH /api/debts/:id`: editing `remainingAmount` sets `status`/`settledAt` (`settled` at 0); `amount` (alternative) keeps the paid part and rejects values below it.

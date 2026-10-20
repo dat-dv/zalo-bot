@@ -3,6 +3,7 @@
 import { useState, useEffect, useId } from 'react';
 import type { IDebtListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
 import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
 import { useCombineDebtsMutation } from '../../api/debts-query';
 
@@ -54,17 +55,6 @@ export function CombineDebtsDialog({
     setErrorMessage(null);
   }, [isOpen, selectedDebts]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !combineMutation.isPending) {
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, combineMutation.isPending, onClose]);
-
   if (!isOpen || selectedDebts.length < 2) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,197 +83,197 @@ export function CombineDebtsDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[900] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
-      role="presentation"
+    <Modal
+      open
+      onDismiss={combineMutation.isPending ? undefined : onClose}
+      labelledBy={titleId}
+      describedBy={descId}
+      backdropClassName="bg-slate-900/50 backdrop-blur-xs"
+      panelClassName="max-w-[560px] rounded-md border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"
     >
-      <div
-        className="w-full max-w-[560px] rounded-md border border-slate-300 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={descId}
+      <header
+        className={`${MODAL_STICKY_HEADER} flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900`}
       >
-        <header className="flex items-start justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
-          <div>
-            <h3
-              id={titleId}
-              className="m-0 text-base font-semibold text-slate-900 dark:text-slate-100"
+        <div>
+          <h3
+            id={titleId}
+            className="m-0 text-base font-semibold text-slate-900 dark:text-slate-100"
+          >
+            {t('debts.combineModal.title')}
+          </h3>
+          <p id={descId} className="m-0 mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {t('debts.combineModal.desc')}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="flex size-7 cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          onClick={onClose}
+          disabled={combineMutation.isPending}
+          aria-label={t('common.close')}
+        >
+          &times;
+        </button>
+      </header>
+
+      <form onSubmit={handleSubmit}>
+        <div className="flex flex-col gap-3.5 px-5 py-4">
+          {errorMessage && (
+            <div
+              className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300"
+              role="alert"
             >
-              {t('debts.combineModal.title')}
-            </h3>
-            <p id={descId} className="m-0 mt-1 text-xs text-slate-500 dark:text-slate-400">
-              {t('debts.combineModal.desc')}
-            </p>
+              <strong>{errorMessage}</strong>
+            </div>
+          )}
+
+          {isMismatched && (
+            <div
+              className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300"
+              role="alert"
+            >
+              <strong>{t('debts.combineModal.mismatchedDirection')}</strong>
+            </div>
+          )}
+
+          {isCurrencyMismatched && (
+            <div
+              className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300"
+              role="alert"
+            >
+              <strong>{t('debts.combineModal.mismatchedCurrency')}</strong>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              {t('debts.title')} ({selectedDebts.length})
+            </span>
+            <div className="max-h-40 overflow-y-auto rounded border border-slate-200 dark:border-slate-800">
+              <table className="w-full text-left text-xs">
+                <thead className="sticky top-0 bg-slate-50 text-[11px] text-slate-500 dark:bg-slate-800/80 dark:text-slate-400">
+                  <tr>
+                    <th className="px-2.5 py-1.5">{t('contacts.placeholder.name')}</th>
+                    <th className="px-2.5 py-1.5 text-right">
+                      {t('debts.placeholder.originalAmount')}
+                    </th>
+                    <th className="px-2.5 py-1.5 text-right">
+                      {t('debts.placeholder.remainingAmount')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                  {selectedDebts.map((debt) => (
+                    <tr key={debt.id} className="text-slate-700 dark:text-slate-300">
+                      <td className="px-2.5 py-1.5">
+                        <span className="font-medium">{debt.counterparty}</span>
+                        {debt.counterpartyAlias ? (
+                          <span className="text-slate-400"> ({debt.counterpartyAlias})</span>
+                        ) : null}
+                        {debt.note ? (
+                          <div className="truncate text-[11px] text-slate-400">{debt.note}</div>
+                        ) : null}
+                      </td>
+                      <td className="px-2.5 py-1.5 text-right font-mono">
+                        {money(debt.originalAmount)}
+                      </td>
+                      <td className="px-2.5 py-1.5 text-right font-mono font-semibold">
+                        {money(debt.remainingAmount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
+
+          {/* Combined Totals Preview */}
+          <div className="grid grid-cols-2 gap-2 rounded border border-slate-200 bg-slate-50/50 p-2.5 text-xs dark:border-slate-800 dark:bg-slate-950/40">
+            <div>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                {t('debts.placeholder.originalAmount')} (
+                {t('debts.badge.parent', { count: selectedDebts.length })})
+              </span>
+              <p className="m-0 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {money(totalOriginal)}
+              </p>
+            </div>
+            <div>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                {t('debts.placeholder.remainingAmount')} (
+                {t('debts.badge.parent', { count: selectedDebts.length })})
+              </span>
+              <p className="m-0 font-mono text-sm font-semibold text-sky-600 dark:text-sky-400">
+                {money(totalRemaining)}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="combine-debt-note"
+              className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+            >
+              {t('debts.combineModal.parentNote')}
+            </label>
+            <input
+              id="combine-debt-note"
+              type="text"
+              className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={t('debts.placeholder.note')}
+              disabled={combineMutation.isPending}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor="combine-debt-due-date"
+              className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+            >
+              {t('debts.combineModal.parentDueDate')}
+            </label>
+            <input
+              id="combine-debt-due-date"
+              type="date"
+              className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              disabled={combineMutation.isPending}
+            />
+          </div>
+
+          <div className="flex items-start gap-2 rounded border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+            <span className="shrink-0" aria-hidden="true">
+              ⚠️
+            </span>
+            <p className="m-0 leading-normal">{t('debts.combineModal.warning')}</p>
+          </div>
+        </div>
+
+        <footer
+          className={`${MODAL_STICKY_FOOTER} flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3 dark:border-slate-800 dark:bg-slate-950`}
+        >
           <button
             type="button"
-            className="flex size-7 cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            className="inline-flex min-h-8 items-center justify-center rounded border border-slate-300 bg-white px-3.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
             onClick={onClose}
             disabled={combineMutation.isPending}
-            aria-label={t('common.close')}
           >
-            &times;
+            {t('common.cancel')}
           </button>
-        </header>
-
-        <form onSubmit={handleSubmit}>
-          <div className="flex flex-col gap-3.5 px-5 py-4">
-            {errorMessage && (
-              <div
-                className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300"
-                role="alert"
-              >
-                <strong>{errorMessage}</strong>
-              </div>
-            )}
-
-            {isMismatched && (
-              <div
-                className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300"
-                role="alert"
-              >
-                <strong>{t('debts.combineModal.mismatchedDirection')}</strong>
-              </div>
-            )}
-
-            {isCurrencyMismatched && (
-              <div
-                className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300"
-                role="alert"
-              >
-                <strong>{t('debts.combineModal.mismatchedCurrency')}</strong>
-              </div>
-            )}
-
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {t('debts.title')} ({selectedDebts.length})
-              </span>
-              <div className="max-h-40 overflow-y-auto rounded border border-slate-200 dark:border-slate-800">
-                <table className="w-full text-left text-xs">
-                  <thead className="sticky top-0 bg-slate-50 text-[11px] text-slate-500 dark:bg-slate-800/80 dark:text-slate-400">
-                    <tr>
-                      <th className="px-2.5 py-1.5">{t('contacts.placeholder.name')}</th>
-                      <th className="px-2.5 py-1.5 text-right">
-                        {t('debts.placeholder.originalAmount')}
-                      </th>
-                      <th className="px-2.5 py-1.5 text-right">
-                        {t('debts.placeholder.remainingAmount')}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                    {selectedDebts.map((debt) => (
-                      <tr key={debt.id} className="text-slate-700 dark:text-slate-300">
-                        <td className="px-2.5 py-1.5">
-                          <span className="font-medium">{debt.counterparty}</span>
-                          {debt.counterpartyAlias ? (
-                            <span className="text-slate-400"> ({debt.counterpartyAlias})</span>
-                          ) : null}
-                          {debt.note ? (
-                            <div className="truncate text-[11px] text-slate-400">{debt.note}</div>
-                          ) : null}
-                        </td>
-                        <td className="px-2.5 py-1.5 text-right font-mono">
-                          {money(debt.originalAmount)}
-                        </td>
-                        <td className="px-2.5 py-1.5 text-right font-mono font-semibold">
-                          {money(debt.remainingAmount)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Combined Totals Preview */}
-            <div className="grid grid-cols-2 gap-2 rounded border border-slate-200 bg-slate-50/50 p-2.5 text-xs dark:border-slate-800 dark:bg-slate-950/40">
-              <div>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {t('debts.placeholder.originalAmount')} (
-                  {t('debts.badge.parent', { count: selectedDebts.length })})
-                </span>
-                <p className="m-0 font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {money(totalOriginal)}
-                </p>
-              </div>
-              <div>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                  {t('debts.placeholder.remainingAmount')} (
-                  {t('debts.badge.parent', { count: selectedDebts.length })})
-                </span>
-                <p className="m-0 font-mono text-sm font-semibold text-sky-600 dark:text-sky-400">
-                  {money(totalRemaining)}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="combine-debt-note"
-                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
-              >
-                {t('debts.combineModal.parentNote')}
-              </label>
-              <input
-                id="combine-debt-note"
-                type="text"
-                className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder={t('debts.placeholder.note')}
-                disabled={combineMutation.isPending}
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="combine-debt-due-date"
-                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
-              >
-                {t('debts.combineModal.parentDueDate')}
-              </label>
-              <input
-                id="combine-debt-due-date"
-                type="date"
-                className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                disabled={combineMutation.isPending}
-              />
-            </div>
-
-            <div className="flex items-start gap-2 rounded border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-              <span className="shrink-0" aria-hidden="true">
-                ⚠️
-              </span>
-              <p className="m-0 leading-normal">{t('debts.combineModal.warning')}</p>
-            </div>
-          </div>
-
-          <footer className="flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3 dark:border-slate-800 dark:bg-slate-950/50">
-            <button
-              type="button"
-              className="inline-flex min-h-8 items-center justify-center rounded border border-slate-300 bg-white px-3.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-              onClick={onClose}
-              disabled={combineMutation.isPending}
-            >
-              {t('common.cancel')}
-            </button>
-            <button
-              type="submit"
-              className="inline-flex min-h-8 items-center justify-center rounded border border-slate-900 bg-slate-900 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-              disabled={combineMutation.isPending || isMismatched || isCurrencyMismatched}
-            >
-              {combineMutation.isPending
-                ? t('common.loadingDashboard')
-                : t('debts.combineModal.confirm')}
-            </button>
-          </footer>
-        </form>
-      </div>
-    </div>
+          <button
+            type="submit"
+            className="inline-flex min-h-8 items-center justify-center rounded border border-slate-900 bg-slate-900 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            disabled={combineMutation.isPending || isMismatched || isCurrencyMismatched}
+          >
+            {combineMutation.isPending
+              ? t('common.loadingDashboard')
+              : t('debts.combineModal.confirm')}
+          </button>
+        </footer>
+      </form>
+    </Modal>
   );
 }

@@ -46,6 +46,8 @@ Tài liệu này ánh xạ trực tiếp với tri thức canonical [`README.md`
 - Phía backend, thứ tự xử lý: cập nhật liên hệ chính (kế thừa số điện thoại, ngân hàng, avatar còn thiếu từ liên hệ nguồn) → chuyển nợ và giao dịch của liên hệ nguồn sang → xoá liên hệ nguồn → gom nợ nếu được chọn.
 - **Lưu ý quan trọng**: thao tác gộp liên hệ **không** chạy trong một database transaction duy nhất. Nếu lỗi giữa chừng (ví dụ khi gom nợ), các bước trước đó đã được lưu. Mỗi lần gom nợ (`combineDebts`) thì có transaction riêng.
 
+- Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo).
+
 ## Kiểm thử
 
 `npm run typecheck`, `npm run lint`, `npm run build` (scope `--workspace @zalobot/web`).

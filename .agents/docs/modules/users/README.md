@@ -117,6 +117,8 @@ Toàn bộ chạy trong **một transaction**: lỗi ở bất kỳ bước nào
   - `presentation/components/merge-user-dialog.tsx`: dialog gộp tài khoản trùng (xem mục 4), mở từ menu **⋯** của trang ZCA.
 - **Backend và bảng `users` không đổi.** `users.id` vẫn là danh tính của toàn hệ thống: giao dịch, công nợ, nhắc lịch và token Google đều tham chiếu tới nó.
 
+- `MergeUserDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo).
+
 ## 6. Các Endpoint API (chỉ Admin)
 
 | Phương thức | Đường dẫn | Ý nghĩa |

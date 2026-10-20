@@ -144,6 +144,8 @@ The former Users page (`/users`) was removed; user management lives here. Nav la
 - **`ThreadConfigModal`** (`view/thread-config-modal.tsx`): listening; direct interaction (enabled, `requireMention`, `allowAiChat`, `allowSelf`, `triggerPrefix`); media backup (enabled, images/videos/files/audios, `notifyInThread`, `customFolder`, `fileSuffix`, `photosAlbum`); expense tracking and calendar extraction (enabled, `requireConfirm`); confirmation rules (`allowReactions`, `requiredHearts`, `timeoutMinutes`); channel Drive/Photos links.
 - Web API (`api/zca-api.ts`, `api/zca-query.ts`): status, QR login/logout, threads (+ refresh), listened threads (get/set/toggle), thread configs (list/one/update), Drive folder link, `syncThreadMedia` (`useSyncThreadMediaMutation`).
 
+- QR login modal, `ThreadConfigModal`, `SyncMediaModal`, `UserFormDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard). `ThreadConfigModal` no longer caps its form at `75vh`; the panel scrolls.
+
 ## Integration Seams & Contracts
 
 - `API_ROUTES`: `zcaStatus`, `zcaQr`, `zcaLoginQr`, `zcaLogout`, `zcaThreads`, `zcaListenedThreads`, `zcaListenedThreadsToggle`, `zcaThreadConfigs`, `zcaThreadConfig(threadId)`, `zcaSyncThreadMedia(threadId)`, `driveFolderLink`, `driveOpen`, `photosAlbumLink`, `photosOpen`. Web builds the QR image URL with `getZcaQrImageUrl()` (`API_ROUTES.zcaQr` on `resolveApiBaseUrl()`).

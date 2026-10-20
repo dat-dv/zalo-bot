@@ -89,6 +89,9 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  // Android Chrome shrinks the layout viewport when the on-screen keyboard opens,
+  // so fixed dialogs stay above the keyboard instead of being covered by it.
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

@@ -91,6 +91,8 @@
 - `DataTable`: column visibility (`zalobot:table-columns:<id>`) and widths (`zalobot:table-widths:<id>`) persisted per table id; `allColumnsKey` + equality guards prevent render loops. `usePeriodFilter` result is memoized.
 - `AppNavigation`: 210px docked sidebar (sections Overview, Finance, Planning, Data, System); ≤960px becomes sticky top bar + slide-out drawer. Footer: theme toggle (localStorage, first visit follows system) and vi/en locale selector.
 
+- `DebtAllocationModal`, `AdjustBalanceModal`, `DeleteTransactionModal`, `CombinePlacesDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard). Screen toasts offset by `env(safe-area-inset-bottom)`.
+
 ## Integration seams
 
 - Dashboard link: user sends `/dashboard` in Zalo → `DashboardToolStrategy` replies with a one-time `/api/access?token=` URL (20 min) → API redirects to `/dashboard#dashboard_token=<access>` (see auth module). There is no callback button.

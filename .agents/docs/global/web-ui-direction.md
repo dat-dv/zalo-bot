@@ -10,6 +10,11 @@ metadata:
       - apps/web/src/shared/ui/workspace-header.tsx
       - apps/web/src/shared/ui/app-navigation.tsx
       - apps/web/src/shared/providers/money-visibility-provider.tsx
+      - apps/web/src/shared/ui/modal.tsx
+      - apps/web/src/shared/ui/ios-viewport-fix.tsx
+      - apps/web/src/shared/hooks/use-body-scroll-lock.ts
+      - apps/web/src/shared/hooks/use-visual-viewport.ts
+      - apps/web/app/layout.tsx
 ---
 
 # Định hướng UI web dùng chung
@@ -49,3 +54,22 @@ Trạng thái Skeleton Loading có nhiệm vụ giữ vững khung xương khôn
    - Không được dùng các đoạn text đơn sơ kiểu `{isLoading ? <div>Đang tải...</div> : <MainUI />}` vì sẽ làm mất toàn bộ cấu trúc trang và gây giật khung mạnh khi nạp xong.
 1. **Cấm Header thừa trong View Skeleton**:
    - `WorkspaceHeader` đã được layout chung (`PrivateLayout`) cung cấp. View skeleton tuyệt đối không được tự ý sinh thêm thẻ `<header>` chứa chữ loading.
+
+## Modal trên mobile & bàn phím ảo
+
+**Vì sao cần**: trước đây mỗi modal tự viết overlay `fixed inset-0` căn giữa, không giới hạn chiều cao. Trên điện thoại, khi bấm vào input, bàn phím ảo chiếm khoảng nửa màn hình nên tiêu đề và nút Lưu/Huỷ bị đẩy ra ngoài, không cuộn tới được. Ngoài ra input chữ nhỏ hơn 16px làm iOS Safari tự phóng to trang và giữ nguyên mức zoom sau khi đóng bàn phím, nên giao diện bị "vỡ".
+
+**Quy tắc bắt buộc**:
+
+- Mọi modal/dialog phải dùng `Modal` trong `apps/web/src/shared/ui/modal.tsx`. Không tự viết overlay `fixed inset-0` nữa (ngoại lệ duy nhất là lớp nền của drawer menu mobile).
+- **Desktop (≥ 640px)**: panel căn giữa như cũ. **Mobile (< 640px)**: dạng *bottom-sheet*, tức panel rộng hết màn hình, dính mép dưới và chỉ bo góc trên, giống bảng "Chia sẻ" của iOS. Kiểu này giúp nút hành động nằm ngay trên bàn phím và dễ bấm bằng ngón cái.
+- Overlay lấy chiều cao theo phần màn hình còn nhìn thấy (CSS var `--app-vvh`, do hook `useVisualViewportVars` cập nhật từ `window.visualViewport`). Panel tự cuộn bên trong. Header gắn `MODAL_STICKY_HEADER`, hàng nút gắn `MODAL_STICKY_FOOTER`, cả hai phải có nền đặc để nội dung cuộn bên dưới không bị lộ.
+- `onDismiss` dùng cho phím Escape và cho click ra nền nếu bật `dismissOnBackdrop`. Khi đang gửi request (mutation pending) thì truyền `undefined` để người dùng không đóng nhầm.
+- Khi mở modal, focus đặt vào panel chứ không vào input, để bàn phím không tự bật lên. Trang nền bị khoá cuộn qua `useBodyScrollLock`. Hook này đếm tham chiếu và dùng chung với drawer menu, nên mở chồng nhiều lớp không bị mở khoá sớm.
+- z-index: modal thường dùng `z-[900]`, modal mở chồng lên modal khác (giải thích ID trong DataTable) dùng `layer="top"` (`z-[950]`), menu gợi ý danh mục dùng `z-[1000]`.
+
+**Vì sao không tăng cỡ chữ input lên 16px**: dashboard cố ý dùng control nhỏ gọn (11–13px) để hiển thị được nhiều dữ liệu. Thay vào đó, `IosViewportFix` (gắn trong `AppProviders`) chỉ thêm `maximum-scale=1` trên iPhone/iPad. Từ iOS 10, Safari vẫn cho người dùng zoom bằng hai ngón nhưng không tự zoom khi focus input nữa. Android không có hiện tượng auto-zoom này nên vẫn giữ `maximumScale: 5`, và nhờ `interactiveWidget: 'resizes-content'` trong viewport, Android Chrome tự co layout khi bàn phím mở.
+
+**Đơn vị chiều cao**: dùng `h-dvh` / `min-h-dvh` thay cho `h-screen` / `100vh`, vì trên iOS `100vh` không co lại theo thanh địa chỉ hay bàn phím. Toast `fixed bottom` cộng thêm `env(safe-area-inset-bottom)` để không bị thanh home của iPhone che.
+
+**Kiểm thử thủ công**: trong Chrome DevTools, chọn thiết bị 375×812 rồi đổi chiều cao còn khoảng 380px để giả lập lúc bàn phím mở. Tiêu đề và nút phải luôn hiển thị, nội dung ở giữa cuộn được. Hiện tượng auto-zoom và bàn phím thật chỉ kiểm được trên iPhone/Android thật.

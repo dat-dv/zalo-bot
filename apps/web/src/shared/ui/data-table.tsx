@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState, useEffect, useRef, useMemo, Fragment, type ReactNode } from 'react';
 import type { TranslationKey } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from './modal';
 
 type DataTableRow = { id: string };
 
@@ -133,17 +134,6 @@ export function IdExplainerDialog({
   const { t } = useLocale();
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
   if (!isOpen) return null;
 
   const handleCopy = async (text: string, key: string) => {
@@ -191,159 +181,158 @@ export function IdExplainerDialog({
   ];
 
   return (
-    <div
-      className="fixed inset-0 z-[950] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-xs"
-      role="presentation"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+    <Modal
+      open
+      onDismiss={onClose}
+      dismissOnBackdrop
+      layer="top"
+      ariaLabel={t('table.idModal.title')}
+      backdropClassName="bg-slate-900/50 backdrop-blur-xs"
+      panelClassName="max-w-[520px] rounded-md border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"
     >
-      <div
-        className="w-full max-w-[520px] rounded-md border border-slate-300 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('table.idModal.title')}
+      <header
+        className={`${MODAL_STICKY_HEADER} flex items-start justify-between border-b border-slate-200 bg-white px-5 py-3.5 dark:border-slate-800 dark:bg-slate-900`}
       >
-        <header className="flex items-start justify-between border-b border-slate-200 px-5 py-3.5 dark:border-slate-800">
+        <div>
+          <h3 className="m-0 flex items-center gap-1.5 text-[14px] font-semibold text-slate-900 dark:text-slate-100">
+            <span aria-hidden="true">🆔</span>
+            <span>{t('table.idModal.title')}</span>
+          </h3>
+          <p className="m-0 mt-0.5 text-[11.5px] text-slate-500 dark:text-slate-400">
+            {t('table.idModal.subtitle')}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="flex size-7 cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          onClick={onClose}
+          aria-label={t('common.close')}
+        >
+          &times;
+        </button>
+      </header>
+
+      <div className="flex max-h-[calc(85vh-120px)] flex-col gap-3.5 overflow-y-auto px-5 py-4">
+        {/* Metadata: Table & Entity */}
+        <div className="grid grid-cols-2 gap-2 rounded border border-slate-200 bg-slate-50 p-2.5 text-xs dark:border-slate-800 dark:bg-slate-950/60">
           <div>
-            <h3 className="m-0 flex items-center gap-1.5 text-[14px] font-semibold text-slate-900 dark:text-slate-100">
-              <span aria-hidden="true">🆔</span>
-              <span>{t('table.idModal.title')}</span>
-            </h3>
-            <p className="m-0 mt-0.5 text-[11.5px] text-slate-500 dark:text-slate-400">
-              {t('table.idModal.subtitle')}
-            </p>
+            <span className="mb-0.5 block text-[10.5px] font-medium text-slate-500 dark:text-slate-400">
+              {t('table.idModal.tableName')}
+            </span>
+            <code className="font-mono text-[11px] font-bold text-sky-700 dark:text-sky-400">
+              {tableInfo.tableName}
+            </code>
           </div>
-          <button
-            type="button"
-            className="flex size-7 cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-            onClick={onClose}
-            aria-label={t('common.close')}
-          >
-            &times;
-          </button>
-        </header>
-
-        <div className="flex max-h-[calc(85vh-120px)] flex-col gap-3.5 overflow-y-auto px-5 py-4">
-          {/* Metadata: Table & Entity */}
-          <div className="grid grid-cols-2 gap-2 rounded border border-slate-200 bg-slate-50 p-2.5 text-xs dark:border-slate-800 dark:bg-slate-950/60">
-            <div>
-              <span className="mb-0.5 block text-[10.5px] font-medium text-slate-500 dark:text-slate-400">
-                {t('table.idModal.tableName')}
-              </span>
-              <code className="font-mono text-[11px] font-bold text-sky-700 dark:text-sky-400">
-                {tableInfo.tableName}
-              </code>
-            </div>
-            <div>
-              <span className="mb-0.5 block text-[10.5px] font-medium text-slate-500 dark:text-slate-400">
-                {t('table.idModal.entityName')}
-              </span>
-              <strong className="block truncate text-[11.5px] text-slate-800 dark:text-slate-200">
-                {entityLabel}
-              </strong>
-            </div>
-          </div>
-
-          {/* Full ID Card with Copy */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11.5px] font-semibold text-slate-700 dark:text-slate-300">
-              {t('table.idModal.fullId')}
-            </label>
-            <div className="flex items-center gap-2 rounded border border-slate-300 bg-slate-50 px-2.5 py-1.5 dark:border-slate-700 dark:bg-slate-950">
-              <code className="flex-1 select-all break-all font-mono text-[11.5px] text-slate-800 dark:text-slate-200">
-                {rowId}
-              </code>
-              <button
-                type="button"
-                className="inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-[3px] border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
-                onClick={() => void handleCopy(rowId, 'id')}
-              >
-                {copiedKey === 'id' ? (
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                    ✓ {t('table.idModal.copied')}
-                  </span>
-                ) : (
-                  <>
-                    <svg
-                      className="size-3 shrink-0"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-                      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-                    </svg>
-                    <span>{t('table.idModal.copyId')}</span>
-                  </>
-                )}
-              </button>
-            </div>
-            <p className="m-0 text-[11px] leading-tight text-slate-500 dark:text-slate-400">
-              {t('table.idModal.explanation', { table: tableInfo.tableName })}
-            </p>
-          </div>
-
-          {/* AI Agent Prompt Section */}
-          <div className="flex flex-col gap-2 border-t border-slate-200 pt-2 dark:border-slate-800">
-            <div>
-              <strong className="flex items-center gap-1 text-[12px] font-semibold text-slate-900 dark:text-slate-100">
-                <span aria-hidden="true">🤖</span>
-                <span>{t('table.idModal.agentPromptTitle')}</span>
-              </strong>
-              <p className="m-0 mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                {t('table.idModal.agentPromptDesc')}
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              {prompts.map((p) => (
-                <div
-                  key={p.key}
-                  className="flex flex-col gap-1 rounded border border-slate-200 bg-white p-2 text-xs transition-colors hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-sky-800"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">
-                      {p.actionIcon} {p.title}
-                    </span>
-                    <button
-                      type="button"
-                      className="inline-flex h-5 cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-sky-50 px-1.5 text-[10.5px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/60 dark:text-sky-300 dark:hover:bg-sky-900/80"
-                      onClick={() => void handleCopy(p.text, p.key)}
-                    >
-                      {copiedKey === p.key ? (
-                        <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                          ✓ {t('table.idModal.copied')}
-                        </span>
-                      ) : (
-                        <span>{t('table.idModal.copyPrompt')}</span>
-                      )}
-                    </button>
-                  </div>
-                  <code className="select-all break-all rounded border border-slate-100 bg-slate-50 p-1.5 font-mono text-[11px] text-slate-600 dark:border-slate-800/60 dark:bg-slate-900/80 dark:text-slate-400">
-                    {p.text}
-                  </code>
-                </div>
-              ))}
-            </div>
+          <div>
+            <span className="mb-0.5 block text-[10.5px] font-medium text-slate-500 dark:text-slate-400">
+              {t('table.idModal.entityName')}
+            </span>
+            <strong className="block truncate text-[11.5px] text-slate-800 dark:text-slate-200">
+              {entityLabel}
+            </strong>
           </div>
         </div>
 
-        <footer className="flex items-center justify-end border-t border-slate-200 bg-slate-50 px-5 py-2.5 dark:border-slate-800 dark:bg-slate-950/50">
-          <button
-            type="button"
-            className="inline-flex min-h-7 items-center justify-center rounded border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-            onClick={onClose}
-          >
-            {t('common.close')}
-          </button>
-        </footer>
+        {/* Full ID Card with Copy */}
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[11.5px] font-semibold text-slate-700 dark:text-slate-300">
+            {t('table.idModal.fullId')}
+          </label>
+          <div className="flex items-center gap-2 rounded border border-slate-300 bg-slate-50 px-2.5 py-1.5 dark:border-slate-700 dark:bg-slate-950">
+            <code className="flex-1 select-all break-all font-mono text-[11.5px] text-slate-800 dark:text-slate-200">
+              {rowId}
+            </code>
+            <button
+              type="button"
+              className="inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-[3px] border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+              onClick={() => void handleCopy(rowId, 'id')}
+            >
+              {copiedKey === 'id' ? (
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                  ✓ {t('table.idModal.copied')}
+                </span>
+              ) : (
+                <>
+                  <svg
+                    className="size-3 shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                  </svg>
+                  <span>{t('table.idModal.copyId')}</span>
+                </>
+              )}
+            </button>
+          </div>
+          <p className="m-0 text-[11px] leading-tight text-slate-500 dark:text-slate-400">
+            {t('table.idModal.explanation', { table: tableInfo.tableName })}
+          </p>
+        </div>
+
+        {/* AI Agent Prompt Section */}
+        <div className="flex flex-col gap-2 border-t border-slate-200 pt-2 dark:border-slate-800">
+          <div>
+            <strong className="flex items-center gap-1 text-[12px] font-semibold text-slate-900 dark:text-slate-100">
+              <span aria-hidden="true">🤖</span>
+              <span>{t('table.idModal.agentPromptTitle')}</span>
+            </strong>
+            <p className="m-0 mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+              {t('table.idModal.agentPromptDesc')}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            {prompts.map((p) => (
+              <div
+                key={p.key}
+                className="flex flex-col gap-1 rounded border border-slate-200 bg-white p-2 text-xs transition-colors hover:border-sky-300 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-sky-800"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-slate-800 dark:text-slate-200">
+                    {p.actionIcon} {p.title}
+                  </span>
+                  <button
+                    type="button"
+                    className="inline-flex h-5 cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-sky-50 px-1.5 text-[10.5px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/60 dark:text-sky-300 dark:hover:bg-sky-900/80"
+                    onClick={() => void handleCopy(p.text, p.key)}
+                  >
+                    {copiedKey === p.key ? (
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        ✓ {t('table.idModal.copied')}
+                      </span>
+                    ) : (
+                      <span>{t('table.idModal.copyPrompt')}</span>
+                    )}
+                  </button>
+                </div>
+                <code className="select-all break-all rounded border border-slate-100 bg-slate-50 p-1.5 font-mono text-[11px] text-slate-600 dark:border-slate-800/60 dark:bg-slate-900/80 dark:text-slate-400">
+                  {p.text}
+                </code>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
+
+      <footer
+        className={`${MODAL_STICKY_FOOTER} flex items-center justify-end border-t border-slate-200 bg-slate-50 px-5 py-2.5 dark:border-slate-800 dark:bg-slate-950`}
+      >
+        <button
+          type="button"
+          className="inline-flex min-h-7 items-center justify-center rounded border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+          onClick={onClose}
+        >
+          {t('common.close')}
+        </button>
+      </footer>
+    </Modal>
   );
 }
 

@@ -10,6 +10,11 @@ metadata:
       - apps/web/src/shared/ui/app-navigation.tsx
       - apps/web/src/shared/providers/money-visibility-provider.tsx
       - apps/web/app/(private)/layout.tsx
+      - apps/web/src/shared/ui/modal.tsx
+      - apps/web/src/shared/ui/ios-viewport-fix.tsx
+      - apps/web/src/shared/hooks/use-body-scroll-lock.ts
+      - apps/web/src/shared/hooks/use-visual-viewport.ts
+      - apps/web/app/layout.tsx
 ---
 
 # Web UI Direction
@@ -40,3 +45,14 @@ Skeleton loading states must achieve strict 1:1 structural, spatial, and visual 
 2. **Container Preservation**: Skeletons must never collapse or omit outer wrapper containers. `DataPanel` containers with outer borders (`border border-slate-200`), headers (`border-b`), search inputs, `PeriodFilterToolbar` blocks, and Quick Links bars must remain fully rendered during loading.
 3. **No Raw Text Loading**: Replacing full page structures with bare text banners (e.g. `<div className="p-4">Loading...</div>`) is strictly forbidden. Screens must preserve their layout shells and forward `loading={true}` to nested tables and charts.
 4. **No Duplicate or Shifting Headers**: Because `WorkspaceHeader` is universally mounted in `PrivateLayout`, view-level skeletons must never inject an extra `<header>` tag.
+
+## Mobile Dialogs & On-Screen Keyboard
+
+Every modal/dialog renders through the shared `Modal` shell (`apps/web/src/shared/ui/modal.tsx`); hand-rolled `fixed inset-0` overlays are forbidden (the mobile navigation drawer backdrop is the only exception).
+
+1. **Layout**: desktop (>= 640px) centers the panel; mobile (< 640px) renders a bottom sheet — full width, pinned to the bottom edge, top corners rounded, `env(safe-area-inset-bottom)` padding. Callers pass only visual styling via `panelClassName` (width cap, border, radius, background).
+2. **Keyboard-safe sizing**: the overlay is sized to the visual viewport (`--app-vvh` / `--app-vv-top`, written by `useVisualViewportVars` while a dialog is open; fallback `100dvh`). The panel is the scroll container (`max-h-full overflow-y-auto overscroll-contain`). Headers use `MODAL_STICKY_HEADER`, action rows use `MODAL_STICKY_FOOTER`, both with an opaque background, so title and submit/cancel stay visible above the keyboard. A focused field inside the panel is scrolled into view after ~300ms.
+3. **Behavior**: `onDismiss` handles Escape (top-most dialog only) and, with `dismissOnBackdrop`, backdrop clicks; pass `undefined` while a mutation is pending. Opening focuses the panel (never an input, to avoid popping the keyboard), traps Tab, and restores focus on close. Page scroll is locked via ref-counted `useBodyScrollLock`, shared with the navigation drawer.
+4. **Layers**: dialogs use `z-[900]`; `layer="top"` (`z-[950]`) is for dialogs stacked over another (DataTable ID explainer). `CategoryAutocomplete` portal menus use `z-[1000]` so they float above dialogs.
+5. **Viewport & zoom**: root `viewport` sets `interactiveWidget: 'resizes-content'` (Android Chrome shrinks the layout viewport for the keyboard) and keeps `maximumScale: 5`. Compact control font sizes (< 16px) are intentional and must not be bumped for mobile; instead `IosViewportFix` (mounted in `AppProviders`) adds `maximum-scale=1` on iOS/iPadOS only, which stops Safari's focus auto-zoom while manual pinch-zoom still works.
+6. **Viewport units**: use `dvh` (`h-dvh`, `min-h-dvh`) instead of `100vh`/`h-screen` for full-height shells. Fixed bottom toasts offset by `env(safe-area-inset-bottom)` and stretch to `left-4` on mobile.

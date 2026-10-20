@@ -36,6 +36,8 @@
 - Payload: `{ targetContactId, sourceContactIds, displayName, alias, descriptor, linkedUserId, consolidateDebts }`.
 - Success invalidates `contacts`, `debts`, `transactions`, `expenses`, `dashboard`. Update/delete invalidate `contacts`, `debts`, `dashboard`.
 
+- `CombineContactsDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard).
+
 ## Backend combine semantics (`FinanceService.combineContacts`)
 
 - Requires ≥2 caller-owned contacts. Lead = `targetContactId` if given, else the ranking above.

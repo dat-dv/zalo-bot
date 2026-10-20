@@ -43,6 +43,8 @@ Trang `/debts` cho người dùng theo dõi **khoản phải thu** (người kh�
 - **Gộp nợ**: chọn từ 2 khoản gốc → `CombineDebtsDialog` (ghi chú, hạn trả). Nếu chọn lệch chiều nợ hoặc lệch loại tiền, dialog báo lỗi và khoá nút xác nhận.
 - Không có nút xoá khoản nợ trên giao diện. Trang chủ dùng lại `DebtsTable` ở chế độ chỉ đọc.
 
+- `CombineDebtsDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo).
+
 ## Quy tắc nghiệp vụ phía backend
 
 - **Sửa số còn lại**: về 0 thì chuyển `settled` và ghi ngày tất toán; lớn hơn 0 thì mở lại.

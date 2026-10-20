@@ -120,6 +120,8 @@ Hệ quả nghiệp vụ cần biết: trang Thu chi **không có API danh sách
 - `DataTable` ghi nhớ cột ẩn/hiện và độ rộng cột theo id bảng trong `localStorage`; có cơ chế so sánh trước khi cập nhật state để tránh vòng lặp render.
 - Điều hướng: sidebar cố định trên desktop (nhóm Tổng quan, Tài chính, Kế hoạch, Dữ liệu, Hệ thống); màn hình ≤ 960px chuyển thành thanh trên cùng + menu trượt. Cuối menu có nút đổi giao diện sáng/tối (lần đầu theo hệ thống) và chọn ngôn ngữ Việt/Anh.
 
+- `DebtAllocationModal`, `AdjustBalanceModal`, `DeleteTransactionModal`, `CombinePlacesDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo). Toast cuối màn hình chừa khoảng `env(safe-area-inset-bottom)` để không bị thanh home iPhone che.
+
 ## Mở dashboard, chạy local và production
 
 - Người dùng gửi `/dashboard` (hoặc "dashboard", "mở dashboard") cho bot; bot trả link dùng một lần `/api/access?token=...` (hạn 20 phút). API đổi link thành phiên rồi chuyển hướng sang `/dashboard#dashboard_token=...` (chi tiết ở module auth). Không có nút callback; muốn link mới thì gửi lại lệnh. Link hết hạn/đã dùng trả trang HTML lỗi 401.

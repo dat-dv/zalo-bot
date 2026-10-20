@@ -8,10 +8,11 @@ import { LocaleProvider } from './locale-provider';
 import { MoneyVisibilityProvider } from './money-visibility-provider';
 import { ReactScanProvider } from './react-scan-provider';
 import { ErrorBoundary } from '@/shared/ui/error-boundary';
+import { IosViewportFix } from '@/shared/ui/ios-viewport-fix';
 
 function AppLoadingFallback() {
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-slate-950 px-4 text-slate-100">
+    <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-slate-950 px-4 text-slate-100">
       <div className="flex flex-col items-center gap-3">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
         <span className="text-sm font-semibold tracking-wide text-slate-200">
@@ -41,6 +42,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   return (
     <ErrorBoundary>
+      <IosViewportFix />
       <ReactScanProvider>
         <QueryClientProvider client={queryClient}>
           <LocaleProvider>

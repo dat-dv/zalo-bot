@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { GrantAccessStatus, UserRole, type IUserListItem } from '@zalobot/contracts';
 import { useCreateUserMutation, useUpdateUserMutation } from '@/modules/users/api/users-query';
+import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
 
 interface UserFormDialogProps {
   /** Edit an existing user; omit to create a new one. */
@@ -37,6 +38,7 @@ export function UserFormDialog({ user, initialId, initialName, onClose }: UserFo
   const [role, setRole] = useState<UserRole>(user?.role ?? UserRole.USER);
   const [grantAccess, setGrantAccess] = useState(true);
   const [error, setError] = useState('');
+  const titleId = useId();
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
@@ -78,129 +80,133 @@ export function UserFormDialog({ user, initialId, initialName, onClose }: UserFo
   };
 
   return (
-    <div
-      aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-      role="dialog"
+    <Modal
+      open
+      onDismiss={isPending ? undefined : onClose}
+      labelledBy={titleId}
+      backdropClassName="bg-black/50 backdrop-blur-sm"
+      panelClassName="max-w-md rounded-2xl border border-slate-200 bg-white px-6 dark:border-slate-800 dark:bg-slate-900"
     >
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center justify-between pb-3">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-            {isEdit ? 'Sửa thông tin người dùng' : 'Thêm người dùng mới'}
-          </h3>
+      <div
+        className={`${MODAL_STICKY_HEADER} flex items-center justify-between bg-white pt-6 pb-3 dark:bg-slate-900`}
+      >
+        <h3 id={titleId} className="text-lg font-bold text-slate-900 dark:text-slate-100">
+          {isEdit ? 'Sửa thông tin người dùng' : 'Thêm người dùng mới'}
+        </h3>
+        <button
+          aria-label="Đóng"
+          className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+          onClick={onClose}
+          type="button"
+        >
+          ✕
+        </button>
+      </div>
+
+      <form className="mt-4 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
+        {error && (
+          <div className="rounded-lg bg-red-50 p-3 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400">
+            {error}
+          </div>
+        )}
+
+        <div>
+          <label className={labelClass} htmlFor="user-form-id">
+            Zalo User ID {isEdit ? '' : '*'}
+          </label>
+          <input
+            className={`${inputClass} font-mono disabled:bg-slate-100 disabled:text-slate-600 dark:disabled:bg-slate-800/60`}
+            disabled={isEdit || Boolean(initialId)}
+            id="user-form-id"
+            onChange={(e) => setId(e.target.value)}
+            placeholder="Ví dụ: effcda102859c1079848"
+            required
+            type="text"
+            value={id}
+          />
+          {!isEdit && !initialId && (
+            <span className="mt-1 block text-xs text-slate-400">
+              ID người dùng lấy từ tin nhắn /status hoặc khi bot từ chối.
+            </span>
+          )}
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor="user-form-name">
+            Tên hiển thị / Ghi chú
+          </label>
+          <input
+            className={inputClass}
+            id="user-form-name"
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ví dụ: Anh Nam (Kế toán), Chị Linh..."
+            type="text"
+            value={name}
+          />
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor="user-form-phone">
+            Số điện thoại
+          </label>
+          <input
+            className={inputClass}
+            id="user-form-phone"
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="Ví dụ: 0901234567..."
+            type="text"
+            value={phone}
+          />
+        </div>
+
+        <div>
+          <label className={labelClass} htmlFor="user-form-role">
+            Vai trò
+          </label>
+          <select
+            className={inputClass}
+            id="user-form-role"
+            onChange={(e) =>
+              setRole(e.target.value === UserRole.ADMIN ? UserRole.ADMIN : UserRole.USER)
+            }
+            value={role}
+          >
+            <option value={UserRole.USER}>👤 Thành viên (Member)</option>
+            <option value={UserRole.ADMIN}>👑 Quản trị viên (Admin)</option>
+          </select>
+        </div>
+
+        {!isEdit && (
+          <label className="flex cursor-pointer items-center gap-3 pt-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+            <input
+              checked={grantAccess}
+              className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              onChange={(e) => setGrantAccess(e.target.checked)}
+              type="checkbox"
+            />
+            Cấp quyền tương tác ngay
+          </label>
+        )}
+
+        <div
+          className={`${MODAL_STICKY_FOOTER} mt-2 flex items-center justify-end gap-2 bg-white pt-2 pb-6 dark:bg-slate-900`}
+        >
           <button
-            aria-label="Đóng"
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
             onClick={onClose}
             type="button"
           >
-            ✕
+            Hủy
+          </button>
+          <button
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 active:scale-95 disabled:opacity-50"
+            disabled={isPending}
+            type="submit"
+          >
+            {isPending ? 'Đang lưu...' : isEdit ? 'Lưu thay đổi' : 'Lưu người dùng'}
           </button>
         </div>
-
-        <form className="mt-4 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
-          {error && (
-            <div className="rounded-lg bg-red-50 p-3 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400">
-              {error}
-            </div>
-          )}
-
-          <div>
-            <label className={labelClass} htmlFor="user-form-id">
-              Zalo User ID {isEdit ? '' : '*'}
-            </label>
-            <input
-              className={`${inputClass} font-mono disabled:bg-slate-100 disabled:text-slate-600 dark:disabled:bg-slate-800/60`}
-              disabled={isEdit || Boolean(initialId)}
-              id="user-form-id"
-              onChange={(e) => setId(e.target.value)}
-              placeholder="Ví dụ: effcda102859c1079848"
-              required
-              type="text"
-              value={id}
-            />
-            {!isEdit && !initialId && (
-              <span className="mt-1 block text-xs text-slate-400">
-                ID người dùng lấy từ tin nhắn /status hoặc khi bot từ chối.
-              </span>
-            )}
-          </div>
-
-          <div>
-            <label className={labelClass} htmlFor="user-form-name">
-              Tên hiển thị / Ghi chú
-            </label>
-            <input
-              className={inputClass}
-              id="user-form-name"
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ví dụ: Anh Nam (Kế toán), Chị Linh..."
-              type="text"
-              value={name}
-            />
-          </div>
-
-          <div>
-            <label className={labelClass} htmlFor="user-form-phone">
-              Số điện thoại
-            </label>
-            <input
-              className={inputClass}
-              id="user-form-phone"
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Ví dụ: 0901234567..."
-              type="text"
-              value={phone}
-            />
-          </div>
-
-          <div>
-            <label className={labelClass} htmlFor="user-form-role">
-              Vai trò
-            </label>
-            <select
-              className={inputClass}
-              id="user-form-role"
-              onChange={(e) =>
-                setRole(e.target.value === UserRole.ADMIN ? UserRole.ADMIN : UserRole.USER)
-              }
-              value={role}
-            >
-              <option value={UserRole.USER}>👤 Thành viên (Member)</option>
-              <option value={UserRole.ADMIN}>👑 Quản trị viên (Admin)</option>
-            </select>
-          </div>
-
-          {!isEdit && (
-            <label className="flex cursor-pointer items-center gap-3 pt-1 text-sm font-medium text-slate-700 dark:text-slate-300">
-              <input
-                checked={grantAccess}
-                className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                onChange={(e) => setGrantAccess(e.target.checked)}
-                type="checkbox"
-              />
-              Cấp quyền tương tác ngay
-            </label>
-          )}
-
-          <div className="mt-2 flex items-center justify-end gap-2 pt-2">
-            <button
-              className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-              onClick={onClose}
-              type="button"
-            >
-              Hủy
-            </button>
-            <button
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 active:scale-95 disabled:opacity-50"
-              disabled={isPending}
-              type="submit"
-            >
-              {isPending ? 'Đang lưu...' : isEdit ? 'Lưu thay đổi' : 'Lưu người dùng'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 }
