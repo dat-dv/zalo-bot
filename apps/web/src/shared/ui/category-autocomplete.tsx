@@ -142,7 +142,7 @@ export function CategoryAutocomplete({
             <div
               ref={menuRef}
               id={listboxId}
-              className="fixed z-[1000] max-h-48 overflow-y-auto rounded-[3px] border border-sky-600 bg-white shadow-2xl dark:border-sky-500 dark:bg-slate-900"
+              className="fixed z-[100] max-h-48 overflow-y-auto rounded-[3px] border border-sky-600 bg-white shadow-2xl dark:border-sky-500 dark:bg-slate-900"
               role="listbox"
               aria-label={ariaLabel}
               style={menuPosition}
@@ -165,7 +165,9 @@ export function CategoryAutocomplete({
                 </div>
               ))}
             </div>,
-            document.body,
+            // A modal <dialog> sits in the top layer above every z-index, so render
+            // inside it when the field lives in one; otherwise the menu would be hidden.
+            inputRef.current?.closest('dialog') ?? document.body,
           )
         : null}
     </div>

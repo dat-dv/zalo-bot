@@ -185,7 +185,6 @@ export function IdExplainerDialog({
       open
       onDismiss={onClose}
       dismissOnBackdrop
-      layer="top"
       ariaLabel={t('table.idModal.title')}
       backdropClassName="bg-slate-900/50 backdrop-blur-xs"
       panelClassName="max-w-[520px] rounded-md border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"

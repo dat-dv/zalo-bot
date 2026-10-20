@@ -1,7 +1,6 @@
 'use client';
 
-import { type ReactNode, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import { type ReactNode, type SyntheticEvent, useEffect, useLayoutEffect, useRef } from 'react';
 import { useBodyScrollLock } from '@/shared/hooks/use-body-scroll-lock';
 import { useVisualViewportVars } from '@/shared/hooks/use-visual-viewport';
 
@@ -10,19 +9,8 @@ export const MODAL_STICKY_HEADER = 'sticky top-0 z-10';
 /** Keep dialog actions reachable above the on-screen keyboard. Pair with a solid background. */
 export const MODAL_STICKY_FOOTER = 'sticky bottom-0 z-10';
 
-const LAYER_CLASS = {
-  base: 'z-[900]',
-  // Dialogs that can open on top of another dialog (e.g. the DataTable ID explainer).
-  top: 'z-[950]',
-} as const;
-
 // Wait for the on-screen keyboard animation before revealing the focused field.
 const KEYBOARD_SETTLE_MS = 300;
-const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-// Only the top-most open dialog reacts to Escape / Tab.
-const openStack: symbol[] = [];
 
 interface ModalProps {
   open: boolean;
@@ -33,7 +21,6 @@ interface ModalProps {
   describedBy?: string;
   ariaLabel?: string;
   role?: 'dialog' | 'alertdialog';
-  layer?: keyof typeof LAYER_CLASS;
   /** Visual styling of the panel: width cap, border, radius, background. */
   panelClassName: string;
   backdropClassName?: string;
@@ -41,10 +28,14 @@ interface ModalProps {
 }
 
 /**
- * Shared dialog shell. Desktop: centered panel. Mobile (< 640px): bottom sheet
- * pinned to the bottom edge. The overlay tracks the visual viewport so the
- * panel stays above the on-screen keyboard, and the panel itself scrolls when
- * content is taller than the visible area.
+ * Shared dialog shell built on the native `<dialog>` + `showModal()`: the
+ * browser provides the top layer (no z-index juggling, later dialogs stack
+ * above earlier ones), makes the rest of the page inert, routes Escape to the
+ * top-most dialog via `cancel`, and restores focus on close.
+ *
+ * Still handled here because the platform does not: page scroll lock, sizing
+ * to the visual viewport so the panel stays above the on-screen keyboard, the
+ * mobile bottom-sheet layout (< 640px), and revealing focused fields.
  */
 export function Modal({
   open,
@@ -54,11 +45,11 @@ export function Modal({
   describedBy,
   ariaLabel,
   role = 'dialog',
-  layer = 'base',
   panelClassName,
   backdropClassName = 'bg-slate-900/60 backdrop-blur-xs dark:bg-slate-950/80',
   children,
 }: ModalProps) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const dismissRef = useRef(onDismiss);
   useEffect(() => {
@@ -68,45 +59,29 @@ export function Modal({
   useBodyScrollLock(open);
   useVisualViewportVars(open);
 
-  useEffect(() => {
-    if (!open) return;
-    const token = Symbol('modal');
-    openStack.push(token);
-    const previouslyFocused =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  // Layout effect: open before paint and close while the element is still attached,
+  // so the browser restores focus to the opener.
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
     const panel = panelRef.current;
-    // Focus the panel, not a field: focusing an input would pop the mobile keyboard.
-    if (panel && !panel.contains(document.activeElement)) {
-      panel.focus({ preventScroll: true });
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (openStack[openStack.length - 1] !== token || !panel) return;
-      if (event.key === 'Escape' && dismissRef.current) {
-        event.stopPropagation();
-        dismissRef.current();
-        return;
-      }
-      if (event.key !== 'Tab') return;
-      const focusable = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
-      if (focusable.length === 0) {
-        event.preventDefault();
-        return;
-      }
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (
-        event.shiftKey &&
-        (document.activeElement === first || document.activeElement === panel)
-      ) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+    if (!open || !dialog || !panel) return;
+    // showModal() focuses the first focusable descendant, which may be an input and
+    // would pop the mobile keyboard. An `autofocus` panel takes precedence over it.
+    panel.setAttribute('autofocus', '');
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (!dialog.open) dialog.showModal();
+    return () => {
+      if (dialog.open) dialog.close();
+      // When `open` flips to false on a mounted Modal, React detaches the <dialog> before
+      // this cleanup runs, so the browser cannot restore focus itself.
+      const focusLost = !document.activeElement || document.activeElement === document.body;
+      if (focusLost && opener?.isConnected) opener.focus({ preventScroll: true });
     };
+  }, [open]);
 
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!open || !panel) return;
     let revealTimer = 0;
     const handleFocusIn = (event: FocusEvent) => {
       const target = event.target;
@@ -122,25 +97,45 @@ export function Modal({
         target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
       }, KEYBOARD_SETTLE_MS);
     };
-
-    document.addEventListener('keydown', handleKeyDown);
-    panel?.addEventListener('focusin', handleFocusIn);
+    panel.addEventListener('focusin', handleFocusIn);
     return () => {
       window.clearTimeout(revealTimer);
-      document.removeEventListener('keydown', handleKeyDown);
-      panel?.removeEventListener('focusin', handleFocusIn);
-      const index = openStack.indexOf(token);
-      if (index >= 0) openStack.splice(index, 1);
-      if (previouslyFocused?.isConnected) previouslyFocused.focus({ preventScroll: true });
+      panel.removeEventListener('focusin', handleFocusIn);
     };
   }, [open]);
 
-  if (!open || typeof document === 'undefined') return null;
+  // Escape: React owns the open state, so never let the browser close the dialog itself.
+  const handleCancel = (event: SyntheticEvent<HTMLDialogElement>) => {
+    event.preventDefault();
+    dismissRef.current?.();
+  };
 
-  return createPortal(
-    <div
-      className={`fixed inset-x-0 top-[var(--app-vv-top,0px)] flex h-[var(--app-vvh,100dvh)] items-center justify-center p-4 max-sm:items-end max-sm:p-0 max-sm:pt-6 ${LAYER_CLASS[layer]}`}
-      role="presentation"
+  // Browsers may force-close after repeated cancels without user activation. Keep the
+  // DOM in sync with `open`: dismiss if allowed, otherwise reopen.
+  const handleClose = () => {
+    const dialog = dialogRef.current;
+    if (!open || !dialog || dialog.open) return;
+    if (dismissRef.current) {
+      dismissRef.current();
+    } else {
+      dialog.showModal();
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <dialog
+      ref={dialogRef}
+      role={role === 'alertdialog' ? 'alertdialog' : undefined}
+      aria-labelledby={labelledBy}
+      aria-describedby={describedBy}
+      aria-label={ariaLabel}
+      onCancel={handleCancel}
+      onClose={handleClose}
+      // Reset UA dialog styles (margin, max size, border, padding, colors) and size the
+      // dialog to the visual viewport; the panel sits inside as centered card / bottom sheet.
+      className="fixed inset-x-0 top-[var(--app-vv-top,0px)] bottom-auto m-0 h-[var(--app-vvh,100dvh)] max-h-none w-full max-w-none items-center justify-center overflow-hidden border-0 bg-transparent p-4 text-inherit backdrop:bg-transparent open:flex max-sm:items-end max-sm:p-0 max-sm:pt-6"
     >
       <div
         aria-hidden="true"
@@ -149,17 +144,11 @@ export function Modal({
       />
       <div
         ref={panelRef}
-        role={role}
-        aria-modal="true"
-        aria-labelledby={labelledBy}
-        aria-describedby={describedBy}
-        aria-label={ariaLabel}
         tabIndex={-1}
         className={`relative flex max-h-full w-full flex-col overflow-y-auto overscroll-contain shadow-2xl outline-none ${panelClassName} max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-[env(safe-area-inset-bottom)]`}
       >
         {children}
       </div>
-    </div>,
-    document.body,
+    </dialog>
   );
 }
