@@ -74,7 +74,11 @@ export function ColumnFilterHeader({
     };
 
     updatePosition();
-    panelRef.current?.querySelector<HTMLElement>('input, button')?.focus();
+    // Prefer the first field over the header's "Clear filter" button, so typing works right away.
+    const panel = panelRef.current;
+    (
+      panel?.querySelector<HTMLElement>('input') ?? panel?.querySelector<HTMLElement>('button')
+    )?.focus();
     document.addEventListener('mousedown', handlePointerDown);
     document.addEventListener('keydown', handleKeyDown);
     window.addEventListener('resize', updatePosition);

@@ -782,9 +782,14 @@ export class FinanceService {
         })
       : [];
     const profileNames = new Map(users.map((u) => [u.id, u.firstName?.trim() ?? '']));
-    return [...snapshots]
-      .map(([id, snapshot]) => ({ id, name: profileNames.get(id) || snapshot || id }))
-      .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+    return (
+      [...snapshots]
+        // An empty name means "unknown"; the web labels it and lists it after the named creators.
+        .map(([id, snapshot]) => ({ id, name: profileNames.get(id) || snapshot || '' }))
+        .sort((a, b) =>
+          !a.name !== !b.name ? (a.name ? -1 : 1) : a.name.localeCompare(b.name, 'vi'),
+        )
+    );
   }
 
   public getTransaction(id: string): Promise<FinanceTransactionEntity | null> {

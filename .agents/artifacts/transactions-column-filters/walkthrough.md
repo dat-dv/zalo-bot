@@ -21,3 +21,8 @@ Khác so với plan: thêm `facets.categories` (danh mục là text tự do, n�
 - In SQL TypeORM bằng DataSource offline: điều kiện `IN`, `ILIKE`, `NULLIF(TRIM(receipt_url),'')`, `BETWEEN`, `IS NULL` đúng như mong đợi.
 - `docs-drift-check`: PASS.
 - **Chưa kiểm**: chưa chạy với Postgres thật và chưa thử giao diện trên trình duyệt, vì máy local không có DB đang chạy.
+
+## Sửa sau khi test production (v1.0.101)
+- Popover mở ra focus vào nút "Xoá lọc" (đang disabled) nên gõ ngay bị mất → giờ focus ô `input` đầu tiên trước, không có mới tới nút.
+- Bộ lọc Người tạo hiện ID thô cho người dùng không có tên → backend trả `name: ''`, web hiện "Không rõ tên (…4 số cuối ID)" và xếp cuối danh sách.
+- Kiểm chứng: test api 381/381, web 30/30; typecheck 0 lỗi; eslint phạm vi sạch; build web OK; docs-drift PASS.

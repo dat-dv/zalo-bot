@@ -235,6 +235,7 @@ const messages = {
     'table.columnFilter.hasReceipt': 'Có ảnh',
     'table.columnFilter.noReceipt': 'Không có ảnh',
     'table.columnFilter.noPlace': 'Không có nơi chốn',
+    'table.columnFilter.unknownCreator': 'Không rõ tên (…{suffix})',
     'transactions.details.title': 'Chi tiết giao dịch',
     'transactions.details.createdBy': 'Người tạo',
     'transactions.details.source': 'Nguồn',
@@ -956,6 +957,7 @@ const messages = {
     'table.columnFilter.hasReceipt': 'With image',
     'table.columnFilter.noReceipt': 'Without image',
     'table.columnFilter.noPlace': 'No place',
+    'table.columnFilter.unknownCreator': 'Unknown name (…{suffix})',
     'transactions.details.title': 'Transaction details',
     'transactions.details.createdBy': 'Created by',
     'transactions.details.source': 'Source',
@@ -2009,6 +2011,7 @@ export interface ITransactionListQuery {
 
 export interface ITransactionCreatorFacet {
   id: string;
+  /** Empty when neither the user profile nor the transaction snapshot has a name. */
   name: string;
 }
 

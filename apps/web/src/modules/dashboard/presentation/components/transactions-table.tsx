@@ -405,7 +405,9 @@ export function TransactionsTable({
           <OptionsFilter
             options={filterOptions.creators.map((creator) => ({
               value: creator.id,
-              label: creator.name,
+              label:
+                creator.name ||
+                t('table.columnFilter.unknownCreator', { suffix: creator.id.slice(-4) }),
             }))}
             selected={filters.createdByUserIds}
             onChange={(createdByUserIds) => patch({ createdByUserIds })}

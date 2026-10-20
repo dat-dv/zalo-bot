@@ -75,7 +75,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - Bộ lọc loại Tất cả / Thu / Chi đồng bộ với `?type=` — đây là lý do `/expenses` và `/income` chỉ cần chuyển hướng về đây. Ô tìm kiếm theo danh mục, ghi chú, tên nơi chốn. Nút Cân chỉnh số dư.
 - **Lọc theo cột (trên header)**: các cột Loại, Danh mục, Ghi chú, Nơi chốn, Người tạo, Ảnh, Số tiền có nút hình phễu; cột đang lọc có chấm xanh. Bấm vào mở bảng chọn (trên điện thoại hiện dạng sheet dưới đáy màn hình):
   - Loại: Tất cả / Thu / Chi — dùng chung trạng thái với nút trên toolbar.
-  - Danh mục, Người tạo: chọn nhiều; danh sách lấy từ server (`facets`) theo kỳ đang xem, nên có cả danh mục gõ tay chưa cấu hình. Danh sách không co lại khi đang lọc, để dễ chọn thêm.
+  - Danh mục, Người tạo: chọn nhiều; danh sách lấy từ server (`facets`) theo kỳ đang xem, nên có cả danh mục gõ tay chưa cấu hình. Danh sách không co lại khi đang lọc, để dễ chọn thêm. Người tạo chưa có tên (chưa có hồ sơ và giao dịch cũng không lưu tên) hiện là "Không rõ tên (…4 số cuối ID)" và nằm cuối danh sách — thường là tài khoản trùng nên gộp ở trang Zalo & Người dùng.
   - Nơi chốn: chọn nhiều từ danh sách nơi chốn, kèm mục "Không có nơi chốn".
   - Ghi chú: gõ nội dung cần chứa; Số tiền: nhập khoảng Từ–Đến (gõ ngược thì tự đảo). Hai ô này chờ 400ms sau khi gõ mới gọi API.
   - Ảnh: Tất cả / Có ảnh / Không có ảnh.

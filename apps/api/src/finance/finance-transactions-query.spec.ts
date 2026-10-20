@@ -303,6 +303,7 @@ void test('queryTransactions lists period creators and categories as filter opti
     { ...LEDGER[2], createdByUserId: 'u2', createdByName: 'An', category: 'Đi lại' },
     { ...LEDGER[3], createdByUserId: 'u1', createdByName: 'Cũ', category: 'Ăn uống' },
     { ...LEDGER[4], createdByUserId: 'u1', createdByName: 'Cũ', category: 'Ăn uống' },
+    { ...LEDGER[4], id: 'f', createdByUserId: 'u9999', createdByName: null, category: 'Ăn uống' },
   ];
   Reflect.set(service, 'loadLedgerRows', () => Promise.resolve(rows));
   Reflect.set(service, 'userRepo', {
@@ -314,6 +315,8 @@ void test('queryTransactions lists period creators and categories as filter opti
   assert.deepEqual(result.facets.creators, [
     { id: 'u2', name: 'An' },
     { id: 'u1', name: 'Bình' },
+    // No profile name and no snapshot: empty name (the web labels it), listed last.
+    { id: 'u9999', name: '' },
   ]);
   assert.deepEqual(result.facets.categories, ['Ăn uống', 'Đi lại']);
 });
