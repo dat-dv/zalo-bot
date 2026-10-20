@@ -15,7 +15,7 @@ This directory contains system-wide business policies, cross-cutting architectur
 - [Zalo Response Layout](zalo-response-layout.md): Compact response hierarchy, pending-action codes, reactions, and message recall.
 - [Zalo Command Intake](zalo-command-intake.md): Webhook + ZCA intake, guards, cooldown, and fast-path commands.
 - [Receipt Image Analysis](receipt-image-analysis.md): In-memory image analysis and confirmation-gated finance proposals.
-- [Web UI Direction](web-ui-direction.md): Shared data-dense dashboard and accessibility requirements.
+- [Web UI Direction](web-ui-direction.md): Shared data-dense dashboard, accessibility requirements, and global client UI state (Zustand stores).
 - [Backend CRUD API](backend-crud-api.md): Ownership-safe REST operations for finance, reminders, users, ZCA, Calendar, and Tasks.
 - [Backend Exception Filter](backend-exception-filter.md): Global NestJS exception filter mapping TypeORM/HttpException into uniform error payloads.
 - [Finance Domain](finance-domain.md): Backend finance rules — places, debts, payments, allocations, categories, analytics, and LLM tools.

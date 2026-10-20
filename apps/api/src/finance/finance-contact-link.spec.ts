@@ -146,9 +146,10 @@ function createController(isAdmin: boolean) {
     {} as never,
     { isAdmin: () => isAdmin } as never,
     {} as never,
+    { resolveLedgerUserId: (id: string | number) => Promise.resolve(String(id)) } as never,
   );
-  // userId() is stubbed, so the request object itself is never read.
-  Reflect.set(controller, 'userId', () => OWNER);
+  // actorId() is stubbed, so the request object itself is never read.
+  Reflect.set(controller, 'actorId', () => OWNER);
   return { controller, calls };
 }
 

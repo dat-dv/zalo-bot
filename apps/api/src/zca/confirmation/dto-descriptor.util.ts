@@ -110,6 +110,10 @@ export const FINANCE_TRANSACTION_DESCRIPTOR: DtoDescriptor<CreateFinanceTransact
   contactId: { label: 'Người liên hệ ID', hidden: true },
   placeId: { label: 'Địa điểm ID', hidden: true },
   createNewPlace: { label: 'Tạo địa điểm mới', hidden: true },
+  createdByUserId: { label: 'Người tạo ID', hidden: true },
+  createdByName: { label: 'Người tạo', hidden: true },
+  source: { label: 'Nguồn', hidden: true },
+  sourceChatId: { label: 'Kênh nguồn', hidden: true },
 };
 
 /**

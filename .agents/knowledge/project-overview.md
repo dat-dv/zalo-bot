@@ -29,6 +29,7 @@ Zalobot is an intelligent 24/7 personal and group AI assistant operating nativel
   - **Natural Language & Function Calling**: `LlmService` (`apps/api/src/llm`) dispatches to the provider selected by `LLM_PROVIDER` (`gemini` default, `openai`, `qwen`/`ollama`) with the tool catalog `ZALO_TOOL_DEFINITIONS` for expense recording, debt tracking, reminders, places, and Google Workspace operations.
   - **Interactive Confirmation & Message Recall**: 3-digit verification codes (`yes <code>`, `cancel <code>`, `edit <code>`), reaction approvals (❤️ / 😡), 5-minute timeout, and automatic message recall (`undoMessage` / `zca.undo`) to keep conversation feeds clean.
   - **Google Workspace per User & Channel**: Multi-tenant OAuth2 token isolation for Google Calendar and Google Tasks. Per-channel Google Drive storage partitions (`zalobot/<channelId>/<category>`) and Google Photos albums for bills, images, videos, files, and audio, with self-service `@bot share <email>` access grants.
+  - **Shared Ledger**: An admin-chosen ledger owner makes the whole system share one finance ledger; each transaction records its creator and source chat (see global/finance-domain.md).
   - **Finance & Debt Allocation**: Cashflow ledger with place binding (`placeId`), candidate debt query and transaction-to-debt allocations, debt contact directory, debt payments, and combine (merge) of places, contacts, and debts.
   - **Web Dashboard**: 1-click exchange-token login, full-width responsive data tables, analytics charts, admin user management, and ZCA thread configuration.
 

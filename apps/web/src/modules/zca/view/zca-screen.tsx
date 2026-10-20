@@ -39,12 +39,14 @@ import { ThreadConfigModal } from './thread-config-modal';
 import { SyncMediaModal } from './sync-media-modal';
 import {
   useDeleteUserMutation,
+  useLedgerQuery,
   useSetGrantAccessMutation,
   useSyncUsersWithZcaMutation,
   useUsersQuery,
 } from '@/modules/users/api/users-query';
 import { MergeUserDialog } from '@/modules/users/presentation/components/merge-user-dialog';
 import { LinkedContactsDialog } from '@/modules/users/presentation/components/linked-contacts-dialog';
+import { SharedLedgerPanel } from '@/modules/users/presentation/components/shared-ledger-panel';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
 
@@ -91,7 +93,9 @@ export function ZcaScreen() {
     isLoading: isThreadsLoading,
     refetch: refetchThreads,
   } = useZcaThreadsQuery({ enabled: Boolean(status?.loggedIn) });
-  const { data: users = [], isLoading: isUsersLoading } = useUsersQuery();
+  const { data: users = [], isLoading: isUsersLoading, isSuccess: isAdmin } = useUsersQuery();
+  // Danh sách user chỉ admin đọc được, nên isSuccess cũng là tín hiệu quyền admin.
+  const { data: ledger } = useLedgerQuery({ enabled: isAdmin });
   const { data: threadConfigs = [] } = useZcaThreadConfigsQuery();
   const { data: driveRootData } = useGoogleDriveFolderLinkQuery();
   const queryClient = useQueryClient();
@@ -488,6 +492,8 @@ export function ZcaScreen() {
         </div>
       )}
 
+      {isAdmin && <SharedLedgerPanel onNotice={showNotice} users={users} />}
+
       {/* Main Section: Danh sách cuộc trò chuyện & người dùng */}
       <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-3">
@@ -673,6 +679,7 @@ export function ZcaScreen() {
                     <ChatTableRow
                       config={configMap.get(row.id)}
                       isCopied={copiedId === row.id}
+                      isLedgerOwner={Boolean(row.user) && ledger?.ownerUserId === row.id}
                       key={`${row.kind}:${row.id}`}
                       onConfigure={setSelectedThreadForConfig}
                       onCopyId={copyToClipboard}

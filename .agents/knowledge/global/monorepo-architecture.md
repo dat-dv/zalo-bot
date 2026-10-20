@@ -26,7 +26,7 @@ metadata:
 ## Layout
 
 - `apps/api`: NestJS 10 backend — Zalo webhook bot, ZCA personal client, Google OAuth/Workspace, LLM tool calling, REST API. Owns all private env vars, PostgreSQL (TypeORM), and Redis. Top-level areas: `audit`, `common`, `config`, `dashboard-auth`, `database`, `finance`, `google`, `health`, `llm`, `ocr`, `receipt-storage`, `redis`, `reminders`, `reports`, `users`, `zalo`, `zca`.
-- `apps/web`: Next.js 16 App Router, React 19, TanStack Query v5. `output: 'export'` (static) when `NODE_ENV=production`; no Route Handlers or Server Actions. Consumes only `NEXT_PUBLIC_*`.
+- `apps/web`: Next.js 16 App Router, React 19, TanStack Query v5 (server state), Zustand v5 (client-only UI state: theme, money visibility — `apps/web/src/shared/store/`). `output: 'export'` (static) when `NODE_ENV=production`; no Route Handlers or Server Actions. Consumes only `NEXT_PUBLIC_*`.
   - Modules (`apps/web/src/modules/`): `auth`, `calendar`, `contacts`, `dashboard`, `debts`, `expenses`, `reminders`, `settings`, `tasks`, `users`, `zca`. Shared code: `shared/api` (axios `httpClient`), `shared/ui`, `shared/providers`, `shared/hooks`.
   - Private routes (`app/(private)/`): `/`, `/dashboard`, `/transactions`, `/expenses`→`/transactions?type=expense`, `/income`→`/transactions?type=income`, `/debts`, `/analytics`, `/calendar`, `/tasks`, `/reminders`, `/contacts`, `/places`, `/zca`, `/settings`. Public: `/about`, `/privacy`, `/terms`.
 - `packages/contracts` (`@zalobot/contracts`): `API_ROUTES`, `APP_ROUTES`, DTO types, i18n catalog, shared constants.

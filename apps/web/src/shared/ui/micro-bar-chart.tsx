@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
+import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 
 export interface ChartBucket {
   key: string;

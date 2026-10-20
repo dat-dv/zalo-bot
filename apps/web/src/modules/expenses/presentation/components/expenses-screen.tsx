@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { localeTag, DEFAULT_EXPENSE_CATEGORIES, type IExpenseListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
+import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 
 import { usePeriodFilter } from '@/shared/hooks/use-period-filter';
@@ -110,7 +110,7 @@ export function ExpensesScreen() {
     );
   }, [periodExpenses, periodFilter]);
 
-  const money = useMoneyFormatter();
+  const { money, isMoneyVisible } = useMoneyVisibility();
 
   const date = (value: string) =>
     new Intl.DateTimeFormat(localeTag(locale), {
@@ -286,9 +286,12 @@ export function ExpensesScreen() {
             <strong className="font-semibold tabular-nums text-amber-700 dark:text-amber-400">
               {money(item.amount)}
             </strong>
-            <div className="h-1 w-20 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-              <div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
-            </div>
+            {/* The ratio bar would leak relative amounts, so it only shows when amounts are revealed. */}
+            {isMoneyVisible && (
+              <div className="h-1 w-20 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                <div className="h-full rounded-full bg-amber-500" style={{ width: `${pct}%` }} />
+              </div>
+            )}
           </div>
         );
       },

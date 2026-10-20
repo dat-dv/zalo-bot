@@ -29,6 +29,10 @@ export const API_ROUTES = {
   googleAuthCallback: '/api/oauth2callback',
   swaggerDocs: '/api/docs',
   transactionCandidateDebts: (id: string) => `/api/transactions/${id}/candidate-debts`,
+  transactionReceipt: (id: string) => `/api/transactions/${id}/receipt`,
+  ledger: '/api/finance/ledger',
+  ledgerOwner: '/api/finance/ledger/owner',
+  ledgerConsolidate: '/api/finance/ledger/consolidate',
   transactionAllocations: (id: string) => `/api/transactions/${id}/allocations`,
   transactionAllocationDetail: (txId: string, allocId: string) =>
     `/api/transactions/${txId}/allocations/${allocId}`,
@@ -216,6 +220,44 @@ const messages = {
     'table.rowsCount': '{count} dòng',
     'table.loadMore': 'Tải thêm',
     'table.loadedOf': 'Đã tải {loaded}/{total} dòng',
+    'ledger.title': 'Sổ thu chi chung',
+    'ledger.description':
+      'Khi có chủ sổ, mọi người dùng ghi thu chi vào sổ của chủ sổ và ai vào dashboard cũng thấy cùng một sổ.',
+    'ledger.owner': 'Chủ sổ',
+    'ledger.noOwner': 'Chưa có chủ sổ — mỗi người dùng một sổ riêng',
+    'ledger.setOwner': 'Đặt làm chủ sổ',
+    'ledger.clearOwner': 'Bỏ chủ sổ',
+    'ledger.ownerSaved': 'Đã cập nhật chủ sổ',
+    'ledger.consolidate.button': 'Gộp dữ liệu cũ vào sổ chung',
+    'ledger.consolidate.title': 'Gộp dữ liệu cũ vào sổ chung',
+    'ledger.consolidate.subtitle':
+      'Dữ liệu tài chính của các sổ dưới đây sẽ chuyển vào sổ của {owner}. Người tạo của từng giao dịch được giữ nguyên và không tài khoản nào bị xoá. Không thể hoàn tác — hãy sao lưu cơ sở dữ liệu trước.',
+    'ledger.consolidate.empty': 'Không còn sổ nào khác để gộp.',
+    'ledger.consolidate.noAccount': 'Không có tài khoản',
+    'ledger.consolidate.confirm': 'Xác nhận gộp',
+    'ledger.consolidate.success': 'Đã gộp {count} sổ vào sổ chung',
+    'ledger.counts.transactions': 'Giao dịch',
+    'ledger.counts.places': 'Nơi chốn',
+    'ledger.counts.contacts': 'Người liên quan',
+    'ledger.counts.debts': 'Công nợ',
+    'ledger.counts.categories': 'Danh mục',
+    'dashboard.columns.createdBy': 'Người tạo',
+    'dashboard.columns.receipt': 'Ảnh',
+    'transactions.source.dashboard': 'Dashboard',
+    'transactions.source.directChat': 'Chat riêng',
+    'transactions.source.group': 'Nhóm {name}',
+    'transactions.source.groupUnnamed': 'Nhóm Zalo',
+    'transactions.receipt.title': 'Ảnh hoá đơn',
+    'transactions.receipt.open': 'Mở ảnh',
+    'transactions.receipt.error': 'Không tải được ảnh',
+    'transactions.receipt.view': 'Xem ảnh hoá đơn',
+    'transactions.details.title': 'Chi tiết giao dịch',
+    'transactions.details.createdBy': 'Người tạo',
+    'transactions.details.source': 'Nguồn',
+    'transactions.details.createdAt': 'Thời điểm tạo',
+    'transactions.details.paymentMethod': 'Phương thức',
+    'transactions.details.currency': 'Tiền tệ',
+    'transactions.details.note': 'Ghi chú',
     'table.total': 'Tổng: {total}',
     'table.columnSettings': 'Cài đặt cột',
     'table.columnVisibility': 'Ẩn/hiện cột',
@@ -912,6 +954,44 @@ const messages = {
     'table.rowsCount': '{count} rows',
     'table.loadMore': 'Load more',
     'table.loadedOf': 'Loaded {loaded}/{total} rows',
+    'ledger.title': 'Shared ledger',
+    'ledger.description':
+      'With a ledger owner set, every user records income and expenses into the ledger of the owner, and everyone sees the same ledger on the dashboard.',
+    'ledger.owner': 'Ledger owner',
+    'ledger.noOwner': 'No ledger owner — each user has their own ledger',
+    'ledger.setOwner': 'Make ledger owner',
+    'ledger.clearOwner': 'Remove ledger owner',
+    'ledger.ownerSaved': 'Ledger owner updated',
+    'ledger.consolidate.button': 'Merge old data into the shared ledger',
+    'ledger.consolidate.title': 'Merge old data into the shared ledger',
+    'ledger.consolidate.subtitle':
+      'Finance data from the ledgers below moves into the ledger of {owner}. Each transaction keeps its creator and no account is deleted. This cannot be undone — back up the database first.',
+    'ledger.consolidate.empty': 'There are no other ledgers to merge.',
+    'ledger.consolidate.noAccount': 'No account',
+    'ledger.consolidate.confirm': 'Confirm merge',
+    'ledger.consolidate.success': 'Merged {count} ledger(s) into the shared ledger',
+    'ledger.counts.transactions': 'Transactions',
+    'ledger.counts.places': 'Places',
+    'ledger.counts.contacts': 'Contacts',
+    'ledger.counts.debts': 'Debts',
+    'ledger.counts.categories': 'Categories',
+    'dashboard.columns.createdBy': 'Created by',
+    'dashboard.columns.receipt': 'Receipt',
+    'transactions.source.dashboard': 'Dashboard',
+    'transactions.source.directChat': 'Direct chat',
+    'transactions.source.group': 'Group {name}',
+    'transactions.source.groupUnnamed': 'Zalo group',
+    'transactions.receipt.title': 'Receipt image',
+    'transactions.receipt.open': 'Open image',
+    'transactions.receipt.error': 'Could not load the image',
+    'transactions.receipt.view': 'View receipt image',
+    'transactions.details.title': 'Transaction details',
+    'transactions.details.createdBy': 'Created by',
+    'transactions.details.source': 'Source',
+    'transactions.details.createdAt': 'Created at',
+    'transactions.details.paymentMethod': 'Payment method',
+    'transactions.details.currency': 'Currency',
+    'transactions.details.note': 'Note',
     'table.total': 'Total: {total}',
     'table.columnSettings': 'Column settings',
     'table.columnVisibility': 'Toggle columns',
@@ -1922,6 +2002,15 @@ export interface ITransactionItem {
   placeName?: string;
   occurredAt: string;
   createdAt?: string;
+  /** Who recorded it (Zalo sender or dashboard user); in a shared ledger this differs per row. */
+  createdByUserId?: string;
+  createdByName?: string;
+  source?: TransactionSource;
+  /** Zalo chat the message came from (thread name from ZCA config when known). */
+  sourceChatName?: string;
+  sourceChatType?: 'user' | 'group';
+  /** A receipt image can be viewed at `API_ROUTES.transactionReceipt(id)`. */
+  hasReceipt?: boolean;
   allocations?: Array<{
     id: string;
     amount: number;
@@ -1930,6 +2019,42 @@ export interface ITransactionItem {
     counterparty?: string;
     remainingAmount?: number;
   }>;
+}
+
+export type TransactionSource = 'zalo' | 'dashboard';
+
+/** Finance rows per ledger (`user_id`), used to preview the shared-ledger consolidation. */
+export interface ILedgerDataCounts {
+  transactions: number;
+  places: number;
+  contacts: number;
+  debts: number;
+  categories: number;
+}
+
+export interface ILedgerSource {
+  userId: string;
+  name?: string;
+  /** False for ledgers whose user row no longer exists (orphaned data). */
+  hasAccount: boolean;
+  counts: ILedgerDataCounts;
+}
+
+/** `GET /api/finance/ledger` (admin): current owner and the other ledgers that can be merged in. */
+export interface ILedgerInfo {
+  ownerUserId: string | null;
+  ownerName?: string;
+  sources: ILedgerSource[];
+}
+
+export interface ISetLedgerOwnerRequest {
+  userId: string | null;
+}
+
+export interface ILedgerConsolidateResult {
+  ownerUserId: string;
+  mergedUserIds: string[];
+  counts: ILedgerDataCounts;
 }
 
 export interface ITransactionListQuery {

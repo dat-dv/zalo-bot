@@ -9,6 +9,10 @@
 - **Danh mục**: Nhãn ngắn để nhóm giao dịch, chẳng hạn `Ăn uống`, `Đi lại`, `Lương`; khi không rõ dùng `Khác`.
 - **Ngày phát sinh**: Thời điểm giao dịch xảy ra. Nếu người dùng không nêu, mặc định là thời điểm họ nhắn bot.
 
+- **Sổ chung**: Toàn hệ thống dùng một sổ thu chi duy nhất thuộc về **chủ sổ**; ai nhắn bot hay thao tác trên dashboard cũng ghi vào và xem sổ này. Chưa chọn chủ sổ thì mỗi người dùng một sổ riêng.
+- **Chủ sổ**: Người dùng duy nhất (admin chọn) mà mọi dữ liệu tài chính được ghi dưới `user_id` của họ.
+- **Người tạo**: Người đã ghi giao dịch (người gửi tin Zalo hoặc người dùng dashboard), lưu riêng với chủ sở hữu sổ; kèm **nguồn** (nhóm Zalo, chat riêng hoặc dashboard).
+
 ## Công nợ
 
 - **Khoản phải thu**: Tiền người khác đang nợ người dùng, thường phát sinh khi người dùng cho mượn.

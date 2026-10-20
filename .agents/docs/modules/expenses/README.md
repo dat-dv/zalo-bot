@@ -39,7 +39,7 @@ Nghĩa là người dùng xem và sửa khoản chi trong trang Thu chi (`Transa
 - Lọc theo danh mục (ô chọn chỉ gồm danh mục có trong kỳ) và tìm kiếm theo danh mục/ghi chú.
 - Bảng `id="expenses"`: Danh mục, Ghi chú, Số tiền (có thanh tỷ lệ so với khoản lớn nhất trong kỳ), Phương thức thanh toán, Tiền tệ, Ngày phát sinh, Thao tác.
 - Sửa trực tiếp danh mục (gợi ý từ danh mục người dùng cấu hình, danh mục đã dùng và danh mục chi mặc định), ghi chú, số tiền (> 0), phương thức thanh toán, ngày phát sinh. Xoá hỏi xác nhận bằng `window.confirm`.
-- Số tiền tuân theo chế độ ẩn/hiện số tiền; ô nhập khi sửa vẫn hiện số thật.
+- Số tiền tuân theo chế độ ẩn/hiện số tiền; khi ẩn thì thanh tỉ lệ dưới số tiền cũng ẩn để không lộ khoản lớn/nhỏ; ô nhập khi sửa vẫn hiện số thật.
 
 ## Lỗi/hạn chế đã biết
 

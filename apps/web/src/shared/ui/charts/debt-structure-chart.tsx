@@ -1,7 +1,7 @@
 'use client';
 
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
+import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import type { IAnalyticsDebtBreakdown } from '@zalobot/contracts';
 
 interface DebtStructureChartProps {
@@ -11,7 +11,7 @@ interface DebtStructureChartProps {
 
 export function DebtStructureChart({ debts, height = 180 }: DebtStructureChartProps) {
   const { t } = useLocale();
-  const money = useMoneyFormatter();
+  const { money, isMoneyVisible } = useMoneyVisibility();
 
   const total = debts.receivable + debts.payable;
 
@@ -47,18 +47,21 @@ export function DebtStructureChart({ debts, height = 180 }: DebtStructureChartPr
             {t('analytics.chart.payables')}: {money(debts.payable)}
           </span>
         </div>
-        <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-          <div
-            className="h-full bg-emerald-500 transition-all duration-300 dark:bg-emerald-600"
-            style={{ width: `${receivablePercent}%` }}
-            title={`${t('analytics.chart.receivables')}: ${receivablePercent.toFixed(1)}%`}
-          />
-          <div
-            className="h-full bg-amber-500 transition-all duration-300 dark:bg-amber-600"
-            style={{ width: `${payablePercent}%` }}
-            title={`${t('analytics.chart.payables')}: ${payablePercent.toFixed(1)}%`}
-          />
-        </div>
+        {/* Bar lengths leak relative debt sizes, so bars only show when amounts are revealed. */}
+        {isMoneyVisible && (
+          <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+            <div
+              className="h-full bg-emerald-500 transition-all duration-300 dark:bg-emerald-600"
+              style={{ width: `${receivablePercent}%` }}
+              title={`${t('analytics.chart.receivables')}: ${receivablePercent.toFixed(1)}%`}
+            />
+            <div
+              className="h-full bg-amber-500 transition-all duration-300 dark:bg-amber-600"
+              style={{ width: `${payablePercent}%` }}
+              title={`${t('analytics.chart.payables')}: ${payablePercent.toFixed(1)}%`}
+            />
+          </div>
+        )}
       </div>
 
       {/* Top debtors / counterparties */}
@@ -83,12 +86,14 @@ export function DebtStructureChart({ debts, height = 180 }: DebtStructureChartPr
                       {money(item.amount)}
                     </span>
                   </div>
-                  <div className="h-1 w-full overflow-hidden rounded-full bg-slate-200/60 dark:bg-slate-800">
-                    <div
-                      className="h-full rounded-full bg-emerald-500"
-                      style={{ width: `${(item.amount / maxIndividual) * 100}%` }}
-                    />
-                  </div>
+                  {isMoneyVisible && (
+                    <div className="h-1 w-full overflow-hidden rounded-full bg-slate-200/60 dark:bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-emerald-500"
+                        style={{ width: `${(item.amount / maxIndividual) * 100}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
               ))
           )}
@@ -114,12 +119,14 @@ export function DebtStructureChart({ debts, height = 180 }: DebtStructureChartPr
                       {money(item.amount)}
                     </span>
                   </div>
-                  <div className="h-1 w-full overflow-hidden rounded-full bg-slate-200/60 dark:bg-slate-800">
-                    <div
-                      className="h-full rounded-full bg-amber-500"
-                      style={{ width: `${(item.amount / maxIndividual) * 100}%` }}
-                    />
-                  </div>
+                  {isMoneyVisible && (
+                    <div className="h-1 w-full overflow-hidden rounded-full bg-slate-200/60 dark:bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-amber-500"
+                        style={{ width: `${(item.amount / maxIndividual) * 100}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
               ))
           )}

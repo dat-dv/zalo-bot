@@ -11,7 +11,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
+import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import type { IAnalyticsTrendBucket } from '@zalobot/contracts';
 
 interface CashflowTrendChartProps {

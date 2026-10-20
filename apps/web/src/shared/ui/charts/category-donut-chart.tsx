@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
+import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import type { IAnalyticsCategoryBreakdown } from '@zalobot/contracts';
 
 interface CategoryDonutChartProps {

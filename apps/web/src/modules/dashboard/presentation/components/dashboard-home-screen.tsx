@@ -5,7 +5,7 @@ import { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { APP_ROUTES, localeTag } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
+import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { SessionStateScreen } from '@/modules/auth/view/session-state-screen';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { TransactionsTable, type TransactionTableItem } from './transactions-table';

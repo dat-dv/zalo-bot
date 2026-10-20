@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
@@ -6,6 +6,7 @@ import { GoogleCalendarService } from '../../../google/google-calendar.service';
 import { GoogleTasksService } from '../../../google/google-tasks.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
 import { FinanceService } from '../../../finance/finance.service';
+import { LedgerService, resolveLedgerUserIdOrSelf } from '../../../finance/ledger.service';
 import { getStartAndEndOfDayInTz } from '../../../common/utils/datetime.util';
 
 @Injectable()
@@ -19,9 +20,11 @@ export class TodayToolStrategy implements TextToolStrategy {
     private readonly tasksService: GoogleTasksService,
     private readonly googleAuthService: GoogleAuthService,
     private readonly financeService: FinanceService,
+    @Optional() private readonly ledger?: LedgerService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
+    const ledgerUserId = await resolveLedgerUserIdOrSelf(this.ledger, context.senderId);
     const isGoogleConnected = this.googleAuthService.isAuthorized(context.senderId);
 
     const now = new Date();
@@ -94,7 +97,7 @@ export class TodayToolStrategy implements TextToolStrategy {
     let financeSection = '';
     try {
       const summary = await this.financeService.getSummary(
-        context.senderId,
+        ledgerUserId,
         startOfDay.toISOString(),
         endOfDay.toISOString(),
       );

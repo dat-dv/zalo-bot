@@ -21,7 +21,7 @@
 ## Screen (`DebtsScreen`)
 
 - Header comes from the private layout `WorkspaceHeader`.
-- KPI cards: active receivable total and active payable total (root debts only, `remainingAmount`), masked via `useMoneyFormatter()`.
+- KPI cards: active receivable total and active payable total (root debts only, `remainingAmount`), masked via `useMoneyFormatter()` (shared Zustand store `apps/web/src/shared/store/money-visibility-store.ts`; also used by `DebtsTable` and `CombineDebtsDialog`).
 - Filters: status pills All / Active / Settled with counts (roots), direction pills All / Receivable / Payable, search over counterparty, alias, note (also matches children).
 - Status helper: settled when `remainingAmount === 0` or `settledAt` set.
 - Table `DebtsTable` (`id="debts"`) columns: `select`, `status` (non-hideable), `direction`, `counterparty` (non-hideable; expand chevron), `originalAmount`, `remainingAmount` (non-hideable; micro progress bar + tooltip when partially paid), `currency`, `dueAt`, `settledAt`, `note`, `actions` (non-hideable, `minWidth: 140px`).

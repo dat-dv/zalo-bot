@@ -12,6 +12,8 @@ interface ChatTableRowProps {
   row: ChatRow;
   config?: ThreadBotConfig;
   isCopied: boolean;
+  /** Người dùng này là chủ sổ thu chi chung. */
+  isLedgerOwner?: boolean;
   onCopyId: (id: string) => void;
   onToggleListen: (threadId: string) => void;
   onToggleAccess: (row: ChatRow) => void;
@@ -147,6 +149,7 @@ export function ChatTableRow({
   row,
   config,
   isCopied,
+  isLedgerOwner = false,
   onCopyId,
   onToggleListen,
   onToggleAccess,
@@ -231,6 +234,11 @@ export function ChatTableRow({
               {row.alias && (
                 <span className="inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
                   🏷️ Gợi nhớ: {row.alias}
+                </span>
+              )}
+              {isLedgerOwner && (
+                <span className="inline-flex items-center rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+                  {t('ledger.owner')}
                 </span>
               )}
               {linkedContactCount > 0 && (

@@ -20,6 +20,7 @@ import { ReminderEntity } from '../database/entities/reminder.entity';
 import { UserCategoryEntity } from '../database/entities/user-category.entity';
 import { UserTokenEntity } from '../database/entities/user-token.entity';
 import { UserEntity } from '../database/entities/user.entity';
+import { categoryKey, contactKey, moveFinanceData } from '../finance/finance-data-mover';
 import {
   USER_MERGE_UNIT_OF_WORK,
   USER_MERGE_USERS_PORT,
@@ -38,10 +39,6 @@ const FILL_IF_EMPTY_FIELDS = [
   'driveFolderUrl',
   'driveFolderPath',
 ] as const;
-
-const contactKey = (c: DebtContactEntity): string =>
-  `${c.normalizedName}|${c.normalizedAlias ?? ''}`;
-const categoryKey = (c: UserCategoryEntity): string => `${c.type}|${c.name.trim().toLowerCase()}`;
 
 const updatedAtMs = (token: UserTokenEntity): number =>
   token.updatedAt instanceof Date
@@ -98,14 +95,18 @@ export class UserMergeService {
       const source = await this.requireUser(manager, sourceId);
       const target = await this.requireUser(manager, targetId);
 
-      await this.mergePlaces(manager, sourceId, targetId);
-      await this.mergeContacts(manager, sourceId, targetId);
-      await this.mergeCategories(manager, sourceId, targetId);
-
-      await manager.update(FinanceTransactionEntity, { userId: sourceId }, { userId: targetId });
-      await manager.update(DebtEntity, { userId: sourceId }, { userId: targetId });
-      await manager.update(DebtPaymentEntity, { userId: sourceId }, { userId: targetId });
-      await manager.update(DebtPaymentAllocationEntity, { userId: sourceId }, { userId: targetId });
+      await moveFinanceData(manager, sourceId, targetId);
+      // Identity merge: the source person *is* the target, so links and authorship follow too.
+      await manager.update(
+        DebtContactEntity,
+        { linkedUserId: sourceId },
+        { linkedUserId: targetId },
+      );
+      await manager.update(
+        FinanceTransactionEntity,
+        { createdByUserId: sourceId },
+        { createdByUserId: targetId },
+      );
       await manager.update(ReminderEntity, { userId: sourceId }, { userId: targetId });
 
       await this.mergeGoogleToken(manager, sourceId, targetId, snapshot.conflicts.googleToken);
@@ -212,69 +213,6 @@ export class UserMergeService {
     const [sourceRows, targetRows] = await Promise.all([load(sourceId), load(targetId)]);
     const targetKeys = new Set(targetRows.map(key));
     return sourceRows.filter((row) => targetKeys.has(key(row))).length;
-  }
-
-  /** Same normalized place name on both users: repoint transactions to the target place. */
-  private async mergePlaces(
-    manager: UserMergeManager,
-    sourceId: string,
-    targetId: string,
-  ): Promise<void> {
-    const targetPlaces = await manager.find(FinancePlaceEntity, { where: { userId: targetId } });
-    const byName = new Map(targetPlaces.map((p) => [p.normalizedName, p]));
-    for (const place of await manager.find(FinancePlaceEntity, { where: { userId: sourceId } })) {
-      const duplicate = byName.get(place.normalizedName);
-      if (!duplicate) continue;
-      await manager.update(
-        FinanceTransactionEntity,
-        { placeId: place.id },
-        { placeId: duplicate.id },
-      );
-      await manager.delete(FinancePlaceEntity, { id: place.id });
-    }
-    await manager.update(FinancePlaceEntity, { userId: sourceId }, { userId: targetId });
-  }
-
-  /** Same normalized name + alias on both users: repoint debts and transactions to the target contact. */
-  private async mergeContacts(
-    manager: UserMergeManager,
-    sourceId: string,
-    targetId: string,
-  ): Promise<void> {
-    const targetContacts = await manager.find(DebtContactEntity, { where: { userId: targetId } });
-    const byKey = new Map(targetContacts.map((c) => [contactKey(c), c]));
-    for (const contact of await manager.find(DebtContactEntity, { where: { userId: sourceId } })) {
-      const duplicate = byKey.get(contactKey(contact));
-      if (!duplicate) continue;
-      await manager.update(DebtEntity, { contactId: contact.id }, { contactId: duplicate.id });
-      await manager.update(
-        FinanceTransactionEntity,
-        { contactId: contact.id },
-        { contactId: duplicate.id },
-      );
-      await manager.delete(DebtContactEntity, { id: contact.id });
-    }
-    await manager.update(DebtContactEntity, { userId: sourceId }, { userId: targetId });
-    await manager.update(DebtContactEntity, { linkedUserId: sourceId }, { linkedUserId: targetId });
-  }
-
-  /** Transactions store the category name, so dropping a duplicate category loses no data. */
-  private async mergeCategories(
-    manager: UserMergeManager,
-    sourceId: string,
-    targetId: string,
-  ): Promise<void> {
-    const targetKeys = new Set(
-      (await manager.find(UserCategoryEntity, { where: { userId: targetId } })).map(categoryKey),
-    );
-    for (const category of await manager.find(UserCategoryEntity, {
-      where: { userId: sourceId },
-    })) {
-      if (targetKeys.has(categoryKey(category))) {
-        await manager.delete(UserCategoryEntity, { id: category.id });
-      }
-    }
-    await manager.update(UserCategoryEntity, { userId: sourceId }, { userId: targetId });
   }
 
   private async mergeGoogleToken(

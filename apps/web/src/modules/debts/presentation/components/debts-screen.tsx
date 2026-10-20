@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { type IDebtListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
+import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { DataPanel } from '@/shared/ui/data-table';
 import { DebtsTable, type DebtEditDraft, getDebtStatus } from './debts-table';
 import { CombineDebtsDialog } from './combine-debts-dialog';

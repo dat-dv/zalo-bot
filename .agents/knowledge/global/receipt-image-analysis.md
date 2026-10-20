@@ -12,6 +12,7 @@ metadata:
       - apps/api/src/ocr/ocr.service.ts
       - apps/api/src/receipt-storage/media-storage.service.ts
       - apps/api/src/common/utils/image-fetcher.util.ts
+      - apps/api/src/finance/receipt-source.ts
 ---
 
 # Receipt Image Analysis
@@ -33,3 +34,6 @@ metadata:
 ## Option 2 — Store Only
 
 `StorageUploadPendingImageStrategy` uploads every pending image (`receiptUrls`) through `MediaStorageService.uploadImage` (Drive `zalobot/<channelId>/image/...` + Photos) and replies with a per-image summary. No LLM call.
+
+## Viewing a stored receipt
+- The stored `receipt_url` (Drive `webViewLink` or Zalo CDN URL) is never sent to the web. The dashboard loads `GET /api/transactions/:id/receipt`, which downloads the Drive file with the creator's Google token (or fetches the Zalo CDN URL) and streams the image. Rules: global/finance-domain.md "Transaction creator and receipt".

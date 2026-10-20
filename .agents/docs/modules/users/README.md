@@ -17,6 +17,10 @@ metadata:
       - apps/web/src/modules/users/presentation/components/merge-user-dialog.tsx
       - apps/web/src/modules/users/presentation/components/linked-contacts-dialog.tsx
       - apps/api/src/users/user-linked-contacts.service.ts
+      - apps/web/src/modules/users/presentation/components/shared-ledger-panel.tsx
+      - apps/web/src/modules/users/presentation/components/consolidate-ledger-dialog.tsx
+      - apps/api/src/finance/ledger.service.ts
+      - apps/api/src/finance/finance-data-mover.ts
 ---
 
 # Module Quản Lý Người Dùng (Users Management)
@@ -119,7 +123,8 @@ Toàn bộ chạy trong **một transaction**: lỗi ở bất kỳ bước nào
   - `api/users-api.ts` và `api/users-query.ts`: các hàm gọi API và hook TanStack Query, dùng chung cho trang ZCA, `UserFormDialog` và dialog gộp danh bạ (`contacts`).
   - `presentation/components/merge-user-dialog.tsx`: dialog gộp tài khoản trùng (xem mục 4), mở từ menu **⋯** của trang ZCA.
   - `presentation/components/linked-contacts-dialog.tsx`: dialog **Người liên quan đã gắn**, liệt kê các mục trong danh bạ công nợ (của bất kỳ người dùng nào) đang liên kết với tài khoản này, kèm tên chủ danh bạ và số khoản nợ. Mở bằng badge "🔗 N người liên quan" hoặc menu **⋯**. Dialog này giúp admin trả lời câu hỏi "người này đang có mặt trong sổ nợ của ai" mà không phải mở từng danh bạ. Việc gắn/bỏ gắn thì làm ở trang Người liên quan (xem tài liệu module contacts).
-- **Backend và bảng `users` không đổi.** `users.id` vẫn là danh tính của toàn hệ thống: giao dịch, công nợ, nhắc lịch và token Google đều tham chiếu tới nó.
+  - `presentation/components/shared-ledger-panel.tsx` và `consolidate-ledger-dialog.tsx`: khối **Sổ thu chi chung** (chỉ admin). Chọn người làm **chủ sổ** để mọi người dùng ghi thu chi chung vào một sổ; nút **Gộp dữ liệu cũ vào sổ chung** mở hộp thoại xem trước số giao dịch/nơi chốn/người liên quan/công nợ/danh mục của từng sổ (kể cả ID không còn tài khoản) trước khi xác nhận. Quy tắc nghiệp vụ xem `global/finance-domain.md` mục "Sổ chung".
+- **Bảng `users` có thêm cột `is_ledger_owner`** (tối đa một chủ sổ). `users.id` vẫn là danh tính của toàn hệ thống: giao dịch, công nợ, nhắc lịch và token Google đều tham chiếu tới nó.
 
 - `MergeUserDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo).
 

@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
 import { FinanceService } from '../../../finance/finance.service';
+import { LedgerService, resolveLedgerUserIdOrSelf } from '../../../finance/ledger.service';
 import { parseAmount } from '../../../llm/utils/tool-arguments.util';
 
 @Injectable()
@@ -15,9 +16,11 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
     private readonly zaloService: ZaloService,
     private readonly confirmationService: TransactionConfirmationService,
     private readonly financeService: FinanceService,
+    @Optional() private readonly ledger?: LedgerService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
+    const ledgerUserId = await resolveLedgerUserIdOrSelf(this.ledger, context.senderId);
     const args = context.toolArgs ?? {};
 
     const rawDirection =
@@ -94,7 +97,7 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
       // createDebt only accepts a chosen contact or an explicit "create new", so the
       // contact is resolved here (exact normalized match) before the card is shown.
       const matches = await this.financeService.resolveContacts(
-        context.senderId,
+        ledgerUserId,
         counterparty,
         counterpartyAlias,
       );
@@ -116,7 +119,7 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
         chatId: context.chatId,
         rawPrompt: context.text,
         payload: {
-          userId: context.senderId,
+          userId: ledgerUserId,
           direction,
           counterparty: contact?.displayName ?? counterparty,
           counterpartyAlias: contact ? contact.alias : counterpartyAlias,

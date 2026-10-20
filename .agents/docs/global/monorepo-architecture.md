@@ -20,7 +20,7 @@ Tài liệu này hướng dẫn cấu trúc monorepo và quy trình vận hành,
 ## Cấu trúc
 
 - `apps/api`: NestJS backend — nhận tin nhắn Zalo qua webhook, kết nối Zalo cá nhân (ZCA), Google OAuth/Workspace, gọi LLM (`LlmService`), REST API cho dashboard. Code chia theo vùng nghiệp vụ: `finance`, `zalo`, `zca`, `google`, `llm`, `ocr`, `receipt-storage`, `reminders`, `reports`, `users`, `redis`, `health`, `audit`, `common`, `config`, `database`.
-- `apps/web`: Next.js App Router, xuất static (`output: 'export'`) khi build production; không dùng Route Handler hay Server Action. Module trong `apps/web/src/modules/`: `auth`, `calendar`, `contacts`, `dashboard`, `debts`, `expenses`, `reminders`, `settings`, `tasks`, `users`, `zca`.
+- `apps/web`: Next.js App Router, xuất static (`output: 'export'`) khi build production; không dùng Route Handler hay Server Action. Dữ liệu từ server do TanStack Query quản lý; state thuần giao diện dùng chung (theme, ẩn/hiện số tiền) nằm trong store Zustand ở `apps/web/src/shared/store/`. Module trong `apps/web/src/modules/`: `auth`, `calendar`, `contacts`, `dashboard`, `debts`, `expenses`, `reminders`, `settings`, `tasks`, `users`, `zca`.
 - `packages/contracts`: hằng số route (`API_ROUTES`, `APP_ROUTES`), kiểu DTO, catalog i18n dùng chung.
 - PostgreSQL lưu dữ liệu bền vững; Redis lưu cache, phiên ZCA, thao tác chờ duyệt.
 

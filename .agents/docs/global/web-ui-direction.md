@@ -9,7 +9,9 @@ metadata:
       - apps/web/src/shared/ui/data-table.tsx
       - apps/web/src/shared/ui/workspace-header.tsx
       - apps/web/src/shared/ui/app-navigation.tsx
-      - apps/web/src/shared/providers/money-visibility-provider.tsx
+      - apps/web/src/shared/store/money-visibility-store.ts
+      - apps/web/src/shared/store/theme-store.ts
+      - apps/web/src/shared/providers/app-providers.tsx
       - apps/web/src/shared/ui/modal.tsx
       - apps/web/src/shared/ui/ios-viewport-fix.tsx
       - apps/web/src/shared/hooks/use-body-scroll-lock.ts
@@ -29,7 +31,7 @@ Thành phần `DataTable` tích hợp sẵn nút Cài đặt cột (`TableColumn
 
 Nút phải có focus rõ, độ tương phản đủ và lỗi phải kèm cách thử lại.
 
-Tiêu đề không gian làm việc (`WorkspaceHeader`) được render **một lần duy nhất** trong common private layout (`apps/web/app/(private)/layout.tsx`) bằng `<WorkspaceHeader />` không truyền props — component tự động resolve title và subtitle từ `usePathname()` thông qua `ROUTE_HEADER_MAP`. Component phân biệt hai trạng thái auth: **Đã xác thực** (`hasToken && !isLoggedOut`, trong đó `isLoggedOut` lấy từ query `?status=logged_out` sau khi đăng xuất): hiển thị title/subtitle theo route, nút `Ẩn/Hiện số tiền` (`useMoneyVisibility`), nút Làm mới (`queryClient.invalidateQueries()`), và nút Đăng xuất; **Chưa xác thực / Đã đăng xuất**: hiển thị title/subtitle theo route và link "Mở Zalo Bot" (key `auth.openzaloBot`, URL lấy từ `NEXT_PUBLIC_ZALO_BOT_URL` hoặc `NEXT_PUBLIC_ZALO_BOT_USERNAME`, mặc định `https://zalo.me`). **Các file screen trong từng module tuyệt đối không được tự render `<WorkspaceHeader>`** — layout đã cung cấp sẵn cho mọi trang. Mặt nạ che số tiền (key `common.maskedAmount` = `'••••••'`) áp dụng đồng bộ cho các khối KPI, bảng dữ liệu và tooltip biểu đồ. Mặc định số tiền bị ẩn (tránh lộ khi mở dashboard nơi công cộng); lựa chọn của người dùng được lưu trong `localStorage` key `zalobot-money-visibility`; các ô input khi đang sửa trực tiếp trên dòng (inline edit) vẫn giữ số thực để phục vụ thao tác.
+Tiêu đề không gian làm việc (`WorkspaceHeader`) được render **một lần duy nhất** trong common private layout (`apps/web/app/(private)/layout.tsx`) bằng `<WorkspaceHeader />` không truyền props — component tự động resolve title và subtitle từ `usePathname()` thông qua `ROUTE_HEADER_MAP`. Component phân biệt hai trạng thái auth: **Đã xác thực** (`hasToken && !isLoggedOut`, trong đó `isLoggedOut` lấy từ query `?status=logged_out` sau khi đăng xuất): hiển thị title/subtitle theo route, nút `Ẩn/Hiện số tiền` (`useMoneyVisibility`), nút Làm mới (`queryClient.invalidateQueries()`), và nút Đăng xuất; **Chưa xác thực / Đã đăng xuất**: hiển thị title/subtitle theo route và link "Mở Zalo Bot" (key `auth.openzaloBot`, URL lấy từ `NEXT_PUBLIC_ZALO_BOT_URL` hoặc `NEXT_PUBLIC_ZALO_BOT_USERNAME`, mặc định `https://zalo.me`). **Các file screen trong từng module tuyệt đối không được tự render `<WorkspaceHeader>`** — layout đã cung cấp sẵn cho mọi trang. Mặt nạ che số tiền (key `common.maskedAmount` = `'••••••'`) áp dụng đồng bộ cho các khối KPI, bảng dữ liệu và tooltip biểu đồ. Mặc định số tiền bị ẩn (tránh lộ khi mở dashboard nơi công cộng); lựa chọn của người dùng chỉ nằm trong store Zustand `useMoneyVisibilityStore` trong bộ nhớ (`apps/web/src/shared/store/money-visibility-store.ts`, cố ý không dùng `persist` và không lưu `localStorage`) nên chuyển trang trong app vẫn giữ, còn tải lại trang (F5) thì số tiền ẩn lại; thanh tỉ lệ nhỏ dưới số tiền trong bảng Giao dịch, Chi tiêu và trong biểu đồ Cơ cấu công nợ chỉ hiện khi đang bấm hiện số tiền (độ dài thanh để lộ khoản lớn/nhỏ), còn thanh % đã trả của công nợ vẫn giữ vì chỉ thể hiện tiến độ; các ô input khi đang sửa trực tiếp trên dòng (inline edit) vẫn giữ số thực để phục vụ thao tác.
 
 Thanh điều hướng dùng chung (`apps/web/src/shared/ui/app-navigation.tsx`) theo kiểu sidebar quản trị trên desktop: phân thành 5 nhóm nghiệp vụ (Tổng quan, Tài chính, Kế hoạch, Dữ liệu, Hệ thống — key `nav.section.*`), có ô chọn ngôn ngữ, có dấu nhận diện sản phẩm, icon đi cùng chữ và tự động nhận diện trạng thái trang đang mở theo `usePathname()`. Desktop dùng app shell giới hạn theo viewport: chỉ vùng main content được cuộn, còn sidebar luôn đứng yên bên cạnh. Khi thêm mục mới, luôn giữ nhãn chữ hiển thị qua hệ thống i18n, SVG chỉ là phần hỗ trợ quét nhanh, và đặt `aria-current="page"` cho mục active.
 
@@ -74,3 +76,13 @@ Trạng thái Skeleton Loading có nhiệm vụ giữ vững khung xương khôn
 **Đơn vị chiều cao**: dùng `h-dvh` / `min-h-dvh` thay cho `h-screen` / `100vh`, vì trên iOS `100vh` không co lại theo thanh địa chỉ hay bàn phím. Toast `fixed bottom` cộng thêm `env(safe-area-inset-bottom)` để không bị thanh home của iPhone che.
 
 **Kiểm thử thủ công**: trong Chrome DevTools, chọn thiết bị 375×812 rồi đổi chiều cao còn khoảng 380px để giả lập lúc bàn phím mở. Tiêu đề và nút phải luôn hiển thị, nội dung ở giữa cuộn được. Hiện tượng auto-zoom và bàn phím thật chỉ kiểm được trên iPhone/Android thật.
+
+## State giao diện dùng chung (Zustand)
+
+State thuần giao diện dùng chung cho cả app (theme sáng/tối, ẩn/hiện số tiền) được đặt trong các store Zustand ở `apps/web/src/shared/store/`, theo Tier 4 của rule quản lý state. Trước đây chúng là React Context provider lồng nhau trong `AppProviders`; chuyển sang Zustand giúp bỏ bớt lớp provider và boilerplate `createContext`/`useMemo`, đồng thời có thể đọc state ngoài component qua `getState()`.
+
+- **Vì sao dùng store singleton (`create()`)**: web là static export, không có server runtime nên không có nguy cơ rò state giữa các request. Không cần pattern bọc store trong Context + `useRef` như ứng dụng SSR.
+- **Theme**: script inline trong `app/layout.tsx` đặt `data-theme` trước khi React chạy để tránh nháy màu. Store bắt đầu ở `light` để HTML build sẵn và lần render đầu khớp nhau (tránh lệch hydration), sau đó `AppProviders` gọi `syncFromDocument()` khi mount. Mỗi lần bấm đổi theme đều được lưu vào `localStorage['zalobot-theme']`.
+- **Ẩn/hiện số tiền**: store chỉ sống trong bộ nhớ, tuyệt đối không bật `persist`, nên F5 luôn ẩn lại. Hàm định dạng `money()` được tính trong hook `useMoneyFormatter()` từ trạng thái ẩn/hiện và locale, không lưu trong store.
+- **Locale vẫn là Context** (`LocaleProvider`): mỗi lần đổi ngôn ngữ thì gần như toàn bộ giao diện phải render lại, nên chuyển sang Zustand không có lợi.
+- Component chỉ dùng các hook công khai `useTheme()`, `useMoneyVisibility()`, `useMoneyFormatter()`. Không lưu dữ liệu từ server vào Zustand; phần đó thuộc TanStack Query.

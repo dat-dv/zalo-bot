@@ -60,6 +60,21 @@ export class FinanceTransactionEntity {
   @Column({ type: 'varchar' })
   note: string;
 
+  /** Who sent the message / used the dashboard to create this row (ledger owner may differ). */
+  @Index()
+  @Column({ name: 'created_by_user_id', type: 'varchar', nullable: true })
+  createdByUserId?: string;
+
+  /** Display name snapshot at creation, used when the creator has no users row. */
+  @Column({ name: 'created_by_name', type: 'varchar', nullable: true })
+  createdByName?: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  source?: 'zalo' | 'dashboard';
+
+  @Column({ name: 'source_chat_id', type: 'varchar', nullable: true })
+  sourceChatId?: string;
+
   @Index()
   @Column({ name: 'occurred_at', type: Date })
   occurredAt: Date;

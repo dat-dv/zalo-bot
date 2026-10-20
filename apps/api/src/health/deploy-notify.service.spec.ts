@@ -39,6 +39,7 @@ void test('DeployNotifyService sends message to all admins upon successful deplo
     preferredLocale: 'vi',
     timezone: 'Asia/Ho_Chi_Minh',
     status: 'active',
+    isLedgerOwner: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -50,6 +51,7 @@ void test('DeployNotifyService sends message to all admins upon successful deplo
     preferredLocale: 'vi',
     timezone: 'Asia/Ho_Chi_Minh',
     status: 'active',
+    isLedgerOwner: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
@@ -118,6 +120,7 @@ void test('DeployNotifyService triggers startup deploy notification automaticall
     preferredLocale: 'vi',
     timezone: 'Asia/Ho_Chi_Minh',
     status: 'active',
+    isLedgerOwner: false,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

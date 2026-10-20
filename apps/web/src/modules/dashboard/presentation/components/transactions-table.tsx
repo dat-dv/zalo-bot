@@ -1,9 +1,10 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { localeTag, type TransactionType, type ITransactionItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
+import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { CategoryAutocomplete } from '@/shared/ui/category-autocomplete';
+import { describeTransactionSource, ReceiptImage, ReceiptThumbnail } from './transaction-receipt';
 
 export type TransactionTableItem = ITransactionItem & {
   runningBalance?: number;
@@ -59,7 +60,7 @@ export function TransactionsTable({
   isPending = false,
 }: TransactionsTableProps) {
   const { locale, t } = useLocale();
-  const money = useMoneyFormatter();
+  const { money, isMoneyVisible } = useMoneyVisibility();
   const [expandedAllocationIds, setExpandedAllocationIds] = useState<Set<string>>(new Set());
 
   const computedMaxAmount = useMemo(() => {
@@ -185,48 +186,38 @@ export function TransactionsTable({
             );
           }
           const allocationCount = item.allocations?.length || 0;
-          const hasAllocations = allocationCount > 0;
           const isExpanded = expandedAllocationIds.has(item.id);
           return (
             <div className="flex flex-wrap items-center gap-1.5">
-              {hasAllocations && (
-                <button
-                  type="button"
-                  className="inline-flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-100"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setExpandedAllocationIds((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(item.id)) next.delete(item.id);
-                      else next.add(item.id);
-                      return next;
-                    });
-                  }}
-                  title={
-                    isExpanded
-                      ? t('transactions.collapseAllocations')
-                      : t('transactions.expandAllocations')
-                  }
-                  aria-label={
-                    isExpanded
-                      ? t('transactions.collapseAllocations')
-                      : t('transactions.expandAllocations')
-                  }
+              <button
+                type="button"
+                className="inline-flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpandedAllocationIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(item.id)) next.delete(item.id);
+                    else next.add(item.id);
+                    return next;
+                  });
+                }}
+                title={t('transactions.details.title')}
+                aria-label={t('transactions.details.title')}
+                aria-expanded={isExpanded}
+              >
+                <svg
+                  className={`size-3 transition-transform duration-150 ${isExpanded ? 'rotate-90 text-sky-600 dark:text-sky-400' : ''}`}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
                 >
-                  <svg
-                    className={`size-3 transition-transform duration-150 ${isExpanded ? 'rotate-90 text-sky-600 dark:text-sky-400' : ''}`}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                </button>
-              )}
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
               <span
                 className={`text-slate-500 select-none dark:text-slate-400 ${
                   onStartEdit ? 'cursor-pointer' : ''
@@ -296,6 +287,41 @@ export function TransactionsTable({
         },
       },
       {
+        id: 'createdBy',
+        header: t('dashboard.columns.createdBy'),
+        minWidth: '150px',
+        cell: (item) => {
+          const source = describeTransactionSource(item, t);
+          if (!item.createdByName && !source) {
+            return <span className="text-slate-400 select-none dark:text-slate-500">—</span>;
+          }
+          return (
+            <div className="flex min-w-0 flex-col leading-tight">
+              <span
+                className="truncate font-medium text-slate-800 dark:text-slate-200"
+                title={item.createdByName || undefined}
+              >
+                {item.createdByName || '—'}
+              </span>
+              {source && (
+                <span
+                  className="truncate text-[10.5px] text-slate-500 dark:text-slate-400"
+                  title={source}
+                >
+                  {source}
+                </span>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        id: 'receipt',
+        header: t('dashboard.columns.receipt'),
+        minWidth: '60px',
+        cell: (item) => <ReceiptThumbnail item={item} />,
+      },
+      {
         id: 'amount',
         header: t('dashboard.columns.amount'),
         align: 'right',
@@ -343,14 +369,17 @@ export function TransactionsTable({
               >
                 {item.type === 'income' ? '+' : '-'} {money(item.amount)}
               </strong>
-              <div className="h-1 w-20 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                <div
-                  className={`h-full rounded-full ${
-                    item.type === 'income' ? 'bg-emerald-500' : 'bg-amber-500'
-                  }`}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
+              {/* The ratio bar would leak relative amounts, so it only shows when amounts are revealed. */}
+              {isMoneyVisible && (
+                <div className="h-1 w-20 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                  <div
+                    className={`h-full rounded-full ${
+                      item.type === 'income' ? 'bg-emerald-500' : 'bg-amber-500'
+                    }`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              )}
             </div>
           );
         },
@@ -521,6 +550,7 @@ export function TransactionsTable({
     editDraft,
     editingId,
     expandedAllocationIds,
+    isMoneyVisible,
     isPending,
     locale,
     money,
@@ -535,73 +565,128 @@ export function TransactionsTable({
     t,
   ]);
 
-  // Master-Detail 1-Level Indented Sub-panel Renderer for Allocations
+  const formatDateTime = (value?: string) =>
+    value
+      ? new Intl.DateTimeFormat(localeTag(locale), {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        }).format(new Date(value))
+      : '—';
+
+  // Master-Detail sub-panel: full transaction details, receipt image, then allocations.
   const renderExpandedRow = (item: TransactionTableItem) => {
-    if (!item.allocations || item.allocations.length === 0) return null;
+    const source = describeTransactionSource(item, t);
+    const details: Array<[string, string]> = [
+      [t('transactions.details.createdBy'), item.createdByName || '—'],
+      [t('transactions.details.source'), source || '—'],
+      [t('transactions.details.createdAt'), formatDateTime(item.createdAt)],
+      [t('transactions.details.paymentMethod'), item.paymentMethod || '—'],
+      [t('transactions.details.currency'), item.currency || 'VND'],
+    ];
+    const hasAllocations = Boolean(item.allocations && item.allocations.length > 0);
 
     return (
-      <div className="space-y-2 py-2 pl-12 pr-4">
-        <div className="overflow-hidden rounded border border-sky-200/80 bg-sky-50/20 shadow-xs dark:border-sky-900/60 dark:bg-sky-950/20">
-          <header className="flex items-center justify-between border-b border-sky-100/80 bg-sky-50/50 px-3 py-1.5 text-xs font-semibold text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/50 dark:text-sky-300">
-            <div className="flex items-center gap-1.5">
-              <span>🔗</span>
-              <span>
-                {t('transactions.allocation.badgeAllocated', { count: item.allocations.length })}
-              </span>
+      <div className="space-y-2 py-2 pl-12 pr-4 max-sm:pl-3 max-sm:pr-2">
+        <section
+          aria-label={t('transactions.details.title')}
+          className="flex flex-col gap-3 rounded border border-slate-200 bg-white p-3 shadow-xs sm:flex-row dark:border-slate-800 dark:bg-slate-900"
+        >
+          <div className="min-w-0 flex-1 space-y-2">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
+              {details.map(([label, value]) => (
+                <div key={label} className="contents">
+                  <dt className="text-slate-500 dark:text-slate-400">{label}</dt>
+                  <dd className="min-w-0 break-words font-medium text-slate-800 dark:text-slate-200">
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <div className="text-xs">
+              <div className="text-slate-500 dark:text-slate-400">
+                {t('transactions.details.note')}
+              </div>
+              <p className="mt-0.5 whitespace-pre-wrap break-words text-slate-800 dark:text-slate-200">
+                {item.note || '—'}
+              </p>
             </div>
-            {onOpenAllocate && (
-              <button
-                type="button"
-                className="inline-flex cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-white px-2 py-0.5 text-[10.5px] font-medium text-sky-700 transition-colors hover:bg-sky-50 dark:border-sky-800 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-slate-800"
-                onClick={() => onOpenAllocate(item)}
-              >
-                <span>✏️</span>
-                <span>{t('transactions.allocation.editAllocations')}</span>
-              </button>
-            )}
-          </header>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-sky-200/50 bg-sky-100/30 text-[10.5px] font-semibold uppercase tracking-wider text-sky-800 dark:border-sky-800/40 dark:bg-sky-900/30 dark:text-sky-300">
-                  <th scope="col" className="w-10 px-2.5 py-1 text-right">
-                    #
-                  </th>
-                  <th scope="col" className="px-2.5 py-1">
-                    {t('dashboard.columns.counterparty')}
-                  </th>
-                  <th scope="col" className="px-2.5 py-1 text-right">
-                    {t('dashboard.columns.amount')}
-                  </th>
-                  <th scope="col" className="px-2.5 py-1">
-                    {t('dashboard.columns.note')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-sky-100/60 dark:divide-sky-900/40">
-                {item.allocations.map((alloc, idx: number) => (
-                  <tr
-                    key={alloc.id || idx}
-                    className="transition-colors hover:bg-sky-100/20 dark:hover:bg-sky-900/20"
-                  >
-                    <td className="px-2.5 py-1.5 text-right font-mono text-sky-700/60 dark:text-sky-400/60">
-                      {idx + 1}
-                    </td>
-                    <td className="px-2.5 py-1.5 font-medium text-slate-800 dark:text-slate-200">
-                      {alloc.counterparty || t('transactions.badge.allocatedChild')}
-                    </td>
-                    <td className="px-2.5 py-1.5 text-right font-semibold tabular-nums text-sky-700 dark:text-sky-300">
-                      {money(alloc.amount)}
-                    </td>
-                    <td className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300">
-                      {alloc.note || '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        </div>
+          {item.hasReceipt && (
+            <div className="shrink-0 sm:w-56">
+              <div className="mb-1 text-xs text-slate-500 dark:text-slate-400">
+                {t('transactions.receipt.title')}
+              </div>
+              <ReceiptImage
+                transactionId={item.id}
+                alt={t('transactions.receipt.title')}
+                className="max-h-72 w-full rounded border border-slate-200 object-contain dark:border-slate-700"
+              />
+            </div>
+          )}
+        </section>
+        {hasAllocations && item.allocations && (
+          <div className="overflow-hidden rounded border border-sky-200/80 bg-sky-50/20 shadow-xs dark:border-sky-900/60 dark:bg-sky-950/20">
+            <header className="flex items-center justify-between border-b border-sky-100/80 bg-sky-50/50 px-3 py-1.5 text-xs font-semibold text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/50 dark:text-sky-300">
+              <div className="flex items-center gap-1.5">
+                <span>🔗</span>
+                <span>
+                  {t('transactions.allocation.badgeAllocated', { count: item.allocations.length })}
+                </span>
+              </div>
+              {onOpenAllocate && (
+                <button
+                  type="button"
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-white px-2 py-0.5 text-[10.5px] font-medium text-sky-700 transition-colors hover:bg-sky-50 dark:border-sky-800 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-slate-800"
+                  onClick={() => onOpenAllocate(item)}
+                >
+                  <span>✏️</span>
+                  <span>{t('transactions.allocation.editAllocations')}</span>
+                </button>
+              )}
+            </header>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-sky-200/50 bg-sky-100/30 text-[10.5px] font-semibold uppercase tracking-wider text-sky-800 dark:border-sky-800/40 dark:bg-sky-900/30 dark:text-sky-300">
+                    <th scope="col" className="w-10 px-2.5 py-1 text-right">
+                      #
+                    </th>
+                    <th scope="col" className="px-2.5 py-1">
+                      {t('dashboard.columns.counterparty')}
+                    </th>
+                    <th scope="col" className="px-2.5 py-1 text-right">
+                      {t('dashboard.columns.amount')}
+                    </th>
+                    <th scope="col" className="px-2.5 py-1">
+                      {t('dashboard.columns.note')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-sky-100/60 dark:divide-sky-900/40">
+                  {item.allocations.map((alloc, idx: number) => (
+                    <tr
+                      key={alloc.id || idx}
+                      className="transition-colors hover:bg-sky-100/20 dark:hover:bg-sky-900/20"
+                    >
+                      <td className="px-2.5 py-1.5 text-right font-mono text-sky-700/60 dark:text-sky-400/60">
+                        {idx + 1}
+                      </td>
+                      <td className="px-2.5 py-1.5 font-medium text-slate-800 dark:text-slate-200">
+                        {alloc.counterparty || t('transactions.badge.allocatedChild')}
+                      </td>
+                      <td className="px-2.5 py-1.5 text-right font-semibold tabular-nums text-sky-700 dark:text-sky-300">
+                        {money(alloc.amount)}
+                      </td>
+                      <td className="px-2.5 py-1.5 text-slate-600 dark:text-slate-300">
+                        {alloc.note || '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     );
   };

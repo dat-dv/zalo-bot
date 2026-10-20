@@ -47,7 +47,9 @@
 - Running balance per row = server `runningBalance` (wallet balance after that transaction over the whole ledger, filter-independent). `TrendSummaryStrip` totals = server `summary` (whole period, both types); its buckets use loaded rows only.
 - `usePeriodFilter('month')` + `PeriodFilterToolbar` (default grains `week / month / quarter / year`; URL `?period=&ref=`), `TrendSummaryStrip`.
 - Type filter pills All / Income / Expense synced to `?type=`; search over category, note, place name; Adjust balance button.
-- `TransactionsTable` (`id="transactions"`) columns: type badge, category (non-hideable), note, place, amount (non-hideable, proportional bar), running balance, occurredAt, actions (non-hideable, `minWidth: 130px`, Edit + Delete).
+- `TransactionsTable` (`id="transactions"`) columns: type badge, category (non-hideable), note, place, **created by** (creator name + source line `Nhóm <name>` / `Chat riêng` / `Dashboard`, `—` when unknown), **receipt** (32px thumbnail when `hasReceipt`, click → lightbox `Modal` with full image + "Mở ảnh" new tab), amount (non-hideable; proportional bar only while amounts are revealed), running balance, occurredAt, actions (non-hideable, `minWidth: 130px`, Edit + Delete).
+- Every row is expandable (chevron in the note cell): details panel (creator, source, createdAt, payment method, currency, full wrapped note, large receipt image) followed by the allocations sub-table when present. Receipt `<img>` src = `getTransactionReceiptUrl(id)` (`API_ROUTES.transactionReceipt`, cookie-authenticated, lazy, inline error "Không tải được ảnh"). Components: `transaction-receipt.tsx` (`describeTransactionSource`, `ReceiptImage`, `ReceiptThumbnail`).
+- With a shared-ledger owner set (see global/finance-domain), every user sees the same ledger here; the creator column tells members apart.
 - Inline edit: type, category and place via shared `CategoryAutocomplete` (portal listbox; focus/click opens, typing filters, ArrowUp/Down + Enter selects, first Escape closes menu, next Escape cancels; free text allowed), note (required), amount (>0), occurredAt. Category options: configured categories of the edited type (`useCategoriesQuery`), historical categories of that type, `DEFAULT_INCOME_CATEGORIES`/`DEFAULT_EXPENSE_CATEGORIES`. Place options: `usePlacesQuery` names. Save sends `placeName`, or `placeId: null` when the place is cleared (detaches only).
 - Save is disabled when the type changes on a transaction with allocations, or the amount drops below the allocated sum (title explains why).
 - Allocations: note cell shows an expand chevron and a `🔗 N allocations` badge (opens `DebtAllocationModal`); while editing, a `🔗` action button opens it too. Expanded row (`renderExpandedRow`, full `colSpan`) lists counterparty, amount, note per allocation.
@@ -70,7 +72,7 @@
 - `usePeriodFilter('month')` + toolbar; `useFinanceAnalyticsQuery({ startAt, endAt, grain })` (no dates for `all`).
 - Selected-period `MetricGrid`: income, expense, net savings, savings rate. Separate "current position" grid (not period-filtered): cashflow balance (all-time), receivable, payable, net worth.
 - Cashflow panel: `Button` toggle chart/table; `CashflowTrendChart` (Recharts `ComposedChart`: income/expense bars + cumulative balance line) or `DataTable` of buckets.
-- `CategoryDonutChart` (Recharts `PieChart`, all expense categories, scrollable legend) and `DebtStructureChart` (receivable vs payable ratio + top 3 counterparties each side). Charts live in `shared/ui/charts/`.
+- `CategoryDonutChart` (Recharts `PieChart`, all expense categories, scrollable legend) and `DebtStructureChart` (receivable vs payable ratio + top 3 counterparties each side; ratio and per-counterparty bars render only while amounts are revealed). Charts live in `shared/ui/charts/`.
 - Only `SessionStateScreen reason="expired"` (on dashboard query error). Loading skeleton is inline (`MetricGridSkeleton` + placeholder blocks); there is no `AnalyticsSkeleton` component. Retry invalidates dashboard + finance-analytics.
 
 ## Places (`PlacesScreen`, `/places`)
@@ -88,9 +90,9 @@
 ## Shared UI behavior
 
 - `WorkspaceHeader`: route title/subtitle, money visibility toggle, Refresh (= `queryClient.invalidateQueries()` for all queries), Logout.
-- `MoneyVisibilityProvider`: default hidden; persisted in `localStorage` `zalobot-money-visibility`; masked as `••••••` in KPIs, tables, tooltips; edit inputs unmasked.
+- Money visibility (`useMoneyVisibilityStore` Zustand store, `useMoneyVisibility`/`useMoneyFormatter` hooks): default hidden; in-memory only (no `persist`, no `localStorage`), so every page load/F5 resets to hidden; masked as `••••••` in KPIs, tables, tooltips; amount ratio bars in Transactions/Expenses tables are hidden while masked; edit inputs unmasked.
 - `DataTable`: column visibility (`zalobot:table-columns:<id>`) and widths (`zalobot:table-widths:<id>`) persisted per table id; `allColumnsKey` + equality guards prevent render loops. `usePeriodFilter` result is memoized.
-- `AppNavigation`: 210px docked sidebar (sections Overview, Finance, Planning, Data, System); ≤960px becomes sticky top bar + slide-out drawer. Footer: theme toggle (localStorage, first visit follows system) and vi/en locale selector.
+- `AppNavigation`: 210px docked sidebar (sections Overview, Finance, Planning, Data, System); ≤960px becomes sticky top bar + slide-out drawer. Footer: theme toggle (`useThemeStore`, localStorage, first visit follows system) and vi/en locale selector.
 
 - `DebtAllocationModal`, `AdjustBalanceModal`, `DeleteTransactionModal`, `CombinePlacesDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard). Screen toasts offset by `env(safe-area-inset-bottom)`.
 

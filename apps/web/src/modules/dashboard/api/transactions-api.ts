@@ -7,7 +7,7 @@ import {
   type ITransactionListResponse,
   type IUpdateTransactionRequest,
 } from '@zalobot/contracts';
-import { httpClient } from '@/shared/api/http-client';
+import { httpClient, resolveApiBaseUrl } from '@/shared/api/http-client';
 
 export async function listTransactions(
   query: ITransactionListQuery,
@@ -51,4 +51,12 @@ export async function deleteTransaction(id: string, signal?: AbortSignal): Promi
     { signal },
   );
   return response.data.data.deleted;
+}
+
+/**
+ * Absolute URL of a transaction's receipt image. The API authenticates `<img src>` requests with the
+ * dashboard refresh cookie, so the browser can load it directly.
+ */
+export function getTransactionReceiptUrl(id: string): string {
+  return `${resolveApiBaseUrl()}${API_ROUTES.transactionReceipt(id)}`;
 }

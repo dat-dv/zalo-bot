@@ -33,6 +33,10 @@ export class UserEntity {
   @Column({ type: 'varchar', default: 'active' })
   status: 'active' | 'suspended';
 
+  /** The single user whose ledger every sender's finance data is recorded under (shared ledger). */
+  @Column({ name: 'is_ledger_owner', type: 'boolean', default: false })
+  isLedgerOwner: boolean;
+
   @Column({ name: 'drive_folder_id', type: 'varchar', nullable: true })
   driveFolderId?: string;
 

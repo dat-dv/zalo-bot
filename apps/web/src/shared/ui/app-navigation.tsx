@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, type ReactNode } from 'react';
 import { APP_ROUTES, type TranslationKey } from '@zalobot/contracts';
-import { useTheme } from '@/shared/providers/theme-provider';
+import { useTheme } from '@/shared/store/theme-store';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useBodyScrollLock } from '@/shared/hooks/use-body-scroll-lock';
 

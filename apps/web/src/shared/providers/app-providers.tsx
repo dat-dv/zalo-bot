@@ -3,9 +3,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
 import { captureDashboardToken } from '@/modules/auth/client/auth-storage';
-import { ThemeProvider } from './theme-provider';
+import { useThemeStore } from '@/shared/store/theme-store';
 import { LocaleProvider } from './locale-provider';
-import { MoneyVisibilityProvider } from './money-visibility-provider';
 import { ReactScanProvider } from './react-scan-provider';
 import { ErrorBoundary } from '@/shared/ui/error-boundary';
 import { IosViewportFix } from '@/shared/ui/ios-viewport-fix';
@@ -37,6 +36,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     captureDashboardToken();
+    useThemeStore.getState().syncFromDocument();
     setReady(true);
   }, []);
 
@@ -45,11 +45,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
       <IosViewportFix />
       <ReactScanProvider>
         <QueryClientProvider client={queryClient}>
-          <LocaleProvider>
-            <MoneyVisibilityProvider>
-              <ThemeProvider>{ready ? children : <AppLoadingFallback />}</ThemeProvider>
-            </MoneyVisibilityProvider>
-          </LocaleProvider>
+          <LocaleProvider>{ready ? children : <AppLoadingFallback />}</LocaleProvider>
         </QueryClientProvider>
       </ReactScanProvider>
     </ErrorBoundary>

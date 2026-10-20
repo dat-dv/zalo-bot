@@ -30,6 +30,16 @@ SELECT id, username, first_name, grant_access, created_at FROM users ORDER BY cr
 ```
 So `user_id` ở (1) với `data.user.name` trong `GET /api/dashboard` (chính là userId của token — xem Network tab của trình duyệt).
 
+## Kết quả xác minh trên production (2026-10-20)
+- Giao dịch `957e415d-…` (298.620đ) **đã lưu**, `user_id = 5369142156728714489` = **Diệu Hằng** (user riêng, `grant_access = 1`). Đây là giao dịch duy nhất của user này.
+- Người dùng hỏi là **Văn Đạt** (`2099328425338516056`, 5 giao dịch). Dashboard của Đạt chỉ đọc dữ liệu của Đạt → không thấy giao dịch của Hằng.
+- **Kết luận: không phải lỗi.** Giao dịch thuộc về người gửi tin; người khác thả ❤️ chỉ duyệt, không đổi chủ sở hữu. Nghi vấn "lệch ID của cùng một người" bị loại.
+
+### Phát hiện phụ
+1. **Lệch múi giờ `occurred_at`:** `occurred_at = 10:25:00` nhưng `created_at = 03:28 UTC` (= 10:28 giờ VN) → `occurred_at` đang lưu giờ VN như thể UTC, **trễ 7 tiếng**. Giao dịch gần nửa đêm hoặc cuối tháng có thể rơi sai ngày/tháng. Cần điều tra riêng.
+2. **Giao dịch mồ côi:** `finance_transactions` có user `2285509137317769272` (9 giao dịch) và `effcda102859c1079848` (1 giao dịch) nhưng **không có dòng trong `users`** → dữ liệu này không ai xem được trên dashboard.
+3. Admin duy nhất là `573462d8909179cf2080` ("Bot Finance Assistance", ID webhook); Văn Đạt đang là `user`.
+
 ## Đề xuất xử lý
 1. **Ngay (vận hành, không sửa code):** nếu xác nhận lệch ID → vào trang "Zalo & Users" (admin), dùng **Gộp tài khoản** chuyển dữ liệu từ ID trùng sang ID giữ lại; hoặc mở dashboard bằng cách gửi `/dashboard` từ đúng tài khoản/kênh ZCA đã ghi giao dịch.
 2. **Ngắn hạn (code, nhỏ):** hiển thị ID tài khoản đang đăng nhập trên dashboard (header/Settings) để lệch danh tính lộ ra ngay; trong thẻ xác nhận giao dịch có thể ghi chú "lưu cho <tên/ID>".

@@ -34,7 +34,7 @@ Trang `/debts` cho người dùng theo dõi **khoản phải thu** (người kh�
 ## Màn hình công nợ
 
 - Tiêu đề trang do `WorkspaceHeader` của layout chung hiển thị.
-- **Thẻ KPI**: tổng phải thu và tổng phải trả đang mở (chỉ tính khoản gốc để không cộng trùng khoản con), tuân theo chế độ ẩn/hiện số tiền.
+- **Thẻ KPI**: tổng phải thu và tổng phải trả đang mở (chỉ tính khoản gốc để không cộng trùng khoản con), tuân theo chế độ ẩn/hiện số tiền (hook `useMoneyFormatter()` lấy từ store Zustand dùng chung `apps/web/src/shared/store/money-visibility-store.ts`; bảng và hộp thoại gộp nợ cũng dùng hook này nên mặc định đều ẩn số tiền).
 - **Bộ lọc**: trạng thái (Tất cả / Đang mở / Đã tất toán, có số đếm), chiều nợ (Tất cả / Cho vay / Đi vay), tìm kiếm theo người liên quan, biệt danh, ghi chú (tìm cả trong khoản con).
 - **Bảng** (`DebtsTable`, `id="debts"`): chọn, Trạng thái, Chiều nợ, Người liên quan (có nút mở rộng ▶/▼), Số tiền gốc, Số còn lại (thanh tiến độ nhỏ + tooltip khi đã trả một phần), Tiền tệ, Hạn trả, Ngày tất toán, Ghi chú, Thao tác. Các cột Trạng thái, Người liên quan, Số còn lại, Thao tác không ẩn được.
 - **Sửa trực tiếp** (nhấp đúp hoặc ✎, `Enter`/`Escape`): chiều nợ, người liên quan (gợi ý từ danh bạ công nợ), số tiền gốc, số còn lại, ghi chú, hạn trả. Ngày phát sinh hiện **không** sửa được trên giao diện (API vẫn hỗ trợ).

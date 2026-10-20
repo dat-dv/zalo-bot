@@ -4,7 +4,7 @@ import { useState, useEffect, useId } from 'react';
 import type { IDebtListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
-import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
+import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { useCombineDebtsMutation } from '../../api/debts-query';
 
 interface CombineDebtsDialogProps {

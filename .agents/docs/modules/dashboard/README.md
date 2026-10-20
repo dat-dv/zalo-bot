@@ -26,6 +26,7 @@ metadata:
       - apps/api/src/reports/reports.controller.ts
       - apps/api/src/finance/finance.service.ts
       - apps/api/src/zalo/text/strategies/dashboard-tool.strategy.ts
+      - apps/web/src/modules/dashboard/presentation/components/transaction-receipt.tsx
 ---
 
 # Module dashboard
@@ -70,7 +71,10 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - **Tải thêm**: mỗi lần tải 100 dòng; nếu kỳ có nhiều hơn, cuối bảng có nút "Tải thêm" và bộ đếm hiện "Đã tải X/Y dòng". Khi đổi kỳ/bộ lọc, dữ liệu cũ vẫn hiển thị đến khi dữ liệu mới về.
 - Bộ lọc kỳ mặc định theo tháng; thanh chọn kỳ mặc định có Tuần / Tháng / Quý / Năm, đồng bộ lên URL (`?period=&ref=`). Dải xu hướng: tổng thu/chi lấy từ `summary` của server (chính xác cho cả kỳ, gồm cả thu và chi bất kể đang lọc loại nào); biểu đồ cột vẽ từ các dòng đã tải.
 - Bộ lọc loại Tất cả / Thu / Chi đồng bộ với `?type=` — đây là lý do `/expenses` và `/income` chỉ cần chuyển hướng về đây. Ô tìm kiếm theo danh mục, ghi chú, tên nơi chốn. Nút Cân chỉnh số dư.
-- Bảng (`id="transactions"`): Loại, Danh mục, Ghi chú, Nơi chốn, Số tiền (có thanh tỷ lệ), Số dư lũy kế, Thời gian, Thao tác (rộng tối thiểu 130px: Sửa, Xoá). **Số dư lũy kế** do server tính: là số dư ví ngay sau giao dịch đó, tính trên toàn bộ sổ của người dùng — không phụ thuộc kỳ, loại hay từ khoá đang lọc.
+- **Sổ chung**: khi admin đã chọn chủ sổ, mọi thành viên vào trang này đều thấy cùng một sổ. Cột **Người tạo** cho biết ai đã ghi khoản đó và ghi từ đâu ("Nhóm <tên>", "Chat riêng" hay "Dashboard"); giao dịch cũ chưa có thông tin hiện "—".
+- **Ảnh hoá đơn**: cột **Ảnh** hiện ảnh thu nhỏ nếu giao dịch có ảnh; bấm để xem lớn trong hộp thoại, kèm nút "Mở ảnh" sang tab mới. Ảnh được API tải hộ từ Drive/CDN Zalo; nếu không tải được (token Google hết hạn, file đã xoá) sẽ hiện "Không tải được ảnh".
+- **Xem đầy đủ**: mọi dòng đều có nút mở rộng ▶ ở ô Ghi chú, hiện khối chi tiết gồm người tạo, nguồn, thời điểm tạo, phương thức, tiền tệ, ghi chú đầy đủ (không bị cắt) và ảnh lớn; nếu có phân bổ công nợ thì bảng phân bổ nằm ngay bên dưới.
+- Bảng (`id="transactions"`): Loại, Danh mục, Ghi chú, Nơi chốn, Người tạo, Ảnh, Số tiền (thanh tỷ lệ chỉ hiện khi đang bấm hiện số tiền), Số dư lũy kế, Thời gian, Thao tác (rộng tối thiểu 130px: Sửa, Xoá). **Số dư lũy kế** do server tính: là số dư ví ngay sau giao dịch đó, tính trên toàn bộ sổ của người dùng — không phụ thuộc kỳ, loại hay từ khoá đang lọc.
 - **Sửa trực tiếp**: loại, danh mục, ghi chú (bắt buộc), số tiền (> 0), nơi chốn, thời gian.
   - Danh mục và Nơi chốn dùng chung combobox `CategoryAutocomplete`: click/focus để mở, gõ để lọc, mũi tên lên/xuống + `Enter` để chọn, `Escape` lần đầu đóng danh sách, lần hai huỷ sửa; cho phép gõ giá trị mới. Danh sách nổi trên bảng (portal) nên không bị cắt bởi vùng cuộn.
   - Gợi ý danh mục: danh mục người dùng cấu hình theo đúng loại Thu/Chi, danh mục đã dùng của loại đó, và danh mục mặc định. Gợi ý nơi chốn: danh sách nơi chốn đã lưu.
@@ -99,7 +103,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - **Kết quả trong kỳ**: Tổng thu, Tổng chi, Tiết kiệm ròng, Tỷ lệ tiết kiệm.
 - **Tình hình hiện tại** (không phụ thuộc bộ lọc): Số dư dòng tiền toàn thời gian, Phải thu, Phải trả, Tài sản ròng. Đây không phải số dư ngân hàng vì hệ thống không quản lý số dư đầu kỳ.
 - Khối Dòng tiền: nút chuyển Biểu đồ/Bảng; biểu đồ Recharts gồm cột thu/chi và đường số dư lũy kế, hoặc bảng số liệu theo kỳ.
-- Khối Phân bổ chi tiêu (biểu đồ donut, đủ mọi danh mục chi, chú thích cuộn được) và Cơ cấu công nợ (tỷ lệ phải thu/phải trả + top 3 người liên quan mỗi bên). Các biểu đồ nằm ở `shared/ui/charts/`.
+- Khối Phân bổ chi tiêu (biểu đồ donut, đủ mọi danh mục chi, chú thích cuộn được) và Cơ cấu công nợ (tỷ lệ phải thu/phải trả + top 3 người liên quan mỗi bên; khi ẩn số tiền thì các thanh tỷ lệ cũng ẩn để không lộ ai nợ nhiều/ít). Các biểu đồ nằm ở `shared/ui/charts/`.
 - Chỉ hiện màn hình "Phiên hết hạn" khi lỗi tải dashboard. Skeleton được viết trực tiếp trong màn hình (không có component `AnalyticsSkeleton`).
 
 ## Trang Nơi chốn (`PlacesScreen`)
@@ -118,7 +122,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 ## Hành vi giao diện dùng chung
 
 - `WorkspaceHeader`: tiêu đề theo route, nút ẩn/hiện số tiền, nút **Làm mới** (làm mới **toàn bộ** query đang có), nút Đăng xuất.
-- Ẩn/hiện số tiền: mặc định **ẩn** để bảo vệ riêng tư, lưu ở `localStorage` (`zalobot-money-visibility`); khi ẩn, số tiền hiện `••••••` ở KPI, bảng, tooltip; ô nhập khi sửa vẫn hiện số thật.
+- Ẩn/hiện số tiền: mặc định **ẩn** để bảo vệ riêng tư; chỉ giữ trong store Zustand `useMoneyVisibilityStore` trong bộ nhớ (không `persist`, không lưu `localStorage`) nên chuyển trang vẫn giữ nhưng tải lại trang (F5) là ẩn lại; khi ẩn, số tiền hiện `••••••` ở KPI, bảng, tooltip, và thanh tỉ lệ dưới số tiền ở bảng Giao dịch/Chi tiêu cũng ẩn (vì độ dài thanh để lộ khoản lớn/nhỏ); ô nhập khi sửa vẫn hiện số thật.
 - `DataTable` ghi nhớ cột ẩn/hiện và độ rộng cột theo id bảng trong `localStorage`; có cơ chế so sánh trước khi cập nhật state để tránh vòng lặp render.
 - Điều hướng: sidebar cố định trên desktop (nhóm Tổng quan, Tài chính, Kế hoạch, Dữ liệu, Hệ thống); màn hình ≤ 960px chuyển thành thanh trên cùng + menu trượt. Cuối menu có nút đổi giao diện sáng/tối (lần đầu theo hệ thống) và chọn ngôn ngữ Việt/Anh.
 

@@ -135,10 +135,11 @@ void test('GET /api/transactions rejects malformed query parameters', async () =
     {} as never,
     {} as never,
     {} as never,
+    { resolveLedgerUserId: (id: string | number) => Promise.resolve(String(id)) } as never,
   );
-  // userId() is stubbed below, so the request object itself is never read.
+  // actorId() is stubbed below, so the request object itself is never read.
   const req = {} as Request;
-  Reflect.set(controller, 'userId', () => '42');
+  Reflect.set(controller, 'actorId', () => '42');
 
   await assert.rejects(controller.listTransactions(req, { startAt: 'nope' }), BadRequestException);
   await assert.rejects(controller.listTransactions(req, { limit: '0' }), BadRequestException);

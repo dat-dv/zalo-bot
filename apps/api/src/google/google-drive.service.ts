@@ -402,6 +402,24 @@ export class GoogleDriveService {
    * Lấy webViewLink của folder theo đường dẫn (ví dụ: zalobot/bill)
    * Trả về https://drive.google.com/drive/folders/{folderId}
    */
+  /** Downloads a file this app created (drive.file scope) with the uploader's Google token. */
+  public async downloadFile(
+    fileId: string,
+    userId?: number | string,
+  ): Promise<{ content: Buffer; mimeType: string }> {
+    const drive = this.getDriveClient(userId);
+    const meta = await drive.files.get({ fileId, fields: 'mimeType' });
+    const res = await drive.files.get({ fileId, alt: 'media' }, { responseType: 'arraybuffer' });
+    const data: unknown = res.data;
+    if (!(data instanceof ArrayBuffer)) {
+      throw new BadRequestException('Google Drive trả về dữ liệu tệp không hợp lệ.');
+    }
+    return {
+      content: Buffer.from(data),
+      mimeType: meta.data.mimeType || 'application/octet-stream',
+    };
+  }
+
   public async getFolderWebLink(
     folderPath: string,
     userId?: number | string,

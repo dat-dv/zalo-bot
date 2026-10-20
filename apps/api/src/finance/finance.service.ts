@@ -25,6 +25,7 @@ import {
   type IDebtAllocationItem,
   type ITransactionListQuery,
   type ITransactionListResponse,
+  type ITransactionItem,
 } from '@zalobot/contracts';
 import { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
 import { DebtEntity } from '../database/entities/debt.entity';
@@ -34,7 +35,8 @@ import { DebtPaymentAllocationEntity } from '../database/entities/debt-payment-a
 import { UserCategoryEntity } from '../database/entities/user-category.entity';
 import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
 import { UserEntity } from '../database/entities/user.entity';
-import { toTransactionItem } from './transaction-item.mapper';
+import { toTransactionItem, type TransactionItemLookups } from './transaction-item.mapper';
+import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 import { fillMissingPhones } from './contact-user-sync';
 
 export const TRANSACTION_LIST_DEFAULT_LIMIT = 100;
@@ -88,6 +90,11 @@ export interface CreateFinanceTransactionDto {
   placeName?: string;
   note: string;
   occurredAt?: string;
+  /** Who created the row (Zalo sender or dashboard user); `userId` is the ledger it belongs to. */
+  createdByUserId?: string;
+  createdByName?: string;
+  source?: 'zalo' | 'dashboard';
+  sourceChatId?: string;
 }
 
 export interface FinanceSummary {
@@ -204,7 +211,54 @@ export class FinanceService {
     @Optional()
     @InjectRepository(UserEntity)
     private readonly userRepo?: Repository<UserEntity>,
+    @Optional()
+    @InjectRepository(ZcaThreadConfigEntity)
+    private readonly threadConfigRepo?: Repository<ZcaThreadConfigEntity>,
   ) {}
+
+  /** Maps rows to DTOs, resolving creator names and source chat names in one query each. */
+  public async toTransactionItems(
+    entities: readonly FinanceTransactionEntity[],
+  ): Promise<ITransactionItem[]> {
+    const creatorIds = [
+      ...new Set(entities.map((e) => e.createdByUserId).filter((id): id is string => !!id)),
+    ];
+    const chatIds = [
+      ...new Set(entities.map((e) => e.sourceChatId).filter((id): id is string => !!id)),
+    ];
+    const [users, chats] = await Promise.all([
+      creatorIds.length && this.userRepo
+        ? this.userRepo.find({
+            where: { id: In(creatorIds) },
+            select: { id: true, firstName: true },
+          })
+        : Promise.resolve<UserEntity[]>([]),
+      chatIds.length && this.threadConfigRepo
+        ? this.threadConfigRepo.find({
+            where: { threadId: In(chatIds) },
+            select: { threadId: true, threadName: true, threadType: true },
+          })
+        : Promise.resolve<ZcaThreadConfigEntity[]>([]),
+    ]);
+    const lookups: TransactionItemLookups = {
+      userNames: new Map(
+        users.flatMap((u): [string, string][] => {
+          const name = u.firstName?.trim();
+          return name ? [[u.id, name]] : [];
+        }),
+      ),
+      chats: new Map(
+        chats.map((c) => [
+          c.threadId,
+          {
+            name: c.threadName?.trim() || undefined,
+            type: c.threadType === 'group' ? 'group' : 'user',
+          },
+        ]),
+      ),
+    };
+    return entities.map((entity) => toTransactionItem(entity, lookups));
+  }
 
   public async resolveOrCreatePlace(
     userId: number | string,
@@ -260,6 +314,10 @@ export class FinanceService {
       placeId,
       note,
       occurredAt,
+      createdByUserId: dto.createdByUserId?.trim() || undefined,
+      createdByName: dto.createdByName?.trim() || undefined,
+      source: dto.source,
+      sourceChatId: dto.sourceChatId?.trim() || undefined,
     });
     return this.transactionRepo.save(transaction);
   }
@@ -652,10 +710,11 @@ export class FinanceService {
       else summary.expense += row.amount;
     }
 
+    const items = await this.toTransactionItems(entities);
     return {
-      items: entities.map((entity) => ({
-        ...toTransactionItem(entity),
-        runningBalance: runningBalances.get(entity.id) ?? 0,
+      items: items.map((item) => ({
+        ...item,
+        runningBalance: runningBalances.get(item.id) ?? 0,
       })),
       total,
       limit,
@@ -675,7 +734,21 @@ export class FinanceService {
     });
   }
 
-  public getLatestTransaction(userId: number | string): Promise<FinanceTransactionEntity | null> {
+  /**
+   * Latest row of a ledger. In a shared ledger, pass the sender so "my latest" does not pick another
+   * member's transaction; falls back to the ledger's latest for rows created before creator tracking.
+   */
+  public async getLatestTransaction(
+    userId: number | string,
+    createdByUserId?: string,
+  ): Promise<FinanceTransactionEntity | null> {
+    if (createdByUserId) {
+      const own = await this.transactionRepo.findOne({
+        where: { userId: userId.toString(), createdByUserId },
+        order: { createdAt: 'DESC' },
+      });
+      if (own) return own;
+    }
     return this.transactionRepo.findOne({
       where: { userId: userId.toString() },
       order: { createdAt: 'DESC' },

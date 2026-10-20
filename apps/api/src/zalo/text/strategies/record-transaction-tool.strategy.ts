@@ -4,6 +4,7 @@ import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
 import { FinanceService } from '../../../finance/finance.service';
+import { LedgerService, resolveLedgerUserIdOrSelf } from '../../../finance/ledger.service';
 import { parseAmount } from '../../../llm/utils/tool-arguments.util';
 
 @Injectable()
@@ -15,9 +16,11 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
     private readonly zaloService: ZaloService,
     private readonly confirmationService: TransactionConfirmationService,
     @Optional() private readonly financeService?: FinanceService,
+    @Optional() private readonly ledger?: LedgerService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
+    const ledgerUserId = await resolveLedgerUserIdOrSelf(this.ledger, context.senderId);
     const args = context.toolArgs || {};
 
     const rawType =
@@ -98,7 +101,7 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
 
     if (placeName && this.financeService) {
       try {
-        const existingPlaces = await this.financeService.resolvePlaces(context.senderId, placeName);
+        const existingPlaces = await this.financeService.resolvePlaces(ledgerUserId, placeName);
         if (existingPlaces.length === 0) {
           const isPending = await this.confirmationService.hasPendingPlace(
             context.senderId,
@@ -109,7 +112,7 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
               userId: context.senderId,
               chatId: context.chatId,
               payload: {
-                userId: context.senderId,
+                userId: ledgerUserId,
                 name: placeName,
               },
               rawPrompt: context.text,
@@ -129,7 +132,11 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
         chatId: context.chatId,
         rawPrompt: context.text,
         payload: {
-          userId: context.senderId,
+          userId: ledgerUserId,
+          createdByUserId: context.senderId,
+          createdByName: context.displayName || undefined,
+          source: 'zalo',
+          sourceChatId: context.chatId,
           type,
           amount,
           category,

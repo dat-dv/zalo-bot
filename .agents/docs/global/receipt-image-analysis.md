@@ -9,6 +9,7 @@ metadata:
       - apps/api/src/zca/pending-image/strategies/create-bill-pending-image.strategy.ts
       - apps/api/src/ocr/ocr.service.ts
       - apps/api/src/receipt-storage/media-storage.service.ts
+      - apps/api/src/finance/receipt-source.ts
 ---
 
 # Phân tích ảnh hoá đơn và thu-chi
@@ -38,3 +39,6 @@ Người dùng thường chụp bill thay vì gõ lại số tiền. Bot đọc 
 - Chất lượng trích xuất phụ thuộc AI provider cấu hình qua `LLM_PROVIDER`.
 - Hiện chưa có giới hạn dung lượng hoặc timeout khi tải ảnh; ảnh quá lớn có thể làm chậm OCR.
 - Nếu ảnh mờ hoặc OCR không đọc được chữ, prompt ghi rõ là không nhận diện được nội dung; khi AI không gọi tool, bot nhắc người dùng nhắn tay. Dù AI có đoán, người dùng vẫn kiểm tra trên thẻ xác nhận trước khi ghi sổ.
+
+## Xem lại ảnh hoá đơn trên dashboard
+- Link ảnh gốc (Drive hoặc CDN Zalo) không gửi ra web vì link Drive là riêng tư. Trang Thu chi gọi `GET /api/transactions/:id/receipt`; API tải ảnh bằng token Google của **người tạo** giao dịch (hoặc tải từ CDN Zalo) rồi trả về. Nếu người tạo đã ngắt kết nối Google, ảnh Drive sẽ không xem được.

@@ -18,6 +18,10 @@ metadata:
       - apps/api/src/zalo/text/strategies/record-transaction-tool.strategy.ts
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
       - packages/contracts/src/index.ts
+      - apps/api/src/finance/ledger.service.ts
+      - apps/api/src/finance/finance-data-mover.ts
+      - apps/api/src/finance/receipt-source.ts
+      - apps/api/src/database/migrations/1724780000000-AddSharedLedgerAndTransactionCreator.ts
 ---
 
 # Finance Domain (Backend)
@@ -29,6 +33,24 @@ Human guide: [Finance Domain](../../docs/global/finance-domain.md).
 ## Purpose
 
 `apps/api/src/finance` (`FinanceService`, `FinanceController`) owns caller-scoped income/expense transactions, places, debt contacts, debts, debt payments, transaction-to-debt allocations, and user categories. It is backend-only; there is no `apps/web/src/modules/finance`. Web UX lives in the dashboard module docs.
+
+## Shared ledger (single ledger owner)
+
+- `users.is_ledger_owner` (unique partial index: at most one owner). `LedgerService.resolveLedgerUserId(actorId)` returns the owner id when set, else `actorId` (per-user ledgers, backward compatible). Owner id cached in memory; `setOwner` refreshes it.
+- With an owner, ALL finance data (transactions, places, contacts, debts, payments, allocations, categories) is read and written under the owner's `user_id`:
+  - Dashboard: `FinanceController.ledgerUserId(req)` for every finance route; `ReportsController` dashboard finance block, `/contacts`, `/debts`, `/expenses`.
+  - Zalo chat: 8 strategies (record, manage-debt, create-place, delete, today, get-report, finance-quick, debts-quick) resolve the ledger from `senderId`; `TransactionConfirmationService` re-resolves `payload.userId` / `pending.userId` at commit, so cards queued before an owner was set still land in the shared ledger. Who may confirm a card is unchanged (`pending.userId` = sender).
+  - Not shared: reminders, Google Tasks/Calendar, Drive/Photos uploads (sender's Google token), admin role.
+- Any user allowed to use the bot sees the same shared ledger on the dashboard.
+- Admin API: `GET /finance/ledger` → `ILedgerInfo` (owner + every other `user_id` found in finance tables, incl. ids without a users row, with counts); `PATCH /finance/ledger/owner` `{ userId | null }`; `POST /finance/ledger/consolidate` → `ILedgerConsolidateResult`.
+- Consolidation (one DB transaction, audit-logged, no user deleted): backfill `created_by_user_id = user_id` where null, then `moveFinanceData(manager, source, owner)` for every other ledger. `moveFinanceData` (`finance-data-mover.ts`) de-duplicates places (normalized name), contacts (name + alias) and categories (type + name), then repoints transactions, debts, payments, allocations. `UserMergeService` reuses it (plus `linkedUserId` / `createdByUserId` remap, since an identity merge is the same person).
+
+## Transaction creator and receipt
+
+- `finance_transactions` columns: `created_by_user_id`, `created_by_name` (display-name snapshot), `source` (`zalo` | `dashboard`), `source_chat_id` (Zalo thread). Chat writes sender id/name + chat id; dashboard writes the signed-in user + `source = 'dashboard'`. Older rows are null (shown as "—"), except after consolidation (`created_by_user_id` backfilled).
+- DTO (`toTransactionItems`): `createdByName` = current `users.firstName` of the creator (batched lookup), fallback snapshot; `sourceChatName`/`sourceChatType` from `zca_thread_configs` (batched); `hasReceipt` — the raw `receiptUrl` is never sent to the web.
+- `GET /transactions/:id/receipt` streams the image: auth via Bearer or the dashboard refresh cookie (`getDashboardUserIdFromBrowser`, so `<img src>` works); row must belong to the caller's ledger (else 404). `parseReceiptSource`: Drive link → `GoogleDriveService.downloadFile(fileId, createdByUserId || userId)`; Zalo CDN (`https`, host ending `.zadn.vn`, `.zdn.vn`, `.zalo.me`, `.zaloapp.com`) → server fetch (10 s timeout); any other host → 404 (no open proxy/SSRF). Max 10 MB, only `image/*` relayed, `Cache-Control: private, max-age=3600`.
+- `getLatestTransaction(ledger, senderId)` prefers the sender's own latest row so "xoá giao dịch vừa tạo" never picks another member's row.
 
 ## Data model
 

@@ -35,7 +35,7 @@ Thư mục này chứa toàn bộ tài liệu hướng dẫn dành cho lập tr�
 6. **CRUD backend**: Danh sách endpoint nằm ở `global/backend-crud-api.md`, nghiệp vụ thu chi ở `global/finance-domain.md`, reminders/users/zca ở `modules/<module>/README.md`; mọi endpoint ghi dữ liệu phải dùng dashboard access token và kiểm tra ownership/phân quyền tương ứng.
 7. **Đa ngôn ngữ**: Chuẩn locale dùng chung, cách lưu ngôn ngữ người dùng và cookie dashboard nằm ở `global/i18n.md`.
 8. **Google OAuth public**: Scope được xin phải đúng tính năng đã phát hành; các URL `/about`, `/privacy` và `/terms` cùng checklist Google review nằm ở `global/google-oauth-public-verification.md`.
-9. **Bảng dữ liệu dùng chung**: Quy ước cột `STT` và `ID` bắt buộc, cấu hình ẩn/hiện cột và đổi độ rộng nằm ở `global/web-ui-direction.md`.
+9. **Bảng dữ liệu dùng chung**: Quy ước cột `STT` và `ID` bắt buộc, cấu hình ẩn/hiện cột và đổi độ rộng nằm ở `global/web-ui-direction.md`; file này cũng mô tả state giao diện dùng chung (theme, ẩn/hiện số tiền) đặt trong store Zustand ở `apps/web/src/shared/store/`.
 10. **Dữ liệu nơi chốn thu chi**: Hợp đồng tạo/sửa/xóa nơi chốn riêng, liên kết `placeId` của phát sinh và cách vận hành dashboard nằm ở `global/finance-domain.md` và `modules/dashboard/README.md`.
 11. **Ảnh bill & media**: Luồng OCR local (Tesseract) và gửi văn bản cho `LlmService` nằm ở `global/receipt-image-analysis.md`; lưu media lên Google Drive/Photos theo phân vùng kênh nằm ở `global/backend-runtime-services.md`.
 12. **LLM**: Cách chọn provider (Gemini/OpenAI/Qwen) và danh sách tool Zalo nằm ở `global/llm-providers.md`.

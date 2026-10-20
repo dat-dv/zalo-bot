@@ -8,7 +8,7 @@ import { API_ROUTES, APP_ROUTES, type TranslationKey } from '@zalobot/contracts'
 import { clearAccessToken, getAccessToken } from '@/modules/auth/client/auth-storage';
 import { httpClient } from '@/shared/api/http-client';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyVisibility } from '@/shared/providers/money-visibility-provider';
+import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 
 function getzaloBotUrl(): string {
   const customUrl =

@@ -28,6 +28,7 @@ import { CreateZcaThreadConfigs1724740000000 } from './migrations/1724740000000-
 import { AddDirectInteractionToZcaThreadConfigs1724750000000 } from './migrations/1724750000000-AddDirectInteractionToZcaThreadConfigs';
 import { AddDriveFolderColumnsToUsersAndThreadConfigs1724760000000 } from './migrations/1724760000000-AddDriveFolderColumnsToUsersAndThreadConfigs';
 import { AddPhotosAlbumColumnsToZcaThreadConfigs1724770000000 } from './migrations/1724770000000-AddPhotosAlbumColumnsToZcaThreadConfigs';
+import { AddSharedLedgerAndTransactionCreator1724780000000 } from './migrations/1724780000000-AddSharedLedgerAndTransactionCreator';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -72,6 +73,7 @@ export const AppDataSource = new DataSource({
     AddDirectInteractionToZcaThreadConfigs1724750000000,
     AddDriveFolderColumnsToUsersAndThreadConfigs1724760000000,
     AddPhotosAlbumColumnsToZcaThreadConfigs1724770000000,
+    AddSharedLedgerAndTransactionCreator1724780000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

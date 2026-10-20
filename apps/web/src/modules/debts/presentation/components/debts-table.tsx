@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { localeTag, type IDebtListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyFormatter } from '@/shared/providers/money-visibility-provider';
+import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 
 export type DebtTableItem = IDebtListItem;

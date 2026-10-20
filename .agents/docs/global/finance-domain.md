@@ -8,6 +8,10 @@ metadata:
       - apps/api/src/finance/finance.service.ts
       - apps/api/src/finance/transaction-item.mapper.ts
       - apps/api/src/finance/finance.controller.ts
+      - apps/api/src/finance/ledger.service.ts
+      - apps/api/src/finance/finance-data-mover.ts
+      - apps/api/src/finance/receipt-source.ts
+      - apps/api/src/database/migrations/1724780000000-AddSharedLedgerAndTransactionCreator.ts
 ---
 
 # Nghiệp vụ tài chính (Backend)
@@ -17,6 +21,23 @@ Tài liệu này ánh xạ với tri thức canonical [`finance-domain.md`](../.
 ## 1. Phạm vi và lý do tồn tại
 
 `apps/api/src/finance` là phần lõi nghiệp vụ Thu–chi và Công nợ của bot. Mọi dữ liệu luôn gắn với đúng một người dùng (lấy từ access token dashboard hoặc người gửi tin Zalo), nên không có API nào cho phép đọc hay sửa dữ liệu của người khác. Đây là module backend thuần, không có module `finance` bên web.
+
+## 1a. Sổ chung (một chủ sổ cho cả hệ thống)
+
+**Vì sao?** Gia đình/nhóm dùng chung một quỹ chi tiêu. Trước đây mỗi người nhắn bot thì giao dịch vào sổ riêng của người đó, nên khoản Diệu Hằng ghi không hiện trên dashboard của Văn Đạt. Sổ chung gom mọi thứ về một nơi.
+
+- Admin chọn **chủ sổ** ở trang "Zalo & Users" (cột `users.is_ledger_owner`, tối đa một người). Khi đã có chủ sổ, **mọi** dữ liệu tài chính (thu chi, nơi chốn, danh bạ công nợ, công nợ, thanh toán, phân bổ, danh mục) của bất kỳ ai nhắn bot hay thao tác trên dashboard đều ghi/đọc vào sổ của chủ sổ. Ai có quyền dùng bot vào dashboard cũng thấy cùng một sổ.
+- Chưa chọn chủ sổ thì hệ thống chạy như cũ (mỗi người một sổ).
+- **Không dùng chung**: nhắc nhở, Google Tasks/Calendar, upload Drive/Photos (vẫn dùng token Google của người gửi), quyền admin. Người được duyệt thẻ xác nhận (`yes <code>`, ❤️) vẫn theo quy tắc cũ.
+- Thẻ xác nhận tạo trước khi đặt chủ sổ vẫn vào sổ chung, vì lúc xác nhận hệ thống xác định lại sổ đích.
+- **Gộp dữ liệu cũ** (nút "Gộp dữ liệu cũ vào sổ chung"): xem trước số lượng theo từng sổ (kể cả ID không còn tài khoản), rồi chuyển toàn bộ vào sổ chủ trong **một transaction DB**. Trùng nơi chốn/người liên quan/danh mục thì gộp lại. **Người tạo** của từng giao dịch được ghi lại trước khi chuyển. Không xoá tài khoản nào, có ghi nhật ký kiểm toán. **Không hoàn tác được** — sao lưu DB trước (`pg_dump`).
+- Code: `LedgerService` (xác định sổ, đặt chủ sổ, xem trước, gộp), `finance-data-mover.ts` (logic chuyển dữ liệu, dùng chung với Gộp tài khoản trùng).
+
+## 1b. Người tạo và ảnh hoá đơn
+
+- Mỗi giao dịch lưu **người tạo** (`created_by_user_id`, tên lúc tạo `created_by_name`), **nguồn** (`zalo` / `dashboard`) và **kênh Zalo** (`source_chat_id`). Trên dashboard hiện tên hiện tại của người tạo và "Nhóm <tên>" / "Chat riêng" / "Dashboard". Giao dịch cũ chưa có thông tin hiện "—" (sau khi gộp sổ thì có người tạo).
+- **Ảnh hoá đơn** xem qua `GET /api/transactions/:id/receipt`: API tự tải ảnh từ Drive bằng token Google của người tạo, hoặc từ CDN Zalo, rồi trả về trình duyệt. Link Drive gốc là riêng tư nên web không dùng trực tiếp. Chỉ chấp nhận host Drive và CDN Zalo (chống SSRF), tối đa 10MB, chỉ trả về nội dung ảnh. Lỗi (token Google hết hạn, file bị xoá) → web hiện "Không tải được ảnh".
+- Lệnh xoá "giao dịch vừa tạo" qua chat ưu tiên giao dịch của chính người nhắn, không xoá nhầm của thành viên khác.
 
 ## 2. Các khái niệm chính
 
