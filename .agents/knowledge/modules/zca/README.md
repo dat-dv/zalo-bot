@@ -54,13 +54,18 @@ Shared gates, in order: (1) `getConfig(threadId, { threadType })` + `isListened`
 | Flow | Trigger | User access check | Behavior |
 |---|---|---|---|
 | Pending fast-path | `yes/cancel/edit <code>`, pending image replies | `yes`/`cancel`/reactions: collective (any member). `edit`: pending owner, bot account or granted user only; others ignored silently **before** the card is recalled/deleted (`handleCommand(..., canEdit)`) | `edit` re-issues only the tool of `pending.actionType`; non-tool action types (`create`, `delete`, `BAN_USER`…) cannot be edited (reply: cancel and recreate) |
+
+Pending fast-path input is mention-stripped first (`stripBotMentions`): cut the bot's own mention entities (`data.mentions` with `uid === api.getOwnId()`, by `pos`/`len`, trailing `, : . -` removed), then `cleanBotMention` (`@bot` aliases, `triggerPrefix`). Other members' mentions are kept. So `@Đen edit 125 …` / `@bot yes 123` reach `handleCommand` as `edit 125 …` / `yes 123` and never fall through to the LLM.
 | L3 passive media | image/video/file/voice, `mediaBackup.enabled` + type flag on | None — group storage, every member is backed up | Upload to Drive + Photos album (dedup via Redis set `zca:synced_media:<threadId>`), saves folder/album info to thread config; no OCR, no LLM |
 | L1 direct | `@bot`/bot-name regex, mention entity, `triggerPrefix`, or `enabled && !requireMention`; also an uncaptioned image in 1-1 | `InitialAdminBootstrapGuard` + `GrantAccessGuard` (replies with denial, `registerPendingUser`) + cooldown with reply; bot account bypasses | Full tool set; free chat per `allowAiChat` |
 | L2 passive text | text without trigger, `expenseTracking` and/or `calendarExtraction` on | Silent: owner bypass, else `isGrantAccess` must be true; cooldown (2s, in-memory) drops silently. Never replies, never registers pending users | LLM sees only the allowlist; empty allowlist → no LLM call; tools outside allowlist are skipped; never free chat |
 
 Image/video handling inside L1:
-- Quote-reply to an image/video with a trigger: storage instruction (`isStorageUploadInstruction`, e.g. "@bot lưu ảnh này lên drive") → Drive/Photos upload; otherwise OCR + bill upload → `TextInputService.process` (type `image`).
-- Captioned image with trigger: same split (save vs. OCR bill). Uncaptioned 1-1 image → `ImageBatchHandler` menu. Group image without trigger → only L3 backup.
+- Quote-reply to an image/video with a trigger: storage instruction (`isStorageUploadInstruction`, e.g. "@bot lưu ảnh này lên drive") → Drive/Photos upload; otherwise **mandatory OCR context** → `TextInputService.process` (type `image`) for any intent (expense, calendar, task, reminder).
+  - URL resolution (`extractQuotedImageUrl`): real Zalo photo quotes (`cliMsgType: 32`) carry the URL in the nested JSON string `quote.attach.params.hd`. Order: `params.hd` → `params.rawUrl` → `params.oriUrl` → `attach.href` → `hdUrl` → `thumb` → `url`; only `http(s)://` or `data:image/`. Unresolvable photo quote → `warn` log, falls through to plain text flow.
+  - `prepareImageOcrContext` (shared by quoted and captioned images): fetch → `OcrService.extractTextFromBuffer` → bill archive upload (`uploadBill`, Drive link replaces the CDN URL) → `buildImageOcrPrompt`. Logs `<Quoted|Direct> image in thread X -> OCR N chars`; OCR text only at DEBUG.
+  - Prompt (neutral, not bill-framed): `[Văn bản trích từ ảnh đính kèm (OCR, có thể sai chính tả):\n<ocr ≤2000 chars>]\nYêu cầu của người dùng: <instruction>`. Empty OCR → `[Ảnh đính kèm không đọc được chữ qua OCR]` marker, still forwarded. Empty instruction → `Ghi nhận hóa đơn này`.
+- Captioned image with trigger: same split (save vs. mandatory OCR context). Uncaptioned 1-1 image → `ImageBatchHandler` menu. Group image without trigger → only L3 backup.
 - Video with trigger → upload to Drive/Photos and reply with summary.
 - Every listened message is buffered (last 200, Redis `zca:buffered_msgs:<threadId>`, 7 days) as a fallback for history sync.
 
@@ -71,7 +76,7 @@ Image/video handling inside L1:
 
 ## Reactions (`onReaction`)
 
-Requires `isListened` and `confirmationRules.allowReactions`; same self rules. Extracts target `gMsgID`/`cMsgID` from `rMsg` and calls `TransactionConfirmationService.handleReaction`: ❤️ counts towards `requiredHearts` (bot posts "❤️ x/y"), 😡 cancels. Each pending card copies `requiredHearts` from the thread's saved `confirmationRules` when it is created (`ThreadConfigService.findStoredConfig`), so later config edits do not change open cards.
+Requires `isListened` and `confirmationRules.allowReactions`; same self rules. Extracts target `gMsgID`/`cMsgID` from `rMsg` and calls `TransactionConfirmationService.handleReaction`: ❤️ counts towards `requiredHearts` (bot posts "❤️ x/y"), 😡 cancels. Matching is strict: the reaction must target the pending card itself — Redis `pending:tx:msg:<msgId>` or in-memory `messageId === msgId` / `cliMsgId === cliMsgId`, same chat, not expired. No fallback to the latest pending of the chat/user (a heart on any other message, e.g. a previous success notice, is ignored with a DEBUG log). A foreign message never overwrites `pending.cliMsgId` or joins the code's recall list; `cliMsgId` is only backfilled when the card had none. Each pending card copies `requiredHearts` from the thread's saved `confirmationRules` when it is created (`ThreadConfigService.findStoredConfig`), so later config edits do not change open cards.
 
 ## Media history sync (`syncThreadMediaHistory`)
 

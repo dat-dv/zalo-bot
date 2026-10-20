@@ -24,6 +24,7 @@ import {
   type GetGroupChatHistoryResponse,
   getMessageText,
   isMentioned,
+  isGroupMessage,
 } from './shapes';
 import { fetchImageBuffer } from '../common/utils/image-fetcher.util';
 import type { AgentInput } from '../types/agent-input.type';
@@ -94,6 +95,110 @@ export function extractMediaUrl(content: unknown): string | null {
   return extractMediaMeta(content).url;
 }
 
+function parseJsonRecord(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value !== 'string' || !value.trim()) return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function asImageUrl(value: unknown): string | null {
+  return typeof value === 'string' && /^(?:https?:\/\/|data:image\/)/i.test(value) ? value : null;
+}
+
+/**
+ * Resolves the image URL of a quoted message. Real Zalo quotes of photos (`cliMsgType: 32`) carry the
+ * full-size URL inside the nested JSON string `attach.params.hd`, not at the top level.
+ */
+export function extractQuotedImageUrl(quote: unknown): string | null {
+  const quoteObj = parseJsonRecord(quote);
+  if (!quoteObj) return null;
+
+  const attach = parseJsonRecord(quoteObj.attach);
+  if (!attach) return asImageUrl(quoteObj.attach);
+
+  const params = parseJsonRecord(attach.params);
+  const candidates: unknown[] = [
+    params?.hd,
+    params?.rawUrl,
+    params?.oriUrl,
+    attach.href,
+    attach.hdUrl,
+    attach.thumb,
+    attach.url,
+  ];
+  for (const candidate of candidates) {
+    const url = asImageUrl(candidate);
+    if (url) return url;
+  }
+  return null;
+}
+
+/**
+ * Removes the bot's own mentions so pending commands match even when written as "@Đen edit 125 …".
+ * Mention entities (`uid === ownId`, `pos`/`len`) are cut first because the displayed bot name may
+ * differ from the configured `botName`; `cleanBotMention` then handles `@bot` aliases and the prefix.
+ * Mentions of other members are kept so "yes 123 @Trí" is not silently turned into a command.
+ */
+export function stripBotMentions(
+  text: string,
+  mentions: unknown,
+  ownId: string,
+  botName: string,
+  triggerPrefix?: string,
+): string {
+  let result = text;
+  if (ownId && Array.isArray(mentions)) {
+    const ranges = mentions
+      .map((m: unknown) => parseJsonRecord(m))
+      .filter(
+        (m): m is Record<string, unknown> =>
+          m !== null &&
+          m.uid === ownId &&
+          typeof m.pos === 'number' &&
+          typeof m.len === 'number' &&
+          m.pos >= 0 &&
+          m.len > 0,
+      )
+      .map((m) => ({ pos: m.pos as number, len: m.len as number }))
+      .sort((a, b) => b.pos - a.pos);
+    for (const { pos, len } of ranges) {
+      if (pos + len > result.length) continue;
+      result = `${result.slice(0, pos)} ${result.slice(pos + len).replace(/^[,:.-]+/, '')}`;
+    }
+    result = result
+      .replace(/^[\s,:.-]+/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  return cleanBotMention(result, botName, triggerPrefix);
+}
+
+const OCR_CONTEXT_MAX_CHARS = 2000;
+const DEFAULT_IMAGE_INSTRUCTION = 'Ghi nhận hóa đơn này';
+
+/** Builds a neutral LLM prompt: the image may be a bill, a menu, a poster or a schedule. */
+export function buildImageOcrPrompt(ocrText: string, instruction: string): string {
+  const request = instruction.trim() || DEFAULT_IMAGE_INSTRUCTION;
+  const trimmedOcr = ocrText.trim();
+  if (!trimmedOcr) {
+    return `[Ảnh đính kèm không đọc được chữ qua OCR]\nYêu cầu của người dùng: ${request}`;
+  }
+  const clipped =
+    trimmedOcr.length > OCR_CONTEXT_MAX_CHARS
+      ? `${trimmedOcr.slice(0, OCR_CONTEXT_MAX_CHARS)}…`
+      : trimmedOcr;
+  return `[Văn bản trích từ ảnh đính kèm (OCR, có thể sai chính tả):\n${clipped}]\nYêu cầu của người dùng: ${request}`;
+}
+
 export function getCaptionOrText(message: Message): string {
   const msgType = message.data?.msgType;
   const content = message.data?.content;
@@ -117,7 +222,8 @@ export function getCaptionOrText(message: Message): string {
     } else if (content && typeof content === 'object') {
       const obj = content as Record<string, unknown>;
       if (typeof obj.title === 'string' && obj.title.trim()) return obj.title.trim();
-      if (typeof obj.description === 'string' && obj.description.trim()) return obj.description.trim();
+      if (typeof obj.description === 'string' && obj.description.trim())
+        return obj.description.trim();
       if (typeof obj.text === 'string' && obj.text.trim()) return obj.text.trim();
       return '';
     }
@@ -149,7 +255,8 @@ export function isStorageUploadInstruction(text: string): boolean {
   // Action verbs for saving/uploading
   const hasSaveAction = /\b(?:luu|upload|up|save|backup|luu\s*tru)\b/i.test(norm);
   // Storage destinations or media types
-  const hasStorageTargetOrMedia = /\b(?:drive|google\s*drive|kho|photos?|anh|hinh|video|file|clip|tep)\b/i.test(norm);
+  const hasStorageTargetOrMedia =
+    /\b(?:drive|google\s*drive|kho|photos?|anh|hinh|video|file|clip|tep)\b/i.test(norm);
 
   return hasSaveAction && hasStorageTargetOrMedia;
 }
@@ -404,10 +511,15 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       }
       if (!this.adminBootstrapGuard) {
         try {
-          const { InitialAdminBootstrapGuard } = await import('./guards/initial-admin-bootstrap.guard');
-          this.adminBootstrapGuard = this.moduleRef.get(InitialAdminBootstrapGuard, { strict: false });
+          const { InitialAdminBootstrapGuard } =
+            await import('./guards/initial-admin-bootstrap.guard');
+          this.adminBootstrapGuard = this.moduleRef.get(InitialAdminBootstrapGuard, {
+            strict: false,
+          });
         } catch (err) {
-          this.logger.debug(`Could not resolve InitialAdminBootstrapGuard via ModuleRef: ${String(err)}`);
+          this.logger.debug(
+            `Could not resolve InitialAdminBootstrapGuard via ModuleRef: ${String(err)}`,
+          );
         }
       }
       if (!this.grantAccessGuard) {
@@ -428,10 +540,15 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       }
       if (!this.pendingImageDispatcher) {
         try {
-          const { PendingImageActionDispatcher } = await import('./pending-image/pending-image-dispatcher.service');
-          this.pendingImageDispatcher = this.moduleRef.get(PendingImageActionDispatcher, { strict: false });
+          const { PendingImageActionDispatcher } =
+            await import('./pending-image/pending-image-dispatcher.service');
+          this.pendingImageDispatcher = this.moduleRef.get(PendingImageActionDispatcher, {
+            strict: false,
+          });
         } catch (err) {
-          this.logger.debug(`Could not resolve PendingImageActionDispatcher via ModuleRef: ${String(err)}`);
+          this.logger.debug(
+            `Could not resolve PendingImageActionDispatcher via ModuleRef: ${String(err)}`,
+          );
         }
       }
       if (!this.imageBatchHandler) {
@@ -511,6 +628,61 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     }
 
     return true;
+  }
+
+  /**
+   * Fetches an image, always runs OCR on it and builds the LLM prompt with the extracted text as
+   * context. The image is also archived as a bill so the receipt link survives Zalo CDN expiry.
+   */
+  private async prepareImageOcrContext(params: {
+    mediaUrl: string;
+    senderId: string;
+    threadId: string;
+    cleanedText: string;
+    source: 'quoted' | 'direct';
+  }): Promise<{ promptText: string; receiptUrl: string }> {
+    const { mediaUrl, senderId, threadId, cleanedText, source } = params;
+    let receiptUrl = mediaUrl;
+    let ocrText = '';
+
+    try {
+      const buffer = await fetchImageBuffer(mediaUrl);
+      if (this.ocrService) {
+        ocrText = await this.ocrService.extractTextFromBuffer(buffer);
+      } else {
+        this.logger.warn(
+          `[ZcaBotFeature] OcrService unavailable; ${source} image sent without OCR context.`,
+        );
+      }
+      if (this.mediaStorageService) {
+        try {
+          const uploadRes = await this.mediaStorageService.uploadBill(senderId, buffer, {
+            note: cleanedText,
+            channelId: threadId,
+          });
+          if (uploadRes.drive?.webViewLink) {
+            receiptUrl = uploadRes.drive.webViewLink;
+          }
+        } catch (upErr) {
+          this.logger.warn(
+            `[ZcaBotFeature] Failed to upload ${source} image: ${formatErrorMessage(upErr)}`,
+          );
+        }
+      }
+    } catch (err) {
+      this.logger.warn(
+        `[ZcaBotFeature] Failed to fetch/OCR ${source} image: ${formatErrorMessage(err)}`,
+      );
+    }
+
+    this.logger.log(
+      `[ZcaBotFeature] ${source === 'quoted' ? 'Quoted' : 'Direct'} image in thread ${threadId} -> OCR ${ocrText.length} chars`,
+    );
+    if (ocrText) {
+      this.logger.debug(`[ZcaBotFeature] OCR text (${source}): ${ocrText}`);
+    }
+
+    return { promptText: buildImageOcrPrompt(ocrText, cleanedText), receiptUrl };
   }
 
   private async handleDirectMediaStorageUpload(params: {
@@ -631,6 +803,15 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     return true;
   }
 
+  private resolveBotName(): string {
+    return (
+      this.configService?.get<string>('zalo.botName') ||
+      process.env.BOT_NAME ||
+      process.env.ZALO_BOT_NAME ||
+      'Bot'
+    );
+  }
+
   private isOwnerSender(message: Message, api: API): boolean {
     const ownId = typeof api?.getOwnId === 'function' ? api.getOwnId() : '';
     const senderId = message.data?.uidFrom || '';
@@ -701,10 +882,17 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
 
     // 1. Fast-path: Check if user is confirming or canceling a pending action via text command ("yes 123", "cancel 123", "edit 123 ...")
     if (text && this.confirmationService) {
+      const commandText = stripBotMentions(
+        text,
+        isGroupMessage(message) ? message.data.mentions : undefined,
+        typeof api?.getOwnId === 'function' ? api.getOwnId() : '',
+        this.resolveBotName(),
+        directConfig.triggerPrefix,
+      );
       const handled = await this.confirmationService.handleCommand(
         senderId,
         threadId,
-        text,
+        commandText,
         this.textInputService
           ? async (pending, instruction) => {
               const agentInput: AgentInput = {
@@ -712,7 +900,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
                 senderId,
                 chatId: threadId,
                 displayName,
-                text,
+                text: commandText,
                 isBot: false,
               };
               await this.textInputService.handleEditPendingAction(agentInput, pending, instruction);
@@ -773,7 +961,9 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
           `[ZcaBotFeature] Media với msgId "${msgId}" đã được sao lưu trước đó, bỏ qua backup để tránh trùng lặp.`,
         );
       } else {
-        const { url: mediaUrl, filename: originalFilename } = extractMediaMeta(message.data?.content);
+        const { url: mediaUrl, filename: originalFilename } = extractMediaMeta(
+          message.data?.content,
+        );
         if (mediaUrl && this.mediaStorageService) {
           try {
             const mediaLabel = isImage
@@ -818,7 +1008,11 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
                 uploadOptions,
               );
             } else {
-              dualResult = await this.mediaStorageService.uploadFile(senderId, buffer, uploadOptions);
+              dualResult = await this.mediaStorageService.uploadFile(
+                senderId,
+                buffer,
+                uploadOptions,
+              );
             }
 
             if (dualResult.drive?.fileId && msgId) {
@@ -871,11 +1065,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
 
     // 4. Resolve Direct Trigger vs Passive Tracking
     const ownId = (api as unknown as { getOwnId?: () => string })?.getOwnId?.() || '';
-    const botName =
-      this.configService?.get<string>('zalo.botName') ||
-      process.env.BOT_NAME ||
-      process.env.ZALO_BOT_NAME ||
-      'Bot';
+    const botName = this.resolveBotName();
     const cleanBotName = (botName || 'Bot').replace(/^@/, '').trim();
     const botNames = [cleanBotName, 'Bot Finance Assistant', 'Finance Assistant', 'Bot', 'bot'];
     const botNamePattern = Array.from(new Set(botNames.filter(Boolean)))
@@ -918,15 +1108,14 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
 
     // 5. Quoted Image Handling (Quote-replying to an image with @bot instruction)
     const quoteData = (message.data as Record<string, unknown> | undefined)?.quote as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const quotedMediaUrl =
-      extractMediaMeta(quoteData?.attach).url ||
-      extractMediaMeta(quoteData?.msg).url ||
-      (typeof quoteData?.attach === 'string' &&
-      (quoteData.attach.startsWith('http://') || quoteData.attach.startsWith('https://'))
-        ? quoteData.attach
-        : null);
+      extractQuotedImageUrl(quoteData) || extractMediaMeta(quoteData?.msg).url || null;
+    if (quoteData && !quotedMediaUrl && quoteData.cliMsgType === 32) {
+      this.logger.warn(
+        `[ZcaBotFeature] Quoted photo in thread ${threadId} has no resolvable image URL; OCR context skipped.`,
+      );
+    }
 
     if (quotedMediaUrl && isDirectTriggered) {
       const allowed = await this.checkDirectGuardsAndCooldown(
@@ -960,35 +1149,14 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         return;
       }
 
-      // 5b. Default: OCR Bill & pass to TextInputService for AI tool execution
-      let activeReceiptUrl = quotedMediaUrl;
-      let ocrText = '';
-
-      try {
-        const buffer = await fetchImageBuffer(quotedMediaUrl);
-        if (this.ocrService) {
-          ocrText = await this.ocrService.extractTextFromBuffer(buffer);
-        }
-        if (this.mediaStorageService) {
-          try {
-            const uploadRes = await this.mediaStorageService.uploadBill(senderId, buffer, {
-              note: cleanedText,
-              channelId: threadId,
-            });
-            if (uploadRes.drive?.webViewLink) {
-              activeReceiptUrl = uploadRes.drive.webViewLink;
-            }
-          } catch (upErr) {
-            this.logger.warn(`[ZcaBotFeature] Failed to upload quoted bill: ${String(upErr)}`);
-          }
-        }
-      } catch (err) {
-        this.logger.warn(`[ZcaBotFeature] Failed to fetch/OCR quoted image: ${String(err)}`);
-      }
-
-      const promptText = ocrText
-        ? `[Nội dung bóc tách từ ảnh hóa đơn qua OCR:\n${ocrText}]\nLời dặn người dùng: ${cleanedText || 'Ghi nhận hóa đơn này'}`
-        : cleanedText || 'Ghi nhận hóa đơn này';
+      // 5b. Default: mandatory OCR of the quoted image as LLM context, then AI tool execution
+      const { promptText, receiptUrl: activeReceiptUrl } = await this.prepareImageOcrContext({
+        mediaUrl: quotedMediaUrl,
+        senderId,
+        threadId,
+        cleanedText,
+        source: 'quoted',
+      });
 
       if (this.textInputService) {
         await this.textInputService.process({
@@ -1068,35 +1236,14 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
           return;
         }
 
-        // 6b. Default direct image with caption -> OCR Bill -> TextInputService
-        let activeReceiptUrl = mediaUrl;
-        let ocrText = '';
-
-        try {
-          const buffer = await fetchImageBuffer(mediaUrl);
-          if (this.ocrService) {
-            ocrText = await this.ocrService.extractTextFromBuffer(buffer);
-          }
-          if (this.mediaStorageService) {
-            try {
-              const uploadRes = await this.mediaStorageService.uploadBill(senderId, buffer, {
-                note: cleanedText,
-                channelId: threadId,
-              });
-              if (uploadRes.drive?.webViewLink) {
-                activeReceiptUrl = uploadRes.drive.webViewLink;
-              }
-            } catch (upErr) {
-              this.logger.warn(`[ZcaBotFeature] Failed to upload bill: ${String(upErr)}`);
-            }
-          }
-        } catch (err) {
-          this.logger.warn(`[ZcaBotFeature] Failed to fetch/OCR image: ${String(err)}`);
-        }
-
-        const promptText = ocrText
-          ? `[Nội dung bóc tách từ ảnh hóa đơn qua OCR:\n${ocrText}]\nLời dặn người dùng: ${cleanedText || 'Ghi nhận hóa đơn này'}`
-          : cleanedText || 'Ghi nhận hóa đơn này';
+        // 6b. Default direct image with caption -> mandatory OCR context -> TextInputService
+        const { promptText, receiptUrl: activeReceiptUrl } = await this.prepareImageOcrContext({
+          mediaUrl,
+          senderId,
+          threadId,
+          cleanedText,
+          source: 'direct',
+        });
 
         if (this.textInputService) {
           await this.textInputService.process({

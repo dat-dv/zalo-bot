@@ -774,6 +774,86 @@ void test('TransactionConfirmationService cancels pending action via ANGRY react
   service.clearAll();
 });
 
+void test('TransactionConfirmationService ignores reactions on messages other than the pending card', async () => {
+  const { service, createdTransactions, sentMessages } = createTestContext();
+
+  const pending = await service.createPendingAction({
+    userId: 'u1',
+    chatId: 'c1',
+    actionType: 'RECORD_TRANSACTION',
+    title: 'lưu khoản chi',
+    payload: { userId: 'u1', type: 'expense', amount: 70000, category: 'Ăn uống', note: 'Trưa' },
+    descriptor: FINANCE_TRANSACTION_DESCRIPTOR,
+    messageId: 'card-125',
+  });
+  await service.setMessageId(pending.code, 'card-125', 'cli-card-125');
+  const sentBefore = sentMessages.length;
+
+  const heart = await service.handleReaction({
+    chatId: 'c1',
+    userId: 'u1',
+    reactionIcon: '/-heart',
+    msgId: 'success-notice-783',
+    cliMsgId: 'cli-success-783',
+  });
+  const angry = await service.handleReaction({
+    chatId: 'c1',
+    userId: 'u1',
+    reactionIcon: ':-h',
+    msgId: 'success-notice-783',
+  });
+  const noTarget = await service.handleReaction({
+    chatId: 'c1',
+    userId: 'u1',
+    reactionIcon: '/-heart',
+  });
+
+  assert.equal(heart.handled, false);
+  assert.equal(angry.handled, false);
+  assert.equal(noTarget.handled, false);
+  assert.equal(createdTransactions.length, 0);
+  assert.equal(sentMessages.length, sentBefore);
+  const still = await service.getPendingByCode(pending.code);
+  assert.ok(still, 'pending must stay open');
+  assert.equal(
+    still.cliMsgId,
+    'cli-card-125',
+    'cliMsgId must not be overwritten by a foreign message',
+  );
+
+  service.clearAll();
+});
+
+void test('TransactionConfirmationService matches a reaction on the card by cliMsgId', async () => {
+  const { service, createdTransactions } = createTestContext();
+
+  const pending = await service.createPendingAction({
+    userId: 'u1',
+    chatId: 'c1',
+    actionType: 'RECORD_TRANSACTION',
+    title: 'lưu khoản chi',
+    payload: { userId: 'u1', type: 'expense', amount: 30000, category: 'Đi lại', note: 'Grab' },
+    descriptor: FINANCE_TRANSACTION_DESCRIPTOR,
+    messageId: 'card-200',
+  });
+  await service.setMessageId(pending.code, 'card-200', 'cli-card-200');
+
+  const res = await service.handleReaction({
+    chatId: 'c1',
+    userId: 'u1',
+    reactionIcon: '/-heart',
+    msgId: 'global-id-unknown',
+    cliMsgId: 'cli-card-200',
+  });
+
+  assert.equal(res.handled, true);
+  assert.equal(res.status, 'confirmed');
+  assert.equal(res.code, pending.code);
+  assert.equal(createdTransactions.length, 1);
+
+  service.clearAll();
+});
+
 void test('TransactionConfirmationService confirms pending action via HEART reactions threshold', async () => {
   const { service, createdTransactions } = createTestContext();
 

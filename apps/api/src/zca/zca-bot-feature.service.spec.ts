@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ZcaBotFeatureService, extractMediaUrl, isStorageUploadInstruction } from './zca-bot-feature.service';
+import {
+  ZcaBotFeatureService,
+  buildImageOcrPrompt,
+  extractMediaUrl,
+  extractQuotedImageUrl,
+  isStorageUploadInstruction,
+  stripBotMentions,
+} from './zca-bot-feature.service';
 import { ThreadConfigService } from './thread-config.service';
 import { ThreadType, type API, type Message, type Reaction } from './shapes';
 import type { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
@@ -357,6 +364,99 @@ void test('ZcaBotFeatureService processes @bot mention in listened group even if
     'Message should have been processed because user explicitly called @Bot in listened group',
   );
   assert.equal(processedInput.text, '@Bot xin chào bạn');
+});
+
+void test('stripBotMentions removes only the bot mention entity, then @bot aliases', () => {
+  const botMention = [{ uid: 'bot-uid', pos: 0, len: 4, type: 0 }];
+  assert.equal(
+    stripBotMentions('@Đen edit 125 quán steak', botMention, 'bot-uid', 'Bot'),
+    'edit 125 quán steak',
+  );
+  assert.equal(stripBotMentions('@bot yes 123', undefined, 'bot-uid', 'Bot'), 'yes 123');
+  assert.equal(
+    stripBotMentions('yes 123 @Trí', [{ uid: 'tri-uid', pos: 8, len: 4 }], 'bot-uid', 'Bot'),
+    'yes 123 @Trí',
+  );
+  assert.equal(
+    stripBotMentions(
+      '@Trí @Đen, cancel 456',
+      [
+        { uid: 'tri-uid', pos: 0, len: 4 },
+        { uid: 'bot-uid', pos: 5, len: 4 },
+      ],
+      'bot-uid',
+      'Bot',
+    ),
+    '@Trí cancel 456',
+  );
+  // Out-of-range entities are ignored instead of corrupting the text.
+  assert.equal(
+    stripBotMentions('yes 1', [{ uid: 'bot-uid', pos: 3, len: 10 }], 'bot-uid', 'Bot'),
+    'yes 1',
+  );
+});
+
+void test('ZcaBotFeatureService strips leading bot mention before pending commands ("@Đen edit 125 …")', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-edit-mention-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    directInteraction: { enabled: true, requireMention: true, allowAiChat: true },
+  });
+
+  const commandTexts: string[] = [];
+  let onEditText = '';
+  let llmCalled = false;
+  const mockConfirmationService = {
+    handleReaction: () => Promise.resolve({ handled: false }),
+    handleCommand: async (
+      _senderId: string,
+      _chatId: string,
+      text: string,
+      onEdit?: (pending: unknown, instruction: string) => Promise<void>,
+    ) => {
+      commandTexts.push(text);
+      if (onEdit && text.startsWith('edit 125')) {
+        await onEdit({ code: '125' }, 'quán steak bin & pizza');
+        return true;
+      }
+      return false;
+    },
+  } as unknown as TransactionConfirmationService;
+
+  const service = new ZcaBotFeatureService(configService, mockConfirmationService);
+  service.setTextInputService({
+    handleEditPendingAction: (input: AgentInput) => {
+      onEditText = input.text || '';
+      return Promise.resolve();
+    },
+    process: () => {
+      llmCalled = true;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService);
+
+  const api = { getOwnId: () => 'bot-uid' } as unknown as API;
+  await service.onMessage(
+    {
+      threadId,
+      isSelf: false,
+      type: ThreadType.Group,
+      data: {
+        content: '@Đen edit 125 quán steak bin & pizza',
+        uidFrom: 'u-1',
+        dName: 'Văn Đạt',
+        msgType: 'webchat',
+        mentions: [{ uid: 'bot-uid', pos: 0, len: 4, type: 0 }],
+      },
+    } as unknown as Message,
+    api,
+  );
+
+  assert.deepEqual(commandTexts, ['edit 125 quán steak bin & pizza']);
+  assert.equal(onEditText, 'edit 125 quán steak bin & pizza');
+  assert.equal(llmCalled, false, 'edit command must not fall through to the LLM');
 });
 
 void test('ZcaBotFeatureService passes onEdit handler to confirmationService.handleCommand', async () => {
@@ -1027,6 +1127,142 @@ void test('ZcaBotFeatureService handles quote-reply to an image with @bot and ru
   assert.match(processedInput.text || '', /thanh toán hóa đơn này nhé/);
 });
 
+// Mirrors the real Zalo quote payload of a photo (cliMsgType 32): the URL lives in nested `params.hd`.
+function buildRealPhotoQuote(hdUrl: string): Record<string, unknown> {
+  return {
+    ownerId: '2099328425338516056',
+    cliMsgType: 32,
+    msg: '',
+    attach: JSON.stringify({
+      title: '',
+      description: '',
+      childnumber: 0,
+      action: '',
+      params: JSON.stringify({ width: 1408, convertible: 'jxl', hd: hdUrl, height: 768 }),
+    }),
+  };
+}
+
+void test('extractQuotedImageUrl reads nested params.hd of real Zalo photo quotes', () => {
+  const hd = 'https://photo-stal-11.zdn.vn/gr/jpg/abc/photo.jpg';
+  assert.equal(extractQuotedImageUrl(buildRealPhotoQuote(hd)), hd);
+  assert.equal(
+    extractQuotedImageUrl({ attach: JSON.stringify({ href: 'https://cdn.example.com/a.jpg' }) }),
+    'https://cdn.example.com/a.jpg',
+  );
+  assert.equal(
+    extractQuotedImageUrl({ attach: 'https://cdn.example.com/raw.jpg' }),
+    'https://cdn.example.com/raw.jpg',
+  );
+  assert.equal(extractQuotedImageUrl({ attach: '{"title":"","params":"not-json"}' }), null);
+  assert.equal(extractQuotedImageUrl({ msg: 'hello' }), null);
+  assert.equal(extractQuotedImageUrl(undefined), null);
+});
+
+void test('buildImageOcrPrompt uses neutral framing, clips long OCR and flags unreadable images', () => {
+  const prompt = buildImageOcrPrompt(
+    'STEAK BIN & PIZZA\n125 Lãnh Binh Thăng',
+    'tạo lịch hẹn chiều nay',
+  );
+  assert.match(prompt, /OCR/);
+  assert.match(prompt, /125 Lãnh Binh Thăng/);
+  assert.match(prompt, /Yêu cầu của người dùng: tạo lịch hẹn chiều nay/);
+  assert.doesNotMatch(prompt, /hóa đơn/);
+
+  assert.match(buildImageOcrPrompt('', 'tạo lịch'), /không đọc được chữ/);
+  assert.match(buildImageOcrPrompt('', ''), /Ghi nhận hóa đơn này/);
+  assert.ok(buildImageOcrPrompt('x'.repeat(5000), 'a').length < 2200);
+});
+
+void test('ZcaBotFeatureService runs OCR on a real-shaped quoted photo and feeds it to the LLM', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-real-quote-ocr-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    directInteraction: { enabled: true, requireMention: true, allowAiChat: true },
+  });
+
+  let processedInput: AgentInput | null = null;
+  let ocrCalls = 0;
+  const service = new ZcaBotFeatureService(configService);
+  service.setTextInputService({
+    process: (input: AgentInput) => {
+      processedInput = input;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService);
+  service.setOcrService({
+    extractTextFromBuffer: () => {
+      ocrCalls += 1;
+      return Promise.resolve('STEAK BIN & PIZZA\n125 Lãnh Binh Thăng, Q11\n18:00');
+    },
+  } as unknown as import('../ocr/ocr.service').OcrService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.Group,
+    data: {
+      content: '@bot tạo lịch hẹn chiều nay cho a',
+      uidFrom: 'u-real-quote',
+      dName: 'Văn Đạt',
+      msgType: 'webchat',
+      quote: buildRealPhotoQuote('data:image/jpeg;base64,dGVzdA=='),
+    },
+  } as unknown as Message;
+
+  await service.onMessage(message, {} as unknown as API);
+
+  assert.equal(ocrCalls, 1, 'OCR must run for quoted photos');
+  assert.ok(processedInput, 'TextInputService should receive the OCR-enriched prompt');
+  assert.equal(processedInput.type, 'image');
+  assert.match(processedInput.text || '', /125 Lãnh Binh Thăng/);
+  assert.match(processedInput.text || '', /tạo lịch hẹn chiều nay/);
+});
+
+void test('ZcaBotFeatureService still forwards a quoted photo when OCR finds no text', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-real-quote-empty-ocr';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    directInteraction: { enabled: true, requireMention: true, allowAiChat: true },
+  });
+
+  let processedInput: AgentInput | null = null;
+  const service = new ZcaBotFeatureService(configService);
+  service.setTextInputService({
+    process: (input: AgentInput) => {
+      processedInput = input;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService);
+  service.setOcrService({
+    extractTextFromBuffer: () => Promise.resolve(''),
+  } as unknown as import('../ocr/ocr.service').OcrService);
+
+  await service.onMessage(
+    {
+      threadId,
+      isSelf: false,
+      type: ThreadType.Group,
+      data: {
+        content: '@bot tạo lịch từ ảnh này',
+        uidFrom: 'u-real-quote-2',
+        dName: 'Văn Đạt',
+        msgType: 'webchat',
+        quote: buildRealPhotoQuote('data:image/jpeg;base64,dGVzdA=='),
+      },
+    } as unknown as Message,
+    {} as unknown as API,
+  );
+
+  assert.ok(processedInput);
+  assert.match(processedInput.text || '', /không đọc được chữ/);
+  assert.match(processedInput.text || '', /tạo lịch từ ảnh này/);
+});
+
 void test('isStorageUploadInstruction detects storage upload intents and distinguishes from bills', () => {
   assert.equal(isStorageUploadInstruction('lưu ảnh này lên drive'), true);
   assert.equal(isStorageUploadInstruction('lưu ảnh này lên drive nhé'), true);
@@ -1077,8 +1313,15 @@ void test('ZcaBotFeatureService handles quote-reply to an image with @bot lưu �
     uploadImage: async () => {
       uploadImageCalled = true;
       return {
-        drive: { fileId: 'img-file-1', webViewLink: 'https://drive.google.com/img-file-1', folderPath: 'zalobot/img' },
-        photos: { albumTitle: '[Zalo] Nhóm group-quote-drive-test', productUrl: 'https://photos.google.com/album-1' },
+        drive: {
+          fileId: 'img-file-1',
+          webViewLink: 'https://drive.google.com/img-file-1',
+          folderPath: 'zalobot/img',
+        },
+        photos: {
+          albumTitle: '[Zalo] Nhóm group-quote-drive-test',
+          productUrl: 'https://photos.google.com/album-1',
+        },
       };
     },
     uploadBill: async () => {
@@ -1300,8 +1543,16 @@ void test('ZcaBotFeatureService in group without @bot does silent backup only an
   await service.onMessage(message, {} as unknown as API);
 
   assert.equal(imageUploaded, true, 'Image should be backed up silently');
-  assert.equal(textInputCalled, false, 'TextInputService should not be called for casual group image');
-  assert.equal(batchHandlerCalled, false, 'ImageBatchHandler must not be called in group to avoid spam');
+  assert.equal(
+    textInputCalled,
+    false,
+    'TextInputService should not be called for casual group image',
+  );
+  assert.equal(
+    batchHandlerCalled,
+    false,
+    'ImageBatchHandler must not be called in group to avoid spam',
+  );
 });
 
 void test('ZcaBotFeatureService handles direct video upload when tagged @bot', async () => {
@@ -1508,10 +1759,12 @@ void test('ZcaBotFeatureService dispatches pending image selections ("1", "2", "
   await service.onMessage(message, {} as unknown as API);
 
   assert.equal(dispatchedText, '1 Ăn trưa Highlands');
-  assert.equal(textInputCalled, false, 'TextInputService should not be called when pending dispatcher handles it');
+  assert.equal(
+    textInputCalled,
+    false,
+    'TextInputService should not be called when pending dispatcher handles it',
+  );
 });
-
-
 
 async function createPassiveGroupScenario(options: {
   threadId: string;

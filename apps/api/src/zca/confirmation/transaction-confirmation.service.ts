@@ -581,41 +581,34 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     requiredHearts?: number;
     code?: string;
   }> {
+    // Only a reaction placed on the pending card itself counts. Falling back to "latest pending in
+    // the chat" let a heart on any message (e.g. a previous success notice) approve another request.
     let pending: PendingAction | undefined;
 
-    if (params.msgId) {
-      if (this.redisService) {
-        const code = await this.redisService.get(`pending:tx:msg:${params.msgId}`);
-        if (code) {
-          pending = await this.getPendingByCode(code);
-        }
-      }
-      if (!pending) {
-        pending = Array.from(this.pendingMap.values()).find(
-          (p) => p.chatId === params.chatId && p.messageId === params.msgId,
-        );
+    if (params.msgId && this.redisService) {
+      const code = await this.redisService.get(`pending:tx:msg:${params.msgId}`);
+      if (code) {
+        pending = await this.getPendingByCode(code);
       }
     }
-
-    if (!pending) {
-      // Fallback 1: pending gần nhất trong chatId từ memory
-      const list = Array.from(this.pendingMap.values()).filter((p) => p.chatId === params.chatId);
-      pending = list[list.length - 1];
+    if (!pending && (params.msgId || params.cliMsgId)) {
+      pending = Array.from(this.pendingMap.values()).find(
+        (p) =>
+          p.chatId === params.chatId &&
+          ((params.msgId !== undefined && p.messageId === params.msgId) ||
+            (params.cliMsgId !== undefined && p.cliMsgId === params.cliMsgId)),
+      );
     }
 
-    if (!pending && this.redisService) {
-      // Fallback 2: pending gần nhất của user từ Redis nếu memory trống
-      const userPending = await this.getPendingForUser(params.userId);
-      if (userPending && userPending.chatId === params.chatId) {
-        pending = userPending;
-      }
-    }
-
-    if (!pending) {
+    if (!pending || pending.chatId !== params.chatId || pending.expiresAt <= Date.now()) {
+      this.logger.debug(
+        `Reaction on non-pending message ignored (chat=${params.chatId}, msgId=${params.msgId || ''}, cliMsgId=${params.cliMsgId || ''})`,
+      );
       return { handled: false };
     }
 
-    if (params.cliMsgId && pending.cliMsgId !== params.cliMsgId) {
+    // Cards sent through an API that returns no cliMsgId learn it from the first matching reaction.
+    if (params.cliMsgId && !pending.cliMsgId) {
       pending.cliMsgId = params.cliMsgId;
       this.pendingMap.set(pending.code, pending);
       if (this.redisService) {

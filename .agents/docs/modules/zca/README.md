@@ -84,13 +84,18 @@ Sau đó tin nhắn rơi vào một trong các luồng:
 | Luồng | Khi nào | Kiểm tra quyền user | Bot làm gì |
 |---|---|---|---|
 | **Thao tác chờ duyệt** | `yes/cancel/edit <mã>`, trả lời ảnh đang chờ | `yes`/`cancel`/thả tim: xác nhận tập thể, ai trong nhóm cũng được. `edit`: chỉ chủ yêu cầu, tài khoản bot hoặc user đã cấp quyền | `edit` chỉ được gọi lại đúng loại thao tác cũ |
+
+**Lệnh chờ duyệt có tag bot**: người dùng trong nhóm hay gõ kèm tag, ví dụ `@Đen edit 125 …` hoặc `@bot yes 123`. Trước khi khớp lệnh, hệ thống gỡ tag **của bot**. Cách gỡ ưu tiên dựa trên dữ liệu mention Zalo gửi kèm (uid bot, vị trí, độ dài), vì tên hiển thị của bot trong nhóm ("Đen") có thể khác `botName` cấu hình; sau đó mới gỡ các bí danh `@bot`. Tag người khác được giữ nguyên để tin thường không bị hiểu nhầm thành lệnh. Trước đây tag đứng đầu làm lệnh `edit` không khớp, nên bot coi cả câu là yêu cầu mới và tạo thêm một thẻ chờ (ví dụ sự kiện có tiêu đề "Edit 125 …").
 | **L3 – Media thụ động** | Ảnh/video/file/voice, thread bật `mediaBackup` và bật loại tương ứng | Không kiểm tra — kho Drive là của cả nhóm | Sao lưu lên Drive và album Photos của nhóm, chống trùng bằng Redis `zca:synced_media:<threadId>`; không OCR, không gọi AI |
 | **L1 – Gọi trực tiếp** | Có `@bot`/tên bot, mention, tiền tố, hoặc thread bật tương tác và tắt `requireMention`; ảnh không chú thích trong chat 1-1 | Đầy đủ: bootstrap admin, `GrantAccessGuard` (báo từ chối, ghi nhận user chờ duyệt), cooldown có thông báo; tài khoản bot được miễn | Dùng toàn bộ tool, trò chuyện tự do theo `allowAiChat` |
 | **L2 – Văn bản thụ động** | Tin nhắn chữ không kích hoạt bot, thread bật `expenseTracking` và/hoặc `calendarExtraction` | **Im lặng**: chỉ user đã được cấp quyền (hoặc tài khoản bot); không gửi tin từ chối, không ghi nhận user chờ duyệt | AI chỉ thấy tool trong danh sách cho phép; không có tool nào bật thì không gọi AI; không bao giờ trò chuyện tự do |
 
 **Ảnh và video ở L1**:
-- **Trả lời trích dẫn (quote) một ảnh/video kèm `@bot`**: nếu câu lệnh là yêu cầu lưu (ví dụ "@bot lưu ảnh này lên drive") thì tải lên Drive/Photos; nếu không thì OCR ảnh như hoá đơn rồi chuyển cho AI.
-- **Gửi ảnh kèm chú thích có `@bot`**: tách y như trên (lưu hoặc đọc hoá đơn).
+- **Trả lời trích dẫn (quote) một ảnh/video kèm `@bot`**: nếu câu lệnh là yêu cầu lưu (ví dụ "@bot lưu ảnh này lên drive") thì tải lên Drive/Photos; nếu không thì **bắt buộc OCR ảnh** để làm ngữ cảnh rồi mới chuyển cho AI. Ví dụ quote ảnh thực đơn quán rồi gõ "@bot tạo lịch hẹn chiều nay" → AI đọc được tên quán, địa chỉ trong ảnh để điền vào sự kiện.
+  - **Vì sao cần lấy URL kỹ**: với ảnh được quote, Zalo không để link ảnh ở cấp ngoài mà nhét trong chuỗi JSON lồng `attach.params.hd`. Trước đây hệ thống chỉ đọc `href` nên bỏ sót ảnh, tin nhắn rơi về luồng text thường và AI tạo sự kiện trống thông tin. Nay `extractQuotedImageUrl` đọc `params.hd` trước, rồi mới tới `href`, `thumb`…; nếu vẫn không thấy link thì log `warn` để dễ truy vết.
+  - **Prompt trung tính**: văn bản OCR được gửi kèm nhãn "có thể sai chính tả", không còn gọi là "hoá đơn", nên AI tự chọn tool phù hợp (thu chi, lịch, task, nhắc việc). OCR cắt tối đa 2.000 ký tự. Nếu OCR không đọc được chữ, bot vẫn gửi yêu cầu kèm ghi chú "ảnh không đọc được chữ". Nếu người dùng chỉ tag bot mà không dặn gì, mặc định là "Ghi nhận hóa đơn này".
+  - **Kiểm tra log**: mỗi lần chạy có dòng `Quoted image in thread … -> OCR N chars`. Nội dung OCR chỉ in ở mức DEBUG để tránh lộ dữ liệu.
+- **Gửi ảnh kèm chú thích có `@bot`**: tách y như trên (lưu, hoặc OCR bắt buộc làm ngữ cảnh). Hai luồng dùng chung `prepareImageOcrContext`; ảnh vẫn được lưu vào Drive như bill để link không chết khi CDN Zalo hết hạn.
 - **Ảnh không chú thích trong chat 1-1**: hiện menu ảnh chờ (mục 1).
 - **Ảnh trong nhóm không tag bot**: chỉ sao lưu L3 nếu được bật.
 - **Video có `@bot`**: tải lên Drive/Photos và trả lời tóm tắt.
@@ -130,7 +135,7 @@ Sau đó tin nhắn rơi vào một trong các luồng:
 
 ## 1c. Thả Tim / Phẫn Nộ & Sao Lưu Media Lịch Sử
 
-- **Reaction** chỉ được xử lý khi kênh đang lắng nghe **và** bật `allowReactions`. Bot đọc `gMsgID`/`cMsgID` từ `rMsg` để biết reaction thuộc thẻ chờ nào. ❤️ cộng dồn tới `requiredHearts` (bot báo "❤️ x/y"), 😡 huỷ thao tác. Mỗi thẻ chờ chép `requiredHearts` từ cấu hình kênh lúc tạo thẻ, nên đổi cấu hình sau đó không ảnh hưởng thẻ đang mở.
+- **Reaction** chỉ được xử lý khi kênh đang lắng nghe **và** bật `allowReactions`. Bot đọc `gMsgID`/`cMsgID` từ `rMsg` để biết reaction thuộc thẻ chờ nào. ❤️ cộng dồn tới `requiredHearts` (bot báo "❤️ x/y"), 😡 huỷ thao tác. **Chỉ reaction đặt đúng lên thẻ chờ mới được tính** (khớp `msgId` hoặc `cliMsgId` của thẻ, cùng kênh, còn hạn). Trước đây nếu không khớp, hệ thống lấy luôn thẻ chờ gần nhất của nhóm/người dùng. Hậu quả là thả tim vào một tin bất kỳ (ví dụ tin "🎉 đã xác nhận" của yêu cầu trước) lại duyệt nhầm một yêu cầu khác, rồi còn thu hồi luôn tin vừa được thả tim. Trong nhóm đông người, điều này cho phép duyệt hoặc huỷ giao dịch ngoài ý muốn, nên cơ chế fallback đã bị bỏ. Mỗi thẻ chờ chép `requiredHearts` từ cấu hình kênh lúc tạo thẻ, nên đổi cấu hình sau đó không ảnh hưởng thẻ đang mở.
 - **Sao lưu media lịch sử** (`POST /api/zca/threads/:threadId/sync-media`, mở từ nút Sao lưu → `SyncMediaModal`):
   - Chọn khoảng thời gian (`1_month`, `2_months`, `3_months`, `6_months`, `all`) và loại media (ảnh, video, file, âm thanh). Tối đa 500 tin mỗi lần.
   - Chỉ hỗ trợ **nhóm**; chat 1-1 trả về thông báo và số đếm 0. ZCA phải đang đăng nhập.
