@@ -16,6 +16,7 @@ import type { ZaloService } from '../zalo/zalo.service';
 import { ThreadConfigService, hasLegacyGroupPrefix } from './thread-config.service';
 import { ZcaBotFeatureService } from './zca-bot-feature.service';
 import { RedisService } from '../redis/redis.service';
+import { ChatMemoryService } from './memory/chat-memory.service';
 import {
   Zalo,
   type API,
@@ -176,6 +177,8 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     private readonly threadConfigService?: ThreadConfigService,
     @Optional()
     private readonly redisService?: RedisService,
+    @Optional()
+    private readonly chatMemoryService?: ChatMemoryService,
   ) {
     const configuredDataDir =
       this.moduleOptions?.dataDir ??
@@ -639,7 +642,16 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       }
       const response = await originalSendMessage(message, threadId, resolvedType);
       if (response?.message?.msgId) {
-        this.trackBotMsgId(String(response.message.msgId));
+        const msgId = String(response.message.msgId);
+        this.trackBotMsgId(msgId);
+        if (text && this.listenedThreadIds.has(threadId)) {
+          void this.chatMemoryService?.recordBotReply(
+            threadId,
+            resolvedType === ThreadType.Group ? 'group' : 'user',
+            msgId,
+            text,
+          );
+        }
       }
       return response;
     };
@@ -1397,7 +1409,8 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
           `  • Listened: ${isListened ? 'Có' : 'Không (Bỏ qua do không nằm trong danh sách lắng nghe)'}`,
       );
 
-      this.logger.log(`📦 [ZCA on('message') RAW PAYLOAD]:\n${safeStringify(message)}`);
+      // Full payloads hold private chat content: only at debug level.
+      this.logger.debug(`📦 [ZCA on('message') RAW PAYLOAD]:\n${safeStringify(message)}`);
 
       if (!isListened) {
         this.logger.warn(

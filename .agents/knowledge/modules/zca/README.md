@@ -14,7 +14,8 @@
   - Caches `msgId → cliMsgId` in memory and Redis `zca:msg:cli:<msgId>` (TTL 24h). `undo(payload, threadId)` resolves thread type and the real `cliMsgId` to avoid Zalo "Lỗi không xác định". `deleteMessage(dest, onlyMe)` is the fallback.
   - `getAvailableThreads(forceRefresh)` lists groups/friends; `setListenedThreadIds` / `toggleListenedThread` sync listening state to `ThreadConfigService`.
   - Event dispatch: `dispatchMessage`, `dispatchReaction`, `dispatchGroupEvent` (→ `GroupEventDispatcher`), friend/undo/typing/seen/delivered events to registered plugins.
-- **`ZcaBotFeatureService`**: `onMessage`, `onReaction`, `syncThreadMediaHistory` (see below).
+- **`ZcaBotFeatureService`**: `onMessage`, `onReaction`, `onUndo` (chat-memory recall), `init` (chat-memory backfill), `syncThreadMediaHistory` (see below).
+- **`ChatMemoryService`** (`memory/`, own `ChatMemoryModule`) + `ZcaMessageEntity` (table `zca_messages`): stores listened-thread messages and serves `SEARCH_CHAT_HISTORY`. See [Chat Memory](chat-memory.md).
 - **`ThreadConfigService`** + `ZcaThreadConfigEntity` (table `zca_thread_configs`): memory → Redis `zca:thread_config:<id>` (TTL 24h) → DB. Listened set in Redis `zca:listened_threads`.
 - **`TransactionConfirmationService`** (`confirmation/`): pending actions (`yes/cancel/edit <code>`, reactions), message recall.
 - **Guards** (`guards/`): `InitialAdminBootstrapGuard`, `GrantAccessGuard`.
@@ -67,9 +68,9 @@ Image/video handling inside L1:
   - Prompt (neutral, not bill-framed): `[Văn bản trích từ ảnh đính kèm (OCR, có thể sai chính tả):\n<ocr ≤2000 chars>]\nYêu cầu của người dùng: <instruction>`. Empty OCR → `[Ảnh đính kèm không đọc được chữ qua OCR]` marker, still forwarded. Empty instruction → `Ghi nhận hóa đơn này`.
 - Captioned image with trigger: same split (save vs. mandatory OCR context). Image without text (group or 1-1) → only L3 backup; to process it, reply to the image with a mention/prefix (1-1: any text) — the quote flow above OCRs it and combines it with the request.
 - Video with trigger → upload to Drive/Photos and reply with summary.
-- Every listened message is buffered (last 200, Redis `zca:buffered_msgs:<threadId>`, 7 days) as a fallback for history sync.
+- Every listened message is buffered (last 200, Redis `zca:buffered_msgs:<threadId>`, 7 days) as a fallback for history sync, and, when `CHAT_MEMORY_ENABLED=true`, stored in `zca_messages` ([Chat Memory](chat-memory.md)).
 
-- Full LLM tool set `ZALO_TOOL_DEFINITIONS` has 14 tools: `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS` (called through `LlmService`).
+- Full LLM tool set `ZALO_TOOL_DEFINITIONS` has 15 tools: `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`, `SEARCH_CHAT_HISTORY` (called through `LlmService`).
 
 ## Reactions (`onReaction`)
 

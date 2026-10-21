@@ -14,6 +14,7 @@ metadata:
       - apps/api/src/config/configuration.ts
       - apps/api/src/zalo/text/text-tool.definitions.ts
       - apps/api/src/zalo/text/text-input.service.ts
+      - apps/api/src/zalo/text/strategies/search-chat-history-tool.strategy.ts
 ---
 
 # LLM Providers
@@ -28,7 +29,8 @@ Human guide: [LLM Providers](../../docs/global/llm-providers.md).
 
 ## LlmService
 
-- `generate(prompt, tools?, systemInstruction?) => Promise<LlmResponse>`; single-turn, no conversation history.
+- `generate(prompt, tools?, systemInstruction?) => Promise<LlmResponse>`; single-turn (one system + one user message). Conversation context is never kept by the provider: when chat memory is on, `TextInputService` appends the latest stored messages of the chat to `systemInstruction` (see `modules/zca/chat-memory.md`).
+- `generateMemoryAnswer(prompt, systemInstruction)`: tool-free call for `SEARCH_CHAT_HISTORY`. Uses `llm.memory` (`MEMORY_LLM_BASE_URL`, `MEMORY_LLM_MODEL`, `MEMORY_LLM_API_KEY`) through `OpenAiProvider.generateWithConfig` when the base URL is set, else `generate()` on the main provider.
 - Provider chosen per call from config `llm.provider` (`LLM_PROVIDER`, default `gemini`), lower-cased, looked up in a map: `gemini`, `openai`, `qwen`, plus aliases `ollama`, `qwen2.5:14b`, `qwen-14b` -> Qwen. Unknown value falls back to Gemini.
 - Post-processing: every `toolCall.args` / `toolCalls[].args` passes through `cleanToolArguments`.
 
@@ -44,7 +46,7 @@ Human guide: [LLM Providers](../../docs/global/llm-providers.md).
 | Provider | Config (env) | Defaults | Transport |
 | --- | --- | --- | --- |
 | `GeminiProvider` | `GEMINI_API_KEY`, `GEMINI_MODEL` | model `gemini-3.5-flash-lite` | `POST generativelanguage.googleapis.com/v1beta/models/<model>:generateContent`; tools as `functionDeclarations`; reads all `functionCall` parts. |
-| `OpenAiProvider` | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` | `gpt-4o-mini`, `https://api.openai.com/v1` | `POST <base>/chat/completions`; tools as `function`, schema types lower-cased via `normalizeSchemaTypes`. |
+| `OpenAiProvider` | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` | `gpt-4o-mini`, `https://api.openai.com/v1` | `POST <base>/chat/completions`; tools as `function`, schema types lower-cased via `normalizeSchemaTypes`. `generateWithConfig({ baseUrl, model, apiKey }, …)` runs the same call against any OpenAI-compatible endpoint. |
 | `QwenProvider` | `QWEN_BASE_URL`/`OLLAMA_BASE_URL`, `QWEN_MODEL`/`OLLAMA_MODEL`, `QWEN_API_KEY`/`OLLAMA_API_KEY` | `http://localhost:11434`, `qwen2.5:14b` | Base ending `/v1` or `/chat/completions` -> OpenAI format; else native Ollama `/api/chat` (`stream: false`). Optional Bearer key. Falls back to parsing `<tool_call>{...}</tool_call>` tags in text. |
 
 Failure contract: providers never throw to callers; they return `{ text }` with a Vietnamese error message (missing API key for Gemini/OpenAI, HTTP error, network error; Qwen 404 -> "model not pulled" hint).
@@ -55,9 +57,9 @@ Failure contract: providers never throw to callers; they return `{ text }` with 
 - `parseAmount`: number or string -> positive integer VND; supports `15k`/`ng`/`nghìn`/`ngàn` (x1000), `15tr`/`triệu`/`m` (x1,000,000), commas stripped; invalid -> 0.
 - `normalizeSchemaTypes`: recursive lower-casing of `type` (`OBJECT` -> `object`) for OpenAI/Ollama.
 
-## Tool catalog (`ZALO_TOOL_DEFINITIONS`, 14 tools)
+## Tool catalog (`ZALO_TOOL_DEFINITIONS`, 15 tools)
 
-`MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`.
+`MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`, `SEARCH_CHAT_HISTORY`.
 
 - Names are `TextToolType` enum values; `TextToolFactory.getStrategy(name)` maps each to a strategy. Unknown name -> `CONVERSATION` (or silence when `allowAiChat === false`).
 - `selectToolDefinitions(allowed)` returns an ordered subset; used by `edit <code>` to expose only the pending action's tool. Un-mentioned ZCA group messages never reach the LLM.

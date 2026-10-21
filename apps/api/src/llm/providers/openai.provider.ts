@@ -3,6 +3,12 @@ import { ConfigService } from '@nestjs/config';
 import { ILlmProvider, LlmResponse, LlmToolDefinition } from '../types/llm.types';
 import { cleanToolArguments, normalizeSchemaTypes } from '../utils/tool-arguments.util';
 
+export interface OpenAiCompatibleConfig {
+  baseUrl: string;
+  model: string;
+  apiKey: string;
+}
+
 @Injectable()
 export class OpenAiProvider implements ILlmProvider {
   public readonly name = 'openai';
@@ -15,11 +21,29 @@ export class OpenAiProvider implements ILlmProvider {
     tools?: LlmToolDefinition[],
     systemInstruction?: string,
   ): Promise<LlmResponse> {
-    const apiKey = this.configService.get<string>('llm.openai.apiKey') || '';
-    const model = this.configService.get<string>('llm.openai.model') || 'gpt-4o-mini';
-    const baseUrl = (
-      this.configService.get<string>('llm.openai.baseUrl') || 'https://api.openai.com/v1'
-    ).replace(/\/+$/, '');
+    return this.generateWithConfig(
+      {
+        apiKey: this.configService.get<string>('llm.openai.apiKey') || '',
+        model: this.configService.get<string>('llm.openai.model') || 'gpt-4o-mini',
+        baseUrl:
+          this.configService.get<string>('llm.openai.baseUrl') || 'https://api.openai.com/v1',
+      },
+      prompt,
+      tools,
+      systemInstruction,
+    );
+  }
+
+  /** Same call against any OpenAI-compatible endpoint (e.g. the chat-memory LLM). */
+  public async generateWithConfig(
+    config: OpenAiCompatibleConfig,
+    prompt: string,
+    tools?: LlmToolDefinition[],
+    systemInstruction?: string,
+  ): Promise<LlmResponse> {
+    const { apiKey } = config;
+    const model = config.model || 'gpt-4o-mini';
+    const baseUrl = config.baseUrl.replace(/\/+$/, '');
 
     if (!apiKey) {
       this.logger.warn('OpenAI API key is missing. Skipping LLM call.');

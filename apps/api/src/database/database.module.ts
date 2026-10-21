@@ -13,6 +13,7 @@ import { DashboardExchangeTokenEntity } from './entities/dashboard-exchange-toke
 import { UserCategoryEntity } from './entities/user-category.entity';
 import { FinancePlaceEntity } from './entities/finance-place.entity';
 import { ZcaThreadConfigEntity } from './entities/zca-thread-config.entity';
+import { ZcaMessageEntity } from './entities/zca-message.entity';
 import { AuditLogSubscriber } from './audit-log.subscriber';
 import { InitSchema1724650000000 } from './migrations/1724650000000-InitSchema';
 import { MigrateLegacyPlaceContacts1724660000000 } from './migrations/1724660000000-MigrateLegacyPlaceContacts';
@@ -30,6 +31,7 @@ import { AddPhotosAlbumColumnsToZcaThreadConfigs1724770000000 } from './migratio
 import { AddSharedLedgerAndTransactionCreator1724780000000 } from './migrations/1724780000000-AddSharedLedgerAndTransactionCreator';
 import { RemoveFinanceUserScope1724790000000 } from './migrations/1724790000000-RemoveFinanceUserScope';
 import { DropZcaPassiveTrackingColumns1724800000000 } from './migrations/1724800000000-DropZcaPassiveTrackingColumns';
+import { CreateZcaMessages1724810000000 } from './migrations/1724810000000-CreateZcaMessages';
 
 @Module({
   imports: [
@@ -52,6 +54,7 @@ import { DropZcaPassiveTrackingColumns1724800000000 } from './migrations/1724800
           UserCategoryEntity,
           FinancePlaceEntity,
           ZcaThreadConfigEntity,
+          ZcaMessageEntity,
         ];
 
         return {
@@ -77,6 +80,7 @@ import { DropZcaPassiveTrackingColumns1724800000000 } from './migrations/1724800
             AddSharedLedgerAndTransactionCreator1724780000000,
             RemoveFinanceUserScope1724790000000,
             DropZcaPassiveTrackingColumns1724800000000,
+            CreateZcaMessages1724810000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

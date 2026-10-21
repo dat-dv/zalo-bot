@@ -21,6 +21,7 @@ import {
   type API,
   type Message,
   type Reaction,
+  type Undo,
   type GetGroupChatHistoryResponse,
   getMessageText,
   isMentioned,
@@ -43,6 +44,7 @@ import type { PendingImageActionDispatcher } from './pending-image/pending-image
 import type { ImageBatchHandler } from './pending-image/image-batch-handler.service';
 import type { OcrService } from '../ocr/ocr.service';
 import { cleanBotMention } from '../zalo/text/bot-mention.util';
+import { ChatMemoryService } from './memory/chat-memory.service';
 
 function formatErrorMessage(err: unknown): string {
   if (err instanceof Error) {
@@ -298,6 +300,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     @Optional() pendingImageDispatcher?: PendingImageActionDispatcher,
     @Optional() imageBatchHandler?: ImageBatchHandler,
     @Optional() ocrService?: OcrService,
+    @Optional() private readonly chatMemoryService?: ChatMemoryService,
   ) {
     if (mediaStorageServiceOrConfirmation) {
       if ('handleReaction' in mediaStorageServiceOrConfirmation) {
@@ -802,6 +805,11 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     }
 
     void this.bufferRecentMessage(threadId, message);
+    void this.chatMemoryService?.record(
+      threadId,
+      message.type === ThreadType.Group ? 'group' : 'user',
+      message.data,
+    );
 
     const directConfig: ThreadDirectInteractionConfig = config.directInteraction ?? {
       enabled: true,
@@ -1219,6 +1227,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         isBot: false,
         allowAiChat: directConfig.allowAiChat ?? true,
         triggerPrefixes,
+        messageId: message.data?.msgId ? String(message.data.msgId) : undefined,
       };
 
       try {
@@ -1229,6 +1238,43 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         );
       }
     }
+  }
+
+  /** A message recalled in Zalo is also forgotten by the chat memory. */
+  public async onUndo(undo: Undo): Promise<void> {
+    const recalledMsgId = undo.data?.content?.globalMsgId;
+    const recalledCliMsgId = undo.data?.content?.cliMsgId;
+    if (!this.chatMemoryService || !undo.threadId || !recalledMsgId) return;
+    await this.chatMemoryService.markRecalled(
+      undo.threadId,
+      String(recalledMsgId),
+      recalledCliMsgId ? String(recalledCliMsgId) : undefined,
+    );
+  }
+
+  /**
+   * Plugin init (after listened threads are loaded): seeds the chat memory from the Redis recent
+   * buffer once per start. Runs in the background so login is never delayed.
+   */
+  public init(): void {
+    const memory = this.chatMemoryService;
+    if (!memory?.isEnabled()) return;
+    void (async () => {
+      for (const threadId of this.threadConfigService.getListenedThreadIds()) {
+        const buffered = await this.getBufferedMessages(threadId);
+        const isGroup = await this.threadConfigService.isGroupThread(threadId);
+        const count = await memory.backfill(
+          threadId,
+          isGroup ? 'group' : 'user',
+          buffered.map((entry) => entry.data ?? {}),
+        );
+        if (count > 0) {
+          this.logger.log(`[ChatMemory] Backfilled ${count} buffered message(s) of ${threadId}`);
+        }
+      }
+    })().catch((err: unknown) => {
+      this.logger.warn(`[ChatMemory] Backfill failed: ${formatErrorMessage(err)}`);
+    });
   }
 
   public async onReaction(reaction: Reaction, api: API): Promise<void> {

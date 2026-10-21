@@ -17,7 +17,9 @@ Tài liệu này ánh xạ với tri thức canonical [`llm-providers.md`](../..
 
 Bot cần hiểu câu tiếng Việt tự do ("ăn trưa 45k", "mai 9h họp") và chuyển thành lệnh có cấu trúc (tool call). Để không bị khoá vào một nhà cung cấp, mọi lời gọi đi qua `LlmService.generate(prompt, tools, systemInstruction)` trong `apps/api/src/llm`. Đổi nhà cung cấp chỉ cần đổi biến môi trường `LLM_PROVIDER`, không sửa code.
 
-Mỗi lời gọi là **một lượt độc lập**, không lưu lịch sử hội thoại. Lệnh `/reset` chỉ gửi thông báo, không có ngữ cảnh nào để xoá.
+Mỗi lời gọi là **một lượt độc lập**: provider không giữ lịch sử hội thoại. Lệnh `/reset` chỉ gửi thông báo, không có ngữ cảnh nào để xoá. Khi bật [trí nhớ hội thoại](../modules/zca/chat-memory.md), chính backend chèn vài tin gần nhất của kênh (lấy từ bảng `zca_messages`) vào prompt hệ thống; trí nhớ nằm ở DB của mình, không nằm ở LLM.
+
+`generateMemoryAnswer` là lời gọi riêng (không tool) để viết câu trả lời cho tool `SEARCH_CHAT_HISTORY`. Nếu có `MEMORY_LLM_BASE_URL` thì gọi endpoint OpenAI-compatible đó (ví dụ 9router), không thì dùng provider chính. Nhờ vậy có thể để tool calling ở provider ổn định, còn phần viết câu trả lời dùng model rẻ hơn.
 
 Nơi sử dụng: `TextInputService` (tin nhắn chat, chỉnh sửa thẻ chờ) và chiến lược tạo hoá đơn từ ảnh (`CreateBillPendingImageStrategy`, dùng chữ OCR).
 
@@ -37,7 +39,7 @@ Qwen hỗ trợ hai kiểu máy chủ: URL kết thúc bằng `/v1` hoặc `/cha
 
 Model nhỏ hay trả tham số bị lồng (`{"amount": {"amount": 15000}}`). `cleanToolArguments` tự gỡ lớp bọc cho mọi tool call. `parseAmount` đổi "45k", "2tr", "15.000" thành số nguyên VND dương. `normalizeSchemaTypes` chuyển kiểu schema (`OBJECT` → `object`) cho OpenAI/Ollama.
 
-## 4. Danh sách tool (`ZALO_TOOL_DEFINITIONS` — 14 tool)
+## 4. Danh sách tool (`ZALO_TOOL_DEFINITIONS` — 15 tool)
 
 | Tool | Mục đích |
 | --- | --- |
@@ -51,6 +53,7 @@ Model nhỏ hay trả tham số bị lồng (`{"amount": {"amount": 15000}}`). `
 | `LOGIN_GOOGLE` | Link kết nối tài khoản Google |
 | `CREATE_PLACE` | Tạo nơi chốn |
 | `GET_STORAGE_LINKS` | Link thư mục Drive / album Photos |
+| `SEARCH_CHAT_HISTORY` | Tra lại chuyện đã chat trong kênh hiện tại (chỉ đọc, không cần xác nhận) |
 
 Quy tắc an toàn:
 - **Nhóm chat thụ động** (không ai nhắc bot): LLM chỉ thấy tool thu–chi (`RECORD_TRANSACTION`, `MANAGE_DEBT`) và/hoặc lịch (`CREATE_CALENDAR_EVENT`, `SET_REMINDER`) theo cấu hình thread; không có tool nào được bật thì bỏ qua LLM. Nhờ vậy người lạ trong nhóm không thể gọi tool quản trị hay lấy link lưu trữ.

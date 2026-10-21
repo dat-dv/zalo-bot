@@ -34,6 +34,11 @@
 - **Thu hồi tin nhắn (Message Recall / Undo)**: Cơ chế gọi API ZCA `undo({ msgId, cliMsgId })` để thu hồi tin nhắn thẻ xác nhận chờ đối với tất cả mọi người trong phòng chat ngay khi hành động được duyệt, hủy, hết hạn hoặc chỉnh sửa.
 - **Hành động đi kèm (Companion Action)**: Thao tác phụ được sinh đồng thời trong cùng một luồng (như tạo nơi chốn mới khi ghi thu chi). Khi thao tác chính được duyệt, hành động phụ được tự động cam kết và thu hồi thẻ chờ tương ứng.
 
+## Trí nhớ hội thoại
+
+- **Trí nhớ hội thoại**: Bản lưu mọi tin nhắn của các kênh ZCA đang listen (kể cả tin bot gửi), dùng để trả lời câu hỏi về chuyện đã trao đổi. Chỉ tra cứu **trong đúng kênh đang hỏi**; tin bị thu hồi thì bị xoá nội dung khỏi trí nhớ.
+- **Cửa sổ ngữ cảnh ngắn hạn**: Vài tin gần nhất của kênh được đưa vào prompt để bot hiểu câu nối tiếp; bot không thực hiện lại các yêu cầu cũ nằm trong đó.
+
 ## ZCA & Phân vùng lưu trữ Drive
 
 - **ZCA (Zalo Client Account)**: Kết nối tài khoản cá nhân Zalo qua giao thức WebSocket và quét mã QR, cho phép bot tham gia các nhóm chat như người dùng thật.

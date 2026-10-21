@@ -33,3 +33,6 @@ Mục tiêu của quy tắc này là tiết kiệm token, giảm dữ liệu g�
 ## Ngoại lệ và backlog
 
 Mọi ngoại lệ phải ghi rõ: công cụ cục bộ nào thiếu/không đáp ứng, phần dữ liệu tối thiểu gửi ra ngoài, chi phí dự kiến và fallback. Không tự cài package, tải model ngôn ngữ hoặc đổi Docker image nếu chưa có kế hoạch được duyệt.
+
+Ngoại lệ đã duyệt:
+- **Trí nhớ hội thoại** ([chi tiết](../modules/zca/chat-memory.md)): tìm kiếm full-text chạy hoàn toàn trên Postgres, nhưng để hiểu câu hỏi và viết câu trả lời thì cần LLM. Chỉ gửi các đoạn tin khớp (tối đa 80 dòng, không có link media) và ~10 tin gần nhất, không bao giờ gửi cả lịch sử. Chi phí: thêm 1 lượt gọi LLM cho mỗi câu hỏi về chuyện cũ. Muốn giữ nội bộ thì trỏ `MEMORY_LLM_*` về `qwen` local; tắt hẳn bằng `CHAT_MEMORY_ENABLED=false`.

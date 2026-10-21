@@ -24,4 +24,6 @@ export interface AgentInput {
   allowAiChat?: boolean;
   /** Tiền tố gọi bot của kênh (ví dụ: "!", "bot:") để cắt khỏi tin trước khi đưa vào LLM */
   triggerPrefixes?: readonly string[];
+  /** Id của tin đang xử lý (ZCA), để cửa sổ ngữ cảnh chat không lặp lại chính tin này */
+  messageId?: string;
 }

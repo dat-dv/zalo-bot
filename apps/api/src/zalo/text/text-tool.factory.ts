@@ -37,6 +37,7 @@ import { GetStorageLinksToolStrategy } from './strategies/get-storage-links-tool
 import { ZaloLoginToolStrategy } from './strategies/zalo-login-tool.strategy';
 import { ZaloLogoutToolStrategy } from './strategies/zalo-logout-tool.strategy';
 import { ShareDriveToolStrategy } from './strategies/share-drive-tool.strategy';
+import { SearchChatHistoryToolStrategy } from './strategies/search-chat-history-tool.strategy';
 
 @Injectable()
 export class TextToolFactory {
@@ -78,6 +79,7 @@ export class TextToolFactory {
     zaloLogoutStrategy?: ZaloLogoutToolStrategy,
     shareDriveStrategy?: ShareDriveToolStrategy,
     private readonly configService?: ConfigService,
+    searchChatHistoryStrategy?: SearchChatHistoryToolStrategy,
   ) {
     if (startStrategy) this.strategyMap.set(TextToolType.START, startStrategy);
     if (helpStrategy) this.strategyMap.set(TextToolType.HELP, helpStrategy);
@@ -121,6 +123,8 @@ export class TextToolFactory {
     if (zaloLoginStrategy) this.strategyMap.set(TextToolType.ZALO_LOGIN, zaloLoginStrategy);
     if (zaloLogoutStrategy) this.strategyMap.set(TextToolType.ZALO_LOGOUT, zaloLogoutStrategy);
     if (shareDriveStrategy) this.strategyMap.set(TextToolType.SHARE_DRIVE, shareDriveStrategy);
+    if (searchChatHistoryStrategy)
+      this.strategyMap.set(TextToolType.SEARCH_CHAT_HISTORY, searchChatHistoryStrategy);
   }
 
   public resolveFastPathToolType(text: string, customBotName?: string): TextToolType | null {

@@ -9,7 +9,8 @@ import {
   stripBotMentions,
 } from './zca-bot-feature.service';
 import { ThreadConfigService } from './thread-config.service';
-import { ThreadType, type API, type Message, type Reaction } from './shapes';
+import { ThreadType, type API, type Message, type Reaction, type Undo } from './shapes';
+import type { ChatMemoryService } from './memory/chat-memory.service';
 import type { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
 import type { TextInputService } from '../zalo/text/text-input.service';
 import type { ZcaService } from './zca.service';
@@ -1995,4 +1996,98 @@ void test('ZcaBotFeatureService media sync keeps the channel Drive link on the c
   const config = configService.getConfigSync(threadId);
   assert.equal(config?.driveFolderUrl, 'https://drive.google.com/drive/folders/root');
   assert.equal(config?.driveFolderPath, `zalobot/${threadId}`);
+});
+
+interface RecordedMemoryCall {
+  method: 'record' | 'markRecalled';
+  args: unknown[];
+}
+
+function createChatMemoryMock(calls: RecordedMemoryCall[]): ChatMemoryService {
+  return {
+    isEnabled: () => true,
+    record: (...args: unknown[]) => {
+      calls.push({ method: 'record', args });
+      return Promise.resolve();
+    },
+    markRecalled: (...args: unknown[]) => {
+      calls.push({ method: 'markRecalled', args });
+      return Promise.resolve();
+    },
+  } as unknown as ChatMemoryService;
+}
+
+function createServiceWithMemory(
+  configService: ThreadConfigService,
+  memory: ChatMemoryService,
+): ZcaBotFeatureService {
+  return new ZcaBotFeatureService(
+    configService,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    memory,
+  );
+}
+
+void test('ZcaBotFeatureService stores every message of a listened thread in chat memory', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = `memory-thread-${Date.now()}`;
+  await configService.updateConfig(threadId, { isListened: true });
+  const calls: RecordedMemoryCall[] = [];
+  const service = createServiceWithMemory(configService, createChatMemoryMock(calls));
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.Group,
+    data: { msgId: '7001', content: 'mai đi Vũng Tàu', uidFrom: 'u1', msgType: 'webchat' },
+  } as unknown as Message;
+  await service.onMessage(message, {} as unknown as API);
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'record');
+  assert.equal(calls[0].args[0], threadId);
+  assert.equal(calls[0].args[1], 'group');
+});
+
+void test('ZcaBotFeatureService does not store messages of unlistened threads', async () => {
+  const configService = new ThreadConfigService();
+  const calls: RecordedMemoryCall[] = [];
+  const service = createServiceWithMemory(configService, createChatMemoryMock(calls));
+
+  const message = {
+    threadId: `memory-unlistened-${Date.now()}`,
+    isSelf: false,
+    type: ThreadType.Group,
+    data: { msgId: '1', content: 'secret', uidFrom: 'u1', msgType: 'webchat' },
+  } as unknown as Message;
+  await service.onMessage(message, {} as unknown as API);
+
+  assert.equal(calls.length, 0);
+});
+
+void test('ZcaBotFeatureService forgets a recalled message', async () => {
+  const configService = new ThreadConfigService();
+  const calls: RecordedMemoryCall[] = [];
+  const service = createServiceWithMemory(configService, createChatMemoryMock(calls));
+
+  const undo = {
+    threadId: 'g-recall',
+    isSelf: false,
+    isGroup: true,
+    data: { content: { globalMsgId: 7001, cliMsgId: 55 } },
+  } as unknown as Undo;
+  await service.onUndo(undo);
+
+  assert.deepEqual(calls, [{ method: 'markRecalled', args: ['g-recall', '7001', '55'] }]);
 });

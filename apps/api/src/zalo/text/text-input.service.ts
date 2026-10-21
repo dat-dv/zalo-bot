@@ -24,6 +24,8 @@ import { CancelPendingImageStrategy } from '../../zca/pending-image/strategies/c
 import { StorageUploadPendingImageStrategy } from '../../zca/pending-image/strategies/storage-upload-pending-image.strategy';
 import { CreateBillPendingImageStrategy } from '../../zca/pending-image/strategies/create-bill-pending-image.strategy';
 import { getVietnamDateTimeContext } from '../../common/utils/datetime.util';
+import { ChatMemoryService } from '../../zca/memory/chat-memory.service';
+import { formatMemoryLine } from '../../zca/memory/chat-memory.mapper';
 
 /**
  * Appended to the prompt when free chat is allowed. Without it the tool-heavy prompt makes the
@@ -50,6 +52,7 @@ export class TextInputService {
     @Optional() private readonly ocrService?: OcrService,
     @Optional() private readonly mediaStorageService?: MediaStorageService,
     @Optional() private pendingImageDispatcher?: PendingImageActionDispatcher,
+    @Optional() private readonly chatMemoryService?: ChatMemoryService,
   ) {
     if (!this.pendingImageDispatcher && this.pendingImageActionService) {
       // Auto-wire default strategies when dispatcher is not injected (e.g. in standalone tests)
@@ -166,6 +169,7 @@ export class TextInputService {
       process.env.DEFAULT_TIMEZONE ||
       'Asia/Ho_Chi_Minh';
     const dtContext = getVietnamDateTimeContext(new Date(), timeZone);
+    const recentContext = await this.buildRecentContextBlock(chatId, input.messageId, timeZone);
     const systemInstruction =
       `Bạn là trợ lý cá nhân thông minh trên Zalo.\n\n` +
       `${dtContext.systemInstructionSnippet}\n\n` +
@@ -184,13 +188,15 @@ export class TextInputService {
       '- Về hoàn thành việc ("đã xong việc nộp báo cáo"): gọi COMPLETE_TASK.\n' +
       '- Về tạo địa điểm / nơi chốn ("tạo nơi chốn Landmark 81", "thêm địa điểm aeon", "lưu nơi chốn Bến Thành"): gọi CREATE_PLACE, xác định name.\n' +
       '- Về KẾT NỐI / ĐĂNG NHẬP tài khoản Google (chỉ khi người dùng nói rõ muốn "kết nối google", "đăng nhập google", "liên kết tài khoản google", "đổi tài khoản gmail"): gọi LOGIN_GOOGLE. KHÔNG dùng LOGIN_GOOGLE khi người dùng hỏi đường dẫn, link, folder.\n' +
+      '- Về chuyện đã trao đổi trong cuộc chat này trước đây ("năm ngoái mình đi đâu", "hôm trước Nam nói gì", "tháng 5 nhóm hẹn ở đâu"): gọi SEARCH_CHAT_HISTORY, sinh keywords gồm từ khóa và từ đồng nghĩa, tính fromDate/toDate (YYYY-MM-DD) nếu câu hỏi có mốc thời gian.\n' +
       '- Về kho lưu trữ hình ảnh/hóa đơn/video của bot: Bot tự động lưu tất cả ảnh/hóa đơn/video người dùng gửi lên Google Drive (thư mục zalobot/bill, zalobot/image, zalobot/video) và Google Photos (album "ZaloBot - Hóa đơn", "ZaloBot - Hình ảnh", "ZaloBot - Video"). Khi người dùng hỏi nơi lưu ảnh, link xem ảnh/hóa đơn/video, đường dẫn folder, link drive, link album: gọi GET_STORAGE_LINKS, xác định type (bill/image/video/all).\n' +
       '- Nếu người dùng chỉ chào hỏi hoặc trò chuyện, hãy trả lời tự nhiên, ngắn gọn, thân thiện bằng tiếng Việt.\n\n' +
       'QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n' +
       '- TÁCH CÁC HÀNH ĐỘNG ĐỘC LẬP: Khi người dùng đưa ra một câu chứa NHIỀU YÊU CẦU / NHIỀU HÀNH ĐỘNG ĐỘC LẬP (ví dụ: "tối nay đi ăn tối hết 80k ở bến thành sau đó đi uống nước 90k ở aeon", hoặc vừa ăn uống vừa tạo lịch, nhiều khoản chi tiêu trong cùng 1 câu), bạn PHẢI gọi đồng thời NHIỀU TOOL CALLS tương ứng cho từng hành động riêng biệt. Tuyệt đối không gộp chung vào 1 tool hay bỏ sót bất kỳ hành động nào.\n' +
       '- KẾ THỪA NGỮ CẢNH DÙNG CHUNG: Khi câu chứa nhiều hành động/giao dịch cùng chia sẻ ngữ cảnh chung (như địa điểm "ở...", thời gian "hôm nay...", hoặc phương thức thanh toán "chuyển khoản/tiền mặt..."), ví dụ: "hôm nay mua cà phê 13k và mua nước cam 20k ở đối diện ctgroup", bạn PHẢI điền đầy đủ các thông tin dùng chung đó (thời gian occurredAt, địa điểm placeName: "đối diện ctgroup", phương thức paymentMethod) cho TẤT CẢ các tool call tương ứng của các giao dịch đó, không được bỏ sót ở bất kỳ giao dịch nào. Nếu từng hành động có địa điểm hoặc thời gian riêng (ví dụ: "ở bến thành... sau đó ở aeon...") thì giữ đúng thông tin riêng của từng hành động.\n' +
       '- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object (ví dụ đúng: {"amount": 15000, "category": "Ăn uống", "type": "expense", "note": "uống cà phê"}, KHÔNG ĐƯỢC: {"amount": {"amount": 15000}}).' +
-      (input.allowAiChat !== false ? `\n\n${CHIT_CHAT_INSTRUCTION}` : '');
+      (input.allowAiChat !== false ? `\n\n${CHIT_CHAT_INSTRUCTION}` : '') +
+      recentContext;
 
     try {
       const response = await this.zaloService.withChatAction(chatId, () =>
@@ -247,7 +253,7 @@ export class TextInputService {
       // A tool-free second pass answers without the tool catalog biasing the reply toward refusals;
       // the first pass text stays as fallback.
       const chitChatReply = await this.zaloService.withChatAction(chatId, () =>
-        this.generateChitChatReply(text, dtContext.systemInstructionSnippet),
+        this.generateChitChatReply(text, dtContext.systemInstructionSnippet + recentContext),
       );
 
       const conversationStrategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
@@ -393,6 +399,29 @@ export class TextInputService {
         `⚠️ Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu: ${(err as Error).message}`,
       );
     }
+  }
+
+  /**
+   * Short-term chat memory: the latest messages of this chat, so follow-ups ("thế tháng 5 thì
+   * sao?") make sense. Empty when chat memory is off or the chat is not a listened ZCA thread.
+   * The block forbids tool calls on its content, so old messages are never recorded twice.
+   */
+  private async buildRecentContextBlock(
+    chatId: string,
+    currentMessageId: string | undefined,
+    timeZone: string,
+  ): Promise<string> {
+    const memory = this.chatMemoryService;
+    if (!memory?.isEnabled()) return '';
+    const size = memory.getContextWindowSize();
+    if (size === 0) return '';
+    const lines = await memory.getRecentWindow(chatId, size, currentMessageId);
+    if (lines.length === 0) return '';
+    return (
+      '\n\nNGỮ CẢNH GẦN ĐÂY CỦA CUỘC CHAT (chỉ để hiểu câu hỏi hiện tại; TUYỆT ĐỐI KHÔNG gọi tool ' +
+      'cho các yêu cầu nằm trong khối này, chúng đã được xử lý trước đó):\n' +
+      lines.map((line) => formatMemoryLine(line, timeZone)).join('\n')
+    );
   }
 
   /** Tool-free free-chat reply; `undefined` when empty or failed so the caller can fall back. */

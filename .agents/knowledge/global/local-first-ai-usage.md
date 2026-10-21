@@ -8,6 +8,7 @@ metadata:
       - apps/api/src/llm/llm.service.ts
       - apps/api/src/zca/pending-image/strategies/create-bill-pending-image.strategy.ts
       - apps/api/src/zalo/input-processor.service.ts
+      - apps/api/src/zalo/text/strategies/search-chat-history-tool.strategy.ts
 ---
 
 # Local-First AI Usage
@@ -20,3 +21,7 @@ Media and deterministic extraction are local-first to conserve AI tokens and red
 AI (`LlmService`, provider per `LLM_PROVIDER`) may receive only minimal extracted text for semantic classification, categorization, summarization, or ambiguity resolution. It never bypasses confirmation, authorization, validation, or audit controls: tool calls only create pending actions.
 
 Raw-media AI is an approved exception only when local processing cannot meet the requirement and the exception records the reason, data minimization, cost impact, and fallback. Dependencies, language models, and runtime-image changes require an approved implementation plan. A local LLM is available via the `qwen` provider (Ollama-compatible endpoint).
+
+## Approved exceptions
+
+- **Chat memory answers** (`SEARCH_CHAT_HISTORY`, `modules/zca/chat-memory.md`). Reason: answering questions about past conversations needs language understanding; local full-text search only finds candidates. Minimization: only matched lines (≤80, `[date] sender: text`, no media URLs) plus the latest `CHAT_MEMORY_CONTEXT_WINDOW` messages; never the full history. Cost: one extra tool-free LLM call per memory question. Fallback: `MEMORY_LLM_*` empty uses the main provider; point it at the local `qwen` endpoint to keep it on-prem; `CHAT_MEMORY_ENABLED=false` disables everything.

@@ -18,6 +18,7 @@ import { GoogleModule } from '../google/google.module';
 import { LlmModule } from '../llm/llm.module';
 import { OcrModule } from '../ocr/ocr.module';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
+import { ChatMemoryModule } from './memory/chat-memory.module';
 
 // Confirmation & Guards
 import { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
@@ -43,6 +44,7 @@ const COMMON_IMPORTS = [
   LlmModule,
   OcrModule,
   DashboardAuthModule,
+  ChatMemoryModule,
 ];
 
 const COMMON_PROVIDERS = [

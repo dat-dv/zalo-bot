@@ -13,6 +13,7 @@ metadata:
       - apps/api/src/zca/strategies/welcome-group-event.strategy.ts
       - apps/api/src/zca/pending-image/pending-image-dispatcher.service.ts
       - apps/api/src/database/entities/zca-thread-config.entity.ts
+      - .agents/docs/modules/zca/chat-memory.md
       - apps/api/src/zalo/text/text-tool.definitions.ts
       - apps/api/src/google/google-resources.controller.ts
       - apps/api/src/dashboard-auth/dashboard-user.ts
@@ -106,7 +107,7 @@ Giờ nguyên tắc là **người dùng chủ động gọi thì bot mới làm
 - **Video có `@bot`**: tải lên Drive/Photos và trả lời tóm tắt.
 - Mọi tin của kênh đang lắng nghe được đệm lại (200 tin gần nhất, Redis `zca:buffered_msgs:<threadId>`, 7 ngày) để dùng khi API lịch sử của Zalo không khả dụng.
 
-**Bộ tool đầy đủ ở L1** (`ZALO_TOOL_DEFINITIONS`, gọi qua `LlmService`) gồm 14 tool: `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`.
+**Bộ tool đầy đủ ở L1** (`ZALO_TOOL_DEFINITIONS`, gọi qua `LlmService`) gồm 15 tool: `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`, `SEARCH_CHAT_HISTORY`. `SEARCH_CHAT_HISTORY` tra lại chuyện cũ trong chính kênh đang hỏi, xem [Trí nhớ hội thoại](chat-memory.md).
 
 **Vì sao `edit <mã>` bị giới hạn?** Lệnh `edit` chạy trước mọi guard. Trước đây nó còn gửi đủ tool cho AI, nên ai trong nhóm cũng có thể "sửa" một thẻ chờ thành yêu cầu khác (ví dụ lấy link Drive). Giờ:
 - Người không có quyền gõ `edit` thì bị bỏ qua im lặng; thẻ chờ **không** bị thu hồi hay xoá.
@@ -241,6 +242,8 @@ Mọi route của `ZcaController` và 5 route Drive/Photos ở trên đều **ch
 Contracts liên quan trong `packages/contracts`: `ThreadBotConfig`, `UpdateThreadBotConfigDto`, `ThreadDirectInteractionConfig`, `ThreadMediaBackupConfig`, `ThreadExpenseConfig`, `ThreadCalendarConfig`, `ThreadConfirmationConfig`, `SyncThreadMediaDto`, `SyncMediaTimeRange`, `SyncThreadMediaResponse`.
 
 ## 4. Biến Môi Trường ZCA
+
+Trí nhớ hội thoại dùng thêm `CHAT_MEMORY_ENABLED`, `CHAT_MEMORY_CONTEXT_WINDOW`, `CHAT_MEMORY_SEARCH_LIMIT`, `MEMORY_LLM_BASE_URL`, `MEMORY_LLM_MODEL`, `MEMORY_LLM_API_KEY`; cách bật và lý do nằm ở [Trí nhớ hội thoại](chat-memory.md).
 
 `DATA_DIR`/`ZCA_DATA_DIR` (nơi lưu file phiên), `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN`, `ZCA_CHECK_UPDATE`, `ZCA_LOGGING`, `ZCA_AUTO_LOGIN`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH` (đọc trong `apps/api/src/config/configuration.ts`).
 

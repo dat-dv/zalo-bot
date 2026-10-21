@@ -54,4 +54,29 @@ export class LlmService {
 
     return response;
   }
+
+  /**
+   * Tool-free answer for chat-memory questions. Uses the dedicated `llm.memory` endpoint when
+   * `MEMORY_LLM_BASE_URL` is set, otherwise the main provider.
+   */
+  public async generateMemoryAnswer(
+    prompt: string,
+    systemInstruction: string,
+  ): Promise<LlmResponse> {
+    const baseUrl = this.configService.get<string>('llm.memory.baseUrl') || '';
+    if (!baseUrl) {
+      return this.generate(prompt, undefined, systemInstruction);
+    }
+    this.logger.debug('Dispatching chat-memory prompt to the dedicated memory LLM endpoint');
+    return this.openAiProvider.generateWithConfig(
+      {
+        baseUrl,
+        model: this.configService.get<string>('llm.memory.model') || '',
+        apiKey: this.configService.get<string>('llm.memory.apiKey') || '',
+      },
+      prompt,
+      undefined,
+      systemInstruction,
+    );
+  }
 }

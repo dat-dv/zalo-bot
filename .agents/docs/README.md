@@ -39,3 +39,4 @@ Thư mục này chứa toàn bộ tài liệu hướng dẫn dành cho lập tr�
 10. **Dữ liệu nơi chốn thu chi**: Hợp đồng tạo/sửa/xóa nơi chốn riêng, liên kết `placeId` của phát sinh và cách vận hành dashboard nằm ở `global/finance-domain.md` và `modules/dashboard/README.md`.
 11. **Ảnh bill & media**: Luồng OCR local (Tesseract) và gửi văn bản cho `LlmService` nằm ở `global/receipt-image-analysis.md`; lưu media lên Google Drive/Photos theo phân vùng kênh nằm ở `global/backend-runtime-services.md`.
 12. **LLM**: Cách chọn provider (Gemini/OpenAI/Qwen) và danh sách tool Zalo nằm ở `global/llm-providers.md`.
+13. **Trí nhớ hội thoại**: Lưu tin của kênh ZCA đang listen, tìm lại chuyện cũ theo kênh và cửa sổ ngữ cảnh ngắn hạn nằm ở `modules/zca/chat-memory.md` (tri thức: `knowledge/modules/zca/chat-memory.md`).

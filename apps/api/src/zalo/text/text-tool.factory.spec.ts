@@ -43,6 +43,8 @@ function createFactory(): TextToolFactory {
     createDummyStrategy(TextToolType.ZALO_LOGIN),
     createDummyStrategy(TextToolType.ZALO_LOGOUT),
     createDummyStrategy(TextToolType.SHARE_DRIVE),
+    undefined,
+    createDummyStrategy(TextToolType.SEARCH_CHAT_HISTORY),
   );
 }
 

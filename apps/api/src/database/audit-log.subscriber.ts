@@ -9,7 +9,8 @@ import { AuditLogEntity } from './entities/audit-log.entity';
 
 @EventSubscriber()
 export class AuditLogSubscriber implements EntitySubscriberInterface {
-  private readonly ignoredTables = new Set(['audit_logs']);
+  // Chat memory rows are high-volume chat logs, not business mutations.
+  private readonly ignoredTables = new Set(['audit_logs', 'zca_messages']);
 
   public async afterInsert(event: InsertEvent<unknown>): Promise<void> {
     await this.write(event, 'insert', undefined, event.entity as Record<string, unknown>);

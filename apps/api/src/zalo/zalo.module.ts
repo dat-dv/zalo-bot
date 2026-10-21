@@ -43,6 +43,7 @@ import { GetStorageLinksToolStrategy } from './text/strategies/get-storage-links
 import { ZaloLoginToolStrategy } from './text/strategies/zalo-login-tool.strategy';
 import { ZaloLogoutToolStrategy } from './text/strategies/zalo-logout-tool.strategy';
 import { ShareDriveToolStrategy } from './text/strategies/share-drive-tool.strategy';
+import { SearchChatHistoryToolStrategy } from './text/strategies/search-chat-history-tool.strategy';
 import { ZcaModule } from '../zca/zca.module';
 
 // Related Domain Modules
@@ -55,6 +56,7 @@ import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 import { ReceiptStorageModule } from '../receipt-storage/receipt-storage.module';
 import { AuditModule } from '../audit/audit.module';
 import { OcrModule } from '../ocr/ocr.module';
+import { ChatMemoryModule } from '../zca/memory/chat-memory.module';
 
 @Module({
   imports: [
@@ -67,6 +69,7 @@ import { OcrModule } from '../ocr/ocr.module';
     ReceiptStorageModule,
     AuditModule,
     OcrModule,
+    ChatMemoryModule,
     forwardRef(() => ZcaModule),
   ],
   controllers: [ZaloController],
@@ -110,6 +113,7 @@ import { OcrModule } from '../ocr/ocr.module';
     ZaloLoginToolStrategy,
     ZaloLogoutToolStrategy,
     ShareDriveToolStrategy,
+    SearchChatHistoryToolStrategy,
   ],
   exports: [
     ZaloService,

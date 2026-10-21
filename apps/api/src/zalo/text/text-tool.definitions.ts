@@ -337,6 +337,40 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
       },
     },
   },
+  {
+    name: TextToolType.SEARCH_CHAT_HISTORY,
+    description:
+      'Tìm lại nội dung đã trò chuyện trong cuộc chat Zalo hiện tại để trả lời câu hỏi về quá khứ: ' +
+      'đã đi đâu, đã nói gì, ai đã gửi gì, đã hẹn gì, đã quyết định gì. ' +
+      'Ví dụ: "năm ngoái mình đi đâu", "hôm trước Nam nói gửi file gì", "tháng 5 nhóm hẹn ăn ở đâu", ' +
+      '"tuần trước ai bảo mua vé", "lần trước mình bàn gì về chuyến Đà Lạt".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        keywords: {
+          type: 'STRING',
+          description:
+            'Từ khóa và từ đồng nghĩa có thể đã xuất hiện trong tin nhắn, phân cách bằng dấu phẩy. ' +
+            'Ví dụ hỏi "đi đâu": "đi, du lịch, đi chơi, chuyến, vé, khách sạn, homestay, máy bay, xe khách".',
+        },
+        fromDate: {
+          type: 'STRING',
+          description:
+            'Ngày bắt đầu (YYYY-MM-DD, giờ Việt Nam) nếu câu hỏi có mốc thời gian. "năm ngoái" -> ngày 01/01 của năm trước.',
+        },
+        toDate: {
+          type: 'STRING',
+          description:
+            'Ngày kết thúc, tính cả ngày đó (YYYY-MM-DD). "năm ngoái" -> ngày 31/12 của năm trước.',
+        },
+        question: {
+          type: 'STRING',
+          description: 'Câu hỏi gốc của người dùng.',
+        },
+      },
+      required: ['keywords'],
+    },
+  },
 ];
 
 /** Subset of `ZALO_TOOL_DEFINITIONS` limited to `allowed`, preserving the original order. */
