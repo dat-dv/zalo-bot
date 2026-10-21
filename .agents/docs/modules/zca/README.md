@@ -63,7 +63,7 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
 | Quy tắc xác nhận | `allowReactions` | tắt | Cho phép duyệt/huỷ bằng ❤️/😡 |
 | | `requiredHearts` | nhóm `5`, cá nhân `1` | Số tim cần để duyệt |
 | | `timeoutMinutes` | `5` | Thời hạn thẻ chờ |
-| Lưu trữ | `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | trống | Thư mục Drive `zalobot/<channelId>` và album Photos riêng của nhóm |
+| Lưu trữ | `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | trống | Link đã lưu tới **thư mục gốc** Drive và album Photos của kênh (xem mục "Link Drive/Photos cố định theo kênh") |
 
 Lưu ý:
 - Bật lắng nghe một kênh đang tắt tương tác trực tiếp thì hệ thống tự bật `directInteraction.enabled` kèm `allowAiChat` (giữ nguyên danh sách tiền tố).
@@ -208,6 +208,20 @@ Logic ghép dòng là hàm thuần trong `model/chat-rows.ts`, có unit test ở
 | POST | `/api/zca/threads/:threadId/sync-media` | Sao lưu media lịch sử của nhóm |
 
 Link Google dùng trên trang (thuộc `GoogleResourcesController`): `GET /api/drive/folder-link`, `GET /api/drive/open`, `POST /api/drive/share`, `GET /api/photos/album-link`, `GET /api/photos/open`.
+
+### Link Drive/Photos cố định theo kênh
+
+**Vấn đề trước đây:** link 📁 Drive / 📸 Photos trong bảng lúc mở thư mục này, lúc mở thư mục khác. Nguyên nhân là nhiều nơi cùng ghi đè link đã lưu: mỗi lần bot sao lưu ảnh/video/file lại lưu **thư mục con của file vừa upload** (ví dụ `zalobot/<id>/image/2026-10`, sang tháng hoặc đổi loại file là đổi), còn lệnh `@bot share` / lấy link kho lại lưu `zalobot/<channelId>` và bỏ qua thư mục tuỳ chỉnh (`customFolder`) mà nhóm thực sự đang dùng. Album Photos cũng vậy: chỗ upload và chỗ mở link chọn tên album theo thứ tự khác nhau.
+
+**Quy tắc hiện tại:**
+
+- Mỗi kênh chỉ có **một thư mục gốc**: `customFolder` nếu admin đã đặt, ngược lại là `zalobot/<channelId>`. File vẫn được xếp vào thư mục con theo loại/tháng bên dưới, nhưng link luôn trỏ vào thư mục gốc để người dùng thấy toàn bộ.
+- Mỗi kênh chỉ có **một album**: tên album tuỳ chỉnh (`photosAlbum`) → album đã lưu → `[Zalo] <tên nhóm>`. Upload và link dùng chung quy tắc này.
+- Backend chặn tại một chỗ: `saveDriveFolderInfo` từ chối lưu thư mục không phải gốc, `savePhotosAlbumInfo` từ chối album khác album của kênh.
+- Khi admin đổi thư mục tuỳ chỉnh hoặc tên album trong **Cấu hình**, link cũ tự bị xoá; lần bấm mở tiếp theo backend tìm lại đúng thư mục/album rồi lưu.
+- Dữ liệu cũ đã lưu sai **không cần migration**: khi đọc cấu hình, link lệch gốc bị bỏ qua, web rơi về `/api/drive/open` / `/api/photos/open`, và endpoint này lưu lại link đúng.
+
+**Khi phát triển thêm:** đừng gọi `saveDriveFolderInfo` với thư mục trả về từ upload; muốn lấy thư mục gốc hãy dùng `getThreadDriveRoot(config)` / `resolveChannelDriveRoot(channelId)`, và tên album dùng `getThreadPhotosAlbumTitle(config)`. Phía web dùng `getThreadDriveFolderLabel` / `getThreadPhotosAlbumLabel` để hiển thị.
 
 ### Phân quyền
 

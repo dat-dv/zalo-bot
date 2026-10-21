@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
-import { ThreadConfigService } from './thread-config.service';
+import { getThreadPhotosAlbumTitle, ThreadConfigService } from './thread-config.service';
 import type { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
 import { MediaStorageService } from '../receipt-storage/media-storage.service';
 import type { TextInputService } from '../zalo/text/text-input.service';
@@ -715,10 +715,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       );
 
       const buffer = await fetchImageBuffer(mediaUrl);
-      const photosAlbumTitle =
-        config.mediaBackup.photosAlbum ||
-        config.photosAlbumTitle ||
-        (config.threadName ? `[Zalo] ${config.threadName}` : `[Zalo] Nhóm ${threadId}`);
+      const photosAlbumTitle = getThreadPhotosAlbumTitle(config);
 
       const uploadOptions = {
         channelId: threadId,
@@ -732,19 +729,6 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       const dualResult = isVideo
         ? await this.mediaStorageService.uploadVideo(senderId, buffer, uploadOptions)
         : await this.mediaStorageService.uploadImage(senderId, buffer, uploadOptions);
-
-      if (dualResult.drive?.folderId || dualResult.drive?.folderPath) {
-        const folderUrl = dualResult.drive.folderId
-          ? `https://drive.google.com/drive/folders/${dualResult.drive.folderId}`
-          : dualResult.drive.webViewLink;
-        if (folderUrl) {
-          void this.threadConfigService.saveDriveFolderInfo(threadId, {
-            folderId: dualResult.drive.folderId,
-            folderUrl,
-            folderPath: dualResult.drive.folderPath || config.mediaBackup.customFolder,
-          });
-        }
-      }
 
       if (dualResult.photos?.albumId || dualResult.photos?.albumUrl) {
         void this.threadConfigService.savePhotosAlbumInfo(threadId, {
@@ -944,10 +928,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
             this.logger.log(
               `[ZcaBotFeature] Auto uploading ${mediaLabel} to Google Drive with suffix "${config.mediaBackup.fileSuffix || ''}" and folder "${config.mediaBackup.customFolder || ''}"...`,
             );
-            const photosAlbumTitle =
-              config.mediaBackup.photosAlbum ||
-              config.photosAlbumTitle ||
-              (config.threadName ? `[Zalo] ${config.threadName}` : `[Zalo] Nhóm ${threadId}`);
+            const photosAlbumTitle = getThreadPhotosAlbumTitle(config);
 
             const buffer = await fetchImageBuffer(mediaUrl);
             const uploadOptions = {
@@ -984,19 +965,6 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
 
             if (dualResult.drive?.fileId && msgId) {
               await this.markMediaSynced(threadId, msgId);
-            }
-
-            if (dualResult.drive?.folderId || dualResult.drive?.folderPath) {
-              const folderUrl = dualResult.drive.folderId
-                ? `https://drive.google.com/drive/folders/${dualResult.drive.folderId}`
-                : dualResult.drive.webViewLink;
-              if (folderUrl) {
-                void this.threadConfigService.saveDriveFolderInfo(threadId, {
-                  folderId: dualResult.drive.folderId,
-                  folderUrl,
-                  folderPath: dualResult.drive.folderPath || config.mediaBackup.customFolder,
-                });
-              }
             }
 
             if (dualResult.photos?.albumId || dualResult.photos?.albumUrl) {
@@ -1463,10 +1431,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         const buffer = await fetchImageBuffer(mediaUrl);
         const senderId = String(msgData.uidFrom || 'unknown');
         const displayName = String(msgData.dName || '');
-        const photosAlbumTitle =
-          config.mediaBackup?.photosAlbum ||
-          config.photosAlbumTitle ||
-          (config.threadName ? `[Zalo] ${config.threadName}` : `[Zalo] Nhóm ${threadId}`);
+        const photosAlbumTitle = getThreadPhotosAlbumTitle(config);
 
         const uploadOptions = {
           folderPath: config.mediaBackup?.customFolder || undefined,
@@ -1492,18 +1457,6 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
           syncedCount++;
           if (msgId) {
             await this.markMediaSynced(threadId, msgId);
-          }
-          if (dualResult.drive?.folderId || dualResult.drive?.folderPath) {
-            const folderUrl = dualResult.drive.folderId
-              ? `https://drive.google.com/drive/folders/${dualResult.drive.folderId}`
-              : dualResult.drive.webViewLink;
-            if (folderUrl) {
-              void this.threadConfigService.saveDriveFolderInfo(threadId, {
-                folderId: dualResult.drive.folderId,
-                folderUrl,
-                folderPath: dualResult.drive.folderPath || config.mediaBackup?.customFolder,
-              });
-            }
           }
           if (dualResult.photos?.albumId || dualResult.photos?.albumUrl) {
             void this.threadConfigService.savePhotosAlbumInfo(threadId, {

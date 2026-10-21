@@ -39,7 +39,7 @@
 | `confirmationRules.allowReactions` | `false` | ❤️/😡 reactions confirm/cancel |
 | `confirmationRules.requiredHearts` | group `5`, user `1` | Hearts needed |
 | `confirmationRules.timeoutMinutes` | `5` | Pending timeout |
-| `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | unset | Channel Drive partition `zalobot/<channelId>` and per-group Photos album |
+| `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | unset | Cached link to the channel storage root and channel Photos album (see Channel Storage Links) |
 
 - `setListened(id, true)` on a thread whose `directInteraction.enabled` is false also enables it with `allowAiChat: true` (keeps `triggerPrefixes`).
 - Legacy data: rows written before `triggerPrefixes` may hold a single `directInteraction.triggerPrefix` string; `normalizeDirectInteraction` folds it into the list on every read (DB, Redis, legacy JSON file), and the next save drops the old key. `requireMention` no longer exists: groups always need a mention or prefix.
@@ -54,7 +54,7 @@ Shared gates, in order: (1) `getConfig(threadId, { threadType })` + `isListened`
 | Pending fast-path | `yes/cancel/edit <code>`, pending image replies | `yes`/`cancel`/reactions: collective (any member). `edit`: pending owner, bot account or granted user only; others ignored silently **before** the card is recalled/deleted (`handleCommand(..., canEdit)`) | `edit` re-issues only the tool of `pending.actionType`; non-tool action types (`create`, `delete`, `BAN_USER`…) cannot be edited (reply: cancel and recreate) |
 
 Pending fast-path input is mention-stripped first (`stripBotMentions`): cut the bot's own mention entities (`data.mentions` with `uid === api.getOwnId()`, by `pos`/`len`, trailing `, : . -` removed), then `cleanBotMention` (`@bot` aliases, the first matching `triggerPrefixes` entry). Other members' mentions are kept. So `@Đen edit 125 …` / `@bot yes 123` reach `handleCommand` as `edit 125 …` / `yes 123` and never fall through to the LLM.
-| L3 passive media | image/video/file/voice, `mediaBackup.enabled` + type flag on | None — group storage, every member is backed up | Upload to Drive + Photos album (dedup via Redis set `zca:synced_media:<threadId>`), saves folder/album info to thread config; no OCR, no LLM |
+| L3 passive media | image/video/file/voice, `mediaBackup.enabled` + type flag on | None — group storage, every member is backed up | Upload to Drive + Photos album (dedup via Redis set `zca:synced_media:<threadId>`), saves album info to thread config (never the upload's Drive sub-folder); no OCR, no LLM |
 | L1 direct | Group: `@bot`/bot-name regex, mention entity, or text starting with a `triggerPrefixes` entry (case-insensitive). 1-1 chat: any non-empty text. Media without text never triggers | `InitialAdminBootstrapGuard` + `GrantAccessGuard` (replies with denial, `registerPendingUser`) + cooldown with reply; bot account bypasses | Full tool set; free chat per `allowAiChat` |
 | Not addressed | Everything else (group text without mention/prefix, any media without text) | None | Ignored: no LLM call, no access check, no reply. Rationale: the bot only works when a user explicitly asks; it also avoids one LLM request per group message |
 
@@ -115,6 +115,17 @@ Requires `isListened` and `confirmationRules.allowReactions`; same self rules. E
 | POST | `/api/zca/threads/:threadId/sync-media` | Media history sync |
 
 `GoogleResourcesController` links used by the ZCA page: `GET /api/drive/folder-link?channelId=&threadName=`, `GET /api/drive/open` (302 to folder), `POST /api/drive/share` (`{ channelId, email }`), `GET /api/photos/album-link`, `GET /api/photos/open` (302 to album).
+
+### Channel Storage Links
+
+Why: the table's Drive/Photos links used to jump between folders because every upload overwrote `driveFolderUrl` with its own month sub-folder, while share/storage-link tools stored `zalobot/<channelId>` and ignored `customFolder`.
+
+- **Drive root** (`resolveChannelDriveRoot` in `google/channel-storage.util.ts`, `getThreadDriveRoot(config)`): `mediaBackup.customFolder` (slash-trimmed) else `zalobot/<channelId>`. Uploads still go to `<root>/<category>/<YYYY-MM>` or `<customFolder>/<YYYY-MM>`; links always point at the root.
+- **Photos album** (`resolveChannelPhotosAlbumTitle`, `getThreadPhotosAlbumTitle(config)`): `mediaBackup.photosAlbum` → stored `photosAlbumTitle` → `[Zalo] <threadName>` → `[Zalo] Nhóm <channelId>`. Used by all three upload paths and by `/api/photos/*`.
+- `ThreadConfigService.saveDriveFolderInfo` ignores any `folderPath` that is not the root; `savePhotosAlbumInfo` ignores a title other than the channel album. Media uploads no longer call `saveDriveFolderInfo`.
+- `withoutStaleStorageLinks(config)` runs on every load (`entityToConfig`, Redis/JSON cache) and at the end of `updateConfig`: drops `driveFolder*` whose path is not the root, and `photosAlbum*` whose title differs from a `photosAlbum` override. Changing `customFolder`/`photosAlbum` in the modal therefore clears the cached links (the modal echoes them back). Stale DB values are not rewritten; they are dropped on read and replaced on the next resolve.
+- `/api/drive/*` and `/api/photos/*` use a cached URL only when it matches the root/album; otherwise they resolve (`getFolderWebLink` / `getAlbumLink`) and save it. `POST /api/drive/share`, `GET_STORAGE_LINKS` and `SHARE_DRIVE` share/store the same root.
+- Web labels: `getThreadDriveFolderLabel` / `getThreadPhotosAlbumLabel` (`api/zca-api.ts`) mirror these rules for tooltips in `ChatTableRow`, `ThreadConfigModal`, `SyncMediaModal`.
 
 ### Access control
 

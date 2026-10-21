@@ -8,6 +8,7 @@ import { GoogleCalendarService } from './google-calendar.service';
 import { GoogleTasksService } from './google-tasks.service';
 import { GoogleAuthService } from './google-auth.service';
 import { GoogleDriveService } from './google-drive.service';
+import type { GooglePhotosService } from './google-photos.service';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import type { ThreadConfigService } from '../zca/thread-config.service';
 import type { UsersService } from '../users/users.service';
@@ -558,4 +559,77 @@ void test('GoogleResourcesController open routes accept the admin refresh cookie
     () => controller.openPhotosAlbum(anonymousReq, mockRes),
     UnauthorizedException,
   );
+});
+
+void test('GoogleResourcesController getDriveFolderLink ignores a stored month sub-folder link', async () => {
+  const mockThreadConfigService = {
+    getConfigSync: (tId: string) => ({
+      threadId: tId,
+      mediaBackup: { customFolder: 'zalobot/team_dev' },
+      driveFolderPath: 'zalobot/team_dev/2026-10',
+      driveFolderUrl: 'https://drive.google.com/drive/folders/leaf',
+    }),
+    saveDriveFolderInfo: () => Promise.resolve(),
+  } as unknown as ThreadConfigService;
+
+  const mockDrive = {
+    getFolderWebLink: (folder: string) => Promise.resolve(`https://drive.mock/${folder}`),
+  } as unknown as GoogleDriveService;
+
+  const controller = new GoogleResourcesController(
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as GoogleTasksService,
+    adminTokens,
+    {} as unknown as GoogleAuthService,
+    mockDrive,
+    undefined,
+    adminUsers,
+    mockThreadConfigService,
+  );
+
+  const res = await controller.getDriveFolderLink(createMockRequest(ADMIN_ID), '123');
+  assert.deepEqual(res, {
+    data: {
+      folderPath: 'zalobot/team_dev',
+      webViewLink: 'https://drive.mock/zalobot/team_dev',
+    },
+  });
+});
+
+void test('GoogleResourcesController getPhotosAlbumLink follows the photosAlbum override, not a stale cached album', async () => {
+  const mockThreadConfigService = {
+    getConfigSync: (tId: string) => ({
+      threadId: tId,
+      threadName: 'Team Dev',
+      mediaBackup: { photosAlbum: 'Album mới' },
+      photosAlbumTitle: '[Zalo] Team Dev',
+      photosAlbumUrl: 'https://photos.google.com/album/old',
+    }),
+    savePhotosAlbumInfo: () => Promise.resolve(),
+  } as unknown as ThreadConfigService;
+
+  const requestedTitles: string[] = [];
+  const mockPhotos = {
+    getAlbumLink: (title: string) => {
+      requestedTitles.push(title);
+      return Promise.resolve('https://photos.google.com/album/new');
+    },
+  } as unknown as GooglePhotosService;
+
+  const controller = new GoogleResourcesController(
+    {} as unknown as GoogleCalendarService,
+    {} as unknown as GoogleTasksService,
+    adminTokens,
+    {} as unknown as GoogleAuthService,
+    undefined,
+    mockPhotos,
+    adminUsers,
+    mockThreadConfigService,
+  );
+
+  const res = await controller.getPhotosAlbumLink(createMockRequest(ADMIN_ID), '123');
+  assert.deepEqual(res, {
+    data: { albumTitle: 'Album mới', webViewLink: 'https://photos.google.com/album/new' },
+  });
+  assert.deepEqual(requestedTitles, ['Album mới']);
 });

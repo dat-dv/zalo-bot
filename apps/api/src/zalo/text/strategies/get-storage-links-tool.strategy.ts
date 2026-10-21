@@ -6,10 +6,14 @@ import { GoogleDriveService, GG_DRIVE_ROOT_FOLDER } from '../../../google/google
 import { GooglePhotosService } from '../../../google/google-photos.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
 import { UsersService } from '../../../users/users.service';
-import { ThreadConfigService, hasLegacyGroupPrefix } from '../../../zca/thread-config.service';
 import {
-  buildChannelFolder,
+  ThreadConfigService,
+  getThreadDriveRoot,
+  hasLegacyGroupPrefix,
+} from '../../../zca/thread-config.service';
+import {
   getChannelDriveFolderPath,
+  resolveChannelDriveRoot,
 } from '../../../google/channel-storage.util';
 
 type StorageType = 'all' | 'bill' | 'image' | 'video';
@@ -112,8 +116,11 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
     }
 
     try {
-      const channelFolder = buildChannelFolder(context.chatId);
-      const channelDrivePath = `${GG_DRIVE_ROOT_FOLDER}/${channelFolder}`;
+      // Same root the dashboard links and media uploads use (honours the group's customFolder).
+      const threadConfig = await this.threadConfigService?.findStoredConfig?.(context.chatId);
+      const channelDrivePath = threadConfig
+        ? getThreadDriveRoot(threadConfig)
+        : resolveChannelDriveRoot(context.chatId);
 
       const [rootDriveLink, channelDriveLink] = await Promise.all([
         this.driveService ? this.driveService.getFolderWebLink(GG_DRIVE_ROOT_FOLDER) : null,

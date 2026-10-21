@@ -8,7 +8,12 @@ import {
   useGoogleDriveFolderLinkQuery,
 } from '../api/zca-query';
 import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
-import { getThreadDriveLink, getThreadPhotosLink } from '../api/zca-api';
+import {
+  getThreadDriveFolderLabel,
+  getThreadDriveLink,
+  getThreadPhotosAlbumLabel,
+  getThreadPhotosLink,
+} from '../api/zca-api';
 import { TriggerPrefixInput } from '../presentation/components/trigger-prefix-input';
 
 interface ThreadConfigModalProps {
@@ -342,10 +347,7 @@ export function ThreadConfigModal({
                           Thư mục Drive:
                         </span>
                         <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] font-medium text-blue-700 border border-blue-200 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300">
-                          {form.driveFolderPath ||
-                            driveLinkData?.folderPath ||
-                            form.mediaBackup.customFolder ||
-                            `zalobot/${threadId}`}
+                          {getThreadDriveFolderLabel({ id: threadId }, form)}
                         </code>
                       </div>
                       <p className="text-[10px] text-slate-500 dark:text-slate-400">
@@ -378,9 +380,7 @@ export function ThreadConfigModal({
                           Album Google Photos:
                         </span>
                         <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] font-medium text-indigo-700 border border-indigo-200 dark:border-indigo-800 dark:bg-slate-900 dark:text-indigo-300">
-                          {form.photosAlbumTitle ||
-                            form.mediaBackup.photosAlbum ||
-                            (threadName ? `[Zalo] ${threadName}` : `[Zalo] Nhóm ${threadId}`)}
+                          {getThreadPhotosAlbumLabel({ id: threadId, name: threadName }, form)}
                         </code>
                       </div>
                       <p className="text-[10px] text-slate-500 dark:text-slate-400">

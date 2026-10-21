@@ -192,6 +192,26 @@ export function getThreadDriveLink(
   return getThreadDriveOpenUrl(thread.id, thread.name);
 }
 
+/** Mirrors the API's channel Drive root: the thread's `customFolder`, else `zalobot/<threadId>`. */
+export function getThreadDriveFolderLabel(
+  thread: { id: string },
+  config?: Pick<ThreadBotConfig, 'mediaBackup'> | null,
+): string {
+  return config?.mediaBackup.customFolder?.trim() || `zalobot/${thread.id}`;
+}
+
+/** Mirrors the API's album choice: `photosAlbum` override, stored album, else `[Zalo] <name>`. */
+export function getThreadPhotosAlbumLabel(
+  thread: { id: string; name?: string },
+  config?: Pick<ThreadBotConfig, 'mediaBackup' | 'photosAlbumTitle'> | null,
+): string {
+  return (
+    config?.mediaBackup.photosAlbum?.trim() ||
+    config?.photosAlbumTitle?.trim() ||
+    (thread.name ? `[Zalo] ${thread.name}` : `[Zalo] Nhóm ${thread.id}`)
+  );
+}
+
 export function getThreadPhotosOpenUrl(threadId?: string, threadName?: string): string {
   const base = resolveApiBaseUrl();
   const path = API_ROUTES.photosOpen;

@@ -8,6 +8,7 @@ import {
   createDefaultThreadConfig,
   normalizeDirectInteraction,
   sanitizePathSegment,
+  withoutStaleStorageLinks,
 } from './thread-config.service';
 
 void test('sanitizePathSegment cleans Vietnamese diacritics and special characters', () => {
@@ -362,4 +363,111 @@ void test('ThreadConfigService stores a cleaned prefix list on update', async ()
     directInteraction: { triggerPrefixes: ['!', ' bot: ', 'BOT:', 'có dấu cách', ''] },
   });
   assert.deepEqual(updated.directInteraction.triggerPrefixes, ['bot:', '!']);
+});
+
+void test('withoutStaleStorageLinks drops a Drive link that is not the channel root', () => {
+  const base = createDefaultThreadConfig('123', { threadName: 'Team Dev', threadType: 'group' });
+  const leaf = withoutStaleStorageLinks({
+    ...base,
+    driveFolderId: 'leaf',
+    driveFolderUrl: 'https://drive.google.com/drive/folders/leaf',
+    driveFolderPath: 'zalobot/team_dev/2026-10',
+  });
+  assert.equal(leaf.driveFolderUrl, undefined);
+  assert.equal(leaf.driveFolderId, undefined);
+  assert.equal(leaf.driveFolderPath, undefined);
+
+  const root = withoutStaleStorageLinks({
+    ...base,
+    driveFolderUrl: 'https://drive.google.com/drive/folders/root',
+    driveFolderPath: 'zalobot/team_dev',
+  });
+  assert.equal(root.driveFolderUrl, 'https://drive.google.com/drive/folders/root');
+});
+
+void test('withoutStaleStorageLinks drops a Photos album that differs from the photosAlbum override', () => {
+  const base = createDefaultThreadConfig('123', { threadName: 'Team Dev', threadType: 'group' });
+  const stale = withoutStaleStorageLinks({
+    ...base,
+    mediaBackup: { ...base.mediaBackup, photosAlbum: 'Album mới' },
+    photosAlbumId: 'old',
+    photosAlbumUrl: 'https://photos.google.com/album/old',
+    photosAlbumTitle: '[Zalo] Team Dev',
+  });
+  assert.equal(stale.photosAlbumId, undefined);
+  assert.equal(stale.photosAlbumUrl, undefined);
+  assert.equal(stale.photosAlbumTitle, undefined);
+
+  const kept = withoutStaleStorageLinks({
+    ...base,
+    photosAlbumUrl: 'https://photos.google.com/album/current',
+    photosAlbumTitle: '[Zalo] Team Dev',
+  });
+  assert.equal(kept.photosAlbumUrl, 'https://photos.google.com/album/current');
+});
+
+void test('saveDriveFolderInfo only stores the channel root folder', async () => {
+  const service = new ThreadConfigService();
+  await service.getConfig('555', { threadName: 'Team Dev', threadType: 'group' });
+
+  await service.saveDriveFolderInfo('555', {
+    folderId: 'leaf',
+    folderUrl: 'https://drive.google.com/drive/folders/leaf',
+    folderPath: 'zalobot/team_dev/2026-10',
+  });
+  assert.equal(service.getConfigSync('555')?.driveFolderUrl, undefined);
+
+  await service.saveDriveFolderInfo('555', {
+    folderId: 'root',
+    folderUrl: 'https://drive.google.com/drive/folders/root',
+    folderPath: 'zalobot/team_dev',
+  });
+  assert.equal(
+    service.getConfigSync('555')?.driveFolderUrl,
+    'https://drive.google.com/drive/folders/root',
+  );
+});
+
+void test('savePhotosAlbumInfo ignores an album other than the channel album', async () => {
+  const service = new ThreadConfigService();
+  await service.getConfig('556', { threadName: 'Team Dev', threadType: 'group' });
+
+  await service.savePhotosAlbumInfo('556', {
+    albumUrl: 'https://photos.google.com/album/other',
+    albumTitle: 'ZaloBot - Hình ảnh',
+  });
+  assert.equal(service.getConfigSync('556')?.photosAlbumUrl, undefined);
+
+  await service.savePhotosAlbumInfo('556', {
+    albumUrl: 'https://photos.google.com/album/team',
+    albumTitle: '[Zalo] Team Dev',
+  });
+  assert.equal(
+    service.getConfigSync('556')?.photosAlbumUrl,
+    'https://photos.google.com/album/team',
+  );
+});
+
+void test('updateConfig clears stored links when customFolder or photosAlbum changes', async () => {
+  const service = new ThreadConfigService();
+  const cfg = await service.getConfig('557', { threadName: 'Team Dev', threadType: 'group' });
+  await service.saveDriveFolderInfo('557', {
+    folderUrl: 'https://drive.google.com/drive/folders/root',
+    folderPath: 'zalobot/team_dev',
+  });
+  await service.savePhotosAlbumInfo('557', {
+    albumUrl: 'https://photos.google.com/album/team',
+    albumTitle: '[Zalo] Team Dev',
+  });
+
+  // The dashboard modal echoes the stored links back together with the new folder/album.
+  const updated = await service.updateConfig('557', {
+    driveFolderUrl: 'https://drive.google.com/drive/folders/root',
+    driveFolderPath: 'zalobot/team_dev',
+    photosAlbumUrl: 'https://photos.google.com/album/team',
+    photosAlbumTitle: '[Zalo] Team Dev',
+    mediaBackup: { ...cfg.mediaBackup, customFolder: 'zalobot/khac', photosAlbum: 'Album khác' },
+  });
+  assert.equal(updated.driveFolderUrl, undefined);
+  assert.equal(updated.photosAlbumUrl, undefined);
 });

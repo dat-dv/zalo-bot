@@ -2,11 +2,15 @@ import { Injectable, Logger, Optional } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
-import { GoogleDriveService, GG_DRIVE_ROOT_FOLDER } from '../../../google/google-drive.service';
+import { GoogleDriveService } from '../../../google/google-drive.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
 import { UsersService } from '../../../users/users.service';
-import { ThreadConfigService, hasLegacyGroupPrefix } from '../../../zca/thread-config.service';
-import { buildChannelFolder, isValidEmail } from '../../../google/channel-storage.util';
+import {
+  ThreadConfigService,
+  getThreadDriveRoot,
+  hasLegacyGroupPrefix,
+} from '../../../zca/thread-config.service';
+import { isValidEmail, resolveChannelDriveRoot } from '../../../google/channel-storage.util';
 
 @Injectable()
 export class ShareDriveToolStrategy implements TextToolStrategy {
@@ -62,8 +66,11 @@ export class ShareDriveToolStrategy implements TextToolStrategy {
     );
 
     try {
-      const channelFolder = buildChannelFolder(context.chatId);
-      const channelDrivePath = `${GG_DRIVE_ROOT_FOLDER}/${channelFolder}`;
+      // Same root the dashboard links and media uploads use (honours the group's customFolder).
+      const threadConfig = await this.threadConfigService?.findStoredConfig?.(context.chatId);
+      const channelDrivePath = threadConfig
+        ? getThreadDriveRoot(threadConfig)
+        : resolveChannelDriveRoot(context.chatId);
 
       const res = await this.driveService.shareFolderWithUser(channelDrivePath, email, 'reader');
       const webViewLink = await this.driveService.getFolderWebLink(channelDrivePath);

@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  getThreadDriveFolderLabel,
   getThreadDriveLink,
   getThreadDriveOpenUrl,
+  getThreadPhotosAlbumLabel,
   getThreadPhotosLink,
   getThreadPhotosOpenUrl,
 } from './zca-api';
@@ -57,4 +59,23 @@ void test('getThreadPhotosLink falls back to getThreadPhotosOpenUrl when photosA
   const link = getThreadPhotosLink({ id: 'g-789', name: 'Nhóm Gia Đình' }, null);
   assert.ok(link.includes('/api/photos/open'));
   assert.ok(link.includes('g-789'));
+});
+
+void test('getThreadDriveFolderLabel shows the channel root, not a stored sub-folder', () => {
+  const config = {
+    mediaBackup: { customFolder: 'zalobot/team_dev' },
+    driveFolderPath: 'zalobot/team_dev/2026-10',
+  } as ThreadBotConfig;
+  assert.equal(getThreadDriveFolderLabel({ id: '123' }, config), 'zalobot/team_dev');
+  assert.equal(getThreadDriveFolderLabel({ id: '123' }, null), 'zalobot/123');
+});
+
+void test('getThreadPhotosAlbumLabel prefers the photosAlbum override', () => {
+  const config = {
+    mediaBackup: { photosAlbum: 'Album mới' },
+    photosAlbumTitle: '[Zalo] Team Dev',
+  } as ThreadBotConfig;
+  assert.equal(getThreadPhotosAlbumLabel({ id: '123', name: 'Team Dev' }, config), 'Album mới');
+  assert.equal(getThreadPhotosAlbumLabel({ id: '123', name: 'Team Dev' }, null), '[Zalo] Team Dev');
+  assert.equal(getThreadPhotosAlbumLabel({ id: '123' }, null), '[Zalo] Nhóm 123');
 });

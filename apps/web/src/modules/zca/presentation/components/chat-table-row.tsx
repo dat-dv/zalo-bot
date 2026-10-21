@@ -3,7 +3,13 @@
 import { useState } from 'react';
 import type { ThreadBotConfig } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { getThreadDriveLink, getThreadPhotosLink, type ZcaThread } from '../../api/zca-api';
+import {
+  getThreadDriveFolderLabel,
+  getThreadDriveLink,
+  getThreadPhotosAlbumLabel,
+  getThreadPhotosLink,
+  type ZcaThread,
+} from '../../api/zca-api';
 import { hasInteractionAccess, type ChatRow } from '../../model/chat-rows';
 import { ChatRowMenu, type ChatRowMenuItem } from './chat-row-menu';
 import { CopyIcon, GoogleDriveIcon } from './zca-icons';
@@ -110,7 +116,7 @@ function ConfigBadges({ row, config }: { row: ChatRow; config: ThreadBotConfig }
           href={getThreadDriveLink(thread, config)}
           rel="noopener noreferrer"
           target="_blank"
-          title={`Mở thư mục Google Drive: ${config.driveFolderPath || `zalobot/${thread.id}`}`}
+          title={`Mở thư mục Google Drive: ${getThreadDriveFolderLabel(thread, config)}`}
         >
           📁 Drive ↗
         </a>
@@ -121,7 +127,7 @@ function ConfigBadges({ row, config }: { row: ChatRow; config: ThreadBotConfig }
           href={getThreadPhotosLink(thread, config)}
           rel="noopener noreferrer"
           target="_blank"
-          title={`Mở album Google Photos: ${config.photosAlbumTitle || `[Zalo] ${thread.name || thread.id}`}`}
+          title={`Mở album Google Photos: ${getThreadPhotosAlbumLabel(thread, config)}`}
         >
           📸 Photos ↗
         </a>
@@ -353,7 +359,7 @@ export function ChatTableRow({
               onClick={onDriveOpened}
               rel="noopener noreferrer"
               target="_blank"
-              title={`Mở thư mục Google Drive (${config?.driveFolderPath || config?.mediaBackup.customFolder || `zalobot/${thread.id}`})`}
+              title={`Mở thư mục Google Drive (${getThreadDriveFolderLabel(thread, config)})`}
             >
               <GoogleDriveIcon className="size-3.5 shrink-0" />
               <span>Drive</span>

@@ -38,11 +38,17 @@ import { GoogleDriveService, GG_DRIVE_ROOT_FOLDER } from './google-drive.service
 import { UsersService } from '../users/users.service';
 import {
   ThreadConfigService,
+  getThreadDriveRoot,
+  getThreadPhotosAlbumTitle,
   hasLegacyGroupPrefix,
-  sanitizePathSegment,
 } from '../zca/thread-config.service';
 import { ShareDriveDto } from './dto/share-drive.dto';
-import { getChannelDriveFolderPath, isValidEmail } from './channel-storage.util';
+import {
+  isSameDrivePath,
+  isValidEmail,
+  resolveChannelDriveRoot,
+  resolveChannelPhotosAlbumTitle,
+} from './channel-storage.util';
 
 @ApiTags('Google Workspace (Calendar & Tasks)')
 @ApiBearerAuth('bearer-jwt')
@@ -75,7 +81,10 @@ export class GoogleResourcesController {
       throw new BadRequestException('Email không hợp lệ.');
     }
     const role = body.role || 'reader';
-    const folderPath = getChannelDriveFolderPath(body.channelId);
+    const config = await this.threadConfigService?.findStoredConfig?.(body.channelId);
+    const folderPath = config
+      ? getThreadDriveRoot(config)
+      : resolveChannelDriveRoot(body.channelId);
 
     const shareResult = await this.driveService.shareFolderWithUser(folderPath, email, role);
     let webViewLink: string | undefined;
@@ -133,25 +142,13 @@ export class GoogleResourcesController {
     let cachedUrl: string | undefined;
 
     if (channelId) {
-      let config: ThreadBotConfig | undefined;
-      if (this.threadConfigService) {
-        config = this.threadConfigService.getConfigSync?.(channelId);
-        if (!config && threadName && typeof this.threadConfigService.getConfig === 'function') {
-          try {
-            config = await this.threadConfigService.getConfig(channelId, { threadName });
-          } catch {
-            // ignore
-          }
-        }
-      }
-
-      cachedUrl = config?.driveFolderUrl;
-      folderPath =
-        config?.driveFolderPath ||
-        config?.mediaBackup?.customFolder ||
-        (threadName
-          ? `${GG_DRIVE_ROOT_FOLDER}/${sanitizePathSegment(threadName)}`
-          : getChannelDriveFolderPath(channelId));
+      const config = await this.loadChannelConfig(channelId, threadName);
+      // Always the channel root (customFolder or zalobot/<channelId>), the parent of every upload.
+      folderPath = config ? getThreadDriveRoot(config) : resolveChannelDriveRoot(channelId);
+      cachedUrl =
+        config && isSameDrivePath(config.driveFolderPath, folderPath)
+          ? config.driveFolderUrl
+          : undefined;
     }
 
     if (cachedUrl) {
@@ -219,23 +216,15 @@ export class GoogleResourcesController {
     let cachedUrl: string | undefined;
 
     if (channelId) {
-      let config: ThreadBotConfig | undefined;
-      if (this.threadConfigService) {
-        config = this.threadConfigService.getConfigSync?.(channelId);
-        if (!config && threadName && typeof this.threadConfigService.getConfig === 'function') {
-          try {
-            config = await this.threadConfigService.getConfig(channelId, { threadName });
-          } catch {
-            // ignore
-          }
-        }
-      }
-
-      cachedUrl = config?.photosAlbumUrl;
-      albumTitle =
-        config?.photosAlbumTitle ||
-        config?.mediaBackup?.photosAlbum ||
-        (threadName ? `[Zalo] ${threadName}` : `[Zalo] Nhóm ${channelId}`);
+      const config = await this.loadChannelConfig(channelId, threadName);
+      // Same title the media uploads use, so the link opens the album photos actually go to.
+      albumTitle = config
+        ? getThreadPhotosAlbumTitle(config)
+        : resolveChannelPhotosAlbumTitle(channelId, { threadName });
+      cachedUrl =
+        config && config.photosAlbumTitle?.trim() === albumTitle
+          ? config.photosAlbumUrl
+          : undefined;
     }
 
     if (cachedUrl) {
@@ -614,6 +603,22 @@ export class GoogleResourcesController {
   }
 
   /** Group folders live on the thread config; only 1-1 channels map to a user record. */
+  private async loadChannelConfig(
+    channelId: string,
+    threadName?: string,
+  ): Promise<ThreadBotConfig | undefined> {
+    if (!this.threadConfigService) return undefined;
+    const config = this.threadConfigService.getConfigSync?.(channelId);
+    if (config || !threadName || typeof this.threadConfigService.getConfig !== 'function') {
+      return config;
+    }
+    try {
+      return await this.threadConfigService.getConfig(channelId, { threadName });
+    } catch {
+      return undefined;
+    }
+  }
+
   private async isGroupChannel(channelId: string): Promise<boolean> {
     if (typeof this.threadConfigService?.isGroupThread === 'function') {
       return this.threadConfigService.isGroupThread(channelId);

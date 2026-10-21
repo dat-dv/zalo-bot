@@ -3,7 +3,10 @@ import assert from 'node:assert/strict';
 import {
   buildChannelFolder,
   getChannelDriveFolderPath,
+  isSameDrivePath,
   isValidEmail,
+  resolveChannelDriveRoot,
+  resolveChannelPhotosAlbumTitle,
 } from './channel-storage.util';
 
 void test('buildChannelFolder cleans and uses channelId strictly', () => {
@@ -26,4 +29,30 @@ void test('isValidEmail validates email format correctly', () => {
   assert.equal(isValidEmail('user.name+tag@example.com.vn'), true);
   assert.equal(isValidEmail('invalid-email'), false);
   assert.equal(isValidEmail(''), false);
+});
+
+void test('resolveChannelDriveRoot prefers customFolder and falls back to zalobot/<channelId>', () => {
+  assert.equal(resolveChannelDriveRoot('123'), 'zalobot/123');
+  assert.equal(resolveChannelDriveRoot('123', ''), 'zalobot/123');
+  assert.equal(resolveChannelDriveRoot('123', '  /zalobot/team_dev/ '), 'zalobot/team_dev');
+});
+
+void test('isSameDrivePath ignores surrounding slashes but not sub-folders', () => {
+  assert.equal(isSameDrivePath('zalobot/team_dev', '/zalobot/team_dev/'), true);
+  assert.equal(isSameDrivePath('zalobot/team_dev/2026-10', 'zalobot/team_dev'), false);
+  assert.equal(isSameDrivePath('zalobot/123/image/2026-10', 'zalobot/123'), false);
+  assert.equal(isSameDrivePath(undefined, 'zalobot/123'), false);
+});
+
+void test('resolveChannelPhotosAlbumTitle: override, then stored album, then thread name', () => {
+  assert.equal(
+    resolveChannelPhotosAlbumTitle('123', { photosAlbum: 'Kỷ niệm', photosAlbumTitle: '[Zalo] A' }),
+    'Kỷ niệm',
+  );
+  assert.equal(
+    resolveChannelPhotosAlbumTitle('123', { photosAlbumTitle: '[Zalo] A', threadName: 'B' }),
+    '[Zalo] A',
+  );
+  assert.equal(resolveChannelPhotosAlbumTitle('123', { threadName: 'B' }), '[Zalo] B');
+  assert.equal(resolveChannelPhotosAlbumTitle('123', {}), '[Zalo] Nhóm 123');
 });

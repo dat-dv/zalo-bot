@@ -8,7 +8,12 @@ import type {
 } from '@zalobot/contracts';
 import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
 import { useSyncThreadMediaMutation } from '../api/zca-query';
-import { getThreadDriveLink, getThreadPhotosLink, type ZcaThread } from '../api/zca-api';
+import {
+  getThreadDriveLink,
+  getThreadPhotosAlbumLabel,
+  getThreadPhotosLink,
+  type ZcaThread,
+} from '../api/zca-api';
 
 interface SyncMediaModalProps {
   isOpen: boolean;
@@ -284,7 +289,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
             <span className="text-slate-500 dark:text-slate-400 truncate max-w-[280px]">
               📸 Album Google Photos:{' '}
               <strong className="text-slate-700 dark:text-slate-300">
-                {threadConfig?.photosAlbumTitle || `[Zalo] ${thread.name || thread.id}`}
+                {getThreadPhotosAlbumLabel(thread, threadConfig)}
               </strong>
             </span>
             <a

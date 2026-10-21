@@ -1940,3 +1940,59 @@ void test('ZcaBotFeatureService.onReaction stores a numeric ZCA group id as grou
 
   assert.equal(configService.getConfigSync(threadId)?.threadType, 'group');
 });
+
+void test('ZcaBotFeatureService media sync keeps the channel Drive link on the channel root', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-drive-root-1';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    mediaBackup: { enabled: true, uploadImages: true },
+  });
+  await configService.saveDriveFolderInfo(threadId, {
+    folderUrl: 'https://drive.google.com/drive/folders/root',
+    folderPath: `zalobot/${threadId}`,
+  });
+
+  const mockMediaStorageService = {
+    uploadImage: () =>
+      Promise.resolve({
+        drive: {
+          fileId: 'drive-img-1',
+          folderId: 'month-folder',
+          folderPath: `zalobot/${threadId}/image/2026-10`,
+          webViewLink: 'https://drive.google.com/img',
+        },
+      }),
+  } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
+
+  const mockZcaService = {
+    isLoggedIn: () => true,
+    getGroupChatHistory: () =>
+      Promise.resolve({
+        lastActionId: '1',
+        lastActionIdOther: '1',
+        more: 0,
+        groupMsgs: [
+          {
+            data: {
+              msgId: 'msg-img-root',
+              msgType: 'chat.photo',
+              content: JSON.stringify({ href: 'data:image/jpeg;base64,dGVzdA==' }),
+              uidFrom: 'u1',
+              dName: 'Alice',
+            },
+          },
+        ],
+      }),
+  } as unknown as ZcaService;
+
+  const service = new ZcaBotFeatureService(configService, mockMediaStorageService);
+  service.setZcaService(mockZcaService);
+
+  const res = await service.syncThreadMediaHistory(threadId, { limit: 50 });
+  assert.equal(res.syncedCount, 1);
+  const config = configService.getConfigSync(threadId);
+  assert.equal(config?.driveFolderUrl, 'https://drive.google.com/drive/folders/root');
+  assert.equal(config?.driveFolderPath, `zalobot/${threadId}`);
+});

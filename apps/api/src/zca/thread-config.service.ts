@@ -11,6 +11,11 @@ import {
   type UpdateThreadBotConfigDto,
 } from '@zalobot/contracts';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
+import {
+  isSameDrivePath,
+  resolveChannelDriveRoot,
+  resolveChannelPhotosAlbumTitle,
+} from '../google/channel-storage.util';
 import { RedisService } from '../redis/redis.service';
 
 export const REDIS_KEY_LISTENED_THREADS = 'zca:listened_threads';
@@ -64,12 +69,51 @@ export function normalizeDirectInteraction(
   };
 }
 
+export function getThreadDriveRoot(config: ThreadBotConfig): string {
+  return resolveChannelDriveRoot(config.threadId, config.mediaBackup?.customFolder);
+}
+
+export function getThreadPhotosAlbumTitle(config: ThreadBotConfig): string {
+  return resolveChannelPhotosAlbumTitle(config.threadId, {
+    photosAlbum: config.mediaBackup?.photosAlbum,
+    photosAlbumTitle: config.photosAlbumTitle,
+    threadName: config.threadName,
+  });
+}
+
+/**
+ * Drops stored Drive/Photos links that no longer match the channel's storage root or album
+ * (older versions stored the month sub-folder of the last upload; `customFolder` or
+ * `photosAlbum` may have changed since). The "open" endpoints then resolve and store them again.
+ */
+export function withoutStaleStorageLinks(config: ThreadBotConfig): ThreadBotConfig {
+  const next = { ...config };
+  if (
+    (next.driveFolderUrl || next.driveFolderId || next.driveFolderPath) &&
+    !isSameDrivePath(next.driveFolderPath, getThreadDriveRoot(next))
+  ) {
+    next.driveFolderId = undefined;
+    next.driveFolderUrl = undefined;
+    next.driveFolderPath = undefined;
+  }
+  const albumOverride = next.mediaBackup?.photosAlbum?.trim();
+  if (albumOverride && next.photosAlbumTitle?.trim() !== albumOverride) {
+    next.photosAlbumId = undefined;
+    next.photosAlbumUrl = undefined;
+    next.photosAlbumTitle = undefined;
+  }
+  return next;
+}
+
 /** Redis and the legacy JSON file may hold configs written by older versions. */
 function normalizeCachedConfig(
   raw: ThreadBotConfig & { expenseTracking?: unknown; calendarExtraction?: unknown },
 ): ThreadBotConfig {
   const { expenseTracking: _expense, calendarExtraction: _calendar, ...config } = raw;
-  return { ...config, directInteraction: normalizeDirectInteraction(config.directInteraction) };
+  return withoutStaleStorageLinks({
+    ...config,
+    directInteraction: normalizeDirectInteraction(config.directInteraction),
+  });
 }
 
 export function createDefaultThreadConfig(
@@ -114,7 +158,7 @@ export function createDefaultThreadConfig(
 }
 
 export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
-  return {
+  return withoutStaleStorageLinks({
     threadId: entity.threadId,
     threadName: entity.threadName || undefined,
     threadType: entity.threadType || 'user',
@@ -144,7 +188,7 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
       timeoutMinutes: entity.confirmationRules?.timeoutMinutes ?? 5,
     },
     updatedAt: entity.updatedAt ? new Date(entity.updatedAt).getTime() : Date.now(),
-  };
+  });
 }
 
 @Injectable()
@@ -540,6 +584,9 @@ export class ThreadConfigService implements OnModuleInit {
       };
     }
 
+    // The dashboard echoes stored links back, so re-check them against the (maybe changed)
+    // customFolder / photosAlbum before persisting.
+    Object.assign(config, withoutStaleStorageLinks(config));
     config.updatedAt = Date.now();
     this.configsMap.set(id, config);
 
@@ -654,6 +701,16 @@ export class ThreadConfigService implements OnModuleInit {
     threadId: string,
     folderInfo: { folderId?: string; folderUrl?: string; folderPath?: string },
   ): Promise<void> {
+    const stored = await this.findStoredConfig(threadId);
+    const driveRoot = stored ? getThreadDriveRoot(stored) : resolveChannelDriveRoot(threadId);
+    if (!isSameDrivePath(folderInfo.folderPath, driveRoot)) {
+      // Links must point at the channel root, not the month sub-folder of the last upload.
+      this.logger.debug(
+        `[ThreadConfigService] Ignoring Drive folder "${folderInfo.folderPath ?? ''}" for thread ${threadId}: channel root is "${driveRoot}".`,
+      );
+      return;
+    }
+
     const config = this.configsMap.get(threadId);
     if (config) {
       if (folderInfo.folderId !== undefined) config.driveFolderId = folderInfo.folderId;
@@ -692,6 +749,19 @@ export class ThreadConfigService implements OnModuleInit {
     threadId: string,
     albumInfo: { albumId?: string; albumUrl?: string; albumTitle?: string },
   ): Promise<void> {
+    const stored = await this.findStoredConfig(threadId);
+    const albumTitle = stored ? getThreadPhotosAlbumTitle(stored) : undefined;
+    if (
+      albumTitle &&
+      albumInfo.albumTitle !== undefined &&
+      albumInfo.albumTitle.trim() !== albumTitle
+    ) {
+      this.logger.debug(
+        `[ThreadConfigService] Ignoring Photos album "${albumInfo.albumTitle}" for thread ${threadId}: channel album is "${albumTitle}".`,
+      );
+      return;
+    }
+
     const config = this.configsMap.get(threadId);
     if (config) {
       if (albumInfo.albumId !== undefined) config.photosAlbumId = albumInfo.albumId;
