@@ -7,6 +7,7 @@ metadata:
       - apps/api/src/zalo/zalo.service.ts
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
       - apps/api/src/zca/confirmation/dto-descriptor.util.ts
+      - apps/api/src/zca/confirmation/compact-summary.util.ts
       - apps/api/src/zca/zca.service.ts
       - apps/api/src/zca/thread-config.service.ts
 ---
@@ -18,7 +19,7 @@ Human guide: [Zalo Response Layout](../../docs/global/zalo-response-layout.md).
 ## Delivery
 
 - All bot replies are plain text. There are no buttons, inline keyboards, or callback payloads; every follow-up action is a typed command or a reaction.
-- Layout: one short heading line (emoji prefix), then `• Label: value` lines; keep each item compact for mobile.
+- Layout: one short heading line (emoji prefix), then `• Label: value` lines; keep each item compact for mobile. Exception: success messages after confirmation use the compact 1–2 line format below.
 - `ZaloService.sendMessageWithResult`: with a Bot Platform token, text is split into 1900-character chunks (300 ms apart) and sent to the Bot API; on API failure it falls back to ZCA if logged in. Without a token it sends through ZCA. Returns `{ success, msgId?, cliMsgId? }` used for later recall.
 
 ## Confirmation cards
@@ -46,6 +47,36 @@ Sensitive mutations (transactions, transaction delete, debts, places, reminders,
 - Reactions (ZCA): heart (`/-heart`, `HEART`, `❤️`) adds the reactor to `heartUsers`; confirm when `heartUsers.length >= requiredHearts`. Angry (`:-h`, `ANGRY`, `😡`) cancels. `createPendingAction` takes `requiredHearts` from the chat's saved thread config `confirmationRules.requiredHearts` (group default 5) via `ThreadConfigService.findStoredConfig` (read-only, never creates a config); an explicit `requiredHearts` param wins; chats without a saved config (e.g. official webhook) need 1.
 - Authorization: confirm/cancel/edit by code is allowed when the sender owns the action or the command comes from the action's chat.
 
+## Success messages (compact)
+
+After a pending action is executed, the outcome message is built by `compact-summary.util.ts` (one `summarize…` per action type), not by `renderDtoConfirmationCard`. Rationale: the card was already reviewed and is recalled, so repeating every field wastes phone screen space.
+
+- Max 2 lines (+1 line `🧾 <url>` for a receipt link): line 1 = icon + `[code]` + main content; line 2 = secondary info, omitted when empty. Parts joined by ` · `; empty fields are dropped (never `(trống)`).
+- Same text for heart and text confirmation (no "Đã nhận đủ N lượt thả tim" header, no tip lines). `processConfirm`'s `_options` is kept but unused.
+- Short time `HH:mm dd/MM` in Asia/Ho_Chi_Minh; year appended only when it differs from the current year. Amount `15.000đ`.
+- Values come from the saved entity when available (`tx?.amount ?? payload.amount`, …).
+
+```text
+✅ [230] Chi 15.000đ · Ăn uống · bánh mỳ
+📍 đối diện ctgroup · 🕗 08:30 21/10
+```
+
+| Action | Line 1 | Line 2 |
+| --- | --- | --- |
+| `RECORD_TRANSACTION` | `✅ [c] Chi\|Thu <amount> · <category> · <note>` | `📍 place · 🕗 time · 💳 method`, then `🧾 <receiptUrl>` |
+| `DELETE_TRANSACTION` | `🗑️ [c] Đã xoá chi\|thu <amount> · …` | `🕗 time` |
+| `MANAGE_DEBT` | `✅ [c] <name> (<alias>) nợ bạn <amount>` / `Bạn nợ <name> <amount>` `· note` | `🕗 time · ⏳ hạn dd/MM` |
+| `SET_REMINDER` | `⏰ [c] Nhắc "<title>" lúc <time>` | `🔁 hàng ngày\|hàng tuần · 📞 gọi điện` |
+| `CREATE_TASK` | `✅ [c] Thêm việc: <title> · ⏳ hạn dd/MM` | `📝 notes` |
+| `COMPLETE_TASK` | `☑️ [c] Đã xong: <title>` | — |
+| `CREATE_CALENDAR_EVENT` | `📅 [c] <summary> · 14:00–15:00 22/10` (multi-day: `start – end`) | `📍 location · 🔔 trước 10p` |
+| `DELETE_CALENDAR_EVENT` | `🗑️ [c] Đã xoá lịch: <summary> · <start>` | — |
+| `BAN_USER` | `⛔ [c] Đã khoá <name> (id …) · đã thu hồi quyền và token Google` | `📝 reason` |
+| `CREATE_PLACE` | `📍 [c] Đã tạo nơi chốn: <name>` | — |
+| other | `✅ [c] Đã xác nhận` | — |
+
+Unchanged: pending cards (full descriptor), heart counter, remaining notice, `yes all` result, error messages.
+
 ## Redis keys (TTL = remaining confirmation time unless noted)
 
 | Key | Value |
@@ -67,7 +98,7 @@ Principle: interaction messages are ephemeral; after resolution only the outcome
 1. Interim messages tracked via `addTempMessage`: heart counter `❤️ Đã nhận X/Y…`, remaining notice `💡 Bạn còn X yêu cầu chờ xác nhận…`, and a place confirmation sent while other actions are still pending.
 2. `recallTempMessages(chatId, code?)` recalls the card and tracked messages (`Promise.allSettled`, errors logged only).
 3. ZCA `undo` needs the client `cliMsgId`; `ZcaService` caches `msgId -> cliMsgId` from echoes/reactions. If `undo` fails, fall back to `deleteMessage(onlyMe: true)`. Recall requires ZCA to be logged in.
-4. Confirmed: recall, execute, post one result message (heart header when confirmed by reactions). If more actions remain, post the remaining notice as an interim message.
+4. Confirmed: recall, execute, post one compact result message (same for hearts and text). If more actions remain, post the remaining notice as an interim message.
 5. Companion place: confirming a `RECORD_TRANSACTION` with `placeName` recalls and deletes a matching pending `CREATE_PLACE` card.
 6. Cancelled: recall, post cancel notice. Timeout: recall, post `⏰ … (mã: xxx) đã hết hạn 5 phút và chưa được xác nhận.`
 7. Edited: recall the old card, re-run the same tool via LLM to issue a new card, then delete the old pending action.
@@ -75,4 +106,4 @@ Principle: interaction messages are ephemeral; after resolution only the outcome
 
 ## Tests
 
-`apps/api/src/zca/confirmation/transaction-confirmation.service.spec.ts`, `dto-descriptor.util.spec.ts`.
+`apps/api/src/zca/confirmation/transaction-confirmation.service.spec.ts`, `dto-descriptor.util.spec.ts`, `compact-summary.util.spec.ts`.

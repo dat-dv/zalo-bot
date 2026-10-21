@@ -356,9 +356,7 @@ void test('TextInputService routes natural text to LLM and executes MANAGE_DEBT 
   });
 
   assert.equal(sentMessages.length, 2);
-  assert.match(sentMessages[1].text, /Đã xác nhận và ghi nhận khoản nợ thành công/);
-  assert.match(sentMessages[1].text, /Người liên quan: a/);
-  assert.match(sentMessages[1].text, /100\.000 đ/);
+  assert.match(sentMessages[1].text, /^✅ \[\d{3}\] Bạn nợ a 100\.000đ$/);
 });
 
 void test('TextInputService cleans @Bot at beginning and end for natural text before sending to LLM', async () => {
@@ -562,7 +560,8 @@ void test('TextInputService handles pending image action option 1: OCR -> LLM RE
 
   // 3rd message: Transaction saved successfully
   const savedMsg = sentMessages[sentMessages.length - 1];
-  assert.match(savedMsg.text, /Đã xác nhận và lưu/);
+  assert.match(savedMsg.text, /^✅ \[\d{3}\] Thu 85\.000đ|^✅ \[\d{3}\] Chi 85\.000đ/);
+  assert.match(savedMsg.text, /Highlands Coffee/);
 });
 
 void test('TextInputService handles pending image action option 2: Google Drive message', async () => {

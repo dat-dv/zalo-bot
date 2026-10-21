@@ -213,8 +213,12 @@ void test('TransactionConfirmationService confirms transaction with "yes <mã>"'
   assert.equal(createdTransactions.length, 1);
   assert.equal(createdTransactions[0].amount, 15000);
   assert.equal(sentMessages.length, 2);
-  assert.match(sentMessages[1].text, /Đã xác nhận và lưu/);
-  assert.match(sentMessages[1].text, /15\.000 đ/);
+  // occurredAt defaults to "now", so only the first line is fixed.
+  assert.equal(
+    sentMessages[1].text.split('\n')[0],
+    `✅ [${pending.code}] Chi 15.000đ · Ăn uống · uống cà phê`,
+  );
+  assert.ok(sentMessages[1].text.split('\n').length <= 2);
 
   service.clearAll();
 });
@@ -296,8 +300,7 @@ void test('TransactionConfirmationService creates pending delete with 3-digit co
   assert.equal(deletedTransactions.length, 1);
   assert.equal(deletedTransactions[0].id, 'tx_delete_123');
   assert.equal(sentMessages.length, 2);
-  assert.match(sentMessages[1].text, /Đã xóa/);
-  assert.match(sentMessages[1].text, /45\.000 đ/);
+  assert.match(sentMessages[1].text, /^🗑️ \[\d{3}\] Đã xoá chi 45\.000đ/);
 
   service.clearAll();
 });
@@ -373,7 +376,7 @@ void test('TransactionConfirmationService creates and confirms debt with strict 
   await service.handleCommand('u1', 'c1', `yes ${pending.code}`);
   assert.equal(createdDebts.length, 1);
   assert.equal(createdDebts[0].counterparty, 'Huy');
-  assert.match(sentMessages[1].text, /Đã xác nhận và ghi nhận khoản nợ thành công/);
+  assert.match(sentMessages[1].text, /^✅ \[\d{3}\] Huy nợ bạn 200\.000đ · vay tiền xe/);
 
   service.clearAll();
 });
@@ -400,7 +403,7 @@ void test('TransactionConfirmationService creates and confirms reminder with str
   await service.handleCommand('u1', 'c1', `yes ${pending.code}`);
   assert.equal(createdReminders.length, 1);
   assert.equal(createdReminders[0].title, 'Đi mua quà sinh nhật');
-  assert.match(sentMessages[1].text, /Đã xác nhận và đặt lịch nhắc thành công/);
+  assert.match(sentMessages[1].text, /^⏰ \[\d{3}\] Nhắc "Đi mua quà sinh nhật" lúc 18:00 15\/10/);
 
   service.clearAll();
 });
@@ -433,7 +436,7 @@ void test('TransactionConfirmationService confirms reminder whose payload round-
   assert.equal(createdReminders[0].remindAt.getTime(), remindAt.getTime());
   assert.match(
     sentMessages[sentMessages.length - 1].text,
-    /Đã xác nhận và đặt lịch nhắc thành công/,
+    /^⏰ \[\d{3}\] Nhắc "Nhắn Mẹ đừng nấu cơm" lúc 17:00 19\/10/,
   );
 
   service.clearAll();
@@ -480,7 +483,7 @@ void test('TransactionConfirmationService creates and confirms Google Task with 
   await service.handleCommand('u1', 'c1', `yes ${pending.code}`);
   assert.equal(createdTasks.length, 1);
   assert.equal(createdTasks[0].title, 'Hoàn thành báo cáo quý 4');
-  assert.match(sentMessages[1].text, /ĐÃ XÁC NHẬN VÀ THÊM VIỆC CẦN LÀM VÀO GOOGLE TASKS/);
+  assert.match(sentMessages[1].text, /^✅ \[\d{3}\] Thêm việc: Hoàn thành báo cáo quý 4/);
 
   service.clearAll();
 });
@@ -509,7 +512,10 @@ void test('TransactionConfirmationService creates and confirms Google Calendar E
   await service.handleCommand('u1', 'c1', `yes ${pending.code}`);
   assert.equal(createdEvents.length, 1);
   assert.equal(createdEvents[0].summary, 'Gặp gỡ đối tác');
-  assert.match(sentMessages[1].text, /ĐÃ XÁC NHẬN VÀ TẠO SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG/);
+  assert.equal(
+    sentMessages[1].text,
+    `📅 [${pending.code}] Gặp gỡ đối tác · 14:00–15:30 16/10\n📍 The Coffee House`,
+  );
 
   service.clearAll();
 });
@@ -536,7 +542,7 @@ void test('TransactionConfirmationService creates and confirms task completion w
   await service.handleCommand('u1', 'c1', `yes ${pending.code}`);
   assert.equal(completedTasks.length, 1);
   assert.equal(completedTasks[0].taskId, 'task_complete_999');
-  assert.match(sentMessages[1].text, /ĐÃ XÁC NHẬN VÀ HOÀN THÀNH CÔNG VIỆC TRÊN GOOGLE TASKS/);
+  assert.match(sentMessages[1].text, /^☑️ \[\d{3}\] Đã xong: Gửi email báo giá$/);
 
   service.clearAll();
 });
@@ -564,7 +570,7 @@ void test('TransactionConfirmationService creates and confirms Google Calendar e
   await service.handleCommand('u1', 'c1', `yes ${pending.code}`);
   assert.equal(deletedCalendarEvents.length, 1);
   assert.equal(deletedCalendarEvents[0].eventId, 'cal_event_del_123');
-  assert.match(sentMessages[1].text, /ĐÃ XÁC NHẬN VÀ XÓA SỰ KIỆN GOOGLE CALENDAR THÀNH CÔNG/);
+  assert.match(sentMessages[1].text, /^🗑️ \[\d{3}\] Đã xoá lịch: Họp giao ban sáng/);
 
   service.clearAll();
 });
@@ -596,7 +602,10 @@ void test('TransactionConfirmationService creates and confirms user ban with str
   assert.equal(bannedUsers[0], 'bad_user_456');
   assert.equal(revokedTokens.length, 1);
   assert.equal(revokedTokens[0], 'bad_user_456');
-  assert.match(sentMessages[1].text, /ĐÃ XÁC NHẬN VÀ KHÓA TÀI KHOẢN NGƯỜI DÙNG THÀNH CÔNG/);
+  assert.equal(
+    sentMessages[1].text,
+    `⛔ [${pending.code}] Đã khoá Hacker (id bad_user_456) · đã thu hồi quyền và token Google\n📝 Spam hệ thống`,
+  );
 
   service.clearAll();
 });
@@ -1200,17 +1209,12 @@ void test('processConfirm recalls pending confirmation message and formats heart
   // Verify the single message sent has both heart celebration and DTO details
   // sentMessages[0] is the prompt, sentMessages[1] is the result
   const resultMessage = sentMessages[sentMessages.length - 1].text;
-  assert.match(
+  assert.equal(
     resultMessage,
-    new RegExp(
-      `🎉 Đã nhận đủ 1 lượt thả tim \\(❤️\\)! Yêu cầu \\[${pending.code}\\] đã được xác nhận thành công`,
-    ),
+    `✅ [${pending.code}] Chi 450.000đ · Mua sắm · mua tròng kính subin cho vợ\n` +
+      `📍 Mắt kính Subin Hồ Xuân Hương quận 3 · 💳 MoMo`,
   );
-  assert.match(resultMessage, /• Phân loại:\s*🔴 Khoản chi/);
-  assert.match(resultMessage, /• Số tiền:\s*450\.000 đ/);
-  assert.match(resultMessage, /• Ghi chú:\s*mua tròng kính subin cho vợ/);
-  assert.match(resultMessage, /• Địa điểm:\s*Mắt kính Subin Hồ Xuân Hương quận 3/);
-  assert.match(resultMessage, /• Phương thức:\s*MoMo/);
+  assert.doesNotMatch(resultMessage, /Đã nhận đủ|\(trống\)/);
 
   service.clearAll();
 });
@@ -1440,8 +1444,7 @@ void test('Multi-card confirmation flow cleans up all temporary cards and interi
 
   // The final message is the successful expense confirmation
   const finalMsg = sentMessages[sentMessages.length - 1].text;
-  assert.match(finalMsg, /Yêu cầu \[363\]|đã được xác nhận thành công!/);
-  assert.match(finalMsg, /20\.000 đ/);
+  assert.match(finalMsg, /^✅ \[\d{3}\] Chi 20\.000đ/);
   assert.match(finalMsg, /đối diện ctgroup/);
 
   service.clearAll();
