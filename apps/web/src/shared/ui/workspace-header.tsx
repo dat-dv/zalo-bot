@@ -96,19 +96,18 @@ export interface WorkspaceHeaderProps {
   extraActions?: ReactNode;
 }
 
-export function WorkspaceHeader({
+/**
+ * Route title, auth state and session actions shared by the desktop
+ * `WorkspaceHeader` and the mobile topbar in `AppNavigation`.
+ */
+export function useWorkspaceHeader({
   title: propTitle,
   subtitle: propSubtitle,
   onRefresh,
-  showLogout = true,
-  showMoneyToggle = true,
-  showRefresh = true,
-  extraActions,
-}: WorkspaceHeaderProps) {
+}: Pick<WorkspaceHeaderProps, 'title' | 'subtitle' | 'onRefresh'> = {}) {
   const queryClient = useQueryClient();
   const pathname = usePathname();
   const { t } = useLocale();
-  const { isMoneyVisible, toggleMoneyVisibility } = useMoneyVisibility();
 
   const [hasToken, setHasToken] = useState(false);
   const [isLoggedOut, setIsLoggedOut] = useState(false);
@@ -143,10 +142,39 @@ export function WorkspaceHeader({
   const resolvedSubtitle =
     propSubtitle || (routeMeta?.subtitleKey ? t(routeMeta.subtitleKey) : undefined);
 
-  const isAuthenticated = hasToken && !isLoggedOut;
+  return {
+    title: resolvedTitle,
+    subtitle: resolvedSubtitle,
+    isAuthenticated: hasToken && !isLoggedOut,
+    handleRefresh,
+    handleLogout,
+    zaloBotUrl: getzaloBotUrl(),
+  };
+}
 
+export function WorkspaceHeader({
+  title: propTitle,
+  subtitle: propSubtitle,
+  onRefresh,
+  showLogout = true,
+  showMoneyToggle = true,
+  showRefresh = true,
+  extraActions,
+}: WorkspaceHeaderProps) {
+  const { t } = useLocale();
+  const { isMoneyVisible, toggleMoneyVisibility } = useMoneyVisibility();
+  const {
+    title: resolvedTitle,
+    subtitle: resolvedSubtitle,
+    isAuthenticated,
+    handleRefresh,
+    handleLogout,
+    zaloBotUrl,
+  } = useWorkspaceHeader({ title: propTitle, subtitle: propSubtitle, onRefresh });
+
+  // Phones and tablets show the title and session actions in the AppNavigation topbar instead.
   return (
-    <header className="flex min-h-12 items-center justify-between gap-4 rounded border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 max-[960px]:flex-wrap max-[960px]:gap-2 max-[960px]:px-2.5">
+    <header className="flex min-h-12 items-center justify-between gap-4 rounded border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900 max-[960px]:hidden">
       <div className="min-w-0 flex-1">
         <h1
           className="truncate text-base font-bold text-slate-900 dark:text-slate-100"
@@ -164,7 +192,7 @@ export function WorkspaceHeader({
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-2 max-[960px]:flex-wrap">
+      <div className="flex shrink-0 items-center gap-2">
         {extraActions}
 
         {isAuthenticated ? (
@@ -208,7 +236,7 @@ export function WorkspaceHeader({
         ) : (
           <a
             className="inline-flex min-h-[30px] items-center justify-center gap-1.5 rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white no-underline transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-            href={getzaloBotUrl()}
+            href={zaloBotUrl}
             target="_blank"
             rel="noopener noreferrer"
           >

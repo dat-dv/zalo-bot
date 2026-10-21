@@ -93,6 +93,14 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - **Phân bổ nợ**: ô Ghi chú có nút mở rộng ▶/▼ và badge `🔗 N phân bổ` (bấm để mở `DebtAllocationModal`); khi đang sửa có thêm nút `🔗` ở cột thao tác. Dòng mở rộng liệt kê người liên quan, số tiền, ghi chú của từng phân bổ.
 - **Xoá giao dịch**: mở `DeleteTransactionModal` thay cho hộp xác nhận của trình duyệt. Modal tóm tắt giao dịch và nói rõ tác động lên số dư: xoá khoản **chi** → số dư tăng lại (`+số tiền`, màu xanh ngọc); xoá khoản **thu** → số dư giảm (`-số tiền`, màu hổ phách); nếu có phân bổ nợ → cảnh báo đỏ rằng số nợ còn lại của các khoản liên quan sẽ được khôi phục. Đóng bằng `Escape` hoặc bấm nền (trừ khi đang xử lý).
 - Lỗi tải danh sách giao dịch → màn hình "Phiên hết hạn" có nút thử lại.
+- **Trên điện thoại (≤ 640px)**: Thu chi là màn đầu tiên bật chế độ danh sách của `DataTable` (`TransactionsTable mobileList`). Mục tiêu là mở trang ra thấy giao dịch ngay, không phải cuộn ngang. Chi tiết chung xem [web-ui-direction](../../global/web-ui-direction.md).
+  - Mỗi giao dịch là một dòng hai tầng: ghi chú và số tiền có dấu +/− ở trên; danh mục · ngày · người tạo · nơi chốn ở dưới. Không có STT/ID và không có thanh tỉ lệ số tiền.
+  - Chạm vào dòng mở bảng trượt gồm mọi trường, khối chi tiết, ảnh hoá đơn, phân bổ nợ và dòng ID (mở hộp thoại ID cho AI Agent).
+    - Bấm **Sửa** thì các trường thành ô nhập ngay trong bảng trượt.
+    - Nút Lưu/Huỷ/Xoá nằm ở chân bảng trượt, luôn thấy kể cả khi bàn phím mở.
+  - Các nút lọc theo cột chuyển lên một dải cuộn ngang phía trên danh sách.
+  - Toolbar gom chip Tất cả / Thu / Chi / Cân chỉnh số dư / Xoá bộ lọc vào một hàng cuộn ngang. Ô tìm kiếm nằm hàng riêng. Mọi nút, ô nhập và "Tải thêm" cao 40px.
+  - Bảng giao dịch ở trang Tổng quan chưa bật chế độ này (để sang giai đoạn B).
 
 ## Phân bổ giao dịch vào công nợ (`DebtAllocationModal`)
 

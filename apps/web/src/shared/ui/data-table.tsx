@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef, useMemo, Fragment, type ReactNode } from 'react';
 import type { TranslationKey } from '@zalobot/contracts';
+import { MOBILE_MEDIA_QUERY, useMediaQuery } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { DataTableMobileList } from './data-table-mobile-list';
+import { supportsMobileList, type MobileSlot } from './data-table-mobile';
 import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from './modal';
 
 type DataTableRow = { id: string };
@@ -19,6 +22,12 @@ export type DataTableColumn<T extends DataTableRow> = {
   width?: number | string;
   hideable?: boolean;
   defaultHidden?: boolean;
+  /** Phone-width list slot; declaring one on any column switches the table to a list at <= 640px. */
+  mobileSlot?: MobileSlot;
+  /** Plain, non-interactive content for the list row; defaults to `cell`. */
+  mobileCell?: (row: T, index: number) => ReactNode;
+  /** Show this column's header (e.g. its filter) in the list's filter strip. */
+  mobileHeader?: boolean;
 };
 
 export type TableEntityInfo = {
@@ -351,6 +360,8 @@ type DataTableProps<T extends DataTableRow> = {
   loading?: boolean;
   allowColumnToggle?: boolean;
   allowColumnResize?: boolean;
+  /** Render the phone-width list when columns declare `mobileSlot`. Set false to keep the scrolling table. */
+  mobileList?: boolean;
 };
 
 const occurrenceTimeFields = [
@@ -598,8 +609,11 @@ export function DataTable<T extends DataTableRow>({
   loading = false,
   allowColumnToggle,
   allowColumnResize = Boolean(id),
+  mobileList = true,
 }: DataTableProps<T>) {
   const { t } = useLocale();
+  const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
+  const isMobileList = mobileList && isMobile && supportsMobileList(columns);
   const isToggleAllowed = allowColumnToggle ?? (Boolean(id) || columns.length > 2);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const [inspectedRowId, setInspectedRowId] = useState<string | null>(null);
@@ -858,6 +872,35 @@ export function DataTable<T extends DataTableRow>({
     window.addEventListener('pointerup', handlePointerUp, { once: true });
   };
 
+  const idExplainer = inspectedRowId && (
+    <IdExplainerDialog
+      isOpen={Boolean(inspectedRowId)}
+      rowId={inspectedRowId}
+      tableInfo={tableInfo}
+      onClose={() => setInspectedRowId(null)}
+    />
+  );
+
+  // Phone-width list: no STT/ID columns, column settings or resize handles; the ID
+  // stays reachable from the detail sheet.
+  if (isMobileList) {
+    return (
+      <>
+        <DataTableMobileList
+          ariaLabel={ariaLabel}
+          columns={columns}
+          rows={sortedRows}
+          emptyMessage={emptyMessage}
+          loading={loading}
+          getRowKey={getRowKey}
+          renderExpandedRow={renderExpandedRow}
+          onInspectId={setInspectedRowId}
+        />
+        {idExplainer}
+      </>
+    );
+  }
+
   return (
     <div className="relative flex w-full flex-col">
       {isToggleAllowed && (
@@ -986,14 +1029,7 @@ export function DataTable<T extends DataTableRow>({
         </table>
       </div>
 
-      {inspectedRowId && (
-        <IdExplainerDialog
-          isOpen={Boolean(inspectedRowId)}
-          rowId={inspectedRowId}
-          tableInfo={tableInfo}
-          onClose={() => setInspectedRowId(null)}
-        />
-      )}
+      {idExplainer}
     </div>
   );
 }

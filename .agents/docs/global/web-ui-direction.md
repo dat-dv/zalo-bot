@@ -7,6 +7,10 @@ metadata:
       - .agents/knowledge/global/web-ui-direction.md
       - apps/web/src/styles.css
       - apps/web/src/shared/ui/data-table.tsx
+      - apps/web/src/shared/ui/data-table-mobile.ts
+      - apps/web/src/shared/ui/data-table-mobile-list.tsx
+      - apps/web/src/shared/hooks/use-media-query.ts
+      - apps/web/src/shared/ui/period-filter-toolbar.tsx
       - apps/web/src/shared/ui/workspace-header.tsx
       - apps/web/src/shared/ui/app-navigation.tsx
       - apps/web/src/shared/store/money-visibility-store.ts
@@ -23,19 +27,73 @@ metadata:
 
 Web dashboard là giao diện tác vụ cá nhân, ưu tiên dữ liệu dễ quét và thao tác gọn: một workspace phẳng, viền nhẹ, control nhỏ gọn; tránh card trang trí hoặc shadow nặng. Tailwind CSS v4 là lớp styling duy nhất cho 100% component và màn hình giao diện web: toàn bộ bố cục, data panel, bảng dữ liệu, dialog modal, form inline edit, KPI metrics, biểu đồ và các nút hành động đều dùng trực tiếp utility classes có hỗ trợ tiền tố `dark:` và responsive variants. File `apps/web/src/styles.css` chỉ gồm `@import 'tailwindcss'`, khai báo `@custom-variant dark` và một lớp CSS nền nhỏ: màu chữ/nền/font cho `:root`, màu cho `html[data-theme='dark']`, màu outline `:focus-visible` ở dark mode (`#93c5fd`), `box-sizing` và mặc định của `body`. Không có class BEM hay class component nào.
 
-Các primitive dùng chung trong `apps/web/src/shared/ui/` chịu trách nhiệm panel/bảng tái sử dụng. Trên desktop, bảng phải phủ hết chiều ngang bên trong panel; bảng dùng HTML semantic, căn phải số liệu, có trạng thái loading, rỗng và có dữ liệu. Trên màn hình di động hẹp, bảng hỗ trợ cuộn ngang mượt mà (`min-width: max-content` kết hợp `minWidth` của từng cột) để đảm bảo các thông tin quan trọng (Số tiền, Thời gian, Badge trạng thái) không bao giờ bị bóp méo hoặc cắt cụt. Cột thao tác (`id: 'actions'`) bắt buộc khai báo `minWidth` đầy đủ (120px–150px), bọc container bằng `flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap`, và gán `shrink-0 whitespace-nowrap` cho từng nút bấm (`Sửa`, `Xóa`, `Lưu`, `Hủy`, `Trả nợ`, `Hoãn`) cùng các badge phân loại để đảm bảo không bao giờ bị rớt dòng trên mọi kích thước màn hình.
+Các primitive dùng chung trong `apps/web/src/shared/ui/` chịu trách nhiệm panel/bảng tái sử dụng. Trên desktop, bảng phải phủ hết chiều ngang bên trong panel; bảng dùng HTML semantic, căn phải số liệu, có trạng thái loading, rỗng và có dữ liệu. Trên màn hình di động hẹp, bảng chưa bật chế độ danh sách (xem mục bên dưới) hỗ trợ cuộn ngang mượt mà (`min-width: max-content` kết hợp `minWidth` của từng cột) để đảm bảo các thông tin quan trọng (Số tiền, Thời gian, Badge trạng thái) không bao giờ bị bóp méo hoặc cắt cụt. Cột thao tác (`id: 'actions'`) bắt buộc khai báo `minWidth` đầy đủ (120px–150px), bọc container bằng `flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap`, và gán `shrink-0 whitespace-nowrap` cho từng nút bấm (`Sửa`, `Xóa`, `Lưu`, `Hủy`, `Trả nợ`, `Hoãn`) cùng các badge phân loại để đảm bảo không bao giờ bị rớt dòng trên mọi kích thước màn hình.
 
 Các bảng dữ liệu nghiệp vụ bắt buộc sử dụng các thành phần Common Table dùng chung (`TransactionsTable`, `DebtsTable`, `TasksTable`, `RemindersTable`, `CalendarTable`) thay vì tự định nghĩa lại `DataTableColumn` tại từng trang riêng lẻ (`dashboard-home-screen`, `transactions-screen`, `debts-screen`, `tasks-screen`, `reminders-screen`, `calendar-screen`, `analytics-screen`). Việc gom về component dùng chung đảm bảo toàn bộ số hàng, số cột, format tiền tệ, biểu đồ thanh trực quan, tính năng autocomplete, inline editing và cài đặt ẩn/hiện cột được hiển thị đồng bộ, nhất quán 100% trên toàn ứng dụng.
 
 Thành phần `DataTable` tích hợp sẵn nút Cài đặt cột (`TableColumnSettings`) với menu popover cho phép người dùng bật/tắt hiển thị từng cột và tự động lưu cấu hình vào `localStorage` (`zalobot:table-columns:<id>`). Mỗi dòng bắt buộc có trường `id`: `DataTable` tự thêm hai cột bắt buộc `STT` (số thứ tự theo danh sách đang hiển thị) và `ID` trước các cột nghiệp vụ; người dùng không thể ẩn hai cột này, còn ID được hiển thị dưới dạng nút bấm mono tương tác. Khi nhấp vào ô ID, hệ thống mở hộp thoại `IdExplainerDialog` giải thích thông tin bảng CSDL (`finance_transactions`, `debts`, `tasks`, `reminders`, `calendar_events`, `debt_contacts`, `finance_places`, `categories`...), cung cấp nút sao chép ID 1-click và bộ 3 câu lệnh mẫu cho AI Agent (Sửa, Xóa, Tra cứu) để người dùng dán trực tiếp vào Zalo Bot. Bảng tự sắp xếp sau khi lọc theo thời gian phát sinh nghiệp vụ: dữ liệu lịch sử ưu tiên mới nhất (`occurredAt`, rồi `paymentDate`, rồi `createdAt`), còn lịch/nhắc việc/công việc ưu tiên mốc sắp tới (`remindAt`, `startAt`, `dueAt`); dòng không có hạn nằm cuối. Mọi bảng có `id` cũng cho phép kéo mép phải của header để đổi độ rộng cột, lưu riêng theo `zalobot:table-widths:<id>` và tự khôi phục khi tải lại trang; khi cần, view có thể tắt bằng `allowColumnResize={false}`. Mỗi view tự quản lý danh sách cột nghiệp vụ, tải dữ liệu, lỗi và hành động.
 
+## Chế độ danh sách trên điện thoại (DataTable, <= 640px)
+
+**Vì sao cần:** trên màn 375px, chỉ riêng hai cột STT và ID đã chiếm gần hết chiều ngang. Bảng Thu chi rộng khoảng 1.650px nên người dùng phải cuộn ngang mới thấy số tiền. Chế độ danh sách cho mỗi giao dịch một dòng hai tầng để nhìn lướt được ngay.
+
+**Cách bật (opt-in):**
+- Danh sách chỉ hiện khi đủ ba điều kiện:
+  - Màn hình ≤ 640px (`useMediaQuery(MOBILE_MEDIA_QUERY)`; trước khi hydrate luôn coi là desktop).
+  - Có ít nhất một cột khai báo `mobileSlot`.
+  - Không truyền `mobileList={false}`.
+- Bảng chưa khai báo slot vẫn là bảng cuộn ngang như cũ, nên có thể chuyển dần từng màn.
+- Hiện chỉ màn **Thu chi** (`/transactions`) bật. Bảng giao dịch ở Tổng quan để sang giai đoạn B.
+
+**Khai báo cột:**
+- `mobileSlot`:
+  - `'primary'`: dòng trên, bên trái.
+  - `'trailing'`: dòng trên, bên phải, thường là số tiền.
+  - `'secondary'`: dòng dưới, nối bằng ` · `.
+- `mobileCell`: nội dung gọn, **không có nút bấm** (vì cả dòng đã là một nút). Nếu không khai báo thì dùng `cell`.
+- `mobileHeader`: đưa header của cột (ví dụ nút lọc cột) lên dải lọc cuộn ngang phía trên danh sách.
+- Việc chia slot nằm ở hàm thuần `partitionMobileColumns` (`data-table-mobile.ts`), đã có unit test.
+
+**Hành vi:**
+- Trên danh sách không có STT, ID, thanh "Ẩn/hiện cột", tay kéo đổi độ rộng cột và khung cuộn 520px; trang cuộn tự nhiên.
+- Chạm vào dòng sẽ mở **bảng trượt từ dưới lên** (`Modal`):
+  - Hiện mọi cột dưới dạng nhãn và giá trị, dùng lại `column.cell`. Nhờ vậy khi bấm **Sửa**, các ô tự thành input và **sửa ngay trong bảng trượt**, không cần form riêng.
+  - Dòng **ID** mở `IdExplainerDialog`, nên ID vẫn xem và sao chép được.
+  - `renderExpandedRow` (chi tiết, ảnh hoá đơn, phân bổ nợ) luôn hiện bên dưới.
+  - Cột `actions` (Sửa/Xoá hoặc Lưu/Huỷ) nằm ở chân bảng trượt, luôn thấy kể cả khi bàn phím mở.
+  - Bảng trượt tự đóng khi bản ghi không còn trong danh sách (đã xoá, bị lọc).
+- Lúc đang tải hiện 4 dòng skeleton cao bằng dòng thật. Danh sách rỗng hiện `emptyMessage`.
+
+**Thu chi hiển thị gì:**
+- Dòng trên: ghi chú ở trái, số tiền có dấu +/− ở phải (không có thanh tỉ lệ).
+- Dòng dưới: danh mục · ngày (dd/MM) · người tạo · nơi chốn.
+- Hướng, ảnh hoá đơn và số dư luỹ kế chỉ có trong bảng trượt.
+
+## Vùng chạm trên điện thoại và bo góc
+
+- Ở bề ngang điện thoại, mọi thứ người dùng chạm đều cao **≥ 40px**:
+  - Topbar và drawer (≤ 960px).
+  - Dòng danh sách, nút trong bảng trượt và input khi sửa.
+  - Chip lọc, ô tìm kiếm và nút "Tải thêm" của Thu chi.
+  - Nút kỳ và mũi tên của `PeriodFilterToolbar`.
+  - Nút lọc cột.
+- Desktop giữ control nhỏ 22–30px để giữ mật độ dữ liệu cao.
+- Toolbar trên điện thoại dùng **một hàng chip cuộn ngang** thay vì mỗi chip một dòng. Nhóm nút kỳ cũng cuộn ngang khi không đủ chỗ.
+- **Giữ nguyên bo góc nhỏ** (`rounded-[2px]`, `rounded-[3px]`, `rounded`). Không đưa vào chip bo tròn, nút nổi bo tròn, hay "chuẩn hoá" bo góc khi làm mobile.
+
 Nút phải có focus rõ, độ tương phản đủ và lỗi phải kèm cách thử lại.
 
-Tiêu đề không gian làm việc (`WorkspaceHeader`) được render **một lần duy nhất** trong common private layout (`apps/web/app/(private)/layout.tsx`) bằng `<WorkspaceHeader />` không truyền props — component tự động resolve title và subtitle từ `usePathname()` thông qua `ROUTE_HEADER_MAP`. Component phân biệt hai trạng thái auth: **Đã xác thực** (`hasToken && !isLoggedOut`, trong đó `isLoggedOut` lấy từ query `?status=logged_out` sau khi đăng xuất): hiển thị title/subtitle theo route, nút `Ẩn/Hiện số tiền` (`useMoneyVisibility`), nút Làm mới (`queryClient.invalidateQueries()`), và nút Đăng xuất; **Chưa xác thực / Đã đăng xuất**: hiển thị title/subtitle theo route và link "Mở Zalo Bot" (key `auth.openzaloBot`, URL lấy từ `NEXT_PUBLIC_ZALO_BOT_URL` hoặc `NEXT_PUBLIC_ZALO_BOT_USERNAME`, mặc định `https://zalo.me`). **Các file screen trong từng module tuyệt đối không được tự render `<WorkspaceHeader>`** — layout đã cung cấp sẵn cho mọi trang. Mặt nạ che số tiền (key `common.maskedAmount` = `'••••••'`) áp dụng đồng bộ cho các khối KPI, bảng dữ liệu và tooltip biểu đồ. Mặc định số tiền bị ẩn (tránh lộ khi mở dashboard nơi công cộng); lựa chọn của người dùng chỉ nằm trong store Zustand `useMoneyVisibilityStore` trong bộ nhớ (`apps/web/src/shared/store/money-visibility-store.ts`, cố ý không dùng `persist` và không lưu `localStorage`) nên chuyển trang trong app vẫn giữ, còn tải lại trang (F5) thì số tiền ẩn lại; thanh tỉ lệ nhỏ dưới số tiền trong bảng Giao dịch, Chi tiêu và trong biểu đồ Cơ cấu công nợ chỉ hiện khi đang bấm hiện số tiền (độ dài thanh để lộ khoản lớn/nhỏ), còn thanh % đã trả của công nợ vẫn giữ vì chỉ thể hiện tiến độ; các ô input khi đang sửa trực tiếp trên dòng (inline edit) vẫn giữ số thực để phục vụ thao tác.
+Tiêu đề không gian làm việc (`WorkspaceHeader`) được render **một lần duy nhất** trong common private layout (`apps/web/app/(private)/layout.tsx`) bằng `<WorkspaceHeader />` không truyền props — component tự động resolve title và subtitle từ `usePathname()` thông qua `ROUTE_HEADER_MAP`. Component phân biệt hai trạng thái auth: **Đã xác thực** (`hasToken && !isLoggedOut`, trong đó `isLoggedOut` lấy từ query `?status=logged_out` sau khi đăng xuất): hiển thị title/subtitle theo route, nút `Ẩn/Hiện số tiền` (`useMoneyVisibility`), nút Làm mới (`queryClient.invalidateQueries()`), và nút Đăng xuất; **Chưa xác thực / Đã đăng xuất**: hiển thị title/subtitle theo route và link "Mở Zalo Bot" (key `auth.openzaloBot`, URL lấy từ `NEXT_PUBLIC_ZALO_BOT_URL` hoặc `NEXT_PUBLIC_ZALO_BOT_USERNAME`, mặc định `https://zalo.me`). **Các file screen trong từng module tuyệt đối không được tự render `<WorkspaceHeader>`** — layout đã cung cấp sẵn cho mọi trang.
+
+Tiêu đề theo route, trạng thái đăng nhập, Làm mới, Đăng xuất và link Zalo Bot lấy từ hook dùng chung `useWorkspaceHeader()` (cùng file), để desktop và mobile không lặp logic.
+- Ở ≤ 960px, `WorkspaceHeader` bị ẩn và **topbar mobile** trong `AppNavigation` thay thế: `[☰] [Tên trang] [icon ẩn/hiện số tiền] [icon làm mới]`, mỗi nút 40px.
+- Khi chưa đăng nhập, hai icon được thay bằng nút "Mở Zalo Bot".
+- Phụ đề không hiện trên mobile. **Đăng xuất chuyển vào chân drawer**, ngay trên nút đổi giao diện.
+- Lý do: trước đây trên điện thoại có hai thanh header chồng nhau, ba nút chữ ép tiêu đề bị cắt, và mất khoảng 140px trước khi tới nội dung. Mặt nạ che số tiền (key `common.maskedAmount` = `'••••••'`) áp dụng đồng bộ cho các khối KPI, bảng dữ liệu và tooltip biểu đồ. Mặc định số tiền bị ẩn (tránh lộ khi mở dashboard nơi công cộng); lựa chọn của người dùng chỉ nằm trong store Zustand `useMoneyVisibilityStore` trong bộ nhớ (`apps/web/src/shared/store/money-visibility-store.ts`, cố ý không dùng `persist` và không lưu `localStorage`) nên chuyển trang trong app vẫn giữ, còn tải lại trang (F5) thì số tiền ẩn lại; thanh tỉ lệ nhỏ dưới số tiền trong bảng Giao dịch, Chi tiêu và trong biểu đồ Cơ cấu công nợ chỉ hiện khi đang bấm hiện số tiền (độ dài thanh để lộ khoản lớn/nhỏ), còn thanh % đã trả của công nợ vẫn giữ vì chỉ thể hiện tiến độ; các ô input khi đang sửa trực tiếp trên dòng (inline edit) vẫn giữ số thực để phục vụ thao tác.
 
 Thanh điều hướng dùng chung (`apps/web/src/shared/ui/app-navigation.tsx`) theo kiểu sidebar quản trị trên desktop: phân thành 5 nhóm nghiệp vụ (Tổng quan, Tài chính, Kế hoạch, Dữ liệu, Hệ thống — key `nav.section.*`), có ô chọn ngôn ngữ, có dấu nhận diện sản phẩm, icon đi cùng chữ và tự động nhận diện trạng thái trang đang mở theo `usePathname()`. Desktop dùng app shell giới hạn theo viewport: chỉ vùng main content được cuộn, còn sidebar luôn đứng yên bên cạnh. Khi thêm mục mới, luôn giữ nhãn chữ hiển thị qua hệ thống i18n, SVG chỉ là phần hỗ trợ quét nhanh, và đặt `aria-current="page"` cho mục active.
 
-Trên màn hình hẹp (<= 960px), shell trở lại cơ chế cuộn trang bình thường và giao diện tự động chuyển đổi thành Mobile Topbar sticky trên cùng kết hợp nút Hamburger Button. Khi bấm vào, Drawer Menu điều hướng trượt mượt mà từ bên trái kèm Backdrop làm mờ nền; tự động đóng khi chọn link, bấm backdrop hoặc bấm Escape.
+Trên màn hình hẹp (<= 960px), shell trở lại cơ chế cuộn trang bình thường và giao diện tự động chuyển đổi thành Mobile Topbar sticky trên cùng (hamburger, tên trang, icon số tiền và làm mới). Khi bấm hamburger, Drawer Menu điều hướng trượt mượt mà từ bên trái kèm Backdrop làm mờ nền; tự động đóng khi chọn link, bấm backdrop hoặc bấm Escape. Trong drawer, link điều hướng, Đăng xuất, đổi giao diện và chọn ngôn ngữ đều cao 40px. Logo sản phẩm chỉ còn trong drawer.
 
 Dark mode được kích hoạt bằng `html[data-theme='dark']`; mọi utility dark của Tailwind phải dùng đúng data attribute này thông qua `@custom-variant dark`. Toàn bộ các bề mặt giao diện — navigation desktop/mobile, workspace header, period toolbar, data panel, form edit, dialog, biểu đồ và trang public/legal — bắt buộc dùng utility classes với tiền tố `dark:` phù hợp (`dark:bg-*`, `dark:border-*`, `dark:text-*`, `dark:hover:*`, `dark:focus:*`). Giữ trạng thái mục đang chọn dễ nhận biết và focus bàn phím màu xanh nhạt, đủ tương phản.
 

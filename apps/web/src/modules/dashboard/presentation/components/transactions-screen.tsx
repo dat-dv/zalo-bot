@@ -301,62 +301,65 @@ export function TransactionsScreen() {
           }
           toolbar={
             <div className="flex flex-wrap items-center gap-1.5 max-[640px]:w-full max-[640px]:flex-col max-[640px]:items-stretch">
-              <button
-                type="button"
-                className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                  activeFilter === 'all'
-                    ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-                }`}
-                onClick={() => setFilter('all')}
-              >
-                {t('table.filter.all')}
-              </button>
-              <button
-                type="button"
-                className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                  activeFilter === 'income'
-                    ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-                }`}
-                onClick={() => setFilter('income')}
-              >
-                {t('table.filter.income')}
-              </button>
-              <button
-                type="button"
-                className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                  activeFilter === 'expense'
-                    ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-                }`}
-                onClick={() => setFilter('expense')}
-              >
-                {t('table.filter.expense')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsAdjustBalanceOpen(true)}
-                className="inline-flex h-6 min-h-6 cursor-pointer items-center gap-1 rounded-[3px] border border-indigo-300 bg-indigo-50 px-2 text-[11px] font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/60"
-              >
-                <span>⚖️</span>
-                {t('transactions.balanceAdjust.actionButton')}
-              </button>
-              {activeColumnFilterCount > 0 && (
+              {/* Phones: one horizontally scrolling chip row instead of one row per chip. */}
+              <div className="flex flex-wrap items-center gap-1.5 max-[640px]:flex-nowrap max-[640px]:overflow-x-auto">
                 <button
                   type="button"
-                  onClick={clearColumnFilters}
-                  className="inline-flex h-6 min-h-6 cursor-pointer items-center gap-1 rounded-[3px] border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/60"
+                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                    activeFilter === 'all'
+                      ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                  }`}
+                  onClick={() => setFilter('all')}
                 >
-                  {t('table.columnFilter.clearAll')}
-                  <span className="rounded-full bg-sky-600 px-1.5 text-[10px] leading-4 font-semibold text-white dark:bg-sky-500">
-                    {activeColumnFilterCount}
-                  </span>
+                  {t('table.filter.all')}
                 </button>
-              )}
+                <button
+                  type="button"
+                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                    activeFilter === 'income'
+                      ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                  }`}
+                  onClick={() => setFilter('income')}
+                >
+                  {t('table.filter.income')}
+                </button>
+                <button
+                  type="button"
+                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                    activeFilter === 'expense'
+                      ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                  }`}
+                  onClick={() => setFilter('expense')}
+                >
+                  {t('table.filter.expense')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAdjustBalanceOpen(true)}
+                  className="inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] gap-1 rounded-[3px] border border-indigo-300 bg-indigo-50 px-2 text-[11px] font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/60"
+                >
+                  <span>⚖️</span>
+                  {t('transactions.balanceAdjust.actionButton')}
+                </button>
+                {activeColumnFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={clearColumnFilters}
+                    className="inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] gap-1 rounded-[3px] border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/60"
+                  >
+                    {t('table.columnFilter.clearAll')}
+                    <span className="rounded-full bg-sky-600 px-1.5 text-[10px] leading-4 font-semibold text-white dark:bg-sky-500">
+                      {activeColumnFilterCount}
+                    </span>
+                  </button>
+                )}
+              </div>
               <input
                 type="search"
-                className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
+                className="h-6 min-h-6 w-44 max-[640px]:h-10 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
                 placeholder={t('table.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -386,6 +389,7 @@ export function TransactionsScreen() {
             columnFilters={columnFilters}
             onChangeColumnFilters={setColumnFilters}
             filterOptions={filterOptions}
+            mobileList
           />
           {transactionsQuery.hasNextPage && (
             <div className="flex justify-center border-t border-slate-200 py-2 dark:border-slate-800">
@@ -393,7 +397,7 @@ export function TransactionsScreen() {
                 type="button"
                 onClick={() => void transactionsQuery.fetchNextPage()}
                 disabled={transactionsQuery.isFetchingNextPage}
-                className="inline-flex h-7 min-h-7 cursor-pointer items-center rounded-[3px] border border-slate-300 bg-white px-3 text-[11.5px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                className="inline-flex h-7 min-h-7 max-[640px]:h-10 cursor-pointer items-center rounded-[3px] border border-slate-300 bg-white px-3 text-[11.5px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 {t('table.loadMore')}
               </button>

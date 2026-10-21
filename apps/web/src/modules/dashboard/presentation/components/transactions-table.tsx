@@ -65,6 +65,8 @@ export type TransactionsTableProps = {
   columnFilters?: TransactionColumnFilters;
   onChangeColumnFilters?: (next: TransactionColumnFilters) => void;
   filterOptions?: TransactionFilterOptions;
+  /** Phone-width list rows with a detail sheet instead of the scrolling table. */
+  mobileList?: boolean;
 };
 
 export type TransactionFilterOptions = {
@@ -96,6 +98,7 @@ export function TransactionsTable({
   columnFilters = EMPTY_TRANSACTION_COLUMN_FILTERS,
   onChangeColumnFilters,
   filterOptions = EMPTY_FILTER_OPTIONS,
+  mobileList = false,
 }: TransactionsTableProps) {
   const { locale, t } = useLocale();
   const { money, isMoneyVisible } = useMoneyVisibility();
@@ -115,6 +118,10 @@ export function TransactionsTable({
         dateStyle: 'short',
         timeStyle: 'short',
       }).format(new Date(value));
+    const shortDate = (value: string) =>
+      new Intl.DateTimeFormat(localeTag(locale), { day: '2-digit', month: '2-digit' }).format(
+        new Date(value),
+      );
 
     const filters = columnFilters;
     const setFilters = onChangeColumnFilters;
@@ -161,11 +168,12 @@ export function TransactionsTable({
           />,
         ),
         minWidth: '90px',
+        mobileHeader: Boolean(setFilters),
         cell: (item) => {
           if (editingId === item.id && editDraft && onChangeEditDraft) {
             return (
               <select
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
+                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 max-[640px]:h-10 bg-white px-1 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
                 value={editDraft.type}
                 onChange={(e) =>
                   onChangeEditDraft((prev) => ({
@@ -211,6 +219,9 @@ export function TransactionsTable({
         ),
         minWidth: '150px',
         hideable: false,
+        mobileSlot: 'secondary',
+        mobileCell: (item) => item.category,
+        mobileHeader: Boolean(setFilters),
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -257,6 +268,9 @@ export function TransactionsTable({
           <TextFilter value={filters.note} onChange={(note) => patch({ note })} />,
         ),
         minWidth: '160px',
+        mobileSlot: 'primary',
+        mobileCell: (item) => item.note || '—',
+        mobileHeader: Boolean(setFilters),
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -268,7 +282,7 @@ export function TransactionsTable({
             return (
               <input
                 type="text"
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
+                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 max-[640px]:h-10 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
                 value={editDraft.note}
                 onChange={(e) => onChangeEditDraft((prev) => ({ ...prev, note: e.target.value }))}
                 onKeyDown={(e) => {
@@ -360,6 +374,9 @@ export function TransactionsTable({
           />,
         ),
         minWidth: '170px',
+        mobileSlot: 'secondary',
+        mobileCell: (item) => item.placeName || null,
+        mobileHeader: Boolean(setFilters),
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -414,6 +431,9 @@ export function TransactionsTable({
           />,
         ),
         minWidth: '150px',
+        mobileSlot: 'secondary',
+        mobileCell: (item) => item.createdByName || describeTransactionSource(item, t) || null,
+        mobileHeader: Boolean(setFilters),
         cell: (item) => {
           const source = describeTransactionSource(item, t);
           if (!item.createdByName && !source) {
@@ -469,6 +489,7 @@ export function TransactionsTable({
           </span>
         ),
         label: t('dashboard.columns.receipt'),
+        mobileHeader: Boolean(setFilters),
         minWidth: showReceiptPreview ? '112px' : onChangeColumnFilters ? '96px' : '72px',
         cell: (item) => <ReceiptCell item={item} showPreview={showReceiptPreview} />,
       },
@@ -489,6 +510,20 @@ export function TransactionsTable({
         align: 'right',
         minWidth: '140px',
         hideable: false,
+        mobileSlot: 'trailing',
+        // No ratio bar in the list row: the amount alone keeps the row to two lines.
+        mobileCell: (item) => (
+          <span
+            className={
+              item.type === 'income'
+                ? 'text-emerald-700 dark:text-emerald-400'
+                : 'text-amber-700 dark:text-amber-400'
+            }
+          >
+            {item.type === 'income' ? '+' : '-'} {money(item.amount)}
+          </span>
+        ),
+        mobileHeader: Boolean(setFilters),
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -500,7 +535,7 @@ export function TransactionsTable({
             return (
               <input
                 type="number"
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-right text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
+                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 max-[640px]:h-10 bg-white px-1.5 text-right text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
                 value={editDraft.amount}
                 onChange={(e) => onChangeEditDraft((prev) => ({ ...prev, amount: e.target.value }))}
                 onKeyDown={(e) => {
@@ -572,6 +607,8 @@ export function TransactionsTable({
         header: t('dashboard.columns.date'),
         align: 'right',
         minWidth: '150px',
+        mobileSlot: 'secondary',
+        mobileCell: (item) => shortDate(item.occurredAt),
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -583,7 +620,7 @@ export function TransactionsTable({
             return (
               <input
                 type="datetime-local"
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
+                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 max-[640px]:h-10 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
                 value={editDraft.occurredAt}
                 onChange={(e) =>
                   onChangeEditDraft((prev) => ({ ...prev, occurredAt: e.target.value }))
@@ -650,7 +687,7 @@ export function TransactionsTable({
                 {onOpenAllocate && (
                   <button
                     type="button"
-                    className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-sky-50 px-1.5 text-[11px] font-medium text-sky-700 whitespace-nowrap transition-colors hover:bg-sky-100 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-400 dark:hover:bg-sky-950/70"
+                    className="inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-sky-50 px-1.5 text-[11px] font-medium text-sky-700 whitespace-nowrap transition-colors hover:bg-sky-100 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-400 dark:hover:bg-sky-950/70"
                     onClick={() => onOpenAllocate(item)}
                     title={t('transactions.actions.allocateDebts')}
                   >
@@ -659,7 +696,7 @@ export function TransactionsTable({
                 )}
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                  className="inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
                   onClick={() => void onSaveEdit(item.id)}
                   disabled={isSaveDisabled}
                   title={saveButtonTitle}
@@ -668,7 +705,7 @@ export function TransactionsTable({
                 </button>
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                  className="inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
                   onClick={onCancelEdit}
                   disabled={isPending}
                   title={t('transactions.actions.cancel')}
@@ -683,7 +720,7 @@ export function TransactionsTable({
               {onStartEdit && (
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-200 bg-white px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  className="inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] cursor-pointer items-center rounded-[2px] border border-slate-200 bg-white px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
                   onClick={() => onStartEdit(item)}
                   title={t('transactions.actions.edit')}
                 >
@@ -693,7 +730,7 @@ export function TransactionsTable({
               {onDelete && (
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-rose-200 bg-rose-50 px-1.5 text-[11px] font-medium text-rose-700 whitespace-nowrap transition-colors hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-950/70"
+                  className="inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] cursor-pointer items-center rounded-[2px] border border-rose-200 bg-rose-50 px-1.5 text-[11px] font-medium text-rose-700 whitespace-nowrap transition-colors hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-950/70"
                   onClick={() => void onDelete(item.id)}
                   title={t('transactions.actions.delete')}
                 >
@@ -869,6 +906,7 @@ export function TransactionsTable({
       renderExpandedRow={renderExpandedRow}
       disableSorting
       loading={loading}
+      mobileList={mobileList}
     />
   );
 }

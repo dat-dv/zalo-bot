@@ -56,6 +56,7 @@
 - Allocations: note cell shows an expand chevron and a `🔗 N allocations` badge (opens `DebtAllocationModal`); while editing, a `🔗` action button opens it too. Expanded row (`renderExpandedRow`, full `colSpan`) lists counterparty, amount, note per allocation.
 - Delete opens `DeleteTransactionModal`: summary (type, category, place, amount, time, note), balance impact (expense → emerald `+amount`; income → amber `-amount`), rose warning when allocations exist (their debt balances will be restored). Escape/backdrop close unless pending.
 - Transactions query error → `SessionStateScreen reason="expired"` (retry = refetch). The screen no longer reads `/api/dashboard`.
+- **Phone width (<= 640px)**: `TransactionsTable mobileList` renders the DataTable mobile list (see [web-ui-direction](../../global/web-ui-direction.md#mobile-list-mode-datatable--640px)). Row: note + signed amount (no ratio bar), then category · date (dd/MM) · creator · place. Tap → detail sheet with every column (inline edit works there, actions in the sticky footer, ID row → `IdExplainerDialog`) and the details/receipt/allocations panel. Column filters move to a horizontal filter strip above the list (type, category, note, place, creator, receipt, amount). Toolbar pills + "Adjust balance" + "Clear all filters" form one horizontally scrolling 40px row; search sits on its own full-width 40px row; Load more, filter triggers, and edit inputs/buttons are 40px. Home's transaction tables do not pass `mobileList` and keep the scrolling table.
 
 ## `DebtAllocationModal`
 

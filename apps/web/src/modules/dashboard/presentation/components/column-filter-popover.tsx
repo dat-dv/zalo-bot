@@ -110,7 +110,7 @@ export function ColumnFilterHeader({
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-controls={isOpen ? panelId : undefined}
-        className={`relative inline-flex size-5 cursor-pointer items-center justify-center rounded-[3px] border normal-case transition-colors ${
+        className={`relative inline-flex size-5 cursor-pointer items-center max-[640px]:size-10 justify-center rounded-[3px] border normal-case transition-colors ${
           active
             ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-500 dark:bg-sky-950/60 dark:text-sky-300'
             : 'border-transparent text-slate-400 hover:border-slate-300 hover:bg-white hover:text-slate-700 dark:text-slate-500 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200'

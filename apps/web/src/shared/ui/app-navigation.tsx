@@ -4,9 +4,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect, type ReactNode } from 'react';
 import { APP_ROUTES, type TranslationKey } from '@zalobot/contracts';
+import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { useTheme } from '@/shared/store/theme-store';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useBodyScrollLock } from '@/shared/hooks/use-body-scroll-lock';
+import { useWorkspaceHeader } from './workspace-header';
+
+const TOPBAR_ICON_BUTTON =
+  'inline-flex size-10 shrink-0 items-center justify-center rounded-[3px] border border-slate-300 !bg-transparent !p-0 !text-slate-700 hover:!border-slate-400 hover:!bg-slate-100 dark:border-slate-600 dark:!text-slate-200 dark:hover:!border-slate-500 dark:hover:!bg-slate-800';
 
 export type NavigationPage =
   | 'home'
@@ -129,6 +134,9 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
   const { locale, setLocale, t } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const nextThemeLabel = theme === 'light' ? t('nav.dark') : t('nav.light');
+  const { isMoneyVisible, toggleMoneyVisibility } = useMoneyVisibility();
+  const { title, isAuthenticated, handleRefresh, handleLogout, zaloBotUrl } = useWorkspaceHeader();
+  const moneyLabel = isMoneyVisible ? t('common.hideMoney') : t('common.showMoney');
 
   useEffect(() => {
     setIsOpen(false);
@@ -159,30 +167,56 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
 
   return (
     <>
-      <header className="sticky top-0 z-40 hidden min-h-[46px] items-center justify-between rounded border border-slate-200 bg-white px-3 py-1.5 dark:border-slate-700 dark:bg-slate-900 max-[960px]:flex">
-        <Link
-          className="inline-flex items-center gap-2 text-slate-900 no-underline dark:text-slate-100"
-          href={APP_ROUTES.home}
-          onClick={() => setIsOpen(false)}
-        >
-          <span
-            className="inline-flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-slate-900 text-xs font-extrabold text-white"
-            aria-hidden="true"
-          >
-            T
-          </span>
-          <strong>zalobot</strong>
-        </Link>
+      {/* Mobile topbar doubles as the page header: WorkspaceHeader is hidden at this width. */}
+      <header className="sticky top-0 z-40 hidden min-h-[52px] items-center gap-2 rounded border border-slate-200 bg-white px-1.5 py-1.5 dark:border-slate-700 dark:bg-slate-900 max-[960px]:flex">
         <button
           aria-controls="app-navigation-drawer"
           aria-expanded={isOpen}
           aria-label={isOpen ? t('nav.closeMenu') : t('nav.openMenu')}
-          className="inline-flex size-8 items-center justify-center rounded-[3px] border border-slate-300 !bg-transparent !p-0 !text-slate-900 hover:!border-slate-400 hover:!bg-slate-100 dark:border-slate-600 dark:!text-slate-200 dark:hover:!border-slate-500 dark:hover:!bg-slate-800"
+          className={TOPBAR_ICON_BUTTON}
           onClick={() => setIsOpen((prev) => !prev)}
           type="button"
         >
           {isOpen ? <CloseIcon /> : <HamburgerIcon />}
         </button>
+        <h1
+          className="m-0 min-w-0 flex-1 truncate text-[15px] font-bold text-slate-900 dark:text-slate-100"
+          title={title}
+        >
+          {title}
+        </h1>
+        {isAuthenticated ? (
+          <>
+            <button
+              aria-label={moneyLabel}
+              aria-pressed={!isMoneyVisible}
+              className={TOPBAR_ICON_BUTTON}
+              onClick={toggleMoneyVisibility}
+              title={moneyLabel}
+              type="button"
+            >
+              <MoneyVisibilityIcon visible={isMoneyVisible} />
+            </button>
+            <button
+              aria-label={t('common.refresh')}
+              className={TOPBAR_ICON_BUTTON}
+              onClick={handleRefresh}
+              title={t('common.refresh')}
+              type="button"
+            >
+              <RefreshIcon />
+            </button>
+          </>
+        ) : (
+          <a
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white no-underline transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            href={zaloBotUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t('auth.openzaloBot')}
+          </a>
+        )}
       </header>
 
       {isOpen && (
@@ -217,7 +251,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           </div>
           <button
             aria-label={t('nav.closeMenu')}
-            className="!hidden size-[30px] items-center justify-center rounded-[3px] border border-slate-200 !bg-transparent !p-0 !text-slate-500 hover:!bg-slate-100 hover:!text-slate-900 dark:border-slate-700 dark:!text-slate-400 dark:hover:!bg-slate-800 dark:hover:!text-slate-100 max-[960px]:!inline-flex"
+            className="!hidden size-[30px] max-[960px]:size-10 items-center justify-center rounded-[3px] border border-slate-200 !bg-transparent !p-0 !text-slate-500 hover:!bg-slate-100 hover:!text-slate-900 dark:border-slate-700 dark:!text-slate-400 dark:hover:!bg-slate-800 dark:hover:!text-slate-100 max-[960px]:!inline-flex"
             onClick={() => setIsOpen(false)}
             type="button"
           >
@@ -237,8 +271,8 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
                   <Link
                     className={
                       activeState
-                        ? 'flex min-h-[30px] w-full items-center gap-2 rounded-[3px] bg-slate-900 px-2 text-left text-[12.5px] font-semibold text-white no-underline dark:bg-slate-100 dark:text-slate-900 max-[960px]:min-h-8'
-                        : 'flex min-h-[30px] w-full items-center gap-2 rounded-[3px] px-2 text-left text-[12.5px] font-medium text-slate-600 no-underline hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100 max-[960px]:min-h-8'
+                        ? 'flex min-h-[30px] w-full items-center gap-2 rounded-[3px] bg-slate-900 px-2 text-left text-[12.5px] font-semibold text-white no-underline dark:bg-slate-100 dark:text-slate-900 max-[960px]:min-h-10'
+                        : 'flex min-h-[30px] w-full items-center gap-2 rounded-[3px] px-2 text-left text-[12.5px] font-medium text-slate-600 no-underline hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100 max-[960px]:min-h-10'
                     }
                     aria-current={activeState ? 'page' : undefined}
                     href={item.href}
@@ -255,9 +289,20 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
         </nav>
         <div className="mt-auto grid gap-1 border-t border-slate-200 pt-2 dark:border-slate-700">
           {footer}
+          {/* Logout lives in the drawer on phones and tablets; desktop keeps it in WorkspaceHeader. */}
+          {isAuthenticated && (
+            <button
+              className="hidden min-h-10 w-full items-center gap-2 rounded-[3px] !bg-transparent px-1.5 text-left text-xs font-medium text-slate-600 hover:!bg-slate-100 hover:!text-slate-900 dark:!text-slate-300 dark:hover:!bg-slate-800 dark:hover:!text-slate-100 max-[960px]:flex"
+              onClick={() => void handleLogout()}
+              type="button"
+            >
+              <LogoutIcon />
+              <span>{t('common.logout')}</span>
+            </button>
+          )}
           <button
             aria-label={nextThemeLabel}
-            className="flex min-h-7 w-full items-center gap-2 rounded-[3px] !bg-transparent px-1.5 text-left text-xs font-medium text-slate-600 hover:!bg-slate-100 hover:!text-slate-900 dark:!text-slate-300 dark:hover:!bg-slate-800 dark:hover:!text-slate-100"
+            className="flex min-h-7 max-[960px]:min-h-10 w-full items-center gap-2 rounded-[3px] !bg-transparent px-1.5 text-left text-xs font-medium text-slate-600 hover:!bg-slate-100 hover:!text-slate-900 dark:!text-slate-300 dark:hover:!bg-slate-800 dark:hover:!text-slate-100"
             onClick={toggleTheme}
             title={nextThemeLabel}
             type="button"
@@ -270,7 +315,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
               {t('common.language')}
             </span>
             <select
-              className="h-6 min-h-6 rounded-[3px] border border-slate-300 bg-white px-1 text-[11px] text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+              className="h-6 min-h-6 max-[960px]:h-10 rounded-[3px] border border-slate-300 bg-white px-1 text-[11px] text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
               aria-label={t('common.language')}
               onChange={(event) => setLocale(event.target.value as typeof locale)}
               value={locale}
@@ -413,6 +458,54 @@ function NavigationItemIcon({ icon }: { icon: NavigationIcon }) {
       <path d="M3.5 20c.7-3.1 2.5-4.7 5.5-4.7s4.8 1.6 5.5 4.7" />
       <path d="M16 8h4" />
       <path d="M18 6v4" />
+    </svg>
+  );
+}
+
+const TOPBAR_ICON_PROPS = {
+  'aria-hidden': true,
+  className: 'size-[17px] shrink-0',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+  strokeWidth: 1.8,
+  viewBox: '0 0 24 24',
+};
+
+function MoneyVisibilityIcon({ visible }: { visible: boolean }) {
+  return visible ? (
+    <svg {...TOPBAR_ICON_PROPS}>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ) : (
+    <svg {...TOPBAR_ICON_PROPS}>
+      <path d="M10.6 5.1A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.7 3.7" />
+      <path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+      <line x1="2" x2="22" y1="2" y2="22" />
+    </svg>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg {...TOPBAR_ICON_PROPS}>
+      <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
+      <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
+      <polyline points="21 3 21 8 16 8" />
+      <polyline points="3 21 3 16 8 16" />
+    </svg>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg {...TOPBAR_ICON_PROPS} className="size-[15px] shrink-0">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" x2="9" y1="12" y2="12" />
     </svg>
   );
 }
