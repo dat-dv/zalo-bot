@@ -74,7 +74,7 @@ Chi tiết: [Phiên Dashboard](dashboard-session.md).
 
 - `postgres` (16-alpine) và `redis` (7-alpine, bật AOF) với volume riêng.
 - `api`: cổng `BE_PORT` (mặc định 3005), mount `./data:/app/data`, healthcheck `GET /health`.
-- `web`: Nginx phục vụ static export tại `NGINX_PORT` hoặc `WEB_PORT` (mặc định 3009), đồng thời reverse proxy `/api/`, `/webhook`, `/zalo/`, `/oauth2callback` sang `http://api:${BE_PORT}`. Nhờ vậy Cloudflare Tunnel chỉ cần trỏ vào một cổng web.
+- `web`: Nginx phục vụ static export tại `NGINX_PORT` (mặc định 3009), đồng thời reverse proxy `/api/`, `/webhook`, `/zalo/`, `/oauth2callback` sang `http://api:${BE_PORT}`. Nhờ vậy Cloudflare Tunnel chỉ cần trỏ vào một cổng web.
 
 Tối ưu build:
 

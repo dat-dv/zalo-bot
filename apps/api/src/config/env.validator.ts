@@ -74,7 +74,7 @@ export function validateEnvironment(): EnvValidationResult {
       );
   }
 
-  if (!readEnv('ZALO_BOT_TOKEN') && !readEnv('BOT_TOKEN')) {
+  if (!readEnv('ZALO_BOT_TOKEN')) {
     addError(
       errors,
       'ZALO_BOT_TOKEN',
@@ -83,34 +83,38 @@ export function validateEnvironment(): EnvValidationResult {
     );
   }
 
-  const bePort = readEnv('BE_PORT') || readEnv('PORT');
-  if (!isPositiveInteger(bePort)) {
+  // Optional keys below have defaults in configuration.ts; validate only when they are set.
+  for (const key of ['BE_PORT', 'NGINX_PORT']) {
+    const value = readEnv(key);
+    if (value && !isPositiveInteger(value)) {
+      addError(
+        errors,
+        key,
+        'Phải là số nguyên dương.',
+        `Khai báo số nguyên dương cho ${key} trong file .env hoặc bỏ trống để dùng mặc định.`,
+      );
+    }
+  }
+
+  if (!isHttpUrl(readEnv('APP_URL'))) {
     addError(
       errors,
-      'PORT / BE_PORT',
-      'Phải là số nguyên dương.',
-      'Khai báo số nguyên dương cho BE_PORT (hoặc PORT) trong file .env.',
+      'APP_URL',
+      'Phải là URL HTTP(S) hợp lệ.',
+      'Khai báo URL đầy đủ, ví dụ https://example.com.',
     );
   }
 
-  const nginxPort = readEnv('NGINX_PORT') || readEnv('GATEWAY_PORT');
-  if (nginxPort && !isPositiveInteger(nginxPort)) {
-    addError(
-      errors,
-      'NGINX_PORT / GATEWAY_PORT',
-      'Phải là số nguyên dương.',
-      'Khai báo số nguyên dương cho NGINX_PORT trong file .env.',
-    );
-  }
-
-  for (const key of ['APP_URL', 'WEB_ORIGIN']) {
-    if (!isHttpUrl(readEnv(key)))
+  for (const key of ['WEB_ORIGIN', 'ZALO_WEBHOOK_URL']) {
+    const value = readEnv(key);
+    if (value && !isHttpUrl(value)) {
       addError(
         errors,
         key,
         'Phải là URL HTTP(S) hợp lệ.',
-        'Khai báo URL đầy đủ, ví dụ https://example.com.',
+        'Khai báo URL đầy đủ hoặc bỏ trống để suy ra từ APP_URL.',
       );
+    }
   }
 
   if (!isPostgresUrl(readEnv('DATABASE_URL'))) {
@@ -122,12 +126,13 @@ export function validateEnvironment(): EnvValidationResult {
     );
   }
 
-  if (!isBoolean(readEnv('CORS_ALLOW_ALL'))) {
+  const corsAllowAll = readEnv('CORS_ALLOW_ALL');
+  if (corsAllowAll && !isBoolean(corsAllowAll)) {
     addError(
       errors,
       'CORS_ALLOW_ALL',
       'Chỉ nhận true hoặc false.',
-      'Khai báo rõ true hoặc false trong .env.local.',
+      'Khai báo true hoặc false, hoặc bỏ trống (mặc định false).',
     );
   }
 
@@ -140,10 +145,18 @@ export function validateEnvironment(): EnvValidationResult {
     );
   }
 
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: readEnv('DEFAULT_TIMEZONE') });
-  } catch {
-    addError(errors, 'DEFAULT_TIMEZONE', 'Timezone IANA không hợp lệ.', 'Ví dụ: Asia/Ho_Chi_Minh.');
+  const timezone = readEnv('DEFAULT_TIMEZONE');
+  if (timezone) {
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: timezone });
+    } catch {
+      addError(
+        errors,
+        'DEFAULT_TIMEZONE',
+        'Timezone IANA không hợp lệ.',
+        'Ví dụ: Asia/Ho_Chi_Minh.',
+      );
+    }
   }
 
   return {

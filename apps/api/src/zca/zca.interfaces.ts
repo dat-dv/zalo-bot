@@ -42,7 +42,6 @@ export interface ZcaModuleOptions {
   selfListen?: boolean;
   checkUpdate?: boolean;
   logging?: boolean;
-  autoLogin?: boolean;
   enableSharpMetadata?: boolean;
   imageMetadataGetter?: ImageMetadataGetter;
   plugins?: ZcaPlugin[];

@@ -765,12 +765,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
   }
 
   private resolveBotName(): string {
-    return (
-      this.configService?.get<string>('zalo.botName') ||
-      process.env.BOT_NAME ||
-      process.env.ZALO_BOT_NAME ||
-      'Bot'
-    );
+    return this.configService?.get<string>('zalo.botName') || process.env.BOT_NAME || 'Bot';
   }
 
   private isOwnerSender(message: Message, api: API): boolean {

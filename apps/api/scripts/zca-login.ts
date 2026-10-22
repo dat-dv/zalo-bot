@@ -75,12 +75,8 @@ async function main(): Promise<void> {
 
             // Auto-save session to .zca-session.json
             try {
-              const dataDir = process.env.DATA_DIR || process.env.ZCA_DATA_DIR;
-              const baseDir = dataDir
-                ? path.resolve(process.cwd(), dataDir)
-                : fs.existsSync(path.resolve(process.cwd(), 'data'))
-                  ? path.resolve(process.cwd(), 'data')
-                  : process.cwd();
+              // Same default as configuration.ts so the API finds this session on bootstrap.
+              const baseDir = path.resolve(process.cwd(), process.env.DATA_DIR || './data');
 
               if (!fs.existsSync(baseDir)) {
                 fs.mkdirSync(baseDir, { recursive: true });

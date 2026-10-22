@@ -184,8 +184,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       this.moduleOptions?.dataDir ??
       this.configService.get<string>('zca.dataDir') ??
       this.configService.get<string>('DATA_DIR') ??
-      process.env.DATA_DIR ??
-      process.env.ZCA_DATA_DIR;
+      process.env.DATA_DIR;
 
     if (configuredDataDir) {
       this.dataDir = path.resolve(process.cwd(), configuredDataDir);
@@ -419,30 +418,32 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   public async onApplicationBootstrap(): Promise<void> {
     this.logger.log('ZcaService bootstrapped after ZaloModule.');
 
-    const autoLogin =
-      this.moduleOptions?.autoLogin ?? this.configService.get<boolean>('zca.autoLogin') ?? false;
+    // Log in automatically whenever there is something to log in with: IMEI + cookie from
+    // env/module options, or a session saved by a previous QR login (file -> Redis).
+    const hasConfiguredCredentials = Boolean(
+      (this.moduleOptions?.imei ??
+        this.configService.get<string>('zca.imei') ??
+        process.env.ZCA_IMEI) &&
+      (this.moduleOptions?.cookie ??
+        this.configService.get<string>('zca.cookie') ??
+        process.env.ZCA_COOKIE),
+    );
+    const savedSession = hasConfiguredCredentials ? null : await this.loadSavedSession();
 
-    if (autoLogin) {
-      this.logger.log(
-        'Auto-login enabled. Attempting ZCA login after ZaloModule initialization...',
-      );
-      try {
-        await this.login();
-      } catch (err) {
-        this.logger.error(`ZCA auto-login failed: ${formatErrorMessage(err)}`);
-      }
-    } else {
-      const savedSession = await this.loadSavedSession();
-      if (savedSession) {
-        this.logger.log(
-          `Tìm thấy phiên ZCA đã lưu (${this.sessionFilePath}). Tự động khôi phục kết nối...`,
-        );
-        try {
-          await this.login();
-        } catch (err) {
-          this.logger.warn(`Không thể tự khôi phục phiên đã lưu: ${formatErrorMessage(err)}`);
-        }
-      }
+    if (!hasConfiguredCredentials && !savedSession) {
+      this.logger.log('Chưa có phiên ZCA. Đăng nhập bằng mã QR trên dashboard.');
+      return;
+    }
+
+    this.logger.log(
+      savedSession
+        ? `Tìm thấy phiên ZCA đã lưu (${this.sessionFilePath}). Tự động khôi phục kết nối...`
+        : 'Đăng nhập ZCA bằng ZCA_IMEI/ZCA_COOKIE...',
+    );
+    try {
+      await this.login();
+    } catch (err) {
+      this.logger.warn(`Không thể tự đăng nhập ZCA: ${formatErrorMessage(err)}`);
     }
   }
 

@@ -134,7 +134,6 @@ export class TextToolFactory {
         ? this.configService.get<string>('zalo.botName')
         : undefined) ||
       process.env.BOT_NAME ||
-      process.env.ZALO_BOT_NAME ||
       'Bot';
     const cleaned = cleanBotMention(text, botName);
     const trimmed = cleaned.trim();

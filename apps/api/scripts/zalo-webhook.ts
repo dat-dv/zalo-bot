@@ -5,8 +5,9 @@ import { projectRoot } from '../src/config/project-root';
 dotenv.config({ path: path.resolve(projectRoot(), '.env.local') });
 dotenv.config({ path: path.resolve(projectRoot(), '.env') });
 
-const token = process.env.ZALO_BOT_TOKEN || process.env.BOT_TOKEN;
-const webhookUrl = process.env.ZALO_WEBHOOK_URL || process.env.WEBHOOK_URL;
+const token = process.env.ZALO_BOT_TOKEN;
+const appUrl = process.env.APP_URL?.trim().replace(/\/+$/, '');
+const webhookUrl = process.env.ZALO_WEBHOOK_URL || (appUrl ? `${appUrl}/webhook` : undefined);
 const secretToken = process.env.ZALO_WEBHOOK_SECRET_TOKEN;
 
 if (!token) {
@@ -62,7 +63,7 @@ async function testWebhook() {
 
 async function setWebhook() {
   if (!webhookUrl) {
-    console.error('❌ Thiếu biến môi trường ZALO_WEBHOOK_URL trong file .env');
+    console.error('❌ Thiếu biến môi trường APP_URL (hoặc ZALO_WEBHOOK_URL) trong file .env');
     process.exit(1);
   }
 

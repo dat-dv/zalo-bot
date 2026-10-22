@@ -216,7 +216,7 @@ Ngoài việc gõ lệnh tắt, người dùng có thể trò chuyện tự nhi�
 ## 7. Bảo Mật & Phòng Chống Gian Lận
 
 1. **Xác thực Secret Token**: Webhook endpoint kiểm tra header `X-Bot-Api-Secret-Token` (cấu hình qua `ZALO_WEBHOOK_SECRET_TOKEN`) để chống giả mạo request từ bên ngoài.
-2. **Whitelist Protection**: Những người dùng chưa được cấu hình trong `ZALO_ALLOWED_USER_IDS` hoặc chưa kích hoạt mã mời sẽ bị từ chối truy cập.
+2. **Whitelist Protection**: Những người dùng chưa được admin cấp quyền (`grantAccess`) hoặc chưa kích hoạt mã mời sẽ bị từ chối truy cập.
 3. **Chống Spam (Cooldown 2s)**: Người dùng thông thường gửi tin nhắn liên tục dưới 2 giây sẽ nhận thông báo chờ, bảo vệ tài nguyên hệ thống và hạn mức API.
 4. **Cô Lập Dữ Liệu Tuyệt Đối (Multi-Tenant Isolation)**: Mỗi người dùng có một không gian dữ liệu riêng trong PostgreSQL, token Google được mã hóa bằng AES-256 (`DATA_ENCRYPTION_KEY`).
 

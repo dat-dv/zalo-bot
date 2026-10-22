@@ -85,10 +85,7 @@ export class TextInputService {
   public async process(input: AgentInput, toolTypeOverride?: TextToolType): Promise<void> {
     const rawText = input.text?.trim() || '';
     const botName =
-      this.configService?.get<string>('zalo.botName') ||
-      process.env.BOT_NAME ||
-      process.env.ZALO_BOT_NAME ||
-      'Bot';
+      this.configService?.get<string>('zalo.botName') || process.env.BOT_NAME || 'Bot';
     const text = cleanBotMention(rawText, botName, input.triggerPrefixes);
     input.text = text;
     const chatId = input.chatId || input.senderId;

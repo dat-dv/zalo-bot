@@ -73,12 +73,12 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://zalobot.datintech.site}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     environment:
       - BE_PORT=${BE_PORT:-3005}
     restart: unless-stopped
     ports:
-      - '${NGINX_PORT:-${WEB_PORT:-3009}}:80'
+      - '${NGINX_PORT:-3009}:80'
     depends_on:
       api:
         condition: service_healthy

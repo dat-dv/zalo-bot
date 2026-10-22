@@ -128,10 +128,7 @@ export class InputProcessor implements OnModuleDestroy {
     this.logger.log(`Received image from ${input.senderId}: ${input.imageUrl}`);
 
     const botName =
-      this.configService?.get<string>('zalo.botName') ||
-      process.env.BOT_NAME ||
-      process.env.ZALO_BOT_NAME ||
-      'Bot';
+      this.configService?.get<string>('zalo.botName') || process.env.BOT_NAME || 'Bot';
     const rawCaption = input.caption || input.text || '';
     const cleanedCaption = cleanBotMention(rawCaption, botName);
 

@@ -31,7 +31,7 @@ Nơi sử dụng: `TextInputService` (tin nhắn chat, chỉnh sửa thẻ chờ
 | `gemini` (mặc định, và mọi giá trị lạ) | `GeminiProvider` | `GEMINI_API_KEY`, `GEMINI_MODEL` | `gemini-3.5-flash-lite` |
 | `openai` | `OpenAiProvider` | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` | `gpt-4o-mini`, `https://api.openai.com/v1` |
 | `router`, `9router` | `RouterProvider` | `ROUTER_BASE_URL`, `ROUTER_MODEL`, `ROUTER_API_KEY` | không có (thiếu URL/key thì tính là lỗi) |
-| `qwen`, `ollama`, `qwen2.5:14b`, `qwen-14b` | `QwenProvider` | `QWEN_*` hoặc `OLLAMA_*` (`BASE_URL`, `MODEL`, `API_KEY`) | `http://localhost:11434`, `qwen2.5:14b` |
+| `qwen`, `ollama`, `qwen2.5:14b`, `qwen-14b` | `QwenProvider` | `QWEN_BASE_URL`, `QWEN_MODEL`, `QWEN_API_KEY` | `http://localhost:11434`, `qwen2.5:14b` |
 
 Qwen hỗ trợ hai kiểu máy chủ: URL kết thúc bằng `/v1` hoặc `/chat/completions` được gọi theo chuẩn OpenAI; còn lại gọi API gốc của Ollama `/api/chat`. Nếu model nhỏ trả tool call dạng thẻ `<tool_call>` trong văn bản, provider tự bóc tách.
 

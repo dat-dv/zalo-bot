@@ -590,3 +590,52 @@ void test('ZcaService issues a per-flow QR access key and revokes it when the fl
   assert.strictEqual(service.isQrAccessKeyValid(undefined), false);
   assert.strictEqual(service.getQrImageUrl(), 'https://bot.example.com/api/zca/qr');
 });
+
+async function runBootstrap(options: {
+  configured: Record<string, string>;
+  savedSession: { imei: string; cookie: unknown; userAgent: string } | null;
+}): Promise<number> {
+  const mockConfigService = {
+    get: (key: string): string | undefined => options.configured[key],
+  } as unknown as ConfigService;
+  const service = new ZcaService(mockConfigService, { dataDir: os.tmpdir() });
+  const internals = service as unknown as ServiceInternals;
+  internals.loadSavedSession = () => Promise.resolve(options.savedSession);
+  let loginCalls = 0;
+  service.login = () => {
+    loginCalls += 1;
+    return Promise.reject(new Error('stubbed login'));
+  };
+  await service.onApplicationBootstrap();
+  return loginCalls;
+}
+
+void test('ZcaService bootstrap restores a saved session without any flag', async () => {
+  const calls = await runBootstrap({
+    configured: {},
+    savedSession: { imei: 'saved-imei', cookie: [], userAgent: 'ua' },
+  });
+  assert.strictEqual(calls, 1);
+});
+
+void test('ZcaService bootstrap logs in with configured IMEI and cookie', async () => {
+  const calls = await runBootstrap({
+    configured: { 'zca.imei': 'env-imei', 'zca.cookie': '[]' },
+    savedSession: null,
+  });
+  assert.strictEqual(calls, 1);
+});
+
+void test('ZcaService bootstrap skips login when there is no session or credential', async () => {
+  const imei = process.env.ZCA_IMEI;
+  const cookie = process.env.ZCA_COOKIE;
+  delete process.env.ZCA_IMEI;
+  delete process.env.ZCA_COOKIE;
+  try {
+    const calls = await runBootstrap({ configured: {}, savedSession: null });
+    assert.strictEqual(calls, 0);
+  } finally {
+    if (imei !== undefined) process.env.ZCA_IMEI = imei;
+    if (cookie !== undefined) process.env.ZCA_COOKIE = cookie;
+  }
+});

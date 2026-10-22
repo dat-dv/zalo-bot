@@ -62,11 +62,11 @@ load_env() {
 load_env "$PROJECT_ROOT/.env.local"
 load_env "$PROJECT_ROOT/.env"
 
-GATEWAY_PORT="${NGINX_PORT:-${GATEWAY_PORT:-3000}}"
+GATEWAY_PORT="${NGINX_PORT:-3000}"
 BE_PORT="${BE_PORT:-3005}"
 FE_PORT="${FE_PORT:-5173}"
-BOT_TOKEN="${ZALO_BOT_TOKEN:-${BOT_TOKEN:-}}"
-SECRET_TOKEN="${ZALO_WEBHOOK_SECRET_TOKEN:-${SECRET_TOKEN:-}}"
+BOT_TOKEN="${ZALO_BOT_TOKEN:-}"
+SECRET_TOKEN="${ZALO_WEBHOOK_SECRET_TOKEN:-}"
 WEBHOOK_PATH="${WEBHOOK_PATH:-/webhook}"
 
 if [ -n "$PORT_ARG" ]; then
@@ -205,7 +205,8 @@ FULL_WEBHOOK_URL="${TUNNEL_URL}${WEBHOOK_PATH}"
 echo "✅ Đã tạo Tunnel thành công: ${TUNNEL_URL}"
 echo "🌐 URL Webhook hoàn chỉnh : ${FULL_WEBHOOK_URL}"
 
-# Cập nhật ZALO_WEBHOOK_URL, APP_URL, WEB_ORIGIN trong .env
+# Cập nhật .env theo tunnel. WEB_ORIGIN, ZALO_WEBHOOK_URL, NEXT_PUBLIC_API_URL mặc định suy ra từ APP_URL,
+# nên chỉ ghi đè khi chúng đang được khai báo riêng.
 ENV_FILE="$PROJECT_ROOT/.env"
 if [ -f "$ENV_FILE" ]; then
   update_env_var() {
@@ -217,16 +218,20 @@ if [ -f "$ENV_FILE" ]; then
       else
         sed -i "s|^${k}=.*|${k}=${v}|" "$ENV_FILE"
       fi
+    elif [ "${3:-}" = "upsert" ]; then
+      printf '\n%s=%s\n' "$k" "$v" >> "$ENV_FILE"
     fi
   }
 
-  update_env_var "ZALO_WEBHOOK_URL" "$FULL_WEBHOOK_URL"
   if [ "$GATEWAY_MODE" = "true" ]; then
-    update_env_var "APP_URL" "$TUNNEL_URL"
+    update_env_var "APP_URL" "$TUNNEL_URL" upsert
     update_env_var "WEB_ORIGIN" "$TUNNEL_URL"
     update_env_var "NEXT_PUBLIC_API_URL" "$TUNNEL_URL"
-    echo "📝 Đã tự động cập nhật ZALO_WEBHOOK_URL, APP_URL, WEB_ORIGIN, NEXT_PUBLIC_API_URL trong .env -> $TUNNEL_URL"
+    update_env_var "ZALO_WEBHOOK_URL" "$FULL_WEBHOOK_URL"
+    echo "📝 Đã tự động cập nhật APP_URL trong .env -> $TUNNEL_URL"
   else
+    # Tunnel trỏ thẳng vào Backend: APP_URL (dashboard) giữ nguyên, chỉ webhook đổi.
+    update_env_var "ZALO_WEBHOOK_URL" "$FULL_WEBHOOK_URL" upsert
     echo "📝 Đã tự động cập nhật ZALO_WEBHOOK_URL trong .env -> $FULL_WEBHOOK_URL"
   fi
 fi

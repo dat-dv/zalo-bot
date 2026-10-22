@@ -149,7 +149,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 ## Mở dashboard, chạy local và production
 
 - Người dùng gửi `/dashboard` (hoặc "dashboard", "mở dashboard") cho bot; bot trả link dùng một lần `/api/access?token=...` (hạn 20 phút). API đổi link thành phiên rồi chuyển hướng sang `/dashboard#dashboard_token=...` (chi tiết ở module auth). Không có nút callback; muốn link mới thì gửi lại lệnh. Link hết hạn/đã dùng trả trang HTML lỗi 401.
-- Local: `npm run dev` (chạy cả API và web) hoặc `npm run dev:api` + `npm run dev:web`. Web chạy ở cổng `FE_PORT` (mặc định 5173); Next chuyển `/api/*` sang `NEXT_PUBLIC_API_URL` (mặc định `http://localhost:<NGINX_PORT|GATEWAY_PORT|3000>`). Khi truy cập qua localhost hoặc tunnel (Cloudflare, ngrok, loca.lt), client gọi đường dẫn tương đối `/api/...`.
+- Local: `npm run dev` (chạy cả API và web) hoặc `npm run dev:api` + `npm run dev:web`. Web chạy ở cổng `FE_PORT` (mặc định 5173); Next chuyển `/api/*` sang `NEXT_PUBLIC_API_URL` (mặc định `http://localhost:<NGINX_PORT|3000>`). Khi truy cập qua localhost hoặc tunnel (Cloudflare, ngrok, loca.lt), client gọi đường dẫn tương đối `/api/...`.
 - Production: web là static export, Nginx phục vụ file tĩnh và chuyển `/api/*` sang NestJS. `NEXT_PUBLIC_API_URL` là origin **không** kèm `/api` (hằng `API_ROUTES` đã có tiền tố) và được đóng gói lúc build, đổi giá trị thì phải build lại.
 
 ## Lỗi/hạn chế đã biết

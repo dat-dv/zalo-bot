@@ -17,7 +17,7 @@ const VALID_ENV: Record<string, string> = {
   DEFAULT_TIMEZONE: 'Asia/Ho_Chi_Minh',
 };
 
-const TOUCHED_KEYS = [...Object.keys(VALID_ENV), 'PORT', 'BOT_TOKEN', 'NGINX_PORT', 'GATEWAY_PORT'];
+const TOUCHED_KEYS = [...Object.keys(VALID_ENV), 'NGINX_PORT', 'ZALO_WEBHOOK_URL'];
 let snapshot: Record<string, string | undefined> = {};
 
 beforeEach(() => {
@@ -37,8 +37,15 @@ void test('validateEnvironment accepts a complete environment', () => {
   assert.deepEqual(validateEnvironment(), { isValid: true, errors: [] });
 });
 
-void test('validateEnvironment rejects the unsafe fallbacks (CORS, encryption key)', () => {
-  delete process.env.CORS_ALLOW_ALL;
+void test('validateEnvironment accepts a minimal environment that relies on defaults', () => {
+  for (const key of ['BE_PORT', 'WEB_ORIGIN', 'CORS_ALLOW_ALL', 'DEFAULT_TIMEZONE']) {
+    Reflect.deleteProperty(process.env, key);
+  }
+  assert.deepEqual(validateEnvironment(), { isValid: true, errors: [] });
+});
+
+void test('validateEnvironment rejects invalid optional values and the placeholder encryption key', () => {
+  process.env.CORS_ALLOW_ALL = 'yes';
   process.env.DATA_ENCRYPTION_KEY = 'replace-with-64-hex-characters';
   const result = validateEnvironment();
   assert.equal(result.isValid, false);
@@ -55,4 +62,20 @@ void test('validateEnvironment reports a missing dashboard secret', () => {
     result.errors.map((error) => error.key),
     ['DASHBOARD_ACCESS_TOKEN_SECRET'],
   );
+});
+
+void test('validateEnvironment validates optional ports, URLs and timezone only when set', () => {
+  process.env.BE_PORT = 'abc';
+  process.env.NGINX_PORT = '0';
+  process.env.WEB_ORIGIN = 'not-a-url';
+  process.env.ZALO_WEBHOOK_URL = 'ftp://bot.example.com/webhook';
+  process.env.DEFAULT_TIMEZONE = 'Mars/Olympus';
+  const result = validateEnvironment();
+  assert.deepEqual(result.errors.map((error) => error.key).sort(), [
+    'BE_PORT',
+    'DEFAULT_TIMEZONE',
+    'NGINX_PORT',
+    'WEB_ORIGIN',
+    'ZALO_WEBHOOK_URL',
+  ]);
 });

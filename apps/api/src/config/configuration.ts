@@ -27,7 +27,6 @@ export interface AppConfig {
     selfListen?: boolean;
     checkUpdate?: boolean;
     logging?: boolean;
-    autoLogin?: boolean;
     enableWelcome?: boolean;
     welcomeImagePath?: string;
   };
@@ -101,7 +100,7 @@ export default (): AppConfig => {
   const appUrl = readEnv('APP_URL').replace(/\/+$/, '');
 
   return {
-    port: readNumberEnv('BE_PORT', readNumberEnv('PORT', 3005)),
+    port: readNumberEnv('BE_PORT', 3005),
     appUrl,
     webOrigin: readEnv('WEB_ORIGIN', appUrl).replace(/\/+$/, ''),
     cors: { allowAll: readBooleanEnv('CORS_ALLOW_ALL', false) },
@@ -112,22 +111,21 @@ export default (): AppConfig => {
     },
     redis: { url: readOptionalEnv('REDIS_URL') },
     zalo: {
-      botToken: readEnv('ZALO_BOT_TOKEN', readEnv('BOT_TOKEN')),
-      botName: readEnv('BOT_NAME', readEnv('ZALO_BOT_NAME', 'Bot')),
-      webhookUrl: readEnv('ZALO_WEBHOOK_URL', readEnv('WEBHOOK_URL')),
+      botToken: readEnv('ZALO_BOT_TOKEN'),
+      botName: readEnv('BOT_NAME', 'Bot'),
+      webhookUrl: readEnv('ZALO_WEBHOOK_URL', `${appUrl}/webhook`),
       secretToken: readOptionalEnv('ZALO_WEBHOOK_SECRET_TOKEN'),
     },
     zca: {
-      dataDir: readOptionalEnv('DATA_DIR') || readOptionalEnv('ZCA_DATA_DIR'),
+      dataDir: readEnv('DATA_DIR', './data'),
       proxyUrl: readOptionalEnv('ZCA_PROXY_URL'),
       imei: readOptionalEnv('ZCA_IMEI'),
       cookie: readOptionalEnv('ZCA_COOKIE'),
       userAgent: readOptionalEnv('ZCA_USER_AGENT'),
       language: readOptionalEnv('ZCA_LANGUAGE'),
       selfListen: readBooleanEnv('ZCA_SELF_LISTEN', false),
-      checkUpdate: readBooleanEnv('ZCA_CHECK_UPDATE', true),
+      checkUpdate: readBooleanEnv('ZCA_CHECK_UPDATE', false),
       logging: readBooleanEnv('ZCA_LOGGING', false),
-      autoLogin: readBooleanEnv('ZCA_AUTO_LOGIN', false),
       enableWelcome: readBooleanEnv('ZCA_ENABLE_WELCOME', false),
       welcomeImagePath: readOptionalEnv('ZCA_WELCOME_IMAGE_PATH'),
     },
@@ -164,9 +162,9 @@ export default (): AppConfig => {
         baseUrl: readEnv('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
       },
       qwen: {
-        baseUrl: readEnv('QWEN_BASE_URL', readEnv('OLLAMA_BASE_URL', 'http://localhost:11434')),
-        model: readEnv('QWEN_MODEL', readEnv('OLLAMA_MODEL', 'qwen2.5:14b')),
-        apiKey: readOptionalEnv('QWEN_API_KEY') || readOptionalEnv('OLLAMA_API_KEY') || '',
+        baseUrl: readEnv('QWEN_BASE_URL', 'http://localhost:11434'),
+        model: readEnv('QWEN_MODEL', 'qwen2.5:14b'),
+        apiKey: readOptionalEnv('QWEN_API_KEY') || '',
       },
     },
   };

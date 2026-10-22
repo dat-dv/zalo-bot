@@ -101,7 +101,7 @@
 ## Integration seams
 
 - Dashboard link: user sends `/dashboard` in Zalo → `DashboardToolStrategy` replies with a one-time `/api/access?token=` URL (20 min) → API redirects to `/dashboard#dashboard_token=<access>` (see auth module). There is no callback button.
-- HTTP base: relative `/api/...` on localhost / Cloudflare tunnel / ngrok / loca.lt hosts, else `NEXT_PUBLIC_API_URL` (origin without `/api`; route constants already include `/api`). In `next dev` (port `FE_PORT`, default 5173) `/api/*` is rewritten to `NEXT_PUBLIC_API_URL` (default `http://localhost:${NGINX_PORT|GATEWAY_PORT|3000}`). Production is a static export; Nginx serves it and proxies `/api/*`.
+- HTTP base: relative `/api/...` on localhost / Cloudflare tunnel / ngrok / loca.lt hosts, else `NEXT_PUBLIC_API_URL` (origin without `/api`; route constants already include `/api`). In `next dev` (port `FE_PORT`, default 5173) `/api/*` is rewritten to `NEXT_PUBLIC_API_URL` (default `http://localhost:${NGINX_PORT|3000}`). Production is a static export; Nginx serves it and proxies `/api/*`.
 
 ## Known issues
 
