@@ -9,12 +9,16 @@
 /** iOS sheet/navigation curve: quick start, long soft landing. */
 export const EASE_IOS = 'cubic-bezier(0.32, 0.72, 0, 1)';
 export const EASE_OUT = 'cubic-bezier(0.2, 0, 0, 1)';
+/**
+ * Modal bottom sheet (Material): rises at an even pace and slows into place, leaves
+ * speeding up. EASE_IOS front-loads the travel, so a tall sheet read as jumping up.
+ */
+export const EASE_SHEET_IN = 'cubic-bezier(0, 0, 0.2, 1)';
+export const EASE_SHEET_OUT = 'cubic-bezier(0.4, 0, 1, 1)';
 
 export const MOTION_MS = {
-  // iOS-like sheets need ~500ms: with this curve most of the travel happens early, so
-  // anything shorter reads as the sheet popping in rather than sliding up.
-  sheetIn: 500,
-  sheetOut: 300,
+  sheetIn: 350,
+  sheetOut: 250,
   fadeIn: 200,
   fadeOut: 160,
   page: 220,
@@ -41,7 +45,7 @@ function play(
 export function sheetEnter(element: Element | null): Animation | null {
   return play(element, [{ transform: 'translateY(100%)' }, { transform: 'translateY(0)' }], {
     duration: MOTION_MS.sheetIn,
-    easing: EASE_IOS,
+    easing: EASE_SHEET_IN,
   });
 }
 
@@ -49,7 +53,7 @@ export function sheetEnter(element: Element | null): Animation | null {
 export function sheetExit(element: Element | null): Animation | null {
   return play(element, [{ transform: 'translateY(100%)' }], {
     duration: MOTION_MS.sheetOut,
-    easing: EASE_IOS,
+    easing: EASE_SHEET_OUT,
     fill: 'forwards',
   });
 }

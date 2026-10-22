@@ -174,7 +174,9 @@ Trạng thái Skeleton Loading có nhiệm vụ giữ vững khung xương khôn
 - **Máy bật "Giảm chuyển động"**: mọi chuyển động gần như tắt hẳn.
 - **Sheet/dialog**:
   - **Chuyển động**: chạy bằng Web Animations API (`motion.ts`), không dùng CSS `@starting-style` nữa, vì Safari dưới 17.5 bỏ qua `@starting-style` và anh thấy sheet chưa có cảm giác trượt.
-  - Trên điện thoại, sheet trượt lên trong **500ms** với đường cong kiểu iOS `cubic-bezier(0.32, 0.72, 0, 1)`: nhanh lúc đầu, chậm êm lúc cuối. Khi đóng, sheet trượt xuống trong 300ms từ đúng vị trí đang có (kể cả lúc đang vuốt dở). Màn lớn thì mờ dần và thu nhỏ nhẹ.
+  - Trên điện thoại, sheet chạy theo kiểu **Modal Bottom Sheet** (Material): trượt lên trong **350ms** với đường cong giảm tốc `cubic-bezier(0, 0, 0.2, 1)`, đi đều rồi chậm dần vào chỗ, không vọt. Khi đóng, sheet tăng tốc trượt xuống trong 250ms (`cubic-bezier(0.4, 0, 1, 1)`) từ đúng vị trí đang có (kể cả lúc đang vuốt dở). Nền tối mờ theo cùng thời lượng và đường cong. Màn lớn thì mờ dần và thu nhỏ nhẹ.
+  - Vì sao bỏ đường cong iOS cũ: nó dồn gần hết quãng đường vào ~120ms đầu, với sheet cao như sheet Thêm thì nhìn như sheet nhảy vọt lên.
+  - Vì sao sheet từng "vọt lên cao rồi rớt xuống" trên app iPhone: `<dialog>` dùng `overflow: hidden` nên vẫn cuộn được, lúc sheet còn nằm dưới mép màn hình WebKit có thể cuộn dialog tới panel đang focus rồi bị kẹp lại. Ngoài ra chiều cao dialog frame đầu là `100dvh`, frame sau mới là chiều cao thật của visual viewport. Nay dialog dùng `overflow: clip` và các biến `--app-vvh` / `--app-vv-top` được ghi ngay trước khi mở, nên khung của sheet đúng ngay từ frame đầu.
   - `Modal` giữ DOM thêm 300ms sau khi `open = false` để kịp chạy hiệu ứng đóng.
   - Nếu nơi gọi tự gỡ `Modal` (kiểu `{x && <Modal open />}`) thì không có hiệu ứng đóng, chỉ có hiệu ứng mở.
 - **Vuốt để đóng** (`use-swipe-dismiss.ts`):

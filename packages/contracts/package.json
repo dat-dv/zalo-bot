@@ -1,6 +1,6 @@
 {
   "name": "@zalobot/contracts",
-  "version": "1.0.138",
+  "version": "1.0.139",
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

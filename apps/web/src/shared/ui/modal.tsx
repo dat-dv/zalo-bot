@@ -13,7 +13,8 @@ import { useIsPhone } from '@/shared/hooks/use-media-query';
 import { useSwipeDismiss } from '@/shared/hooks/use-swipe-dismiss';
 import { PHONE_MEDIA_QUERY } from '@/shared/ui/breakpoints';
 import {
-  EASE_IOS,
+  EASE_SHEET_IN,
+  EASE_SHEET_OUT,
   MOTION_MS,
   cardEnter,
   cardExit,
@@ -101,7 +102,7 @@ export function Modal({
     if (window.matchMedia(PHONE_MEDIA_QUERY).matches) sheetExit(panelRef.current);
     else cardExit(panelRef.current);
     // The backdrop moves in step with the sheet (same duration and curve).
-    fadeOut(backdropRef.current, MOTION_MS.sheetOut, EASE_IOS);
+    fadeOut(backdropRef.current, MOTION_MS.sheetOut, EASE_SHEET_OUT);
     const timer = window.setTimeout(() => setRendered(false), EXIT_MS);
     return () => window.clearTimeout(timer);
   }, [closing]);
@@ -134,7 +135,7 @@ export function Modal({
     // Web Animations rather than CSS @starting-style: it also runs on iOS < 17.5.
     if (window.matchMedia(PHONE_MEDIA_QUERY).matches) sheetEnter(panel);
     else cardEnter(panel);
-    fadeIn(backdropRef.current, MOTION_MS.sheetIn, EASE_IOS);
+    fadeIn(backdropRef.current, MOTION_MS.sheetIn, EASE_SHEET_IN);
     return () => {
       if (dialog.open) dialog.close();
       // When `open` flips to false on a mounted Modal, React detaches the <dialog> before
@@ -200,7 +201,10 @@ export function Modal({
       onClose={handleClose}
       // Reset UA dialog styles (margin, max size, border, padding, colors) and size the
       // dialog to the visual viewport; the panel sits inside as centered card / bottom sheet.
-      className={`fixed inset-x-0 top-[var(--app-vv-top,0px)] bottom-auto m-0 h-[var(--app-vvh,100dvh)] max-h-none w-full max-w-none items-center justify-center overflow-hidden border-0 bg-transparent p-4 text-inherit backdrop:bg-transparent open:flex max-sm:items-end max-sm:p-0 ${isFullscreen ? '' : 'max-sm:pt-6'}`}
+      // `overflow: clip`, not `hidden`: a hidden box is still a scroll container, and the
+      // sheet starting at translateY(100%) made it scrollable, so WebKit could scroll it to
+      // the focused panel and the sheet jumped up, then dropped as the scroll clamped back.
+      className={`fixed inset-x-0 top-[var(--app-vv-top,0px)] bottom-auto m-0 h-[var(--app-vvh,100dvh)] max-h-none w-full max-w-none items-center justify-center overflow-hidden supports-[overflow:clip]:overflow-clip border-0 bg-transparent p-4 text-inherit backdrop:bg-transparent open:flex max-sm:items-end max-sm:p-0 ${isFullscreen ? '' : 'max-sm:pt-6'}`}
     >
       <div
         aria-hidden="true"
