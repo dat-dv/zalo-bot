@@ -32,7 +32,6 @@ yarn-error.log*
 data/
 *.sqlite
 *.sqlite-journal
-gcp-oauth.keys.json
 
 # OS files
 .DS_Store

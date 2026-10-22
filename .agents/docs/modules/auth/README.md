@@ -61,6 +61,12 @@ Dashboard không có màn hình đăng nhập. Người dùng mở dashboard b�
 - `httpClient` không tự refresh rồi gọi lại khi `/api/access/code` trả 401, vì mã sai không phải là phiên hết hạn.
 - Cùng ô nhập này cũng nhận **mã cố định** `DASHBOARD_LOGIN_CODE` trong env (đăng nhập thành admin "Chủ hệ thống", dùng khi ZCA hết phiên hoặc cài mới). Định dạng giống hệt mã 1 lần nên phía web không cần xử lý riêng; chi tiết ở [Phiên dashboard](../../global/dashboard-session.md).
 
+## Thẻ tài khoản đang đăng nhập
+
+- `SessionUserCard` cho biết phiên dashboard thuộc tài khoản Zalo nào (tên, ID bấm để copy, nhãn Admin/Người dùng). Dữ liệu lấy từ `GET /api/me` qua `useSessionUserQuery`.
+- `AppNavigation` dùng cùng dữ liệu này để chỉ hiện "Zalo & Người dùng" và "Google Drive" cho admin.
+- Lý do và quy tắc chi tiết: xem [dashboard-session](../../global/dashboard-session.md).
+
 ## Lưu ý khi phát triển
 
 - Chỉ module này được biết khoá lưu token; nơi khác phải import hàm từ `auth-storage.ts`.
@@ -70,3 +76,7 @@ Dashboard không có màn hình đăng nhập. Người dùng mở dashboard b�
 ## Bo góc
 
 - Nút, ô nhập, thẻ/panel và khung dialog trong module này dùng `rounded-[3px]` (tối đa `rounded`, 4px), không dùng `rounded-lg/xl/2xl`. Lý do: giao diện dashboard theo phong cách gọn, sắc cạnh như công cụ quản trị; bo lớn làm các ô trông như app tiêu dùng và lệch với phần còn lại. `rounded-full` chỉ dành cho avatar, chấm trạng thái, công tắc, vòng quay tải và thanh tiến độ. Xem [web-ui-direction](../../global/web-ui-direction.md).
+
+## Màu nút ở dark mode
+
+- Ở dark mode, nút hành động chính dùng tông xanh sky (`dark:bg-sky-600 dark:text-white`), không dùng kiểu đảo màu `dark:bg-slate-100` vì nó thành khối trắng chói trên nền tối. Trong module này áp dụng cho nút gửi mã đăng nhập (`AccessCodeForm`). Light mode giữ nút đen như cũ. Xem [web-ui-direction](../../global/web-ui-direction.md).

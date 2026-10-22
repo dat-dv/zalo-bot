@@ -87,7 +87,7 @@ export function AccessCodeForm() {
         <Button
           type="submit"
           disabled={signIn.isPending}
-          className="inline-flex min-h-[42px] shrink-0 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-60 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+          className="inline-flex min-h-[42px] shrink-0 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-60 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
         >
           {signIn.isPending ? t('auth.accessCode.submitting') : t('auth.accessCode.submit')}
         </Button>

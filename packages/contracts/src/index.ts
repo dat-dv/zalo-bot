@@ -1,6 +1,7 @@
 export const API_ROUTES = {
   access: '/api/access',
   accessCode: '/api/access/code',
+  sessionMe: '/api/me',
   dashboard: '/api/dashboard',
   dashboardRefresh: '/api/refresh',
   dashboardLogout: '/api/logout',
@@ -201,7 +202,18 @@ const messages = {
     'zca.logoutConfirm':
       'Bạn có chắc chắn muốn ngắt kết nối và đăng xuất tài khoản Zalo cá nhân (ZCA) này không?',
     'zca.logoutSuccess': 'Đã đăng xuất tài khoản ZCA thành công.',
+    'zca.forbidden.title': 'Trang này chỉ dành cho admin',
+    'zca.forbidden.body':
+      'Tài khoản bạn đang đăng nhập dashboard chưa có quyền admin. Hãy nhờ admin cấp quyền hoặc đăng nhập bằng tài khoản admin.',
+    'zca.forbidden.backHome': 'Về trang tổng quan',
     'nav.personalSpace': 'Cá nhân',
+    'session.title': 'Đang đăng nhập',
+    'session.owner': 'Chủ hệ thống (mã đăng nhập)',
+    'session.unknownName': 'Chưa rõ tên',
+    'session.roleAdmin': 'Admin',
+    'session.roleUser': 'Người dùng',
+    'session.copyId': 'Copy ID {id}',
+    'session.copied': 'Đã copy',
     'nav.section.overview': 'TỔNG QUAN',
     'nav.section.finance': 'TÀI CHÍNH',
     'nav.section.planning': 'KẾ HOẠCH',
@@ -1303,7 +1315,18 @@ const messages = {
     'zca.logoutConfirm':
       'Are you sure you want to disconnect and logout this ZCA personal account?',
     'zca.logoutSuccess': 'ZCA account logged out successfully.',
+    'zca.forbidden.title': 'This page is for admins only',
+    'zca.forbidden.body':
+      'The account signed in to the dashboard is not an admin. Ask an admin to grant access or sign in with an admin account.',
+    'zca.forbidden.backHome': 'Back to overview',
     'nav.personalSpace': 'Personal',
+    'session.title': 'Signed in as',
+    'session.owner': 'System owner (sign-in code)',
+    'session.unknownName': 'Unknown name',
+    'session.roleAdmin': 'Admin',
+    'session.roleUser': 'User',
+    'session.copyId': 'Copy ID {id}',
+    'session.copied': 'Copied',
     'nav.section.overview': 'OVERVIEW',
     'nav.section.finance': 'FINANCE',
     'nav.section.planning': 'PLANNING',
@@ -2570,6 +2593,18 @@ export interface IUserMergeSummary {
 
 export interface IUserMergeResult extends IUserMergeSummary {
   sourceWasCurrentSession: boolean;
+}
+
+/** Who the dashboard session belongs to (`GET API_ROUTES.sessionMe`). */
+export interface IDashboardSessionUser {
+  /** `users.id` of the session. */
+  id: string;
+  /** Zalo name; null when unknown (and for the dashboard owner, which has no Zalo account). */
+  name: string | null;
+  avatarUrl: string | null;
+  isAdmin: boolean;
+  /** Signed in with `DASHBOARD_LOGIN_CODE`. */
+  isDashboardOwner: boolean;
 }
 
 export interface IDashboardData {

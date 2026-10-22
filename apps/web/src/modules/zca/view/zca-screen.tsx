@@ -24,6 +24,7 @@ import {
   zcaQueryKeys,
 } from '../api/zca-query';
 import { getThreadDriveOpenUrl, getZcaQrImageUrl, type ZcaThread } from '../api/zca-api';
+import { isForbiddenError } from '../model/google-storage-account';
 import {
   buildChatRows,
   countChatRows,
@@ -38,6 +39,7 @@ import { ChatListRow } from '../presentation/components/chat-list-row';
 import type { ChatRowProps } from '../presentation/components/chat-row-parts';
 import { ChatTableRow } from '../presentation/components/chat-table-row';
 import { UserFormDialog } from '../presentation/components/user-form-dialog';
+import { ZcaAdminOnlyNotice } from '../presentation/components/zca-admin-only-notice';
 import {
   ExternalLinkIcon,
   GoogleDriveIcon,
@@ -110,7 +112,11 @@ export function ZcaScreen() {
   const { t, locale } = useLocale();
   const isCompact = useIsCompact();
   const [pollInterval, setPollInterval] = useState<number | false>(false);
-  const { data: status, refetch: refetchStatus } = useZcaStatusQuery({
+  const {
+    data: status,
+    error: statusError,
+    refetch: refetchStatus,
+  } = useZcaStatusQuery({
     refetchInterval: pollInterval,
   });
   const {
@@ -398,6 +404,9 @@ export function ZcaScreen() {
     onToggleListen: (threadId) => void handleToggleThread(threadId),
   });
 
+  // Every /api/zca route is admin-only; without this a non-admin sees an empty page and no reason.
+  if (isForbiddenError(statusError)) return <ZcaAdminOnlyNotice />;
+
   return (
     <div className="flex flex-col gap-4 p-1">
       {/* Page Title */}
@@ -646,7 +655,7 @@ export function ZcaScreen() {
               />
             </div>
             <button
-              className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 max-[640px]:h-10 max-[640px]:w-full dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+              className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 max-[640px]:h-10 max-[640px]:w-full dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
               type="submit"
             >
               + Bật lắng nghe ID
@@ -1013,7 +1022,7 @@ export function ZcaScreen() {
             Làm mới mã QR
           </button>
           <button
-            className={`rounded bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 ${MODAL_FOOTER_TAP}`}
+            className={`rounded bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-sky-600 dark:text-white ${MODAL_FOOTER_TAP}`}
             onClick={() => setIsQrModalOpen(false)}
             type="button"
           >

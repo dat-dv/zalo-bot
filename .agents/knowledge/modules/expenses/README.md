@@ -30,3 +30,7 @@
 
 - `paymentMethod` and `currency` columns always show "not set"/`VND` because `GET /api/expenses` does not return those fields (the entity and `PATCH /api/transactions/:id` do support `paymentMethod`).
 - 200-row cap; periods older than the newest 200 expenses appear empty.
+
+## Dark-mode buttons
+
+- Primary actions use the sky tone in dark mode (`dark:bg-sky-600 dark:text-white`), never the near-white inverted `dark:bg-slate-100`: the row primary (save) in `ExpensesScreen`; its toast uses the dark toast tone. See [web-ui-direction](../../global/web-ui-direction.md).

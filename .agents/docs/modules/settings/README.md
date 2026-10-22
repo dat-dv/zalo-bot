@@ -60,3 +60,7 @@ Tiêu đề trang, nút Làm mới và Đăng xuất do `WorkspaceHeader` của 
 ## 5. Kiểm thử
 
 Chạy `npm run typecheck`, `npm run lint` và `npm run build` tại thư mục gốc. Thử tay: thêm, đổi tên, xoá danh mục ở cả hai bảng; mở tab Tuỳ chọn và bấm nút cân chỉnh số dư.
+
+## Màu nút ở dark mode
+
+- Ở dark mode, nút hành động chính dùng tông xanh sky (`dark:bg-sky-600 dark:text-white`), không dùng kiểu đảo màu `dark:bg-slate-100` vì nó thành khối trắng chói trên nền tối. Trong module này áp dụng cho các nút chính nhỏ trong `SettingsScreen`; toast dùng tông toast tối. Light mode giữ nút đen như cũ. Xem [web-ui-direction](../../global/web-ui-direction.md).

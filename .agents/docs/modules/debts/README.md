@@ -87,3 +87,7 @@ Giao diện desktop (> 960px) giữ nguyên. Trên màn hình hẹp, bảng côn
 ## Kiểm thử
 
 `npm run typecheck`, `npm run lint`, `npm run build` (scope `--workspace @zalobot/web`); test backend liên quan chạy bằng `npm run test --workspace @zalobot/api`.
+
+## Màu nút ở dark mode
+
+- Ở dark mode, nút hành động chính dùng tông xanh sky (`dark:bg-sky-600 dark:text-white`), không dùng kiểu đảo màu `dark:bg-slate-100` vì nó thành khối trắng chói trên nền tối. Trong module này áp dụng cho nút tạo (toolbar và thanh hành động mobile), nút xác nhận gộp công nợ và nút chính trong dòng `DebtsTable`; toast dùng tông toast tối. Light mode giữ nút đen như cũ. Xem [web-ui-direction](../../global/web-ui-direction.md).

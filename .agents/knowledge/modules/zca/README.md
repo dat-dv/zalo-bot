@@ -156,6 +156,7 @@ The former Users page (`/users`) was removed; user management lives here. Nav la
   - `user-only`: `users` row without a ZCA thread (legacy 20-hex ids from the removed official-bot webhook, `dashboard-owner`, non-friend group members). Shown even when ZCA is logged out.
   - Name/avatar prefer ZCA thread data, fall back to `users`.
 - **Screen (`apps/web/src/modules/zca/view/zca-screen.tsx`)**:
+  - Non-admin: when `GET /api/zca/status` answers 403 the whole page is replaced by `ZcaAdminOnlyNotice` (`presentation/components/zca-admin-only-notice.tsx`: "admins only" title, how to get access, link to `APP_ROUTES.home`; keys `zca.forbidden.*`). Status, thread-configs and Drive-link queries do not retry on 403 (`isForbiddenError`), so the notice shows at once. Other status errors keep the normal page.
   - Header: "Cập nhật lúc …" (directory `fetchedAt`), refresh, QR login / logout. QR modal polls status and auto-closes on login.
   - Cards: connection (+ listener state), listened count, interaction access (pending count, click → `pending` filter), total rows.
   - Toolbar: "Đồng bộ thông tin" (`usersSyncZca`), "+ Thêm người dùng" (`UserFormDialog` create), Drive root link, manual ID form (adds id to listened list only).

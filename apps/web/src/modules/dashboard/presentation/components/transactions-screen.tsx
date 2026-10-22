@@ -282,7 +282,7 @@ export function TransactionsScreen() {
       {toastMessage && (
         <div
           role="status"
-          className={`${TOAST_POSITION} rounded bg-slate-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-3 py-2 text-xs text-white shadow-lg dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100`}
         >
           {toastMessage}
         </div>

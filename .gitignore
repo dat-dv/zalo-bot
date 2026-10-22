@@ -21,8 +21,6 @@ lerna-debug.log*
 .env.*
 !.env.example
 .env.local
-.gcp-saved-tokens.json
-gcp-oauth.keys.json
 .zca-session.json
 .zca-listened-threads.json
 .zca-thread-configs.json

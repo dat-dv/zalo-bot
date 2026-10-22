@@ -610,7 +610,7 @@ export function ContactsScreen() {
             <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 max-[960px]:h-10 max-[960px]:text-[12.5px] dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 max-[960px]:h-10 max-[960px]:text-[12.5px] dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
                 onClick={() => void handleSaveEdit(item.id)}
                 disabled={updateMutation.isPending || !editDraft.displayName.trim()}
                 title={t('contacts.actions.save')}
@@ -681,7 +681,7 @@ export function ContactsScreen() {
     <>
       {toastMessage && (
         <div
-          className={`${TOAST_POSITION} rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100`}
           role="status"
           aria-live="polite"
         >
@@ -746,7 +746,7 @@ export function ContactsScreen() {
                       </span>
                       <button
                         type="button"
-                        className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-default disabled:opacity-60 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                        className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-default disabled:opacity-60 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
                         onClick={() => void handleLinkSuggestion(suggestion)}
                         disabled={isLinked || updateMutation.isPending}
                       >
@@ -784,7 +784,7 @@ export function ContactsScreen() {
                     <button
                       type="button"
                       // Compact screens get this action in the MobileActionBar instead.
-                      className={`${chipClass} justify-center border-slate-900 bg-slate-900 font-semibold text-white hover:bg-slate-800 max-[960px]:hidden dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+                      className={`${chipClass} justify-center border-slate-900 bg-slate-900 font-semibold text-white hover:bg-slate-800 max-[960px]:hidden dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`}
                       onClick={() => setIsCombineOpen(true)}
                     >
                       {t('contacts.actions.combine', { count: selectedIds.size })}
@@ -845,7 +845,7 @@ export function ContactsScreen() {
           <button
             type="button"
             onClick={() => setIsCombineOpen(true)}
-            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`}
           >
             {t('contacts.actions.combine', { count: selectedIds.size })}
           </button>

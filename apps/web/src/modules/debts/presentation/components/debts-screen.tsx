@@ -343,7 +343,7 @@ export function DebtsScreen() {
       {toastMessage && (
         <div
           role="status"
-          className={`${TOAST_POSITION} rounded bg-slate-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-3 py-2 text-xs text-white shadow-lg dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100`}
         >
           {toastMessage}
         </div>
@@ -459,7 +459,7 @@ export function DebtsScreen() {
                 <button
                   type="button"
                   // Compact screens get this action in the MobileActionBar instead.
-                  className="inline-flex h-6 min-h-6 max-[960px]:hidden cursor-pointer items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                  className="inline-flex h-6 min-h-6 max-[960px]:hidden cursor-pointer items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
                   onClick={() => setIsCreateOpen(true)}
                 >
                   + {t('debts.actions.create')}
@@ -467,7 +467,7 @@ export function DebtsScreen() {
                 {selectedIds.size >= 2 && (
                   <button
                     type="button"
-                    className="inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 max-[960px]:hidden text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                    className="inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 max-[960px]:hidden text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
                     onClick={() => setIsCombineOpen(true)}
                   >
                     {t('debts.actions.combine', { count: selectedIds.size })}
@@ -589,7 +589,7 @@ export function DebtsScreen() {
         {selectedIds.size >= 2 ? (
           <button
             type="button"
-            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`}
             onClick={() => setIsCombineOpen(true)}
           >
             {t('debts.actions.combine', { count: selectedIds.size })}
@@ -597,7 +597,7 @@ export function DebtsScreen() {
         ) : (
           <button
             type="button"
-            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`}
             onClick={() => setIsCreateOpen(true)}
           >
             + {t('debts.actions.create')}

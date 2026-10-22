@@ -7,6 +7,7 @@ import {
   UserRole,
   GrantAccessStatus,
   normalizeLocale,
+  type IDashboardSessionUser,
   type SupportedLocale,
 } from '@zalobot/contracts';
 import { RedisService } from '../redis/redis.service';
@@ -469,6 +470,41 @@ export class UsersService implements OnModuleInit {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Who a dashboard session belongs to, for the account card in the navigation. The name comes from
+   * the ZCA directory (cached, never fetched from Zalo here), like the `/zca` user list, then from
+   * `firstName`.
+   */
+  public async getSessionProfile(userId: string | number): Promise<IDashboardSessionUser> {
+    const id = userId.toString();
+    const user = await this.userRepo.findOne({ where: { id } });
+    const isDashboardOwner = id === DASHBOARD_OWNER_USER_ID;
+    if (isDashboardOwner) {
+      // The default owner name is shown translated by the web; a renamed owner keeps its name.
+      const customName = user?.firstName !== DASHBOARD_OWNER_NAME ? user?.firstName : undefined;
+      return {
+        id,
+        name: customName || null,
+        avatarUrl: user?.avatarUrl || null,
+        isAdmin: this.isAdmin(id),
+        isDashboardOwner,
+      };
+    }
+
+    const threads = this.zcaService
+      ? await this.zcaService.getAvailableThreads(false).catch((): AvailableThread[] => [])
+      : [];
+    const entry = threads.find((t) => t.id === id && t.type === 'user');
+    const zcaName = entry ? entry.alias || entry.name || entry.displayName : undefined;
+    return {
+      id,
+      name: zcaName || user?.firstName || null,
+      avatarUrl: user?.avatarUrl || entry?.avatar || null,
+      isAdmin: this.isAdmin(id),
+      isDashboardOwner,
+    };
   }
 
   public async getUsers(): Promise<

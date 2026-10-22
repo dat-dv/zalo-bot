@@ -13,6 +13,8 @@
 - `api/access-code-api.ts`: `signInWithAccessCode` (`POST API_ROUTES.accessCode`), `getAccessCodeErrorKind` (401 -> `rejected`, 429 -> `tooManyAttempts`, else `failed`).
 - `api/access-code-query.ts`: `useAccessCodeSignInMutation`.
 - `presentation/components/access-code-form.tsx`: `AccessCodeForm`.
+- `api/session-user-api.ts`: `getSessionUser` (`GET API_ROUTES.sessionMe`). `api/session-user-query.ts`: `useSessionUserQuery({ enabled })`, `sessionQueryKeys.me()`.
+- `presentation/components/session-user-card.tsx`: `SessionUserCard` (`variant: 'sidebar' | 'sheet'`), rendered by `AppNavigation`. Contract and admin-only menu rules: [dashboard-session](../../global/dashboard-session.md#session-identity-get-api_routessessionme--apime).
 
 ## Token storage and capture
 
@@ -55,3 +57,7 @@
 ## Corner radius
 
 - Buttons, inputs, cards/panels and dialog panels in this module use `rounded-[3px]` (max `rounded`, 4px); no `rounded-lg/xl/2xl`. `rounded-full` only for avatars, status dots, switches, spinners and progress fills. See [web-ui-direction](../../global/web-ui-direction.md).
+
+## Dark-mode buttons
+
+- Primary actions use the sky tone in dark mode (`dark:bg-sky-600 dark:text-white`), never the near-white inverted `dark:bg-slate-100`: the sign-in code submit button (`AccessCodeForm`). See [web-ui-direction](../../global/web-ui-direction.md).

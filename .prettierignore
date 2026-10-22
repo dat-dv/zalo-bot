@@ -1,7 +1,5 @@
 dist
 node_modules
 coverage
-.gcp-saved-tokens.json
-gcp-oauth.keys.json
 next-env.d.ts
 *.d.ts
