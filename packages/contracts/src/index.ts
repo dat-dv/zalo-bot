@@ -30,6 +30,8 @@ export const API_ROUTES = {
   calendarEvent: (id: string) => `/api/calendar/events/${id}`,
   calendarEventResync: (id: string) => `/api/calendar/events/${id}/resync`,
   tasks: '/api/tasks',
+  task: (id: string) => `/api/tasks/${id}`,
+  taskResync: (id: string) => `/api/tasks/${id}/resync`,
   googleAuthCallback: '/api/oauth2callback',
   swaggerDocs: '/api/docs',
   transactionCandidateDebts: (id: string) => `/api/transactions/${id}/candidate-debts`,
@@ -851,7 +853,7 @@ const messages = {
     'calendar.form.description': 'Mô tả',
     'calendar.form.invalidRange': 'Thời điểm kết thúc phải sau lúc bắt đầu',
     'tasks.title': 'Việc cần làm',
-    'tasks.subtitle': 'Danh sách công việc từ Google Tasks',
+    'tasks.subtitle': 'Việc cần làm dùng chung, lưu trong zalobot và sao chép lên Google Tasks',
     'tasks.columns.status': 'Trạng thái',
     'tasks.columns.notes': 'Ghi chú',
     'tasks.columns.updatedAt': 'Cập nhật',
@@ -866,7 +868,6 @@ const messages = {
     'tasks.actions.delete': 'Xóa',
     'tasks.actions.complete': 'Hoàn thành',
     'tasks.inlineEdit.saved': 'Đã cập nhật công việc',
-    'tasks.delete.confirm': 'Bạn có chắc chắn muốn xóa công việc này không?',
     'tasks.delete.success': 'Đã xóa công việc',
     'tasks.filter.all': 'Tất cả',
     'tasks.filter.needsAction': 'Cần làm',
@@ -875,6 +876,29 @@ const messages = {
     'tasks.stats.pending': 'Cần làm',
     'tasks.stats.completed': 'Đã xong',
     'tasks.stats.overdue': 'Quá hạn',
+    'tasks.stats.unsynced': 'Chưa lên Google',
+    'tasks.columns.sync': 'Google Tasks',
+    'tasks.columns.origin': 'Người tạo',
+    'tasks.filter.unsyncedOnly': 'Đang lọc việc chưa lên Google',
+    'tasks.filter.clear': 'Bỏ lọc',
+    'tasks.localOnlyTip':
+      'Chưa kết nối Google: việc vẫn lưu trong zalobot, chỉ chưa có trên Google Tasks.',
+    'tasks.delete.title': 'Xoá việc cần làm?',
+    'tasks.delete.message':
+      'Việc bị xoá khỏi zalobot và khỏi Google Tasks nếu tài khoản giữ bản sao vẫn còn kết nối.',
+    'tasks.sync.synced': 'Đã lên Google',
+    'tasks.sync.pending': 'Đang đồng bộ',
+    'tasks.sync.failed': 'Lỗi đồng bộ Google',
+    'tasks.sync.local': 'Chỉ lưu trong app',
+    'tasks.sync.otherAccount': 'Ở tài khoản Google cũ',
+    'tasks.sync.account': 'Bản sao Google: {email}',
+    'tasks.sync.resync': 'Đồng bộ lại',
+    'tasks.sync.resynced': 'Đã đồng bộ lên Google',
+    'tasks.source.zalo': 'Tạo từ Zalo',
+    'tasks.source.dashboard': 'Tạo từ dashboard',
+    'tasks.source.google': 'Tạo trên Google Tasks',
+    'tasks.meta.createdBy': 'Tạo bởi {name}',
+    'tasks.meta.inChat': 'trong {chat}',
     'reminders.title': 'Nhắc nhở',
     'reminders.subtitle': 'Danh sách lời nhắc tự động qua zalo & Gọi điện',
     'reminders.columns.notifyType': 'Hình thức',
@@ -1818,7 +1842,7 @@ const messages = {
     'calendar.form.description': 'Description',
     'calendar.form.invalidRange': 'The end must be after the start',
     'tasks.title': 'Tasks',
-    'tasks.subtitle': 'Task list from Google Tasks',
+    'tasks.subtitle': 'Shared task list, stored in zalobot and copied to Google Tasks',
     'tasks.columns.status': 'Status',
     'tasks.columns.notes': 'Notes',
     'tasks.columns.updatedAt': 'Updated',
@@ -1833,7 +1857,6 @@ const messages = {
     'tasks.actions.delete': 'Delete',
     'tasks.actions.complete': 'Complete',
     'tasks.inlineEdit.saved': 'Task updated successfully',
-    'tasks.delete.confirm': 'Are you sure you want to delete this task?',
     'tasks.delete.success': 'Task deleted successfully',
     'tasks.filter.all': 'All',
     'tasks.filter.needsAction': 'Pending',
@@ -1842,6 +1865,29 @@ const messages = {
     'tasks.stats.pending': 'Pending',
     'tasks.stats.completed': 'Completed',
     'tasks.stats.overdue': 'Overdue',
+    'tasks.stats.unsynced': 'Not on Google',
+    'tasks.columns.sync': 'Google Tasks',
+    'tasks.columns.origin': 'Created by',
+    'tasks.filter.unsyncedOnly': 'Showing tasks not on Google',
+    'tasks.filter.clear': 'Clear filter',
+    'tasks.localOnlyTip':
+      'Google is not connected: tasks are still saved in zalobot, just not on Google Tasks.',
+    'tasks.delete.title': 'Delete task?',
+    'tasks.delete.message':
+      'The task is removed from zalobot, and from Google Tasks if the account holding its copy is still connected.',
+    'tasks.sync.synced': 'On Google',
+    'tasks.sync.pending': 'Syncing',
+    'tasks.sync.failed': 'Google sync failed',
+    'tasks.sync.local': 'App only',
+    'tasks.sync.otherAccount': 'In a previous Google account',
+    'tasks.sync.account': 'Google copy: {email}',
+    'tasks.sync.resync': 'Sync again',
+    'tasks.sync.resynced': 'Synced to Google',
+    'tasks.source.zalo': 'Created from Zalo',
+    'tasks.source.dashboard': 'Created from the dashboard',
+    'tasks.source.google': 'Created in Google Tasks',
+    'tasks.meta.createdBy': 'Created by {name}',
+    'tasks.meta.inChat': 'in {chat}',
     'reminders.title': 'Reminders',
     'reminders.subtitle': 'Automated reminders via zalo & Call',
     'reminders.columns.notifyType': 'Type',
@@ -2320,19 +2366,24 @@ export interface IDashboardData {
   admin?: { userCount: number; googleConnectedCount: number };
 }
 
-/** Where the Google Calendar copy of an event stands. The event itself always lives in the DB. */
-export type CalendarSyncStatus = 'synced' | 'pending' | 'failed' | 'local';
+/**
+ * Where the Google copy of a calendar event or task stands. The record itself always lives
+ * in the DB; `local` means it never reached Google (no account connected when written).
+ */
+export type GoogleSyncStatus = 'synced' | 'pending' | 'failed' | 'local';
+export type CalendarSyncStatus = GoogleSyncStatus;
 
 export type CalendarEventSource = 'zalo' | 'dashboard' | 'google';
 
-export interface ICalendarEventSync {
-  status: CalendarSyncStatus;
-  /** Google account holding the copy; absent when the event never reached Google. */
+export interface IGoogleCopySync {
+  status: GoogleSyncStatus;
+  /** Google account holding the copy; absent when the record never reached Google. */
   accountEmail?: string;
   /** False when the copy sits in a Google account the system is no longer connected to. */
   isCurrentAccount: boolean;
   syncedAt?: string;
 }
+export type ICalendarEventSync = IGoogleCopySync;
 
 export interface ICalendarEventItem {
   id: string;
@@ -2444,29 +2495,41 @@ export interface IUpdateDebtRequest {
   dueAt?: string;
 }
 
+export type TaskStatus = 'needsAction' | 'completed';
+
+export type TaskSource = 'zalo' | 'dashboard' | 'google';
+
+/** A task of the shared task list. It lives in the DB; Google Tasks holds a copy. */
 export interface ITaskListItem {
   id: string;
   title: string;
   notes?: string;
   dueAt?: string;
-  status?: 'needsAction' | 'completed';
+  status?: TaskStatus;
   updatedAt?: string;
   completedAt?: string;
+  createdByUserId?: string;
+  createdByName?: string;
+  source?: TaskSource;
+  sourceChatName?: string;
+  sourceChatType?: 'user' | 'group';
+  sync?: IGoogleCopySync;
+  createdAt?: string;
 }
 
 export interface IUpdateTaskRequest {
   title?: string;
+  /** Empty string clears it. */
   notes?: string;
+  /** ISO date-time; empty string clears it. */
   due?: string;
-  status?: 'needsAction' | 'completed';
-  taskListId?: string;
+  status?: TaskStatus;
 }
 
 export interface ICreateTaskRequest {
   title: string;
   notes?: string;
   due?: string;
-  taskListId?: string;
 }
 
 export interface IContactListResponse {

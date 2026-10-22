@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { arePotentialDuplicateTaskTitles, normalizeTaskTitle } from './google-tasks.service';
+import { arePotentialDuplicateTaskTitles, normalizeTaskTitle } from './task-title.util';
 
 void test('normalizes Vietnamese task titles before comparison', () => {
   assert.equal(normalizeTaskTitle('  Học C# (Ánh xạ bằng TS)  '), 'hoc c anh xa bang ts');

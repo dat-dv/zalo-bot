@@ -2,11 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
-import {
-  GoogleTasksService,
-  arePotentialDuplicateTaskTitles,
-} from '../../../google/google-tasks.service';
-import { GoogleAuthService } from '../../../google/google-auth.service';
+import { TasksService } from '../../../tasks/tasks.service';
+import { arePotentialDuplicateTaskTitles } from '../../../tasks/task-title.util';
 import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
 
 @Injectable()
@@ -16,22 +13,11 @@ export class CompleteTaskToolStrategy implements TextToolStrategy {
 
   constructor(
     private readonly zaloService: ZaloService,
-    private readonly tasksService: GoogleTasksService,
-    private readonly googleAuthService: GoogleAuthService,
+    private readonly tasksService: TasksService,
     private readonly confirmationService: TransactionConfirmationService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
-    const isGoogleConnected = this.googleAuthService.isAuthorized(context.senderId);
-
-    if (!isGoogleConnected) {
-      await this.zaloService.sendMessage(
-        context.chatId,
-        '⚠️ Bạn chưa kết nối Google Workspace. Vui lòng gõ /login để liên kết Google Tasks.',
-      );
-      return;
-    }
-
     const args = (context.toolArgs ?? {}) as {
       taskId?: string;
       taskTitle?: string;
@@ -43,17 +29,22 @@ export class CompleteTaskToolStrategy implements TextToolStrategy {
     let taskDue: string | undefined;
 
     try {
-      const tasks = await this.tasksService.listTasks(
-        { showCompleted: false, maxResults: 50 },
-        context.senderId,
-      );
+      const tasks = await this.tasksService.listTasks({
+        status: 'needsAction',
+        limit: 200,
+        importForUserId: context.senderId,
+      });
 
       if (targetTaskId) {
-        const matchedById = tasks.find((t) => t.id === targetTaskId);
+        // The model may pass a row id or the id of the task's Google copy.
+        const matchedById = tasks.find(
+          (t) => t.id === targetTaskId || t.googleTaskId === targetTaskId,
+        );
         if (matchedById) {
+          targetTaskId = matchedById.id;
           taskName = matchedById.title || taskName;
           taskNotes = matchedById.notes || undefined;
-          taskDue = matchedById.due || undefined;
+          taskDue = matchedById.dueAt?.toISOString();
         }
       } else {
         const queryTitle = args.taskTitle?.trim();
@@ -65,11 +56,9 @@ export class CompleteTaskToolStrategy implements TextToolStrategy {
           return;
         }
 
-        const matched = tasks.find((t) =>
-          arePotentialDuplicateTaskTitles(queryTitle, t.title || ''),
-        );
+        const matched = tasks.find((t) => arePotentialDuplicateTaskTitles(queryTitle, t.title));
 
-        if (!matched || !matched.id) {
+        if (!matched) {
           await this.zaloService.sendMessage(
             context.chatId,
             `⚠️ Không tìm thấy công việc nào khớp với "${queryTitle}" trong danh sách chưa hoàn thành.`,
@@ -80,7 +69,7 @@ export class CompleteTaskToolStrategy implements TextToolStrategy {
         targetTaskId = matched.id;
         taskName = matched.title || queryTitle;
         taskNotes = matched.notes || undefined;
-        taskDue = matched.due || undefined;
+        taskDue = matched.dueAt?.toISOString();
       }
 
       await this.confirmationService.createPendingCompleteTask({

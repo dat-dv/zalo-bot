@@ -3,6 +3,7 @@ import { FinanceModule } from '../finance/finance.module';
 import { AuditModule } from '../audit/audit.module';
 import { GoogleModule } from '../google/google.module';
 import { CalendarModule } from '../calendar/calendar.module';
+import { TasksModule } from '../tasks/tasks.module';
 import { RemindersModule } from '../reminders/reminders.module';
 import { UsersModule } from '../users/users.module';
 import { DatabaseModule } from '../database/database.module';
@@ -17,6 +18,7 @@ import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
     AuditModule,
     GoogleModule,
     CalendarModule,
+    TasksModule,
     RemindersModule,
     UsersModule,
   ],

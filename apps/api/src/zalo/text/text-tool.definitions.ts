@@ -231,7 +231,7 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
   {
     name: TextToolType.CREATE_TASK,
     description:
-      'Thêm một việc cần làm mới vào Google Tasks (To-Do List). ' +
+      'Thêm một việc cần làm mới vào danh sách việc chung (lưu trong zalobot, sao chép lên Google Tasks nếu đã kết nối). ' +
       'Ví dụ: "thêm việc nộp báo cáo trước 17h", "cần mua sữa chua", "nhắc làm slide".',
     parameters: {
       type: 'OBJECT',
@@ -255,7 +255,7 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
   {
     name: TextToolType.LIST_TASKS,
     description:
-      'Tra cứu danh sách việc cần làm (To-Do) từ Google Tasks. ' +
+      'Tra cứu danh sách việc cần làm (To-Do) chung của hệ thống. ' +
       'Ví dụ: "xem danh sách việc cần làm", "còn việc gì chưa làm", "danh sách task".',
     parameters: {
       type: 'OBJECT',
@@ -275,7 +275,7 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
   {
     name: TextToolType.COMPLETE_TASK,
     description:
-      'Đánh dấu hoàn thành một công việc trong Google Tasks. ' +
+      'Đánh dấu hoàn thành một việc trong danh sách việc cần làm. ' +
       'Ví dụ: "đã xong việc nộp báo cáo", "hoàn thành task mua sữa".',
     parameters: {
       type: 'OBJECT',

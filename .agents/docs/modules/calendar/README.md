@@ -58,7 +58,7 @@ Giờ sự kiện nằm trong bảng `calendar_events` của zalobot. Google Cal
 - API giữ nguyên đường dẫn cũ `/api/calendar/events` (danh sách, chi tiết, tạo, sửa, xoá), thêm `POST /api/calendar/events/:id/resync`. Mọi đường dẫn khai báo trong `API_ROUTES` (`calendarEvents`, `calendarEvent(id)`, `calendarEventResync(id)`).
 - Danh sách nhận `timeMin`, `timeMax` (ISO, tối đa 400 ngày) và `query`. Lỗi Google không làm request thất bại, chỉ thể hiện ở trạng thái đồng bộ.
 - Trang Tổng quan (`GET /api/dashboard`) lấy 10 sự kiện trong 7 ngày tới từ DB, không còn phụ thuộc kết nối Google.
-- Bot: `/today`, `/week`, tra cứu lịch đọc từ DB. Tạo lịch không còn đòi kết nối Google. Xoá lịch tìm trong các sự kiện sắp tới; mã duyệt cũ (đang chờ trong Redis lúc triển khai) chứa id Google vẫn xoá được vì `getEvent` tìm cả theo `google_event_id`. Phần Việc cần làm của `/today`, `/week` vẫn cần Google Tasks.
+- Bot: `/today`, `/week`, tra cứu lịch đọc từ DB. Tạo lịch không còn đòi kết nối Google. Xoá lịch tìm trong các sự kiện sắp tới; mã duyệt cũ (đang chờ trong Redis lúc triển khai) chứa id Google vẫn xoá được vì `getEvent` tìm cả theo `google_event_id`. Phần Việc cần làm của `/today`, `/week` cũng đọc từ DB (xem `modules/tasks/README.md`). Các hàm dùng chung với việc cần làm (tìm tài khoản giữ bản sao, tên người tạo, trạng thái đồng bộ) nằm ở `apps/api/src/google/google-copy.util.ts`; màu nhãn đồng bộ trên web ở `apps/web/src/shared/ui/google-sync.ts`.
 
 ## Giao diện trang Lịch
 

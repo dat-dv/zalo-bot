@@ -1,10 +1,11 @@
 'use client';
 
 import { useMemo } from 'react';
-import { localeTag, type ITaskListItem } from '@zalobot/contracts';
+import { localeTag, type ITaskListItem, type TranslationKey } from '@zalobot/contracts';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
+import { SYNC_TONE_CLASS, googleSyncState, type GoogleSyncState } from '@/shared/ui/google-sync';
 
 export type TaskEditDraft = {
   title: string;
@@ -28,6 +29,24 @@ export type TasksTableProps = {
   onDelete?: (id: string) => void | Promise<void>;
   onChangeEditDraft?: React.Dispatch<React.SetStateAction<TaskEditDraft>>;
   isPending?: boolean;
+  /** Show who made each task and where its Google copy stands (the full /tasks page). */
+  showOrigin?: boolean;
+  onResync?: (item: ITaskListItem) => void | Promise<void>;
+  resyncingId?: string | null;
+};
+
+const SYNC_LABEL: Record<GoogleSyncState, TranslationKey> = {
+  synced: 'tasks.sync.synced',
+  pending: 'tasks.sync.pending',
+  failed: 'tasks.sync.failed',
+  local: 'tasks.sync.local',
+  otherAccount: 'tasks.sync.otherAccount',
+};
+
+const SOURCE_LABEL: Record<NonNullable<ITaskListItem['source']>, TranslationKey> = {
+  zalo: 'tasks.source.zalo',
+  dashboard: 'tasks.source.dashboard',
+  google: 'tasks.source.google',
 };
 
 export function TasksTable({
@@ -45,6 +64,9 @@ export function TasksTable({
   onDelete,
   onChangeEditDraft,
   isPending = false,
+  showOrigin = false,
+  onResync,
+  resyncingId,
 }: TasksTableProps) {
   const { locale, t } = useLocale();
   // Compact screens edit inside the row sheet; focusing a field there would pop the keyboard.
@@ -67,6 +89,7 @@ export function TasksTable({
         : null;
     const statusLabel = (item: ITaskListItem) =>
       item.status === 'completed' ? t('tasks.status.completed') : t('tasks.status.needsAction');
+    const syncOf = (item: ITaskListItem) => (item.sync ? googleSyncState(item.sync) : null);
 
     const list: DataTableColumn<ITaskListItem>[] = [
       {
@@ -266,6 +289,70 @@ export function TasksTable({
       },
     ];
 
+    if (showOrigin) {
+      list.push(
+        {
+          id: 'origin',
+          header: t('tasks.columns.origin'),
+          minWidth: '160px',
+          cell: (item) => {
+            const who =
+              item.createdByName ?? (item.source ? t(SOURCE_LABEL[item.source]) : undefined);
+            return (
+              <span className="flex flex-col text-[11.5px] leading-tight">
+                <span className="text-slate-700 dark:text-slate-300">{who ?? '—'}</span>
+                {item.sourceChatName && (
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {t('tasks.meta.inChat', { chat: item.sourceChatName })}
+                  </span>
+                )}
+              </span>
+            );
+          },
+        },
+        {
+          id: 'sync',
+          header: t('tasks.columns.sync'),
+          minWidth: '170px',
+          mobileSlot: 'secondary',
+          // Phone rows only flag tasks that are not on Google; synced is the normal case.
+          mobileCell: (item) => {
+            const sync = syncOf(item);
+            return sync && sync.state !== 'synced' ? t(SYNC_LABEL[sync.state]) : null;
+          },
+          cell: (item) => {
+            const sync = syncOf(item);
+            if (!sync) return <span className="text-slate-400">—</span>;
+            const canResync = onResync && sync.state !== 'synced' && sync.state !== 'pending';
+            return (
+              <span className="inline-flex flex-wrap items-center gap-1">
+                <span
+                  className={`rounded-[2px] border px-1.5 py-px text-[10.5px] font-medium whitespace-nowrap ${SYNC_TONE_CLASS[sync.tone]}`}
+                  title={
+                    item.sync?.accountEmail
+                      ? t('tasks.sync.account', { email: item.sync.accountEmail })
+                      : undefined
+                  }
+                >
+                  {t(SYNC_LABEL[sync.state])}
+                </span>
+                {canResync && (
+                  <button
+                    type="button"
+                    className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-200 bg-white px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800 max-[960px]:h-9"
+                    onClick={() => void onResync(item)}
+                    disabled={resyncingId === item.id}
+                  >
+                    {t('tasks.sync.resync')}
+                  </button>
+                )}
+              </span>
+            );
+          },
+        },
+      );
+    }
+
     if (hasActions) {
       list.push({
         id: 'actions',
@@ -340,6 +427,9 @@ export function TasksTable({
     onSaveEdit,
     onStartEdit,
     onToggleStatus,
+    onResync,
+    resyncingId,
+    showOrigin,
     t,
   ]);
 

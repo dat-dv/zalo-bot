@@ -21,7 +21,7 @@ API (`apps/api`) không chia theo `src/modules/<feature>` mà theo từng vùng 
 
 ## Vì sao phải khóa theo token
 
-Backend **không bao giờ** nhận `userId` từ client. Người gọi được xác định duy nhất từ access token dashboard (header `Authorization: Bearer ...`). Dữ liệu tài chính là **kho chung** nên mọi người dùng đã đăng nhập đều thấy như nhau; còn lời nhắc, lịch, việc cần làm vẫn theo từng người nên không ai xem được của người khác dù đoán được ID.
+Backend **không bao giờ** nhận `userId` từ client. Người gọi được xác định duy nhất từ access token dashboard (header `Authorization: Bearer ...`). Dữ liệu tài chính là **kho chung** nên mọi người dùng đã đăng nhập đều thấy như nhau; lịch và việc cần làm cũng dùng chung theo cùng cách; còn lời nhắc vẫn theo từng người nên không ai xem được của người khác dù đoán được ID.
 
 - Nhóm `/api/users*` chỉ dành cho admin (tài khoản ZCA của chính bot hoặc user có role admin); người khác nhận `403`.
 - Các endpoint `drive/share`, `drive/folder-link`, `photos/album-link` chỉ dành cho admin dashboard (Bearer token). `drive/open`, `photos/open` là link mở trực tiếp (`<a href>`) nên chấp nhận Bearer hoặc cookie refresh, cũng chỉ admin. Thiếu token trả 401, không phải admin trả 403. Lý do: không có kiểm tra "người gọi thuộc kênh", nên để mở thì người ngoài có thể chia sẻ thư mục Drive của nhóm khác cho email bất kỳ.
@@ -41,7 +41,7 @@ Backend **không bao giờ** nhận `userId` từ client. Người gọi đượ
 - **Lời nhắc**: `GET/POST /api/reminders`, `GET/PATCH/DELETE /api/reminders/:id`.
 - **Người dùng (admin)**: `GET/POST /api/users`, `GET/PATCH/DELETE /api/users/:id`, `POST /api/users/sync-zca` (đồng bộ tên, avatar, SĐT từ danh bạ ZCA), `PATCH /api/users/:id/grant-access`, `GET /api/users/:id/merge-preview?targetUserId=`, `POST /api/users/:id/merge`, `GET /api/users/:id/linked-contacts` (Người liên quan đang gắn với user).
 - **Lịch**: `/api/calendar/events[/:id]`, `POST /api/calendar/events/:id/resync` — lịch chung lưu trong DB, Google chỉ giữ bản sao (xem `modules/calendar/README.md`).
-- **Google**: `/api/tasks[/:id]` — chỉ thao tác trên tài khoản Google đã liên kết của người gọi, không trả OAuth token.
+- **Việc cần làm**: `/api/tasks[/:id]`, `POST /api/tasks/:id/resync` — danh sách việc chung lưu trong DB, Google Tasks chỉ giữ bản sao (xem `modules/tasks/README.md`).
 
 ## Quy tắc nghiệp vụ quan trọng
 

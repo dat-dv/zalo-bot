@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ITaskListItem, IUpdateTaskRequest } from '@zalobot/contracts';
-import { deleteTask, getTasks, updateTask } from './tasks-api';
+import { deleteTask, getTasks, resyncTask, updateTask } from './tasks-api';
 
 export const tasksQueryKeys = { list: () => ['tasks'] as const };
 
@@ -11,24 +11,34 @@ export function useTasksQuery() {
   });
 }
 
-export function useUpdateTaskMutation() {
+function useInvalidateTasks() {
   const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: tasksQueryKeys.list() });
+    void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+  };
+}
+
+export function useUpdateTaskMutation() {
+  const invalidate = useInvalidateTasks();
   return useMutation<ITaskListItem, Error, { id: string; data: IUpdateTaskRequest }>({
     mutationFn: ({ id, data }) => updateTask(id, data),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: tasksQueryKeys.list() });
-      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    },
+    onSuccess: invalidate,
   });
 }
 
 export function useDeleteTaskMutation() {
-  const queryClient = useQueryClient();
+  const invalidate = useInvalidateTasks();
   return useMutation<boolean, Error, string>({
     mutationFn: (id) => deleteTask(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: tasksQueryKeys.list() });
-      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useResyncTaskMutation() {
+  const invalidate = useInvalidateTasks();
+  return useMutation<ITaskListItem, Error, string>({
+    mutationFn: (id) => resyncTask(id),
+    onSuccess: invalidate,
   });
 }

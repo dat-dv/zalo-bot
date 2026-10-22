@@ -2,8 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
-import { GoogleTasksService } from '../../../google/google-tasks.service';
-import { GoogleAuthService } from '../../../google/google-auth.service';
+import { TasksService } from '../../../tasks/tasks.service';
 import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
 
 @Injectable()
@@ -13,22 +12,11 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
 
   constructor(
     private readonly zaloService: ZaloService,
-    private readonly tasksService: GoogleTasksService,
-    private readonly googleAuthService: GoogleAuthService,
+    private readonly tasksService: TasksService,
     private readonly confirmationService: TransactionConfirmationService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
-    const isGoogleConnected = this.googleAuthService.isAuthorized(context.senderId);
-
-    if (!isGoogleConnected) {
-      await this.zaloService.sendMessage(
-        context.chatId,
-        '⚠️ Tài khoản Google Tasks của bạn chưa được liên kết.\n\nVui lòng gõ /login để nhận link kết nối Google Workspace trước nhé!',
-      );
-      return;
-    }
-
     const args = (context.toolArgs ?? {}) as {
       title?: string;
       due?: string;

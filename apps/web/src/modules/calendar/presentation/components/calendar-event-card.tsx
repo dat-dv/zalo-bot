@@ -3,7 +3,8 @@
 import type { ICalendarEventItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { getEventPhase } from '../../model/calendar-date-utils';
-import { SYNC_TONE_CLASS, useCalendarFormat } from './use-calendar-format';
+import { SYNC_TONE_CLASS } from '@/shared/ui/google-sync';
+import { useCalendarFormat } from './use-calendar-format';
 
 interface CalendarEventCardProps {
   event: ICalendarEventItem;

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { google, tasks_v1 } from 'googleapis';
 import { GoogleAuthService } from './google-auth.service';
 
+/** Payload of a bot `CREATE_TASK` pending action (kept for actions queued before the DB move). */
 export interface CreateTaskOptions {
   title: string;
   notes?: string;
@@ -9,56 +10,27 @@ export interface CreateTaskOptions {
   taskListId?: string;
 }
 
-export interface UpdateTaskOptions {
-  title?: string;
-  notes?: string;
-  due?: string;
-  status?: 'needsAction' | 'completed';
-}
-
-export interface ListTasksOptions {
-  taskListId?: string;
-  showCompleted?: boolean;
-  showHidden?: boolean;
-  dueMin?: string;
-  dueMax?: string;
-  maxResults?: number;
-}
-
-export interface PotentialDuplicateTask {
-  id: string;
+/** Google Tasks copy of a `tasks` row. */
+export interface GoogleTaskBody {
   title: string;
-  notes?: string | null;
+  notes: string | null;
+  due: string | null;
+  status: 'needsAction' | 'completed';
+  /** Null re-opens a completed task. */
+  completed?: string | null;
 }
 
-export interface TaskDuplicateWarning {
-  requestedTitle: string;
-  matches: PotentialDuplicateTask[];
+export interface RemoteGoogleTask {
+  listId: string;
+  task: tasks_v1.Schema$Task;
 }
 
-export function normalizeTaskTitle(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/đ/g, 'd')
-    .toLocaleLowerCase('vi-VN')
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .trim()
-    .replace(/\s+/g, ' ');
-}
+const DEFAULT_LIST = '@default';
 
-export function arePotentialDuplicateTaskTitles(left: string, right: string): boolean {
-  const normalizedLeft = normalizeTaskTitle(left);
-  const normalizedRight = normalizeTaskTitle(right);
-  if (!normalizedLeft || !normalizedRight) return false;
-  if (normalizedLeft === normalizedRight) return true;
-
-  const shorter =
-    normalizedLeft.length <= normalizedRight.length ? normalizedLeft : normalizedRight;
-  const longer = normalizedLeft.length <= normalizedRight.length ? normalizedRight : normalizedLeft;
-  return shorter.split(' ').length >= 2 && longer.includes(shorter);
-}
-
+/**
+ * Thin Google Tasks client. Tasks live in the `tasks` table (see `TasksService`); this only
+ * writes and reads the Google copy.
+ */
 @Injectable()
 export class GoogleTasksService {
   private readonly logger = new Logger(GoogleTasksService.name);
@@ -77,141 +49,71 @@ export class GoogleTasksService {
 
   public async listTaskLists(userId?: number | string): Promise<tasks_v1.Schema$TaskList[]> {
     const tasks = this.getTasksClient(userId);
-    const res = await tasks.tasklists.list();
-    return res.data.items || [];
+    const lists: tasks_v1.Schema$TaskList[] = [];
+    let pageToken: string | undefined;
+    do {
+      const res = await tasks.tasklists.list({ maxResults: 100, pageToken });
+      lists.push(...(res.data.items ?? []));
+      pageToken = res.data.nextPageToken ?? undefined;
+    } while (pageToken);
+    return lists;
   }
 
-  public async listTasks(
-    options: ListTasksOptions = {},
-    userId?: number | string,
-  ): Promise<tasks_v1.Schema$Task[]> {
-    if (userId !== undefined && !this.authService.isAuthorized(userId)) {
-      return [];
+  /** Every task of every list, completed and hidden ones included. Throws on any page error. */
+  public async listAllTasks(userId?: number | string): Promise<RemoteGoogleTask[]> {
+    const tasks = this.getTasksClient(userId);
+    const result: RemoteGoogleTask[] = [];
+    for (const list of await this.listTaskLists(userId)) {
+      if (!list.id) continue;
+      let pageToken: string | undefined;
+      do {
+        const res = await tasks.tasks.list({
+          tasklist: list.id,
+          showCompleted: true,
+          showHidden: true,
+          showDeleted: false,
+          maxResults: 100,
+          pageToken,
+        });
+        for (const task of res.data.items ?? []) result.push({ listId: list.id, task });
+        pageToken = res.data.nextPageToken ?? undefined;
+      } while (pageToken);
     }
-    const tasks = this.getTasksClient(userId);
-    const taskListId = options.taskListId || '@default';
-    const showCompleted = options.showCompleted ?? false;
-    const showHidden = options.showHidden ?? (showCompleted ? true : false);
-
-    try {
-      const res = await tasks.tasks.list({
-        tasklist: taskListId,
-        showCompleted,
-        showHidden,
-        dueMin: options.dueMin,
-        dueMax: options.dueMax,
-        maxResults: options.maxResults || 50,
-      });
-
-      return res.data.items || [];
-    } catch (err) {
-      if (userId !== undefined && (await this.authService.handleAuthError(userId, err))) {
-        this.logger.warn(`Revoked invalid Google token for user ${userId} during listTasks`);
-        return [];
-      }
-      this.logger.error(`Error listing Google Tasks for user ${userId}: ${(err as Error).message}`);
-      throw err;
-    }
+    return result;
   }
 
-  public async findPotentialDuplicateTasks(
-    requestedTitles: string[],
-    userId?: number | string,
-  ): Promise<TaskDuplicateWarning[]> {
-    const tasks = await this.listTasks({ showCompleted: false, maxResults: 50 }, userId);
-    const activeTasks: PotentialDuplicateTask[] = tasks.flatMap((task) => {
-      if (!task.id || !task.title?.trim()) return [];
-      return [{ id: task.id, title: task.title.trim(), notes: task.notes }];
-    });
-
-    return requestedTitles.flatMap((requestedTitle) => {
-      const title = requestedTitle.trim();
-      if (!title) return [];
-      const matches = activeTasks.filter((task) =>
-        arePotentialDuplicateTaskTitles(title, task.title),
-      );
-      return matches.length > 0 ? [{ requestedTitle: title, matches }] : [];
-    });
-  }
-
-  public async createTask(
-    options: CreateTaskOptions,
+  public async insertTask(
+    body: GoogleTaskBody,
     userId?: number | string,
   ): Promise<tasks_v1.Schema$Task> {
     const tasks = this.getTasksClient(userId);
-    const taskListId = options.taskListId || '@default';
-
-    const res = await tasks.tasks.insert({
-      tasklist: taskListId,
-      requestBody: {
-        title: options.title,
-        notes: options.notes,
-        due: options.due,
-        status: 'needsAction',
-      },
-    });
-
-    this.logger.log(
-      `Created Google Task: "${options.title}" for user ${userId || 'default'} (ID: ${res.data.id})`,
-    );
+    const res = await tasks.tasks.insert({ tasklist: DEFAULT_LIST, requestBody: body });
+    this.logger.log(`Created Google Task ${res.data.id} for user ${userId ?? 'default'}`);
     return res.data;
   }
 
-  public async completeTask(
+  public async patchTask(
     taskId: string,
-    taskListId: string = '@default',
-    userId?: number | string,
-  ): Promise<tasks_v1.Schema$Task> {
-    const tasks = this.getTasksClient(userId);
-
-    const res = await tasks.tasks.patch({
-      tasklist: taskListId,
-      task: taskId,
-      requestBody: {
-        status: 'completed',
-      },
-    });
-
-    this.logger.log(`Completed Google Task: ${taskId} for user ${userId || 'default'}`);
-    return res.data;
-  }
-
-  public async getTask(
-    taskId: string,
-    taskListId: string = '@default',
-    userId?: number | string,
-  ): Promise<tasks_v1.Schema$Task> {
-    const tasks = this.getTasksClient(userId);
-    const res = await tasks.tasks.get({ tasklist: taskListId, task: taskId });
-    return res.data;
-  }
-
-  public async updateTask(
-    taskId: string,
-    options: UpdateTaskOptions,
-    taskListId: string = '@default',
+    body: GoogleTaskBody,
+    taskListId: string | null | undefined,
     userId?: number | string,
   ): Promise<tasks_v1.Schema$Task> {
     const tasks = this.getTasksClient(userId);
     const res = await tasks.tasks.patch({
-      tasklist: taskListId,
+      tasklist: taskListId || DEFAULT_LIST,
       task: taskId,
-      requestBody: options,
+      requestBody: body,
     });
     return res.data;
   }
 
   public async deleteTask(
     taskId: string,
-    taskListId: string = '@default',
+    taskListId: string | null | undefined,
     userId?: number | string,
-  ): Promise<boolean> {
+  ): Promise<void> {
     const tasks = this.getTasksClient(userId);
-    await tasks.tasks.delete({
-      tasklist: taskListId,
-      task: taskId,
-    });
-    this.logger.log(`Deleted Google Task: ${taskId} for user ${userId || 'default'}`);
-    return true;
+    await tasks.tasks.delete({ tasklist: taskListId || DEFAULT_LIST, task: taskId });
+    this.logger.log(`Deleted Google Task ${taskId} for user ${userId ?? 'default'}`);
   }
 }

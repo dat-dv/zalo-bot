@@ -50,11 +50,11 @@ Match = exact command or command followed by a space, unless noted. Admin = hand
 | `/zalo-logout`, `/zca-logout`, `/zlogout` | `ZALO_LOGOUT` | Admin. Logs ZCA out. |
 | `/login`, `/auth` | `LOGIN` | Admin. Google OAuth link for the shared account. |
 | `/status`, `/id`, `/myid` (prefix, case-insensitive) | `STATUS` | IDs, role, Google connection. |
-| `/today`, `hôm nay` | `TODAY` | Today's calendar (shared DB calendar), tasks (Google Tasks), finance summary. |
-| `/week`, `tuần này` | `WEEK` | Next 7 days of calendar (DB, no Google needed) and tasks (requires Google). |
+| `/today`, `hôm nay` | `TODAY` | Today's calendar and open tasks (both from the DB), finance summary. |
+| `/week`, `tuần này` | `WEEK` | Next 7 days of calendar and open tasks (DB, no Google needed). |
 | `/finance`, `/thuchi`, `/money` | `FINANCE` | Today's income/expense summary. |
 | `/debts`, `/debt`, `/congo` | `DEBTS` | Active debts. |
-| `/tasks`, `/task`, `/viec` | `TASKS` | List pending Google Tasks; `/task <title>` creates a task immediately (no confirmation). |
+| `/tasks`, `/task`, `/viec` | `TASKS` | List open tasks (DB); `/task <title>` creates a task immediately (no confirmation). |
 | `/reminders`, `/reminder`, `/nhacnho`, `/nhac` | `REMINDERS` | Upcoming reminders. |
 | `/dashboard`, `dashboard…`, `mở dashboard…`, `xem dashboard…` | `DASHBOARD` | One-time `/api/access?token=` link (20 min). |
 | `/users` | `USERS` | Admin. User list with role and Google status. |

@@ -27,8 +27,8 @@ Tài liệu này ánh xạ với tri thức canonical [`finance-domain.md`](../.
 
 - Các bảng `finance_transactions`, `finance_places`, `debt_contacts`, `debts`, `debt_payments`, `debt_payment_allocations`, `user_categories` **không còn cột `user_id`**. `FinanceService` không nhận tham số người dùng và không lọc theo người dùng. Không còn cột `users.is_ledger_owner`, không còn khối "Sổ thu chi chung" trên trang "Zalo & Users".
 - **Người tạo** giao dịch chỉ để hiển thị (ai ghi, ghi từ đâu), không bao giờ dùng để lọc.
-- Lịch (`calendar_events`) cũng dùng chung theo cùng cách này, xem `modules/calendar/README.md`.
-- **Vẫn theo từng người** (không phải dữ liệu tài chính): nhắc nhở, Google Tasks, upload Drive/Photos (dùng token Google của người gửi), thẻ xác nhận chờ duyệt, quyền admin.
+- Lịch (`calendar_events`) và việc cần làm (`tasks`) cũng dùng chung theo cùng cách này, xem `modules/calendar/README.md` và `modules/tasks/README.md`.
+- **Vẫn theo từng người** (không phải dữ liệu tài chính): nhắc nhở, upload Drive/Photos (dùng token Google của người gửi), thẻ xác nhận chờ duyệt, quyền admin.
 - API tài chính trên dashboard vẫn **bắt buộc đăng nhập** (thiếu token → 401); đăng nhập chỉ để xác thực, không để giới hạn dữ liệu.
 - Nhật ký kiểm toán: `actor_id` của dòng tài chính lấy theo người tạo, nên mục "Hoạt động gần đây" vẫn thấy giao dịch mình ghi.
 

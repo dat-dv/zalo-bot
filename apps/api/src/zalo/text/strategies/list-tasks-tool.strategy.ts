@@ -2,8 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
-import { GoogleTasksService } from '../../../google/google-tasks.service';
-import { GoogleAuthService } from '../../../google/google-auth.service';
+import { TasksService } from '../../../tasks/tasks.service';
+import { formatTaskDueVN } from '../../../tasks/task.mapper';
 
 @Injectable()
 export class ListTasksToolStrategy implements TextToolStrategy {
@@ -12,51 +12,37 @@ export class ListTasksToolStrategy implements TextToolStrategy {
 
   constructor(
     private readonly zaloService: ZaloService,
-    private readonly tasksService: GoogleTasksService,
-    private readonly googleAuthService: GoogleAuthService,
+    private readonly tasksService: TasksService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
-    const isGoogleConnected = this.googleAuthService.isAuthorized(context.senderId);
-
-    if (!isGoogleConnected) {
-      await this.zaloService.sendMessage(
-        context.chatId,
-        '⚠️ Bạn chưa kết nối Google Workspace. Vui lòng gõ /login để liên kết Google Tasks.',
-      );
-      return;
-    }
-
     const args = (context.toolArgs ?? {}) as {
       showCompleted?: boolean;
       maxResults?: number;
     };
 
     try {
-      const tasks = await this.tasksService.listTasks(
-        {
-          showCompleted: Boolean(args.showCompleted),
-          maxResults: args.maxResults || 20,
-        },
-        context.senderId,
-      );
+      const tasks = await this.tasksService.listTasks({
+        status: args.showCompleted ? undefined : 'needsAction',
+        limit: args.maxResults || 20,
+        importForUserId: context.senderId,
+      });
 
       if (tasks.length === 0) {
         await this.zaloService.sendMessage(
           context.chatId,
-          '📝 Không có việc nào trong danh sách Google Tasks của bạn.',
+          '📝 Không có việc nào trong danh sách việc cần làm.',
         );
         return;
       }
 
       const taskLines = tasks.map((t, idx) => {
         const icon = t.status === 'completed' ? '✅' : '▫️';
-        const due = t.due ? ` (Hạn: ${t.due.slice(0, 10)})` : '';
-        return `  ${idx + 1}. ${icon} ${t.title || 'Không tên'}${due}`;
+        return `  ${idx + 1}. ${icon} ${t.title}${formatTaskDueVN(t)}`;
       });
 
       const reply =
-        `📝 DANH SÁCH VIỆC CẦN LÀM (GOOGLE TASKS)\n` +
+        `📝 DANH SÁCH VIỆC CẦN LÀM\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         taskLines.join('\n') +
         `\n\n💡 Nhắn "xong việc <tên việc>" để đánh dấu hoàn thành!`;

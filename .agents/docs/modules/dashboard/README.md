@@ -60,7 +60,7 @@ Layout riêng tư (`app/(private)/layout.tsx`) render thanh điều hướng `Ap
 
 ## Payload dashboard và giới hạn dữ liệu
 
-`GET /api/dashboard` trả về: thông tin người dùng (`isAdmin`, `googleConnected`), tổng thu/chi/số dư **của tháng hiện tại**, phải thu/phải trả, **tối đa 20 giao dịch mới nhất của tháng hiện tại** (kèm nơi chốn và phân bổ nợ), `finance.ledgerBalance` (số dư sổ cái toàn thời gian), các khoản nợ đang mở, sự kiện lịch và việc cần làm sắp tới (nếu đã kết nối Google), tối đa 10 nhắc nhở, 10 hoạt động gần nhất trong nhật ký kiểm toán, và số liệu admin (chỉ admin).
+`GET /api/dashboard` trả về: thông tin người dùng (`isAdmin`, `googleConnected`), tổng thu/chi/số dư **của tháng hiện tại**, phải thu/phải trả, **tối đa 20 giao dịch mới nhất của tháng hiện tại** (kèm nơi chốn và phân bổ nợ), `finance.ledgerBalance` (số dư sổ cái toàn thời gian), các khoản nợ đang mở, sự kiện lịch và việc cần làm sắp tới (đều đọc từ DB, không phụ thuộc kết nối Google), tối đa 10 nhắc nhở, 10 hoạt động gần nhất trong nhật ký kiểm toán, và số liệu admin (chỉ admin).
 
 Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sách riêng (`GET /api/transactions`, xem bên dưới) nên xem được mọi kỳ.
 
@@ -156,7 +156,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 ## Lịch, Việc cần làm, Nhắc nhở
 
 - `CalendarScreen`: xem tài liệu module calendar (dải tóm tắt, lưới tháng kèm cột ngày đã chọn / sắp tới, sheet chi tiết–tạo–sửa, xoá hỏi lại bằng hộp xác nhận trong app; trên điện thoại mặc định là Lịch trình liền 14 ngày; thanh công cụ gọn một hàng, tiêu đề tháng không xuống dòng, 4 ô tóm tắt nằm chung một hàng).
-- `TasksScreen`: bộ lọc kỳ có Ngày / Tuần / Tháng / Quý / Năm / Tất cả, lọc trạng thái Tất cả / Cần làm / Đã xong, sửa trực tiếp, xoá có xác nhận.
+- `TasksScreen`: bộ lọc kỳ có Ngày / Tuần / Tháng / Quý / Năm / Tất cả, thẻ tổng quan có thêm "Chưa lên Google" (bấm để lọc), lọc trạng thái Tất cả / Cần làm / Đã xong, sửa trực tiếp, xoá bằng hộp xác nhận trong app, cột Người tạo và Google Tasks có nút Đồng bộ lại (xem `modules/tasks/README.md`). Khung Việc cần làm ở trang Tổng quan không còn dòng nhắc kết nối Google vì task luôn có trong DB.
 - `RemindersScreen`: tìm kiếm, sửa trực tiếp, xoá có xác nhận.
 - Trên điện thoại: các chip trạng thái của Việc cần làm nằm trên một hàng cuộn ngang cao 40px thay vì xếp chồng, ô tìm kiếm full width 40px. Hai màn này không có nút tạo mới nên cũng không có thanh hành động dưới đáy.
 - Ở màn hẹp (≤ 960px), ba bảng `TasksTable`, `RemindersTable`, `CalendarTable` hiển thị dạng danh sách hai dòng — ở mọi nơi bảng xuất hiện, kể cả trang Tổng quan. Việc cần làm: tiêu đề + hạn (`dd/MM`), dòng hai trạng thái · ghi chú. Nhắc nhở: nội dung + giờ nhắc (`dd/MM HH:mm`), dòng hai kênh (nhắn tin/gọi) · lặp lại. Lịch: tiêu đề + giờ bắt đầu, dòng hai địa điểm · mô tả. Lý do: trên cảm ứng không double-click được, nên chạm vào dòng để mở sheet chi tiết rồi bấm **Sửa** ở chân sheet; các ô trong sheet tự chuyển thành ô nhập. Ô tiêu đề không tự focus trên màn hẹp để bàn phím không bật lên khi vừa bấm Sửa. Desktop vẫn sửa bằng double-click như cũ.

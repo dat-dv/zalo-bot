@@ -4,8 +4,8 @@ import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
 import { CalendarService } from '../../../calendar/calendar.service';
 import { formatEventStartVN } from '../../../calendar/calendar-event.mapper';
-import { GoogleTasksService } from '../../../google/google-tasks.service';
-import { GoogleAuthService } from '../../../google/google-auth.service';
+import { TasksService } from '../../../tasks/tasks.service';
+import { formatTaskDueVN } from '../../../tasks/task.mapper';
 
 @Injectable()
 export class WeekToolStrategy implements TextToolStrategy {
@@ -15,13 +15,10 @@ export class WeekToolStrategy implements TextToolStrategy {
   constructor(
     private readonly zaloService: ZaloService,
     private readonly calendarService: CalendarService,
-    private readonly tasksService: GoogleTasksService,
-    private readonly googleAuthService: GoogleAuthService,
+    private readonly tasksService: TasksService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
-    const isGoogleConnected = this.googleAuthService.isAuthorized(context.senderId);
-
     const now = new Date();
     const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
@@ -53,32 +50,24 @@ export class WeekToolStrategy implements TextToolStrategy {
       calendarText = '📅 Lịch trình: Không thể tải sự kiện lúc này.';
     }
 
-    // Events live in zalobot; tasks still come straight from Google Tasks.
-    if (!isGoogleConnected) {
-      tasksText = '📝 Việc cần làm: Chưa kết nối Google Tasks. Gõ /login để liên kết.';
-    } else {
-      try {
-        const tasks = await this.tasksService.listTasks(
-          { showCompleted: false, maxResults: 15 },
-          context.senderId,
-        );
+    // Events and tasks both live in zalobot; Google only holds copies.
+    try {
+      const tasks = await this.tasksService.listTasks({
+        status: 'needsAction',
+        limit: 15,
+        importForUserId: context.senderId,
+      });
 
-        if (tasks.length === 0) {
-          tasksText = '📝 Việc cần làm: Hiện không có việc nào chưa hoàn thành.';
-        } else {
-          tasksText =
-            `📝 Việc cần làm (${tasks.length}):\n` +
-            tasks
-              .map((t, idx) => {
-                const due = t.due ? ` (Hạn: ${t.due.slice(0, 10)})` : '';
-                return `  ${idx + 1}. ▫️ ${t.title || 'Chưa đặt tên'}${due}`;
-              })
-              .join('\n');
-        }
-      } catch (err) {
-        this.logger.error(`Failed to list week tasks: ${(err as Error).message}`);
-        tasksText = '📝 Việc cần làm: Không thể tải việc cần làm lúc này.';
+      if (tasks.length === 0) {
+        tasksText = '📝 Việc cần làm: Hiện không có việc nào chưa hoàn thành.';
+      } else {
+        tasksText =
+          `📝 Việc cần làm (${tasks.length}):\n` +
+          tasks.map((t, idx) => `  ${idx + 1}. ▫️ ${t.title}${formatTaskDueVN(t)}`).join('\n');
       }
+    } catch (err) {
+      this.logger.error(`Failed to list week tasks: ${(err as Error).message}`);
+      tasksText = '📝 Việc cần làm: Không thể tải việc cần làm lúc này.';
     }
 
     const reply =
