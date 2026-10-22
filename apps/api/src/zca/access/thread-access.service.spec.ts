@@ -31,7 +31,7 @@ void test('GroupMemberAccessPolicy follows the member access mode', () => {
 void test('PersonalAccessPolicy never grants access of its own', () => {
   const config = {
     ...createDefaultThreadConfig('u-1'),
-    memberAccess: { mode: 'all-members' as const, memberIds: [] },
+    memberAccess: { mode: 'all-members' as const, memberIds: [] as string[] },
   };
   assert.equal(new PersonalAccessPolicy().allows(), false);
   assert.equal(new ThreadAccessService().grantsThreadAccess('u-1', config, 'user'), false);
