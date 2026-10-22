@@ -70,6 +70,7 @@ export class SearchChatHistoryToolStrategy implements TextToolStrategy {
           toDate,
           limit: settings.searchLimit,
           timeZone,
+          excludeMsgId: context.input.messageId,
         }),
       );
     } catch (err: unknown) {

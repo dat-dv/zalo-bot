@@ -809,6 +809,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
 
     void this.bufferRecentMessage(threadId, message);
     const chatMemory = toAgentChatMemory(config);
+    const messageId = message.data?.msgId ? String(message.data.msgId) : undefined;
     if (chatMemory) {
       void this.chatMemoryService?.record(
         threadId,
@@ -1104,6 +1105,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
           allowAiChat: directConfig.allowAiChat ?? true,
           triggerPrefixes,
           chatMemory,
+          messageId,
         });
       }
       return;
@@ -1164,6 +1166,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
             allowAiChat: directConfig.allowAiChat ?? true,
             triggerPrefixes,
             chatMemory,
+            messageId,
           });
         }
         return;
@@ -1235,7 +1238,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         isBot: false,
         allowAiChat: directConfig.allowAiChat ?? true,
         triggerPrefixes,
-        messageId: message.data?.msgId ? String(message.data.msgId) : undefined,
+        messageId,
         chatMemory,
       };
 
@@ -1256,11 +1259,14 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
   public async onUndo(undo: Undo): Promise<void> {
     const recalledMsgId = undo.data?.content?.globalMsgId;
     const recalledCliMsgId = undo.data?.content?.cliMsgId;
+    const senderUid = undo.data?.uidFrom;
     if (!this.chatMemoryService || !undo.threadId || !recalledMsgId) return;
     await this.chatMemoryService.markRecalled(
       undo.threadId,
       String(recalledMsgId),
-      recalledCliMsgId ? String(recalledCliMsgId) : undefined,
+      recalledCliMsgId && senderUid
+        ? { cliMsgId: String(recalledCliMsgId), senderUid: String(senderUid) }
+        : undefined,
     );
   }
 

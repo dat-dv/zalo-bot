@@ -452,3 +452,11 @@ void test('RouterProvider fails without base URL or key and calls the router oth
     globalThis.fetch = originalFetch;
   }
 });
+
+void test('RouterProvider fails without a model instead of sending the OpenAI default', async () => {
+  const config = new ConfigService({
+    llm: { router: { baseUrl: 'https://router.example/v1', apiKey: 'k', model: '' } },
+  });
+  const provider = new RouterProvider(config, new OpenAiProvider(config));
+  assert.equal((await provider.generate('hi')).failed, true);
+});

@@ -32,7 +32,9 @@ Ngoài ra, khoảng 10 tin gần nhất của kênh được đưa vào prompt �
 
 - **Nhớ theo từng kênh**: hỏi ở nhóm A chỉ tìm trong tin của nhóm A; chat 1-1 chỉ tìm trong chat đó. Khác với tài chính (sổ chung), nội dung chat không được lộ sang kênh khác.
 - **Chỉ kênh đang listen và đã bật trí nhớ**: các kênh khác không bị lưu gì. Kênh đã bật thì lưu **mọi tin**, kể cả tin không gọi bot. Các tin này chỉ được đọc lại khi có người hỏi.
-- **Thu hồi là quên**: khi ai đó thu hồi tin trên Zalo, nội dung trong trí nhớ bị xoá (chỉ còn dấu mốc `recalled_at`), không bao giờ xuất hiện trong kết quả tìm.
+- **Thu hồi là quên**: khi ai đó thu hồi tin trên Zalo, nội dung trong trí nhớ bị xoá (chỉ còn dấu mốc `recalled_at`), không bao giờ xuất hiện trong kết quả tìm. Tin do chính bot thu hồi (thẻ xác nhận) được xoá ngay trong `ZcaService.undo`, vì zca-js không báo lại sự kiện thu hồi của chính tài khoản khi tắt `ZCA_SELF_LISTEN`. Khi so theo `cliMsgId` (mã do máy người gửi tự sinh, có thể trùng giữa người này với người khác), hệ thống so kèm người gửi để không xoá nhầm tin của người khác.
+- **Kết quả tra cứu không tính câu hỏi đang hỏi và câu trả lời cũ của bot**: câu hỏi luôn khớp từ khóa của chính nó, còn câu trả lời cũ có thể sai nên không được dùng làm bằng chứng (vẫn hiện nếu nằm cạnh một tin khớp).
+- **Kênh chưa bật trí nhớ không thấy tool tra cứu**: LLM không được đưa tool `SEARCH_CHAT_HISTORY`, nên câu hỏi chuyện cũ ở kênh này vẫn được trả lời kiểu trò chuyện (hoặc im lặng nếu kênh tắt `allowAiChat`) như trước khi có tính năng.
 - **Tin bot gửi cũng được nhớ** (`is_bot = true`), để câu hỏi nối tiếp hiểu được bot vừa trả lời gì.
 - **Không lưu link media**: ảnh/video/file chỉ lưu nhãn và chú thích (`[Ảnh] Bãi biển Mũi Né`, `[File: ve.pdf]`), vì link CDN của Zalo hết hạn.
 - **Lưu vô hạn** ở Bước 1. Chưa có job xoá theo hạn.
@@ -82,7 +84,7 @@ Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm 
 
 | Triệu chứng | Nguyên nhân thường gặp |
 | --- | --- |
-| Bot trả "Kênh này chưa bật ghi nhớ hội thoại" | Kênh chưa bật card "🧠 Trí nhớ hội thoại" trong Cấu hình kênh, hoặc là chat qua Zalo Bot chính thức (webhook, không hỗ trợ) |
+| Bot không tra lại chuyện cũ mà chỉ trò chuyện | Kênh chưa bật card "🧠 Trí nhớ hội thoại" trong Cấu hình kênh (tool tra cứu không được đưa cho LLM), hoặc là chat qua Zalo Bot chính thức (webhook, không hỗ trợ) |
 | Migration lỗi `permission denied to create extension "unaccent"` | User DB không có quyền tạo extension; nhờ admin DB chạy `CREATE EXTENSION unaccent;` rồi khởi động lại |
 | Bảng trống dù đang chat | Kênh chưa được listen hoặc chưa bật trí nhớ, hoặc log có `[ChatMemory] Could not store …` (xem lỗi DB) |
 | "Không tìm thấy…" dù đã từng nói | Từ khóa LLM sinh ra không khớp, hoặc khoảng ngày sai; hỏi lại cụ thể hơn. Tin trước khi bật tính năng chỉ có từ buffer Redis 7 ngày |

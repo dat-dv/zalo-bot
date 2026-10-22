@@ -4,9 +4,9 @@ import { AgentInput } from '../types/agent-input.type';
 import { TextToolFactory } from './text-tool.factory';
 import { TextToolType } from './text-tool.enum';
 import {
-  ZALO_TOOL_DEFINITIONS,
   isTextToolType,
   selectToolDefinitions,
+  textToolDefinitionsFor,
 } from './text-tool.definitions';
 import { LlmService } from '../../llm/llm.service';
 import { ZaloService } from '../zalo.service';
@@ -185,7 +185,9 @@ export class TextInputService {
       '- Về hoàn thành việc ("đã xong việc nộp báo cáo"): gọi COMPLETE_TASK.\n' +
       '- Về tạo địa điểm / nơi chốn ("tạo nơi chốn Landmark 81", "thêm địa điểm aeon", "lưu nơi chốn Bến Thành"): gọi CREATE_PLACE, xác định name.\n' +
       '- Về KẾT NỐI / ĐĂNG NHẬP tài khoản Google (chỉ khi người dùng nói rõ muốn "kết nối google", "đăng nhập google", "liên kết tài khoản google", "đổi tài khoản gmail"): gọi LOGIN_GOOGLE. KHÔNG dùng LOGIN_GOOGLE khi người dùng hỏi đường dẫn, link, folder.\n' +
-      '- Về chuyện đã trao đổi trong cuộc chat này trước đây ("năm ngoái mình đi đâu", "hôm trước Nam nói gì", "tháng 5 nhóm hẹn ở đâu"): gọi SEARCH_CHAT_HISTORY, sinh keywords gồm từ khóa và từ đồng nghĩa, tính fromDate/toDate (YYYY-MM-DD) nếu câu hỏi có mốc thời gian.\n' +
+      (input.chatMemory
+        ? '- Về chuyện đã trao đổi trong cuộc chat này trước đây ("năm ngoái mình đi đâu", "hôm trước Nam nói gì", "tháng 5 nhóm hẹn ở đâu"): gọi SEARCH_CHAT_HISTORY, sinh keywords gồm từ khóa và từ đồng nghĩa, tính fromDate/toDate (YYYY-MM-DD) nếu câu hỏi có mốc thời gian.\n'
+        : '') +
       '- Về kho lưu trữ hình ảnh/hóa đơn/video của bot: Bot tự động lưu tất cả ảnh/hóa đơn/video người dùng gửi lên Google Drive (thư mục zalobot/bill, zalobot/image, zalobot/video) và Google Photos (album "ZaloBot - Hóa đơn", "ZaloBot - Hình ảnh", "ZaloBot - Video"). Khi người dùng hỏi nơi lưu ảnh, link xem ảnh/hóa đơn/video, đường dẫn folder, link drive, link album: gọi GET_STORAGE_LINKS, xác định type (bill/image/video/all).\n' +
       '- Nếu người dùng chỉ chào hỏi hoặc trò chuyện, hãy trả lời tự nhiên, ngắn gọn, thân thiện bằng tiếng Việt.\n\n' +
       'QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n' +
@@ -197,7 +199,11 @@ export class TextInputService {
 
     try {
       const response = await this.zaloService.withChatAction(chatId, () =>
-        this.llmService.generate(text, ZALO_TOOL_DEFINITIONS, systemInstruction),
+        this.llmService.generate(
+          text,
+          textToolDefinitionsFor({ chatMemory: Boolean(input.chatMemory) }),
+          systemInstruction,
+        ),
       );
 
       const toolCalls =
@@ -244,6 +250,20 @@ export class TextInputService {
         this.logger.debug(
           `[TextInputService] allowAiChat is disabled in thread ${chatId}. Remaining silent.`,
         );
+        return;
+      }
+
+      // Every provider of the chain already failed: report it once rather than running the
+      // whole chain again for the tool-free pass.
+      if (response.failed) {
+        await this.toolFactory.getStrategy(TextToolType.CONVERSATION).execute({
+          input,
+          chatId,
+          senderId,
+          displayName,
+          text,
+          aiReplyText: response.text,
+        });
         return;
       }
 

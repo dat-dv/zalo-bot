@@ -78,7 +78,7 @@ void test('recordBotReply upserts the bot flag', async () => {
 void test('markRecalled erases the content of the recalled message only in its channel', async () => {
   const { service, calls } = createService();
 
-  await service.markRecalled('g-1', '7001', '55');
+  await service.markRecalled('g-1', '7001', { cliMsgId: '55', senderUid: 'u-9' });
 
   const set = calls.find((call) => call.method === 'set');
   const values = set?.args[0] as { text: unknown; content: unknown };
@@ -143,5 +143,21 @@ void test('selectMemoryLines dedupes, keeps best-ranked hits first under the cap
   assert.deepEqual(
     lines.map((line) => line.text),
     ['early', 'best'],
+  );
+});
+
+void test('markRecalled matches the client id only together with its sender', async () => {
+  const withClient = createService();
+  await withClient.service.markRecalled('g-1', '7001', { cliMsgId: '55', senderUid: 'u-9' });
+  assert.deepEqual(withClient.calls.find((call) => call.method === 'andWhere')?.args, [
+    '(msg_id = :msgId OR (cli_msg_id = :cliMsgId AND sender_uid = :senderUid))',
+    { msgId: '7001', cliMsgId: '55', senderUid: 'u-9' },
+  ]);
+
+  const byIdOnly = createService();
+  await byIdOnly.service.markRecalled('g-1', '7001');
+  assert.equal(
+    (byIdOnly.calls.find((call) => call.method === 'andWhere')?.args ?? [])[0],
+    'msg_id = :msgId',
   );
 });

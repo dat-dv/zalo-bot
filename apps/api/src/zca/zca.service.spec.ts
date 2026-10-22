@@ -4,6 +4,7 @@ import * as os from 'os';
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
 import { ConfigService } from '@nestjs/config';
+import type { ChatMemoryService } from './memory/chat-memory.service';
 import { ZcaService } from './zca.service';
 import { createZcaClient } from './index';
 import type { ZcaPlugin } from './zca.interfaces';
@@ -638,4 +639,31 @@ void test('ZcaService bootstrap skips login when there is no session or credenti
     if (imei !== undefined) process.env.ZCA_IMEI = imei;
     if (cookie !== undefined) process.env.ZCA_COOKIE = cookie;
   }
+});
+
+void test('ZcaService.undo also forgets the recalled message in chat memory', async () => {
+  const recalls: unknown[][] = [];
+  const memory = {
+    markRecalled: (...args: unknown[]) => {
+      recalls.push(args);
+      return Promise.resolve();
+    },
+  } as unknown as ChatMemoryService;
+  const config = new ConfigService({});
+  const service = new ZcaService(
+    config,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    memory,
+  );
+  (service as unknown as { api: { undo: () => Promise<{ status: number }> } }).api = {
+    undo: () => Promise.resolve({ status: 0 }),
+  };
+
+  await service.undo({ msgId: '7001', cliMsgId: '55' }, 'g-1');
+
+  assert.deepEqual(recalls, [['g-1', '7001']]);
 });

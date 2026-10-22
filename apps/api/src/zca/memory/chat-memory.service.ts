@@ -99,19 +99,28 @@ export class ChatMemoryService {
     return records.length;
   }
 
-  /** A recalled message is forgotten: its content is erased, only the tombstone remains. */
-  public async markRecalled(channelId: string, msgId: string, cliMsgId?: string): Promise<void> {
-    if (!channelId || (!msgId && !cliMsgId)) return;
+  /**
+   * A recalled message is forgotten: its content is erased, only the tombstone remains. The
+   * client id is not unique across senders, so it only matches together with the sender.
+   */
+  public async markRecalled(
+    channelId: string,
+    msgId: string,
+    byClient?: { cliMsgId: string; senderUid: string },
+  ): Promise<void> {
+    if (!channelId || !msgId) return;
     try {
       await this.messageRepository
         .createQueryBuilder()
         .update(ZcaMessageEntity)
         .set({ recalledAt: () => 'now()', text: null, content: null })
         .where('channel_id = :channelId', { channelId })
-        .andWhere('(msg_id = :msgId OR cli_msg_id = :cliMsgId)', {
-          msgId: msgId || '',
-          cliMsgId: cliMsgId || '',
-        })
+        .andWhere(
+          byClient
+            ? '(msg_id = :msgId OR (cli_msg_id = :cliMsgId AND sender_uid = :senderUid))'
+            : 'msg_id = :msgId',
+          { msgId, cliMsgId: byClient?.cliMsgId, senderUid: byClient?.senderUid },
+        )
         .execute();
     } catch (err: unknown) {
       this.logger.warn(`[ChatMemory] Could not mark recall in ${channelId}: ${errorMessage(err)}`);

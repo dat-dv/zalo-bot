@@ -1807,7 +1807,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         cliMsgId = cachedCli;
       }
     }
-    return this.api.undo(
+    const response = await this.api.undo(
       {
         msgId: payload.msgId,
         cliMsgId: cliMsgId || payload.msgId,
@@ -1815,6 +1815,10 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       threadId,
       resolvedType,
     );
+    // zca-js drops our own undo events unless self-listen is on, so onUndo never sees them:
+    // forget the recalled message here.
+    void this.chatMemoryService?.markRecalled(threadId, String(payload.msgId));
+    return response;
   }
 
   /**

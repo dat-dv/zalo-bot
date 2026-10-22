@@ -1284,3 +1284,36 @@ void test('TextInputService edit refuses pending actions without a matching tool
 
   confirmationService.clearAll();
 });
+
+void test('TextInputService offers the history search tool only to threads with chat memory', async () => {
+  const { service, getLastLlmToolNames } = createTextInputService({ llmResponse: { text: 'ok' } });
+  const base = { type: 'text' as const, senderId: 'u1', chatId: 'c1', displayName: 'Đạt' };
+
+  await service.process({ ...base, text: 'hôm trước mình nói gì' });
+  assert.ok(!getLastLlmToolNames().includes('SEARCH_CHAT_HISTORY'));
+
+  await service.process({
+    ...base,
+    text: 'hôm trước mình nói gì',
+    chatMemory: { contextWindow: 0, searchLimit: 15 },
+  });
+  assert.ok(getLastLlmToolNames().includes('SEARCH_CHAT_HISTORY'));
+});
+
+void test('TextInputService reports a failed provider chain once, without the chit-chat pass', async () => {
+  const { service, sentMessages, chitChatCalls } = createTextInputService({
+    llmResponse: { text: 'Có lỗi khi kết nối tới mô hình AI.', failed: true },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'chào bot',
+  });
+
+  assert.equal(chitChatCalls.length, 0);
+  assert.equal(sentMessages.length, 1);
+  assert.equal(sentMessages[0].text, 'Có lỗi khi kết nối tới mô hình AI.');
+});

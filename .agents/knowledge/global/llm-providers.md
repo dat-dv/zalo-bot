@@ -36,6 +36,8 @@ Human guide: [LLM Providers](../../docs/global/llm-providers.md).
 - Provider chain per call: `[LLM_PROVIDER, ...LLM_FALLBACK_PROVIDERS]` (config `llm.provider`, default `gemini`; `llm.fallbackProviders`, comma-separated, default empty), lower-cased, de-duplicated, looked up in a map: `gemini`, `openai`, `qwen`, `router`, plus aliases `ollama`, `qwen2.5:14b`, `qwen-14b` -> Qwen and `9router` -> Router. Unknown names are skipped (one warning); an empty chain uses Gemini.
 - Providers are tried in order. A provider is skipped when its response has `failed: true` or is empty (no text, no tool call). First good response wins (fallback use logged at LOG level). All failed -> the last failed response (its Vietnamese error text) is returned, as before the chain existed. No fallbacks configured = single provider, unchanged behavior.
 - Current deployment intent: `LLM_PROVIDER=router` (9router) + `LLM_FALLBACK_PROVIDERS=gemini`, no third link.
+- `TextInputService`: when the tool-calling pass returns `failed` (whole chain failed), it sends that error text once and skips the tool-free chit-chat pass (which would run the chain again); with `allowAiChat === false` it stays silent.
+- `LLM_TIMEOUT_MS` (default 30000) applies to every provider, including local Qwen/Ollama; raise it for slow local models.
 - Post-processing: every `toolCall.args` / `toolCalls[].args` passes through `cleanToolArguments`.
 
 ## Types (`llm/types/llm.types.ts`)
@@ -51,7 +53,7 @@ Human guide: [LLM Providers](../../docs/global/llm-providers.md).
 | --- | --- | --- | --- |
 | `GeminiProvider` | `GEMINI_API_KEY`, `GEMINI_MODEL` | model `gemini-3.5-flash-lite` | `POST generativelanguage.googleapis.com/v1beta/models/<model>:generateContent`; tools as `functionDeclarations`; reads all `functionCall` parts. |
 | `OpenAiProvider` | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` | `gpt-4o-mini`, `https://api.openai.com/v1` | `POST <base>/chat/completions`; tools as `function`, schema types lower-cased via `normalizeSchemaTypes`. `generateWithConfig({ baseUrl, model, apiKey }, …)` runs the same call against any OpenAI-compatible endpoint. |
-| `RouterProvider` | `ROUTER_BASE_URL`, `ROUTER_MODEL`, `ROUTER_API_KEY` | none (missing URL/key -> `failed`) | OpenAI-compatible LLM router (e.g. 9router `chat-daily`) through `OpenAiProvider.generateWithConfig`; separate from `OPENAI_*` so real OpenAI stays usable as another link. |
+| `RouterProvider` | `ROUTER_BASE_URL`, `ROUTER_MODEL`, `ROUTER_API_KEY` | none (missing URL, key or model -> `failed`; no silent `gpt-4o-mini` default) | OpenAI-compatible LLM router (e.g. 9router `chat-daily`) through `OpenAiProvider.generateWithConfig`; separate from `OPENAI_*` so real OpenAI stays usable as another link. |
 | `QwenProvider` | `QWEN_BASE_URL`, `QWEN_MODEL`, `QWEN_API_KEY` | `http://localhost:11434`, `qwen2.5:14b` | Base ending `/v1` or `/chat/completions` -> OpenAI format; else native Ollama `/api/chat` (`stream: false`). Optional Bearer key. Falls back to parsing `<tool_call>{...}</tool_call>` tags in text. |
 
 Failure contract: providers never throw to callers; they return `{ text, failed: true }` with a Vietnamese error message (missing API key / router config, HTTP error, network error, timeout; Qwen 404 -> "model not pulled" hint). Every `fetch` uses `AbortSignal.timeout(LLM_TIMEOUT_MS)` (default 30000 ms, `utils/llm-timeout.util.ts`), so a hung provider fails and the chain moves on.

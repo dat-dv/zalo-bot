@@ -47,6 +47,8 @@ Vì sao cần: trước đây chỉ có một provider. Khi provider đó lỗi,
 
 Cấu hình đang dùng: 9router đứng đầu, Gemini dự phòng, không có mắt xích thứ ba.
 
+Khi cả chuỗi đều lỗi, bot chỉ báo lỗi **một lần** và bỏ lượt trò chuyện không tool (lượt này sẽ lại chạy hết chuỗi, làm người dùng chờ gấp đôi). `LLM_TIMEOUT_MS` (mặc định 30 giây) áp dụng cho mọi provider, kể cả Qwen chạy local; máy yếu hoặc model nạp chậm thì cần tăng. Provider `router` thiếu `ROUTER_MODEL` thì bị coi là lỗi, không ngầm dùng model mặc định của OpenAI.
+
 ```bash
 LLM_PROVIDER=router
 LLM_FALLBACK_PROVIDERS=gemini

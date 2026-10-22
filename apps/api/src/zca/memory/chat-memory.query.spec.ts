@@ -62,3 +62,17 @@ void test('buildNeighbourQuery keeps neighbours inside the channel', () => {
   assert.match(query.sql, /p\.channel_id = \$1/);
   assert.match(query.sql, /n\.channel_id = \$1/);
 });
+
+void test('buildHitQuery never counts bot replies or the asking message as hits', () => {
+  const query = buildHitQuery('g-1', {
+    keywords: 'vé',
+    limit: 5,
+    timeZone: 'UTC',
+    excludeMsgId: 'm-question',
+  });
+
+  assert.ok(query);
+  assert.match(query.sql, /NOT m\.is_bot/);
+  assert.match(query.sql, /m\.msg_id <> \$3/);
+  assert.deepEqual(query.params, ['g-1', 'vé', 'm-question', 5]);
+});

@@ -12,6 +12,8 @@ export interface ChatMemorySearchParams {
   toDate?: string;
   limit: number;
   timeZone: string;
+  /** The message asking the question: it always matches its own keywords, so it is skipped. */
+  excludeMsgId?: string;
 }
 
 export interface SqlQuery {
@@ -57,7 +59,18 @@ export function buildHitQuery(channelId: string, search: ChatMemorySearchParams)
     return `plainto_tsquery('simple', zalobot_unaccent($${params.length}))`;
   });
 
-  const conditions = ['m.channel_id = $1', 'm.recalled_at IS NULL', 'm.search_vector @@ q.query'];
+  // Bot replies never count as hits (an earlier, maybe wrong answer is not evidence); they can
+  // still appear as neighbours of a real hit.
+  const conditions = [
+    'm.channel_id = $1',
+    'm.recalled_at IS NULL',
+    'NOT m.is_bot',
+    'm.search_vector @@ q.query',
+  ];
+  if (search.excludeMsgId) {
+    params.push(search.excludeMsgId);
+    conditions.push(`m.msg_id <> $${params.length}`);
+  }
   const fromDate = normalizeDate(search.fromDate);
   const toDate = normalizeDate(search.toDate);
   if (fromDate || toDate) {

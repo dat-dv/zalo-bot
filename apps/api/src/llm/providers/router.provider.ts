@@ -24,13 +24,15 @@ export class RouterProvider implements ILlmProvider {
   ): Promise<LlmResponse> {
     const baseUrl = this.configService.get<string>('llm.router.baseUrl') || '';
     const apiKey = this.configService.get<string>('llm.router.apiKey') || '';
-    if (!baseUrl || !apiKey) {
-      this.logger.warn('LLM router base URL or API key is missing. Skipping LLM call.');
+    const model = this.configService.get<string>('llm.router.model') || '';
+    // No model would silently fall back to the OpenAI default, which a router may not serve.
+    if (!baseUrl || !apiKey || !model) {
+      this.logger.warn('LLM router base URL, API key or model is missing. Skipping LLM call.');
       return { text: 'Chưa cấu hình LLM router.', failed: true };
     }
 
     return this.openAiProvider.generateWithConfig(
-      { baseUrl, apiKey, model: this.configService.get<string>('llm.router.model') || '' },
+      { baseUrl, apiKey, model },
       prompt,
       tools,
       systemInstruction,

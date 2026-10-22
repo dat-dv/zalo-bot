@@ -44,6 +44,9 @@ export function ThreadConfigModal({
   const updateMutation = useUpdateZcaThreadConfigMutation();
 
   const [form, setForm] = useState<ThreadBotConfig | null>(null);
+  // Raw text of the chat-memory number inputs: clamping on every keystroke would rewrite what the
+  // user is typing (clearing the field, typing "25"), so values are normalized on blur and save.
+  const [memoryDraft, setMemoryDraft] = useState({ contextWindow: '', searchLimit: '' });
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
@@ -81,10 +84,33 @@ export function ThreadConfigModal({
         },
         chatMemory: normalizeChatMemoryConfig(config.chatMemory),
       });
+      const memory = normalizeChatMemoryConfig(config.chatMemory);
+      setMemoryDraft({
+        contextWindow: String(memory.contextWindow),
+        searchLimit: String(memory.searchLimit),
+      });
     }
   }, [config, threadType]);
 
   if (!isOpen) return null;
+
+  /** Applies the typed numbers; an empty field falls back to the default. */
+  const resolveChatMemory = (current: ThreadBotConfig): ThreadBotConfig['chatMemory'] =>
+    normalizeChatMemoryConfig({
+      ...current.chatMemory,
+      contextWindow: memoryDraft.contextWindow.trim() || undefined,
+      searchLimit: memoryDraft.searchLimit.trim() || undefined,
+    });
+
+  const commitMemoryDraft = () => {
+    if (!form) return;
+    const chatMemory = resolveChatMemory(form);
+    setForm({ ...form, chatMemory });
+    setMemoryDraft({
+      contextWindow: String(chatMemory.contextWindow),
+      searchLimit: String(chatMemory.searchLimit),
+    });
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,7 +129,7 @@ export function ThreadConfigModal({
       directInteraction: form.directInteraction,
       mediaBackup: form.mediaBackup,
       confirmationRules: form.confirmationRules,
-      chatMemory: normalizeChatMemoryConfig(form.chatMemory),
+      chatMemory: resolveChatMemory(form),
     };
 
     try {
@@ -721,17 +747,12 @@ export function ThreadConfigModal({
                     className="mt-1 w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                     max={CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MAX}
                     min={0}
+                    onBlur={commitMemoryDraft}
                     onChange={(e) =>
-                      setForm({
-                        ...form,
-                        chatMemory: normalizeChatMemoryConfig({
-                          ...form.chatMemory,
-                          contextWindow: e.target.value,
-                        }),
-                      })
+                      setMemoryDraft({ ...memoryDraft, contextWindow: e.target.value })
                     }
                     type="number"
-                    value={form.chatMemory.contextWindow}
+                    value={memoryDraft.contextWindow}
                   />
                   <p className="mt-0.5 text-[10px] text-slate-400">
                     Đưa vào prompt để bot hiểu câu nối tiếp; 0 = tắt
@@ -746,17 +767,10 @@ export function ThreadConfigModal({
                     className="mt-1 w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                     max={CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MAX}
                     min={CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MIN}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        chatMemory: normalizeChatMemoryConfig({
-                          ...form.chatMemory,
-                          searchLimit: e.target.value,
-                        }),
-                      })
-                    }
+                    onBlur={commitMemoryDraft}
+                    onChange={(e) => setMemoryDraft({ ...memoryDraft, searchLimit: e.target.value })}
                     type="number"
-                    value={form.chatMemory.searchLimit}
+                    value={memoryDraft.searchLimit}
                   />
                   <p className="mt-0.5 text-[10px] text-slate-400">
                     Mỗi kết quả kèm vài tin xung quanh, tối đa 80 dòng gửi cho AI

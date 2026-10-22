@@ -1089,6 +1089,7 @@ void test('ZcaBotFeatureService handles quote-reply to an image with @bot and ru
     isSelf: false,
     type: ThreadType.Group,
     data: {
+      msgId: 'm-quote-1',
       content: '@bot thanh toán hóa đơn này nhé',
       uidFrom: 'u-quote-1',
       dName: 'Văn Đạt',
@@ -1107,6 +1108,7 @@ void test('ZcaBotFeatureService handles quote-reply to an image with @bot and ru
   assert.equal(processedInput.imageUrl, 'https://drive.google.com/bill-123');
   assert.match(processedInput.text || '', /TOTAL: 55000 VND/);
   assert.match(processedInput.text || '', /thanh toán hóa đơn này nhé/);
+  assert.equal(processedInput.messageId, 'm-quote-1', 'the current message is kept out of context');
 });
 
 // Mirrors the real Zalo quote payload of a photo (cliMsgType 32): the URL lives in nested `params.hd`.
@@ -2087,11 +2089,16 @@ void test('ZcaBotFeatureService forgets a recalled message', async () => {
     threadId: 'g-recall',
     isSelf: false,
     isGroup: true,
-    data: { content: { globalMsgId: 7001, cliMsgId: 55 } },
+    data: { uidFrom: 'u-9', content: { globalMsgId: 7001, cliMsgId: 55 } },
   } as unknown as Undo;
   await service.onUndo(undo);
 
-  assert.deepEqual(calls, [{ method: 'markRecalled', args: ['g-recall', '7001', '55'] }]);
+  assert.deepEqual(calls, [
+    {
+      method: 'markRecalled',
+      args: ['g-recall', '7001', { cliMsgId: '55', senderUid: 'u-9' }],
+    },
+  ]);
 });
 
 void test('ZcaBotFeatureService does not store messages of a listened thread with memory off', async () => {

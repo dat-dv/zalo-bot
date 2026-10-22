@@ -45,7 +45,11 @@ const memoryOff: AgentInput = {
   text: 'năm ngoái mình đi đâu',
 };
 
-const input: AgentInput = { ...memoryOff, chatMemory: { contextWindow: 10, searchLimit: 7 } };
+const input: AgentInput = {
+  ...memoryOff,
+  messageId: 'm-question',
+  chatMemory: { contextWindow: 10, searchLimit: 7 },
+};
 
 void test('SearchChatHistoryToolStrategy explains when chat memory is off', async () => {
   const { strategy, sent, searches } = createHarness({});
@@ -78,6 +82,7 @@ void test('SearchChatHistoryToolStrategy searches the current chat and reports n
   assert.equal(searches[0].params.keywords, 'đi, du lịch');
   assert.equal(searches[0].params.fromDate, '2025-01-01');
   assert.equal(searches[0].params.limit, 7, 'uses the thread search limit');
+  assert.equal(searches[0].params.excludeMsgId, 'm-question', 'skips the asking message');
   assert.equal(prompts.length, 0);
   assert.match(sent[0], /từ 01\/01\/2025 đến 31\/12\/2025/);
 });
