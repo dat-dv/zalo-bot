@@ -7,6 +7,7 @@ import { APP_ROUTES } from '@zalobot/contracts';
 import { clearAccessToken } from '@/modules/auth/client/auth-storage';
 import { AccessCodeForm } from './access-code-form';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { handleZaloLinkClick, ZALO_LINKS } from '@/shared/zalo/zalo-app-link';
 
 export type SessionStateReason = 'logged_out' | 'expired' | 'error';
 
@@ -24,17 +25,6 @@ function getzaloWebApp(): ZaloWebApp | undefined {
   if (typeof window === 'undefined') return undefined;
   const tg = (window as unknown as { zalo?: { WebApp?: ZaloWebApp } }).zalo;
   return tg?.WebApp;
-}
-
-function getzaloBotUrl(): string {
-  const customUrl =
-    process.env.NEXT_PUBLIC_ZALO_BOT_URL?.trim() || process.env.NEXT_PUBLIC_zalo_BOT_URL?.trim();
-  if (customUrl) return customUrl;
-  const botUsername =
-    process.env.NEXT_PUBLIC_ZALO_BOT_USERNAME?.trim() ||
-    process.env.NEXT_PUBLIC_zalo_BOT_USERNAME?.trim();
-  if (botUsername) return `https://zalo.me/${botUsername}`;
-  return 'https://zalo.me';
 }
 
 export function SessionStateScreen({ reason = 'expired', onRetry }: SessionStateScreenProps) {
@@ -76,7 +66,6 @@ export function SessionStateScreen({ reason = 'expired', onRetry }: SessionState
   const isLoggedOut = reason === 'logged_out';
   const title = isLoggedOut ? t('auth.loggedOut.title') : t('auth.sessionExpired.title');
   const description = isLoggedOut ? t('auth.loggedOut.desc') : t('auth.sessionExpired.desc');
-  const botUrl = getzaloBotUrl();
 
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
@@ -104,9 +93,10 @@ export function SessionStateScreen({ reason = 'expired', onRetry }: SessionState
 
           <div className="mt-6 flex w-full flex-col gap-2.5">
             <a
-              href={botUrl}
+              href={ZALO_LINKS.WEB}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
+              onClick={handleZaloLinkClick}
               className="inline-flex w-full min-h-[42px] items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500"
             >
               <span>🤖</span>

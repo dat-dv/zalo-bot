@@ -14,6 +14,7 @@ metadata:
       - apps/web/next.config.ts
       - apps/web/src/shared/api/http-client.ts
       - apps/web/src/shared/ui/workspace-header.tsx
+      - apps/web/src/shared/zalo/zalo-app-link.ts
       - .env.example
       - docker-compose.yml
       - docker-compose.local.yml
@@ -65,7 +66,6 @@ Defaults in parentheses.
 
 - Only `NEXT_PUBLIC_*` reaches the browser. `next.config.ts` loads the monorepo root env via `@next/env`.
 - `NEXT_PUBLIC_API_URL`: public API origin without `/api`, only needed when the API lives on another domain. Unset (default, including the `docker-compose.yml` build arg) → `httpClient` uses same-origin relative URLs (web Nginx proxies `/api`); localhost/tunnel hosts always use relative URLs; dev rewrites fall back to `http://localhost:${NGINX_PORT|3000}`.
-- `NEXT_PUBLIC_ZALO_BOT_URL`, else `NEXT_PUBLIC_ZALO_BOT_USERNAME` → `https://zalo.me/<username>`, else `https://zalo.me` (Open Zalo Bot link).
 - `NEXT_PUBLIC_APP_URL`: metadata base and sitemap origin (fallback `https://bot.datintech.site`).
 
 ## Inventory Notes

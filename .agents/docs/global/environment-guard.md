@@ -63,7 +63,6 @@ Mặc định ghi trong ngoặc.
 Chỉ biến `NEXT_PUBLIC_*` được đóng gói vào trình duyệt; mọi secret ở trên chỉ dành cho `apps/api`.
 
 - `NEXT_PUBLIC_API_URL`: origin public của API, **không** thêm `/api` vì hằng số route đã có sẵn. Mặc định bỏ trống (kể cả build arg trong `docker-compose.yml`): web gọi API bằng đường dẫn tương đối qua cùng domain, Nginx của web chuyển `/api` sang API. Chỉ khai báo khi API nằm ở domain khác.
-- `NEXT_PUBLIC_ZALO_BOT_URL` hoặc `NEXT_PUBLIC_ZALO_BOT_USERNAME`: link nút "Mở Zalo Bot" (mặc định `https://zalo.me`).
 - `NEXT_PUBLIC_APP_URL`: domain dùng cho metadata/sitemap.
 
 ## Cách cấu hình

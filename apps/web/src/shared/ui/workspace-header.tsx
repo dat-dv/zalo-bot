@@ -9,17 +9,7 @@ import { clearAccessToken, getAccessToken } from '@/modules/auth/client/auth-sto
 import { httpClient } from '@/shared/api/http-client';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
-
-function getzaloBotUrl(): string {
-  const customUrl =
-    process.env.NEXT_PUBLIC_ZALO_BOT_URL?.trim() || process.env.NEXT_PUBLIC_zalo_BOT_URL?.trim();
-  if (customUrl) return customUrl;
-  const botUsername =
-    process.env.NEXT_PUBLIC_ZALO_BOT_USERNAME?.trim() ||
-    process.env.NEXT_PUBLIC_zalo_BOT_USERNAME?.trim();
-  if (botUsername) return `https://zalo.me/${botUsername}`;
-  return 'https://zalo.me';
-}
+import { handleZaloLinkClick, ZALO_LINKS } from '@/shared/zalo/zalo-app-link';
 
 interface RouteHeaderMeta {
   titleKey: TranslationKey;
@@ -157,7 +147,6 @@ export function useWorkspaceHeader({
     isAuthenticated: hasToken && !isLoggedOut,
     handleRefresh,
     handleLogout,
-    zaloBotUrl: getzaloBotUrl(),
   };
 }
 
@@ -178,7 +167,6 @@ export function WorkspaceHeader({
     isAuthenticated,
     handleRefresh,
     handleLogout,
-    zaloBotUrl,
   } = useWorkspaceHeader({ title: propTitle, subtitle: propSubtitle, onRefresh });
 
   // Phones and tablets show the title and session actions in the AppNavigation topbar instead.
@@ -245,9 +233,10 @@ export function WorkspaceHeader({
         ) : (
           <a
             className="inline-flex min-h-[30px] items-center justify-center gap-1.5 rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white no-underline transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-            href={zaloBotUrl}
+            href={ZALO_LINKS.WEB}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={handleZaloLinkClick}
           >
             <span>{t('auth.openzaloBot')}</span>
           </a>
