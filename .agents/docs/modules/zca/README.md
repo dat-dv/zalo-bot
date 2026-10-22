@@ -233,7 +233,7 @@ Bảng 7 cột phải cuộn ngang trên màn 375px và các nút 22px quá nh�
 - **Dùng chung logic**: `useChatRowModel` (`chat-row-parts.tsx`) tính nhãn loại, dòng nhận diện, tính năng và danh sách thao tác cho cả dòng bảng (máy tính) lẫn dòng danh sách (điện thoại), nên hai giao diện luôn có cùng thao tác và gọi cùng handler của `ZcaScreen`. Thêm thao tác mới thì thêm ở đây.
 - Tiêu đề trang (h1 + mô tả) bị ẩn vì thanh trên cùng đã hiện tên trang. Nút **Quét mã QR đăng nhập** (khi chưa đăng nhập) và **+ Thêm người dùng** chuyển xuống thanh hành động cố định phía dưới (`MobileActionBar`), bản trên thanh công cụ bị ẩn.
 - Điện thoại (≤ 640px): ô tìm kiếm rộng hết hàng cao 36px (nút ✕ xoá 32×32); ô sắp xếp và các tab lọc nằm trên **một hàng cuộn ngang** cao 32px; nút Đồng bộ/Kho Drive cao 32px, cuộn ngang trên một hàng; ô nhập ID thủ công và nút thêm rộng hết hàng, cao 40px; nút phân trang và ô số mục 32px; nút ✕ của thông báo 40px.
-- **Trang cấu hình kênh trên điện thoại**: nút gạt giữ nguyên hình dáng nhưng vùng chạm mở rộng thành 40×40px; ô tích loại media, ô nhập, nút banner Drive/Photos, ô tiền tố và nút xoá chip đều 40px. Thanh **Lưu cấu hình** dính đáy nhưng nằm **trên** thanh tab dưới (nếu không sẽ bị thanh tab che mất).
+- **Trang cấu hình kênh trên điện thoại**: nút gạt giữ nguyên hình dáng nhưng vùng chạm mở rộng thành 40×40px. Nút tròn bên trong được định vị theo chính thanh trượt (thanh trượt có `relative`), không theo vùng chạm; nếu thiếu, nút tròn sẽ bám mép trên của vùng 40px và lệch hẳn lên trên thanh trượt; ô tích loại media, ô nhập, nút banner Drive/Photos, ô tiền tố và nút xoá chip đều 40px. Thanh **Lưu cấu hình** dính đáy nhưng nằm **trên** thanh tab dưới (nếu không sẽ bị thanh tab che mất).
 
 ## 3. Các Endpoint API
 

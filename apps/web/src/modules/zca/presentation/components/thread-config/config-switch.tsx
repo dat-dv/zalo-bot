@@ -42,7 +42,7 @@ export function ConfigSwitch({
         type="checkbox"
       />
       <div
-        className={`peer rounded-full bg-slate-300 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-1 dark:bg-slate-700 after:absolute after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full ${TRACK_SIZE[size]} ${TRACK_TONE[tone]}`}
+        className={`peer relative rounded-full bg-slate-300 peer-focus:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-blue-500 peer-focus-visible:ring-offset-1 dark:bg-slate-700 after:absolute after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full ${TRACK_SIZE[size]} ${TRACK_TONE[tone]}`}
       />
     </label>
   );
