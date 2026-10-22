@@ -49,7 +49,8 @@ services:
       TZ: ${DEFAULT_TIMEZONE:-Asia/Ho_Chi_Minh}
       BE_PORT: ${BE_PORT:-3005}
       # Values below are fixed for this stack (in-compose Postgres without SSL, data volume at
-      # /app/data, migrations only). Not interpolated, so Coolify does not list them as editable env.
+      # /app/data, migrations only) and always win over env_file. Coolify still lists every key here
+      # as a locked env it refuses to delete; that is expected.
       DATABASE_URL: postgresql://zalobot:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/zalobot
       DATABASE_SSL: 'false'
       REDIS_URL: redis://redis:6379
