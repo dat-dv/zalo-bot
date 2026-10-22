@@ -13,6 +13,7 @@ metadata:
       - apps/web/src/shared/ui/period-filter-toolbar.tsx
       - apps/web/src/shared/ui/workspace-header.tsx
       - apps/web/src/shared/ui/app-navigation.tsx
+      - apps/web/src/shared/ui/logout-confirm-dialog.tsx
       - apps/web/src/shared/store/money-visibility-store.ts
       - apps/web/src/shared/store/theme-store.ts
       - apps/web/src/shared/providers/app-providers.tsx
@@ -130,6 +131,11 @@ Tiêu đề theo route, trạng thái đăng nhập, Làm mới, Đăng xuất v
 - Ở ≤ 960px, `WorkspaceHeader` bị ẩn và **topbar mobile** trong `AppNavigation` thay thế: `[Tên trang] [icon ẩn/hiện số tiền] [icon làm mới]`, mỗi nút 40px.
 - Khi chưa đăng nhập, hai icon được thay bằng nút "Mở Zalo Bot".
 - Phụ đề không hiện trên mobile. **Đăng xuất nằm ở chân sheet Thêm**.
+- **Đăng xuất luôn hỏi lại trước.** Nút Đăng xuất trên header desktop và ở chân sheet Thêm đều chỉ mở hộp xác nhận `LogoutConfirmDialog` (`apps/web/src/shared/ui/logout-confirm-dialog.tsx`), chưa thoát ngay.
+  - Hộp dựng trên `Modal` (`role="alertdialog"`): desktop là thẻ giữa màn hình; điện thoại và PWA là bottom sheet chồng lên sheet Thêm, bấm Huỷ, bấm nền hay vuốt xuống thì quay lại sheet Thêm.
+  - Chỉ nút "Đăng xuất" trong hộp mới gọi `confirmLogout()`: gọi API đăng xuất, xoá token và cache, tải lại trang với `?status=logged_out`. Trong lúc chạy, hai nút bị khoá và hộp không đóng được.
+  - Hook `useWorkspaceHeader()` chỉ trả `requestLogout` / `cancelLogout` / `confirmLogout`, không còn hàm đăng xuất thẳng, để sau này thêm nút mới cũng không bỏ qua được bước xác nhận.
+  - Lý do: đăng xuất rồi phải xin lại link đăng nhập từ Zalo Bot, mà trên điện thoại nút này nằm sát các ô điều hướng nên rất dễ bấm nhầm. Không dùng `window.confirm` vì trên PWA nó hiện hộp hệ thống kèm tên miền và không theo dark mode.
 - Lý do: trước đây trên điện thoại có hai thanh header chồng nhau, ba nút chữ ép tiêu đề bị cắt, và mất khoảng 140px trước khi tới nội dung. Mặt nạ che số tiền (key `common.maskedAmount` = `'••••••'`) áp dụng đồng bộ cho các khối KPI, bảng dữ liệu và tooltip biểu đồ. Mặc định số tiền bị ẩn (tránh lộ khi mở dashboard nơi công cộng); lựa chọn của người dùng chỉ nằm trong store Zustand `useMoneyVisibilityStore` trong bộ nhớ (`apps/web/src/shared/store/money-visibility-store.ts`, cố ý không dùng `persist` và không lưu `localStorage`) nên chuyển trang trong app vẫn giữ, còn tải lại trang (F5) thì số tiền ẩn lại; thanh tỉ lệ nhỏ dưới số tiền trong bảng Giao dịch, Chi tiêu và trong biểu đồ Cơ cấu công nợ chỉ hiện khi đang bấm hiện số tiền (độ dài thanh để lộ khoản lớn/nhỏ), còn thanh % đã trả của công nợ vẫn giữ vì chỉ thể hiện tiến độ; các ô input khi đang sửa trực tiếp trên dòng (inline edit) vẫn giữ số thực để phục vụ thao tác.
 
 Thanh điều hướng dùng chung (`apps/web/src/shared/ui/app-navigation.tsx`) theo kiểu sidebar quản trị trên desktop: phân thành 5 nhóm nghiệp vụ (Tổng quan, Tài chính, Kế hoạch, Dữ liệu, Hệ thống — key `nav.section.*`), có ô chọn ngôn ngữ, có dấu nhận diện sản phẩm, icon đi cùng chữ và tự động nhận diện trạng thái trang đang mở theo `usePathname()`. Desktop dùng app shell giới hạn theo viewport: chỉ vùng main content được cuộn, còn sidebar luôn đứng yên bên cạnh. Khi thêm mục mới, luôn giữ nhãn chữ hiển thị qua hệ thống i18n, SVG chỉ là phần hỗ trợ quét nhanh, và đặt `aria-current="page"` cho mục active.

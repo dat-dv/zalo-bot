@@ -154,6 +154,10 @@ const messages = {
     'common.refresh': 'Làm mới',
     'common.retry': 'Thử lại',
     'common.logout': 'Đăng xuất',
+    'common.logoutConfirm.title': 'Đăng xuất?',
+    'common.logoutConfirm.message':
+      'Bạn sẽ cần mở lại link đăng nhập từ Zalo Bot để vào dashboard.',
+    'common.loggingOut': 'Đang đăng xuất…',
     'common.close': 'Đóng',
     'common.confirm': 'Xác nhận',
     'common.cancel': 'Hủy',
@@ -1058,6 +1062,10 @@ const messages = {
     'common.refresh': 'Refresh',
     'common.retry': 'Try again',
     'common.logout': 'Log out',
+    'common.logoutConfirm.title': 'Log out?',
+    'common.logoutConfirm.message':
+      "You'll need a new sign-in link from the Zalo Bot to get back in.",
+    'common.loggingOut': 'Logging out…',
     'common.close': 'Close',
     'common.confirm': 'Confirm',
     'common.cancel': 'Cancel',

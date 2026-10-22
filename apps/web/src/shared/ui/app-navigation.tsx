@@ -9,6 +9,7 @@ import { useTheme } from '@/shared/store/theme-store';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { handleZaloLinkClick, ZALO_LINKS } from '@/shared/zalo/zalo-app-link';
+import { LogoutConfirmDialog } from './logout-confirm-dialog';
 import { MODAL_STICKY_HEADER, Modal } from './modal';
 import { bounce } from './motion';
 import { useWorkspaceHeader } from './workspace-header';
@@ -168,7 +169,16 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
   const isMenuOpen = isOpen && isCompact;
   const nextThemeLabel = theme === 'light' ? t('nav.dark') : t('nav.light');
   const { isMoneyVisible, toggleMoneyVisibility } = useMoneyVisibility();
-  const { title, isAuthenticated, handleRefresh, handleLogout } = useWorkspaceHeader();
+  const {
+    title,
+    isAuthenticated,
+    handleRefresh,
+    isLogoutConfirmOpen,
+    isLoggingOut,
+    requestLogout,
+    cancelLogout,
+    confirmLogout,
+  } = useWorkspaceHeader();
   const moneyLabel = isMoneyVisible ? t('common.hideMoney') : t('common.showMoney');
 
   // Tab tapped but its route not shown yet: highlight it at once so the tap feels instant.
@@ -430,7 +440,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           {isAuthenticated && (
             <button
               className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[3px] border border-rose-200 !bg-transparent text-xs font-semibold !text-rose-700 dark:border-rose-900 dark:!text-rose-300"
-              onClick={() => void handleLogout()}
+              onClick={requestLogout}
               type="button"
             >
               <LogoutIcon />
@@ -439,6 +449,14 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           )}
         </footer>
       </Modal>
+
+      {/* Opens above the "More" sheet; cancelling returns to it. */}
+      <LogoutConfirmDialog
+        open={isLogoutConfirmOpen}
+        isPending={isLoggingOut}
+        onCancel={cancelLogout}
+        onConfirm={() => void confirmLogout()}
+      />
 
       <nav
         aria-label={t('nav.tabBar')}

@@ -10,6 +10,7 @@ import { httpClient } from '@/shared/api/http-client';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { handleZaloLinkClick, ZALO_LINKS } from '@/shared/zalo/zalo-app-link';
+import { LogoutConfirmDialog } from './logout-confirm-dialog';
 
 interface RouteHeaderMeta {
   titleKey: TranslationKey;
@@ -118,7 +119,18 @@ export function useWorkspaceHeader({
     }
   }, [pathname]);
 
-  const handleLogout = async () => {
+  // Logout always goes through LogoutConfirmDialog: request opens it, confirm ends the session.
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const requestLogout = () => setIsLogoutConfirmOpen(true);
+
+  const cancelLogout = () => {
+    if (!isLoggingOut) setIsLogoutConfirmOpen(false);
+  };
+
+  const confirmLogout = async () => {
+    setIsLoggingOut(true);
     try {
       await httpClient.post(API_ROUTES.dashboardLogout);
     } finally {
@@ -146,7 +158,11 @@ export function useWorkspaceHeader({
     subtitle: resolvedSubtitle,
     isAuthenticated: hasToken && !isLoggedOut,
     handleRefresh,
-    handleLogout,
+    isLogoutConfirmOpen,
+    isLoggingOut,
+    requestLogout,
+    cancelLogout,
+    confirmLogout,
   };
 }
 
@@ -166,7 +182,11 @@ export function WorkspaceHeader({
     subtitle: resolvedSubtitle,
     isAuthenticated,
     handleRefresh,
-    handleLogout,
+    isLogoutConfirmOpen,
+    isLoggingOut,
+    requestLogout,
+    cancelLogout,
+    confirmLogout,
   } = useWorkspaceHeader({ title: propTitle, subtitle: propSubtitle, onRefresh });
 
   // Phones and tablets show the title and session actions in the AppNavigation topbar instead.
@@ -224,11 +244,18 @@ export function WorkspaceHeader({
               <button
                 className="inline-flex min-h-[30px] items-center justify-center rounded-[3px] border border-transparent !bg-transparent px-2.5 text-xs font-medium text-slate-600 hover:!border-slate-200 hover:!bg-slate-100 hover:!text-slate-900 dark:!text-slate-300 dark:hover:!border-slate-700 dark:hover:!bg-slate-800 dark:hover:!text-slate-100"
                 type="button"
-                onClick={() => void handleLogout()}
+                onClick={requestLogout}
               >
                 {t('common.logout')}
               </button>
             )}
+
+            <LogoutConfirmDialog
+              open={isLogoutConfirmOpen}
+              isPending={isLoggingOut}
+              onCancel={cancelLogout}
+              onConfirm={() => void confirmLogout()}
+            />
           </>
         ) : (
           <a
