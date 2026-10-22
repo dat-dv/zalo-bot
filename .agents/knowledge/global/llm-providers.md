@@ -72,7 +72,7 @@ Failure contract: providers never throw to callers; they return `{ text, failed:
 - `selectToolDefinitions(allowed)` returns an ordered subset; used by `edit <code>` to expose only the pending action's tool. Un-mentioned ZCA group messages never reach the LLM.
 - `edit <code>` re-prompts with only the pending action's own tool; a different tool name in the reply is ignored.
 - Free chat (`allowAiChat !== false`): tool prompt includes `CHIT_CHAT_INSTRUCTION`; a reply without tool calls is regenerated once with `tools = undefined` so the tool catalog does not bias it toward refusals (costs 2 LLM calls per chit-chat message). No real-time/web grounding: time-sensitive answers come from model knowledge with a staleness note.
-- Fast-path commands (`/start`, `/finance`, …) never reach the LLM.
+- Fast-path commands (`/help`, `/finance`, …) never reach the LLM.
 
 ## Shared context propagation
 

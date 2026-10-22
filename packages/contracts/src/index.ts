@@ -238,13 +238,6 @@ const messages = {
     'reminder.header.call': '📞 *CUỘC GỌI NHẮC NHỞ TỰ ĐỘNG (CALLME)!*',
     'reminder.done': '✅ Đã xong',
     'reminder.snooze': '⏳ Nhắc lại 15 phút',
-    'zalo.language.updated': '✅ Đã đổi ngôn ngữ sang Tiếng Việt.',
-    'zalo.language.choose': 'Chọn ngôn ngữ hiển thị:',
-    'zalo.reminders.empty': '⏰ Hiện bạn không có lời nhắc nào sắp tới.',
-    'zalo.reminders.fetchError': '⚠️ Không thể lấy danh sách lời nhắc: {error}',
-    'zalo.reminders.cancelButton': '🗑️ Hủy #{index}',
-    'zalo.reminders.refresh': '🔄 Làm mới',
-    'zalo.reminders.close': '❌ Đóng',
     'table.searchPlaceholder': 'Tìm kiếm nhanh...',
     'table.filter.all': 'Tất cả',
     'table.filter.receivable': 'Cho vay',
@@ -306,7 +299,7 @@ const messages = {
     'table.idModal.fullId': 'Mã định danh đầy đủ (ID)',
     'table.idModal.copyId': 'Sao chép ID',
     'table.idModal.copied': 'Đã sao chép!',
-    'table.idModal.agentPromptTitle': 'Mẫu câu lệnh nhanh cho AI Agent (zalo Bot)',
+    'table.idModal.agentPromptTitle': 'Mẫu câu lệnh nhanh cho AI Agent (Zalo Bot)',
     'table.idModal.agentPromptDesc':
       'Sao chép câu lệnh dưới đây và gửi vào bot để yêu cầu AI Agent thao tác chính xác bản ghi này.',
     'table.idModal.promptUpdate': 'Cập nhật bản ghi',
@@ -379,20 +372,20 @@ const messages = {
     'dashboard.columns.action': 'Hoạt động',
     'dashboard.columns.schedule': 'Thời gian',
     'dashboard.error.title': 'Không mở được trang',
-    'dashboard.error.desc': 'Phiên làm việc đã hết hạn. Hãy mở lại từ zalo bot.',
+    'dashboard.error.desc':
+      'Phiên làm việc đã hết hạn. Nhắn "dashboard" cho bot Zalo để nhận mã đăng nhập mới.',
     'auth.loggedOut.title': 'Đã đăng xuất thành công',
     'auth.loggedOut.desc':
-      'Phiên làm việc của bạn đã kết thúc an toàn. Hãy mở lại từ zalo bot để bắt đầu phiên mới.',
+      'Phiên làm việc của bạn đã kết thúc an toàn. Nhắn "dashboard" cho bot Zalo để nhận mã đăng nhập mới.',
     'auth.sessionExpired.title': 'Phiên làm việc đã hết hạn',
     'auth.sessionExpired.desc':
-      'Phiên truy cập đã hết hạn hoặc không tìm thấy thông tin đăng nhập. Hãy mở lại từ zalo bot.',
-    'auth.openzaloBot': 'Mở zalo Bot',
+      'Phiên truy cập đã hết hạn hoặc không tìm thấy thông tin đăng nhập. Nhắn "dashboard" cho bot Zalo để nhận mã đăng nhập mới.',
+    'auth.openZaloBot': 'Mở Zalo Bot',
     'auth.clearSessionAndRetry': 'Xóa phiên & Thử lại',
     'auth.backToAbout': 'Xem trang giới thiệu',
-    'auth.closeMiniApp': 'Đóng cửa sổ',
     'auth.accessCode.title': 'Đăng nhập bằng mã',
     'auth.accessCode.desc':
-      'Nhắn "dashboard" cho zalo bot, rồi nhập mã đăng nhập trong tin trả lời.',
+      'Nhắn "dashboard" cho bot Zalo, rồi nhập mã đăng nhập trong tin trả lời.',
     'auth.accessCode.label': 'Mã đăng nhập',
     'auth.accessCode.placeholder': 'VD: 12345678',
     'auth.accessCode.submit': 'Đăng nhập',
@@ -959,7 +952,7 @@ const messages = {
     'task.reminder.due': 'Hạn',
     'task.reminder.completeHint': 'Nhắn bot "xong {title}" để đánh dấu hoàn thành.',
     'reminders.title': 'Nhắc nhở',
-    'reminders.subtitle': 'Danh sách lời nhắc tự động qua zalo & Gọi điện',
+    'reminders.subtitle': 'Danh sách lời nhắc tự động qua Zalo & Gọi điện',
     'reminders.columns.notifyType': 'Hình thức',
     'reminders.columns.repeatType': 'Lặp lại',
     'reminders.actions.edit': 'Sửa',
@@ -979,7 +972,7 @@ const messages = {
     'reminders.placeholder.title': 'Nhập tiêu đề lời nhắc...',
     'reminders.actions.create': 'Thêm lời nhắc',
     'reminders.create.title': 'Thêm lời nhắc',
-    'reminders.create.description': 'Bot sẽ nhắc bạn qua zalo vào thời điểm đã chọn.',
+    'reminders.create.description': 'Bot sẽ nhắc bạn qua Zalo vào thời điểm đã chọn.',
     'reminders.create.remindAt': 'Thời điểm nhắc',
     'reminders.create.pastTime': 'Thời điểm nhắc phải ở tương lai.',
     'reminders.create.submit': 'Lưu lời nhắc',
@@ -1057,11 +1050,11 @@ const messages = {
     'public.about.navigation': 'Điều hướng thông tin',
     'public.about.privacy': 'Quyền riêng tư',
     'public.about.terms': 'Điều khoản',
-    'public.about.eyebrow': 'TRỢ LÝ CÁ NHÂN TRÊN zalo',
+    'public.about.eyebrow': 'TRỢ LÝ CÁ NHÂN TRÊN ZALO',
     'public.about.title': 'Quản lý kế hoạch và tài chính cá nhân, gọn trong một nơi.',
     'public.about.description':
       'zalobot giúp bạn ghi nhận thu chi, theo dõi công nợ, tạo lời nhắc và đồng bộ lịch trình hoặc việc cần làm với Google khi bạn lựa chọn kết nối.',
-    'public.about.zalo': 'Mở zalo để bắt đầu',
+    'public.about.openZalo': 'Mở Zalo để bắt đầu',
     'public.about.features': 'Tính năng zalobot',
     'public.about.financeTitle': 'Quản lý tài chính',
     'public.about.financeDescription':
@@ -1081,7 +1074,7 @@ const messages = {
       'zalobot tôn trọng quyền riêng tư của bạn. Chính sách này mô tả dữ liệu chúng tôi xử lý, lý do xử lý và các lựa chọn của bạn.',
     'public.privacy.dataTitle': '1. Dữ liệu chúng tôi xử lý',
     'public.privacy.dataDescription':
-      'Để vận hành bot, zalobot lưu zalo user ID, dữ liệu tài chính và kế hoạch do bạn nhập, cùng dữ liệu kỹ thuật cần thiết để duy trì dịch vụ.',
+      'Để vận hành bot, zalobot lưu ID người dùng Zalo, dữ liệu tài chính và kế hoạch do bạn nhập, cùng dữ liệu kỹ thuật cần thiết để duy trì dịch vụ.',
     'public.privacy.scopesIntro':
       'Khi bạn chủ động kết nối Google, chúng tôi chỉ yêu cầu các quyền sau:',
     'public.privacy.profileScope':
@@ -1114,7 +1107,7 @@ const messages = {
       'zalobot là công cụ hỗ trợ quản lý thông tin cá nhân, tài chính, lịch trình và việc cần làm. Dịch vụ không cung cấp tư vấn tài chính, pháp lý hoặc đầu tư chuyên nghiệp.',
     'public.terms.accountTitle': '3. Tài khoản và quyền truy cập',
     'public.terms.accountDescription':
-      'Bạn chịu trách nhiệm với các lệnh được gửi từ tài khoản zalo của mình. Kết nối Google là tự nguyện và có thể được thu hồi theo hướng dẫn tại Chính sách quyền riêng tư.',
+      'Bạn chịu trách nhiệm với các lệnh được gửi từ tài khoản Zalo của mình. Kết nối Google là tự nguyện và có thể được thu hồi theo hướng dẫn tại Chính sách quyền riêng tư.',
     'public.terms.legalTitle': '4. Sử dụng hợp pháp',
     'public.terms.legalDescription':
       'Bạn không được sử dụng zalobot để vi phạm pháp luật, xâm phạm quyền của người khác, can thiệp trái phép vào dịch vụ hoặc gây ảnh hưởng đến hoạt động của hệ thống.',
@@ -1350,13 +1343,6 @@ const messages = {
     'reminder.header.call': '📞 *AUTOMATED REMINDER CALL (CALLME)!*',
     'reminder.done': '✅ Done',
     'reminder.snooze': '⏳ Remind me in 15 minutes',
-    'zalo.language.updated': '✅ Language changed to English.',
-    'zalo.language.choose': 'Choose your display language:',
-    'zalo.reminders.empty': '⏰ You have no upcoming reminders.',
-    'zalo.reminders.fetchError': '⚠️ Unable to fetch reminders: {error}',
-    'zalo.reminders.cancelButton': '🗑️ Cancel #{index}',
-    'zalo.reminders.refresh': '🔄 Refresh',
-    'zalo.reminders.close': '❌ Close',
     'table.searchPlaceholder': 'Quick search...',
     'table.filter.all': 'All',
     'table.filter.receivable': 'Lent',
@@ -1418,7 +1404,7 @@ const messages = {
     'table.idModal.fullId': 'Full Identifier (ID)',
     'table.idModal.copyId': 'Copy ID',
     'table.idModal.copied': 'Copied!',
-    'table.idModal.agentPromptTitle': 'Quick Prompt Templates for AI Agent (zalo Bot)',
+    'table.idModal.agentPromptTitle': 'Quick Prompt Templates for AI Agent (Zalo Bot)',
     'table.idModal.agentPromptDesc':
       'Copy the prompt below and send it to the bot to instruct the AI Agent on this exact record.',
     'table.idModal.promptUpdate': 'Update Record',
@@ -1491,20 +1477,20 @@ const messages = {
     'dashboard.columns.action': 'Action',
     'dashboard.columns.schedule': 'Schedule',
     'dashboard.error.title': 'Unable to load page',
-    'dashboard.error.desc': 'Session expired. Please open again from the zalo bot.',
+    'dashboard.error.desc':
+      'Session expired. Send "dashboard" to the Zalo bot to get a new sign-in code.',
     'auth.loggedOut.title': 'Logged out successfully',
     'auth.loggedOut.desc':
-      'Your session has ended securely. Please open again from the zalo bot to start a new session.',
+      'Your session has ended securely. Send "dashboard" to the Zalo bot to get a new sign-in code.',
     'auth.sessionExpired.title': 'Session expired',
     'auth.sessionExpired.desc':
-      'Your access session has expired or no credentials were found. Please open again from the zalo bot.',
-    'auth.openzaloBot': 'Open zalo Bot',
+      'Your access session has expired or no credentials were found. Send "dashboard" to the Zalo bot to get a new sign-in code.',
+    'auth.openZaloBot': 'Open Zalo Bot',
     'auth.clearSessionAndRetry': 'Clear session & retry',
     'auth.backToAbout': 'About zalobot',
-    'auth.closeMiniApp': 'Close window',
     'auth.accessCode.title': 'Sign in with a code',
     'auth.accessCode.desc':
-      'Send "dashboard" to the zalo bot, then enter the sign-in code from its reply.',
+      'Send "dashboard" to the Zalo bot, then enter the sign-in code from its reply.',
     'auth.accessCode.label': 'Sign-in code',
     'auth.accessCode.placeholder': 'e.g. 12345678',
     'auth.accessCode.submit': 'Sign in',
@@ -2074,7 +2060,7 @@ const messages = {
     'task.reminder.due': 'Due',
     'task.reminder.completeHint': 'Tell the bot "done {title}" to mark it complete.',
     'reminders.title': 'Reminders',
-    'reminders.subtitle': 'Automated reminders via zalo & Call',
+    'reminders.subtitle': 'Automated reminders via Zalo & Call',
     'reminders.columns.notifyType': 'Type',
     'reminders.columns.repeatType': 'Repeat',
     'reminders.actions.edit': 'Edit',
@@ -2094,7 +2080,7 @@ const messages = {
     'reminders.placeholder.title': 'Reminder title...',
     'reminders.actions.create': 'Add reminder',
     'reminders.create.title': 'Add a reminder',
-    'reminders.create.description': 'The bot reminds you on zalo at the chosen time.',
+    'reminders.create.description': 'The bot reminds you on Zalo at the chosen time.',
     'reminders.create.remindAt': 'Remind at',
     'reminders.create.pastTime': 'The reminder time must be in the future.',
     'reminders.create.submit': 'Save reminder',
@@ -2172,11 +2158,11 @@ const messages = {
     'public.about.navigation': 'Information navigation',
     'public.about.privacy': 'Privacy',
     'public.about.terms': 'Terms',
-    'public.about.eyebrow': 'YOUR PERSONAL zalo ASSISTANT',
+    'public.about.eyebrow': 'YOUR PERSONAL ZALO ASSISTANT',
     'public.about.title': 'Manage your personal finances and plans in one place.',
     'public.about.description':
       'zalobot helps you record income and expenses, track debts, create reminders, and sync your calendar or tasks with Google when you choose to connect.',
-    'public.about.zalo': 'Open zalo to get started',
+    'public.about.openZalo': 'Open Zalo to get started',
     'public.about.features': 'zalobot features',
     'public.about.financeTitle': 'Financial management',
     'public.about.financeDescription':
@@ -2196,7 +2182,7 @@ const messages = {
       'zalobot respects your privacy. This policy explains the data we process, why we process it, and your choices.',
     'public.privacy.dataTitle': '1. Data we process',
     'public.privacy.dataDescription':
-      'To operate the bot, zalobot stores your zalo user ID, finance and planning data you enter, and technical data required to run the service.',
+      'To operate the bot, zalobot stores your Zalo user ID, finance and planning data you enter, and technical data required to run the service.',
     'public.privacy.scopesIntro':
       'When you choose to connect Google, we request only the following permissions:',
     'public.privacy.profileScope':
@@ -2229,7 +2215,7 @@ const messages = {
       'zalobot is a tool for managing personal information, finances, schedules, and tasks. It does not provide professional financial, legal, or investment advice.',
     'public.terms.accountTitle': '3. Account and access',
     'public.terms.accountDescription':
-      'You are responsible for commands sent from your zalo account. Connecting Google is optional and can be revoked as described in the Privacy Policy.',
+      'You are responsible for commands sent from your Zalo account. Connecting Google is optional and can be revoked as described in the Privacy Policy.',
     'public.terms.legalTitle': '4. Lawful use',
     'public.terms.legalDescription':
       'You may not use zalobot to violate the law, infringe others’ rights, interfere with the service, or harm system operations.',

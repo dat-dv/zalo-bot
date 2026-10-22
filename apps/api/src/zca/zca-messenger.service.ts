@@ -2,8 +2,6 @@ import { Injectable, Logger, Optional, Inject, forwardRef } from '@nestjs/common
 import { ZcaService } from './zca.service';
 import { splitMessage } from '../common/utils/message-splitter.util';
 
-export type ChatAction = 'typing' | 'upload_photo';
-
 /** A tag inside an outgoing message, as `zca-js` expects it. */
 export interface MessageMention {
   pos: number;
@@ -220,11 +218,8 @@ export class ZcaMessengerService {
     return res.success;
   }
 
-  /** ZCA has a single "typing" indicator, so every action shows as typing. */
-  public async sendChatAction(
-    chatId: string | number,
-    _action: ChatAction = 'typing',
-  ): Promise<boolean> {
+  /** Shows the "typing" indicator once; ZCA has no other chat action. */
+  public async sendTyping(chatId: string | number): Promise<boolean> {
     const targetChatId = String(chatId);
     if (!this.zcaService?.isLoggedIn()) {
       return false;
@@ -243,26 +238,22 @@ export class ZcaMessengerService {
   }
 
   /**
-   * Starts a heartbeat sending chat action every intervalMs (default 4000ms),
+   * Starts a heartbeat sending "typing" every intervalMs (default 4000ms),
    * returning an idempotent cleanup function to stop the timer safely.
    */
-  public startChatAction(
-    chatId: string | number,
-    action: ChatAction = 'typing',
-    intervalMs = 4000,
-  ): () => void {
+  public startTyping(chatId: string | number, intervalMs = 4000): () => void {
     const targetChatId = String(chatId);
     let isStopped = false;
 
     // Send immediately without awaiting
-    void this.sendChatAction(targetChatId, action);
+    void this.sendTyping(targetChatId);
 
     const timer = setInterval(() => {
       if (isStopped) {
         clearInterval(timer);
         return;
       }
-      void this.sendChatAction(targetChatId, action);
+      void this.sendTyping(targetChatId);
     }, intervalMs);
 
     return () => {
@@ -274,19 +265,15 @@ export class ZcaMessengerService {
   }
 
   /**
-   * Executes an async operation while maintaining the chat action (e.g. typing) indicator,
+   * Executes an async operation while maintaining the "typing" indicator,
    * guaranteeing timer cleanup in the finally block so background tasks are never hanging.
    */
-  public async withChatAction<T>(
-    chatId: string | number,
-    fn: () => Promise<T>,
-    action: ChatAction = 'typing',
-  ): Promise<T> {
-    const stopAction = this.startChatAction(chatId, action);
+  public async withTyping<T>(chatId: string | number, fn: () => Promise<T>): Promise<T> {
+    const stopTyping = this.startTyping(chatId);
     try {
       return await fn();
     } finally {
-      stopAction();
+      stopTyping();
     }
   }
 }

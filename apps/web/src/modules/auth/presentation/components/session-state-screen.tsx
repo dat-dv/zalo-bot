@@ -2,7 +2,6 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import { APP_ROUTES } from '@zalobot/contracts';
 import { clearAccessToken } from '@/modules/auth/client/auth-storage';
 import { AccessCodeForm } from './access-code-form';
@@ -16,29 +15,9 @@ interface SessionStateScreenProps {
   onRetry?: () => void;
 }
 
-interface ZaloWebApp {
-  close?: () => void;
-  openzaloLink?: (url: string) => void;
-}
-
-function getzaloWebApp(): ZaloWebApp | undefined {
-  if (typeof window === 'undefined') return undefined;
-  const tg = (window as unknown as { zalo?: { WebApp?: ZaloWebApp } }).zalo;
-  return tg?.WebApp;
-}
-
 export function SessionStateScreen({ reason = 'expired', onRetry }: SessionStateScreenProps) {
   const { t } = useLocale();
   const queryClient = useQueryClient();
-  const [isInsidezalo, setIsInsidezalo] = useState(false);
-
-  useEffect(() => {
-    const webApp = getzaloWebApp();
-    if (webApp && typeof webApp.close === 'function') {
-      setIsInsidezalo(true);
-    }
-  }, []);
-
   const handleClearAndRetry = () => {
     clearAccessToken();
     queryClient.clear();
@@ -53,13 +32,6 @@ export function SessionStateScreen({ reason = 'expired', onRetry }: SessionState
       onRetry();
     } else {
       window.location.assign(APP_ROUTES.home);
-    }
-  };
-
-  const handleCloseMiniApp = () => {
-    const webApp = getzaloWebApp();
-    if (webApp?.close) {
-      webApp.close();
     }
   };
 
@@ -100,18 +72,8 @@ export function SessionStateScreen({ reason = 'expired', onRetry }: SessionState
               className="inline-flex w-full min-h-[42px] items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500"
             >
               <span>🤖</span>
-              <span>{t('auth.openzaloBot')}</span>
+              <span>{t('auth.openZaloBot')}</span>
             </a>
-
-            {isInsidezalo && (
-              <button
-                type="button"
-                onClick={handleCloseMiniApp}
-                className="inline-flex w-full min-h-[38px] items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-              >
-                {t('auth.closeMiniApp')}
-              </button>
-            )}
 
             <button
               type="button"

@@ -18,7 +18,7 @@ function createHarness(options: { lines?: MemoryLine[]; answer?: string }) {
       sent.push(msg);
       return Promise.resolve();
     },
-    withChatAction: <T>(_chatId: string, fn: () => Promise<T>) => fn(),
+    withTyping: <T>(_chatId: string, fn: () => Promise<T>) => fn(),
   } as unknown as ZcaMessengerService;
   const llmService = {
     generate: (prompt: string) => {

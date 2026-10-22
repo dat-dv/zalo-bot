@@ -43,7 +43,6 @@ Dashboard không có màn hình đăng nhập. Người dùng mở dashboard b�
   - **Mở Zalo Bot**: chỉ mở Zalo, không vào thẳng cuộc chat với bot. Dùng helper chung `shared/zalo/zalo-app-link.ts` (hằng `ZALO_LINKS`). Bấm thường thì web thử mở **app Zalo** bằng `zalo://` (màn hình chính của app). Nếu sau 1,5 giây trang vẫn đang hiển thị (không có `blur`, `pagehide` hay tab bị ẩn), nghĩa là máy không có app nhận link, web mở **Zalo Web** `https://chat.zalo.me` ở tab mới; nếu trình duyệt chặn popup thì chuyển luôn tab hiện tại. `href` của nút là `https://chat.zalo.me` nên bấm chuột giữa, Ctrl/Cmd+click hoặc không có JS vẫn vào thẳng Zalo Web.
     - Lý do không dùng `zalo.me`: trên desktop và trong PWA đã cài, link này chỉ mở trang web zalo.me chứ không mở app.
     - Không có biến môi trường nào cấu hình link này; các biến cũ `NEXT_PUBLIC_ZALO_BOT_URL` / `NEXT_PUBLIC_ZALO_BOT_USERNAME` không còn được đọc.
-  - **Đóng mini app**: chỉ hiện khi tồn tại `window.zalo.WebApp.close`. Đây là phần còn sót từ tích hợp mini-app trước đây; Zalo hiện không cung cấp biến toàn cục này nên thực tế nút gần như không bao giờ xuất hiện.
   - **Xoá phiên & thử lại**: xoá token, xoá cache query, xoá `sessionStorage`, rồi gọi `onRetry()` nếu có, nếu không thì về trang `/`.
   - Link về trang Giới thiệu (`APP_ROUTES.about`).
 

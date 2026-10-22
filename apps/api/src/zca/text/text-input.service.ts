@@ -72,6 +72,8 @@ export class TextInputService {
         this.toolFactory,
         this.ocrService,
         this.mediaStorageService,
+        undefined,
+        this.zcaMessenger,
       );
       this.pendingImageDispatcher = new PendingImageActionDispatcher(
         cancelStrategy,
@@ -146,7 +148,7 @@ export class TextInputService {
       return;
     }
 
-    // 2. Fast-path for deterministic commands (/start, /help, /echo, /ping, /reset)
+    // 2. Fast-path for deterministic commands (/gioithieu, /help, /echo, /ping, /reset)
     const fastPath = this.toolFactory.resolveFastPathToolType(text);
     if (fastPath) {
       const strategy = this.toolFactory.getStrategy(fastPath);
@@ -198,7 +200,7 @@ export class TextInputService {
       recentContext;
 
     try {
-      const response = await this.zcaMessenger.withChatAction(chatId, () =>
+      const response = await this.zcaMessenger.withTyping(chatId, () =>
         this.llmService.generate(
           text,
           textToolDefinitionsFor({ longTermMemory: Boolean(input.longTermMemory) }),
@@ -269,7 +271,7 @@ export class TextInputService {
 
       // A tool-free second pass answers without the tool catalog biasing the reply toward refusals;
       // the first pass text stays as fallback.
-      const chitChatReply = await this.zcaMessenger.withChatAction(chatId, () =>
+      const chitChatReply = await this.zcaMessenger.withTyping(chatId, () =>
         this.generateChitChatReply(text, dtContext.systemInstructionSnippet + recentContext),
       );
 
@@ -356,7 +358,7 @@ export class TextInputService {
       `- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object.`;
 
     try {
-      const response = await this.zcaMessenger.withChatAction(chatId, () =>
+      const response = await this.zcaMessenger.withTyping(chatId, () =>
         this.llmService.generate(prompt, selectToolDefinitions([editTool]), systemInstruction),
       );
 

@@ -3,6 +3,7 @@
 import { APP_ROUTES } from '@zalobot/contracts';
 import Link from 'next/link';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BrandMark } from '@/shared/ui/brand-mark';
 
 export default function TermsPage() {
   const { t } = useLocale();
@@ -15,12 +16,7 @@ export default function TermsPage() {
           className="inline-flex items-center gap-2 text-lg font-extrabold text-slate-900 no-underline"
           href={APP_ROUTES.about}
         >
-          <span
-            className="inline-flex size-7 items-center justify-center rounded-[5px] bg-slate-900 text-[11px] text-white"
-            aria-hidden="true"
-          >
-            TB
-          </span>{' '}
+          <BrandMark />
           {t('public.brand')}
         </Link>
         <Link className="text-blue-700 no-underline hover:underline" href={APP_ROUTES.privacy}>

@@ -63,7 +63,7 @@ export class SearchChatHistoryToolStrategy implements TextToolStrategy {
 
     let lines: MemoryLine[];
     try {
-      lines = await this.zcaMessenger.withChatAction(chatId, () =>
+      lines = await this.zcaMessenger.withTyping(chatId, () =>
         memory.search(chatId, {
           keywords: keywords || question,
           fromDate,
@@ -107,7 +107,7 @@ export class SearchChatHistoryToolStrategy implements TextToolStrategy {
       `Các đoạn tin nhắn liên quan${describeRange(fromDate, toDate)} (định dạng [ngày giờ] người gửi: nội dung):\n` +
       transcript;
 
-    const response = await this.zcaMessenger.withChatAction(chatId, () =>
+    const response = await this.zcaMessenger.withTyping(chatId, () =>
       this.llmService.generate(prompt, undefined, systemInstruction),
     );
     const answer = response.text?.trim();

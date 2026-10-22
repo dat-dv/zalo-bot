@@ -1,5 +1,6 @@
 import { Injectable, Logger, Optional, Inject, forwardRef } from '@nestjs/common';
 import { ZcaService } from '../../zca.service';
+import { ZcaMessengerService } from '../../zca-messenger.service';
 import { PendingImageActionService } from '../pending-image-action.service';
 import { LlmService } from '../../../llm/llm.service';
 import { OcrService } from '../../../ocr/ocr.service';
@@ -30,10 +31,6 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
       | {
           sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>;
           sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown>;
-          withChatAction?: (
-            chatId: string | number,
-            action: () => Promise<unknown>,
-          ) => Promise<unknown>;
         },
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
     @Optional() private readonly llmService?: LlmService,
@@ -41,6 +38,7 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
     @Optional() private readonly ocrService?: OcrService,
     @Optional() private readonly mediaStorageService?: MediaStorageService,
     @Optional() private readonly threadConfigService?: ThreadConfigService,
+    @Optional() private readonly zcaMessenger?: ZcaMessengerService,
   ) {}
 
   private async storageTarget(chatId: string | number): Promise<ChannelStorageTarget> {
@@ -148,18 +146,9 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
     try {
       const runner = () =>
         this.llmService.generate(prompt, ZALO_TOOL_DEFINITIONS, systemInstruction);
-      let response;
-      if (
-        this.zcaService &&
-        'withChatAction' in this.zcaService &&
-        typeof this.zcaService.withChatAction === 'function'
-      ) {
-        response = (await this.zcaService.withChatAction(context.chatId, runner)) as Awaited<
-          ReturnType<LlmService['generate']>
-        >;
-      } else {
-        response = await runner();
-      }
+      const response = this.zcaMessenger
+        ? await this.zcaMessenger.withTyping(context.chatId, runner)
+        : await runner();
 
       const toolCall = response.toolCall;
       if (toolCall && toolCall.name === (TextToolType.RECORD_TRANSACTION as string)) {

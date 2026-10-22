@@ -11,7 +11,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'zalobot — Trợ lý Cá nhân & Quản lý Tài chính',
     short_name: 'zalobot',
     description:
-      'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp zalo Bot.',
+      'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp Zalo Bot.',
     lang: 'vi',
     dir: 'ltr',
     start_url: APP_ROUTES.home,

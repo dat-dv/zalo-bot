@@ -3,6 +3,8 @@
 import { APP_ROUTES } from '@zalobot/contracts';
 import Link from 'next/link';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BrandMark } from '@/shared/ui/brand-mark';
+import { handleZaloLinkClick, ZALO_LINKS } from '@/shared/zalo/zalo-app-link';
 
 export default function AboutPage() {
   const { t } = useLocale();
@@ -16,12 +18,7 @@ export default function AboutPage() {
           href={APP_ROUTES.about}
           aria-label={t('public.brand')}
         >
-          <span
-            className="inline-flex size-7 items-center justify-center rounded-[5px] bg-slate-900 text-[11px] text-white"
-            aria-hidden="true"
-          >
-            TB
-          </span>{' '}
+          <BrandMark />
           {t('public.brand')}
         </Link>
         <nav
@@ -45,11 +42,12 @@ export default function AboutPage() {
         </p>
         <a
           className="mt-[18px] inline-flex rounded-md bg-slate-900 px-[18px] py-[13px] font-bold text-white no-underline hover:bg-slate-800"
-          href="https://t.me"
+          href={ZALO_LINKS.WEB}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
+          onClick={handleZaloLinkClick}
         >
-          {t('public.about.zalo')}
+          {t('public.about.openZalo')}
         </a>
       </section>
 

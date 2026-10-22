@@ -6,6 +6,7 @@ metadata:
     depends_on:
       - apps/web/app/manifest.ts
       - apps/web/public/icon.svg
+      - apps/web/src/shared/ui/brand-mark.tsx
       - apps/web/public/icon-maskable.svg
       - apps/web/public/favicon.svg
       - apps/web/public/og-image.svg
@@ -37,7 +38,7 @@ The dashboard can be installed on the phone home screen and opened full screen l
 - `id`/`start_url`/`scope` = `APP_ROUTES.home`. Never change `id`: browsers would treat it as a different app.
 - `display: standalone`, `orientation: portrait-primary`, `lang: vi`, colors match `layout.tsx` (`#0f172a` theme, `#090d16` background).
 - Icons: `icon-192.png`/`icon-512.png` (`any`), `icon-maskable-192.png`/`icon-maskable-512.png` (`maskable`: full-bleed background, mark scaled to 80% inside the safe zone), `icon.svg`.
-- Brand mark = monogram **Z** (one outline path, 80px strokes on a 512 grid, gradient `#38bdf8 → #2563eb → #4f46e5`, accent node top-right, dark gradient tile; replaced the leftover Telegram-era T on 2026-10-22). Hand-written SVG sources in `public/`: `icon.svg` (rounded tile → `icon-192/512.png`), `icon-maskable.svg` (full-bleed, mark at 80%; not in the manifest → `icon-maskable-192/512.png`, `apple-touch-icon.png` 180), `favicon.svg` (32px, same outline scaled → `favicon.ico` 16+32), `og-image.svg` (white Z monogram → `og-image.png` 1200×630). PNG/ICO are exported from these sources (sharp + ImageMagick, no build step); edit the SVG, re-export, never hand-edit the PNGs. Installed apps keep the old home-screen icon until re-added.
+- Brand mark = monogram **Z** (one outline path, 80px strokes on a 512 grid, gradient `#38bdf8 → #2563eb → #4f46e5`, accent node top-right, dark gradient tile; replaced the leftover Telegram-era T on 2026-10-22). `shared/ui/brand-mark.tsx` (`BrandMark`, 28px `icon.svg`) is the logo beside the brand name in the `/about`, `/privacy`, `/terms` headers (replaced the old "TB" text badge). Hand-written SVG sources in `public/`: `icon.svg` (rounded tile → `icon-192/512.png`), `icon-maskable.svg` (full-bleed, mark at 80%; not in the manifest → `icon-maskable-192/512.png`, `apple-touch-icon.png` 180), `favicon.svg` (32px, same outline scaled → `favicon.ico` 16+32), `og-image.svg` (white Z monogram → `og-image.png` 1200×630). PNG/ICO are exported from these sources (sharp + ImageMagick, no build step); edit the SVG, re-export, never hand-edit the PNGs. Installed apps keep the old home-screen icon until re-added.
 - Shortcuts (names from i18n `nav.*`, default locale): Transactions, Debts, Reminders.
 - iOS meta stays in `layout.tsx` (`appleWebApp`, `apple-touch-icon`, `viewportFit: 'cover'`).
 

@@ -13,13 +13,13 @@ export const metadata: Metadata = {
     template: '%s | zalobot',
   },
   description:
-    'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp zalo Bot.',
+    'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp Zalo Bot.',
   applicationName: 'zalobot',
   authors: [{ name: 'zalobot', url: 'https://bot.datintech.site/about' }],
   generator: 'Next.js',
   keywords: [
     'zalobot',
-    'zalo bot',
+    'Zalo bot',
     'quản lý tài chính',
     'thu chi',
     'công nợ',
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     siteName: 'zalobot',
     title: 'zalobot — Quản lý Tài chính & Kế hoạch Cá nhân',
     description:
-      'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp zalo Bot.',
+      'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp Zalo Bot.',
     images: [
       {
         url: '/og-image.png',
@@ -67,7 +67,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'zalobot — Quản lý Tài chính & Kế hoạch Cá nhân',
     description:
-      'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp zalo Bot.',
+      'Nền tảng quản lý chi tiêu, công nợ, lịch trình và ghi chú cá nhân thông minh tích hợp Zalo Bot.',
     images: ['/og-image.png'],
   },
   appleWebApp: {

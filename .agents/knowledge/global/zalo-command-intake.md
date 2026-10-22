@@ -24,7 +24,7 @@ The bot has one channel: the bot's **personal Zalo account (ZCA, `zca-js`)** —
 - QR login on the dashboard `/zca` page or `/zlogin` (admin). Per-thread config `zca_thread_configs`; direct-interaction defaults `enabled: false`, `triggerPrefixes: []`.
 - Group messages reach the AI only with an @mention or a thread prefix; 1-1 text always does; media without text is only backed up.
 - Access is checked once per addressed message: `InitialAdminBootstrapGuard` (first user becomes admin, only while no admin/granted user exists) -> `GrantAccessGuard` with a per-thread grant from `ThreadAccessService` (groups: `memberAccess` adds members on top of global access; see modules/zca/member-access.md) -> cooldown `UsersService.checkCooldown` (2 s per user, in-memory, admins exempt) -> `TextInputService`. Reactions go to `TransactionConfirmationService.handleReaction`.
-- Outgoing text goes through `ZcaMessengerService` (ZCA only; replies over 1900 chars are split, 300 ms apart; typing indicator = ZCA `sendTypingEvent`). With ZCA logged out, sends fail softly and the dashboard is reached with `DASHBOARD_LOGIN_CODE` (see [Dashboard Session](dashboard-session.md)).
+- Outgoing text goes through `ZcaMessengerService` (ZCA only; replies over 1900 chars are split, 300 ms apart; typing indicator = ZCA `sendTypingEvent`, the only chat action ZCA has, via `sendTyping` / `startTyping` / `withTyping`, also wrapped around the receipt-image bill LLM call). With ZCA logged out, sends fail softly and the dashboard is reached with `DASHBOARD_LOGIN_CODE` (see [Dashboard Session](dashboard-session.md)).
 
 ## TextInputService order
 
@@ -40,7 +40,7 @@ Match = exact command or command followed by a space, unless noted. Admin = hand
 
 | Command / aliases | Tool type | Behavior |
 | --- | --- | --- |
-| `/start`, `start` | `START` | Welcome message (admin badge). |
+| `/gioithieu`, `giới thiệu`, `gioi thieu` | `WELCOME` | Welcome message (admin badge). Telegram-era `/start` was removed; it now goes to the LLM like other text. |
 | `/help`, `help`, `trợ giúp`, `tro giup`, `hướng dẫn`, `huong dan` | `HELP` | Help text. |
 | `/echo…` (prefix) | `ECHO` | Echoes text. |
 | `/ping` | `PING` | Liveness reply. |

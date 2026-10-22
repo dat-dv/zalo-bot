@@ -42,6 +42,7 @@ export class HelpToolStrategy implements TextToolStrategy {
       `• /share <email> (hoặc @bot share <email>) - Cấp quyền truy cập Drive cho thành viên\n\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `⚡ LỆNH NHANH (FAST-PATH SHORTCUTS):\n` +
+      `• /gioithieu (hoặc "giới thiệu") - Lời chào & giới thiệu bot\n` +
       `• /today - Lịch hẹn & việc cần làm hôm nay\n` +
       `• /week - Kế hoạch lịch trình & công việc 7 ngày tới\n` +
       `• /tasks - Danh sách việc cần làm\n` +

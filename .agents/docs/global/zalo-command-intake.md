@@ -24,7 +24,7 @@ Bot chỉ còn **một kênh** là tài khoản Zalo cá nhân của bot qua ZCA
   2. `GrantAccessGuard` kèm quyền theo kênh từ `ThreadAccessService`: admin, người được cấp quyền toàn cục, và trong nhóm thì thêm mọi thành viên hoặc thành viên được chọn (xem `modules/zca/member-access.md`).
   3. Chống spam `UsersService.checkCooldown`: mỗi người phải cách nhau 2 giây (admin được miễn; đếm trong bộ nhớ tiến trình).
   4. Chuyển cho `TextInputService`. Thả cảm xúc được chuyển cho `TransactionConfirmationService.handleReaction`.
-- Tin bot gửi đi qua `ZcaMessengerService` (chỉ dùng ZCA): câu trả lời dài hơn 1900 ký tự được chia thành nhiều tin cách nhau 300 ms, hiệu ứng "đang soạn tin" dùng `sendTypingEvent` của ZCA. Khi ZCA chưa đăng nhập thì bot không gửi được tin nào — lúc đó vào dashboard bằng `DASHBOARD_LOGIN_CODE` để quét lại QR (xem [Phiên dashboard](dashboard-session.md)).
+- Tin bot gửi đi qua `ZcaMessengerService` (chỉ dùng ZCA): câu trả lời dài hơn 1900 ký tự được chia thành nhiều tin cách nhau 300 ms, hiệu ứng "đang soạn tin" dùng `sendTypingEvent` của ZCA (`withTyping`). ZCA chỉ có một tín hiệu này nên không còn khái niệm "chat action" kiểu Telegram; luồng tạo hoá đơn từ ảnh cũng hiện "đang soạn tin" trong lúc AI đọc hoá đơn. Khi ZCA chưa đăng nhập thì bot không gửi được tin nào — lúc đó vào dashboard bằng `DASHBOARD_LOGIN_CODE` để quét lại QR (xem [Phiên dashboard](dashboard-session.md)).
 
 ## 2. Thứ tự xử lý trong `TextInputService`
 
@@ -45,7 +45,7 @@ Bot chỉ còn **một kênh** là tài khoản Zalo cá nhân của bot qua ZCA
 
 | Lệnh / bí danh | Tác dụng |
 | --- | --- |
-| `/start`, `start` | Lời chào (hiện huy hiệu admin nếu có) |
+| `/gioithieu`, `giới thiệu`, `gioi thieu` | Lời chào (hiện huy hiệu admin nếu có). `/start` của thời Telegram đã bỏ: Zalo không tự gửi lệnh này khi mở chat, nên giờ nó đi vào LLM như tin thường |
 | `/help`, `help`, `trợ giúp`, `hướng dẫn` | Hướng dẫn sử dụng |
 | `/echo <nội dung>` | Lặp lại nội dung |
 | `/ping` | Kiểm tra bot còn sống |

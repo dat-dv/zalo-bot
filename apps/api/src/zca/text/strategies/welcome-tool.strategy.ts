@@ -6,9 +6,9 @@ import { UsersService } from '../../../users/users.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
 
 @Injectable()
-export class StartToolStrategy implements TextToolStrategy {
-  public readonly type = TextToolType.START;
-  private readonly logger = new Logger(StartToolStrategy.name);
+export class WelcomeToolStrategy implements TextToolStrategy {
+  public readonly type = TextToolType.WELCOME;
+  private readonly logger = new Logger(WelcomeToolStrategy.name);
 
   constructor(
     private readonly zcaMessenger: ZcaMessengerService,

@@ -9,7 +9,7 @@ function createDummyStrategy(type: TextToolType) {
 
 function createFactory(): TextToolFactory {
   return new TextToolFactory(
-    createDummyStrategy(TextToolType.START),
+    createDummyStrategy(TextToolType.WELCOME),
     createDummyStrategy(TextToolType.HELP),
     createDummyStrategy(TextToolType.ECHO),
     createDummyStrategy(TextToolType.PING),
@@ -51,8 +51,13 @@ function createFactory(): TextToolFactory {
 void test('TextToolFactory resolves tool types by enum correctly', () => {
   const factory = createFactory();
 
-  assert.equal(factory.resolveFastPathToolType('/start'), TextToolType.START);
-  assert.equal(factory.resolveFastPathToolType('/start 123'), TextToolType.START);
+  assert.equal(factory.resolveFastPathToolType('/gioithieu'), TextToolType.WELCOME);
+  assert.equal(factory.resolveFastPathToolType('/gioithieu 123'), TextToolType.WELCOME);
+  assert.equal(factory.resolveFastPathToolType('giới thiệu'), TextToolType.WELCOME);
+  assert.equal(factory.resolveFastPathToolType('gioi thieu'), TextToolType.WELCOME);
+  // Telegram's /start is gone; it now falls through to the LLM like any other text.
+  assert.equal(factory.resolveFastPathToolType('/start'), null);
+  assert.equal(factory.resolveFastPathToolType('start'), null);
   assert.equal(factory.resolveFastPathToolType('/help'), TextToolType.HELP);
   assert.equal(factory.resolveFastPathToolType('help'), TextToolType.HELP);
   assert.equal(factory.resolveFastPathToolType('trợ giúp'), TextToolType.HELP);

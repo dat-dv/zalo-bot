@@ -84,7 +84,7 @@ Quy tắc an toàn:
 - **Nhóm chat thụ động** (không ai nhắc bot): LLM chỉ thấy tool thu–chi (`RECORD_TRANSACTION`, `MANAGE_DEBT`) và/hoặc lịch (`CREATE_CALENDAR_EVENT`, `SET_REMINDER`) theo cấu hình thread; không có tool nào được bật thì bỏ qua LLM. Nhờ vậy người lạ trong nhóm không thể gọi tool quản trị hay lấy link lưu trữ.
 - **`edit <mã>`**: LLM chỉ được gọi lại đúng tool của thẻ đang chờ.
 - **Trò chuyện tự do** (`allowAiChat` khác `false`, không ở chế độ thụ động): prompt có thêm đoạn cho phép trả lời câu hỏi tổng quát. Khi LLM không gọi tool, hệ thống gọi lại một lần với `tools = undefined` để danh sách tool không kéo câu trả lời về hướng từ chối. Chi tiết ở [Tiếp nhận lệnh Zalo](zalo-command-intake.md).
-- Lệnh nhanh (`/start`, `/finance`...) không bao giờ đi qua LLM.
+- Lệnh nhanh (`/help`, `/finance`...) không bao giờ đi qua LLM.
 
 ## 5. Nhiều hành động trong một câu
 

@@ -321,7 +321,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
             rel="noopener noreferrer"
             onClick={handleZaloLinkClick}
           >
-            {t('auth.openzaloBot')}
+            {t('auth.openZaloBot')}
           </a>
         )}
       </header>

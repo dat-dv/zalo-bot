@@ -38,7 +38,6 @@
 - Callers: `DashboardHomeScreen` (`logged_out` when `?status=logged_out`, `expired` on query error), `TransactionsScreen` and `AnalyticsScreen` (`expired` on dashboard query error).
 - Actions:
   - Open Zalo Bot: shared helper `shared/zalo/zalo-app-link.ts` (`handleZaloLinkClick`, constants `ZALO_LINKS`). It only opens Zalo, never a specific chat with the bot. A plain click navigates to `zalo://` (Zalo app home); if the page is still visible after 1.5 s (no `blur` / `pagehide` / `visibilitychange` → hidden), it opens `https://chat.zalo.me` in a new tab, or in the same tab when the popup is blocked. The `<a href>` is `https://chat.zalo.me`, so middle/modified clicks and no-JS open Zalo Web directly. `zalo.me` is never used: on desktop and in the installed PWA it only shows the zalo.me web page. No env configures these links (old `NEXT_PUBLIC_ZALO_BOT_URL` / `_USERNAME` are no longer read).
-  - Close mini app: rendered only when `window.zalo.WebApp.close` exists (leftover from an earlier mini-app integration; Zalo does not inject this global today, so the button normally never shows).
   - Clear session & retry: `clearAccessToken()`, `queryClient.clear()`, `sessionStorage.clear()`, then `onRetry()` if provided, else `window.location.assign('/')`.
   - Link to `APP_ROUTES.about`.
 

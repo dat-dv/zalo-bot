@@ -6,7 +6,7 @@ void test('cleanBotMention removes @Bot at the beginning of sentence (Trường 
   assert.equal(cleanBotMention('@Bot /dashboard'), '/dashboard');
   assert.equal(cleanBotMention('@bot /dashboard'), '/dashboard');
   assert.equal(cleanBotMention('@BOT /help'), '/help');
-  assert.equal(cleanBotMention('@Bot: /start 123'), '/start 123');
+  assert.equal(cleanBotMention('@Bot: /help 123'), '/help 123');
   assert.equal(cleanBotMention('@Bot, nợ a 100k'), 'nợ a 100k');
   assert.equal(cleanBotMention('@Bot hôm nay chi 50k ăn phở'), 'hôm nay chi 50k ăn phở');
 });

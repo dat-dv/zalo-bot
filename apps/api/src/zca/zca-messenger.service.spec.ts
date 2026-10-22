@@ -60,7 +60,7 @@ void test('ZcaMessengerService sendMessage splits messages longer than 1900 char
   assert.ok(sent.every((message) => message.threadId === 'user_123'));
 });
 
-void test('ZcaMessengerService sendChatAction sends a ZCA typing event to the resolved thread type', async () => {
+void test('ZcaMessengerService sendTyping sends a ZCA typing event to the resolved thread type', async () => {
   const typing: Array<{ threadId: string; type: number }> = [];
   const service = new ZcaMessengerService({
     isLoggedIn: () => true,
@@ -71,16 +71,16 @@ void test('ZcaMessengerService sendChatAction sends a ZCA typing event to the re
     },
   } as never);
 
-  assert.equal(await service.sendChatAction('group_1', 'typing'), true);
+  assert.equal(await service.sendTyping('group_1'), true);
   assert.deepEqual(typing, [{ threadId: 'group_1', type: 1 }]);
 });
 
-void test('ZcaMessengerService sendChatAction is a no-op when ZCA is logged out', async () => {
+void test('ZcaMessengerService sendTyping is a no-op when ZCA is logged out', async () => {
   const service = new ZcaMessengerService({ isLoggedIn: () => false } as never);
-  assert.equal(await service.sendChatAction('user_1'), false);
+  assert.equal(await service.sendTyping('user_1'), false);
 });
 
-void test('ZcaMessengerService withChatAction cleans up the typing timer on completion and error', async () => {
+void test('ZcaMessengerService withTyping cleans up the typing timer on completion and error', async () => {
   let typingCount = 0;
   const service = new ZcaMessengerService({
     isLoggedIn: () => true,
@@ -91,12 +91,12 @@ void test('ZcaMessengerService withChatAction cleans up the typing timer on comp
     },
   } as never);
 
-  const result = await service.withChatAction('user_999', () => Promise.resolve('done'));
+  const result = await service.withTyping('user_999', () => Promise.resolve('done'));
   assert.equal(result, 'done');
   assert.ok(typingCount >= 1);
 
   await assert.rejects(
-    () => service.withChatAction('user_999', () => Promise.reject(new Error('Simulation error'))),
+    () => service.withTyping('user_999', () => Promise.reject(new Error('Simulation error'))),
     { message: 'Simulation error' },
   );
 });

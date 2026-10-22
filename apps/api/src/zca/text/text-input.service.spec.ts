@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { TextInputService } from './text-input.service';
 import { TextToolFactory } from './text-tool.factory';
 import { TextToolType } from './text-tool.enum';
-import { StartToolStrategy } from './strategies/start-tool.strategy';
+import { WelcomeToolStrategy } from './strategies/welcome-tool.strategy';
 import { HelpToolStrategy } from './strategies/help-tool.strategy';
 import { EchoToolStrategy } from './strategies/echo-tool.strategy';
 import { PingToolStrategy } from './strategies/ping-tool.strategy';
@@ -51,9 +51,9 @@ function createTextInputService(options?: SetupOptions) {
       sentMessages.push({ chatId, text });
       return Promise.resolve(true);
     },
-    sendChatAction: () => Promise.resolve(true),
-    startChatAction: () => () => {},
-    withChatAction: <T>(_chatId: string | number, fn: () => Promise<T>) => fn(),
+    sendTyping: () => Promise.resolve(true),
+    startTyping: () => () => {},
+    withTyping: <T>(_chatId: string | number, fn: () => Promise<T>) => fn(),
   } as unknown as ZcaMessengerService;
 
   const _mockUsersService = {
@@ -162,7 +162,7 @@ function createTextInputService(options?: SetupOptions) {
     },
   } as unknown as LlmService;
 
-  const startStrategy = new StartToolStrategy(mockZaloService);
+  const welcomeStrategy = new WelcomeToolStrategy(mockZaloService);
   const helpStrategy = new HelpToolStrategy(mockZaloService);
   const echoStrategy = new EchoToolStrategy(mockZaloService);
   const pingStrategy = new PingToolStrategy(mockZaloService);
@@ -191,7 +191,7 @@ function createTextInputService(options?: SetupOptions) {
   );
 
   const factory = new TextToolFactory(
-    startStrategy,
+    welcomeStrategy,
     helpStrategy,
     echoStrategy,
     pingStrategy,
@@ -252,13 +252,13 @@ function createTextInputService(options?: SetupOptions) {
 void test('TextInputService routes commands to tool strategies without calling LLM', async () => {
   const { service, sentMessages, getLlmCallCount, factory } = createTextInputService();
 
-  // 1. /start
+  // 1. /gioithieu
   await service.process({
     type: 'text',
     senderId: 'u1',
     chatId: 'c1',
     displayName: 'Đạt',
-    text: '/start',
+    text: '/gioithieu',
   });
   assert.equal(sentMessages.length, 1);
   assert.match(sentMessages[0].text, /Chào Đạt!/);

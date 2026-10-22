@@ -269,7 +269,7 @@ export function WorkspaceHeader({
             rel="noopener noreferrer"
             onClick={handleZaloLinkClick}
           >
-            <span>{t('auth.openzaloBot')}</span>
+            <span>{t('auth.openZaloBot')}</span>
           </a>
         )}
       </div>

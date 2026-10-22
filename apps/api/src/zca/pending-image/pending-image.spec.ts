@@ -29,7 +29,6 @@ function createMockSetup() {
       sentMessages.push({ chatId, text });
       return Promise.resolve(true);
     },
-    withChatAction: (_chatId: string, fn: () => Promise<unknown>) => fn(),
   } as unknown as ZcaService;
 
   const pendingStore = new Map<string, PendingImageAction>();

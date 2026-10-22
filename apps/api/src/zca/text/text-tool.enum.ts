@@ -1,6 +1,6 @@
 export enum TextToolType {
   // Commands (Fast path)
-  START = 'START',
+  WELCOME = 'WELCOME',
   HELP = 'HELP',
   ECHO = 'ECHO',
   PING = 'PING',

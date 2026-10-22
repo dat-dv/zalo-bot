@@ -1,5 +1,5 @@
 // Chat tool strategies, registered as providers so `TextToolFactory` can inject them.
-import { StartToolStrategy } from './strategies/start-tool.strategy';
+import { WelcomeToolStrategy } from './strategies/welcome-tool.strategy';
 import { HelpToolStrategy } from './strategies/help-tool.strategy';
 import { EchoToolStrategy } from './strategies/echo-tool.strategy';
 import { PingToolStrategy } from './strategies/ping-tool.strategy';
@@ -36,7 +36,7 @@ import { ShareDriveToolStrategy } from './strategies/share-drive-tool.strategy';
 import { SearchChatHistoryToolStrategy } from './strategies/search-chat-history-tool.strategy';
 
 export const TEXT_TOOL_STRATEGY_PROVIDERS = [
-  StartToolStrategy,
+  WelcomeToolStrategy,
   HelpToolStrategy,
   EchoToolStrategy,
   PingToolStrategy,

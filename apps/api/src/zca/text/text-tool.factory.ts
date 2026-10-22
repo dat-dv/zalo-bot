@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { cleanBotMention } from './bot-mention.util';
 import { TextToolType } from './text-tool.enum';
 import { TextToolStrategy } from './text-tool.interface';
-import { StartToolStrategy } from './strategies/start-tool.strategy';
+import { WelcomeToolStrategy } from './strategies/welcome-tool.strategy';
 import { HelpToolStrategy } from './strategies/help-tool.strategy';
 import { EchoToolStrategy } from './strategies/echo-tool.strategy';
 import { PingToolStrategy } from './strategies/ping-tool.strategy';
@@ -44,7 +44,7 @@ export class TextToolFactory {
   private readonly strategyMap = new Map<TextToolType, TextToolStrategy>();
 
   constructor(
-    startStrategy?: StartToolStrategy,
+    welcomeStrategy?: WelcomeToolStrategy,
     helpStrategy?: HelpToolStrategy,
     echoStrategy?: EchoToolStrategy,
     pingStrategy?: PingToolStrategy,
@@ -81,7 +81,7 @@ export class TextToolFactory {
     private readonly configService?: ConfigService,
     searchChatHistoryStrategy?: SearchChatHistoryToolStrategy,
   ) {
-    if (startStrategy) this.strategyMap.set(TextToolType.START, startStrategy);
+    if (welcomeStrategy) this.strategyMap.set(TextToolType.WELCOME, welcomeStrategy);
     if (helpStrategy) this.strategyMap.set(TextToolType.HELP, helpStrategy);
     if (echoStrategy) this.strategyMap.set(TextToolType.ECHO, echoStrategy);
     if (pingStrategy) this.strategyMap.set(TextToolType.PING, pingStrategy);
@@ -139,9 +139,14 @@ export class TextToolFactory {
     const trimmed = cleaned.trim();
     const lower = trimmed.toLowerCase();
 
-    // 1. /start
-    if (trimmed === '/start' || trimmed.startsWith('/start ') || lower === 'start') {
-      return TextToolType.START;
+    // 1. /gioithieu
+    if (
+      trimmed === '/gioithieu' ||
+      trimmed.startsWith('/gioithieu ') ||
+      lower === 'giới thiệu' ||
+      lower === 'gioi thieu'
+    ) {
+      return TextToolType.WELCOME;
     }
 
     // 2. /help
