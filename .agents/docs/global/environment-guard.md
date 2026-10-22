@@ -38,7 +38,7 @@ Danh sách bắt buộc nằm trong `apps/api/src/config/env.validator.ts`:
 
 ## Nguyên tắc giữ file env gọn
 
-File env chỉ chứa biến mà **giá trị là quyết định của người triển khai**: secret, domain, cổng hoặc công tắc khác mặc định. Biến trùng mặc định trong code, hoặc suy ra được từ biến khác (ví dụ `WEB_ORIGIN`, `ZALO_WEBHOOK_URL` suy từ `APP_URL`), không đưa vào env; khi cần đổi thì mới thêm dòng đó. Lý do: env dài toàn giá trị mặc định khiến người đọc không biết dòng nào thật sự quan trọng, và dễ sinh lỗi như gõ sai tên khoá mà không ai phát hiện.
+File env chỉ chứa biến mà **giá trị là quyết định của người triển khai**: secret, domain, cổng hoặc công tắc khác mặc định. Biến trùng mặc định trong code, hoặc suy ra được từ biến khác (ví dụ `WEB_ORIGIN`, `ZALO_WEBHOOK_URL` suy từ `APP_URL`), không đưa vào env; khi cần đổi thì mới thêm dòng đó. **Ngoại lệ**: `BE_PORT` và `DEFAULT_TIMEZONE` vẫn giữ trong env với giá trị mặc định. `docker-compose.yml` dùng dạng `${BE_PORT:-3005}`, nên Coolify tự tạo env cho 2 biến này và báo lỗi "Please remove it from the Docker Compose file first" khi xoá. Giữ trong env để file env khớp với những gì Coolify hiển thị. Lý do: env dài toàn giá trị mặc định khiến người đọc không biết dòng nào thật sự quan trọng, và dễ sinh lỗi như gõ sai tên khoá mà không ai phát hiện.
 
 Code không còn đọc tên cũ (alias): `BOT_TOKEN`, `WEBHOOK_URL`, `ZALO_BOT_NAME`, `ZCA_DATA_DIR`, `OLLAMA_*`, `PORT`, `GATEWAY_PORT`, `WEB_PORT`. Cờ `ZCA_AUTO_LOGIN` cũng đã bỏ: bot tự đăng nhập ZCA khi có phiên đã lưu hoặc có `ZCA_IMEI` + `ZCA_COOKIE` (xem [ZCA](../modules/zca/README.md)).
 

@@ -46,7 +46,7 @@ Enforcement: `main.ts` calls `validateEnvironment()` right after `loadEnvironmen
 
 ## Env File Policy
 
-An env file lists only keys whose value is a deployment decision (secrets, domain, non-default port/switch). Keys equal to a code default or derivable from another key stay out of `.env*`; code still reads them as overrides. No legacy alias names are read (removed: `BOT_TOKEN`, `WEBHOOK_URL`, `ZALO_BOT_NAME`, `ZCA_DATA_DIR`, `OLLAMA_*`, `PORT`, `GATEWAY_PORT`, `WEB_PORT`, `ZCA_AUTO_LOGIN`).
+An env file lists only keys whose value is a deployment decision (secrets, domain, non-default port/switch). Keys equal to a code default or derivable from another key stay out of `.env*`; code still reads them as overrides. Exception: `BE_PORT` and `DEFAULT_TIMEZONE` stay in `.env*` with their default values because `docker-compose.yml` interpolates them, so Coolify always lists them and refuses to delete them. No legacy alias names are read (removed: `BOT_TOKEN`, `WEBHOOK_URL`, `ZALO_BOT_NAME`, `ZCA_DATA_DIR`, `OLLAMA_*`, `PORT`, `GATEWAY_PORT`, `WEB_PORT`, `ZCA_AUTO_LOGIN`).
 
 ## Optional Values (`configuration.ts`)
 
