@@ -14,7 +14,12 @@ import {
 } from '../../api/places-query';
 import { CombinePlacesDialog } from './combine-places-dialog';
 import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
-import { MOBILE_TOOLBAR_ROW, TOAST_POSITION } from '@/shared/ui/touch';
+import {
+  MOBILE_TOOLBAR_ROW,
+  PHONE_CHIP,
+  PHONE_TOOLBAR_INPUT,
+  TOAST_POSITION,
+} from '@/shared/ui/touch';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 
 export function PlacesScreen() {
@@ -391,7 +396,7 @@ export function PlacesScreen() {
                   {isCompact && filteredPlaces.length > 0 && (
                     <button
                       type="button"
-                      className={`inline-flex h-6 min-h-6 shrink-0 whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                      className={`inline-flex h-6 min-h-6 shrink-0 whitespace-nowrap ${PHONE_CHIP} cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
                         isSelectMode
                           ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
                           : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
@@ -405,7 +410,7 @@ export function PlacesScreen() {
                   {showSelectionChips && filteredPlaces.length > 0 && (
                     <button
                       type="button"
-                      className={`inline-flex h-6 min-h-6 shrink-0 whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                      className={`inline-flex h-6 min-h-6 shrink-0 whitespace-nowrap ${PHONE_CHIP} cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
                         selectedIds.size === filteredPlaces.length
                           ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
                           : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
@@ -472,7 +477,7 @@ export function PlacesScreen() {
                 )}
                 <input
                   type="search"
-                  className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:h-10 max-[640px]:w-full"
+                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${PHONE_TOOLBAR_INPUT}`}
                   placeholder={t('table.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}

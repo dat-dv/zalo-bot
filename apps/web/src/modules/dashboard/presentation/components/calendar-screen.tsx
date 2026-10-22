@@ -35,9 +35,9 @@ import { CalendarTable } from './calendar-table';
 const UPCOMING_DAYS = 14;
 
 const NAV_BUTTON =
-  'inline-flex h-7 min-w-7 cursor-pointer items-center justify-center rounded-[3px] border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 max-[640px]:h-10 max-[640px]:min-w-10';
+  'inline-flex h-7 min-w-7 cursor-pointer items-center justify-center rounded-[3px] border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 max-[640px]:h-8 max-[640px]:min-w-8';
 const SEGMENT =
-  'inline-flex h-7 flex-1 cursor-pointer items-center justify-center rounded-[2px] px-3 text-xs font-medium whitespace-nowrap transition-colors max-[640px]:h-9';
+  'inline-flex h-7 flex-1 cursor-pointer items-center justify-center rounded-[2px] px-3 text-xs font-medium whitespace-nowrap transition-colors max-[640px]:h-7';
 
 /** Ticks once a minute so "happening now" and past styling stay current. */
 function useNow(): Date {
@@ -309,7 +309,7 @@ export function CalendarScreen() {
             {showSearchInput && (
               <input
                 type="search"
-                className="ml-auto h-7 w-52 rounded-[3px] border border-slate-300 bg-white px-2 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[960px]:ml-0 max-[640px]:h-10 max-[640px]:w-full max-[640px]:text-[15px]"
+                className="ml-auto h-7 w-52 rounded-[3px] border border-slate-300 bg-white px-2 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[960px]:ml-0 max-[640px]:h-9 max-[640px]:w-full max-[640px]:text-[15px]"
                 placeholder={t('table.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

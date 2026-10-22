@@ -9,6 +9,19 @@ export const TAP_CONTROL = 'max-[640px]:h-10 max-[640px]:min-h-10 max-[640px]:mi
 /** Text inputs and selects at phone width: 40px tall, full width. */
 export const TAP_INPUT = 'max-[640px]:h-10 max-[640px]:min-h-10 max-[640px]:w-full';
 
+/**
+ * Toolbar tier: filter chips, tabs and segmented buttons stay compact at phone width (32px)
+ * so a toolbar does not eat the first screen. Sheets, dialogs and forms keep `TAP_CONTROL`.
+ */
+export const PHONE_CHIP =
+  'max-[640px]:h-8 max-[640px]:min-h-8 max-[640px]:px-2.5 max-[640px]:text-[12px]';
+
+/** Icon-only toolbar buttons at phone width (‹ ›, column filter, clear search): 32×32. */
+export const PHONE_ICON_CHIP = 'max-[640px]:size-8 max-[640px]:min-h-8';
+
+/** Toolbar search inputs and selects at phone width: 36px, full width. */
+export const PHONE_TOOLBAR_INPUT = 'max-[640px]:h-9 max-[640px]:min-h-9 max-[640px]:w-full';
+
 /** Toolbar that keeps one sideways-scrolling row of chips on phones instead of stacking. */
 export const MOBILE_TOOLBAR_ROW =
   'max-[640px]:min-w-0 max-[640px]:max-w-full max-[640px]:flex-nowrap max-[640px]:overflow-x-auto max-[640px]:overscroll-x-contain';

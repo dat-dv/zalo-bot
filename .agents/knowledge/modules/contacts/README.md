@@ -29,7 +29,7 @@
 - Toolbar: Combine button when 2+ rows selected, select/deselect all, selected-count chip, search (displayName/alias/descriptor).
 - States: loading via `DataTable`, empty message, error banner with Retry (invalidates `['contacts']`), toast after save/combine (`TOAST_POSITION`).
 - **Compact (<= 960px)**: `DataTable` mobile list. Slots: primary `displayName (alias)` (prefixed `✓` while selected), trailing `phoneNumber` (there is no balance column), secondary linked account (`firstName (@username)`; `firstName` alone when the user has no username, never `@null`; `#<id prefix>` when unresolved) · resources (`N nợ · N giao dịch`). The `select` column is dropped on compact (its sheet row would read "Select all"); selecting for Combine is the sheet footer toggle `contacts.actions.select` / `contacts.actions.selected` (`aria-pressed`). Sheet footer also has `Hồ sơ` (link) and Edit; Edit turns the sheet rows into inputs and the footer into Save/✕ (double-click edit stays desktop-only in practice). With 2+ selected, Combine moves to `MobileActionBar` (toolbar copy `max-[960px]:hidden`).
-- **Phone (<= 640px) toolbar**: Sync / Combine / Select all / selected-count chips in one sideways-scrolling row (`MOBILE_TOOLBAR_ROW`, 40px chips), search on its own full-width 40px row. Suggestion panel ✕ and Link buttons are 40px.
+- **Phone (<= 640px) toolbar**: Sync / Combine / Select all / selected-count chips in one sideways-scrolling row (`MOBILE_TOOLBAR_ROW`, 32px `PHONE_CHIP`), search on its own full-width 36px row (`PHONE_TOOLBAR_INPUT`). Suggestion panel ✕ is 32×32 (`PHONE_ICON_CHIP`); Link buttons stay 40px.
 - `useDeleteContactMutation` exists but no delete action is rendered.
 
 ## Combine (`CombineContactsDialog`)

@@ -27,7 +27,7 @@ import {
   useUpdateReminderMutation,
 } from '@/modules/reminders/api/reminders-query';
 import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
-import { TOAST_POSITION } from '@/shared/ui/touch';
+import { PHONE_TOOLBAR_INPUT, TOAST_POSITION } from '@/shared/ui/touch';
 import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
 import { CreateReminderDialog } from './create-reminder-dialog';
 
@@ -223,7 +223,7 @@ export function RemindersScreen() {
                 </button>
                 <input
                   type="search"
-                  className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:h-10 max-[640px]:w-full"
+                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${PHONE_TOOLBAR_INPUT}`}
                   placeholder={t('table.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}

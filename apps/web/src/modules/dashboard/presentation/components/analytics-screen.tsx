@@ -16,10 +16,10 @@ import { CategoryDonutChart } from '@/shared/ui/charts/category-donut-chart';
 import { DebtStructureChart } from '@/shared/ui/charts/debt-structure-chart';
 import { Button } from '@/shared/ui/button';
 import { MetricGrid, MetricGridSkeleton, type MetricGridItem } from '@/shared/ui/metric-grid';
+import { PHONE_CHIP } from '@/shared/ui/touch';
 
-// Chart/Table toggle: 40px and sharing the row on phones.
-const PHONE_TOGGLE =
-  'max-[640px]:h-10 max-[640px]:flex-1 max-[640px]:px-3 max-[640px]:text-[12.5px]';
+// Chart/Table toggle: compact toolbar chips sharing the row on phones.
+const PHONE_TOGGLE = `max-[640px]:flex-1 ${PHONE_CHIP}`;
 
 export function AnalyticsScreen() {
   const queryClient = useQueryClient();

@@ -35,12 +35,16 @@ import {
   useDeleteTaskMutation,
 } from '@/modules/tasks/api/tasks-query';
 import { dashboardQueryKeys } from '../../api/dashboard-query';
-import { MOBILE_TOOLBAR_ROW, TOAST_POSITION } from '@/shared/ui/touch';
+import {
+  MOBILE_TOOLBAR_ROW,
+  PHONE_CHIP,
+  PHONE_TOOLBAR_INPUT,
+  TOAST_POSITION,
+} from '@/shared/ui/touch';
 import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
 import { CreateTaskDialog } from './create-task-dialog';
 
-const CHIP_PHONE =
-  'max-[640px]:shrink-0 max-[640px]:whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
+const CHIP_PHONE = `max-[640px]:shrink-0 max-[640px]:whitespace-nowrap ${PHONE_CHIP}`;
 
 const TASK_GRAINS: PeriodGrain[] = ['day', 'week', 'month', 'quarter', 'year', 'all'];
 
@@ -370,7 +374,7 @@ export function TasksScreen() {
                 </button>
                 <input
                   type="search"
-                  className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:h-10 max-[640px]:w-full"
+                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${PHONE_TOOLBAR_INPUT}`}
                   placeholder={t('table.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
