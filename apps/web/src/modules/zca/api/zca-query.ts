@@ -22,7 +22,6 @@ import type {
   ThreadBotConfig,
   UpdateThreadBotConfigDto,
   SyncThreadMediaDto,
-  SyncThreadMediaResponse,
 } from '@zalobot/contracts';
 
 export const zcaQueryKeys = {

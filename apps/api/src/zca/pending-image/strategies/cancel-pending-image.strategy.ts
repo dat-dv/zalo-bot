@@ -1,5 +1,6 @@
 import { Injectable, Logger, Optional, Inject, forwardRef } from '@nestjs/common';
 import { ZcaService } from '../../zca.service';
+import { sendChatText, type ChatMessenger } from '../../chat-messenger.util';
 import { PendingImageActionService } from '../pending-image-action.service';
 import { PendingImageContext, PendingImageStrategy } from '../pending-image.interface';
 
@@ -13,12 +14,7 @@ export class CancelPendingImageStrategy implements PendingImageStrategy {
   constructor(
     @Optional()
     @Inject(forwardRef(() => ZcaService))
-    private readonly zcaService?:
-      | ZcaService
-      | {
-          sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>;
-          sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown>;
-        },
+    private readonly zcaService?: ChatMessenger,
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
   ) {}
 
@@ -31,23 +27,7 @@ export class CancelPendingImageStrategy implements PendingImageStrategy {
     if (this.pendingImageActionService) {
       await this.pendingImageActionService.clearPending(context.senderId);
     }
-    if (this.zcaService) {
-      if (
-        'sendMessageToChat' in this.zcaService &&
-        typeof this.zcaService.sendMessageToChat === 'function'
-      ) {
-        await this.zcaService.sendMessageToChat(
-          context.chatId,
-          '❌ Đã hủy yêu cầu xử lý hình ảnh.',
-        );
-      } else if (typeof (this.zcaService as any).isLoggedIn === 'function') {
-        await this.zcaService.sendMessage('❌ Đã hủy yêu cầu xử lý hình ảnh.', context.chatId);
-      } else if (typeof this.zcaService.sendMessage === 'function') {
-        await (
-          this.zcaService as unknown as { sendMessage(c: string, t: string): Promise<unknown> }
-        ).sendMessage(context.chatId, '❌ Đã hủy yêu cầu xử lý hình ảnh.');
-      }
-    }
+    await sendChatText(this.zcaService, context.chatId, '❌ Đã hủy yêu cầu xử lý hình ảnh.');
     return true;
   }
 }

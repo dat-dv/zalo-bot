@@ -22,7 +22,6 @@ import {
   type Message,
   type Reaction,
   type Undo,
-  type GetGroupChatHistoryResponse,
   getMessageText,
   isMentioned,
   isGroupMessage,
@@ -52,6 +51,13 @@ function toAgentChatMemory(config: ThreadBotConfig): AgentInput['chatMemory'] {
   return memory?.enabled
     ? { contextWindow: memory.contextWindow, searchLimit: memory.searchLimit }
     : undefined;
+}
+
+/** A history payload field as text; objects and missing values become ''. */
+function readTextField(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return '';
 }
 
 function formatErrorMessage(err: unknown): string {
@@ -214,7 +220,7 @@ export function getCaptionOrText(message: Message): string {
   if (msgType === 'chat.photo' || msgType === 'chat.video.msg' || msgType === 'sharefile') {
     if (typeof content === 'string') {
       try {
-        const parsed = JSON.parse(content);
+        const parsed: unknown = JSON.parse(content);
         if (typeof parsed === 'object' && parsed !== null) {
           const obj = parsed as Record<string, unknown>;
           const title = obj.title;
@@ -1465,7 +1471,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         continue;
       }
 
-      const msgType = String(msgData.msgType || '');
+      const msgType = readTextField(msgData.msgType);
       const isImage = msgType === 'chat.photo';
       const isVideo = msgType === 'chat.video.msg';
       const isFile = msgType === 'sharefile';
@@ -1482,7 +1488,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       }
 
       foundCount++;
-      const msgId = String(msgData.msgId || msgData.cliMsgId || '');
+      const msgId = readTextField(msgData.msgId) || readTextField(msgData.cliMsgId);
       if (msgId && (await this.isMediaSynced(threadId, msgId))) {
         skippedCount++;
         continue;
@@ -1496,8 +1502,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
 
       try {
         const buffer = await fetchImageBuffer(mediaUrl);
-        const senderId = String(msgData.uidFrom || 'unknown');
-        const displayName = String(msgData.dName || '');
+        const senderId = readTextField(msgData.uidFrom) || 'unknown';
+        const displayName = readTextField(msgData.dName);
         const photosAlbumTitle = getThreadPhotosAlbumTitle(config);
 
         const uploadOptions = {

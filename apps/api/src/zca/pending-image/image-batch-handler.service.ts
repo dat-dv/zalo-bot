@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, Optional, Inject, forwardRef } from '@nestjs/common';
 import { ZcaService } from '../zca.service';
+import { sendChatText, type ChatMessenger } from '../chat-messenger.util';
 import { PendingImageActionService } from './pending-image-action.service';
 import { AgentInput } from '../../types/agent-input.type';
 
@@ -13,12 +14,7 @@ export class ImageBatchHandler implements OnModuleDestroy {
   constructor(
     @Optional()
     @Inject(forwardRef(() => ZcaService))
-    private readonly zcaService?:
-      | ZcaService
-      | {
-          sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>;
-          sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown>;
-        },
+    private readonly zcaService?: ChatMessenger,
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
   ) {}
 
@@ -63,19 +59,7 @@ export class ImageBatchHandler implements OnModuleDestroy {
   }
 
   private async notify(targetChatId: string, text: string): Promise<void> {
-    if (!this.zcaService) return;
-    if (
-      'sendMessageToChat' in this.zcaService &&
-      typeof this.zcaService.sendMessageToChat === 'function'
-    ) {
-      await this.zcaService.sendMessageToChat(targetChatId, text);
-    } else if (typeof (this.zcaService as any).isLoggedIn === 'function') {
-      await this.zcaService.sendMessage(text, targetChatId);
-    } else if (typeof this.zcaService.sendMessage === 'function') {
-      await (
-        this.zcaService as unknown as { sendMessage(c: string, t: string): Promise<unknown> }
-      ).sendMessage(targetChatId, text);
-    }
+    await sendChatText(this.zcaService, targetChatId, text);
   }
 
   /**

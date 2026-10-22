@@ -63,10 +63,10 @@ void test('ZcaController.syncThreadMedia delegates to botFeatureService and wrap
   let capturedBody: unknown;
 
   const mockBotFeatureService = {
-    syncThreadMediaHistory: async (threadId: string, body?: unknown) => {
+    syncThreadMediaHistory: (threadId: string, body?: unknown) => {
       capturedThreadId = threadId;
       capturedBody = body;
-      return {
+      return Promise.resolve({
         threadId,
         scannedCount: 20,
         foundCount: 5,
@@ -74,7 +74,7 @@ void test('ZcaController.syncThreadMedia delegates to botFeatureService and wrap
         skippedCount: 0,
         failedCount: 0,
         message: 'Thành công',
-      };
+      });
     },
   } as unknown as import('./zca-bot-feature.service').ZcaBotFeatureService;
 

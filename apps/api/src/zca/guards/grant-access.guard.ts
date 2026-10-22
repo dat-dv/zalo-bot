@@ -2,6 +2,7 @@ import { Injectable, Logger, Optional, Inject, forwardRef } from '@nestjs/common
 import { AgentInput } from '../../types/agent-input.type';
 import { UsersService } from '../../users/users.service';
 import { ZcaService } from '../zca.service';
+import { sendChatText, type ChatMessenger } from '../chat-messenger.util';
 
 @Injectable()
 export class GrantAccessGuard {
@@ -11,12 +12,7 @@ export class GrantAccessGuard {
     private readonly usersService: UsersService,
     @Optional()
     @Inject(forwardRef(() => ZcaService))
-    private readonly zcaService?:
-      | ZcaService
-      | {
-          sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>;
-          sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown>;
-        },
+    private readonly zcaService?: ChatMessenger,
   ) {}
 
   /**
@@ -61,18 +57,7 @@ export class GrantAccessGuard {
       `🆔 User ID của bạn:\n${senderId}\n\n` +
       `💡 Sau khi Quản trị viên phê duyệt trên Dashboard, bạn có thể gửi lại tin nhắn để bắt đầu sử dụng nhé!`;
 
-    if (this.zcaService) {
-      if (
-        'sendMessageToChat' in this.zcaService &&
-        typeof this.zcaService.sendMessageToChat === 'function'
-      ) {
-        await this.zcaService.sendMessageToChat(targetChatId, rejectionMessage);
-      } else if (typeof (this.zcaService as any).isLoggedIn === 'function') {
-        await this.zcaService.sendMessage(rejectionMessage, targetChatId);
-      } else if (typeof this.zcaService.sendMessage === 'function') {
-        await (this.zcaService as any).sendMessage(targetChatId, rejectionMessage);
-      }
-    }
+    await sendChatText(this.zcaService, targetChatId, rejectionMessage);
 
     return false;
   }

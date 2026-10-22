@@ -40,7 +40,7 @@ void test('WelcomeGroupEventStrategy enables via options', () => {
   const selfJoinEvent = {
     ...joinEvent,
     isSelf: true,
-  } as unknown as GroupEvent;
+  };
   assert.strictEqual(strategy.canHandle(selfJoinEvent), false, 'Must ignore self join event');
 });
 

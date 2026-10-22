@@ -2294,7 +2294,8 @@ export const CHAT_MEMORY_LIMITS = {
 } as const;
 
 function clampInteger(value: unknown, min: number, max: number, fallback: number): number {
-  const number = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  const number =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
   if (!Number.isFinite(number)) return fallback;
   return Math.min(max, Math.max(min, Math.round(number)));
 }

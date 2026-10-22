@@ -804,10 +804,10 @@ void test('ZcaBotFeatureService syncThreadMediaHistory scans group media and pre
   const syncedSet = new Set<string>();
   const mockRedisService = {
     isReady: true,
-    sismember: async (_key: string, member: string) => syncedSet.has(member),
-    sadd: async (_key: string, ...members: string[]) => {
+    sismember: (_key: string, member: string) => Promise.resolve(syncedSet.has(member)),
+    sadd: (_key: string, ...members: string[]) => {
       members.forEach((m) => syncedSet.add(m));
-      return true;
+      return Promise.resolve(true);
     },
   } as unknown as import('../redis/redis.service').RedisService;
 
@@ -865,12 +865,13 @@ void test('ZcaBotFeatureService syncThreadMediaHistory scans group media and pre
 
   const mockZcaService = {
     isLoggedIn: () => true,
-    getGroupChatHistory: async (_groupId: string, _count: number) => ({
-      lastActionId: '1',
-      lastActionIdOther: '1',
-      more: 0,
-      groupMsgs: sampleMessages,
-    }),
+    getGroupChatHistory: (_groupId: string, _count: number) =>
+      Promise.resolve({
+        lastActionId: '1',
+        lastActionIdOther: '1',
+        more: 0,
+        groupMsgs: sampleMessages,
+      }),
   } as unknown as ZcaService;
 
   const service = new ZcaBotFeatureService(configService, mockMediaStorageService);
@@ -945,12 +946,13 @@ void test('ZcaBotFeatureService syncThreadMediaHistory filters messages by timeR
 
   const mockZcaService = {
     isLoggedIn: () => true,
-    getGroupChatHistory: async (_groupId: string, _count: number) => ({
-      lastActionId: '1',
-      lastActionIdOther: '1',
-      more: 0,
-      groupMsgs: sampleMessages,
-    }),
+    getGroupChatHistory: (_groupId: string, _count: number) =>
+      Promise.resolve({
+        lastActionId: '1',
+        lastActionIdOther: '1',
+        more: 0,
+        groupMsgs: sampleMessages,
+      }),
   } as unknown as ZcaService;
 
   const service = new ZcaBotFeatureService(configService, mockMediaStorageService);
@@ -975,10 +977,11 @@ void test('ZcaBotFeatureService syncThreadMediaHistory handles Zalo API 404 grac
 
   const mockZcaService = {
     isLoggedIn: () => true,
-    getGroupChatHistory: async () => {
+    getGroupChatHistory: () => {
       const err = new Error('Request failed with status code 404');
       (err as { name?: string }).name = 'ZcaApiError';
       throw err;
+      return Promise.resolve();
     },
   } as unknown as ZcaService;
 
@@ -1020,8 +1023,9 @@ void test('ZcaBotFeatureService syncThreadMediaHistory falls back to buffered me
 
   const mockZcaService = {
     isLoggedIn: () => true,
-    getGroupChatHistory: async () => {
+    getGroupChatHistory: () => {
       throw new Error('Request failed with status code 404');
+      return Promise.resolve();
     },
   } as unknown as ZcaService;
 
@@ -1071,13 +1075,14 @@ void test('ZcaBotFeatureService handles quote-reply to an image with @bot and ru
   } as unknown as TextInputService;
 
   const mockOcrService = {
-    extractTextFromBuffer: async () => 'COFFEE SHOP\nTOTAL: 55000 VND',
+    extractTextFromBuffer: () => Promise.resolve('COFFEE SHOP\nTOTAL: 55000 VND'),
   } as unknown as import('../ocr/ocr.service').OcrService;
 
   const mockMediaStorageService = {
-    uploadBill: async () => ({
-      drive: { fileId: 'f1', webViewLink: 'https://drive.google.com/bill-123' },
-    }),
+    uploadBill: () =>
+      Promise.resolve({
+        drive: { fileId: 'f1', webViewLink: 'https://drive.google.com/bill-123' },
+      }),
   } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
 
   const service = new ZcaBotFeatureService(configService, mockMediaStorageService);
@@ -1293,9 +1298,9 @@ void test('ZcaBotFeatureService handles quote-reply to an image with @bot lưu �
   let uploadImageCalled = false;
   let uploadBillCalled = false;
   const mockMediaStorageService = {
-    uploadImage: async () => {
+    uploadImage: () => {
       uploadImageCalled = true;
-      return {
+      return Promise.resolve({
         drive: {
           fileId: 'img-file-1',
           webViewLink: 'https://drive.google.com/img-file-1',
@@ -1305,13 +1310,16 @@ void test('ZcaBotFeatureService handles quote-reply to an image with @bot lưu �
           albumTitle: '[Zalo] Nhóm group-quote-drive-test',
           productUrl: 'https://photos.google.com/album-1',
         },
-      };
+      });
     },
-    uploadBill: async () => {
+    uploadBill: () => {
       uploadBillCalled = true;
-      return {};
+      return Promise.resolve({});
     },
-    formatUploadSummary: (res: any) =>
+    formatUploadSummary: (res: {
+      drive?: { webViewLink?: string };
+      photos?: { productUrl?: string };
+    }) =>
       `☁️ ĐÃ LƯU TRỮ HÌNH ẢNH LÊN GOOGLE:\n📁 Google Drive: ${res.drive?.webViewLink}\n📸 Google Photos: ${res.photos?.productUrl}`,
   } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
 
@@ -1375,19 +1383,21 @@ void test('ZcaBotFeatureService handles direct image with caption @bot lưu ản
   let uploadImageCalled = false;
   let uploadBillCalled = false;
   const mockMediaStorageService = {
-    uploadImage: async () => {
+    uploadImage: () => {
       uploadImageCalled = true;
-      return {
+      return Promise.resolve({
         drive: { fileId: 'img-direct-1', webViewLink: 'https://drive.google.com/img-direct-1' },
         photos: { albumTitle: 'Album Direct', productUrl: 'https://photos.google.com/direct-1' },
-      };
+      });
     },
-    uploadBill: async () => {
+    uploadBill: () => {
       uploadBillCalled = true;
-      return {};
+      return Promise.resolve({});
     },
-    formatUploadSummary: (res: any) =>
-      `☁️ ĐÃ LƯU TRỮ HÌNH ẢNH LÊN GOOGLE:\n📁 Google Drive: ${res.drive?.webViewLink}`,
+    formatUploadSummary: (res: {
+      drive?: { webViewLink?: string };
+      photos?: { productUrl?: string };
+    }) => `☁️ ĐÃ LƯU TRỮ HÌNH ẢNH LÊN GOOGLE:\n📁 Google Drive: ${res.drive?.webViewLink}`,
   } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
 
   let textInputCalled = false;

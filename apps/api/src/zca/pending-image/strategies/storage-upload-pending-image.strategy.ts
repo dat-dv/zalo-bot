@@ -1,5 +1,6 @@
 import { Injectable, Logger, Optional, Inject, forwardRef } from '@nestjs/common';
 import { ZcaService } from '../../zca.service';
+import { sendChatText, type ChatMessenger } from '../../chat-messenger.util';
 import { PendingImageActionService } from '../pending-image-action.service';
 import { MediaStorageService } from '../../../receipt-storage/media-storage.service';
 import { fetchImageBuffer } from '../../../common/utils/image-fetcher.util';
@@ -16,12 +17,7 @@ export class StorageUploadPendingImageStrategy implements PendingImageStrategy {
   constructor(
     @Optional()
     @Inject(forwardRef(() => ZcaService))
-    private readonly zcaService?:
-      | ZcaService
-      | {
-          sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>;
-          sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown>;
-        },
+    private readonly zcaService?: ChatMessenger,
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
     @Optional() private readonly mediaStorageService?: MediaStorageService,
   ) {}
@@ -31,19 +27,7 @@ export class StorageUploadPendingImageStrategy implements PendingImageStrategy {
   }
 
   private async notify(chatId: string, text: string): Promise<void> {
-    if (!this.zcaService) return;
-    if (
-      'sendMessageToChat' in this.zcaService &&
-      typeof this.zcaService.sendMessageToChat === 'function'
-    ) {
-      await this.zcaService.sendMessageToChat(chatId, text);
-    } else if (typeof (this.zcaService as any).isLoggedIn === 'function') {
-      await this.zcaService.sendMessage(text, chatId);
-    } else if (typeof this.zcaService.sendMessage === 'function') {
-      await (
-        this.zcaService as unknown as { sendMessage(c: string, t: string): Promise<unknown> }
-      ).sendMessage(chatId, text);
-    }
+    await sendChatText(this.zcaService, chatId, text);
   }
 
   public async execute(context: PendingImageContext): Promise<boolean> {

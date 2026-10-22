@@ -361,7 +361,7 @@ export class TextInputService {
       );
 
       const toolCall = response.toolCall;
-      if (toolCall && toolCall.name !== editTool) {
+      if (toolCall && toolCall.name !== String(editTool)) {
         this.logger.warn(
           `[TextInputService] Edit of "${pending.code}" resolved tool "${toolCall.name}" instead of "${editTool}". Skipping.`,
         );

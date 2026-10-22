@@ -1,6 +1,12 @@
 import { Injectable, Logger, OnModuleDestroy, Optional, Inject, forwardRef } from '@nestjs/common';
 import { ZcaService } from '../zca.service';
 import {
+  sendChatText,
+  sendChatTextWithResult,
+  undoChatMessage,
+  type ChatMessenger,
+} from '../chat-messenger.util';
+import {
   FinanceService,
   CreateFinanceTransactionDto,
   CreateDebtDto,
@@ -147,7 +153,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
   constructor(
     @Inject(forwardRef(() => ZcaService))
-    rawMessenger: any,
+    rawMessenger: ChatMessenger | undefined,
     private readonly financeService: FinanceService,
     @Optional() private readonly remindersService?: RemindersService,
     @Optional() private readonly googleTasksService?: GoogleTasksService,
@@ -157,35 +163,12 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     @Optional() private readonly redisService?: RedisService,
     @Optional() private readonly threadConfigService?: ThreadConfigService,
   ) {
+    // ZcaService in the app; ZaloService or a test double elsewhere.
     this.zaloService = {
-      sendMessage: async (chatId: string | number, text: string) => {
-        if (rawMessenger?.sendMessageToChat) {
-          return rawMessenger.sendMessageToChat(chatId, text);
-        }
-        if (typeof rawMessenger?.isLoggedIn === 'function') {
-          return rawMessenger.sendMessage(text, String(chatId));
-        }
-        if (typeof rawMessenger?.sendMessage === 'function') {
-          return rawMessenger.sendMessage(chatId, text);
-        }
-        return false;
-      },
-      sendMessageWithResult: async (chatId: string | number, text: string) => {
-        if (rawMessenger?.sendMessageWithResult) {
-          return rawMessenger.sendMessageWithResult(chatId, text);
-        }
-        if (rawMessenger?.sendMessage) {
-          await rawMessenger.sendMessage(chatId, text);
-          return { success: true };
-        }
-        return { success: false };
-      },
-      undoMessage: async (chatId: string | number, msgId: string, cliMsgId?: string) => {
-        if (rawMessenger?.undoMessage) {
-          return rawMessenger.undoMessage(chatId, msgId, cliMsgId);
-        }
-        return false;
-      },
+      sendMessage: (chatId, text) => sendChatText(rawMessenger, chatId, text),
+      sendMessageWithResult: (chatId, text) => sendChatTextWithResult(rawMessenger, chatId, text),
+      undoMessage: (chatId, msgId, cliMsgId) =>
+        undoChatMessage(rawMessenger, chatId, msgId, cliMsgId),
     };
   }
   public onModuleDestroy(): void {
@@ -342,7 +325,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       return Number.isFinite(hearts) && hearts >= 1 ? hearts : 1;
     } catch (err: unknown) {
       this.logger.warn(
-        `Không đọc được confirmationRules của kênh ${chatId}: ${err instanceof Error ? err.message : String(err)}`,
+        `Không đọc được confirmationRules của kênh ${chatId}: ${err instanceof Error ? err.message : JSON.stringify(err)}`,
       );
       return 1;
     }

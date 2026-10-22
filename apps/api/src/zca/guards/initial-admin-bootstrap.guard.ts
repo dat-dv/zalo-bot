@@ -2,6 +2,7 @@ import { Injectable, Logger, Optional, Inject, forwardRef } from '@nestjs/common
 import { AgentInput } from '../../types/agent-input.type';
 import { UsersService } from '../../users/users.service';
 import { ZcaService } from '../zca.service';
+import { sendChatText, type ChatMessenger } from '../chat-messenger.util';
 
 @Injectable()
 export class InitialAdminBootstrapGuard {
@@ -11,12 +12,7 @@ export class InitialAdminBootstrapGuard {
     private readonly usersService: UsersService,
     @Optional()
     @Inject(forwardRef(() => ZcaService))
-    private readonly zcaService?:
-      | ZcaService
-      | {
-          sendMessage?: (a: unknown, b?: unknown) => Promise<unknown>;
-          sendMessageToChat?: (chatId: string | number, text: string) => Promise<unknown>;
-        },
+    private readonly zcaService?: ChatMessenger,
   ) {}
 
   /**
@@ -44,18 +40,7 @@ export class InitialAdminBootstrapGuard {
         `• Bạn có thể thêm người khác hoặc phê duyệt cấp quyền cho họ thông qua mục "Người dùng" trên trang Dashboard quản trị.\n\n` +
         `💡 Giờ bạn có thể bắt đầu sử dụng bot, hoặc gõ /help để xem danh sách lệnh nhé!`;
 
-      if (this.zcaService) {
-        if (
-          'sendMessageToChat' in this.zcaService &&
-          typeof this.zcaService.sendMessageToChat === 'function'
-        ) {
-          await this.zcaService.sendMessageToChat(targetChatId, welcomeAdminMessage);
-        } else if (typeof (this.zcaService as any).isLoggedIn === 'function') {
-          await this.zcaService.sendMessage(welcomeAdminMessage, targetChatId);
-        } else if (typeof this.zcaService.sendMessage === 'function') {
-          await (this.zcaService as any).sendMessage(targetChatId, welcomeAdminMessage);
-        }
-      }
+      await sendChatText(this.zcaService, targetChatId, welcomeAdminMessage);
       return true;
     }
 

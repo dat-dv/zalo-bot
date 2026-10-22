@@ -17,7 +17,6 @@ import { GoogleAuthService } from '../../google/google-auth.service';
 import { RedisService } from '../../redis/redis.service';
 import { ZcaService } from '../zca.service';
 import { ThreadConfigService } from '../thread-config.service';
-import type { ZaloService } from '../../zalo/zalo.service';
 import { FINANCE_TRANSACTION_DESCRIPTOR } from './dto-descriptor.util';
 
 interface TestContext {

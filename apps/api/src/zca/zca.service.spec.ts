@@ -484,8 +484,9 @@ void test('ZcaService setListenedThreadIds unlistens removed threads in ThreadCo
       Array.from(statusMap.entries())
         .filter(([, v]) => v)
         .map(([k]) => k),
-    setListened: async (threadId: string, isListened: boolean) => {
+    setListened: (threadId: string, isListened: boolean) => {
       statusMap.set(threadId, isListened);
+      return Promise.resolve();
     },
   } as unknown as ThreadConfigService;
 
