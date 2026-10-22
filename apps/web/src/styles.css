@@ -119,6 +119,34 @@ summary,
   textarea {
     font-size: 16px !important;
   }
+
+  /* iOS ignores the width of a native date field and sizes it to its own text; without the
+     native appearance it fills its column, and the value stays left-aligned. */
+  input[type='date'],
+  input[type='datetime-local'],
+  input[type='time'],
+  input[type='month'],
+  input[type='week'] {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  input::-webkit-date-and-time-value {
+    text-align: left;
+  }
+}
+
+/* Date fields sit in auto-sized grid/flex tracks (`label.grid`); their intrinsic width must not
+   widen the track past its container on narrow screens. Base layer, so `min-w-*` utilities win. */
+@layer base {
+  input[type='date'],
+  input[type='datetime-local'],
+  input[type='time'],
+  input[type='month'],
+  input[type='week'] {
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 
 /* Installed app: no rubber-band bounce revealing the background (pull-to-refresh is ours). */
