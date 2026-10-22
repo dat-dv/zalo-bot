@@ -96,6 +96,7 @@ export const APP_ROUTES = {
   zcaThreadPage: '/zca/thread',
   zcaThread: (threadId: string) => `/zca/thread?id=${encodeURIComponent(threadId)}`,
   settings: '/settings',
+  googleStorage: '/google-storage',
 } as const;
 
 export const SUPPORTED_LOCALES = ['vi', 'en'] as const;
@@ -194,6 +195,7 @@ const messages = {
     'nav.reports': 'Tài chính',
     'nav.settings': 'Cài đặt',
     'nav.zca': 'Zalo & Người dùng',
+    'nav.googleStorage': 'Google Drive',
     'zca.logout': 'Đăng xuất ZCA',
     'zca.refreshDirectory': 'Làm mới danh bạ Zalo',
     'zca.logoutConfirm':
@@ -977,6 +979,19 @@ const messages = {
     'chart.income': 'Thu nhập',
     'chart.expense': 'Chi tiêu',
     'chart.net': 'Dòng tiền',
+    'googleStorage.title': 'Google Drive lưu trữ',
+    'googleStorage.subtitle': 'Tài khoản Google mà bot dùng để lưu media của mọi kênh Zalo.',
+    'googleStorage.forbidden': 'Chỉ admin xem và đổi được tài khoản Google lưu trữ.',
+    'googleStorage.openRoot': 'Mở thư mục zalobot trên Drive',
+    'googleStorage.howItWorks.title': 'Cách hoạt động',
+    'googleStorage.howItWorks.storage':
+      'Ảnh, video, file và hoá đơn của mỗi kênh được lưu vào thư mục zalobot/<mã kênh> trên Drive và album riêng của kênh trên Photos.',
+    'googleStorage.howItWorks.switch':
+      'Đổi tài khoản thì media mới vào tài khoản mới. File cũ vẫn ở tài khoản cũ, link cũ vẫn có trong lịch sử lưu trữ của từng kênh.',
+    'googleStorage.howItWorks.logout':
+      'Đăng xuất thì bot ngừng lưu media lên Google cho tới khi có admin đăng nhập lại; file đã lưu giữ nguyên.',
+    'googleStorage.howItWorks.personal':
+      'Mỗi người chỉ có một token Google, nên đăng xuất cũng ngắt kết nối Google cá nhân của admin đang giữ tài khoản này.',
     'settings.title': 'Cài đặt chung',
     'settings.subtitle': 'Quản lý danh mục thu chi và cấu hình hệ thống',
     'settings.tabs.categories': 'Danh mục Thu & Chi',
@@ -1264,6 +1279,7 @@ const messages = {
     'nav.reports': 'Finance',
     'nav.settings': 'Settings',
     'nav.zca': 'Zalo & Users',
+    'nav.googleStorage': 'Google Drive',
     'zca.logout': 'Logout ZCA',
     'zca.refreshDirectory': 'Refresh Zalo directory',
     'zca.logoutConfirm':
@@ -2050,6 +2066,19 @@ const messages = {
     'chart.income': 'Income',
     'chart.expense': 'Expense',
     'chart.net': 'Net cashflow',
+    'googleStorage.title': 'Google Drive storage',
+    'googleStorage.subtitle': 'The Google account the bot saves every Zalo channel’s media to.',
+    'googleStorage.forbidden': 'Only admins can view and change the Google storage account.',
+    'googleStorage.openRoot': 'Open the zalobot folder on Drive',
+    'googleStorage.howItWorks.title': 'How it works',
+    'googleStorage.howItWorks.storage':
+      'Images, videos, files and receipts of each channel go to the zalobot/<channel id> folder on Drive and the channel’s own album on Photos.',
+    'googleStorage.howItWorks.switch':
+      'Switching accounts sends new media to the new account. Old files stay in the old account, and old links remain in each channel’s storage history.',
+    'googleStorage.howItWorks.logout':
+      'Signing out stops the bot from saving media to Google until an admin signs in again; saved files stay.',
+    'googleStorage.howItWorks.personal':
+      'Each person has one Google token, so signing out also disconnects the personal Google connection of the admin holding this account.',
     'settings.title': 'General Settings',
     'settings.subtitle': 'Manage finance categories and system configuration',
     'settings.tabs.categories': 'Categories',

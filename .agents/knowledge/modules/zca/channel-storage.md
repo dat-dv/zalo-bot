@@ -25,7 +25,11 @@ metadata:
       - apps/web/src/modules/zca/presentation/components/thread-storage-links-dialog.tsx
       - apps/web/src/modules/zca/presentation/components/chat-table-row.tsx
       - apps/web/src/modules/zca/view/thread-config-screen.tsx
-      - apps/web/src/modules/zca/presentation/components/google-storage-account-card.tsx
+      - apps/web/src/modules/zca/presentation/components/google-storage-account-panel.tsx
+      - apps/web/src/modules/zca/presentation/components/google-storage-how-it-works.tsx
+      - apps/web/src/modules/zca/view/google-storage-screen.tsx
+      - apps/web/src/modules/zca/model/google-storage-account.ts
+      - apps/web/src/shared/ui/app-navigation.tsx
       - apps/web/src/modules/zca/api/zca-query.ts
 ---
 
@@ -106,7 +110,10 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 
 ## Web UI
 
-- `/zca` shows `GoogleStorageAccountCard` (full width, under the overview cards). Query `useGoogleStorageAccountQuery` (key `zcaQueryKeys.googleAccount()`, `refetchOnWindowFocus: true` so returning from the Google tab shows the new account). States: skeleton; error + Retry; disconnected (red dot, primary "Sign in with Google"); connected with missing scopes (amber badge, primary "Grant access again", Sign out); connected (green dot, email, Open Drive, Switch account, Sign out).
+- Own page `APP_ROUTES.googleStorage` (`/google-storage`), nav item "Google Drive" (`nav.googleStorage`, cloud icon) in the SYSTEM section between Zalo & Users and Settings; on phones it lives in "More" (not pinned to the tab bar). Topbar title `googleStorage.title|subtitle`. `/zca` no longer shows the account.
+  - Why a page: the storage account is a system-wide setting, separate from ZCA login and user management; one place to see and change it.
+- `GoogleStorageScreen` (single column, `max-w-3xl`) = `GoogleStorageAccountPanel` + `GoogleStorageHowItWorks` (static: where media goes, what switching/sign-out does, sign-out also drops the owner's personal Google connection; `googleStorage.howItWorks.*`).
+- `GoogleStorageAccountPanel`: query `useGoogleStorageAccountQuery` (key `zcaQueryKeys.googleAccount()`, `refetchOnWindowFocus: true` so returning from the Google tab shows the new account). States: skeleton; error + Retry; disconnected (red dot, primary "Sign in with Google"); connected with missing scopes (amber badge, primary "Grant access again", Sign out); connected (green dot, email, Switch account, Open the zalobot folder on Drive, Sign out); 403 → "admins only" (`googleStorage.forbidden`), and the query does not retry a 403 (`isForbiddenError`). Pure helpers in `model/google-storage-account.ts`: `isForbiddenError`, `storageLoginLabelKey`, `isStorageReady`. Phones: buttons stack full width, 40px tall.
   - Sign-in opens a blank tab inside the click, then sets its URL after `useStartGoogleStorageLoginMutation` resolves (a tab opened after an await is popup-blocked); no tab → same-window navigation. A hint tells the admin to come back.
   - Sign-out goes through `ConfirmDialog` (bottom sheet on phones); `useLogoutGoogleStorageAccountMutation` writes the returned status to the cache and invalidates `drive-link` queries.
   - Phones: action buttons take the full row, 40px tall (`TAP_CONTROL`). Strings `zca.googleAccount.*` (vi/en).

@@ -27,6 +27,7 @@ import {
   type ZcaThreadsResult,
   type DriveFolderLinkResult,
 } from './zca-api';
+import { isForbiddenError } from '../model/google-storage-account';
 import type {
   ChannelStorageLinksResponse,
   IGoogleStorageAccountStatus,
@@ -210,6 +211,8 @@ export function useGoogleStorageAccountQuery() {
     queryKey: zcaQueryKeys.googleAccount(),
     queryFn: ({ signal }) => getGoogleStorageAccount(signal),
     refetchOnWindowFocus: true,
+    // A non-admin gets 403 every time; retrying only delays the "admins only" message.
+    retry: (failureCount, error) => !isForbiddenError(error) && failureCount < 3,
   });
 }
 

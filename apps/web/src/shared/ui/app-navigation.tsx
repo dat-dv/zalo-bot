@@ -33,6 +33,7 @@ export type NavigationPage =
   | 'contacts'
   | 'places'
   | 'zca'
+  | 'googleStorage'
   | 'settings';
 
 type NavigationIcon =
@@ -46,6 +47,7 @@ type NavigationIcon =
   | 'contacts'
   | 'places'
   | 'zca'
+  | 'googleStorage'
   | 'settings';
 
 interface NavItem {
@@ -126,6 +128,12 @@ const navSections: readonly NavSection[] = [
         href: APP_ROUTES.zca,
         labelKey: 'nav.zca',
         icon: 'zca',
+      },
+      {
+        page: 'googleStorage',
+        href: APP_ROUTES.googleStorage,
+        labelKey: 'nav.googleStorage',
+        icon: 'googleStorage',
       },
       {
         page: 'settings',
@@ -657,6 +665,13 @@ function NavigationItemIcon({
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         <path d="M8 9h8" />
         <path d="M8 13h5" />
+      </svg>
+    );
+  }
+  if (icon === 'googleStorage') {
+    return (
+      <svg {...sharedProps}>
+        <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
       </svg>
     );
   }

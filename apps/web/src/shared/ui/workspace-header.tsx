@@ -71,6 +71,10 @@ const ROUTE_HEADER_MAP: Record<string, RouteHeaderMeta> = {
   [APP_ROUTES.zcaThreadPage]: {
     titleKey: 'nav.zca',
   },
+  [APP_ROUTES.googleStorage]: {
+    titleKey: 'googleStorage.title',
+    subtitleKey: 'googleStorage.subtitle',
+  },
   [APP_ROUTES.settings]: {
     titleKey: 'settings.title',
     subtitleKey: 'settings.subtitle',

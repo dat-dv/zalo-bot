@@ -39,6 +39,7 @@ Zalobot is an intelligent 24/7 personal and group AI assistant operating nativel
   - `/debts`, `/analytics`, `/calendar`, `/tasks`, `/reminders`, `/contacts`, `/places`, `/settings`.
   - `/zca`: "Zalo & Users" — ZCA login, listened threads, and admin user management; table search/filter/page live in the query string.
   - `/zca/thread?id=<threadId>`: per-thread bot configuration page (query param because the static export has no dynamic segments).
+  - `/google-storage`: "Google Drive" — the shared Google storage account (view, sign in/switch/re-grant, sign out); admin-only.
   - Public pages outside the private group: `/about`, `/privacy`, `/terms`.
 
 - **Target Audience**:

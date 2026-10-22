@@ -10,7 +10,8 @@ metadata:
       - apps/api/src/google/google-auth.service.ts
       - apps/api/src/database/migrations/1724830000000-CreateChannelStorageLinks.ts
       - apps/web/src/modules/zca/presentation/components/thread-storage-links-dialog.tsx
-      - apps/web/src/modules/zca/presentation/components/google-storage-account-card.tsx
+      - apps/web/src/modules/zca/presentation/components/google-storage-account-panel.tsx
+      - apps/web/src/modules/zca/view/google-storage-screen.tsx
       - apps/api/src/google/google-resources.controller.ts
 ---
 
@@ -35,7 +36,9 @@ Tài liệu canonical tương ứng: [`channel-storage.md`](../../../knowledge/m
 
 ### 2.1b. Xem, đăng nhập, đăng xuất trên dashboard
 
-- Trang **Zalo & Người dùng** (`/zca`, nhóm HỆ THỐNG) có thẻ **Tài khoản Google lưu trữ** ngay dưới các thẻ tổng quan. Chỉ admin thấy và gọi được.
+- Tài khoản lưu trữ có **trang riêng** `/google-storage`, mục menu **Google Drive** trong nhóm HỆ THỐNG (trên điện thoại nằm trong "Thêm"). Lý do: đây là cấu hình cho cả hệ thống, tách khỏi việc đăng nhập ZCA và quản lý người dùng ở `/zca`.
+- Chỉ admin xem và thao tác được; người khác mở trang sẽ thấy dòng "Chỉ admin xem và đổi được tài khoản Google lưu trữ".
+- Dưới khối tài khoản có mục **Cách hoạt động** nhắc lại các hệ quả bên dưới, để admin đọc trước khi bấm.
 - Thẻ cho biết: đã kết nối hay chưa, email Gmail đang dùng, và có thiếu quyền Drive/Photos không (thiếu thì media không lưu được).
 - **Đăng nhập Google / Đổi tài khoản / Cấp lại quyền**: mở trang đăng nhập Google ở tab mới. Cấp quyền xong, quay lại tab dashboard, thẻ tự cập nhật email mới. Cách này đi chung đường với lệnh `/login` trên Zalo: tài khoản vừa đăng nhập thành tài khoản dùng chung.
 - **Đăng xuất**: có hộp xác nhận. Hệ thống thu hồi quyền của app ngay trên tài khoản Google đó (nếu Google không phản hồi thì vẫn đăng xuất phía bot), rồi xoá token.
@@ -94,7 +97,7 @@ Mỗi dòng trong hộp thoại có hai nút **✏️ Sửa** và **🗑️ Xoá
 
 ## 4. Vận hành và kiểm tra
 
-- **Đổi tài khoản Google**: admin bấm **Đổi tài khoản** trên thẻ Tài khoản Google lưu trữ ở `/zca` (hoặc gõ `/login` trên Zalo), chọn Gmail mới, rồi bấm Cho phép. Không cần khởi động lại API. Media mới sẽ vào Drive/Photos của tài khoản mới; mở dialog Drive/Photos sẽ thấy dòng mới ở trạng thái "Đang dùng", còn dòng cũ vẫn giữ.
+- **Đổi tài khoản Google**: admin bấm **Đổi tài khoản** trên trang **Google Drive** (`/google-storage`) (hoặc gõ `/login` trên Zalo), chọn Gmail mới, rồi bấm Cho phép. Không cần khởi động lại API. Media mới sẽ vào Drive/Photos của tài khoản mới; mở dialog Drive/Photos sẽ thấy dòng mới ở trạng thái "Đang dùng", còn dòng cũ vẫn giữ.
 - **Migration** `1724830000000-CreateChannelStorageLinks` và `1724840000000-AddDisplayNameToChannelStorageLinks` tự chạy khi API khởi động (`migrationsRun: true`). Rollback: `migration:revert`, mỗi lần gỡ một migration (lần đầu bỏ cột `display_name`, lần sau bỏ bảng `channel_storage_links` và cột `is_shared`); không đụng dữ liệu tài chính.
 - Test liên quan: `channel-storage-link-update.spec.ts` (kiểm tra dữ liệu + sửa/xoá theo nhóm), `media-storage.service.spec.ts`, `google-photos.service.spec.ts`, `google-auth.service.spec.ts`, `channel-storage-links.mapper.spec.ts`, `receipt-source.spec.ts`, `zca.controller.spec.ts`.
 - Không tự động kiểm chứng được upload thật lên Google và việc đổi tài khoản thật; cần thử trên môi trường thật.
