@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { ITaskListItem, IUpdateTaskRequest } from '@zalobot/contracts';
-import { deleteTask, getTasks, updateTask } from './tasks-api';
+import type { ICreateTaskRequest, ITaskListItem, IUpdateTaskRequest } from '@zalobot/contracts';
+import { createTask, deleteTask, getTasks, updateTask } from './tasks-api';
 
 export const tasksQueryKeys = { list: () => ['tasks'] as const };
 
@@ -17,6 +17,14 @@ function useInvalidateTasks() {
     void queryClient.invalidateQueries({ queryKey: tasksQueryKeys.list() });
     void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
   };
+}
+
+export function useCreateTaskMutation() {
+  const invalidate = useInvalidateTasks();
+  return useMutation<ITaskListItem, Error, ICreateTaskRequest>({
+    mutationFn: (data) => createTask(data),
+    onSuccess: invalidate,
+  });
 }
 
 export function useUpdateTaskMutation() {

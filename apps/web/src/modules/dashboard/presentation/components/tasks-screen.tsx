@@ -18,6 +18,8 @@ import {
 } from '@/modules/tasks/api/tasks-query';
 import { dashboardQueryKeys } from '../../api/dashboard-query';
 import { MOBILE_TOOLBAR_ROW, TOAST_POSITION } from '@/shared/ui/touch';
+import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
+import { CreateTaskDialog } from './create-task-dialog';
 
 const CHIP_PHONE =
   'max-[640px]:shrink-0 max-[640px]:whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
@@ -33,6 +35,7 @@ export function TasksScreen() {
     'needsAction',
   );
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<TaskEditDraft>({
     title: '',
@@ -292,6 +295,14 @@ export function TasksScreen() {
                     {t('tasks.filter.completed')}
                   </button>
                 </div>
+                <button
+                  type="button"
+                  // Compact screens get this action in the MobileActionBar instead.
+                  className="inline-flex h-6 min-h-6 max-[960px]:hidden cursor-pointer items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                  onClick={() => setIsCreateOpen(true)}
+                >
+                  + {t('tasks.actions.create')}
+                </button>
                 <input
                   type="search"
                   className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:h-10 max-[640px]:w-full"
@@ -323,6 +334,27 @@ export function TasksScreen() {
           </DataPanel>
         </section>
       )}
+
+      <MobileActionBar>
+        <button
+          type="button"
+          className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+          onClick={() => setIsCreateOpen(true)}
+        >
+          + {t('tasks.actions.create')}
+        </button>
+      </MobileActionBar>
+
+      <CreateTaskDialog
+        open={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onCreated={() => {
+          setIsCreateOpen(false);
+          // A new task is open; show it even if the list was filtered to completed ones.
+          if (statusFilter === 'completed') setStatusFilter('needsAction');
+          showToast(t('tasks.create.success'));
+        }}
+      />
 
       <ConfirmDialog
         open={pendingDeleteId !== null}

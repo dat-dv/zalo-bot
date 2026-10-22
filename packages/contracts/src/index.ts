@@ -703,6 +703,28 @@ const messages = {
       'Bạn có chắc chắn muốn xóa đợt trả nợ này? Số tiền nợ còn lại sẽ được khôi phục.',
     'debts.deletePayment.success': 'Đã xóa đợt trả nợ thành công',
     'debts.payments.linkedTransaction': 'Giao dịch liên kết',
+    'debts.actions.create': 'Thêm khoản nợ',
+    'debts.actions.delete': 'Xóa',
+    'debts.create.title': 'Thêm khoản vay nợ',
+    'debts.create.description': 'Ghi một khoản cho vay hoặc đi vay vào sổ chung.',
+    'debts.create.occurredAt': 'Ngày phát sinh',
+    'debts.create.alias': 'Biệt danh (để phân biệt người trùng tên)',
+    'debts.create.matchedContact': 'Đã chọn người trong danh bạ: {name}',
+    'debts.create.newContact': 'Tạo người liên quan mới «{name}»',
+    'debts.create.newContactRequired':
+      'Không có ai tên này trong danh bạ. Chọn từ gợi ý hoặc xác nhận tạo người mới.',
+    'debts.create.amountInvalid': 'Số tiền phải lớn hơn 0.',
+    'debts.create.submit': 'Lưu khoản nợ',
+    'debts.create.success': 'Đã thêm khoản vay nợ',
+    'debts.create.error': 'Không thể thêm khoản nợ. Vui lòng thử lại.',
+    'debts.delete.title': 'Xóa khoản nợ?',
+    'debts.delete.message': 'Khoản nợ với {name} ({amount}) sẽ bị xóa vĩnh viễn khỏi sổ chung.',
+    'debts.delete.paymentsWarning':
+      '{count} đợt trả nợ và các phân bổ giao dịch đi kèm cũng bị xóa; các giao dịch thu/chi đã ghi cho những đợt trả này vẫn giữ trong sổ.',
+    'debts.delete.childrenWarning':
+      '{count} khoản con đã gộp sẽ được tách ra và hiện lại thành khoản nợ riêng.',
+    'debts.delete.success': 'Đã xóa khoản nợ',
+    'debts.delete.error': 'Không thể xóa khoản nợ. Vui lòng thử lại.',
     'category.debtRecovery': 'Thu hồi công nợ',
     'category.debtPayment': 'Trả công nợ',
     'category.balanceAdjustment': 'Điều chỉnh số dư',
@@ -882,6 +904,12 @@ const messages = {
     'tasks.source.dashboard': 'Tạo từ dashboard',
     'tasks.meta.createdBy': 'Tạo bởi {name}',
     'tasks.meta.inChat': 'trong {chat}',
+    'tasks.actions.create': 'Thêm việc',
+    'tasks.create.title': 'Thêm việc cần làm',
+    'tasks.create.description': 'Việc được thêm vào danh sách việc chung của zalobot.',
+    'tasks.create.submit': 'Lưu việc',
+    'tasks.create.success': 'Đã thêm việc cần làm',
+    'tasks.create.error': 'Không thể thêm việc. Vui lòng thử lại.',
     'reminders.title': 'Nhắc nhở',
     'reminders.subtitle': 'Danh sách lời nhắc tự động qua zalo & Gọi điện',
     'reminders.columns.notifyType': 'Hình thức',
@@ -901,6 +929,14 @@ const messages = {
     'reminders.repeatType.daily': 'Hàng ngày',
     'reminders.repeatType.weekly': 'Hàng tuần',
     'reminders.placeholder.title': 'Nhập tiêu đề lời nhắc...',
+    'reminders.actions.create': 'Thêm lời nhắc',
+    'reminders.create.title': 'Thêm lời nhắc',
+    'reminders.create.description': 'Bot sẽ nhắc bạn qua zalo vào thời điểm đã chọn.',
+    'reminders.create.remindAt': 'Thời điểm nhắc',
+    'reminders.create.pastTime': 'Thời điểm nhắc phải ở tương lai.',
+    'reminders.create.submit': 'Lưu lời nhắc',
+    'reminders.create.success': 'Đã thêm lời nhắc',
+    'reminders.create.error': 'Không thể thêm lời nhắc. Vui lòng thử lại.',
     'period.day': 'Ngày',
     'period.week': 'Tuần',
     'period.month': 'Tháng',
@@ -1674,6 +1710,29 @@ const messages = {
       'Are you sure you want to delete this payment record? The remaining debt amount will be restored.',
     'debts.deletePayment.success': 'Debt payment deleted successfully',
     'debts.payments.linkedTransaction': 'Linked Transaction',
+    'debts.actions.create': 'Add debt',
+    'debts.actions.delete': 'Delete',
+    'debts.create.title': 'Add a debt',
+    'debts.create.description': 'Record money lent or borrowed in the shared ledger.',
+    'debts.create.occurredAt': 'Date',
+    'debts.create.alias': 'Nickname (to tell apart people with the same name)',
+    'debts.create.matchedContact': 'Selected from contacts: {name}',
+    'debts.create.newContact': 'Create new person «{name}»',
+    'debts.create.newContactRequired':
+      'Nobody with this name is in the contacts. Pick a suggestion or confirm creating a new person.',
+    'debts.create.amountInvalid': 'Amount must be greater than 0.',
+    'debts.create.submit': 'Save debt',
+    'debts.create.success': 'Debt added',
+    'debts.create.error': 'Could not add the debt. Please try again.',
+    'debts.delete.title': 'Delete debt?',
+    'debts.delete.message':
+      'The debt with {name} ({amount}) will be permanently removed from the shared ledger.',
+    'debts.delete.paymentsWarning':
+      '{count} payments and their transaction allocations are deleted too; the income/expense transactions recorded for those payments stay in the ledger.',
+    'debts.delete.childrenWarning':
+      '{count} combined sub-debts will be split off and show up as separate debts again.',
+    'debts.delete.success': 'Debt deleted',
+    'debts.delete.error': 'Could not delete the debt. Please try again.',
     'category.debtRecovery': 'Debt Recovery',
     'category.debtPayment': 'Debt Repayment',
     'category.balanceAdjustment': 'Balance Adjustment',
@@ -1853,6 +1912,12 @@ const messages = {
     'tasks.source.dashboard': 'Created from the dashboard',
     'tasks.meta.createdBy': 'Created by {name}',
     'tasks.meta.inChat': 'in {chat}',
+    'tasks.actions.create': 'Add task',
+    'tasks.create.title': 'Add a task',
+    'tasks.create.description': 'The task is added to the shared zalobot task list.',
+    'tasks.create.submit': 'Save task',
+    'tasks.create.success': 'Task added',
+    'tasks.create.error': 'Could not add the task. Please try again.',
     'reminders.title': 'Reminders',
     'reminders.subtitle': 'Automated reminders via zalo & Call',
     'reminders.columns.notifyType': 'Type',
@@ -1872,6 +1937,14 @@ const messages = {
     'reminders.repeatType.daily': 'Daily',
     'reminders.repeatType.weekly': 'Weekly',
     'reminders.placeholder.title': 'Reminder title...',
+    'reminders.actions.create': 'Add reminder',
+    'reminders.create.title': 'Add a reminder',
+    'reminders.create.description': 'The bot reminds you on zalo at the chosen time.',
+    'reminders.create.remindAt': 'Remind at',
+    'reminders.create.pastTime': 'The reminder time must be in the future.',
+    'reminders.create.submit': 'Save reminder',
+    'reminders.create.success': 'Reminder added',
+    'reminders.create.error': 'Could not add the reminder. Please try again.',
     'period.day': 'Day',
     'period.week': 'Week',
     'period.month': 'Month',
@@ -2442,6 +2515,19 @@ export interface IUpdateExpenseRequest {
   placeId?: string | null;
   placeName?: string;
   occurredAt?: string;
+}
+
+/** `POST /api/debts`: needs either `contactId` or `createNewContact: true`, otherwise the API rejects it. */
+export interface ICreateDebtRequest {
+  direction: 'receivable' | 'payable';
+  counterparty: string;
+  counterpartyAlias?: string;
+  contactId?: string;
+  createNewContact?: boolean;
+  amount: number;
+  note?: string;
+  occurredAt?: string;
+  dueAt?: string;
 }
 
 export interface IUpdateDebtRequest {

@@ -1,6 +1,7 @@
 import {
   API_ROUTES,
   type IApiResponse,
+  type ICreateTaskRequest,
   type ITaskListItem,
   type IUpdateTaskRequest,
 } from '@zalobot/contracts';
@@ -8,6 +9,16 @@ import { httpClient } from '@/shared/api/http-client';
 
 export async function getTasks(signal?: AbortSignal): Promise<ITaskListItem[]> {
   const response = await httpClient.get<IApiResponse<ITaskListItem[]>>(API_ROUTES.tasks, {
+    signal,
+  });
+  return response.data.data;
+}
+
+export async function createTask(
+  data: ICreateTaskRequest,
+  signal?: AbortSignal,
+): Promise<ITaskListItem> {
+  const response = await httpClient.post<IApiResponse<ITaskListItem>>(API_ROUTES.tasks, data, {
     signal,
   });
   return response.data.data;
