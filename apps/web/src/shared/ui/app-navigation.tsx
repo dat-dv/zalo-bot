@@ -239,14 +239,15 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
 
   return (
     <>
-      {/* Opaque strip under the status bar so content scrolling past the sticky topbar never shows through. */}
+      {/* Opaque strip under the status bar so content scrolling past the sticky topbar never shows through.
+          Its height and the topbar's sticky top equal the private layout's top padding, so the bar never shifts on scroll. */}
       <div
         aria-hidden="true"
-        className="fixed inset-x-0 top-0 z-40 hidden h-[env(safe-area-inset-top)] bg-[#f8fafc] dark:bg-[#090d16] max-[960px]:block"
+        className="fixed inset-x-0 top-0 z-40 hidden h-[calc(0.625rem+env(safe-area-inset-top))] bg-[#f8fafc] dark:bg-[#090d16] max-[960px]:block"
       />
       {/* Mobile topbar doubles as the page header: WorkspaceHeader is hidden at this width.
           No menu button: the "More" tab opens the menu, like native tab-bar apps. */}
-      <header className="sticky top-0 z-40 max-[960px]:top-[env(safe-area-inset-top)] hidden min-h-[52px] items-center gap-2 rounded border border-slate-200 bg-white py-1.5 pr-1.5 pl-3 dark:border-slate-700 dark:bg-slate-900 max-[960px]:flex">
+      <header className="sticky top-0 z-40 max-[960px]:top-[calc(0.625rem+env(safe-area-inset-top))] hidden min-h-[52px] items-center gap-2 rounded border border-slate-200 bg-white py-1.5 pr-1.5 pl-3 dark:border-slate-700 dark:bg-slate-900 max-[960px]:flex">
         <h1
           className="m-0 min-w-0 flex-1 truncate text-[15px] font-bold text-slate-900 dark:text-slate-100"
           title={title}
