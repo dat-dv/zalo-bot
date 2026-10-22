@@ -10,34 +10,43 @@ metadata:
       - apps/api/src/zca/memory/chat-memory.module.ts
       - apps/api/src/database/entities/zca-message.entity.ts
       - apps/api/src/database/migrations/1724810000000-CreateZcaMessages.ts
+      - apps/api/src/database/migrations/1724820000000-AddChatMemoryToZcaThreadConfigs.ts
       - apps/api/src/database/audit-log.subscriber.ts
       - apps/api/src/zca/zca-bot-feature.service.ts
       - apps/api/src/zca/zca.service.ts
+      - apps/api/src/zca/thread-config.service.ts
       - apps/api/src/zalo/text/strategies/search-chat-history-tool.strategy.ts
       - apps/api/src/zalo/text/text-input.service.ts
       - apps/api/src/llm/llm.service.ts
-      - apps/api/src/config/configuration.ts
+      - packages/contracts/src/index.ts
+      - apps/web/src/modules/zca/view/thread-config-modal.tsx
 ---
 
 # ZCA Chat Memory
 
-Owner: Core Engineering Team · Status: active (Step 1: storage + full-text search + short-term window)
+Owner: Core Engineering Team · Status: active (Step 1: storage + full-text search + short-term window, switched per thread)
 
-Human guide: [Trí nhớ hội thoại](../../../docs/modules/zca/chat-memory.md). Design record: `.agents/artifacts/chat-memory-recall/`.
+Human guide: [Trí nhớ hội thoại](../../../docs/modules/zca/chat-memory.md). Design records: `.agents/artifacts/chat-memory-recall/`, `.agents/artifacts/chat-memory-per-thread-config/`.
 
 ## Purpose
 
 The bot answers questions about past conversations of the current Zalo chat ("năm ngoái mình đi đâu?", "hôm trước Nam nói gửi file gì?"). LLM calls are stateless, so memory lives in Postgres and only matched snippets are sent to the LLM.
 
-## Switches (`configuration.ts`)
+## Per-thread switch (`ThreadBotConfig.chatMemory`)
 
-| Env | Default | Meaning |
-| --- | --- | --- |
-| `CHAT_MEMORY_ENABLED` | `false` | Master switch. Off = nothing stored, read or injected; tool replies "not enabled". Instant rollback. |
-| `CHAT_MEMORY_CONTEXT_WINDOW` | `10` | Latest messages injected into the LLM prompt (`0` = off). |
-| `CHAT_MEMORY_SEARCH_LIMIT` | `15` | Ranked hits per search (each expanded with neighbours). |
+Configured per ZCA thread in the dashboard thread-config modal (card "🧠 Trí nhớ hội thoại"), stored in `zca_thread_configs.chat_memory` (jsonb, migration `1724820000000-AddChatMemoryToZcaThreadConfigs`). There are no env vars; the former global `CHAT_MEMORY_*` env switches were removed.
 
-Scope: every **listened** ZCA thread when enabled. No per-thread toggle yet. Official Zalo Bot webhook chats are not stored.
+| Field | Default | Range | Meaning |
+| --- | --- | --- | --- |
+| `enabled` | `false` | | Store, search and inject this thread's messages. Off for every thread until an admin enables it. |
+| `contextWindow` | `10` | 0–30 | Latest messages injected into the LLM prompt (`0` = off). |
+| `searchLimit` | `15` | 1–50 | Ranked hits per search (each expanded with neighbours). |
+
+- `normalizeChatMemoryConfig` (`@zalobot/contracts`, with `CHAT_MEMORY_DEFAULTS`, `CHAT_MEMORY_LIMITS`) fills defaults, rounds and clamps. Applied on default creation, `entityToConfig`, cached Redis/JSON configs, the `updateConfig` merge and the web form. `PUT /api/zca/thread-configs/:id` has no class-validator DTO, so this is the guard.
+- Memory needs `isListened` **and** `chatMemory.enabled` (only listened threads receive messages). Official Zalo Bot webhook chats are never stored.
+- Turning memory off stops storing, searching and context injection; rows already stored are **kept** and reused if it is turned on again. Turning it on stores from then; buffered Redis messages are imported at the next start.
+- Dashboard chat table shows badge "🧠 Nhớ" for threads with memory on.
+- `ChatMemoryService` has no switch of its own and no ZcaModule dependency (avoids a module cycle); callers gate on the thread config.
 
 ## Storage (`zca_messages`, migration `1724810000000-CreateZcaMessages`)
 
@@ -52,27 +61,28 @@ Scope: every **listened** ZCA thread when enabled. No per-thread toggle yet. Off
 
 | Event | Hook | Behavior |
 | --- | --- | --- |
-| Incoming message of a listened thread | `ZcaBotFeatureService.onMessage`, right after `isListened` gate, before self/trigger filters | `record` → `INSERT … ON CONFLICT DO NOTHING`. Includes un-addressed group messages (stored, never sent to LLM unless asked). |
-| Bot reply | `ZcaService.setupApiInstance` wrapper after `sendMessage` returns `msgId`, listened threads only | `recordBotReply` → upsert `is_bot = true` (self-listen echo may arrive first) |
-| Recall (`undo`) | `ZcaBotFeatureService.onUndo` | `markRecalled(threadId, content.globalMsgId, content.cliMsgId)`: sets `recalled_at`, erases `text` and `content`. Recalled rows never appear in reads. |
-| Startup backfill | `ZcaBotFeatureService.init` (plugin init after listened threads load) | Re-imports Redis buffer `zca:buffered_msgs:<threadId>` (≤200 msgs, 7 days); idempotent. No Zalo history API call. |
+| Incoming message | `ZcaBotFeatureService.onMessage`, right after the `isListened` gate, before self/trigger filters; only when `config.chatMemory.enabled` | `record` → `INSERT … ON CONFLICT DO NOTHING`. Includes un-addressed group messages (stored, never sent to LLM unless asked). |
+| Bot reply | `ZcaService.setupApiInstance` wrapper after `sendMessage` returns `msgId` → `recordBotReplyInMemory`: listened thread and `findStoredConfig(threadId).chatMemory.enabled` | `recordBotReply` → upsert `is_bot = true` (self-listen echo may arrive first) |
+| Recall (`undo`) | `ZcaBotFeatureService.onUndo`; **always**, even when the thread has memory off now | `markRecalled(threadId, content.globalMsgId, content.cliMsgId)`: sets `recalled_at`, erases `text` and `content`. Recalled rows never appear in reads. |
+| Startup backfill | `ZcaBotFeatureService.init` (plugin init after listened threads load); listened threads with `chatMemory.enabled` only | Re-imports Redis buffer `zca:buffered_msgs:<threadId>` (≤200 msgs, 7 days); idempotent. No Zalo history API call. |
 
 Owner's own phone messages (`isSelf`, not bot-sent) are stored only when zca-js delivers them (`ZCA_SELF_LISTEN`).
 
 ## Read paths (always filtered by the asking `chat_id`)
 
 - **Channel isolation**: every query has `channel_id = <current chat>`; a question in thread A never reads thread B.
-- **`SEARCH_CHAT_HISTORY` tool** (read-only, no pending action). Args (flat strings): `keywords` (comma-separated keywords + synonyms generated by the LLM), `fromDate`/`toDate` (`YYYY-MM-DD`, inclusive, in `timezone` config, default `Asia/Ho_Chi_Minh`), `question`.
-  1. Hit query: OR of `plainto_tsquery('simple', zalobot_unaccent(kw))` (≤12 keywords), `recalled_at IS NULL`, optional date range, ranked by `ts_rank` then recency, `LIMIT CHAT_MEMORY_SEARCH_LIMIT`.
+- **Thread settings reach the text pipeline** as `AgentInput.chatMemory = { contextWindow, searchLimit }`, set by `onMessage` (text and image paths) only when the thread has memory on; absent for memory-off threads, webhook chats and unlistened chats.
+- **`SEARCH_CHAT_HISTORY` tool** (read-only, no pending action). Without `input.chatMemory` it replies that the thread has not enabled chat memory (enable it in the dashboard "Cấu hình kênh"). Args (flat strings): `keywords` (comma-separated keywords + synonyms generated by the LLM), `fromDate`/`toDate` (`YYYY-MM-DD`, inclusive, in `timezone` config, default `Asia/Ho_Chi_Minh`), `question`.
+  1. Hit query: OR of `plainto_tsquery('simple', zalobot_unaccent(kw))` (≤12 keywords), `recalled_at IS NULL`, optional date range, ranked by `ts_rank` then recency, `LIMIT <thread searchLimit>`.
   2. Neighbour query: per hit 3 messages before + hit + 3 after (same channel, not recalled).
   3. `selectMemoryLines`: dedupe, keep best-ranked hits first, cap `MAX_MEMORY_LINES = 80`, sort chronologically.
   4. No lines → "không tìm thấy … từ <from> đến <to>". Else lines `[yyyy-mm-dd HH:mm] <sender|Bot>: text` + question → `LlmService.generate(prompt, undefined, system)` through the shared provider chain (tool-free; answer only from snippets, cite date + speaker, say when unsure).
-- **Short-term window**: `TextInputService.buildRecentContextBlock` appends the latest `CHAT_MEMORY_CONTEXT_WINDOW` messages (excluding `AgentInput.messageId`, the message being processed) to the tool-calling and chit-chat system prompts, under a header forbidding tool calls for its content (prevents re-recording old transactions). Empty for chats with no stored rows.
+- **Short-term window**: `TextInputService.buildRecentContextBlock` appends the latest `input.chatMemory.contextWindow` messages (excluding `AgentInput.messageId`, the message being processed) to the tool-calling and chit-chat system prompts, under a header forbidding tool calls for its content (prevents re-recording old transactions). Skipped when `input.chatMemory` is absent or `contextWindow` is 0.
 
 ## Data disclosure
 
-Approved exception to local-first AI (see `global/local-first-ai-usage.md`): only the ≤80 matched lines and the short window leave the server, never the full history. Memory answers use the shared provider chain (`LLM_PROVIDER` + `LLM_FALLBACK_PROVIDERS`); there is no memory-specific LLM config. To keep them on-prem, run the whole chain on `qwen`. The raw ZCA payload log is DEBUG-level.
+Approved exception to local-first AI (see `global/local-first-ai-usage.md`): only the ≤80 matched lines and the short window leave the server, never the full history, and only for threads an admin enabled. Memory answers use the shared provider chain (`LLM_PROVIDER` + `LLM_FALLBACK_PROVIDERS`); there is no memory-specific LLM config. To keep them on-prem, run the whole chain on `qwen`. The raw ZCA payload log is DEBUG-level.
 
 ## Not in Step 1
 
-Daily/monthly summaries (episodic memory, best for aggregate questions), pgvector semantic search, per-thread toggle UI, retention job, dashboard view.
+Daily/monthly summaries (episodic memory, best for aggregate questions), pgvector semantic search, retention job, purge of a thread's stored messages, dashboard view of stored messages.

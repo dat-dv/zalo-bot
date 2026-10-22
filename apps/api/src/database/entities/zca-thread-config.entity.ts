@@ -3,6 +3,7 @@ import type {
   ThreadDirectInteractionConfig,
   ThreadMediaBackupConfig,
   ThreadConfirmationConfig,
+  ThreadChatMemoryConfig,
 } from '@zalobot/contracts';
 
 @Entity('zca_thread_configs')
@@ -42,6 +43,13 @@ export class ZcaThreadConfigEntity {
     default: () => '\'{"allowReactions": false, "requiredHearts": 1, "timeoutMinutes": 5}\'',
   })
   confirmationRules: ThreadConfirmationConfig;
+
+  @Column({
+    name: 'chat_memory',
+    type: 'jsonb',
+    default: () => '\'{"enabled": false, "contextWindow": 10, "searchLimit": 15}\'',
+  })
+  chatMemory: ThreadChatMemoryConfig;
 
   @Column({ name: 'drive_folder_id', type: 'varchar', nullable: true })
   driveFolderId?: string;

@@ -44,7 +44,7 @@ Danh sách bắt buộc nằm trong `apps/api/src/config/env.validator.ts`:
 - **Zalo Bot**: `BOT_NAME`, `ZALO_WEBHOOK_URL`, `ZALO_WEBHOOK_SECRET_TOKEN`.
 - **ZCA (Zalo cá nhân)**: `DATA_DIR`, `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN`, `ZCA_CHECK_UPDATE`, `ZCA_LOGGING`, `ZCA_AUTO_LOGIN`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH`.
 - **LLM**: `LLM_PROVIDER` chọn nhà cung cấp đầu chuỗi cho `LlmService` (`gemini` mặc định, `openai`, `qwen`/`ollama`, `router`/`9router`); `LLM_FALLBACK_PROVIDERS` là danh sách provider dự phòng, phân cách bằng dấu phẩy (vd `gemini`); `LLM_TIMEOUT_MS` (mặc định `30000`); provider `router` dùng `ROUTER_BASE_URL`, `ROUTER_MODEL`, `ROUTER_API_KEY`; kèm `GEMINI_API_KEY`, `GEMINI_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `QWEN_BASE_URL`, `QWEN_MODEL`, `QWEN_API_KEY` (chấp nhận tên thay thế `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, `OLLAMA_API_KEY`).
-- **Trí nhớ hội thoại**: `CHAT_MEMORY_ENABLED` (mặc định `false`), `CHAT_MEMORY_CONTEXT_WINDOW` (`10`), `CHAT_MEMORY_SEARCH_LIMIT` (`15`); câu trả lời trí nhớ dùng chung chuỗi `LLM_PROVIDER`. Xem [Trí nhớ hội thoại](../modules/zca/chat-memory.md).
+- **Trí nhớ hội thoại**: không có biến môi trường; bật theo từng kênh trong "Cấu hình kênh" trên dashboard. Xem [Trí nhớ hội thoại](../modules/zca/chat-memory.md).
 - **Thông báo deploy**: `NOTIFY_ON_STARTUP` (đặt `false` để tắt; ở `NODE_ENV=development` phải đặt `true` mới gửi), `APP_VERSION`, các biến commit/branch do Coolify/CI cung cấp.
 - **Chỉ dùng cho Docker Compose**: `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`, `REDIS_PORT`, `WEB_PORT`, `NGINX_PORT`, `FE_PORT`.
 

@@ -35,7 +35,8 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
 
 - **Kết nối & phiên đăng nhập (`ZcaService`)**:
   - Đăng nhập bằng mã QR từ dashboard, từ chat (`/zalo-login`, `/zca-login`, `/zlogin`; đăng xuất `/zalo-logout`, `/zca-logout`, `/zlogout`) hoặc bằng CLI `npm run zca:login --workspace @zalobot/api`.
-  - Phiên được lưu ở **hai nơi**: file `.zca-session.json` trong thư mục `DATA_DIR`/`ZCA_DATA_DIR` (không có thì `./data` nếu tồn tại, cuối cùng là thư mục chạy) và Redis key `zca:session`. Khi khởi động, server đọc file trước, không có thì đọc Redis rồi ghi lại ra file. Nhờ vậy restart server hay đổi container (mất file) vẫn giữ được phiên. Đăng xuất xoá cả hai.
+  - Phiên được lưu ở **hai nơi**: file `.zca-session.json` trong thư mục `DATA_DIR` (mặc định `./data`, tính từ thư mục chạy; `npm run zca:login` dùng cùng mặc định) và Redis key `zca:session`. Khi khởi động, server đọc file trước, không có thì đọc Redis rồi ghi lại ra file. Nhờ vậy restart server hay đổi container (mất file) vẫn giữ được phiên. Đăng xuất xoá cả hai.
+  - **Tự đăng nhập khi khởi động không cần cờ**: có phiên đã lưu hoặc có `ZCA_IMEI` + `ZCA_COOKIE` thì server tự đăng nhập; không có gì thì chỉ ghi log và chờ quét QR. Cờ `ZCA_AUTO_LOGIN` cũ đã bỏ vì khôi phục phiên vốn luôn chạy, cờ chỉ làm server gọi đăng nhập cả khi không có gì để đăng nhập rồi báo lỗi.
   - Ghi nhớ cặp `msgId -> cliMsgId` (bộ nhớ + Redis `zca:msg:cli:<msgId>`, 24 giờ) để lệnh thu hồi `undo(payload, threadId)` gửi đúng `cliMsgId`, tránh lỗi `"Lỗi không xác định"` của Zalo. `deleteMessage(dest, onlyMe)` là phương án dự phòng khi thu hồi bị từ chối.
   - Lấy danh sách nhóm/bạn bè (`getAvailableThreads`) và đồng bộ trạng thái lắng nghe sang `ThreadConfigService`.
 - **Xử lý tin nhắn & reaction (`ZcaBotFeatureService`)**: xem mục 1a và 1c.
@@ -64,6 +65,9 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
 | Quy tắc xác nhận | `allowReactions` | tắt | Cho phép duyệt/huỷ bằng ❤️/😡 |
 | | `requiredHearts` | nhóm `5`, cá nhân `1` | Số tim cần để duyệt |
 | | `timeoutMinutes` | `5` | Thời hạn thẻ chờ |
+| Trí nhớ hội thoại | `chatMemory.enabled` | tắt | Lưu và tra lại tin của kênh ([chi tiết](chat-memory.md)) |
+| | `chatMemory.contextWindow` | `10` (0–30) | Số tin gần nhất đưa vào prompt |
+| | `chatMemory.searchLimit` | `15` (1–50) | Số kết quả mỗi lần tra |
 | Lưu trữ | `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | trống | Link đã lưu tới **thư mục gốc** Drive và album Photos của kênh (xem mục "Link Drive/Photos cố định theo kênh") |
 
 Lưu ý:
@@ -243,9 +247,9 @@ Contracts liên quan trong `packages/contracts`: `ThreadBotConfig`, `UpdateThrea
 
 ## 4. Biến Môi Trường ZCA
 
-Trí nhớ hội thoại dùng thêm `CHAT_MEMORY_ENABLED`, `CHAT_MEMORY_CONTEXT_WINDOW`, `CHAT_MEMORY_SEARCH_LIMIT`; cách bật và lý do nằm ở [Trí nhớ hội thoại](chat-memory.md).
+Trí nhớ hội thoại không dùng biến môi trường: bật theo từng kênh trong "Cấu hình kênh", xem [Trí nhớ hội thoại](chat-memory.md).
 
-`DATA_DIR`/`ZCA_DATA_DIR` (nơi lưu file phiên), `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN`, `ZCA_CHECK_UPDATE`, `ZCA_LOGGING`, `ZCA_AUTO_LOGIN`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH` (đọc trong `apps/api/src/config/configuration.ts`).
+`DATA_DIR` (nơi lưu file phiên), `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN`, `ZCA_CHECK_UPDATE` (mặc định false), `ZCA_LOGGING`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH` (đọc trong `apps/api/src/config/configuration.ts`). Chỉ khai báo khi muốn khác mặc định; xem [Biến môi trường](../../global/environment-guard.md).
 
 ## 5. Kiểm Thử
 

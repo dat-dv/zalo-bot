@@ -32,6 +32,7 @@ import { AddSharedLedgerAndTransactionCreator1724780000000 } from './migrations/
 import { RemoveFinanceUserScope1724790000000 } from './migrations/1724790000000-RemoveFinanceUserScope';
 import { DropZcaPassiveTrackingColumns1724800000000 } from './migrations/1724800000000-DropZcaPassiveTrackingColumns';
 import { CreateZcaMessages1724810000000 } from './migrations/1724810000000-CreateZcaMessages';
+import { AddChatMemoryToZcaThreadConfigs1724820000000 } from './migrations/1724820000000-AddChatMemoryToZcaThreadConfigs';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { CreateZcaMessages1724810000000 } from './migrations/1724810000000-Creat
             RemoveFinanceUserScope1724790000000,
             DropZcaPassiveTrackingColumns1724800000000,
             CreateZcaMessages1724810000000,
+            AddChatMemoryToZcaThreadConfigs1724820000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

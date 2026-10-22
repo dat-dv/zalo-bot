@@ -2272,6 +2272,59 @@ export interface ThreadDirectInteractionConfig {
   allowSelf?: boolean;
 }
 
+/** Per-thread chat memory: store this thread's messages and answer questions about them. */
+export interface ThreadChatMemoryConfig {
+  enabled: boolean;
+  /** Latest messages added to the LLM prompt for follow-up questions (0 = off). */
+  contextWindow: number;
+  /** Best-matching messages fetched per history search. */
+  searchLimit: number;
+}
+
+export const CHAT_MEMORY_DEFAULTS: ThreadChatMemoryConfig = {
+  enabled: false,
+  contextWindow: 10,
+  searchLimit: 15,
+};
+
+export const CHAT_MEMORY_LIMITS = {
+  CONTEXT_WINDOW_MAX: 30,
+  SEARCH_LIMIT_MIN: 1,
+  SEARCH_LIMIT_MAX: 50,
+} as const;
+
+function clampInteger(value: unknown, min: number, max: number, fallback: number): number {
+  const number = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(number)));
+}
+
+/**
+ * Cleans a stored or submitted chat-memory config: missing fields take the defaults, numbers are
+ * rounded and clamped. Thread config updates are not class-validated, so this is the only guard.
+ */
+export function normalizeChatMemoryConfig(value: unknown): ThreadChatMemoryConfig {
+  const raw: Record<string, unknown> =
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  return {
+    enabled: raw.enabled === true,
+    contextWindow: clampInteger(
+      raw.contextWindow,
+      0,
+      CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MAX,
+      CHAT_MEMORY_DEFAULTS.contextWindow,
+    ),
+    searchLimit: clampInteger(
+      raw.searchLimit,
+      CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MIN,
+      CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MAX,
+      CHAT_MEMORY_DEFAULTS.searchLimit,
+    ),
+  };
+}
+
 export const TRIGGER_PREFIX_LIMITS = {
   MAX_COUNT: 10,
   MAX_LENGTH: 20,
@@ -2333,6 +2386,7 @@ export interface ThreadBotConfig {
   directInteraction: ThreadDirectInteractionConfig;
   mediaBackup: ThreadMediaBackupConfig;
   confirmationRules: ThreadConfirmationConfig;
+  chatMemory: ThreadChatMemoryConfig;
   updatedAt?: number;
 }
 
@@ -2349,6 +2403,7 @@ export type UpdateThreadBotConfigDto = Partial<{
   directInteraction: Partial<ThreadDirectInteractionConfig>;
   mediaBackup: Partial<ThreadMediaBackupConfig>;
   confirmationRules: Partial<ThreadConfirmationConfig>;
+  chatMemory: Partial<ThreadChatMemoryConfig>;
 }>;
 
 export type SyncMediaTimeRange = 'all' | '1_month' | '2_months' | '3_months' | '6_months';

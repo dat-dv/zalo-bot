@@ -26,4 +26,6 @@ export interface AgentInput {
   triggerPrefixes?: readonly string[];
   /** Id của tin đang xử lý (ZCA), để cửa sổ ngữ cảnh chat không lặp lại chính tin này */
   messageId?: string;
+  /** Trí nhớ hội thoại của kênh; chỉ có khi kênh bật `chatMemory` trong cấu hình kênh */
+  chatMemory?: { contextWindow: number; searchLimit: number };
 }

@@ -46,6 +46,14 @@ import type { OcrService } from '../ocr/ocr.service';
 import { cleanBotMention } from '../zalo/text/bot-mention.util';
 import { ChatMemoryService } from './memory/chat-memory.service';
 
+/** Per-thread chat-memory settings for the text pipeline; `undefined` when the thread has it off. */
+function toAgentChatMemory(config: ThreadBotConfig): AgentInput['chatMemory'] {
+  const memory = config.chatMemory;
+  return memory?.enabled
+    ? { contextWindow: memory.contextWindow, searchLimit: memory.searchLimit }
+    : undefined;
+}
+
 function formatErrorMessage(err: unknown): string {
   if (err instanceof Error) {
     return err.message;
@@ -805,11 +813,14 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     }
 
     void this.bufferRecentMessage(threadId, message);
-    void this.chatMemoryService?.record(
-      threadId,
-      message.type === ThreadType.Group ? 'group' : 'user',
-      message.data,
-    );
+    const chatMemory = toAgentChatMemory(config);
+    if (chatMemory) {
+      void this.chatMemoryService?.record(
+        threadId,
+        message.type === ThreadType.Group ? 'group' : 'user',
+        message.data,
+      );
+    }
 
     const directConfig: ThreadDirectInteractionConfig = config.directInteraction ?? {
       enabled: true,
@@ -1097,6 +1108,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
           isBot: false,
           allowAiChat: directConfig.allowAiChat ?? true,
           triggerPrefixes,
+          chatMemory,
         });
       }
       return;
@@ -1156,6 +1168,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
             isBot: false,
             allowAiChat: directConfig.allowAiChat ?? true,
             triggerPrefixes,
+            chatMemory,
           });
         }
         return;
@@ -1228,6 +1241,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         allowAiChat: directConfig.allowAiChat ?? true,
         triggerPrefixes,
         messageId: message.data?.msgId ? String(message.data.msgId) : undefined,
+        chatMemory,
       };
 
       try {
@@ -1240,7 +1254,10 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     }
   }
 
-  /** A message recalled in Zalo is also forgotten by the chat memory. */
+  /**
+   * A message recalled in Zalo is also forgotten by the chat memory, even when the thread has
+   * since turned memory off (its stored messages are kept).
+   */
   public async onUndo(undo: Undo): Promise<void> {
     const recalledMsgId = undo.data?.content?.globalMsgId;
     const recalledCliMsgId = undo.data?.content?.cliMsgId;
@@ -1253,14 +1270,17 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
   }
 
   /**
-   * Plugin init (after listened threads are loaded): seeds the chat memory from the Redis recent
-   * buffer once per start. Runs in the background so login is never delayed.
+   * Plugin init (after listened threads are loaded): seeds the chat memory of listened threads
+   * with memory on from the Redis recent buffer, once per start. Runs in the background so login
+   * is never delayed.
    */
   public init(): void {
     const memory = this.chatMemoryService;
-    if (!memory?.isEnabled()) return;
+    if (!memory) return;
     void (async () => {
       for (const threadId of this.threadConfigService.getListenedThreadIds()) {
+        const stored = await this.threadConfigService.findStoredConfig(threadId);
+        if (!stored?.chatMemory?.enabled) continue;
         const buffered = await this.getBufferedMessages(threadId);
         const isGroup = await this.threadConfigService.isGroupThread(threadId);
         const count = await memory.backfill(

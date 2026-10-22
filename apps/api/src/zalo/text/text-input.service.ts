@@ -169,7 +169,7 @@ export class TextInputService {
       process.env.DEFAULT_TIMEZONE ||
       'Asia/Ho_Chi_Minh';
     const dtContext = getVietnamDateTimeContext(new Date(), timeZone);
-    const recentContext = await this.buildRecentContextBlock(chatId, input.messageId, timeZone);
+    const recentContext = await this.buildRecentContextBlock(chatId, input, timeZone);
     const systemInstruction =
       `Bạn là trợ lý cá nhân thông minh trên Zalo.\n\n` +
       `${dtContext.systemInstructionSnippet}\n\n` +
@@ -403,19 +403,18 @@ export class TextInputService {
 
   /**
    * Short-term chat memory: the latest messages of this chat, so follow-ups ("thế tháng 5 thì
-   * sao?") make sense. Empty when chat memory is off or the chat is not a listened ZCA thread.
+   * sao?") make sense. Empty unless the ZCA thread has `chatMemory` on (`input.chatMemory`).
    * The block forbids tool calls on its content, so old messages are never recorded twice.
    */
   private async buildRecentContextBlock(
     chatId: string,
-    currentMessageId: string | undefined,
+    input: AgentInput,
     timeZone: string,
   ): Promise<string> {
     const memory = this.chatMemoryService;
-    if (!memory?.isEnabled()) return '';
-    const size = memory.getContextWindowSize();
-    if (size === 0) return '';
-    const lines = await memory.getRecentWindow(chatId, size, currentMessageId);
+    const size = input.chatMemory?.contextWindow ?? 0;
+    if (!memory || size <= 0) return '';
+    const lines = await memory.getRecentWindow(chatId, size, input.messageId);
     if (lines.length === 0) return '';
     return (
       '\n\nNGỮ CẢNH GẦN ĐÂY CỦA CUỘC CHAT (chỉ để hiểu câu hỏi hiện tại; TUYỆT ĐỐI KHÔNG gọi tool ' +

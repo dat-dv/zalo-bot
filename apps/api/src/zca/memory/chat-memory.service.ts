@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ZcaMessageEntity } from '../../database/entities/zca-message.entity';
@@ -33,8 +32,9 @@ function errorMessage(err: unknown): string {
 }
 
 /**
- * Chat memory of listened ZCA threads: stores every message, forgets recalled ones and finds past
- * messages for the `SEARCH_CHAT_HISTORY` tool. Writes never throw: memory must not break replies.
+ * Chat memory of ZCA threads: stores messages, forgets recalled ones and finds past messages for
+ * the `SEARCH_CHAT_HISTORY` tool. Whether a thread uses memory is its `chatMemory` thread config,
+ * checked by the callers (this module stays free of ZcaModule). Writes never throw.
  */
 @Injectable()
 export class ChatMemoryService {
@@ -43,29 +43,13 @@ export class ChatMemoryService {
   constructor(
     @InjectRepository(ZcaMessageEntity)
     private readonly messageRepository: Repository<ZcaMessageEntity>,
-    private readonly configService: ConfigService,
   ) {}
-
-  public isEnabled(): boolean {
-    return this.configService.get<boolean>('chatMemory.enabled') === true;
-  }
-
-  public getContextWindowSize(): number {
-    const size = this.configService.get<number>('chatMemory.contextWindow') ?? 0;
-    return Number.isFinite(size) && size > 0 ? Math.floor(size) : 0;
-  }
-
-  public getSearchLimit(): number {
-    const limit = this.configService.get<number>('chatMemory.searchLimit') ?? 15;
-    return Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 15;
-  }
 
   public async record(
     channelId: string,
     channelType: MemoryChannelType,
     data: MemorySourceMessage,
   ): Promise<void> {
-    if (!this.isEnabled()) return;
     const record = toMemoryRecord(channelId, channelType, data);
     if (!record) return;
     await this.insertIgnoringDuplicates([record]);
@@ -78,7 +62,6 @@ export class ChatMemoryService {
     msgId: string,
     text: string,
   ): Promise<void> {
-    if (!this.isEnabled()) return;
     const record = toMemoryRecord(
       channelId,
       channelType,
@@ -107,7 +90,7 @@ export class ChatMemoryService {
     channelType: MemoryChannelType,
     messages: readonly MemorySourceMessage[],
   ): Promise<number> {
-    if (!this.isEnabled() || messages.length === 0) return 0;
+    if (messages.length === 0) return 0;
     const records = messages
       .map((data) => toMemoryRecord(channelId, channelType, data))
       .filter((record): record is ChatMemoryRecord => record !== null);
@@ -118,7 +101,7 @@ export class ChatMemoryService {
 
   /** A recalled message is forgotten: its content is erased, only the tombstone remains. */
   public async markRecalled(channelId: string, msgId: string, cliMsgId?: string): Promise<void> {
-    if (!this.isEnabled() || !channelId || (!msgId && !cliMsgId)) return;
+    if (!channelId || (!msgId && !cliMsgId)) return;
     try {
       await this.messageRepository
         .createQueryBuilder()
@@ -141,7 +124,7 @@ export class ChatMemoryService {
     limit: number,
     excludeMsgId?: string,
   ): Promise<MemoryLine[]> {
-    if (!this.isEnabled() || !channelId || limit <= 0) return [];
+    if (!channelId || limit <= 0) return [];
     try {
       const query = this.messageRepository
         .createQueryBuilder('m')
@@ -174,7 +157,7 @@ export class ChatMemoryService {
    * better-ranked hits are kept first when the cap is reached.
    */
   public async search(channelId: string, search: ChatMemorySearchParams): Promise<MemoryLine[]> {
-    if (!this.isEnabled() || !channelId) return [];
+    if (!channelId) return [];
     const hitQuery = buildHitQuery(channelId, search);
     if (!hitQuery) return [];
 

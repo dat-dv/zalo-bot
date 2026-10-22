@@ -46,10 +46,11 @@ export class SearchChatHistoryToolStrategy implements TextToolStrategy {
   public async execute(context: TextToolContext): Promise<void> {
     const { chatId } = context;
     const memory = this.chatMemoryService;
-    if (!memory?.isEnabled()) {
+    const settings = context.input.chatMemory;
+    if (!memory || !settings) {
       await this.zaloService.sendMessage(
         chatId,
-        '🧠 Bot chưa bật tính năng ghi nhớ lịch sử chat nên chưa tra lại được chuyện cũ.',
+        '🧠 Kênh này chưa bật ghi nhớ hội thoại nên chưa tra lại được chuyện cũ. Admin bật trong "Cấu hình kênh" trên dashboard.',
       );
       return;
     }
@@ -67,7 +68,7 @@ export class SearchChatHistoryToolStrategy implements TextToolStrategy {
           keywords: keywords || question,
           fromDate,
           toDate,
-          limit: memory.getSearchLimit(),
+          limit: settings.searchLimit,
           timeZone,
         }),
       );

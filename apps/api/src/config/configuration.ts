@@ -67,11 +67,6 @@ export interface AppConfig {
       apiKey?: string;
     };
   };
-  chatMemory: {
-    enabled: boolean;
-    contextWindow: number;
-    searchLimit: number;
-  };
 }
 
 function readEnv(name: string, fallback = ''): string {
@@ -173,11 +168,6 @@ export default (): AppConfig => {
         model: readEnv('QWEN_MODEL', readEnv('OLLAMA_MODEL', 'qwen2.5:14b')),
         apiKey: readOptionalEnv('QWEN_API_KEY') || readOptionalEnv('OLLAMA_API_KEY') || '',
       },
-    },
-    chatMemory: {
-      enabled: readBooleanEnv('CHAT_MEMORY_ENABLED', false),
-      contextWindow: readNumberEnv('CHAT_MEMORY_CONTEXT_WINDOW', 10),
-      searchLimit: readNumberEnv('CHAT_MEMORY_SEARCH_LIMIT', 15),
     },
   };
 };

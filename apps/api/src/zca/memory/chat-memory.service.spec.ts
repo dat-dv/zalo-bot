@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ConfigService } from '@nestjs/config';
 import type { Repository } from 'typeorm';
 import type { ZcaMessageEntity } from '../../database/entities/zca-message.entity';
 import { ChatMemoryService, selectMemoryLines, type MemoryLineRow } from './chat-memory.service';
@@ -50,26 +49,13 @@ function createRepositoryStub(queryResults: unknown[][] = []): {
   return { repository, calls, rawQueries };
 }
 
-function createService(enabled: boolean, queryResults: unknown[][] = []) {
+function createService(queryResults: unknown[][] = []) {
   const stub = createRepositoryStub(queryResults);
-  const config = new ConfigService({ chatMemory: { enabled, contextWindow: 10, searchLimit: 15 } });
-  return { service: new ChatMemoryService(stub.repository, config), ...stub };
+  return { service: new ChatMemoryService(stub.repository), ...stub };
 }
 
-void test('ChatMemoryService is a no-op when chat memory is disabled', async () => {
-  const { service, calls, rawQueries } = createService(false);
-
-  await service.record('g-1', 'group', { msgId: '1', content: 'hi' });
-  await service.markRecalled('g-1', '1');
-  const lines = await service.search('g-1', { keywords: 'hi', limit: 5, timeZone: 'UTC' });
-
-  assert.deepEqual(lines, []);
-  assert.equal(calls.length, 0);
-  assert.equal(rawQueries.length, 0);
-});
-
 void test('record inserts with ON CONFLICT DO NOTHING', async () => {
-  const { service, calls } = createService(true);
+  const { service, calls } = createService();
 
   await service.record('g-1', 'group', { msgId: '1', content: 'đi Đà Lạt', ts: '1720785780000' });
 
@@ -81,7 +67,7 @@ void test('record inserts with ON CONFLICT DO NOTHING', async () => {
 });
 
 void test('recordBotReply upserts the bot flag', async () => {
-  const { service, calls } = createService(true);
+  const { service, calls } = createService();
 
   await service.recordBotReply('g-1', 'group', '99', 'Đã ghi nhận');
 
@@ -90,7 +76,7 @@ void test('recordBotReply upserts the bot flag', async () => {
 });
 
 void test('markRecalled erases the content of the recalled message only in its channel', async () => {
-  const { service, calls } = createService(true);
+  const { service, calls } = createService();
 
   await service.markRecalled('g-1', '7001', '55');
 
@@ -123,7 +109,7 @@ void test('search runs hit then neighbour queries and returns chronological line
       hit_rank: 1,
     },
   ];
-  const { service, rawQueries } = createService(true, [[{ id: 'a' }], neighbourRows]);
+  const { service, rawQueries } = createService([[{ id: 'a' }], neighbourRows]);
 
   const lines = await service.search('g-1', { keywords: 'Đà Lạt', limit: 5, timeZone: 'UTC' });
 
@@ -136,7 +122,7 @@ void test('search runs hit then neighbour queries and returns chronological line
 });
 
 void test('search skips the neighbour query when nothing matches', async () => {
-  const { service, rawQueries } = createService(true, [[]]);
+  const { service, rawQueries } = createService([[]]);
 
   const lines = await service.search('g-1', { keywords: 'Đà Lạt', limit: 5, timeZone: 'UTC' });
 

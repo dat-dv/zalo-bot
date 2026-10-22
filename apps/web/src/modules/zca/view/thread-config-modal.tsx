@@ -1,7 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { ThreadBotConfig, UpdateThreadBotConfigDto } from '@zalobot/contracts';
+import {
+  CHAT_MEMORY_LIMITS,
+  normalizeChatMemoryConfig,
+  type ThreadBotConfig,
+  type UpdateThreadBotConfigDto,
+} from '@zalobot/contracts';
 import {
   useUpdateZcaThreadConfigMutation,
   useZcaThreadConfigQuery,
@@ -74,6 +79,7 @@ export function ThreadConfigModal({
           requiredHearts: threadType === 'group' ? 5 : 1,
           timeoutMinutes: 5,
         },
+        chatMemory: normalizeChatMemoryConfig(config.chatMemory),
       });
     }
   }, [config, threadType]);
@@ -97,6 +103,7 @@ export function ThreadConfigModal({
       directInteraction: form.directInteraction,
       mediaBackup: form.mediaBackup,
       confirmationRules: form.confirmationRules,
+      chatMemory: normalizeChatMemoryConfig(form.chatMemory),
     };
 
     try {
@@ -663,6 +670,96 @@ export function ThreadConfigModal({
                   />
                   <p className="mt-0.5 text-[10px] text-slate-400">
                     Hết thời gian yêu cầu sẽ tự động bị hủy
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Feature 3: Trí nhớ hội thoại */}
+          <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🧠</span>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    Trí nhớ hội thoại
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Lưu tin nhắn của kênh để hỏi lại chuyện cũ, ví dụ "@bot hôm trước Nam nói gửi
+                    file gì?"
+                  </p>
+                </div>
+              </div>
+              <label className="relative inline-flex cursor-pointer items-center">
+                <input
+                  checked={form.chatMemory.enabled}
+                  className="peer sr-only"
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      chatMemory: { ...form.chatMemory, enabled: e.target.checked },
+                    })
+                  }
+                  type="checkbox"
+                />
+                <div className="peer h-5 w-9 rounded-full bg-slate-300 peer-checked:bg-blue-600 peer-focus:outline-none dark:bg-slate-700 after:absolute after:top-[2px] after:left-[2px] after:size-4 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-full" />
+              </label>
+            </div>
+
+            {form.chatMemory.enabled && (
+              <div className="mt-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2 pl-7">
+                <p className="text-[11px] text-amber-700 sm:col-span-2 dark:text-amber-400">
+                  Bot lưu mọi tin nhắn của kênh, kể cả của người không dùng bot. Tắt thì ngừng lưu
+                  và ngừng tra cứu, tin đã lưu vẫn được giữ.
+                </p>
+                <div>
+                  <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                    Số tin ngữ cảnh gần đây
+                  </label>
+                  <input
+                    className="mt-1 w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                    max={CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MAX}
+                    min={0}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        chatMemory: normalizeChatMemoryConfig({
+                          ...form.chatMemory,
+                          contextWindow: e.target.value,
+                        }),
+                      })
+                    }
+                    type="number"
+                    value={form.chatMemory.contextWindow}
+                  />
+                  <p className="mt-0.5 text-[10px] text-slate-400">
+                    Đưa vào prompt để bot hiểu câu nối tiếp; 0 = tắt
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                    Số kết quả mỗi lần tra
+                  </label>
+                  <input
+                    className="mt-1 w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                    max={CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MAX}
+                    min={CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MIN}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        chatMemory: normalizeChatMemoryConfig({
+                          ...form.chatMemory,
+                          searchLimit: e.target.value,
+                        }),
+                      })
+                    }
+                    type="number"
+                    value={form.chatMemory.searchLimit}
+                  />
+                  <p className="mt-0.5 text-[10px] text-slate-400">
+                    Mỗi kết quả kèm vài tin xung quanh, tối đa 80 dòng gửi cho AI
                   </p>
                 </div>
               </div>

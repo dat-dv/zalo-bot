@@ -628,6 +628,24 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     }
   }
 
+  /** Stores a bot reply only for threads whose `chatMemory` config is on. */
+  private async recordBotReplyInMemory(
+    threadId: string,
+    type: ThreadType,
+    msgId: string,
+    text: string,
+  ): Promise<void> {
+    if (!this.chatMemoryService) return;
+    const config = await this.threadConfigService?.findStoredConfig(threadId);
+    if (!config?.chatMemory?.enabled) return;
+    await this.chatMemoryService.recordBotReply(
+      threadId,
+      type === ThreadType.Group ? 'group' : 'user',
+      msgId,
+      text,
+    );
+  }
+
   private setupApiInstance(api: API): API {
     const originalSendMessage = api.sendMessage.bind(api);
     api.sendMessage = async (
@@ -645,12 +663,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         const msgId = String(response.message.msgId);
         this.trackBotMsgId(msgId);
         if (text && this.listenedThreadIds.has(threadId)) {
-          void this.chatMemoryService?.recordBotReply(
-            threadId,
-            resolvedType === ThreadType.Group ? 'group' : 'user',
-            msgId,
-            text,
-          );
+          void this.recordBotReplyInMemory(threadId, resolvedType, msgId, text);
         }
       }
       return response;

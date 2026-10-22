@@ -10,7 +10,7 @@
 
 - **`ZcaService`** (connection & session):
   - QR login (`startQrLogin`, `loginQR`), chat commands `/zalo-login`, `/zca-login`, `/zlogin` and `/zalo-logout`, `/zca-logout`, `/zlogout`; CLI `npm run zca:login --workspace @zalobot/api` (`apps/api/scripts/zca-login.ts`).
-  - Session persisted to file `.zca-session.json` in `DATA_DIR`/`ZCA_DATA_DIR` (else `./data` if it exists, else cwd) and to Redis key `zca:session`. Restore order on bootstrap: file → Redis (then rewritten to file). `ZCA_AUTO_LOGIN=true` forces `login()` on bootstrap. `logout()` clears file + Redis.
+  - Session persisted to file `.zca-session.json` in `DATA_DIR` (default `./data`, resolved from cwd; `npm run zca:login` uses the same default) and to Redis key `zca:session`. Restore order: file → Redis (then rewritten to file). Bootstrap auto-login has no flag: `onApplicationBootstrap` calls `login()` when `ZCA_IMEI` + `ZCA_COOKIE` are configured or a saved session exists; otherwise it logs a hint and waits for QR login. `logout()` clears file + Redis.
   - Caches `msgId → cliMsgId` in memory and Redis `zca:msg:cli:<msgId>` (TTL 24h). `undo(payload, threadId)` resolves thread type and the real `cliMsgId` to avoid Zalo "Lỗi không xác định". `deleteMessage(dest, onlyMe)` is the fallback.
   - `getAvailableThreads(forceRefresh)` lists groups/friends; `setListenedThreadIds` / `toggleListenedThread` sync listening state to `ThreadConfigService`.
   - Event dispatch: `dispatchMessage`, `dispatchReaction`, `dispatchGroupEvent` (→ `GroupEventDispatcher`), friend/undo/typing/seen/delivered events to registered plugins.
@@ -40,6 +40,7 @@
 | `confirmationRules.allowReactions` | `false` | ❤️/😡 reactions confirm/cancel |
 | `confirmationRules.requiredHearts` | group `5`, user `1` | Hearts needed |
 | `confirmationRules.timeoutMinutes` | `5` | Pending timeout |
+| `chatMemory.enabled` / `contextWindow` / `searchLimit` | `false` / `10` / `15` | Chat memory of this thread (store, search, prompt context); clamped by `normalizeChatMemoryConfig`. See [Chat Memory](chat-memory.md) |
 | `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | unset | Cached link to the channel storage root and channel Photos album (see Channel Storage Links) |
 
 - `setListened(id, true)` on a thread whose `directInteraction.enabled` is false also enables it with `allowAiChat: true` (keeps `triggerPrefixes`).
@@ -68,7 +69,7 @@ Image/video handling inside L1:
   - Prompt (neutral, not bill-framed): `[Văn bản trích từ ảnh đính kèm (OCR, có thể sai chính tả):\n<ocr ≤2000 chars>]\nYêu cầu của người dùng: <instruction>`. Empty OCR → `[Ảnh đính kèm không đọc được chữ qua OCR]` marker, still forwarded. Empty instruction → `Ghi nhận hóa đơn này`.
 - Captioned image with trigger: same split (save vs. mandatory OCR context). Image without text (group or 1-1) → only L3 backup; to process it, reply to the image with a mention/prefix (1-1: any text) — the quote flow above OCRs it and combines it with the request.
 - Video with trigger → upload to Drive/Photos and reply with summary.
-- Every listened message is buffered (last 200, Redis `zca:buffered_msgs:<threadId>`, 7 days) as a fallback for history sync, and, when `CHAT_MEMORY_ENABLED=true`, stored in `zca_messages` ([Chat Memory](chat-memory.md)).
+- Every listened message is buffered (last 200, Redis `zca:buffered_msgs:<threadId>`, 7 days) as a fallback for history sync, and, when the thread has `chatMemory.enabled`, stored in `zca_messages` ([Chat Memory](chat-memory.md)).
 
 - Full LLM tool set `ZALO_TOOL_DEFINITIONS` has 15 tools: `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`, `SEARCH_CHAT_HISTORY` (called through `LlmService`).
 
@@ -164,4 +165,4 @@ The former Users page (`/users`) was removed; user management lives here. Nav la
 
 - `API_ROUTES`: `zcaStatus`, `zcaQr`, `zcaLoginQr`, `zcaLogout`, `zcaThreads`, `zcaListenedThreads`, `zcaListenedThreadsToggle`, `zcaThreadConfigs`, `zcaThreadConfig(threadId)`, `zcaSyncThreadMedia(threadId)`, `driveFolderLink`, `driveOpen`, `photosAlbumLink`, `photosOpen`. Web builds the QR image URL with `getZcaQrImageUrl()` (`API_ROUTES.zcaQr` on `resolveApiBaseUrl()`).
 - Contracts (`packages/contracts`): `ThreadBotConfig`, `UpdateThreadBotConfigDto`, `ThreadDirectInteractionConfig`, `ThreadMediaBackupConfig`, `ThreadConfirmationConfig`, `TRIGGER_PREFIX_LIMITS`, `TriggerPrefixError`, `validateTriggerPrefix`, `normalizeTriggerPrefixes`, `findTriggerPrefix` (shared by API routing, `cleanBotMention` and the web chip input), `SyncThreadMediaDto`, `SyncMediaTimeRange`, `SyncThreadMediaResponse`.
-- Env (`apps/api/src/config/configuration.ts` `zca.*`): `DATA_DIR`/`ZCA_DATA_DIR`, `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN`, `ZCA_CHECK_UPDATE`, `ZCA_LOGGING`, `ZCA_AUTO_LOGIN`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH`.
+- Env (`apps/api/src/config/configuration.ts` `zca.*`): `DATA_DIR`, `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN`, `ZCA_CHECK_UPDATE` (default false), `ZCA_LOGGING`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH`. Defaults: `global/environment-guard.md`.

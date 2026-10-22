@@ -2005,7 +2005,6 @@ interface RecordedMemoryCall {
 
 function createChatMemoryMock(calls: RecordedMemoryCall[]): ChatMemoryService {
   return {
-    isEnabled: () => true,
     record: (...args: unknown[]) => {
       calls.push({ method: 'record', args });
       return Promise.resolve();
@@ -2042,7 +2041,10 @@ function createServiceWithMemory(
 void test('ZcaBotFeatureService stores every message of a listened thread in chat memory', async () => {
   const configService = new ThreadConfigService();
   const threadId = `memory-thread-${Date.now()}`;
-  await configService.updateConfig(threadId, { isListened: true });
+  await configService.updateConfig(threadId, {
+    isListened: true,
+    chatMemory: { enabled: true, contextWindow: 5, searchLimit: 20 },
+  });
   const calls: RecordedMemoryCall[] = [];
   const service = createServiceWithMemory(configService, createChatMemoryMock(calls));
 
@@ -2090,4 +2092,70 @@ void test('ZcaBotFeatureService forgets a recalled message', async () => {
   await service.onUndo(undo);
 
   assert.deepEqual(calls, [{ method: 'markRecalled', args: ['g-recall', '7001', '55'] }]);
+});
+
+void test('ZcaBotFeatureService does not store messages of a listened thread with memory off', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = `memory-off-${Date.now()}`;
+  await configService.updateConfig(threadId, {
+    isListened: true,
+    directInteraction: { enabled: true, allowAiChat: true },
+  });
+  const calls: RecordedMemoryCall[] = [];
+  const seen: { input?: AgentInput } = {};
+  const service = createServiceWithMemory(configService, createChatMemoryMock(calls));
+  service.setTextInputService({
+    process: (input: AgentInput) => {
+      seen.input = input;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.User,
+    data: { msgId: '9', content: 'hôm qua mình nói gì', uidFrom: 'owner', msgType: 'webchat' },
+  } as unknown as Message;
+  await service.onMessage(message, { getOwnId: () => 'bot-id' } as unknown as API);
+
+  assert.equal(calls.length, 0);
+  assert.ok(seen.input, 'the text still reaches the bot');
+  assert.equal(seen.input.chatMemory, undefined);
+});
+
+void test('ZcaBotFeatureService passes the thread memory settings to the text pipeline', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = `memory-on-input-${Date.now()}`;
+  await configService.updateConfig(threadId, {
+    isListened: true,
+    directInteraction: { enabled: true, allowAiChat: true },
+    chatMemory: { enabled: true, contextWindow: 4, searchLimit: 9 },
+  });
+  const seen: { input?: AgentInput } = {};
+  const service = createServiceWithMemory(configService, createChatMemoryMock([]));
+  service.setTextInputService({
+    process: (input: AgentInput) => {
+      seen.input = input;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.User,
+    data: {
+      msgId: '10',
+      content: 'tuần trước ai bảo mua vé',
+      uidFrom: 'owner',
+      msgType: 'webchat',
+    },
+  } as unknown as Message;
+  await service.onMessage(message, { getOwnId: () => 'bot-id' } as unknown as API);
+
+  assert.deepEqual(seen.input?.chatMemory, {
+    contextWindow: 4,
+    searchLimit: 9,
+  });
 });

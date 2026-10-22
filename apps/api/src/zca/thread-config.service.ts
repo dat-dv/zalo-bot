@@ -5,6 +5,8 @@ import { Repository } from 'typeorm';
 import * as fs from 'fs';
 import * as path from 'path';
 import {
+  CHAT_MEMORY_DEFAULTS,
+  normalizeChatMemoryConfig,
   normalizeTriggerPrefixes,
   type ThreadBotConfig,
   type ThreadDirectInteractionConfig,
@@ -113,6 +115,7 @@ function normalizeCachedConfig(
   return withoutStaleStorageLinks({
     ...config,
     directInteraction: normalizeDirectInteraction(config.directInteraction),
+    chatMemory: normalizeChatMemoryConfig(config.chatMemory),
   });
 }
 
@@ -153,6 +156,7 @@ export function createDefaultThreadConfig(
       requiredHearts: isGroup ? 5 : 1,
       timeoutMinutes: 5,
     },
+    chatMemory: { ...CHAT_MEMORY_DEFAULTS },
     updatedAt: Date.now(),
   };
 }
@@ -187,6 +191,7 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
         entity.confirmationRules?.requiredHearts ?? (entity.threadType === 'group' ? 5 : 1),
       timeoutMinutes: entity.confirmationRules?.timeoutMinutes ?? 5,
     },
+    chatMemory: normalizeChatMemoryConfig(entity.chatMemory),
     updatedAt: entity.updatedAt ? new Date(entity.updatedAt).getTime() : Date.now(),
   });
 }
@@ -209,8 +214,7 @@ export class ThreadConfigService implements OnModuleInit {
     const dataDir =
       this.configService?.get<string>('zca.dataDir') ||
       this.configService?.get<string>('DATA_DIR') ||
-      process.env.DATA_DIR ||
-      process.env.ZCA_DATA_DIR;
+      process.env.DATA_DIR;
 
     const baseDir = dataDir
       ? path.resolve(process.cwd(), dataDir)
@@ -584,6 +588,13 @@ export class ThreadConfigService implements OnModuleInit {
       };
     }
 
+    if (update.chatMemory) {
+      config.chatMemory = normalizeChatMemoryConfig({
+        ...config.chatMemory,
+        ...update.chatMemory,
+      });
+    }
+
     // The dashboard echoes stored links back, so re-check them against the (maybe changed)
     // customFolder / photosAlbum before persisting.
     Object.assign(config, withoutStaleStorageLinks(config));
@@ -647,6 +658,7 @@ export class ThreadConfigService implements OnModuleInit {
           directInteraction: config.directInteraction,
           mediaBackup: config.mediaBackup,
           confirmationRules: config.confirmationRules,
+          chatMemory: config.chatMemory,
           driveFolderId: config.driveFolderId,
           driveFolderUrl: config.driveFolderUrl,
           driveFolderPath: config.driveFolderPath,

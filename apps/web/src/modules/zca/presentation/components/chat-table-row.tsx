@@ -110,6 +110,14 @@ function ConfigBadges({ row, config }: { row: ChatRow; config: ThreadBotConfig }
           {isGroup ? '🤖 @Bot' : '🤖 Chat riêng'}
         </span>
       )}
+      {config.chatMemory?.enabled && (
+        <span
+          className="inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300"
+          title="Trí nhớ hội thoại đang bật: bot lưu tin nhắn của kênh để tra lại chuyện cũ"
+        >
+          🧠 Nhớ
+        </span>
+      )}
       {thread && config.mediaBackup.enabled && (
         <a
           className="inline-flex items-center gap-0.5 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900"

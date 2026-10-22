@@ -10,6 +10,7 @@ import {
   sanitizePathSegment,
   withoutStaleStorageLinks,
 } from './thread-config.service';
+import { normalizeChatMemoryConfig } from '@zalobot/contracts';
 
 void test('sanitizePathSegment cleans Vietnamese diacritics and special characters', () => {
   assert.equal(sanitizePathSegment('Nhóm Kế Toán & Thu Chi'), 'nhom_ke_toan_thu_chi');
@@ -37,6 +38,7 @@ void test('createDefaultThreadConfig creates sensible defaults for group vs user
   assert.equal(groupConfig.confirmationRules.allowReactions, false);
   assert.equal(groupConfig.mediaBackup.fileSuffix, '_team_dev');
   assert.equal(groupConfig.confirmationRules.requiredHearts, 5);
+  assert.deepEqual(groupConfig.chatMemory, { enabled: false, contextWindow: 10, searchLimit: 15 });
 
   const userConfig = createDefaultThreadConfig('u-789', {
     threadName: 'Nguyễn Văn A',
@@ -470,4 +472,38 @@ void test('updateConfig clears stored links when customFolder or photosAlbum cha
   });
   assert.equal(updated.driveFolderUrl, undefined);
   assert.equal(updated.photosAlbumUrl, undefined);
+});
+
+void test('ThreadConfigService merges and clamps chat memory updates', async () => {
+  const service = new ThreadConfigService();
+  const threadId = `memory-config-${Date.now()}`;
+  await service.getConfig(threadId, { threadType: 'group' });
+
+  const enabled = await service.updateConfig(threadId, {
+    chatMemory: { enabled: true, contextWindow: 99 },
+  });
+  assert.deepEqual(enabled.chatMemory, { enabled: true, contextWindow: 30, searchLimit: 15 });
+
+  const tuned = await service.updateConfig(threadId, { chatMemory: { searchLimit: 0 } });
+  assert.deepEqual(tuned.chatMemory, { enabled: true, contextWindow: 30, searchLimit: 1 });
+});
+
+void test('normalizeChatMemoryConfig fills defaults and rejects junk values', () => {
+  assert.deepEqual(normalizeChatMemoryConfig(undefined), {
+    enabled: false,
+    contextWindow: 10,
+    searchLimit: 15,
+  });
+  assert.deepEqual(
+    normalizeChatMemoryConfig({ enabled: 'yes', contextWindow: '-3', searchLimit: 'abc' }),
+    { enabled: false, contextWindow: 0, searchLimit: 15 },
+  );
+  assert.deepEqual(
+    normalizeChatMemoryConfig({ enabled: true, contextWindow: 7.6, searchLimit: 80 }),
+    {
+      enabled: true,
+      contextWindow: 8,
+      searchLimit: 50,
+    },
+  );
 });

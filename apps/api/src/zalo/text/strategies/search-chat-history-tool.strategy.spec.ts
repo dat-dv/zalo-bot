@@ -8,7 +8,7 @@ import type { ChatMemorySearchParams } from '../../../zca/memory/chat-memory.que
 import type { MemoryLine } from '../../../zca/memory/chat-memory.mapper';
 import type { AgentInput } from '../../types/agent-input.type';
 
-function createHarness(options: { enabled: boolean; lines?: MemoryLine[]; answer?: string }) {
+function createHarness(options: { lines?: MemoryLine[]; answer?: string }) {
   const sent: string[] = [];
   const searches: Array<{ channelId: string; params: ChatMemorySearchParams }> = [];
   const prompts: string[] = [];
@@ -27,8 +27,6 @@ function createHarness(options: { enabled: boolean; lines?: MemoryLine[]; answer
     },
   } as unknown as LlmService;
   const chatMemoryService = {
-    isEnabled: () => options.enabled,
-    getSearchLimit: () => 15,
     search: (channelId: string, params: ChatMemorySearchParams) => {
       searches.push({ channelId, params });
       return Promise.resolve(options.lines ?? []);
@@ -39,7 +37,7 @@ function createHarness(options: { enabled: boolean; lines?: MemoryLine[]; answer
   return { strategy, sent, searches, prompts };
 }
 
-const input: AgentInput = {
+const memoryOff: AgentInput = {
   type: 'text',
   senderId: 'u-1',
   chatId: 'g-1',
@@ -47,11 +45,13 @@ const input: AgentInput = {
   text: 'năm ngoái mình đi đâu',
 };
 
+const input: AgentInput = { ...memoryOff, chatMemory: { contextWindow: 10, searchLimit: 7 } };
+
 void test('SearchChatHistoryToolStrategy explains when chat memory is off', async () => {
-  const { strategy, sent, searches } = createHarness({ enabled: false });
+  const { strategy, sent, searches } = createHarness({});
 
   await strategy.execute({
-    input,
+    input: memoryOff,
     chatId: 'g-1',
     senderId: 'u-1',
     displayName: 'Đạt',
@@ -59,11 +59,11 @@ void test('SearchChatHistoryToolStrategy explains when chat memory is off', asyn
   });
 
   assert.equal(searches.length, 0);
-  assert.match(sent[0], /chưa bật tính năng ghi nhớ/);
+  assert.match(sent[0], /chưa bật ghi nhớ hội thoại/);
 });
 
 void test('SearchChatHistoryToolStrategy searches the current chat and reports no match', async () => {
-  const { strategy, sent, searches, prompts } = createHarness({ enabled: true, lines: [] });
+  const { strategy, sent, searches, prompts } = createHarness({ lines: [] });
 
   await strategy.execute({
     input,
@@ -77,6 +77,7 @@ void test('SearchChatHistoryToolStrategy searches the current chat and reports n
   assert.equal(searches[0].channelId, 'g-1');
   assert.equal(searches[0].params.keywords, 'đi, du lịch');
   assert.equal(searches[0].params.fromDate, '2025-01-01');
+  assert.equal(searches[0].params.limit, 7, 'uses the thread search limit');
   assert.equal(prompts.length, 0);
   assert.match(sent[0], /từ 01\/01\/2025 đến 31\/12\/2025/);
 });
@@ -91,7 +92,6 @@ void test('SearchChatHistoryToolStrategy answers from the matched lines only', a
     },
   ];
   const { strategy, sent, prompts } = createHarness({
-    enabled: true,
     lines,
     answer: 'Năm ngoái nhóm đi Đà Lạt (12/07/2025, Nam chốt).',
   });
