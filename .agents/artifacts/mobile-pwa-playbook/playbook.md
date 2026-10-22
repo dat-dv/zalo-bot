@@ -108,8 +108,12 @@ Các con số dưới đây đều đã chạy thật trên prod và được g�
 
 - **Một component `Modal`** dựa trên `<dialog>` native + `showModal()`: có top layer, nền "trơ", Escape qua sự kiện `cancel`. Cấm tự viết overlay `fixed inset-0`.
 - **Điện thoại < 640px**: bottom sheet rộng hết màn, bo góc trên, có thanh kéo 36×4px, chừa `pb-[env(safe-area-inset-bottom)]`. Form dài dùng `phoneLayout="fullscreen"`.
+- **`<dialog>` không được cuộn**: dùng `overflow: clip` (Tailwind `overflow-hidden supports-[overflow:clip]:overflow-clip`), **không** để `overflow: hidden`.
+  - `hidden` vẫn là scroll container. Lúc sheet bắt đầu ở `translateY(100%)`, dialog cao gấp đôi màn hình. WebKit cuộn tới panel đang focus, rồi bị kéo về khi sheet trượt lên, nên sheet vọt lên rồi rớt xuống.
 - **Bàn phím ảo**:
   - Kích thước dialog theo visual viewport (CSS var `--app-vvh`/`--app-vv-top` cập nhật từ `window.visualViewport`).
+  - **Ghi giá trị lần đầu đồng bộ** trong `useLayoutEffect`, trước `showModal()` và trước animation. Hook phải được khai báo trước layout effect mở dialog. `requestAnimationFrame` chỉ dùng cho resize/scroll về sau.
+  - Lý do: nếu frame đầu dialog cao `100dvh` rồi frame sau mới đổi sang chiều cao visual viewport, sheet bị giật giữa chừng (trên PWA iOS hai giá trị này lệch nhau).
   - Panel tự cuộn, header/footer `sticky` có nền đặc.
   - Ô được focus thì `scrollIntoView` sau 300ms.
   - Viewport đặt `interactiveWidget: 'resizes-content'`.
@@ -121,17 +125,20 @@ Các con số dưới đây đều đã chạy thật trên prod và được g�
 
 | Thông số | Giá trị |
 |---|---|
-| Đường cong chính (kiểu iOS) | `cubic-bezier(0.32, 0.72, 0, 1)` |
-| Sheet mở / đóng | 500ms / 300ms (ngắn hơn thì nhìn như sheet bật ra, vì đường cong này dồn quãng đường vào đầu) |
+| Đường cong chung (kiểu iOS: vạch tab, icon nảy, đổi trang, vuốt bật về) | `cubic-bezier(0.32, 0.72, 0, 1)` |
+| Sheet mở (kiểu Modal Bottom Sheet, giảm tốc) | 350ms, `cubic-bezier(0, 0, 0.2, 1)` |
+| Sheet đóng (tăng tốc) | 250ms, `cubic-bezier(0.4, 0, 1, 1)` |
 | Fade vào / ra | 200 / 160ms |
 | Đổi trang | 220ms (chỉ opacity) |
 | Vạch chỉ báo tab | 300ms |
 | Icon nảy | 260ms |
 
 - **Sheet**: dùng **Web Animations API** (`el.animate`), **không** dùng `@starting-style`, vì Safari < 17.5 bỏ qua nên người dùng thấy "không trượt".
-  - Mở: `translateY(100%) → 0`.
-  - Đóng: chỉ khai báo keyframe đích `translateY(100%)` (có `fill: 'forwards'`), nên sheet đi tiếp từ vị trí hiện tại, kể cả khi đang vuốt dở.
-  - Giữ DOM thêm 300ms sau khi `open=false` để kịp chạy hiệu ứng đóng.
+  - Mở: `translateY(100%) → 0`, 350ms, đường cong giảm tốc: đi đều rồi chậm dần vào chỗ, không vọt.
+  - Đóng: chỉ khai báo keyframe đích `translateY(100%)` (có `fill: 'forwards'`), 250ms tăng tốc, nên sheet đi tiếp từ vị trí hiện tại, kể cả khi đang vuốt dở.
+  - Nền mờ fade cùng thời lượng và cùng đường cong với sheet.
+  - **Không dùng đường cong iOS cho sheet**: nó dồn ~85% quãng đường vào 150ms đầu, với sheet cao (như menu "Thêm") thì nhìn như sheet nhảy vọt lên. Kéo dài thời lượng cũng không chữa được.
+  - Giữ DOM thêm đúng thời lượng đóng (250ms) sau khi `open=false` để kịp chạy hiệu ứng đóng.
 - **Đổi trang**: fade cột nội dung khi pathname đổi. **Chỉ dùng opacity.** Transform trên tổ tiên sẽ thành containing block của các phần tử `fixed` (toast, thanh hành động) và làm chúng giật.
 - **Vào màn** (`@keyframes` trong `@theme` của Tailwind):
   - 10 dòng đầu của danh sách trượt lên 6px, mỗi dòng trễ 20ms.
@@ -186,13 +193,19 @@ Các con số dưới đây đều đã chạy thật trên prod và được g�
 6. **Commit cuốn nhầm thay đổi của phiên khác**: khi nhiều agent cùng sửa một thư mục, chỉ stage đúng file/hunk của mình. Build thử bản trên `main` trong một worktree riêng trước khi push.
 7. **Đo animation trong trình duyệt bị ẩn sẽ ra sai**: khi không vẽ khung hình, transition đứng yên ở giá trị đầu. Phải chụp màn hình để buộc trình duyệt vẽ.
 8. **Lộ dữ liệu khi ẩn số tiền**: ô nhập điền sẵn số dư thật. Khi đang ẩn số tiền thì để trống.
+9. **Sheet vọt lên cao rồi rớt xuống trong app iPhone đã cài**: có ba nguyên nhân cộng lại:
+   - `<dialog>` để `overflow: hidden` nên cuộn được.
+   - Biến visual viewport được ghi trễ một frame.
+   - Đường cong iOS dồn quãng đường vào đầu.
+
+   Cách sửa: `overflow: clip`, ghi biến đồng bộ trước `showModal()`, và dùng motion Modal Bottom Sheet 350/250ms (mục 5–6). Chrome trên máy tính không tái hiện được, phải thử trên iPhone thật.
 
 ## 10. Checklist test mỗi lần deploy (khổ 375×812 và 768)
 
 - [ ] Mọi trang: `scrollWidth` bằng đúng bề rộng màn hình, có thanh tab, không còn `<table>` ở chế độ compact.
 - [ ] Không phần tử nào (nút/thẻ/dialog) có `border-radius` > 4px, trừ avatar/chấm/công tắc.
 - [ ] Topbar hiện đúng tên trang ở mọi route.
-- [ ] Sheet: trượt lên/xuống; kéo ngắn thì bật lại; kéo ở phần nội dung không đóng; Escape vẫn đóng.
+- [ ] Sheet: trượt lên một mạch rồi chậm dần vào chỗ, không vọt quá rồi tụt (thử trên iPhone, app đã cài); kéo ngắn thì bật lại; kéo ở phần nội dung không đóng; Escape vẫn đóng.
 - [ ] Menu "Thêm": đủ mục, không cuộn trên iPhone 12 trở lên.
 - [ ] Dialog: không tự bật bàn phím; footer luôn thấy được; không lộ dữ liệu bị ẩn.
 - [ ] PWA: thông báo bản mới không che nội dung; reload giữ đúng URL; header cache đúng.
@@ -217,9 +230,12 @@ Làm theo thứ tự, mỗi giai đoạn một commit, lập kế hoạch và ch
    nút trong sheet, chế độ chọn để gộp.
 4. Toolbar: ô tìm kiếm full width + một hàng chip cuộn ngang; mọi control >= 40px; ô nhập 16px trên
    màn cảm ứng.
-5. Modal dùng <dialog>: bottom sheet trên điện thoại, theo visual viewport, header/footer sticky,
+5. Modal dùng <dialog>: bottom sheet trên điện thoại, dialog overflow: clip (không hidden), theo
+   visual viewport (ghi biến đồng bộ trong useLayoutEffect trước showModal), header/footer sticky,
    không tự focus input.
-6. Chuyển động: motion.ts (cubic-bezier(0.32,0.72,0,1); sheet 500/300ms bằng Web Animations API, nền mờ cùng nhịp),
+6. Chuyển động: motion.ts (cubic-bezier(0.32,0.72,0,1) cho tab/icon/đổi trang; sheet kiểu Modal
+   Bottom Sheet bằng Web Animations API: mở 350ms cubic-bezier(0,0,0.2,1), đóng 250ms
+   cubic-bezier(0.4,0,1,1), nền mờ cùng nhịp),
    fade khi đổi trang (chỉ opacity), danh sách hiện lần lượt, toast/thanh trượt vào, co giãn bằng
    grid-rows, nút thu nhỏ khi nhấn; vuốt xuống đóng sheet (touch events); kéo để làm mới chỉ trong
    app đã cài; rung trên Android; tôn trọng prefers-reduced-motion.
