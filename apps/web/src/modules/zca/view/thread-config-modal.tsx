@@ -8,10 +8,7 @@ import {
   type ThreadBotConfig,
   type UpdateThreadBotConfigDto,
 } from '@zalobot/contracts';
-import {
-  useUpdateZcaThreadConfigMutation,
-  useZcaThreadConfigQuery,
-} from '../api/zca-query';
+import { useUpdateZcaThreadConfigMutation, useZcaThreadConfigQuery } from '../api/zca-query';
 import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { getThreadDriveFolderLabel, getThreadPhotosAlbumLabel } from '../api/zca-api';
@@ -148,19 +145,22 @@ export function ThreadConfigModal({
     >
       {/* Header */}
       <div
-        className={`${MODAL_STICKY_HEADER} flex items-center justify-between border-b border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800`}
+        className={`${MODAL_STICKY_HEADER} flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800`}
       >
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-700 dark:bg-blue-950 dark:text-blue-300">
             {threadName ? threadName.charAt(0).toUpperCase() : '?'}
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-2">
+              <h3
+                className="truncate text-base font-bold text-slate-900 dark:text-slate-100"
+                title={threadName || undefined}
+              >
                 {threadName || 'Cuộc trò chuyện'}
               </h3>
               <span
-                className={`inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
                   threadType === 'group'
                     ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
                     : 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300'
@@ -169,11 +169,11 @@ export function ThreadConfigModal({
                 {threadType === 'group' ? 'Nhóm' : 'Cá nhân'}
               </span>
             </div>
-            <p className="text-xs font-mono text-slate-400">ID: {threadId}</p>
+            <p className="break-all text-xs font-mono text-slate-400">ID: {threadId}</p>
           </div>
         </div>
         <button
-          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
           onClick={onClose}
           type="button"
         >
@@ -187,8 +187,8 @@ export function ThreadConfigModal({
       ) : (
         <form className="flex flex-col gap-5 p-5" onSubmit={handleSave}>
           {/* Master Toggle */}
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
-            <div>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
+            <div className="min-w-0">
               <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 Kích hoạt Bot lắng nghe (Master Toggle)
               </p>
@@ -197,7 +197,7 @@ export function ThreadConfigModal({
                 trong hội thoại này.
               </p>
             </div>
-            <label className="relative inline-flex cursor-pointer items-center">
+            <label className="relative inline-flex shrink-0 cursor-pointer items-center">
               <input
                 checked={form.isListened}
                 className="peer sr-only"
@@ -210,10 +210,10 @@ export function ThreadConfigModal({
 
           {/* Feature: Tương tác Bot trực tiếp */}
           <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex min-w-0 items-center gap-2">
                 <span className="text-lg">🤖</span>
-                <div>
+                <div className="min-w-0">
                   <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                     Tương tác Bot trực tiếp (AI Trợ lý & Lệnh bot)
                   </h4>
@@ -223,7 +223,7 @@ export function ThreadConfigModal({
                   </p>
                 </div>
               </div>
-              <label className="relative inline-flex cursor-pointer items-center">
+              <label className="relative inline-flex shrink-0 cursor-pointer items-center">
                 <input
                   checked={form.directInteraction?.enabled ?? false}
                   className="peer sr-only"
@@ -252,8 +252,8 @@ export function ThreadConfigModal({
                     : 'Chat riêng với bot: mọi tin nhắn chữ đều được xử lý, không cần @mention. Ảnh không kèm chữ chỉ được lưu.'}
                 </p>
 
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
                     <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
                       Cho phép AI trò chuyện tự do (Chit-chat)
                     </span>
@@ -262,7 +262,7 @@ export function ThreadConfigModal({
                       hỏi tổng quát ngoài tác vụ tài chính/lịch
                     </p>
                   </div>
-                  <label className="relative inline-flex cursor-pointer items-center">
+                  <label className="relative inline-flex shrink-0 cursor-pointer items-center">
                     <input
                       checked={form.directInteraction?.allowAiChat ?? false}
                       className="peer sr-only"
@@ -282,8 +282,8 @@ export function ThreadConfigModal({
                   </label>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
                     <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
                       Phản hồi tin nhắn tự gửi (Self-listen / isSelf)
                     </span>
@@ -292,7 +292,7 @@ export function ThreadConfigModal({
                       khi bạn tự nhắn tin để test bot)
                     </p>
                   </div>
-                  <label className="relative inline-flex cursor-pointer items-center">
+                  <label className="relative inline-flex shrink-0 cursor-pointer items-center">
                     <input
                       checked={form.directInteraction?.allowSelf ?? false}
                       className="peer sr-only"
@@ -332,10 +332,10 @@ export function ThreadConfigModal({
 
           {/* Feature 1: Tự động lưu trữ tài nguyên (Drive) */}
           <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex min-w-0 items-center gap-2">
                 <span className="text-lg">📁</span>
-                <div>
+                <div className="min-w-0">
                   <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                     Tự động lưu trữ tài nguyên (Google Drive)
                   </h4>
@@ -344,7 +344,7 @@ export function ThreadConfigModal({
                   </p>
                 </div>
               </div>
-              <label className="relative inline-flex cursor-pointer items-center">
+              <label className="relative inline-flex shrink-0 cursor-pointer items-center">
                 <input
                   checked={form.mediaBackup.enabled}
                   className="peer sr-only"
@@ -367,14 +367,14 @@ export function ThreadConfigModal({
               <div className="mt-3.5 flex flex-col gap-3.5 pl-7">
                 {/* Google Drive Link Box */}
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50/60 p-2.5 dark:border-blue-900/50 dark:bg-blue-950/30">
-                  <div className="flex items-center gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
                     <span className="text-base">📁</span>
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                           Thư mục Drive:
                         </span>
-                        <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] font-medium text-blue-700 border border-blue-200 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300">
+                        <code className="break-all rounded bg-white px-1.5 py-0.5 font-mono text-[11px] font-medium text-blue-700 border border-blue-200 dark:border-blue-800 dark:bg-slate-900 dark:text-blue-300">
                           {getThreadDriveFolderLabel({ id: threadId }, form)}
                         </code>
                       </div>
@@ -384,7 +384,7 @@ export function ThreadConfigModal({
                     </div>
                   </div>
                   <button
-                    className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 transition-colors"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 transition-colors"
                     onClick={() => setStorageLinksKind('drive')}
                     title={t('zca.storageLinks.openDrive')}
                     type="button"
@@ -395,15 +395,15 @@ export function ThreadConfigModal({
                 </div>
 
                 {/* Google Photos Album info banner */}
-                <div className="flex items-center justify-between rounded-lg border border-indigo-200/80 bg-indigo-50/70 p-3 dark:border-indigo-900/40 dark:bg-indigo-950/30">
-                  <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-indigo-200/80 bg-indigo-50/70 p-3 dark:border-indigo-900/40 dark:bg-indigo-950/30">
+                  <div className="flex min-w-0 items-center gap-2.5">
                     <span className="text-xl">📸</span>
-                    <div>
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                           Album Google Photos:
                         </span>
-                        <code className="rounded bg-white px-1.5 py-0.5 font-mono text-[11px] font-medium text-indigo-700 border border-indigo-200 dark:border-indigo-800 dark:bg-slate-900 dark:text-indigo-300">
+                        <code className="break-all rounded bg-white px-1.5 py-0.5 font-mono text-[11px] font-medium text-indigo-700 border border-indigo-200 dark:border-indigo-800 dark:bg-slate-900 dark:text-indigo-300">
                           {getThreadPhotosAlbumLabel({ id: threadId, name: threadName }, form)}
                         </code>
                       </div>
@@ -413,7 +413,7 @@ export function ThreadConfigModal({
                     </div>
                   </div>
                   <button
-                    className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 transition-colors"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 transition-colors"
                     onClick={() => setStorageLinksKind('photos')}
                     title={t('zca.storageLinks.openPhotos')}
                     type="button"
@@ -500,8 +500,8 @@ export function ThreadConfigModal({
                 </div>
 
                 {/* Toggle: Gửi thông báo trong nhóm */}
-                <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-2.5">
-                  <div>
+                <div className="flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800 pt-2.5">
+                  <div className="min-w-0">
                     <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
                       Gửi tin nhắn thông báo vào nhóm sau khi lưu
                     </span>
@@ -509,7 +509,7 @@ export function ThreadConfigModal({
                       Mặc định tắt để tránh làm loãng hoặc spam cuộc trò chuyện trong nhóm.
                     </p>
                   </div>
-                  <label className="relative inline-flex cursor-pointer items-center">
+                  <label className="relative inline-flex shrink-0 cursor-pointer items-center">
                     <input
                       checked={form.mediaBackup.notifyInThread ?? false}
                       className="peer sr-only"
@@ -607,10 +607,10 @@ export function ThreadConfigModal({
 
           {/* Feature 2: Quy tắc xác nhận (Reactions & Timeout) */}
           <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex min-w-0 items-center gap-2">
                 <span className="text-lg">❤️</span>
-                <div>
+                <div className="min-w-0">
                   <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                     Quy tắc xác nhận qua Reaction & Thao tác
                   </h4>
@@ -619,7 +619,7 @@ export function ThreadConfigModal({
                   </p>
                 </div>
               </div>
-              <label className="relative inline-flex cursor-pointer items-center">
+              <label className="relative inline-flex shrink-0 cursor-pointer items-center">
                 <input
                   checked={form.confirmationRules.allowReactions}
                   className="peer sr-only"
@@ -695,10 +695,10 @@ export function ThreadConfigModal({
 
           {/* Feature 3: Trí nhớ hội thoại */}
           <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
+              <div className="flex min-w-0 items-center gap-2">
                 <span className="text-lg">🧠</span>
-                <div>
+                <div className="min-w-0">
                   <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
                     Trí nhớ hội thoại
                   </h4>
@@ -708,7 +708,7 @@ export function ThreadConfigModal({
                   </p>
                 </div>
               </div>
-              <label className="relative inline-flex cursor-pointer items-center">
+              <label className="relative inline-flex shrink-0 cursor-pointer items-center">
                 <input
                   checked={form.chatMemory.enabled}
                   className="peer sr-only"
@@ -759,7 +759,9 @@ export function ThreadConfigModal({
                     max={CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MAX}
                     min={CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MIN}
                     onBlur={commitMemoryDraft}
-                    onChange={(e) => setMemoryDraft({ ...memoryDraft, searchLimit: e.target.value })}
+                    onChange={(e) =>
+                      setMemoryDraft({ ...memoryDraft, searchLimit: e.target.value })
+                    }
                     type="number"
                     value={memoryDraft.searchLimit}
                   />

@@ -201,6 +201,12 @@ Bảng này phục vụ việc lướt nhanh hàng trăm dòng, nên giữ cùng
   - Sao lưu media: bật/tắt, chọn loại (ảnh, video, file, âm thanh), thông báo trong nhóm, thư mục Drive tuỳ chỉnh, hậu tố file, tên album Photos.
   - Quy tắc xác nhận: thả tim, số tim tối thiểu, thời gian timeout (phút).
   - Link thư mục Drive và album Photos của kênh.
+  - **Bố cục không được tràn ngang**: panel của modal cuộn dọc (`overflow-y-auto`), nên chỉ cần một phần tử con rộng hơn panel là xuất hiện thanh cuộn ngang. Trường hợp hay gặp là nhóm có tên dài hoặc ID dài, nhất là trên mobile. Vì vậy:
+    - tên nhóm ở header bị cắt bằng `…`, rê chuột để xem đủ (`title`); ID và nhãn thư mục Drive/album Photos (`<code>`) được ngắt dòng ở bất kỳ ký tự nào (`break-all`);
+    - banner Drive và Photos dùng `flex-wrap`: thiếu chỗ thì nút "Mở Google Drive/Photos" xuống hàng;
+    - mỗi hàng bật/tắt kiểu `justify-between` cho khối chữ `min-w-0` và nút gạt hoặc nút bấm `shrink-0`, để mô tả dài tự xuống dòng thay vì ép méo nút gạt.
+
+    Khi thêm hàng cấu hình mới, giữ đúng mẫu này.
 
 - Modal QR đăng nhập, `ThreadConfigModal`, `SyncMediaModal`, `UserFormDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo). `ThreadConfigModal` bỏ giới hạn `75vh` riêng của form, giờ cả panel cuộn.
 

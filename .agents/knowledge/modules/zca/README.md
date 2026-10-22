@@ -165,6 +165,7 @@ The former Users page (`/users`) was removed; user management lives here. Nav la
 - Web API (`api/zca-api.ts`, `api/zca-query.ts`): status, QR login/logout, threads (+ refresh), listened threads (get/set/toggle), thread configs (list/one/update), Drive folder link, `syncThreadMedia` (`useSyncThreadMediaMutation`), `getThreadStorageLinks` (`useThreadStorageLinksQuery`).
 
 - QR login modal, `ThreadConfigModal`, `SyncMediaModal`, `UserFormDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard). `ThreadConfigModal` no longer caps its form at `75vh`; the panel scrolls.
+- `ThreadConfigModal` layout invariant: the panel never scrolls horizontally (it is `overflow-y-auto`, so any too-wide child shows a horizontal scrollbar). Long thread name truncates with `title`; thread ID and Drive/Photos `<code>` labels use `break-all`; the Drive and Photos banners `flex-wrap` so the open button drops to its own line; every `justify-between` row gives its text block `min-w-0` and its toggle/button `shrink-0`, so descriptions wrap instead of squeezing the toggle. Keep this when adding rows.
 
 ## Integration Seams & Contracts
 
