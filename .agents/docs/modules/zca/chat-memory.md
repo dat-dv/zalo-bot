@@ -6,6 +6,7 @@ metadata:
     depends_on:
       - .agents/knowledge/modules/zca/chat-memory.md
       - apps/api/src/zca/memory/chat-memory.service.ts
+      - apps/api/src/zca/memory/short-term-memory.service.ts
       - apps/api/src/zca/text/strategies/search-chat-history-tool.strategy.ts
       - apps/api/src/database/migrations/1724810000000-CreateZcaMessages.ts
       - apps/api/src/database/migrations/1724820000000-AddChatMemoryToZcaThreadConfigs.ts
@@ -31,10 +32,10 @@ Ngoài ra, khoảng 10 tin gần nhất của kênh được đưa vào prompt �
 ## 2. Quy tắc nghiệp vụ
 
 - **Nhớ theo từng kênh**: hỏi ở nhóm A chỉ tìm trong tin của nhóm A; chat 1-1 chỉ tìm trong chat đó. Khác với tài chính (sổ chung), nội dung chat không được lộ sang kênh khác.
-- **Chỉ kênh đang listen và đã bật trí nhớ**: các kênh khác không bị lưu gì. Kênh đã bật thì lưu **mọi tin**, kể cả tin không gọi bot. Các tin này chỉ được đọc lại khi có người hỏi.
+- **Chỉ kênh đang listen và đã bật trí nhớ**: các kênh khác không bị lưu gì. Kênh đã bật thì lưu **mọi tin**, kể cả tin không gọi bot. Các tin này chỉ được đọc lại khi có người gọi bot.
 - **Thu hồi là quên**: khi ai đó thu hồi tin trên Zalo, nội dung trong trí nhớ bị xoá (chỉ còn dấu mốc `recalled_at`), không bao giờ xuất hiện trong kết quả tìm. Tin do chính bot thu hồi (thẻ xác nhận) được xoá ngay trong `ZcaService.undo`, vì zca-js không báo lại sự kiện thu hồi của chính tài khoản khi tắt `ZCA_SELF_LISTEN`. Khi so theo `cliMsgId` (mã do máy người gửi tự sinh, có thể trùng giữa người này với người khác), hệ thống so kèm người gửi để không xoá nhầm tin của người khác.
 - **Kết quả tra cứu không tính câu hỏi đang hỏi và câu trả lời cũ của bot**: câu hỏi luôn khớp từ khóa của chính nó, còn câu trả lời cũ có thể sai nên không được dùng làm bằng chứng (vẫn hiện nếu nằm cạnh một tin khớp).
-- **Kênh chưa bật trí nhớ không thấy tool tra cứu**: LLM không được đưa tool `SEARCH_CHAT_HISTORY`, nên câu hỏi chuyện cũ ở kênh này vẫn được trả lời kiểu trò chuyện (hoặc im lặng nếu kênh tắt `allowAiChat`) như trước khi có tính năng.
+- **Kênh chưa bật trí nhớ dài hạn không thấy tool tra cứu** (dù có bật ngắn hạn): LLM không được đưa tool `SEARCH_CHAT_HISTORY`, nên câu hỏi chuyện cũ ở kênh này vẫn được trả lời kiểu trò chuyện (hoặc im lặng nếu kênh tắt `allowAiChat`) như trước khi có tính năng.
 - **Tin bot gửi cũng được nhớ** (`is_bot = true`), để câu hỏi nối tiếp hiểu được bot vừa trả lời gì.
 - **Không lưu link media**: ảnh/video/file chỉ lưu nhãn và chú thích (`[Ảnh] Bãi biển Mũi Né`, `[File: ve.pdf]`), vì link CDN của Zalo hết hạn.
 - **Lưu vô hạn** ở Bước 1. Chưa có job xoá theo hạn.
@@ -43,24 +44,26 @@ Ngoài ra, khoảng 10 tin gần nhất của kênh được đưa vào prompt �
 
 ## 3. Bật tính năng cho từng kênh
 
-Trí nhớ được bật **riêng cho từng nhóm/chat**, không còn biến môi trường nào. Trên dashboard, vào trang "Zalo & Users", bấm **Cấu hình** ở dòng của nhóm để mở trang cấu hình kênh rồi bật card **🧠 Trí nhớ hội thoại**:
+Bot có **hai loại trí nhớ độc lập**, mỗi loại có card và công tắc riêng trên trang cấu hình kênh (vào "Zalo & Users", bấm **Cấu hình** ở dòng của nhóm). Tắt loại này không làm tắt loại kia.
 
-Công tắc chính của card bật/tắt việc **lưu tin**. Bên trong card có hai khối riêng, vì đây là hai cách dùng khác nhau của cùng một kho tin đã lưu:
+| | 💬 Trí nhớ ngắn hạn | 🧠 Trí nhớ dài hạn |
+| --- | --- | --- |
+| Dùng để | Hiểu câu nối tiếp khi đang chat ("còn cái kia?", "ghi giúp cái đó") | Hỏi lại chuyện cũ ("hôm trước Nam nói gửi file gì?") |
+| Chạy khi | Mọi lượt bot trả lời | Khi LLM gọi tool `SEARCH_CHAT_HISTORY` |
+| Lưu ở | Redis `zca:short_memory:<threadId>` | Postgres `zca_messages` |
+| Giữ bao lâu | Tự quên sau 24 giờ không có tin mới | Vô hạn |
+| Trường cấu hình | `shortTermEnabled`, `contextWindow` (1–30, mặc định 10) | `enabled`, `searchLimit` (1–50, mặc định 15) |
 
-- **Hiểu câu nối tiếp**: chạy ở **mọi lượt**. Vài tin gần nhất được gắn vào prompt để bot hiểu "còn cái kia?", "ghi giúp cái đó". Khối này có công tắc phụ. Tắt thì lưu `contextWindow = 0`; bật lại thì lấy lại số tin cũ, chưa có thì dùng 10. Gõ 0 vào ô số rồi rời ô cũng tắt công tắc này.
-- **Tra lại chuyện cũ**: chỉ chạy khi LLM gọi tool `SEARCH_CHAT_HISTORY`, tức khi câu hỏi là về chuyện đã nói trước đây.
+Vì sao tách: hai loại phục vụ hai nhu cầu và có mức rủi ro riêng tư khác nhau. Có nhóm chỉ cần bot hiểu câu nối tiếp mà không muốn bị lưu lâu dài; có nhóm cần tra lại chuyện cũ. Trước đây trí nhớ ngắn hạn đọc từ bảng `zca_messages`, nên tắt lưu là mất luôn ngữ cảnh. Nay nó có kho Redis riêng.
 
-| Trường | Khối | Mặc định | Giới hạn | Ý nghĩa |
-| --- | --- | --- | --- | --- |
-| Bật/tắt (`enabled`) | Công tắc chính | tắt | | Kênh có lưu tin không; tắt thì cả hai khối ngừng chạy |
-| Số tin gần đây (`contextWindow`) | Hiểu câu nối tiếp | 10 | 0–30 | Số tin gần nhất đưa vào prompt; 0 = công tắc phụ tắt |
-| Số kết quả mỗi lần tra (`searchLimit`) | Tra lại chuyện cũ | 15 | 1–50 | Số tin khớp nhất lấy ra khi tra chuyện cũ |
+Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm gia đình có thể muốn bot nhớ, nhóm công việc thì không. Kênh phải **đang listen** thì bot mới nhận được tin.
 
-Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm gia đình có thể muốn bot nhớ, nhóm công việc thì không. Kênh phải **đang listen** thì bot mới nhận được tin để lưu.
-
-- **Mặc định tắt** cho mọi kênh, kể cả kênh đang listen. Kênh đã bật hiện chữ `Nhớ` ở cột "Tính năng" của bảng kênh.
-- **Bật**: bot bắt đầu lưu từ lúc đó. Tin trong buffer Redis (≤200 tin, 7 ngày) được nạp vào ở lần khởi động API sau.
-- **Tắt**: có hiệu lực ngay, không cần restart. Bot ngừng lưu, ngừng tra, ngừng chèn ngữ cảnh. **Tin đã lưu vẫn giữ trong DB** và dùng tiếp khi bật lại. Tin bị thu hồi trên Zalo vẫn bị xoá nội dung, kể cả khi kênh đã tắt trí nhớ.
+- **Mặc định tắt cả hai** cho mọi kênh mới. Cột "Tính năng" của bảng kênh hiện `Ngữ cảnh` khi bật ngắn hạn và `Nhớ` khi bật dài hạn.
+- **Cấu hình cũ** (trước khi tách, chỉ có một công tắc): kênh đang bật trí nhớ và có `contextWindow > 0` được coi là bật cả hai; kênh đang tắt thì tắt cả hai; `contextWindow = 0` cũ nghĩa là tắt ngắn hạn. Không kênh nào bị đổi hành vi.
+- **Bật dài hạn**: bot bắt đầu lưu từ lúc đó. Tin trong buffer Redis (≤200 tin, 7 ngày) được nạp vào ở lần khởi động API sau.
+- **Tắt dài hạn**: có hiệu lực ngay, không cần restart. Bot ngừng lưu và ngừng tra. **Tin đã lưu vẫn giữ trong DB** và dùng tiếp khi bật lại.
+- **Trí nhớ ngắn hạn**: giữ tối đa 60 bản ghi thô (gấp đôi cửa sổ lớn nhất, vì tin bot có thể được ghi hai lần: lúc gửi và lúc Zalo gửi lại bản echo), khi đọc thì gộp bản trùng. Khi Redis không chạy thì dùng bộ nhớ trong tiến trình, mất khi restart. Không nạp lại lúc khởi động.
+- Tin bị thu hồi trên Zalo bị xoá khỏi **cả hai** trí nhớ, kể cả khi kênh đang tắt chúng.
 - Giá trị nhập ngoài giới hạn được tự kẹp lại (vd 99 → 30), ở cả dashboard lẫn API (`normalizeChatMemoryConfig` trong `@zalobot/contracts`).
 
 - Cả phần chọn tool, sinh từ khóa lẫn phần viết câu trả lời đều đi qua cùng chuỗi provider chung (`LLM_PROVIDER` rồi `LLM_FALLBACK_PROVIDERS`, hiện là 9router → Gemini). Trí nhớ không có cấu hình LLM riêng.
@@ -70,13 +73,14 @@ Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm 
 ## 4. Quyền riêng tư
 
 - Bot lưu tin của **mọi thành viên** kênh đang listen, kể cả người không dùng bot. Admin cần cân nhắc trước khi listen một nhóm.
-- Chỉ các đoạn khớp (≤80 dòng) và ~10 tin gần nhất được gửi ra LLM, không bao giờ gửi cả lịch sử. Muốn giữ hoàn toàn nội bộ thì đặt chuỗi provider về `qwen` local (`LLM_PROVIDER=qwen`).
+- Chỉ các đoạn khớp (≤80 dòng, khi bật dài hạn) và vài tin gần nhất (≤30, khi bật ngắn hạn) được gửi ra LLM, không bao giờ gửi cả lịch sử. Muốn giữ hoàn toàn nội bộ thì đặt chuỗi provider về `qwen` local (`LLM_PROVIDER=qwen`).
 - Log raw payload của ZCA đã hạ xuống mức `debug`.
 
 ## 5. Kiểm thử
 
 - Unit test: `npm run test --workspace @zalobot/api`. Các file liên quan:
   - `zca/memory/chat-memory.{mapper,query,service}.spec.ts`
+  - `zca/memory/short-term-memory.service.spec.ts`
   - `zalo/text/strategies/search-chat-history-tool.strategy.spec.ts`
   - các test trí nhớ trong `zca/zca-bot-feature.service.spec.ts`
 - Thử tay:
@@ -89,7 +93,8 @@ Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm 
 
 | Triệu chứng | Nguyên nhân thường gặp |
 | --- | --- |
-| Bot không tra lại chuyện cũ mà chỉ trò chuyện | Kênh chưa bật card "🧠 Trí nhớ hội thoại" trong Cấu hình kênh (tool tra cứu không được đưa cho LLM) |
+| Bot không tra lại chuyện cũ mà chỉ trò chuyện | Kênh chưa bật card "🧠 Trí nhớ dài hạn" trong Cấu hình kênh (tool tra cứu không được đưa cho LLM) |
+| Bot không hiểu câu nối tiếp ("ghi giúp cái đó") | Kênh chưa bật card "💬 Trí nhớ ngắn hạn", hoặc tin trước đó đã quá 24 giờ |
 | Migration lỗi `permission denied to create extension "unaccent"` | User DB không có quyền tạo extension; nhờ admin DB chạy `CREATE EXTENSION unaccent;` rồi khởi động lại |
 | Bảng trống dù đang chat | Kênh chưa được listen hoặc chưa bật trí nhớ, hoặc log có `[ChatMemory] Could not store …` (xem lỗi DB) |
 | "Không tìm thấy…" dù đã từng nói | Từ khóa LLM sinh ra không khớp, hoặc khoảng ngày sai; hỏi lại cụ thể hơn. Tin trước khi bật tính năng chỉ có từ buffer Redis 7 ngày |

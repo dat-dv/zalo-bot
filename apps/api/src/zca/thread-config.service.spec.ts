@@ -38,7 +38,12 @@ void test('createDefaultThreadConfig creates sensible defaults for group vs user
   assert.equal(groupConfig.confirmationRules.allowReactions, false);
   assert.equal(groupConfig.mediaBackup.fileSuffix, '_team_dev');
   assert.equal(groupConfig.confirmationRules.requiredHearts, 5);
-  assert.deepEqual(groupConfig.chatMemory, { enabled: false, contextWindow: 10, searchLimit: 15 });
+  assert.deepEqual(groupConfig.chatMemory, {
+    enabled: false,
+    shortTermEnabled: false,
+    contextWindow: 10,
+    searchLimit: 15,
+  });
 
   const userConfig = createDefaultThreadConfig('u-789', {
     threadName: 'Nguyễn Văn A',
@@ -490,29 +495,77 @@ void test('ThreadConfigService merges and clamps chat memory updates', async () 
   const enabled = await service.updateConfig(threadId, {
     chatMemory: { enabled: true, contextWindow: 99 },
   });
-  assert.deepEqual(enabled.chatMemory, { enabled: true, contextWindow: 30, searchLimit: 15 });
+  assert.deepEqual(enabled.chatMemory, {
+    enabled: true,
+    shortTermEnabled: false,
+    contextWindow: 30,
+    searchLimit: 15,
+  });
 
-  const tuned = await service.updateConfig(threadId, { chatMemory: { searchLimit: 0 } });
-  assert.deepEqual(tuned.chatMemory, { enabled: true, contextWindow: 30, searchLimit: 1 });
+  const tuned = await service.updateConfig(threadId, {
+    chatMemory: { shortTermEnabled: true, searchLimit: 0 },
+  });
+  assert.deepEqual(tuned.chatMemory, {
+    enabled: true,
+    shortTermEnabled: true,
+    contextWindow: 30,
+    searchLimit: 1,
+  });
+
+  // Long-term off keeps the short-term memory on.
+  const longTermOff = await service.updateConfig(threadId, { chatMemory: { enabled: false } });
+  assert.equal(longTermOff.chatMemory.shortTermEnabled, true);
 });
 
 void test('normalizeChatMemoryConfig fills defaults and rejects junk values', () => {
   assert.deepEqual(normalizeChatMemoryConfig(undefined), {
     enabled: false,
+    shortTermEnabled: false,
     contextWindow: 10,
     searchLimit: 15,
   });
   assert.deepEqual(
-    normalizeChatMemoryConfig({ enabled: 'yes', contextWindow: '-3', searchLimit: 'abc' }),
-    { enabled: false, contextWindow: 0, searchLimit: 15 },
+    normalizeChatMemoryConfig({
+      enabled: 'yes',
+      shortTermEnabled: 'yes',
+      contextWindow: '-3',
+      searchLimit: 'abc',
+    }),
+    { enabled: false, shortTermEnabled: false, contextWindow: 10, searchLimit: 15 },
   );
   assert.deepEqual(
-    normalizeChatMemoryConfig({ enabled: true, contextWindow: 7.6, searchLimit: 80 }),
+    normalizeChatMemoryConfig({
+      enabled: false,
+      shortTermEnabled: true,
+      contextWindow: 7.6,
+      searchLimit: 80,
+    }),
+    { enabled: false, shortTermEnabled: true, contextWindow: 8, searchLimit: 50 },
+  );
+});
+
+void test('normalizeChatMemoryConfig keeps the behaviour of configs saved before the short-term switch', () => {
+  // Memory on with a window: the window kept working, so short-term stays on.
+  assert.equal(
+    normalizeChatMemoryConfig({ enabled: true, contextWindow: 5, searchLimit: 15 })
+      .shortTermEnabled,
+    true,
+  );
+  // `contextWindow: 0` was the only way to turn the window off.
+  assert.deepEqual(
+    normalizeChatMemoryConfig({ enabled: true, contextWindow: 0, searchLimit: 15 }),
     {
       enabled: true,
-      contextWindow: 8,
-      searchLimit: 50,
+      shortTermEnabled: false,
+      contextWindow: 10,
+      searchLimit: 15,
     },
+  );
+  // Memory off turned the window off too.
+  assert.equal(
+    normalizeChatMemoryConfig({ enabled: false, contextWindow: 10, searchLimit: 15 })
+      .shortTermEnabled,
+    false,
   );
 });
 

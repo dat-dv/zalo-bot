@@ -16,6 +16,7 @@ import { ThreadConfigService, hasLegacyGroupPrefix } from './thread-config.servi
 import { ZcaBotFeatureService } from './zca-bot-feature.service';
 import { RedisService } from '../redis/redis.service';
 import { ChatMemoryService } from './memory/chat-memory.service';
+import { ShortTermMemoryService } from './memory/short-term-memory.service';
 import {
   Zalo,
   type API,
@@ -199,6 +200,8 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     private readonly redisService?: RedisService,
     @Optional()
     private readonly chatMemoryService?: ChatMemoryService,
+    @Optional()
+    private readonly shortTermMemoryService?: ShortTermMemoryService,
   ) {
     const configuredDataDir =
       this.moduleOptions?.dataDir ??
@@ -638,22 +641,28 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     }
   }
 
-  /** Stores a bot reply only for threads whose `chatMemory` config is on. */
+  /** Stores a bot reply in each memory (short-term, long-term) the thread has on. */
   private async recordBotReplyInMemory(
     threadId: string,
     type: ThreadType,
     msgId: string,
     text: string,
   ): Promise<void> {
-    if (!this.chatMemoryService) return;
-    const config = await this.threadConfigService?.findStoredConfig(threadId);
-    if (!config?.chatMemory?.enabled) return;
-    await this.chatMemoryService.recordBotReply(
-      threadId,
-      type === ThreadType.Group ? 'group' : 'user',
-      msgId,
-      text,
-    );
+    if (!this.chatMemoryService && !this.shortTermMemoryService) return;
+    const memory = (await this.threadConfigService?.findStoredConfig(threadId))?.chatMemory;
+    await Promise.all([
+      memory?.shortTermEnabled
+        ? this.shortTermMemoryService?.recordBotReply(threadId, msgId, text)
+        : undefined,
+      memory?.enabled
+        ? this.chatMemoryService?.recordBotReply(
+            threadId,
+            type === ThreadType.Group ? 'group' : 'user',
+            msgId,
+            text,
+          )
+        : undefined,
+    ]);
   }
 
   private setupApiInstance(api: API): API {
@@ -1960,6 +1969,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     // zca-js drops our own undo events unless self-listen is on, so onUndo never sees them:
     // forget the recalled message here.
     void this.chatMemoryService?.markRecalled(threadId, String(payload.msgId));
+    void this.shortTermMemoryService?.markRecalled(threadId, String(payload.msgId));
     return response;
   }
 

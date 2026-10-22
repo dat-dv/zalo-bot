@@ -11,6 +11,7 @@ import {
 import { ThreadConfigService } from './thread-config.service';
 import { ThreadType, type API, type Message, type Reaction, type Undo } from './shapes';
 import type { ChatMemoryService } from './memory/chat-memory.service';
+import { ShortTermMemoryService } from './memory/short-term-memory.service';
 import type { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
 import type { TextInputService } from './text/text-input.service';
 import type { ZcaService } from './zca.service';
@@ -2052,6 +2053,7 @@ function createChatMemoryMock(calls: RecordedMemoryCall[]): ChatMemoryService {
 function createServiceWithMemory(
   configService: ThreadConfigService,
   memory: ChatMemoryService,
+  shortTermMemory?: ShortTermMemoryService,
 ): ZcaBotFeatureService {
   return new ZcaBotFeatureService(
     configService,
@@ -2068,6 +2070,8 @@ function createServiceWithMemory(
     undefined,
     undefined,
     memory,
+    undefined,
+    shortTermMemory,
   );
 }
 
@@ -2159,7 +2163,8 @@ void test('ZcaBotFeatureService does not store messages of a listened thread wit
 
   assert.equal(calls.length, 0);
   assert.ok(seen.input, 'the text still reaches the bot');
-  assert.equal(seen.input.chatMemory, undefined);
+  assert.equal(seen.input.shortTermMemory, undefined);
+  assert.equal(seen.input.longTermMemory, undefined);
 });
 
 void test('ZcaBotFeatureService passes the thread memory settings to the text pipeline', async () => {
@@ -2168,7 +2173,7 @@ void test('ZcaBotFeatureService passes the thread memory settings to the text pi
   await configService.updateConfig(threadId, {
     isListened: true,
     directInteraction: { enabled: true, allowAiChat: true },
-    chatMemory: { enabled: true, contextWindow: 4, searchLimit: 9 },
+    chatMemory: { enabled: true, shortTermEnabled: true, contextWindow: 4, searchLimit: 9 },
   });
   const seen: { input?: AgentInput } = {};
   const service = createServiceWithMemory(configService, createChatMemoryMock([]));
@@ -2192,10 +2197,57 @@ void test('ZcaBotFeatureService passes the thread memory settings to the text pi
   } as unknown as Message;
   await service.onMessage(message, { getOwnId: () => 'bot-id' } as unknown as API);
 
-  assert.deepEqual(seen.input?.chatMemory, {
-    contextWindow: 4,
-    searchLimit: 9,
+  assert.deepEqual(seen.input?.shortTermMemory, { contextWindow: 4 });
+  assert.deepEqual(seen.input?.longTermMemory, { searchLimit: 9 });
+});
+
+void test('ZcaBotFeatureService keeps the short-term memory when the long-term memory is off', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = `memory-short-only-${Date.now()}`;
+  await configService.updateConfig(threadId, {
+    isListened: true,
+    directInteraction: { enabled: true, allowAiChat: true },
+    chatMemory: { enabled: false, shortTermEnabled: true, contextWindow: 6 },
   });
+  const calls: RecordedMemoryCall[] = [];
+  const shortTermMemory = new ShortTermMemoryService();
+  const seen: { input?: AgentInput } = {};
+  const service = createServiceWithMemory(
+    configService,
+    createChatMemoryMock(calls),
+    shortTermMemory,
+  );
+  service.setTextInputService({
+    process: (input: AgentInput) => {
+      seen.input = input;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService);
+
+  const message = {
+    threadId,
+    isSelf: false,
+    type: ThreadType.User,
+    data: { msgId: '11', content: 'ăn trưa 45k', uidFrom: 'owner', msgType: 'webchat' },
+  } as unknown as Message;
+  await service.onMessage(message, { getOwnId: () => 'bot-id' } as unknown as API);
+
+  assert.equal(calls.length, 0, 'nothing is stored in Postgres');
+  assert.deepEqual(seen.input?.shortTermMemory, { contextWindow: 6 });
+  assert.equal(seen.input?.longTermMemory, undefined);
+  assert.deepEqual(
+    (await shortTermMemory.getRecent(threadId, 10)).map((line) => line.text),
+    ['ăn trưa 45k'],
+  );
+
+  // A recall reaches the short-term memory too.
+  await service.onUndo({
+    threadId,
+    isSelf: false,
+    isGroup: false,
+    data: { uidFrom: 'owner', content: { globalMsgId: 11, cliMsgId: 0 } },
+  } as unknown as Undo);
+  assert.deepEqual(await shortTermMemory.getRecent(threadId, 10), []);
 });
 
 async function createMemberAccessScenario(

@@ -127,40 +127,6 @@ export class ChatMemoryService {
     }
   }
 
-  /** The latest messages of a channel, oldest first, without `excludeMsgId`. */
-  public async getRecentWindow(
-    channelId: string,
-    limit: number,
-    excludeMsgId?: string,
-  ): Promise<MemoryLine[]> {
-    if (!channelId || limit <= 0) return [];
-    try {
-      const query = this.messageRepository
-        .createQueryBuilder('m')
-        .select(['m.id', 'm.senderName', 'm.isBot', 'm.text', 'm.sentAt'])
-        .where('m.channel_id = :channelId', { channelId })
-        .andWhere('m.recalled_at IS NULL')
-        .andWhere('m.text IS NOT NULL')
-        .orderBy('m.sentAt', 'DESC')
-        .limit(limit);
-      if (excludeMsgId) {
-        query.andWhere('m.msg_id <> :excludeMsgId', { excludeMsgId });
-      }
-      const rows = await query.getMany();
-      return rows.reverse().map((row) => ({
-        sentAt: row.sentAt,
-        senderName: row.senderName ?? null,
-        isBot: row.isBot,
-        text: row.text ?? '',
-      }));
-    } catch (err: unknown) {
-      this.logger.warn(
-        `[ChatMemory] Could not read recent window of ${channelId}: ${errorMessage(err)}`,
-      );
-      return [];
-    }
-  }
-
   /**
    * Best matches with their neighbours, oldest first, at most `MAX_MEMORY_LINES` lines. Lines of
    * better-ranked hits are kept first when the cap is reached.

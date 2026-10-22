@@ -46,7 +46,7 @@ export class SearchChatHistoryToolStrategy implements TextToolStrategy {
   public async execute(context: TextToolContext): Promise<void> {
     const { chatId } = context;
     const memory = this.chatMemoryService;
-    const settings = context.input.chatMemory;
+    const settings = context.input.longTermMemory;
     if (!memory || !settings) {
       await this.zcaMessenger.sendMessage(
         chatId,

@@ -48,7 +48,7 @@ const memoryOff: AgentInput = {
 const input: AgentInput = {
   ...memoryOff,
   messageId: 'm-question',
-  chatMemory: { contextWindow: 10, searchLimit: 7 },
+  longTermMemory: { searchLimit: 7 },
 };
 
 void test('SearchChatHistoryToolStrategy explains when chat memory is off', async () => {

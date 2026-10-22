@@ -132,11 +132,21 @@ function featureItems(row: ChatRow, config: ThreadBotConfig): InlineItem[] {
           },
     );
   }
+  if (config.chatMemory?.shortTermEnabled) {
+    items.push({
+      key: 'short-term-memory',
+      node: (
+        <span title="Trí nhớ ngắn hạn đang bật: bot nhớ vài tin gần nhất để hiểu câu nối tiếp">
+          Ngữ cảnh
+        </span>
+      ),
+    });
+  }
   if (config.chatMemory?.enabled) {
     items.push({
       key: 'memory',
       node: (
-        <span title="Trí nhớ hội thoại đang bật: bot lưu tin nhắn của kênh để tra lại chuyện cũ">
+        <span title="Trí nhớ dài hạn đang bật: bot lưu tin nhắn của kênh để tra lại chuyện cũ">
           Nhớ
         </span>
       ),

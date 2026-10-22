@@ -26,6 +26,7 @@ import { CreatePlaceToolStrategy } from './strategies/create-place-tool.strategy
 import { PendingImageActionService } from '../pending-image/pending-image-action.service';
 import { OcrService } from '../../ocr/ocr.service';
 import { MediaStorageService } from '../../receipt-storage/media-storage.service';
+import { ShortTermMemoryService } from '../memory/short-term-memory.service';
 
 interface SetupOptions {
   allowedUserIds?: string[];
@@ -37,6 +38,7 @@ interface SetupOptions {
   pendingImageActionService?: PendingImageActionService;
   ocrService?: OcrService;
   mediaStorageService?: MediaStorageService;
+  shortTermMemoryService?: ShortTermMemoryService;
   enablePlaceCheck?: boolean;
   existingPlaces?: string[];
 }
@@ -230,6 +232,8 @@ function createTextInputService(options?: SetupOptions) {
     options?.pendingImageActionService,
     options?.ocrService,
     options?.mediaStorageService,
+    undefined,
+    options?.shortTermMemoryService,
   );
 
   return {
@@ -1285,7 +1289,7 @@ void test('TextInputService edit refuses pending actions without a matching tool
   confirmationService.clearAll();
 });
 
-void test('TextInputService offers the history search tool only to threads with chat memory', async () => {
+void test('TextInputService offers the history search tool only to threads with long-term memory', async () => {
   const { service, getLastLlmToolNames } = createTextInputService({ llmResponse: { text: 'ok' } });
   const base = { type: 'text' as const, senderId: 'u1', chatId: 'c1', displayName: 'Đạt' };
 
@@ -1295,9 +1299,46 @@ void test('TextInputService offers the history search tool only to threads with 
   await service.process({
     ...base,
     text: 'hôm trước mình nói gì',
-    chatMemory: { contextWindow: 0, searchLimit: 15 },
+    shortTermMemory: { contextWindow: 10 },
+  });
+  assert.ok(!getLastLlmToolNames().includes('SEARCH_CHAT_HISTORY'));
+
+  await service.process({
+    ...base,
+    text: 'hôm trước mình nói gì',
+    longTermMemory: { searchLimit: 15 },
   });
   assert.ok(getLastLlmToolNames().includes('SEARCH_CHAT_HISTORY'));
+});
+
+void test('TextInputService adds the short-term memory to the prompt without the long-term memory', async () => {
+  const shortTermMemoryService = new ShortTermMemoryService();
+  await shortTermMemoryService.record('c1', {
+    msgId: 'm1',
+    content: 'ăn trưa 45k',
+    ts: 1000,
+    dName: 'Nam',
+  });
+  await shortTermMemoryService.record('c1', { msgId: 'm2', content: 'ghi giúp cái đó', ts: 2000 });
+  const { service, getLastLlmInstruction } = createTextInputService({
+    llmResponse: { text: 'ok' },
+    shortTermMemoryService,
+  });
+  const base = { type: 'text' as const, senderId: 'u1', chatId: 'c1', displayName: 'Đạt' };
+
+  await service.process({ ...base, text: 'ghi giúp cái đó', messageId: 'm2' });
+  assert.doesNotMatch(getLastLlmInstruction(), /NGỮ CẢNH GẦN ĐÂY/);
+
+  await service.process({
+    ...base,
+    text: 'ghi giúp cái đó',
+    messageId: 'm2',
+    shortTermMemory: { contextWindow: 10 },
+  });
+  assert.match(getLastLlmInstruction(), /NGỮ CẢNH GẦN ĐÂY/);
+  assert.match(getLastLlmInstruction(), /Nam: ăn trưa 45k/);
+  // The message being processed is not repeated as context.
+  assert.doesNotMatch(getLastLlmInstruction(), /: ghi giúp cái đó/);
 });
 
 void test('TextInputService reports a failed provider chain once, without the chit-chat pass', async () => {

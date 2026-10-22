@@ -2,12 +2,13 @@
 
 import type { ThreadBotConfig } from '@zalobot/contracts';
 import type { ThreadKind } from '../../../model/thread-config-form';
-import { ChatMemorySection } from './chat-memory-section';
 import { ConfirmationRulesSection } from './confirmation-rules-section';
 import { DirectInteractionSection } from './direct-interaction-section';
 import { ListenToggleCard } from './listen-toggle-card';
+import { LongTermMemorySection } from './long-term-memory-section';
 import { MediaBackupSection } from './media-backup-section';
 import { MemberAccessSection } from './member-access-section';
+import { ShortTermMemorySection } from './short-term-memory-section';
 import { ThreadConfigActionBar } from './thread-config-action-bar';
 import { useThreadConfigForm } from './use-thread-config-form';
 
@@ -49,7 +50,14 @@ export function ThreadConfigForm({
             threadId={threadId}
             threadName={threadName}
           />
-          <ChatMemorySection
+          <ShortTermMemorySection
+            draft={draft}
+            form={form}
+            onChange={setForm}
+            onDraftChange={setDraft}
+            onDraftCommit={commitDraft}
+          />
+          <LongTermMemorySection
             draft={draft}
             form={form}
             onChange={setForm}

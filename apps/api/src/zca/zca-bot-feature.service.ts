@@ -46,13 +46,17 @@ import type { ImageBatchHandler } from './pending-image/image-batch-handler.serv
 import type { OcrService } from '../ocr/ocr.service';
 import { cleanBotMention } from './text/bot-mention.util';
 import { ChatMemoryService } from './memory/chat-memory.service';
+import { ShortTermMemoryService } from './memory/short-term-memory.service';
 
-/** Per-thread chat-memory settings for the text pipeline; `undefined` when the thread has it off. */
-function toAgentChatMemory(config: ThreadBotConfig): AgentInput['chatMemory'] {
+/** Per-thread memory settings for the text pipeline; each part only when the thread has it on. */
+function toAgentMemory(
+  config: ThreadBotConfig,
+): Pick<AgentInput, 'shortTermMemory' | 'longTermMemory'> {
   const memory = config.chatMemory;
-  return memory?.enabled
-    ? { contextWindow: memory.contextWindow, searchLimit: memory.searchLimit }
-    : undefined;
+  return {
+    shortTermMemory: memory?.shortTermEnabled ? { contextWindow: memory.contextWindow } : undefined,
+    longTermMemory: memory?.enabled ? { searchLimit: memory.searchLimit } : undefined,
+  };
 }
 
 /** A history payload field as text; objects and missing values become ''. */
@@ -319,6 +323,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     @Optional() ocrService?: OcrService,
     @Optional() private readonly chatMemoryService?: ChatMemoryService,
     @Optional() threadAccessService?: ThreadAccessService,
+    @Optional() private readonly shortTermMemoryService?: ShortTermMemoryService,
   ) {
     this.threadAccessService = threadAccessService ?? new ThreadAccessService();
     if (mediaStorageServiceOrConfirmation) {
@@ -821,9 +826,12 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     }
 
     void this.bufferRecentMessage(threadId, message);
-    const chatMemory = toAgentChatMemory(config);
+    const memory = toAgentMemory(config);
     const messageId = message.data?.msgId ? String(message.data.msgId) : undefined;
-    if (chatMemory) {
+    if (memory.shortTermMemory) {
+      void this.shortTermMemoryService?.record(threadId, message.data);
+    }
+    if (memory.longTermMemory) {
       void this.chatMemoryService?.record(
         threadId,
         message.type === ThreadType.Group ? 'group' : 'user',
@@ -1121,7 +1129,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
           isBot: false,
           allowAiChat: directConfig.allowAiChat ?? true,
           triggerPrefixes,
-          chatMemory,
+          ...memory,
           messageId,
         });
       }
@@ -1171,7 +1179,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
             isBot: false,
             allowAiChat: directConfig.allowAiChat ?? true,
             triggerPrefixes,
-            chatMemory,
+            ...memory,
             messageId,
           });
         }
@@ -1225,7 +1233,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         allowAiChat: directConfig.allowAiChat ?? true,
         triggerPrefixes,
         messageId,
-        chatMemory,
+        ...memory,
       };
 
       try {
@@ -1239,21 +1247,22 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
   }
 
   /**
-   * A message recalled in Zalo is also forgotten by the chat memory, even when the thread has
-   * since turned memory off (its stored messages are kept).
+   * A message recalled in Zalo is also forgotten by both memories, even when the thread has
+   * since turned them off (stored long-term messages are kept).
    */
   public async onUndo(undo: Undo): Promise<void> {
     const recalledMsgId = undo.data?.content?.globalMsgId;
     const recalledCliMsgId = undo.data?.content?.cliMsgId;
     const senderUid = undo.data?.uidFrom;
-    if (!this.chatMemoryService || !undo.threadId || !recalledMsgId) return;
-    await this.chatMemoryService.markRecalled(
-      undo.threadId,
-      String(recalledMsgId),
+    if (!undo.threadId || !recalledMsgId) return;
+    const byClient =
       recalledCliMsgId && senderUid
         ? { cliMsgId: String(recalledCliMsgId), senderUid: String(senderUid) }
-        : undefined,
-    );
+        : undefined;
+    await Promise.all([
+      this.chatMemoryService?.markRecalled(undo.threadId, String(recalledMsgId), byClient),
+      this.shortTermMemoryService?.markRecalled(undo.threadId, String(recalledMsgId), byClient),
+    ]);
   }
 
   /**

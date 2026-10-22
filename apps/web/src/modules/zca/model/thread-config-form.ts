@@ -1,5 +1,4 @@
 import {
-  CHAT_MEMORY_DEFAULTS,
   normalizeChatMemoryConfig,
   normalizeMemberAccessConfig,
   type ThreadBotConfig,
@@ -54,15 +53,6 @@ export function memoryDraftFrom(chatMemory: ThreadBotConfig['chatMemory']): Chat
     contextWindow: String(chatMemory.contextWindow),
     searchLimit: String(chatMemory.searchLimit),
   };
-}
-
-/**
- * Follow-up window size after its switch flips: off is 0; on restores the size used before it was
- * turned off, or the default when there is none.
- */
-export function contextWindowAfterToggle(enabled: boolean, lastSize: number): number {
-  if (!enabled) return 0;
-  return lastSize > 0 ? lastSize : CHAT_MEMORY_DEFAULTS.contextWindow;
 }
 
 /** Applies the typed numbers; an empty field falls back to the default. */

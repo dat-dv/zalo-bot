@@ -24,7 +24,7 @@ import { CancelPendingImageStrategy } from '../pending-image/strategies/cancel-p
 import { StorageUploadPendingImageStrategy } from '../pending-image/strategies/storage-upload-pending-image.strategy';
 import { CreateBillPendingImageStrategy } from '../pending-image/strategies/create-bill-pending-image.strategy';
 import { getVietnamDateTimeContext } from '../../common/utils/datetime.util';
-import { ChatMemoryService } from '../memory/chat-memory.service';
+import { ShortTermMemoryService } from '../memory/short-term-memory.service';
 import { formatMemoryLine } from '../memory/chat-memory.mapper';
 
 /**
@@ -52,7 +52,7 @@ export class TextInputService {
     @Optional() private readonly ocrService?: OcrService,
     @Optional() private readonly mediaStorageService?: MediaStorageService,
     @Optional() private pendingImageDispatcher?: PendingImageActionDispatcher,
-    @Optional() private readonly chatMemoryService?: ChatMemoryService,
+    @Optional() private readonly shortTermMemoryService?: ShortTermMemoryService,
   ) {
     if (!this.pendingImageDispatcher && this.pendingImageActionService) {
       // Auto-wire default strategies when dispatcher is not injected (e.g. in standalone tests)
@@ -185,7 +185,7 @@ export class TextInputService {
       '- Về hoàn thành việc ("đã xong việc nộp báo cáo"): gọi COMPLETE_TASK.\n' +
       '- Về tạo địa điểm / nơi chốn ("tạo nơi chốn Landmark 81", "thêm địa điểm aeon", "lưu nơi chốn Bến Thành"): gọi CREATE_PLACE, xác định name.\n' +
       '- Về KẾT NỐI / ĐĂNG NHẬP tài khoản Google (chỉ khi người dùng nói rõ muốn "kết nối google", "đăng nhập google", "liên kết tài khoản google", "đổi tài khoản gmail"): gọi LOGIN_GOOGLE. KHÔNG dùng LOGIN_GOOGLE khi người dùng hỏi đường dẫn, link, folder.\n' +
-      (input.chatMemory
+      (input.longTermMemory
         ? '- Về chuyện đã trao đổi trong cuộc chat này trước đây ("năm ngoái mình đi đâu", "hôm trước Nam nói gì", "tháng 5 nhóm hẹn ở đâu"): gọi SEARCH_CHAT_HISTORY, sinh keywords gồm từ khóa và từ đồng nghĩa, tính fromDate/toDate (YYYY-MM-DD) nếu câu hỏi có mốc thời gian.\n'
         : '') +
       '- Về kho lưu trữ hình ảnh/hóa đơn/video của bot: Bot tự động lưu tất cả ảnh/hóa đơn/video người dùng gửi lên Google Drive (thư mục zalobot/bill, zalobot/image, zalobot/video) và Google Photos (album "ZaloBot - Hóa đơn", "ZaloBot - Hình ảnh", "ZaloBot - Video"). Khi người dùng hỏi nơi lưu ảnh, link xem ảnh/hóa đơn/video, đường dẫn folder, link drive, link album: gọi GET_STORAGE_LINKS, xác định type (bill/image/video/all).\n' +
@@ -201,7 +201,7 @@ export class TextInputService {
       const response = await this.zcaMessenger.withChatAction(chatId, () =>
         this.llmService.generate(
           text,
-          textToolDefinitionsFor({ chatMemory: Boolean(input.chatMemory) }),
+          textToolDefinitionsFor({ longTermMemory: Boolean(input.longTermMemory) }),
           systemInstruction,
         ),
       );
@@ -420,7 +420,7 @@ export class TextInputService {
 
   /**
    * Short-term chat memory: the latest messages of this chat, so follow-ups ("thế tháng 5 thì
-   * sao?") make sense. Empty unless the ZCA thread has `chatMemory` on (`input.chatMemory`).
+   * sao?") make sense. Empty unless the ZCA thread has it on (`input.shortTermMemory`).
    * The block forbids tool calls on its content, so old messages are never recorded twice.
    */
   private async buildRecentContextBlock(
@@ -428,10 +428,10 @@ export class TextInputService {
     input: AgentInput,
     timeZone: string,
   ): Promise<string> {
-    const memory = this.chatMemoryService;
-    const size = input.chatMemory?.contextWindow ?? 0;
+    const memory = this.shortTermMemoryService;
+    const size = input.shortTermMemory?.contextWindow ?? 0;
     if (!memory || size <= 0) return '';
-    const lines = await memory.getRecentWindow(chatId, size, input.messageId);
+    const lines = await memory.getRecent(chatId, size, input.messageId);
     if (lines.length === 0) return '';
     return (
       '\n\nNGỮ CẢNH GẦN ĐÂY CỦA CUỘC CHAT (chỉ để hiểu câu hỏi hiện tại; TUYỆT ĐỐI KHÔNG gọi tool ' +

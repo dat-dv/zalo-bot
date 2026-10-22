@@ -3,7 +3,6 @@ import test from 'node:test';
 import { CHAT_MEMORY_DEFAULTS, CHAT_MEMORY_LIMITS, type ThreadBotConfig } from '@zalobot/contracts';
 import {
   configToForm,
-  contextWindowAfterToggle,
   formToPayload,
   memoryDraftFrom,
   resolveChatMemory,
@@ -16,7 +15,7 @@ function makeConfig(overrides: Partial<ThreadBotConfig> = {}): ThreadBotConfig {
     directInteraction: { enabled: true, triggerPrefixes: ['bot:'] },
     mediaBackup: { enabled: false, uploadImages: true, uploadVideos: false },
     confirmationRules: { allowReactions: true, requiredHearts: 3, timeoutMinutes: 10 },
-    chatMemory: { enabled: true, contextWindow: 8, searchLimit: 12 },
+    chatMemory: { enabled: true, shortTermEnabled: false, contextWindow: 8, searchLimit: 12 },
     memberAccess: { mode: 'selected-members', memberIds: ['u1'] },
     ...overrides,
   };
@@ -50,6 +49,7 @@ test('resolveChatMemory falls back to defaults for empty fields and clamps typed
 
   assert.deepEqual(resolveChatMemory(form, { contextWindow: '  ', searchLimit: '' }), {
     enabled: true,
+    shortTermEnabled: false,
     contextWindow: CHAT_MEMORY_DEFAULTS.contextWindow,
     searchLimit: CHAT_MEMORY_DEFAULTS.searchLimit,
   });
@@ -57,12 +57,6 @@ test('resolveChatMemory falls back to defaults for empty fields and clamps typed
     resolveChatMemory(form, { contextWindow: '999', searchLimit: '5' }).contextWindow,
     CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MAX,
   );
-});
-
-test('contextWindowAfterToggle turns the window off and restores the last size or the default', () => {
-  assert.equal(contextWindowAfterToggle(false, 8), 0);
-  assert.equal(contextWindowAfterToggle(true, 8), 8);
-  assert.equal(contextWindowAfterToggle(true, 0), CHAT_MEMORY_DEFAULTS.contextWindow);
 });
 
 test('formToPayload sends identity, every section and the resolved chat memory', () => {
@@ -74,7 +68,26 @@ test('formToPayload sends identity, every section and the resolved chat memory',
   assert.equal(payload.isListened, true);
   assert.equal(payload.driveFolderUrl, 'https://drive.google.com/x');
   assert.deepEqual(payload.confirmationRules, form.confirmationRules);
-  assert.deepEqual(payload.chatMemory, { enabled: true, contextWindow: 8, searchLimit: 12 });
+  assert.deepEqual(payload.chatMemory, {
+    enabled: true,
+    shortTermEnabled: false,
+    contextWindow: 8,
+    searchLimit: 12,
+  });
+});
+
+test('formToPayload keeps the short-term memory on while the long-term memory is off', () => {
+  const form = configToForm(
+    makeConfig({
+      chatMemory: { enabled: false, shortTermEnabled: true, contextWindow: 6, searchLimit: 15 },
+    }),
+    'group',
+  );
+  const payload = formToPayload(form, memoryDraftFrom(form.chatMemory), 'Nhóm A', 'group');
+
+  assert.equal(payload.chatMemory?.enabled, false);
+  assert.equal(payload.chatMemory?.shortTermEnabled, true);
+  assert.equal(payload.chatMemory?.contextWindow, 6);
 });
 
 test('configToForm and formToPayload keep a clean member access config', () => {

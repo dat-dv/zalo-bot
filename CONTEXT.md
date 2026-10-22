@@ -50,8 +50,9 @@
 
 ## Trí nhớ hội thoại
 
-- **Trí nhớ hội thoại**: Bản lưu mọi tin nhắn (kể cả tin bot gửi) của các kênh ZCA đang listen **và được admin bật trí nhớ** (bật riêng từng kênh, mặc định tắt), dùng để trả lời câu hỏi về chuyện đã trao đổi. Chỉ tra cứu **trong đúng kênh đang hỏi**; tin bị thu hồi thì bị xoá nội dung khỏi trí nhớ.
-- **Cửa sổ ngữ cảnh ngắn hạn**: Vài tin gần nhất của kênh được đưa vào prompt để bot hiểu câu nối tiếp; bot không thực hiện lại các yêu cầu cũ nằm trong đó.
+- **Trí nhớ hội thoại**: Gồm hai loại độc lập, admin bật riêng từng loại cho từng kênh ZCA đang listen (mặc định tắt cả hai); tắt loại này không tắt loại kia. Tin bị thu hồi thì bị xoá khỏi cả hai.
+- **Trí nhớ dài hạn**: Bản lưu lâu dài mọi tin nhắn (kể cả tin bot gửi) của kênh, dùng để trả lời câu hỏi về chuyện đã trao đổi. Chỉ tra cứu **trong đúng kênh đang hỏi**.
+- **Trí nhớ ngắn hạn (cửa sổ ngữ cảnh)**: Vài tin gần nhất của kênh được đưa vào prompt ở mỗi lượt để bot hiểu câu nối tiếp; tự quên sau 24 giờ không có tin mới. Bot không thực hiện lại các yêu cầu cũ nằm trong đó.
 
 ## ZCA & Phân vùng lưu trữ Drive
 

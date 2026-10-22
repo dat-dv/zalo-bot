@@ -3285,10 +3285,16 @@ export interface ThreadDirectInteractionConfig {
   allowSelf?: boolean;
 }
 
-/** Per-thread chat memory: store this thread's messages and answer questions about them. */
+/**
+ * Per-thread chat memory, two independent switches: short-term (latest messages in the prompt, for
+ * follow-ups) and long-term (every message stored, searched for questions about the past).
+ */
 export interface ThreadChatMemoryConfig {
+  /** Long-term memory: store messages in Postgres and answer questions about them. */
   enabled: boolean;
-  /** Latest messages added to the LLM prompt for follow-up questions (0 = off). */
+  /** Short-term memory: add the latest messages to the LLM prompt. */
+  shortTermEnabled: boolean;
+  /** Latest messages kept by the short-term memory. */
   contextWindow: number;
   /** Best-matching messages fetched per history search. */
   searchLimit: number;
@@ -3296,11 +3302,13 @@ export interface ThreadChatMemoryConfig {
 
 export const CHAT_MEMORY_DEFAULTS: ThreadChatMemoryConfig = {
   enabled: false,
+  shortTermEnabled: false,
   contextWindow: 10,
   searchLimit: 15,
 };
 
 export const CHAT_MEMORY_LIMITS = {
+  CONTEXT_WINDOW_MIN: 1,
   CONTEXT_WINDOW_MAX: 30,
   SEARCH_LIMIT_MIN: 1,
   SEARCH_LIMIT_MAX: 50,
@@ -3316,20 +3324,27 @@ function clampInteger(value: unknown, min: number, max: number, fallback: number
 /**
  * Cleans a stored or submitted chat-memory config: missing fields take the defaults, numbers are
  * rounded and clamped. Thread config updates are not class-validated, so this is the only guard.
+ * Configs saved before the short-term switch existed turned it off with `contextWindow: 0` and
+ * shared the long-term switch, so they keep that behaviour.
  */
 export function normalizeChatMemoryConfig(value: unknown): ThreadChatMemoryConfig {
   const raw: Record<string, unknown> =
     value && typeof value === 'object' && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : {};
+  const enabled = raw.enabled === true;
+  const window = clampInteger(
+    raw.contextWindow,
+    0,
+    CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MAX,
+    CHAT_MEMORY_DEFAULTS.contextWindow,
+  );
   return {
-    enabled: raw.enabled === true,
-    contextWindow: clampInteger(
-      raw.contextWindow,
-      0,
-      CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MAX,
-      CHAT_MEMORY_DEFAULTS.contextWindow,
-    ),
+    enabled,
+    shortTermEnabled:
+      typeof raw.shortTermEnabled === 'boolean' ? raw.shortTermEnabled : enabled && window > 0,
+    contextWindow:
+      window >= CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MIN ? window : CHAT_MEMORY_DEFAULTS.contextWindow,
     searchLimit: clampInteger(
       raw.searchLimit,
       CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MIN,

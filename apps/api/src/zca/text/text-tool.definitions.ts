@@ -373,15 +373,15 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
   },
 ];
 
-/** Tools that only make sense in a ZCA thread with chat memory on. */
+/** Tools that only make sense in a ZCA thread with long-term chat memory on. */
 const CHAT_MEMORY_TOOLS = new Set<string>([TextToolType.SEARCH_CHAT_HISTORY]);
 
 /**
- * Tool catalog for one chat. Without chat memory the history search is left out, so such
+ * Tool catalog for one chat. Without long-term memory the history search is left out, so such
  * questions keep their chit-chat (or silent) behaviour instead of a "memory is off" notice.
  */
-export function textToolDefinitionsFor(options: { chatMemory: boolean }): LlmToolDefinition[] {
-  return options.chatMemory
+export function textToolDefinitionsFor(options: { longTermMemory: boolean }): LlmToolDefinition[] {
+  return options.longTermMemory
     ? ZALO_TOOL_DEFINITIONS
     : ZALO_TOOL_DEFINITIONS.filter((def) => !CHAT_MEMORY_TOOLS.has(def.name));
 }
