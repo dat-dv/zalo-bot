@@ -50,7 +50,7 @@ Chạy tự động một lần khi API khởi động, trong **một transactio
 
 - **Giao dịch** (`finance_transactions`): khoản thu hoặc chi, số tiền là số nguyên dương VND, bắt buộc có ghi chú. Danh mục mặc định `Khác`, thời điểm mặc định là lúc ghi.
 - **Nơi chốn** (`finance_places`): cửa hàng, quán, địa điểm phát sinh giao dịch. Nơi chốn khác hoàn toàn với người liên quan trong danh bạ công nợ. Mỗi người dùng không thể có hai nơi chốn trùng tên sau chuẩn hoá (bỏ dấu, chữ thường, gom khoảng trắng) — "Highlands Coffee" và "highlands  coffee" là một.
-- **Người liên quan** (`debt_contacts`): người cho vay/đi vay. Tra cứu bằng tên (và biệt danh) đã chuẩn hoá, so khớp chính xác.
+- **Người liên quan** (`debt_contacts`): người cho vay/đi vay. Tra cứu bằng tên (và biệt danh) đã chuẩn hoá, so khớp chính xác. Bảng này cũng lưu các trường **Hồ sơ** (ghi chú, ngày sinh, địa chỉ, nơi làm việc, quan hệ, SĐT/tài khoản phụ), xem [module contacts](../modules/contacts/README.md#hồ-sơ-người-liên-quan-contactsprofileid).
 - **Khoản nợ** (`debts`): phải thu (`receivable`) hoặc phải trả (`payable`), có số ban đầu, số còn lại và trạng thái `active`/`settled`. Khoản nợ có thể là con của một khoản nợ cha khi được gộp.
 - **Thanh toán nợ** (`debt_payments`) và **phân bổ** (`debt_payment_allocations`): ghi nhận tiền đã trả cho một khoản nợ, hoặc phần tiền của một giao dịch được dùng để trả nợ.
 

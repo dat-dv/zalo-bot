@@ -57,7 +57,7 @@ Human guide: [Finance Domain](../../docs/global/finance-domain.md).
 | --- | --- |
 | `finance_transactions` | `type` income/expense, positive integer `amount` (VND), `currency` default `VND`, `category` default `Khác`, required `note`, `occurredAt` default now, optional `paymentMethod`, `receiptUrl`, `contact_id`, `place_id`. |
 | `finance_places` | Merchant/venue. Unique `normalized_name` (`UQ_finance_places_normalized_name`). Distinct from debt contacts. |
-| `debt_contacts` | People/counterparties, one shared directory. Lookup by normalized name (+ optional normalized alias), exact match. |
+| `debt_contacts` | People/counterparties, one shared directory. Lookup by normalized name (+ optional normalized alias), exact match. Also holds Profile fields (notes, birthday, address, workplace, relationship, `extra_phones` / `extra_bank_accounts` jsonb); see `modules/contacts`. |
 | `debts` | `direction` receivable/payable, `originalAmount`, `remainingAmount`, `status` active/settled, `settledAt`, optional `parent_debt_id` (self-reference). |
 | `debt_payments` | Repayments; optional `finance_transaction_id`. |
 | `debt_payment_allocations` | Links a transaction amount to a debt. |

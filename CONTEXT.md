@@ -22,6 +22,7 @@
 - **Liên kết tài khoản**: Gắn một Người liên quan với đúng một người dùng zalo của hệ thống (`users.id`). Chỉ admin được gắn/bỏ gắn; trong danh bạ chung, mỗi người dùng chỉ gắn với tối đa một Người liên quan.
 - **Lưu dự phòng số điện thoại**: Người liên quan và người dùng zalo đã liên kết bù số điện thoại cho nhau, chỉ điền khi bên kia đang trống, không ghi đè.
 - **Số còn lại**: Phần tiền chưa được trả; khoản nợ chỉ hoàn tất khi số này bằng 0.
+- **Hồ sơ**: Trang gom mọi thông tin về một Người liên quan và người dùng zalo đã liên kết với họ (nếu có): SĐT và tài khoản chính/phụ, ngày sinh, quan hệ, địa chỉ, nơi làm việc, ghi chú, cùng các khoản nợ và giao dịch của họ. Gốc của hồ sơ là Người liên quan; người dùng zalo chưa có Người liên quan thì admin tạo hồ sơ để tạo và liên kết.
 
 ## Nhật ký kiểm toán
 

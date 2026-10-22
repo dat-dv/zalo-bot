@@ -3,6 +3,7 @@
 import { Fragment, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { APP_ROUTES, type ChannelStorageLinkKind, type ThreadBotConfig } from '@zalobot/contracts';
+import { useOpenContactProfile } from '@/modules/contacts/view/use-open-contact-profile';
 import { useLocale } from '@/shared/providers/locale-provider';
 import type { ZcaThread } from '../../api/zca-api';
 import { hasInteractionAccess, type ChatRow } from '../../model/chat-rows';
@@ -145,6 +146,7 @@ export function ChatTableRow({
   onDeleteUser,
 }: ChatTableRowProps) {
   const { t } = useLocale();
+  const openProfile = useOpenContactProfile();
   const { thread } = row;
   const [storageLinksKind, setStorageLinksKind] = useState<ChannelStorageLinkKind | null>(null);
   const openStorageLinks = (kind: ChannelStorageLinkKind) => {
@@ -230,6 +232,17 @@ export function ChatTableRow({
           },
           ...(row.user
             ? [
+                {
+                  key: 'profile',
+                  label: t(linkedContactCount > 0 ? 'zca.profile.view' : 'zca.profile.create'),
+                  onSelect: () =>
+                    void openProfile({
+                      id: row.id,
+                      name: row.name,
+                      phoneNumber: row.phoneNumber,
+                      linkedContactCount,
+                    }),
+                },
                 { key: 'merge', label: '🔀 Gộp tài khoản trùng', onSelect: () => onMergeUser(row) },
                 {
                   key: 'linked-contacts',

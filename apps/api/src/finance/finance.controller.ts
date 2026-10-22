@@ -20,7 +20,11 @@ import {
 import { ModuleRef } from '@nestjs/core';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
-import type { AnalyticsGrain, ITransactionListQuery } from '@zalobot/contracts';
+import {
+  validateContactProfileUpdate,
+  type AnalyticsGrain,
+  type ITransactionListQuery,
+} from '@zalobot/contracts';
 import { GoogleDriveService } from '../google/google-drive.service';
 import {
   getDashboardUserId,
@@ -401,6 +405,31 @@ export class FinanceController {
   async getContact(@Req() req: Request, @Param('id') id: string) {
     this.authenticate(req);
     return { data: await this.required(this.finance.getContact(id)) };
+  }
+
+  @Get('contacts/:id/profile')
+  @ApiOperation({ summary: 'Hồ sơ người liên quan: thông tin, khoản nợ, giao dịch gần đây' })
+  async getContactProfile(@Req() req: Request, @Param('id') id: string) {
+    const includeAccess = this.users.isAdmin(this.actorId(req));
+    return { data: await this.required(this.finance.getContactProfile(id, includeAccess)) };
+  }
+
+  @Patch('contacts/:id/profile')
+  @ApiOperation({ summary: 'Sửa các trường hồ sơ (ghi chú, ngày sinh, SĐT/tài khoản phụ...)' })
+  async updateContactProfile(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: RecordBody,
+  ) {
+    const includeAccess = this.users.isAdmin(this.actorId(req));
+    const result = validateContactProfileUpdate(body);
+    // `in` narrowing: the api tsconfig is not strict, so `!result.ok` does not narrow the union.
+    if ('errors' in result) {
+      throw new BadRequestException({ message: 'Invalid contact profile.', errors: result.errors });
+    }
+    return {
+      data: await this.required(this.finance.updateContactProfile(id, result.value, includeAccess)),
+    };
   }
 
   @Post('contacts')

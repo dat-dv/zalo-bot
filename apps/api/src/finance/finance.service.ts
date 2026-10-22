@@ -31,6 +31,10 @@ import {
   type ITransactionListQuery,
   type ITransactionListResponse,
   type ITransactionItem,
+  CONTACT_PROFILE_LIMITS,
+  type IContactProfile,
+  type IContactProfileResponse,
+  type IUpdateContactProfileRequest,
 } from '@zalobot/contracts';
 import { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
 import { DebtEntity } from '../database/entities/debt.entity';
@@ -41,6 +45,13 @@ import { UserCategoryEntity } from '../database/entities/user-category.entity';
 import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { toTransactionItem, type TransactionItemLookups } from './transaction-item.mapper';
+import {
+  mergeContactProfileFields,
+  summarizeContactProfile,
+  toContactProfile,
+  toProfileDebtItem,
+  type TransactionTypeTotal,
+} from './contact-profile';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 import { fillMissingPhones } from './contact-user-sync';
 
@@ -1206,6 +1217,61 @@ export class FinanceService {
     });
   }
 
+  /** Profile page: the contact, its root debts, latest transactions and totals over all of them. */
+  public async getContactProfile(
+    id: string,
+    includeAccess: boolean,
+  ): Promise<IContactProfileResponse | null> {
+    const contact = await this.getContact(id);
+    if (!contact) return null;
+    const [rootDebts, transactions, transactionTotals] = await Promise.all([
+      this.debtRepo.find({
+        where: { contactId: id, parentDebtId: IsNull() },
+        relations: { children: true },
+        order: { occurredAt: 'DESC', createdAt: 'DESC', id: 'DESC' },
+      }),
+      this.transactionRepo.find({
+        where: { contactId: id },
+        relations: { place: true },
+        order: { occurredAt: 'DESC', createdAt: 'DESC', id: 'DESC' },
+        take: CONTACT_PROFILE_LIMITS.RECENT_TRANSACTIONS,
+      }),
+      this.transactionRepo
+        .createQueryBuilder('t')
+        .select('t.type', 'type')
+        .addSelect('COUNT(*)', 'count')
+        .addSelect('COALESCE(SUM(t.amount), 0)', 'total')
+        .where('t.contact_id = :id', { id })
+        .groupBy('t.type')
+        .getRawMany<TransactionTypeTotal>(),
+    ]);
+    return {
+      contact: toContactProfile(contact, includeAccess),
+      summary: summarizeContactProfile(rootDebts, transactionTotals),
+      debts: rootDebts.map(toProfileDebtItem),
+      recentTransactions: await this.toTransactionItems(transactions),
+    };
+  }
+
+  /** `input` must come from `validateContactProfileUpdate`; omitted fields stay unchanged. */
+  public async updateContactProfile(
+    id: string,
+    input: IUpdateContactProfileRequest,
+    includeAccess: boolean,
+  ): Promise<IContactProfile | null> {
+    const contact = await this.getContact(id);
+    if (!contact) return null;
+    if (input.notes !== undefined) contact.notes = input.notes;
+    if (input.birthday !== undefined) contact.birthday = input.birthday;
+    if (input.address !== undefined) contact.address = input.address;
+    if (input.workplace !== undefined) contact.workplace = input.workplace;
+    if (input.relationship !== undefined) contact.relationship = input.relationship;
+    if (input.extraPhones !== undefined) contact.extraPhones = input.extraPhones;
+    if (input.extraBankAccounts !== undefined) contact.extraBankAccounts = input.extraBankAccounts;
+    await this.contactRepo.save(contact);
+    return toContactProfile(contact, includeAccess);
+  }
+
   public async deleteContact(id: string): Promise<boolean> {
     const contact = await this.getContact(id);
     if (!contact) return false;
@@ -1584,6 +1650,9 @@ export class FinanceService {
       const sAvatar = sourceContacts.find((c) => Boolean(c.avatarUrl?.trim()));
       if (sAvatar) targetContact.avatarUrl = sAvatar.avatarUrl;
     }
+
+    // Profile fields and every source phone/account that is not the lead's primary.
+    Object.assign(targetContact, mergeContactProfileFields(targetContact, sourceContacts));
 
     if (targetContact.linkedUser) {
       const fill = await this.backfillLinkedPhones(

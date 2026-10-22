@@ -37,6 +37,7 @@ import { CreateZcaMessages1724810000000 } from './migrations/1724810000000-Creat
 import { AddChatMemoryToZcaThreadConfigs1724820000000 } from './migrations/1724820000000-AddChatMemoryToZcaThreadConfigs';
 import { CreateChannelStorageLinks1724830000000 } from './migrations/1724830000000-CreateChannelStorageLinks';
 import { AddDisplayNameToChannelStorageLinks1724840000000 } from './migrations/1724840000000-AddDisplayNameToChannelStorageLinks';
+import { AddProfileFieldsToDebtContacts1724850000000 } from './migrations/1724850000000-AddProfileFieldsToDebtContacts';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -90,6 +91,7 @@ export const AppDataSource = new DataSource({
     AddChatMemoryToZcaThreadConfigs1724820000000,
     CreateChannelStorageLinks1724830000000,
     AddDisplayNameToChannelStorageLinks1724840000000,
+    AddProfileFieldsToDebtContacts1724850000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

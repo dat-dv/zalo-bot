@@ -8,6 +8,11 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type {
+  ContactRelationship,
+  IContactBankAccountEntry,
+  IContactPhoneEntry,
+} from '@zalobot/contracts';
 import { UserEntity } from './user.entity';
 
 @Entity('debt_contacts')
@@ -46,6 +51,29 @@ export class DebtContactEntity {
 
   @Column({ name: 'avatar_url', type: 'varchar', nullable: true })
   avatarUrl?: string;
+
+  /** Profile fields (see `IContactProfileFields`). */
+  @Column({ type: 'text', nullable: true })
+  notes?: string | null;
+
+  /** `YYYY-MM-DD`; pg `date` is read back as a string. */
+  @Column({ type: 'date', nullable: true })
+  birthday?: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  address?: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  workplace?: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  relationship?: ContactRelationship | null;
+
+  @Column({ name: 'extra_phones', type: 'jsonb', default: () => "'[]'::jsonb" })
+  extraPhones?: IContactPhoneEntry[];
+
+  @Column({ name: 'extra_bank_accounts', type: 'jsonb', default: () => "'[]'::jsonb" })
+  extraBankAccounts?: IContactBankAccountEntry[];
 
   @Index()
   @Column({ name: 'linked_user_id', type: 'varchar', nullable: true })

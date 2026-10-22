@@ -3,18 +3,25 @@ import type {
   ICombineContactsRequest,
   ICombineContactsResponse,
   IContactListItem,
+  IContactProfileResponse,
   IContactUserSyncResult,
+  IUpdateContactProfileRequest,
   IUpdateContactRequest,
 } from '@zalobot/contracts';
 import {
   combineContacts,
   deleteContact,
+  getContactProfile,
   getContacts,
   syncUsersIntoContacts,
   updateContact,
+  updateContactProfile,
 } from './contacts-api';
 
-export const contactsQueryKeys = { list: () => ['contacts'] as const };
+export const contactsQueryKeys = {
+  list: () => ['contacts'] as const,
+  profile: (id: string) => ['contacts', 'profile', id] as const,
+};
 
 export function useContactsQuery() {
   return useQuery<IContactListItem[]>({
@@ -73,6 +80,37 @@ export function useDeleteContactMutation() {
       void queryClient.invalidateQueries({ queryKey: ['users'] });
       void queryClient.invalidateQueries({ queryKey: ['debts'] });
       void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+}
+
+export function useContactProfileQuery(id: string | null) {
+  return useQuery<IContactProfileResponse>({
+    queryKey: contactsQueryKeys.profile(id ?? ''),
+    queryFn: ({ signal }) => getContactProfile(id ?? '', signal),
+    enabled: Boolean(id),
+  });
+}
+
+/**
+ * Saves the profile page form: base fields go through the existing contact PATCH (only when they
+ * changed), profile fields through the profile PATCH.
+ */
+export function useSaveContactProfileMutation(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation<
+    void,
+    Error,
+    { base?: IUpdateContactRequest; profile: IUpdateContactProfileRequest }
+  >({
+    mutationFn: async ({ base, profile }) => {
+      if (base) await updateContact(id, base);
+      await updateContactProfile(id, profile);
+    },
+    onSettled: () => {
+      // `['contacts']` is a prefix of the profile key, so the list and this profile both refetch.
+      void queryClient.invalidateQueries({ queryKey: contactsQueryKeys.list() });
+      void queryClient.invalidateQueries({ queryKey: ['debts'] });
     },
   });
 }

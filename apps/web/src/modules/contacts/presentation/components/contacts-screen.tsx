@@ -1,9 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import {
+  APP_ROUTES,
   localeTag,
   type IContactListItem,
   type IContactUserSyncSuggestion,
@@ -554,7 +556,7 @@ export function ContactsScreen() {
       id: 'actions',
       header: t('dashboard.columns.action'),
       align: 'right',
-      minWidth: '120px',
+      minWidth: '150px',
       hideable: false,
       cell: (item) => {
         const isEditing = editingId === item.id;
@@ -584,6 +586,12 @@ export function ContactsScreen() {
         }
         return (
           <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+            <Link
+              className="inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border border-slate-200 bg-white px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+              href={APP_ROUTES.contactProfile(item.id)}
+            >
+              {t('contacts.actions.profile')}
+            </Link>
             <button
               type="button"
               className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"

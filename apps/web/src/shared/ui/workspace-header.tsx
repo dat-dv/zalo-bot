@@ -67,6 +67,9 @@ const ROUTE_HEADER_MAP: Record<string, RouteHeaderMeta> = {
     titleKey: 'contacts.title',
     subtitleKey: 'contacts.subtitle',
   },
+  [APP_ROUTES.contactProfilePage]: {
+    titleKey: 'contacts.profile.title',
+  },
   [APP_ROUTES.places]: {
     titleKey: 'places.title',
     subtitleKey: 'places.subtitle',

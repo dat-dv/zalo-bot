@@ -4,7 +4,10 @@ import {
   type ICombineContactsRequest,
   type ICombineContactsResponse,
   type IContactListItem,
+  type IContactProfile,
+  type IContactProfileResponse,
   type IContactUserSyncResult,
+  type IUpdateContactProfileRequest,
   type IUpdateContactRequest,
 } from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
@@ -56,4 +59,42 @@ export async function deleteContact(id: string, signal?: AbortSignal): Promise<b
     { signal },
   );
   return response.data.data.deleted;
+}
+
+export async function createContact(
+  data: IUpdateContactRequest,
+  signal?: AbortSignal,
+): Promise<IContactListItem> {
+  const response = await httpClient.post<IApiResponse<IContactListItem>>(
+    API_ROUTES.contacts,
+    data,
+    {
+      signal,
+    },
+  );
+  return response.data.data;
+}
+
+export async function getContactProfile(
+  id: string,
+  signal?: AbortSignal,
+): Promise<IContactProfileResponse> {
+  const response = await httpClient.get<IApiResponse<IContactProfileResponse>>(
+    API_ROUTES.contactProfile(id),
+    { signal },
+  );
+  return response.data.data;
+}
+
+export async function updateContactProfile(
+  id: string,
+  data: IUpdateContactProfileRequest,
+  signal?: AbortSignal,
+): Promise<IContactProfile> {
+  const response = await httpClient.patch<IApiResponse<IContactProfile>>(
+    API_ROUTES.contactProfile(id),
+    data,
+    { signal },
+  );
+  return response.data.data;
 }

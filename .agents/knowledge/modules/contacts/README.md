@@ -9,7 +9,9 @@
 ## Files
 
 - `api/contacts-api.ts`: `getContacts` (`GET API_ROUTES.contacts`), `updateContact` (`PATCH /api/contacts/:id`, `IUpdateContactRequest`), `combineContacts` (`POST API_ROUTES.contactsCombine` = `/api/contacts/combine`), `deleteContact` (`DELETE /api/contacts/:id`).
-- `api/contacts-query.ts`: key `['contacts']`; `useContactsQuery`, `useUpdateContactMutation`, `useCombineContactsMutation`, `useDeleteContactMutation`.
+- `api/contacts-query.ts`: key `['contacts']`; `useContactsQuery`, `useUpdateContactMutation`, `useCombineContactsMutation`, `useDeleteContactMutation`. Profile: key `['contacts','profile',id]` (prefix of the list key, so list invalidation refetches it), `useContactProfileQuery`, `useSaveContactProfileMutation`.
+- `api/contacts-api.ts` also: `createContact` (`POST API_ROUTES.contacts`), `getContactProfile` / `updateContactProfile` (`API_ROUTES.contactProfile(id)`).
+- Profile page: `model/contact-profile-form.ts` (+ spec), `view/contact-profile-screen.tsx`, `view/use-open-contact-profile.ts`, `presentation/components/contact-profile/*` (header, info panel, debts/transactions tables, styles). Route `app/(private)/contacts/profile/page.tsx`.
 - `presentation/components/contacts-screen.tsx`, `presentation/components/combine-contacts-dialog.tsx` (re-exported via `view/`). Route `/contacts`.
 
 ## API data (`GET /api/contacts`, `ReportsController`)
@@ -59,9 +61,28 @@
 - Service `ContactUserSyncService` (`apps/api/src/finance/contact-user-sync.service.ts`); tests `contact-user-sync.spec.ts`.
 - Tests: `apps/api/src/finance/finance-contact-link.spec.ts`.
 
+## Profile page (`/contacts/profile?id=<contactId>`)
+
+- **Root = debt contact.** A "profile" is one `debt_contacts` row + the Zalo user linked to it (`linked_user_id`, at most one contact per user, so 1–1). Debts and transactions already carry `contact_id`.
+- Route: static export has no dynamic segments → `APP_ROUTES.contactProfile(id)` = `/contacts/profile?id=…` (`APP_ROUTES.contactProfilePage` for the header title map). Page wraps the screen in `<Suspense>` for `useSearchParams`.
+- **Data** (migration `1724850000000-AddProfileFieldsToDebtContacts`, columns on `debt_contacts`): `notes text`, `birthday date` (`YYYY-MM-DD`), `address`, `workplace`, `relationship` (`family|friend|colleague|partner|other`, `CONTACT_RELATIONSHIPS`), `extra_phones jsonb [{value,label?}]`, `extra_bank_accounts jsonb [{accountNumber,bankName?,bankCode?,label?}]` (default `[]`). Primary phone/account stay in `phone_number` / `bank_*` (bot, phone backup and the table keep using them); extras are stored only. jsonb (not a child table) because the lists are short, always read with the contact, and never searched.
+- **API** (`FinanceController`, signed-in dashboard user, shared ledger):
+  - `GET /api/contacts/:id/profile` → `IContactProfileResponse { contact: IContactProfile, summary, debts, recentTransactions }`. `debts` = root debts only (`parent_debt_id IS NULL`, combined debts already carry their children). `recentTransactions` = latest `CONTACT_PROFILE_LIMITS.RECENT_TRANSACTIONS` (50). `summary` (pure `summarizeContactProfile` in `apps/api/src/finance/contact-profile.ts`): open receivable/payable remaining (active, remaining > 0), open/total debt counts, income/expense totals and count over **all** transactions (grouped SQL). `linkedUser.role` / `grantAccess` only for admins. 404 when the contact does not exist.
+  - `PATCH /api/contacts/:id/profile` (`IUpdateContactProfileRequest`): profile fields only; omitted = unchanged, `null`/empty = clear. Separate from `PATCH /api/contacts/:id` because that one requires `displayName` and clears alias/descriptor when omitted. Body validated by shared `validateContactProfileUpdate` (contracts): trims, empty → `null`, `birthday` real date and not in the future, relationship in list, extra phones `[+\d\s.-]` with 8–15 digits, account numbers digits only 6–20, labels ≤ 40, address/workplace ≤ 200, notes ≤ 5000, ≤ 10 rows per list; blank and duplicate rows dropped. Errors → 400 `{ errors: { field: { code, index? } } }`.
+  - Audit: `audit-log.subscriber` records the update like any entity change.
+- **Screen** (`ContactProfileScreen`): flat single canvas, square controls (same as the `/zca` and `/contacts` tables).
+  - Header: back link, square avatar (contact or linked user), name `(alias)`, descriptor, `Tài khoản Zalo: name @username · ● access` (+ link to `/zca` for admins) or "not linked".
+  - `MetricGrid` 4 cells (lent still owed, borrowed still owing, total income, total expense; amounts follow the money visibility toggle) + one line `N open · N transactions`.
+  - Desktop: left "Details" `DataPanel` (~320–400px), right debts table + recent transactions table (`DataTable`, mobile list slots). Mobile: stacked.
+  - Details view: phones / accounts (primary first with "Primary"), birthday, relationship, address, workplace, notes (pre-line). Edit: "Sửa" turns the panel into an in-place form (name, alias, descriptor, primary + extra phones/accounts with add/remove rows, birthday, relationship, address, workplace, notes); "Lưu"/"Huỷ". Save = validate with the same contracts rules (field errors under each field, row index for lists) → `PATCH /api/contacts/:id` only if base fields changed (same body as the table inline edit; empty primary phone/bank keeps the value) → `PATCH …/profile`.
+  - States: missing `id`, loading skeleton, not found (404, e.g. deleted/merged), error + retry, data; empty tables show an empty row.
+- **Entry points**: `/contacts` actions column "Hồ sơ" link (name click stays inline edit); `/zca` row "⋯" menu for rows with a `users` row: "Xem hồ sơ" (has linked contact) or "Tạo hồ sơ" (none: `useOpenContactProfile` creates a contact named after the user with its phone and `linkedUserId`, admin-only, then opens it).
+- Not in scope: bot reading/writing profile notes, lookup by extra phone, avatar upload.
+
 ## Backend combine semantics (`FinanceService.combineContacts`)
 
 - Requires ≥2 existing contacts. Lead = `targetContactId` if given, else the ranking above.
 - Applies name/alias/descriptor/linkedUserId (validated as above); inherits missing phone, bank (number+code+name), avatar from sources.
+- Profile fields (`mergeContactProfileFields`, pure, spec `contact-profile.spec.ts`): birthday/address/workplace/relationship fill only when the lead's is empty; source notes appended as `— Gộp từ <name>:\n<notes>`; extra phones/accounts = union of lead + sources (deduped by digits), and every source primary phone/account that is not the lead's primary is added to the extras. The merge does not cap the lists at 10, so nothing is lost; a later profile edit must trim them to 10.
 - Reassigns sources' debts (`contactId`, `counterparty`, `counterpartyAlias`) and transactions (`contactId`) to the lead, deletes sources, then if `consolidateDebts` groups the lead's top-level debts by direction + currency and calls `combineDebts` for groups of ≥2.
 - NOT a single DB transaction: the steps are sequential saves; a failure midway (e.g. during debt consolidation) leaves earlier steps committed. Each `combineDebts` call is itself transactional.

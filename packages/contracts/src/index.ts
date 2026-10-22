@@ -9,6 +9,7 @@ export const API_ROUTES = {
   contacts: '/api/contacts',
   contactsCombine: '/api/contacts/combine',
   contactsSyncUsers: '/api/contacts/sync-users',
+  contactProfile: (id: string) => `/api/contacts/${id}/profile`,
   debts: '/api/debts',
   debtsCombine: '/api/debts/combine',
   debtPayments: (debtId: string) => `/api/debts/${debtId}/payments`,
@@ -77,6 +78,9 @@ export const APP_ROUTES = {
   reminders: '/reminders',
 
   contacts: '/contacts',
+  /** Static export has no dynamic segments, so the contact id travels in the query string. */
+  contactProfilePage: '/contacts/profile',
+  contactProfile: (id: string) => `/contacts/profile?id=${encodeURIComponent(id)}`,
   places: '/places',
   zca: '/zca',
   // Static export has no dynamic segments, so the thread id travels in the query string.
@@ -408,6 +412,83 @@ const messages = {
     'contacts.columns.bankName': 'Ngân hàng',
     'contacts.columns.linkedUser': 'Tài khoản User',
     'contacts.columns.resources': 'Dữ liệu liên quan',
+    'contacts.actions.profile': 'Hồ sơ',
+    'contacts.profile.title': 'Hồ sơ',
+    'contacts.profile.back': 'Người liên quan',
+    'contacts.profile.missingId': 'Thiếu mã người liên quan trong đường dẫn.',
+    'contacts.profile.notFound':
+      'Không tìm thấy người liên quan này. Có thể đã bị xoá hoặc đã gộp vào người khác.',
+    'contacts.profile.loadError': 'Không tải được hồ sơ.',
+    'contacts.profile.edit': 'Sửa',
+    'contacts.profile.save': 'Lưu',
+    'contacts.profile.cancel': 'Huỷ',
+    'contacts.profile.saved': 'Đã lưu hồ sơ',
+    'contacts.profile.saveError': 'Không lưu được hồ sơ. Vui lòng thử lại.',
+    'contacts.profile.zaloAccount': 'Tài khoản Zalo',
+    'contacts.profile.noZaloAccount': 'Chưa gắn tài khoản Zalo',
+    'contacts.profile.openZca': 'Mở Zalo & Người dùng',
+    'contacts.profile.role.admin': 'Admin',
+    'contacts.profile.access.granted': 'Đã cấp quyền',
+    'contacts.profile.access.pending': 'Chờ duyệt',
+    'contacts.profile.summary.receivable': 'Đang cho vay còn lại',
+    'contacts.profile.summary.payable': 'Đang nợ còn lại',
+    'contacts.profile.summary.income': 'Tổng thu',
+    'contacts.profile.summary.expense': 'Tổng chi',
+    'contacts.profile.summary.openDebts': '{count} khoản đang mở',
+    'contacts.profile.summary.transactions': '{count} giao dịch',
+    'contacts.profile.section.info': 'Thông tin',
+    'contacts.profile.section.debts': 'Khoản nợ',
+    'contacts.profile.section.transactions': 'Giao dịch gần đây',
+    'contacts.profile.transactionsLimited': '{shown} / {total} giao dịch gần nhất',
+    'contacts.profile.empty.debts': 'Chưa có khoản nợ nào.',
+    'contacts.profile.empty.transactions': 'Chưa có giao dịch nào.',
+    'contacts.profile.field.name': 'Tên',
+    'contacts.profile.field.alias': 'Biệt danh',
+    'contacts.profile.field.descriptor': 'Mô tả',
+    'contacts.profile.field.phones': 'Số điện thoại',
+    'contacts.profile.field.bankAccounts': 'Tài khoản ngân hàng',
+    'contacts.profile.field.birthday': 'Ngày sinh',
+    'contacts.profile.field.relationship': 'Quan hệ',
+    'contacts.profile.field.address': 'Địa chỉ',
+    'contacts.profile.field.workplace': 'Nơi làm việc',
+    'contacts.profile.field.notes': 'Ghi chú',
+    'contacts.profile.primary': 'Chính',
+    'contacts.profile.addPhone': '+ Thêm SĐT',
+    'contacts.profile.addBankAccount': '+ Thêm tài khoản',
+    'contacts.profile.removeRow': 'Xoá dòng',
+    'contacts.profile.placeholder.label': 'Nhãn (VD: Công ty)',
+    'contacts.profile.placeholder.phone': 'Số điện thoại',
+    'contacts.profile.placeholder.accountNumber': 'Số tài khoản',
+    'contacts.profile.placeholder.bankName': 'Ngân hàng',
+    'contacts.profile.placeholder.address': 'Địa chỉ nhà, khu vực...',
+    'contacts.profile.placeholder.workplace': 'Công ty, trường, nơi làm...',
+    'contacts.profile.placeholder.notes': 'Tính cách, thói quen trả nợ, lưu ý khi liên lạc...',
+    'contacts.profile.primaryHint':
+      'SĐT và tài khoản chính không xoá được ở đây (để trống thì giữ nguyên).',
+    'contacts.profile.relationship.none': 'Chưa chọn',
+    'contacts.profile.relationship.family': 'Người nhà',
+    'contacts.profile.relationship.friend': 'Bạn bè',
+    'contacts.profile.relationship.colleague': 'Đồng nghiệp',
+    'contacts.profile.relationship.partner': 'Đối tác',
+    'contacts.profile.relationship.other': 'Khác',
+    'contacts.profile.direction.receivable': 'Cho vay',
+    'contacts.profile.direction.payable': 'Đi vay',
+    'contacts.profile.type.income': 'Thu',
+    'contacts.profile.type.expense': 'Chi',
+    'contacts.profile.errors.nameRequired': 'Tên không được để trống.',
+    'contacts.profile.errors.text_too_long': 'Nội dung quá dài (tối đa {max} ký tự).',
+    'contacts.profile.errors.notes_too_long': 'Ghi chú tối đa {max} ký tự.',
+    'contacts.profile.errors.birthday_invalid': 'Ngày sinh không hợp lệ.',
+    'contacts.profile.errors.birthday_future': 'Ngày sinh không được ở tương lai.',
+    'contacts.profile.errors.relationship_invalid': 'Quan hệ không hợp lệ.',
+    'contacts.profile.errors.list_invalid': 'Danh sách không hợp lệ.',
+    'contacts.profile.errors.too_many_items': 'Tối đa {max} dòng.',
+    'contacts.profile.errors.label_too_long': 'Nhãn tối đa {max} ký tự.',
+    'contacts.profile.errors.phone_invalid': 'Số điện thoại phải có {min}–{max} chữ số.',
+    'contacts.profile.errors.bank_account_invalid': 'Số tài khoản phải có {min}–{max} chữ số.',
+    'zca.profile.view': '👤 Xem hồ sơ',
+    'zca.profile.create': '➕ Tạo hồ sơ',
+    'zca.profile.createError': 'Không tạo được hồ sơ. Vui lòng thử lại.',
     'places.title': 'Nơi chốn & Địa điểm',
     'places.subtitle': 'Danh sách cửa hàng, quán ăn, bệnh viện và địa điểm thu chi của bạn',
     'places.actions.create': 'Thêm nơi chốn',
@@ -1171,6 +1252,84 @@ const messages = {
     'contacts.columns.bankName': 'Bank name',
     'contacts.columns.linkedUser': 'Linked User',
     'contacts.columns.resources': 'Related Data',
+    'contacts.actions.profile': 'Profile',
+    'contacts.profile.title': 'Profile',
+    'contacts.profile.back': 'Contacts',
+    'contacts.profile.missingId': 'The contact id is missing from the link.',
+    'contacts.profile.notFound':
+      'This contact was not found. It may have been deleted or merged into another contact.',
+    'contacts.profile.loadError': 'Could not load the profile.',
+    'contacts.profile.edit': 'Edit',
+    'contacts.profile.save': 'Save',
+    'contacts.profile.cancel': 'Cancel',
+    'contacts.profile.saved': 'Profile saved',
+    'contacts.profile.saveError': 'Could not save the profile. Please try again.',
+    'contacts.profile.zaloAccount': 'Zalo account',
+    'contacts.profile.noZaloAccount': 'No Zalo account linked',
+    'contacts.profile.openZca': 'Open Zalo & Users',
+    'contacts.profile.role.admin': 'Admin',
+    'contacts.profile.access.granted': 'Access granted',
+    'contacts.profile.access.pending': 'Pending',
+    'contacts.profile.summary.receivable': 'Lent, still owed',
+    'contacts.profile.summary.payable': 'Borrowed, still owing',
+    'contacts.profile.summary.income': 'Total income',
+    'contacts.profile.summary.expense': 'Total expense',
+    'contacts.profile.summary.openDebts': '{count} open',
+    'contacts.profile.summary.transactions': '{count} transactions',
+    'contacts.profile.section.info': 'Details',
+    'contacts.profile.section.debts': 'Debts',
+    'contacts.profile.section.transactions': 'Recent transactions',
+    'contacts.profile.transactionsLimited': 'Latest {shown} of {total} transactions',
+    'contacts.profile.empty.debts': 'No debts yet.',
+    'contacts.profile.empty.transactions': 'No transactions yet.',
+    'contacts.profile.field.name': 'Name',
+    'contacts.profile.field.alias': 'Alias',
+    'contacts.profile.field.descriptor': 'Description',
+    'contacts.profile.field.phones': 'Phone numbers',
+    'contacts.profile.field.bankAccounts': 'Bank accounts',
+    'contacts.profile.field.birthday': 'Birthday',
+    'contacts.profile.field.relationship': 'Relationship',
+    'contacts.profile.field.address': 'Address',
+    'contacts.profile.field.workplace': 'Workplace',
+    'contacts.profile.field.notes': 'Notes',
+    'contacts.profile.primary': 'Primary',
+    'contacts.profile.addPhone': '+ Add phone',
+    'contacts.profile.addBankAccount': '+ Add account',
+    'contacts.profile.removeRow': 'Remove row',
+    'contacts.profile.placeholder.label': 'Label (e.g. Work)',
+    'contacts.profile.placeholder.phone': 'Phone number',
+    'contacts.profile.placeholder.accountNumber': 'Account number',
+    'contacts.profile.placeholder.bankName': 'Bank',
+    'contacts.profile.placeholder.address': 'Home address, area...',
+    'contacts.profile.placeholder.workplace': 'Company, school, workplace...',
+    'contacts.profile.placeholder.notes': 'Personality, repayment habits, contact tips...',
+    'contacts.profile.primaryHint':
+      'The primary phone and account cannot be cleared here (empty keeps the current value).',
+    'contacts.profile.relationship.none': 'Not set',
+    'contacts.profile.relationship.family': 'Family',
+    'contacts.profile.relationship.friend': 'Friend',
+    'contacts.profile.relationship.colleague': 'Colleague',
+    'contacts.profile.relationship.partner': 'Partner',
+    'contacts.profile.relationship.other': 'Other',
+    'contacts.profile.direction.receivable': 'Lent',
+    'contacts.profile.direction.payable': 'Borrowed',
+    'contacts.profile.type.income': 'Income',
+    'contacts.profile.type.expense': 'Expense',
+    'contacts.profile.errors.nameRequired': 'The name cannot be empty.',
+    'contacts.profile.errors.text_too_long': 'Too long (at most {max} characters).',
+    'contacts.profile.errors.notes_too_long': 'Notes can have at most {max} characters.',
+    'contacts.profile.errors.birthday_invalid': 'Invalid birthday.',
+    'contacts.profile.errors.birthday_future': 'The birthday cannot be in the future.',
+    'contacts.profile.errors.relationship_invalid': 'Invalid relationship.',
+    'contacts.profile.errors.list_invalid': 'Invalid list.',
+    'contacts.profile.errors.too_many_items': 'At most {max} rows.',
+    'contacts.profile.errors.label_too_long': 'Labels can have at most {max} characters.',
+    'contacts.profile.errors.phone_invalid': 'A phone number must have {min}–{max} digits.',
+    'contacts.profile.errors.bank_account_invalid':
+      'An account number must have {min}–{max} digits.',
+    'zca.profile.view': '👤 View profile',
+    'zca.profile.create': '➕ Create profile',
+    'zca.profile.createError': 'Could not create the profile. Please try again.',
     'places.title': 'Places & Locations',
     'places.subtitle': 'Stores, restaurants, hospitals and locations used in your transactions',
     'places.actions.create': 'Add place',
@@ -2155,6 +2314,306 @@ export interface IUpdateContactRequest {
   bankName?: string;
   avatarUrl?: string;
   linkedUserId?: string | null;
+}
+
+/** Quan hệ của người dùng với một Người liên quan (hiển thị trên Hồ sơ). */
+export const CONTACT_RELATIONSHIPS = ['family', 'friend', 'colleague', 'partner', 'other'] as const;
+export type ContactRelationship = (typeof CONTACT_RELATIONSHIPS)[number];
+
+export function isContactRelationship(value: unknown): value is ContactRelationship {
+  return typeof value === 'string' && (CONTACT_RELATIONSHIPS as readonly string[]).includes(value);
+}
+
+/** Số điện thoại phụ; số chính vẫn là `phoneNumber` của Người liên quan. */
+export interface IContactPhoneEntry {
+  value: string;
+  label?: string;
+}
+
+/** Tài khoản ngân hàng phụ; tài khoản chính vẫn là `bankAccountNumber` / `bankName`. */
+export interface IContactBankAccountEntry {
+  accountNumber: string;
+  bankName?: string;
+  bankCode?: string;
+  label?: string;
+}
+
+/** Các trường chỉ có trên Hồ sơ (lưu trên `debt_contacts`). */
+export interface IContactProfileFields {
+  notes: string | null;
+  /** `YYYY-MM-DD`. */
+  birthday: string | null;
+  address: string | null;
+  workplace: string | null;
+  relationship: ContactRelationship | null;
+  extraPhones: IContactPhoneEntry[];
+  extraBankAccounts: IContactBankAccountEntry[];
+}
+
+/** Người dùng Zalo đã gắn với Người liên quan; `role` / `grantAccess` chỉ trả cho admin. */
+export interface IContactProfileLinkedUser {
+  id: string;
+  username?: string;
+  firstName?: string;
+  avatarUrl?: string;
+  phoneNumber?: string;
+  role?: UserRole;
+  grantAccess?: GrantAccessStatus;
+}
+
+export interface IContactProfile
+  extends
+    Omit<IContactListItem, 'linkedUser' | 'debtCount' | 'transactionCount'>,
+    IContactProfileFields {
+  linkedUser?: IContactProfileLinkedUser;
+}
+
+/** Số liệu tính trên toàn bộ khoản nợ gốc và giao dịch của Người liên quan. */
+export interface IContactProfileSummary {
+  receivableRemaining: number;
+  payableRemaining: number;
+  openDebtCount: number;
+  debtCount: number;
+  incomeTotal: number;
+  expenseTotal: number;
+  transactionCount: number;
+}
+
+/** `GET /api/contacts/:id/profile`. `recentTransactions` giới hạn `CONTACT_PROFILE_LIMITS.RECENT_TRANSACTIONS`. */
+export interface IContactProfileResponse {
+  contact: IContactProfile;
+  summary: IContactProfileSummary;
+  debts: IDebtListItem[];
+  recentTransactions: ITransactionItem[];
+}
+
+/** `PATCH /api/contacts/:id/profile`: trường không gửi = giữ nguyên, `null` / rỗng = xoá. */
+export interface IUpdateContactProfileRequest {
+  notes?: string | null;
+  birthday?: string | null;
+  address?: string | null;
+  workplace?: string | null;
+  relationship?: ContactRelationship | null;
+  extraPhones?: IContactPhoneEntry[];
+  extraBankAccounts?: IContactBankAccountEntry[];
+}
+
+export const CONTACT_PROFILE_LIMITS = {
+  NOTES_MAX_LENGTH: 5000,
+  TEXT_MAX_LENGTH: 200,
+  LABEL_MAX_LENGTH: 40,
+  MAX_EXTRA_ITEMS: 10,
+  PHONE_MIN_DIGITS: 8,
+  PHONE_MAX_DIGITS: 15,
+  BANK_ACCOUNT_MIN_DIGITS: 6,
+  BANK_ACCOUNT_MAX_DIGITS: 20,
+  RECENT_TRANSACTIONS: 50,
+} as const;
+
+export type ContactProfileUpdateErrorCode =
+  | 'text_too_long'
+  | 'notes_too_long'
+  | 'birthday_invalid'
+  | 'birthday_future'
+  | 'relationship_invalid'
+  | 'list_invalid'
+  | 'too_many_items'
+  | 'label_too_long'
+  | 'phone_invalid'
+  | 'bank_account_invalid';
+
+export interface ContactProfileUpdateError {
+  code: ContactProfileUpdateErrorCode;
+  /** Dòng lỗi trong danh sách SĐT / tài khoản phụ. */
+  index?: number;
+}
+
+export type ContactProfileUpdateErrors = Partial<
+  Record<keyof IUpdateContactProfileRequest, ContactProfileUpdateError>
+>;
+
+/** Chỉ giữ chữ số; dùng để so trùng SĐT / số tài khoản. */
+export function contactDigits(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+type ProfileTextResult = { value: string | null } | { error: ContactProfileUpdateErrorCode };
+
+function profileText(
+  raw: unknown,
+  max: number,
+  tooLong: ContactProfileUpdateErrorCode,
+): ProfileTextResult {
+  const value = typeof raw === 'string' ? raw.trim() : '';
+  if (value.length > max) return { error: tooLong };
+  return { value: value || null };
+}
+
+function profileLabel(raw: unknown): string | undefined | false {
+  const label = typeof raw === 'string' ? raw.trim() : '';
+  if (label.length > CONTACT_PROFILE_LIMITS.LABEL_MAX_LENGTH) return false;
+  return label || undefined;
+}
+
+function isValidIsoDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function profileEntries(raw: unknown): Map<string, unknown>[] | null {
+  if (!Array.isArray(raw)) return null;
+  const items: unknown[] = raw;
+  const entries: Map<string, unknown>[] = [];
+  for (const item of items) {
+    if (typeof item !== 'object' || item === null) return null;
+    entries.push(new Map<string, unknown>(Object.entries(item)));
+  }
+  return entries;
+}
+
+function validatePhoneList(
+  raw: unknown,
+): { value: IContactPhoneEntry[] } | { error: ContactProfileUpdateError } {
+  const entries = profileEntries(raw);
+  if (!entries) return { error: { code: 'list_invalid' } };
+  const result: IContactPhoneEntry[] = [];
+  const seen = new Set<string>();
+  for (const [index, entry] of entries.entries()) {
+    const rawValue = entry.get('value');
+    const value = typeof rawValue === 'string' ? rawValue.trim().replace(/\s+/g, ' ') : '';
+    const label = profileLabel(entry.get('label'));
+    if (!value && !label) continue;
+    const digits = contactDigits(value);
+    if (
+      !/^[+\d\s.-]+$/.test(value) ||
+      digits.length < CONTACT_PROFILE_LIMITS.PHONE_MIN_DIGITS ||
+      digits.length > CONTACT_PROFILE_LIMITS.PHONE_MAX_DIGITS
+    ) {
+      return { error: { code: 'phone_invalid', index } };
+    }
+    if (label === false) return { error: { code: 'label_too_long', index } };
+    if (seen.has(digits)) continue;
+    seen.add(digits);
+    result.push(label ? { value, label } : { value });
+  }
+  if (result.length > CONTACT_PROFILE_LIMITS.MAX_EXTRA_ITEMS) {
+    return { error: { code: 'too_many_items' } };
+  }
+  return { value: result };
+}
+
+function validateBankAccountList(
+  raw: unknown,
+): { value: IContactBankAccountEntry[] } | { error: ContactProfileUpdateError } {
+  const entries = profileEntries(raw);
+  if (!entries) return { error: { code: 'list_invalid' } };
+  const result: IContactBankAccountEntry[] = [];
+  const seen = new Set<string>();
+  for (const [index, entry] of entries.entries()) {
+    const rawNumber = entry.get('accountNumber');
+    const accountNumber = typeof rawNumber === 'string' ? contactDigits(rawNumber) : '';
+    const bankName = profileText(
+      entry.get('bankName'),
+      CONTACT_PROFILE_LIMITS.TEXT_MAX_LENGTH,
+      'text_too_long',
+    );
+    const bankCode = profileText(
+      entry.get('bankCode'),
+      CONTACT_PROFILE_LIMITS.LABEL_MAX_LENGTH,
+      'text_too_long',
+    );
+    const label = profileLabel(entry.get('label'));
+    const hasText = 'value' in bankName && bankName.value !== null;
+    if (!accountNumber && !hasText && !label) continue;
+    if (
+      accountNumber.length < CONTACT_PROFILE_LIMITS.BANK_ACCOUNT_MIN_DIGITS ||
+      accountNumber.length > CONTACT_PROFILE_LIMITS.BANK_ACCOUNT_MAX_DIGITS
+    ) {
+      return { error: { code: 'bank_account_invalid', index } };
+    }
+    if ('error' in bankName || 'error' in bankCode) {
+      return { error: { code: 'text_too_long', index } };
+    }
+    if (label === false) return { error: { code: 'label_too_long', index } };
+    if (seen.has(accountNumber)) continue;
+    seen.add(accountNumber);
+    result.push({
+      accountNumber,
+      ...(bankName.value ? { bankName: bankName.value } : {}),
+      ...(bankCode.value ? { bankCode: bankCode.value.toUpperCase() } : {}),
+      ...(label ? { label } : {}),
+    });
+  }
+  if (result.length > CONTACT_PROFILE_LIMITS.MAX_EXTRA_ITEMS) {
+    return { error: { code: 'too_many_items' } };
+  }
+  return { value: result };
+}
+
+/**
+ * Kiểm tra và chuẩn hoá một lần sửa Hồ sơ (API và form web dùng chung): trim, chuỗi rỗng thành
+ * `null`, bỏ dòng trống và dòng trùng trong danh sách phụ. `today` là `YYYY-MM-DD` để chặn ngày sinh
+ * ở tương lai.
+ */
+export function validateContactProfileUpdate(
+  input: unknown,
+  today: string = new Date().toISOString().slice(0, 10),
+):
+  | { ok: true; value: IUpdateContactProfileRequest }
+  | { ok: false; errors: ContactProfileUpdateErrors } {
+  const fields =
+    typeof input === 'object' && input !== null
+      ? new Map<string, unknown>(Object.entries(input))
+      : new Map<string, unknown>();
+  const value: IUpdateContactProfileRequest = {};
+  const errors: ContactProfileUpdateErrors = {};
+
+  if (fields.has('notes')) {
+    const notes = profileText(
+      fields.get('notes'),
+      CONTACT_PROFILE_LIMITS.NOTES_MAX_LENGTH,
+      'notes_too_long',
+    );
+    if ('error' in notes) errors.notes = { code: notes.error };
+    else value.notes = notes.value;
+  }
+  for (const key of ['address', 'workplace'] as const) {
+    if (!fields.has(key)) continue;
+    const text = profileText(
+      fields.get(key),
+      CONTACT_PROFILE_LIMITS.TEXT_MAX_LENGTH,
+      'text_too_long',
+    );
+    if ('error' in text) errors[key] = { code: text.error };
+    else value[key] = text.value;
+  }
+  if (fields.has('birthday')) {
+    const raw = fields.get('birthday');
+    const birthday = typeof raw === 'string' ? raw.trim() : '';
+    if (!birthday) value.birthday = null;
+    else if (!isValidIsoDate(birthday)) errors.birthday = { code: 'birthday_invalid' };
+    else if (birthday > today) errors.birthday = { code: 'birthday_future' };
+    else value.birthday = birthday;
+  }
+  if (fields.has('relationship')) {
+    const raw = fields.get('relationship');
+    if (raw === null || raw === '') value.relationship = null;
+    else if (isContactRelationship(raw)) value.relationship = raw;
+    else errors.relationship = { code: 'relationship_invalid' };
+  }
+  if (fields.has('extraPhones')) {
+    const phones = validatePhoneList(fields.get('extraPhones'));
+    if ('error' in phones) errors.extraPhones = phones.error;
+    else value.extraPhones = phones.value;
+  }
+  if (fields.has('extraBankAccounts')) {
+    const accounts = validateBankAccountList(fields.get('extraBankAccounts'));
+    if ('error' in accounts) errors.extraBankAccounts = accounts.error;
+    else value.extraBankAccounts = accounts.value;
+  }
+
+  return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, value };
 }
 
 export interface IContactUserSyncSuggestion {

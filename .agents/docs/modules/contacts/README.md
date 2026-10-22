@@ -17,6 +17,11 @@ metadata:
       - apps/api/src/finance/contact-user-sync.ts
       - apps/api/src/finance/contact-user-sync.service.ts
       - apps/api/src/users/users.service.ts
+      - apps/api/src/finance/contact-profile.ts
+      - apps/api/src/database/migrations/1724850000000-AddProfileFieldsToDebtContacts.ts
+      - apps/web/src/modules/contacts/model/contact-profile-form.ts
+      - apps/web/src/modules/contacts/view/contact-profile-screen.tsx
+      - apps/web/src/modules/contacts/view/use-open-contact-profile.ts
 ---
 
 # Module danh bạ công nợ (contacts)
@@ -73,6 +78,46 @@ Quy tắc nghiệp vụ:
 - Sau khi chạy, toast báo "Đã thêm X · điền SĐT Y · Z gợi ý".
 - Kiểm thử: `apps/api/src/finance/contact-user-sync.spec.ts`.
 - Kiểm thử: `apps/api/src/finance/finance-contact-link.spec.ts`.
+
+## Hồ sơ người liên quan (`/contacts/profile?id=…`)
+
+### Hồ sơ là gì, vì sao lấy Người liên quan làm gốc
+
+Anh cần một chỗ ghi lại mọi thứ biết về một người: thông tin liên lạc, ghi chú, và xem ngay họ đang nợ bao nhiêu. Trong hệ thống, một người có thể vừa là **Người liên quan** (danh bạ công nợ) vừa là **người dùng Zalo**. Mỗi người dùng Zalo chỉ gắn với tối đa một Người liên quan, nên "hồ sơ chung" chính là một Người liên quan cộng với tài khoản Zalo đã gắn (nếu có). Khoản nợ và giao dịch vốn đã gắn theo Người liên quan, nên lấy lịch sử ra rất tự nhiên.
+
+### Dữ liệu lưu thêm
+
+Bảng `debt_contacts` có thêm 7 cột (migration `1724850000000-AddProfileFieldsToDebtContacts`): ghi chú, ngày sinh, địa chỉ, nơi làm việc, quan hệ (Người nhà / Bạn bè / Đồng nghiệp / Đối tác / Khác), danh sách **SĐT phụ** và **tài khoản ngân hàng phụ** (kiểu `jsonb`, có nhãn như "Công ty", "Nhà").
+
+- SĐT và tài khoản **chính** vẫn ở cột cũ. Bot, việc đồng bộ SĐT với người dùng Zalo và bảng danh bạ vẫn chỉ dùng số chính, nên không đổi hành vi. Số phụ chỉ để lưu và xem.
+- Dùng `jsonb` thay vì bảng con vì danh sách ngắn, luôn đọc cùng hồ sơ và không cần tìm theo số phụ.
+- Mỗi lần sửa đều được ghi vào nhật ký kiểm toán như mọi thay đổi khác.
+
+### API
+
+- `GET /api/contacts/:id/profile`: trả thông tin hồ sơ, tài khoản Zalo đã gắn, số liệu tóm tắt, danh sách khoản nợ gốc và 50 giao dịch gần nhất. Vai trò/quyền của tài khoản Zalo chỉ trả cho admin. Số liệu (còn cho vay, còn nợ, tổng thu, tổng chi) tính trên **toàn bộ** nợ gốc và giao dịch, không chỉ 50 dòng đang hiện. Chỉ tính nợ gốc vì khoản nợ đã gom đã chứa số của các khoản con.
+- `PATCH /api/contacts/:id/profile`: chỉ sửa các trường hồ sơ mới. Trường không gửi thì giữ nguyên, gửi rỗng thì xoá. Tách riêng khỏi `PATCH /api/contacts/:id` vì API cũ bắt buộc có tên và sẽ xoá biệt danh/mô tả nếu không gửi.
+- Quy tắc kiểm tra dùng chung giữa API và form (`validateContactProfileUpdate` trong contracts): ngày sinh phải là ngày có thật và không ở tương lai; SĐT phụ 8–15 chữ số; số tài khoản 6–20 chữ số; nhãn tối đa 40 ký tự; địa chỉ/nơi làm việc tối đa 200; ghi chú tối đa 5000; tối đa 10 dòng mỗi danh sách; dòng trống và dòng trùng tự bỏ.
+
+### Màn hình
+
+- Đầu trang: nút quay lại, avatar vuông, tên (biệt danh), mô tả, tài khoản Zalo đã gắn kèm trạng thái quyền (admin thấy thêm link sang trang Zalo & Người dùng).
+- Dải 4 số liệu: đang cho vay còn lại, đang nợ còn lại, tổng thu, tổng chi (theo nút ẩn/hiện số tiền), kèm dòng "N khoản đang mở · N giao dịch".
+- Máy tính: khối **Thông tin** bên trái, bảng **Khoản nợ** và **Giao dịch gần đây** bên phải. Điện thoại: xếp dọc.
+- Bấm **Sửa** thì khối Thông tin chuyển thành form ngay tại chỗ: sửa tên, biệt danh, mô tả, SĐT/tài khoản chính, thêm/xoá dòng SĐT và tài khoản phụ, ngày sinh, quan hệ, địa chỉ, nơi làm việc, ghi chú. Lỗi hiện ngay dưới từng ô. Khi lưu, phần tên/SĐT chính đi qua API sửa danh bạ cũ (chỉ khi có đổi), phần hồ sơ đi qua API mới. Hạn chế cũ vẫn còn: để trống SĐT/tài khoản chính thì giữ nguyên số cũ, không xoá được.
+- Trạng thái: thiếu mã trong đường dẫn, đang tải, không tìm thấy (đã xoá hoặc đã gộp vào người khác), lỗi kèm Thử lại.
+
+### Cách mở hồ sơ
+
+- Bảng **Người liên quan**: nút **Hồ sơ** ở cột thao tác. Không dùng bấm vào tên vì nhấp đúp vào tên đang dùng để sửa nhanh.
+- Trang **Zalo & Người dùng**: menu **⋯** của dòng người dùng có **Xem hồ sơ** (đã có Người liên quan gắn) hoặc **Tạo hồ sơ** (chưa có: hệ thống tạo Người liên quan mang tên và SĐT của người dùng, gắn với họ, rồi mở hồ sơ; chỉ admin làm được).
+
+### Gộp liên hệ không làm mất hồ sơ
+
+Khi gộp nhiều Người liên quan, liên hệ chính giữ dữ liệu hồ sơ của mình và:
+- Ngày sinh, địa chỉ, nơi làm việc, quan hệ: chỉ lấy từ liên hệ nguồn nếu liên hệ chính đang trống, không ghi đè.
+- Ghi chú của liên hệ nguồn được nối vào cuối, mỗi đoạn có dòng `— Gộp từ <tên>:`.
+- SĐT/tài khoản phụ được hợp nhất và bỏ trùng; SĐT/tài khoản **chính** của liên hệ nguồn, nếu khác của liên hệ chính, được chuyển thành số phụ. Gộp không giới hạn 10 dòng để không mất số nào; lần sửa hồ sơ sau phải bớt xuống còn 10.
 
 ## Gộp liên hệ
 
