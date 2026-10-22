@@ -820,6 +820,9 @@ const messages = {
       'Chúng tôi có thể cập nhật dịch vụ hoặc điều khoản khi cần thiết. Phiên bản mới sẽ được công bố trên trang này.',
     'public.terms.contactTitle': '6. Liên hệ',
     'public.terms.contactDescription': 'Liên hệ hỗ trợ: {email}.',
+    'zca.directory.fetchedAt': 'Cập nhật lúc {time}',
+    'zca.directory.fetchedAtHint':
+      'Danh bạ và nhóm Zalo được lưu tạm tối đa 7 ngày. Bấm Làm mới để lấy bản mới nhất từ Zalo.',
     'zca.storageLinks.driveTitle': 'Thư mục Google Drive',
     'zca.storageLinks.photosTitle': 'Album Google Photos',
     'zca.storageLinks.description':
@@ -1580,6 +1583,9 @@ const messages = {
       'We may update the service or these terms when necessary. The latest version will be published on this page.',
     'public.terms.contactTitle': '6. Contact',
     'public.terms.contactDescription': 'Support contact: {email}.',
+    'zca.directory.fetchedAt': 'Updated {time}',
+    'zca.directory.fetchedAtHint':
+      'Zalo contacts and groups are cached for up to 7 days. Press Refresh to fetch the latest from Zalo.',
     'zca.storageLinks.driveTitle': 'Google Drive folders',
     'zca.storageLinks.photosTitle': 'Google Photos albums',
     'zca.storageLinks.description':

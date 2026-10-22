@@ -58,7 +58,22 @@ import {
   type GetGroupChatHistoryResponse,
 } from './shapes';
 import { HttpProxyAgent } from 'http-proxy-agent';
-import { ZCA_DEFAULT_USER_AGENT, ZCA_MODULE_OPTIONS } from './zca.constants';
+import {
+  ZCA_DEFAULT_USER_AGENT,
+  ZCA_DIRECTORY_AUTO_RETRY_MS,
+  ZCA_DIRECTORY_HARD_TTL_SECONDS,
+  ZCA_DIRECTORY_REFRESH_COOLDOWN_MS,
+  ZCA_MODULE_OPTIONS,
+  zcaDirectoryRedisKey,
+} from './zca.constants';
+import {
+  isZcaDirectoryStale,
+  mergeZcaDirectory,
+  parseZcaDirectorySnapshot,
+  type ZcaDirectoryEntry,
+  type ZcaDirectorySection,
+  type ZcaDirectorySnapshot,
+} from './zca-directory-cache';
 import type { ZcaModuleOptions, ZcaPlugin } from './zca.interfaces';
 import { createSharpImageMetadataGetter } from './zca-metadata.util';
 import { createFetchPolyfill } from './utils';
@@ -108,17 +123,8 @@ export interface QrLoginStatusInfo {
   updatedAt: number;
 }
 
-export interface AvailableThread {
-  id: string;
-  name: string;
-  type: 'user' | 'group';
+export interface AvailableThread extends ZcaDirectoryEntry {
   isListened: boolean;
-  avatar?: string;
-  alias?: string;
-  displayName?: string;
-  zaloName?: string;
-  phoneNumber?: string;
-  totalMembers?: number;
 }
 
 @Injectable()
@@ -136,9 +142,12 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   /** Per-login-flow secret that lets `GET /api/zca/qr?key=` serve the QR to a link sent via Zalo. */
   private qrAccessKey: string | null = null;
   private listenedThreadIds = new Set<string>();
-  private cachedAvailableThreads: AvailableThread[] = [];
-  private cachedThreadsExpiresAt = 0;
-  private pendingThreadsFetchPromise: Promise<AvailableThread[]> | null = null;
+  /** In-process copy of the Redis directory snapshot, valid only for `directoryOwnerId`. */
+  private directorySnapshot: ZcaDirectorySnapshot | null = null;
+  private directoryOwnerId: string | null = null;
+  private pendingDirectoryFetch: Promise<ZcaDirectorySnapshot | null> | null = null;
+  private lastForcedDirectoryFetchAt = 0;
+  private lastAutoDirectoryFetchAt = 0;
   private readonly sentBotSignatures = new Map<string, number>();
   private readonly sentBotMsgIds = new Map<string, number>();
   private readonly msgIdToCliMsgId = new Map<string, string>();
@@ -540,7 +549,9 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     if (known !== undefined) {
       return known;
     }
-    const cached = this.cachedAvailableThreads.find((t) => t.id === strId);
+    const snapshot = this.currentDirectorySnapshot();
+    const cached =
+      snapshot?.groups.find((t) => t.id === strId) ?? snapshot?.friends.find((t) => t.id === strId);
     if (cached) {
       const type = cached.type === 'group' ? ThreadType.Group : ThreadType.User;
       this.knownThreadTypes.set(strId, type);
@@ -741,6 +752,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     this.logger.log('Successfully logged in to Zalo via ZCA.');
     await this.loadListenedThreads();
+    await this.hydrateDirectory();
     await this.initPlugins(api);
     this.startListener();
 
@@ -918,6 +930,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         }
 
         await this.loadListenedThreads();
+        await this.hydrateDirectory();
         await this.initPlugins(api);
         this.startListener();
         return api;
@@ -971,6 +984,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     this.api = this.setupApiInstance(api);
     this.logger.log('Successfully logged in via QR Code.');
+    await this.hydrateDirectory();
     await this.initPlugins(api);
     this.startListener();
 
@@ -1031,7 +1045,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   }
 
   /** Fixes thread configs whose stored `threadType` was guessed wrong (ZCA group ids are numeric). */
-  private reconcileStoredThreadTypes(threads: readonly AvailableThread[]): void {
+  private reconcileStoredThreadTypes(threads: readonly ZcaDirectoryEntry[]): void {
     if (typeof this.threadConfigService?.reconcileThreadTypes !== 'function') return;
     const confirmed: Array<{ id: string; type: 'user' | 'group' }> = [];
     for (const t of threads) {
@@ -1066,10 +1080,6 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       }
     }
 
-    this.cachedAvailableThreads = this.cachedAvailableThreads.map((t) => ({
-      ...t,
-      isListened: this.listenedThreadIds.has(t.id),
-    }));
     this.logger.log(`Updated listened threads count: ${this.listenedThreadIds.size}`);
   }
 
@@ -1097,16 +1107,15 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         });
       }
     }
-    this.cachedAvailableThreads = this.cachedAvailableThreads.map((t) =>
-      t.id === strId ? { ...t, isListened: enabled } : t,
-    );
     this.logger.log(`Toggled listened thread ${strId}: ${enabled ? 'ENABLED' : 'DISABLED'}`);
     return enabled;
   }
 
   /**
    * Returns all available groups & friends with isListened status.
-   * Includes in-memory caching (3 mins TTL) to prevent Zalo rate limit (429).
+   * Reads the directory snapshot kept in Redis (`zca:directory:<ownId>`) and calls Zalo only when
+   * there is no snapshot yet, when it is older than a week (in the background, the old copy is
+   * served meanwhile) or when `forceRefresh` comes from a dashboard refresh button.
    */
   public async getAvailableThreads(forceRefresh = false): Promise<AvailableThread[]> {
     if (!this.isLoggedIn()) {
@@ -1125,244 +1134,312 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       }
     }
 
-    // 1. Return fresh cached copy if still valid and not explicitly forced
-    if (
-      !forceRefresh &&
-      Date.now() < this.cachedThreadsExpiresAt &&
-      this.cachedAvailableThreads.length > 0
-    ) {
-      return this.cachedAvailableThreads.map((t) => ({
-        ...t,
-        isListened: this.listenedThreadIds.has(t.id),
-      }));
+    const snapshot = forceRefresh ? await this.forceRefreshDirectory() : await this.readDirectory();
+    return this.toAvailableThreads(snapshot);
+  }
+
+  /** When the directory behind `getAvailableThreads` was last fetched from Zalo, if ever. */
+  public getDirectoryFetchedAt(): string | null {
+    return this.currentDirectorySnapshot()?.fetchedAt ?? null;
+  }
+
+  private currentDirectorySnapshot(): ZcaDirectorySnapshot | null {
+    if (!this.directorySnapshot || this.directoryOwnerId !== this.getOwnId()) return null;
+    return this.directorySnapshot;
+  }
+
+  private setDirectorySnapshot(snapshot: ZcaDirectorySnapshot): void {
+    this.directorySnapshot = snapshot;
+    this.directoryOwnerId = this.getOwnId();
+    for (const t of snapshot.groups) this.knownThreadTypes.set(t.id, ThreadType.Group);
+    for (const t of snapshot.friends) this.knownThreadTypes.set(t.id, ThreadType.User);
+  }
+
+  /** Loads this account's snapshot from Redis into memory, without calling Zalo. */
+  private async loadDirectoryFromRedis(): Promise<ZcaDirectorySnapshot | null> {
+    const ownId = this.getOwnId();
+    if (!ownId || !this.redisService) return null;
+    const snapshot = parseZcaDirectorySnapshot(
+      await this.redisService.get(zcaDirectoryRedisKey(ownId)),
+    );
+    if (snapshot) this.setDirectorySnapshot(snapshot);
+    return snapshot;
+  }
+
+  /** Runs on every login so thread types resolve from the cached directory straight away. */
+  private async hydrateDirectory(): Promise<void> {
+    this.lastAutoDirectoryFetchAt = 0;
+    this.lastForcedDirectoryFetchAt = 0;
+    try {
+      const snapshot = await this.loadDirectoryFromRedis();
+      if (snapshot) {
+        this.logger.log(
+          `Loaded ZCA directory from Redis (${snapshot.groups.length} groups, ${snapshot.friends.length} friends, fetched ${snapshot.fetchedAt}).`,
+        );
+      }
+    } catch (err: unknown) {
+      this.logger.warn(`Could not load ZCA directory from Redis: ${formatErrorMessage(err)}`);
+    }
+  }
+
+  private async readDirectory(): Promise<ZcaDirectorySnapshot | null> {
+    const snapshot = this.currentDirectorySnapshot() ?? (await this.loadDirectoryFromRedis());
+    const now = Date.now();
+    const mayAutoFetch = now - this.lastAutoDirectoryFetchAt >= ZCA_DIRECTORY_AUTO_RETRY_MS;
+
+    if (!snapshot) {
+      if (!mayAutoFetch) return null;
+      this.lastAutoDirectoryFetchAt = now;
+      return this.refreshDirectory();
     }
 
-    // 2. Reuse in-flight fetch promise if concurrent requests arrive
-    if (this.pendingThreadsFetchPromise !== null) {
-      const inFlight = await this.pendingThreadsFetchPromise;
-      return inFlight.map((t) => ({
-        ...t,
-        isListened: this.listenedThreadIds.has(t.id),
-      }));
+    if (isZcaDirectoryStale(snapshot, now) && mayAutoFetch) {
+      this.lastAutoDirectoryFetchAt = now;
+      void this.refreshDirectory().catch((err: unknown) => {
+        this.logger.warn(`Background ZCA directory refresh failed: ${formatErrorMessage(err)}`);
+      });
+    }
+    return snapshot;
+  }
+
+  private async forceRefreshDirectory(): Promise<ZcaDirectorySnapshot | null> {
+    const now = Date.now();
+    const current = this.currentDirectorySnapshot();
+    if (current && now - this.lastForcedDirectoryFetchAt < ZCA_DIRECTORY_REFRESH_COOLDOWN_MS) {
+      return this.pendingDirectoryFetch ?? current;
+    }
+    this.lastForcedDirectoryFetchAt = now;
+    return this.refreshDirectory();
+  }
+
+  /** Fetches the directory from Zalo once, sharing the call between concurrent callers. */
+  private refreshDirectory(): Promise<ZcaDirectorySnapshot | null> {
+    if (this.pendingDirectoryFetch !== null) return this.pendingDirectoryFetch;
+    this.pendingDirectoryFetch = this.fetchDirectory().finally(() => {
+      this.pendingDirectoryFetch = null;
+    });
+    return this.pendingDirectoryFetch;
+  }
+
+  private async fetchDirectory(): Promise<ZcaDirectorySnapshot | null> {
+    const previous = this.currentDirectorySnapshot() ?? (await this.loadDirectoryFromRedis());
+    if (!this.api) return previous;
+
+    const groups = await this.fetchDirectoryGroups(this.api);
+    const groupIds = new Set(groups.entries.map((t) => t.id));
+    const friends = await this.fetchDirectoryFriends(this.api, groupIds, previous?.friends ?? []);
+
+    const next = mergeZcaDirectory(groups, friends, previous, new Date());
+    if (!next) {
+      this.logger.warn('ZCA directory fetch returned nothing; keeping the cached copy.');
+      return previous;
     }
 
-    // 3. Initiate fetch
-    this.pendingThreadsFetchPromise = (async () => {
-      const result: AvailableThread[] = [];
-      const seenIds = new Set<string>();
+    this.setDirectorySnapshot(next);
+    this.reconcileStoredThreadTypes([...next.groups, ...next.friends]);
+    const ownId = this.getOwnId();
+    if (ownId && this.redisService) {
+      await this.redisService.set(
+        zcaDirectoryRedisKey(ownId),
+        JSON.stringify(next),
+        ZCA_DIRECTORY_HARD_TTL_SECONDS,
+      );
+    }
+    this.logger.log(
+      `Fetched ZCA directory: ${next.groups.length} groups, ${next.friends.length} friends${next.complete ? '' : ' (partial, will retry)'}.`,
+    );
+    return next;
+  }
 
-      if (this.api) {
-        // --- A. GROUPS ---
-        try {
-          const groups = await this.api.getAllGroups();
-          if (groups && typeof groups === 'object') {
-            let groupIds: string[] = [];
-            const rawGroups = groups as Record<string, unknown>;
-            if (Array.isArray(groups)) {
-              groupIds = groups
-                .map((g: Record<string, unknown>) => {
-                  const idVal = g.groupId ?? g.id;
-                  return typeof idVal === 'string' || typeof idVal === 'number'
-                    ? String(idVal)
-                    : '';
-                })
-                .filter(Boolean);
-            } else if (rawGroups.gridVerMap && typeof rawGroups.gridVerMap === 'object') {
-              groupIds = Object.keys(rawGroups.gridVerMap);
-            } else {
-              groupIds = Object.values(rawGroups)
-                .map((g: unknown) => {
-                  if (typeof g === 'object' && g !== null) {
-                    const rec = g as Record<string, unknown>;
-                    const idVal = rec.groupId ?? rec.id;
-                    return typeof idVal === 'string' || typeof idVal === 'number'
-                      ? String(idVal)
-                      : '';
-                  }
-                  return '';
-                })
-                .filter(Boolean);
-            }
+  /** Adds per-bot state to the cached directory, plus listened ids Zalo did not return. */
+  private toAvailableThreads(snapshot: ZcaDirectorySnapshot | null): AvailableThread[] {
+    const result: AvailableThread[] = [];
+    const seenIds = new Set<string>();
+    for (const entry of [...(snapshot?.groups ?? []), ...(snapshot?.friends ?? [])]) {
+      if (seenIds.has(entry.id)) continue;
+      seenIds.add(entry.id);
+      result.push({ ...entry, isListened: this.listenedThreadIds.has(entry.id) });
+    }
 
-            if (groupIds.length > 0) {
-              const groupInfoMap: Record<string, Record<string, unknown>> = {};
-              // Fetch detailed info in chunks of 50 to avoid any payload limits
-              for (let i = 0; i < groupIds.length; i += 50) {
-                const batch = groupIds.slice(i, i + 50);
-                try {
-                  const groupInfoRes = (await this.api.getGroupInfo(batch)) as {
-                    gridInfoMap?: Record<string, Record<string, unknown>>;
-                  };
-                  if (groupInfoRes?.gridInfoMap) {
-                    Object.assign(groupInfoMap, groupInfoRes.gridInfoMap);
-                  }
-                } catch (batchErr) {
-                  this.logger.warn(
-                    `Failed to fetch group info batch: ${formatErrorMessage(batchErr)}`,
-                  );
-                }
+    // WHITELIST FALLBACK (Any configured ID not in contacts)
+    for (const id of this.listenedThreadIds) {
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        result.push({
+          id,
+          name: `Cuộc trò chuyện ${id}`,
+          type: 'group',
+          isListened: true,
+        });
+      }
+    }
+    return result;
+  }
+
+  private async fetchDirectoryGroups(api: API): Promise<ZcaDirectorySection> {
+    const entries: ZcaDirectoryEntry[] = [];
+    let complete = true;
+    try {
+      const groups = await api.getAllGroups();
+      if (groups && typeof groups === 'object') {
+        let groupIds: string[] = [];
+        const rawGroups = groups as Record<string, unknown>;
+        if (Array.isArray(groups)) {
+          groupIds = groups
+            .map((g: Record<string, unknown>) => {
+              const idVal = g.groupId ?? g.id;
+              return typeof idVal === 'string' || typeof idVal === 'number' ? String(idVal) : '';
+            })
+            .filter(Boolean);
+        } else if (rawGroups.gridVerMap && typeof rawGroups.gridVerMap === 'object') {
+          groupIds = Object.keys(rawGroups.gridVerMap);
+        } else {
+          groupIds = Object.values(rawGroups)
+            .map((g: unknown) => {
+              if (typeof g === 'object' && g !== null) {
+                const rec = g as Record<string, unknown>;
+                const idVal = rec.groupId ?? rec.id;
+                return typeof idVal === 'string' || typeof idVal === 'number' ? String(idVal) : '';
               }
-
-              for (const gid of groupIds) {
-                this.knownThreadTypes.set(gid, ThreadType.Group);
-                if (seenIds.has(gid)) continue;
-                seenIds.add(gid);
-                const g = groupInfoMap[gid];
-                if (g) {
-                  const rawName = g.name ?? g.groupName;
-                  const groupName = typeof rawName === 'string' ? rawName : `Nhóm ${gid}`;
-                  const avatar =
-                    typeof g.avt === 'string'
-                      ? g.avt
-                      : typeof g.fullAvt === 'string'
-                        ? g.fullAvt
-                        : undefined;
-                  const totalMembers =
-                    typeof g.totalMember === 'number' ? g.totalMember : undefined;
-
-                  result.push({
-                    id: gid,
-                    name: groupName,
-                    type: 'group',
-                    isListened: this.listenedThreadIds.has(gid),
-                    avatar,
-                    totalMembers,
-                  });
-                } else {
-                  result.push({
-                    id: gid,
-                    name: `Nhóm ${gid}`,
-                    type: 'group',
-                    isListened: this.listenedThreadIds.has(gid),
-                  });
-                }
-              }
-            }
-          }
-        } catch (err: unknown) {
-          this.logger.warn(`Failed to fetch groups from ZCA: ${formatErrorMessage(err)}`);
+              return '';
+            })
+            .filter(Boolean);
         }
 
-        // --- B. ALIASES (Tên gợi nhớ do người dùng đặt) ---
-        const aliasMap = new Map<string, string>();
-        try {
-          const aliasRes = (await this.api.getAliasList()) as {
-            items?: { userId?: string; alias?: string }[];
-          };
-          if (Array.isArray(aliasRes?.items)) {
-            for (const item of aliasRes.items) {
-              if (item?.userId && item?.alias) {
-                aliasMap.set(String(item.userId), String(item.alias).trim());
-              }
+        const groupInfoMap: Record<string, Record<string, unknown>> = {};
+        // Fetch detailed info in chunks of 50 to avoid any payload limits
+        for (let i = 0; i < groupIds.length; i += 50) {
+          const batch = groupIds.slice(i, i + 50);
+          try {
+            const groupInfoRes = (await api.getGroupInfo(batch)) as {
+              gridInfoMap?: Record<string, Record<string, unknown>>;
+            };
+            if (groupInfoRes?.gridInfoMap) {
+              Object.assign(groupInfoMap, groupInfoRes.gridInfoMap);
             }
+          } catch (batchErr) {
+            complete = false;
+            this.logger.warn(`Failed to fetch group info batch: ${formatErrorMessage(batchErr)}`);
           }
-        } catch (err: unknown) {
-          this.logger.debug(`Could not fetch alias list from ZCA: ${formatErrorMessage(err)}`);
         }
 
-        // --- C. FRIENDS ---
-        try {
-          const friends = await this.api.getAllFriends();
-          if (friends && typeof friends === 'object') {
-            const friendList = Array.isArray(friends) ? friends : Object.values(friends);
-            for (const f of friendList as Record<string, unknown>[]) {
-              const rawId = f.userId ?? f.id;
-              const userId =
-                typeof rawId === 'string' ? rawId : typeof rawId === 'number' ? String(rawId) : '';
-              if (!userId || seenIds.has(userId)) continue;
-              seenIds.add(userId);
-              this.knownThreadTypes.set(userId, ThreadType.User);
-
-              const alias =
-                aliasMap.get(userId) || (typeof f.alias === 'string' ? f.alias.trim() : undefined);
-              const rawDisplayName = typeof f.displayName === 'string' ? f.displayName.trim() : '';
-              const rawZaloName = typeof f.zaloName === 'string' ? f.zaloName.trim() : '';
-              const phoneNumber =
-                typeof f.phoneNumber === 'string' && f.phoneNumber.trim()
-                  ? f.phoneNumber.trim()
+        const seenIds = new Set<string>();
+        for (const gid of groupIds) {
+          if (seenIds.has(gid)) continue;
+          seenIds.add(gid);
+          const g = groupInfoMap[gid];
+          if (g) {
+            const rawName = g.name ?? g.groupName;
+            const groupName = typeof rawName === 'string' ? rawName : `Nhóm ${gid}`;
+            const avatar =
+              typeof g.avt === 'string'
+                ? g.avt
+                : typeof g.fullAvt === 'string'
+                  ? g.fullAvt
                   : undefined;
-
-              // Priority: Alias -> Display Name -> Zalo Name -> Placeholder
-              const primaryName = alias || rawDisplayName || rawZaloName || `Người dùng ${userId}`;
-
-              result.push({
-                id: userId,
-                name: primaryName,
-                displayName:
-                  rawDisplayName && rawDisplayName !== primaryName ? rawDisplayName : undefined,
-                alias: alias && alias !== rawDisplayName ? alias : undefined,
-                zaloName:
-                  rawZaloName && rawZaloName !== primaryName && rawZaloName !== rawDisplayName
-                    ? rawZaloName
-                    : undefined,
-                phoneNumber,
-                type: 'user',
-                isListened: this.listenedThreadIds.has(userId),
-                avatar:
-                  typeof f.avatar === 'string'
-                    ? f.avatar
-                    : typeof f.avt === 'string'
-                      ? f.avt
-                      : undefined,
-              });
-            }
-          }
-        } catch (err: unknown) {
-          this.logger.warn(`Failed to fetch friends from ZCA: ${formatErrorMessage(err)}`);
-        }
-
-        // Include any aliased contacts not in friends list
-        for (const [userId, alias] of aliasMap.entries()) {
-          if (!seenIds.has(userId)) {
-            seenIds.add(userId);
-            result.push({
-              id: userId,
-              name: alias,
-              alias,
-              type: 'user',
-              isListened: this.listenedThreadIds.has(userId),
-            });
+            const totalMembers = typeof g.totalMember === 'number' ? g.totalMember : undefined;
+            entries.push({ id: gid, name: groupName, type: 'group', avatar, totalMembers });
+          } else {
+            entries.push({ id: gid, name: `Nhóm ${gid}`, type: 'group' });
           }
         }
       }
+    } catch (err: unknown) {
+      complete = false;
+      this.logger.warn(`Failed to fetch groups from ZCA: ${formatErrorMessage(err)}`);
+    }
+    return { complete, entries };
+  }
 
-      // --- D. WHITELIST FALLBACK (Any configured ID not in contacts) ---
-      for (const id of this.listenedThreadIds) {
-        if (!seenIds.has(id)) {
-          seenIds.add(id);
-          result.push({
-            id,
-            name: `Cuộc trò chuyện ${id}`,
-            type: 'group',
-            isListened: true,
+  private async fetchDirectoryFriends(
+    api: API,
+    groupIds: ReadonlySet<string>,
+    previousFriends: readonly ZcaDirectoryEntry[],
+  ): Promise<ZcaDirectorySection> {
+    const entries: ZcaDirectoryEntry[] = [];
+    const seenIds = new Set<string>(groupIds);
+    let complete = true;
+
+    // --- ALIASES (Tên gợi nhớ do người dùng đặt) ---
+    const aliasMap = new Map<string, string>();
+    try {
+      const aliasRes = (await api.getAliasList()) as {
+        items?: { userId?: string; alias?: string }[];
+      };
+      if (Array.isArray(aliasRes?.items)) {
+        for (const item of aliasRes.items) {
+          if (item?.userId && item?.alias) {
+            aliasMap.set(String(item.userId), String(item.alias).trim());
+          }
+        }
+      }
+    } catch (err: unknown) {
+      // Some accounts cannot read aliases at all, so this must not mark the directory incomplete
+      // (it would be re-fetched every few minutes); reuse the aliases cached last time instead.
+      this.logger.debug(`Could not fetch alias list from ZCA: ${formatErrorMessage(err)}`);
+      for (const entry of previousFriends) {
+        if (entry.alias) aliasMap.set(entry.id, entry.alias);
+      }
+    }
+
+    // --- FRIENDS ---
+    try {
+      const friends = await api.getAllFriends();
+      if (friends && typeof friends === 'object') {
+        const friendList = Array.isArray(friends) ? friends : Object.values(friends);
+        for (const f of friendList as Record<string, unknown>[]) {
+          const rawId = f.userId ?? f.id;
+          const userId =
+            typeof rawId === 'string' ? rawId : typeof rawId === 'number' ? String(rawId) : '';
+          if (!userId || seenIds.has(userId)) continue;
+          seenIds.add(userId);
+
+          const alias =
+            aliasMap.get(userId) || (typeof f.alias === 'string' ? f.alias.trim() : undefined);
+          const rawDisplayName = typeof f.displayName === 'string' ? f.displayName.trim() : '';
+          const rawZaloName = typeof f.zaloName === 'string' ? f.zaloName.trim() : '';
+          const phoneNumber =
+            typeof f.phoneNumber === 'string' && f.phoneNumber.trim()
+              ? f.phoneNumber.trim()
+              : undefined;
+
+          // Priority: Alias -> Display Name -> Zalo Name -> Placeholder
+          const primaryName = alias || rawDisplayName || rawZaloName || `Người dùng ${userId}`;
+
+          entries.push({
+            id: userId,
+            name: primaryName,
+            displayName:
+              rawDisplayName && rawDisplayName !== primaryName ? rawDisplayName : undefined,
+            alias: alias && alias !== rawDisplayName ? alias : undefined,
+            zaloName:
+              rawZaloName && rawZaloName !== primaryName && rawZaloName !== rawDisplayName
+                ? rawZaloName
+                : undefined,
+            phoneNumber,
+            type: 'user',
+            avatar:
+              typeof f.avatar === 'string'
+                ? f.avatar
+                : typeof f.avt === 'string'
+                  ? f.avt
+                  : undefined,
           });
         }
       }
-
-      // If fetch succeeded, update cache
-      if (result.length > 0) {
-        this.cachedAvailableThreads = result;
-        this.cachedThreadsExpiresAt = Date.now() + 180_000; // 3 minutes TTL
-        this.reconcileStoredThreadTypes(result);
-        return result;
-      }
-
-      // If fetch produced nothing (e.g. rate-limit or network glitch), keep existing cache
-      if (this.cachedAvailableThreads.length > 0) {
-        return this.cachedAvailableThreads.map((t) => ({
-          ...t,
-          isListened: this.listenedThreadIds.has(t.id),
-        }));
-      }
-
-      return result;
-    })();
-
-    try {
-      return await this.pendingThreadsFetchPromise;
-    } finally {
-      this.pendingThreadsFetchPromise = null;
+    } catch (err: unknown) {
+      complete = false;
+      this.logger.warn(`Failed to fetch friends from ZCA: ${formatErrorMessage(err)}`);
     }
+
+    // Include any aliased contacts not in friends list
+    for (const [userId, alias] of aliasMap.entries()) {
+      if (!seenIds.has(userId)) {
+        seenIds.add(userId);
+        entries.push({ id: userId, name: alias, alias, type: 'user' });
+      }
+    }
+    return { complete, entries };
   }
 
   /**
@@ -1522,13 +1599,14 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     }
 
     // 2. Reset trạng thái bộ nhớ
+    const ownId = this.getOwnId();
     this.api = null;
     this.isListening = false;
     this.latestQrImageBase64 = null;
     this.latestQrCode = null;
     this.qrAccessKey = null;
-    this.cachedAvailableThreads = [];
-    this.cachedThreadsExpiresAt = 0;
+    this.directorySnapshot = null;
+    this.directoryOwnerId = null;
     this.activeQrLoginPromise = null;
     this.qrLoginStatus = {
       phase: 'idle',
@@ -1564,6 +1642,9 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       if (this.redisService) {
         await this.redisService.del('zca:session');
         this.logger.log('[ZCA] Đã xóa phiên ZCA khỏi Redis (key: zca:session)');
+        if (ownId) {
+          await this.redisService.del(zcaDirectoryRedisKey(ownId));
+        }
       }
     } catch (err) {
       this.logger.warn(`[ZCA] Lỗi khi xóa session khỏi Redis: ${formatErrorMessage(err)}`);

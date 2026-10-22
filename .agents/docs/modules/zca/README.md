@@ -14,6 +14,8 @@ metadata:
       - apps/api/src/zca/pending-image/pending-image-dispatcher.service.ts
       - apps/api/src/database/entities/zca-thread-config.entity.ts
       - .agents/docs/modules/zca/chat-memory.md
+      - .agents/docs/modules/zca/directory-cache.md
+      - apps/api/src/zca/zca-directory-cache.ts
       - apps/api/src/zalo/text/text-tool.definitions.ts
       - apps/api/src/google/google-resources.controller.ts
       - apps/api/src/dashboard-auth/dashboard-user.ts
@@ -38,7 +40,7 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
   - Phiên được lưu ở **hai nơi**: file `.zca-session.json` trong thư mục `DATA_DIR` (mặc định `./data`, tính từ thư mục chạy; `npm run zca:login` dùng cùng mặc định) và Redis key `zca:session`. Khi khởi động, server đọc file trước, không có thì đọc Redis rồi ghi lại ra file. Nhờ vậy restart server hay đổi container (mất file) vẫn giữ được phiên. Đăng xuất xoá cả hai.
   - **Tự đăng nhập khi khởi động không cần cờ**: có phiên đã lưu hoặc có `ZCA_IMEI` + `ZCA_COOKIE` thì server tự đăng nhập; không có gì thì chỉ ghi log và chờ quét QR. Cờ `ZCA_AUTO_LOGIN` cũ đã bỏ vì khôi phục phiên vốn luôn chạy, cờ chỉ làm server gọi đăng nhập cả khi không có gì để đăng nhập rồi báo lỗi.
   - Ghi nhớ cặp `msgId -> cliMsgId` (bộ nhớ + Redis `zca:msg:cli:<msgId>`, 24 giờ) để lệnh thu hồi `undo(payload, threadId)` gửi đúng `cliMsgId`, tránh lỗi `"Lỗi không xác định"` của Zalo. `deleteMessage(dest, onlyMe)` là phương án dự phòng khi thu hồi bị từ chối.
-  - Lấy danh sách nhóm/bạn bè (`getAvailableThreads`) và đồng bộ trạng thái lắng nghe sang `ThreadConfigService`.
+  - Lấy danh sách nhóm/bạn bè (`getAvailableThreads`) từ bản lưu Redis 7 ngày, chỉ gọi Zalo khi chưa có bản lưu, bản lưu đã cũ, hoặc admin bấm làm mới (xem [Cache danh bạ Zalo](directory-cache.md)), và đồng bộ trạng thái lắng nghe sang `ThreadConfigService`.
 - **Xử lý tin nhắn & reaction (`ZcaBotFeatureService`)**: xem mục 1a và 1c.
 - **Cấu hình theo kênh (`ThreadConfigService`, entity `ZcaThreadConfigEntity`, bảng `zca_thread_configs`)**: đọc theo thứ tự bộ nhớ → Redis `zca:thread_config:<id>` (24 giờ) → DB. Danh sách thread đang lắng nghe lưu ở Redis `zca:listened_threads`.
 - **Xác nhận thao tác (`TransactionConfirmationService`)**: mã `yes/cancel/edit <mã>`, thả tim/phẫn nộ, thu hồi thẻ chờ.
@@ -131,7 +133,7 @@ Giờ nguyên tắc là **người dùng chủ động gọi thì bot mới làm
 - `isGroupThread` chỉ đúng khi `threadType` được **lưu đúng**. Trước đây config mặc định được tạo mà không biết loại kênh, nên hàm `createDefaultThreadConfig` phải đoán bằng tiền tố. Kết quả là nhóm ZCA (ID số) bị lưu thành `user`. Hệ quả: `/drive` và share Drive không lưu link vào thread config, `users:cleanup-groups` bỏ sót nhóm, và đồng bộ media lịch sử từ chối nhóm. Cách sửa:
   - Nơi nào biết loại kênh từ zca-js thì truyền vào `getConfig(id, { threadType })`: `onMessage` (lấy từ `message.type`), `onReaction` (lấy từ `reaction.isGroup`), và thao tác bật/tắt lắng nghe trên dashboard. Thao tác này lấy loại kênh từ danh sách nhóm/bạn bè mà ZCA trả về. Mục dự phòng "Cuộc trò chuyện <id>" chỉ là đoán nên bị bỏ qua.
   - Nếu config đã lưu sai loại kênh, `getConfig` sẽ ghi đè bằng loại kênh mới nhận và lưu lại vào DB + Redis. Số tim xác nhận đã cấu hình được giữ nguyên.
-  - Dữ liệu cũ tự được sửa: mỗi lần `getAvailableThreads` tải danh sách mới từ ZCA, hàm này chạy ngầm `reconcileThreadTypes`. Hàm chỉ sửa config đã có, không tạo config mới.
+  - Dữ liệu cũ tự được sửa: mỗi lần danh bạ được tải mới từ Zalo (không tính lần đọc từ bản lưu), hàm này chạy ngầm `reconcileThreadTypes`. Hàm chỉ sửa config đã có, không tạo config mới.
 - **Vì sao không dùng migration?** Trong DB, ID nhóm và UID người dùng đều là chuỗi số, nên SQL không phân biệt được; chỉ ZCA biết ID nào là nhóm. Script `users:cleanup-groups` cũng không tự đăng nhập ZCA, vì làm vậy sẽ mở thêm một WebSocket và có thể làm rớt phiên của server.
 - **Sau khi deploy:** mở trang **Zalo & Người dùng** (danh sách thread) hoặc bấm **Đồng bộ thông tin** ít nhất một lần, để các dòng `thread_type` sai được sửa. Sau đó mới chạy `npm run users:cleanup-groups --workspace @zalobot/api` (dry-run trước, rồi thêm `-- --apply`).
 
@@ -220,7 +222,7 @@ Bảng này phục vụ việc lướt nhanh hàng trăm dòng, nên giữ cùng
 | GET | `/api/zca/qr` | Ảnh PNG của mã QR mới nhất |
 | POST | `/api/zca/login-qr` | Bắt đầu đăng nhập QR (`forceNew` tuỳ chọn), trả `qrUrl` và mã |
 | POST | `/api/zca/logout` | Đăng xuất và xoá phiên |
-| GET | `/api/zca/threads` | Danh sách nhóm và bạn bè (`?refresh=true` để tải mới) |
+| GET | `/api/zca/threads` | Danh sách nhóm và bạn bè kèm `fetchedAt`, đọc từ bản lưu Redis (`?refresh=true` để gọi Zalo lấy bản mới) |
 | GET | `/api/zca/listened-threads` | ID các thread đang lắng nghe |
 | PUT | `/api/zca/listened-threads` | Thay toàn bộ danh sách lắng nghe |
 | POST | `/api/zca/listened-threads/toggle` | Bật/tắt lắng nghe một thread |

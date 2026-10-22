@@ -196,11 +196,12 @@ export class ZcaController {
   public async getThreads(
     @Req() req: Request,
     @Query('refresh') refresh?: string,
-  ): Promise<{ data: { threads: AvailableThread[] } }> {
+  ): Promise<{ data: { threads: AvailableThread[]; fetchedAt: string | null } }> {
     this.admin(req);
+    // Without `refresh` the list comes from the Redis directory cache; only refresh calls Zalo.
     const forceRefresh = refresh === 'true' || refresh === '1';
     const threads = await this.zcaService.getAvailableThreads(forceRefresh);
-    return { data: { threads } };
+    return { data: { threads, fetchedAt: this.zcaService.getDirectoryFetchedAt() } };
   }
 
   @Get('listened-threads')

@@ -52,6 +52,12 @@ export interface ZcaThread {
   totalMembers?: number;
 }
 
+/** Thread list plus when the server last fetched it from Zalo (it is cached for up to a week). */
+export interface ZcaThreadsResult {
+  threads: ZcaThread[];
+  fetchedAt: string | null;
+}
+
 export interface ZcaLoginQrResult {
   message: string;
   qrUrl: string;
@@ -91,15 +97,15 @@ export async function logoutZca(
 export async function getZcaThreads(
   options?: { refresh?: boolean },
   signal?: AbortSignal,
-): Promise<ZcaThread[]> {
-  const response = await httpClient.get<IApiResponse<{ threads: ZcaThread[] }>>(
-    API_ROUTES.zcaThreads,
-    {
-      params: options?.refresh ? { refresh: 'true' } : undefined,
-      signal,
-    },
-  );
-  return response.data.data.threads;
+): Promise<ZcaThreadsResult> {
+  const response = await httpClient.get<
+    IApiResponse<{ threads: ZcaThread[]; fetchedAt?: string | null }>
+  >(API_ROUTES.zcaThreads, {
+    params: options?.refresh ? { refresh: 'true' } : undefined,
+    signal,
+  });
+  const { threads, fetchedAt } = response.data.data;
+  return { threads, fetchedAt: fetchedAt ?? null };
 }
 
 export async function getZcaListenedThreads(signal?: AbortSignal): Promise<string[]> {

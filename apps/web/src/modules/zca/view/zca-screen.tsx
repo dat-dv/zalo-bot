@@ -2,10 +2,16 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { GrantAccessStatus, type IUserListItem, type IUserMergeResult } from '@zalobot/contracts';
+import {
+  GrantAccessStatus,
+  localeTag,
+  type IUserListItem,
+  type IUserMergeResult,
+} from '@zalobot/contracts';
 import {
   useZcaStatusQuery,
   useZcaThreadsQuery,
+  useZcaThreadsFetchedAtQuery,
   useRefreshZcaThreadsMutation,
   useLoginZcaQrMutation,
   useLogoutZcaMutation,
@@ -81,7 +87,7 @@ type UserDialogState =
   | { mode: 'edit'; user: IUserListItem };
 
 export function ZcaScreen() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [pollInterval, setPollInterval] = useState<number | false>(false);
   const { data: status, refetch: refetchStatus } = useZcaStatusQuery({
     refetchInterval: pollInterval,
@@ -91,6 +97,9 @@ export function ZcaScreen() {
     isLoading: isThreadsLoading,
     refetch: refetchThreads,
   } = useZcaThreadsQuery({ enabled: Boolean(status?.loggedIn) });
+  const { data: threadsFetchedAt } = useZcaThreadsFetchedAtQuery({
+    enabled: Boolean(status?.loggedIn),
+  });
   const { data: users = [], isLoading: isUsersLoading } = useUsersQuery();
   const { data: threadConfigs = [] } = useZcaThreadConfigsQuery();
   const { data: driveRootData } = useGoogleDriveFolderLinkQuery();
@@ -289,6 +298,8 @@ export function ZcaScreen() {
   const handleSyncUsers = async () => {
     try {
       const res = await syncUsersMutation.mutateAsync();
+      // The sync re-fetched the Zalo directory on the server; pick up the new thread list too.
+      void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.threads() });
       showNotice(
         'success',
         `Đồng bộ thành công! Đã cập nhật ${res.syncedCount} / ${res.totalUsers} người dùng từ danh bạ Zalo.`,
@@ -325,6 +336,14 @@ export function ZcaScreen() {
 
   const listenedCount = status?.listenedCount ?? threads.filter((t) => t.isListened).length;
   const isRefreshing = refreshThreadsMutation.isPending;
+  const threadsFetchedAtLabel = threadsFetchedAt
+    ? t('zca.directory.fetchedAt', {
+        time: new Intl.DateTimeFormat(localeTag(locale), {
+          dateStyle: 'short',
+          timeStyle: 'short',
+        }).format(new Date(threadsFetchedAt)),
+      })
+    : null;
   const isTableLoading = isUsersLoading || (Boolean(status?.loggedIn) && isThreadsLoading);
 
   return (
@@ -341,6 +360,14 @@ export function ZcaScreen() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {threadsFetchedAtLabel && (
+            <span
+              className="text-xs text-slate-500 dark:text-slate-400"
+              title={t('zca.directory.fetchedAtHint')}
+            >
+              {threadsFetchedAtLabel}
+            </span>
+          )}
           <button
             className="inline-flex items-center gap-1.5 rounded-[4px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
             disabled={isRefreshing}

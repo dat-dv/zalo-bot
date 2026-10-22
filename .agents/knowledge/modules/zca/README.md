@@ -12,7 +12,7 @@
   - QR login (`startQrLogin`, `loginQR`), chat commands `/zalo-login`, `/zca-login`, `/zlogin` and `/zalo-logout`, `/zca-logout`, `/zlogout`; CLI `npm run zca:login --workspace @zalobot/api` (`apps/api/scripts/zca-login.ts`).
   - Session persisted to file `.zca-session.json` in `DATA_DIR` (default `./data`, resolved from cwd; `npm run zca:login` uses the same default) and to Redis key `zca:session`. Restore order: file → Redis (then rewritten to file). Bootstrap auto-login has no flag: `onApplicationBootstrap` calls `login()` when `ZCA_IMEI` + `ZCA_COOKIE` are configured or a saved session exists; otherwise it logs a hint and waits for QR login. `logout()` clears file + Redis.
   - Caches `msgId → cliMsgId` in memory and Redis `zca:msg:cli:<msgId>` (TTL 24h). `undo(payload, threadId)` resolves thread type and the real `cliMsgId` to avoid Zalo "Lỗi không xác định". `deleteMessage(dest, onlyMe)` is the fallback.
-  - `getAvailableThreads(forceRefresh)` lists groups/friends; `setListenedThreadIds` / `toggleListenedThread` sync listening state to `ThreadConfigService`.
+  - `getAvailableThreads(forceRefresh)` lists groups/friends from the Redis directory cache `zca:directory:<ownId>` (7-day stale-while-revalidate; Zalo is called only when empty, stale, or on `forceRefresh`). See [Directory Cache](directory-cache.md). `setListenedThreadIds` / `toggleListenedThread` sync listening state to `ThreadConfigService`.
   - Event dispatch: `dispatchMessage`, `dispatchReaction`, `dispatchGroupEvent` (→ `GroupEventDispatcher`), friend/undo/typing/seen/delivered events to registered plugins.
 - **`ZcaBotFeatureService`**: `onMessage`, `onReaction`, `onUndo` (chat-memory recall), `init` (chat-memory backfill), `syncThreadMediaHistory` (see below).
 - **`ChatMemoryService`** (`memory/`, own `ChatMemoryModule`) + `ZcaMessageEntity` (table `zca_messages`): stores listened-thread messages and serves `SEARCH_CHAT_HISTORY`. See [Chat Memory](chat-memory.md).
@@ -95,7 +95,7 @@ Requires `isListened` and `confirmationRules.allowReactions`; same self rules. E
   - `ZcaBotFeatureService.onMessage` (`message.type`), `onReaction` (`reaction.isGroup`).
   - `ZcaService.setListenedThreadIds` / `toggleListenedThread` → `ThreadConfigService.setListened(id, flag, { threadType })`, type from `knownThreadTypes` (zca-js thread list/events only; the whitelist fallback in `getAvailableThreads` guesses `group` and is ignored).
 - `getConfig`: when `meta.threadType` is given and differs from the stored value, it overwrites it and persists to DB + Redis (independent of `threadName` changes). `confirmationRules.requiredHearts` is not touched.
-- Self-heal of legacy rows: after a successful fresh fetch, `getAvailableThreads` calls `ThreadConfigService.reconcileThreadTypes` (fire-and-forget) with ZCA-confirmed types. It only fixes existing configs and never creates new ones.
+- Self-heal of legacy rows: after each fetch from Zalo (not on cache reads), the directory cache calls `ThreadConfigService.reconcileThreadTypes` (fire-and-forget) with ZCA-confirmed types. It only fixes existing configs and never creates new ones.
 - No SQL migration: numeric group ids and user UIDs cannot be told apart in the DB. `users:cleanup-groups` reads `thread_type='group'`, so run it after the ZCA threads page or Users sync has loaded the thread list once post-deploy.
 
 ## Backend API
@@ -108,7 +108,7 @@ Requires `isListened` and `confirmationRules.allowReactions`; same self rules. E
 | GET | `/api/zca/qr` | Latest QR as PNG (404 if none) |
 | POST | `/api/zca/login-qr` | Starts QR login (`{ forceNew? }`), waits ≤4s for the QR, returns `{ message, qrUrl, code }` |
 | POST | `/api/zca/logout` | Logout and clear session |
-| GET | `/api/zca/threads?refresh=true` | Groups + friends (`AvailableThread[]`) |
+| GET | `/api/zca/threads?refresh=true` | `{ threads: AvailableThread[], fetchedAt }` from the directory cache; `refresh=true` re-fetches from Zalo ([Directory Cache](directory-cache.md)) |
 | GET | `/api/zca/listened-threads` | Listened thread ids |
 | PUT | `/api/zca/listened-threads` | Replace listened list `{ threadIds }` |
 | POST | `/api/zca/listened-threads/toggle` | Toggle one `{ threadId }` |
@@ -154,7 +154,7 @@ The former Users page (`/users`) was removed; user management lives here. Nav la
   - `user-only`: `users` row without a ZCA thread (webhook 20-hex ids, non-friend group members). Shown even when ZCA is logged out.
   - Name/avatar prefer ZCA thread data, fall back to `users`.
 - **Screen (`apps/web/src/modules/zca/view/zca-screen.tsx`)**:
-  - Header: refresh, QR login / logout. QR modal polls status and auto-closes on login.
+  - Header: "Cập nhật lúc …" (directory `fetchedAt`), refresh, QR login / logout. QR modal polls status and auto-closes on login.
   - Cards: connection (+ listener state), listened count, interaction access (pending count, click → `pending` filter), total rows.
   - Toolbar: "Đồng bộ thông tin" (`usersSyncZca`), "+ Thêm người dùng" (`UserFormDialog` create), Drive root link, manual ID form (adds id to listened list only).
   - Filters (`ChatRowFilter`): all, listened, group, personal (personal + user-only), pending (`pending|none`), granted (`granted|admin`), admin. Sorts (`ChatRowSort`) incl. `pending_first`. Accent-insensitive search over name, alias, Zalo name, username, phone, id. Pagination.

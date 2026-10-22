@@ -19,6 +19,7 @@ import {
   deleteThreadStorageLink,
   type ZcaStatus,
   type ZcaThread,
+  type ZcaThreadsResult,
   type DriveFolderLinkResult,
 } from './zca-api';
 import type {
@@ -49,11 +50,29 @@ export function useZcaStatusQuery(options?: { refetchInterval?: number | false }
   });
 }
 
+const EMPTY_THREADS_RESULT: ZcaThreadsResult = { threads: [], fetchedAt: null };
+
+// The server answers from its week-long Redis cache, so refetching often gains nothing;
+// the refresh button (`useRefreshZcaThreadsMutation`) is what pulls fresh data from Zalo.
+const ZCA_THREADS_STALE_TIME_MS = 10 * 60_000;
+
 export function useZcaThreadsQuery(options?: { enabled?: boolean }) {
-  return useQuery<ZcaThread[]>({
+  return useQuery<ZcaThreadsResult, Error, ZcaThread[]>({
     queryKey: zcaQueryKeys.threads(),
     queryFn: ({ signal }) => getZcaThreads(undefined, signal),
-    staleTime: 60_000,
+    select: (result) => result.threads,
+    staleTime: ZCA_THREADS_STALE_TIME_MS,
+    enabled: options?.enabled,
+  });
+}
+
+/** When the thread list was last fetched from Zalo; shares the cache entry of `useZcaThreadsQuery`. */
+export function useZcaThreadsFetchedAtQuery(options?: { enabled?: boolean }) {
+  return useQuery<ZcaThreadsResult, Error, string | null>({
+    queryKey: zcaQueryKeys.threads(),
+    queryFn: ({ signal }) => getZcaThreads(undefined, signal),
+    select: (result) => result.fetchedAt,
+    staleTime: ZCA_THREADS_STALE_TIME_MS,
     enabled: options?.enabled,
   });
 }
@@ -62,8 +81,8 @@ export function useRefreshZcaThreadsMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => getZcaThreads({ refresh: true }),
-    onSuccess: (freshThreads) => {
-      queryClient.setQueryData(zcaQueryKeys.threads(), freshThreads);
+    onSuccess: (freshResult) => {
+      queryClient.setQueryData(zcaQueryKeys.threads(), freshResult);
     },
   });
 }
@@ -91,7 +110,7 @@ export function useLogoutZcaMutation() {
     mutationFn: () => logoutZca(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.all() });
-      queryClient.setQueryData(zcaQueryKeys.threads(), []);
+      queryClient.setQueryData(zcaQueryKeys.threads(), EMPTY_THREADS_RESULT);
     },
   });
 }
