@@ -53,7 +53,7 @@ Trí nhớ được bật **riêng cho từng nhóm/chat**, không còn biến m
 
 Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm gia đình có thể muốn bot nhớ, nhóm công việc thì không. Kênh phải **đang listen** thì bot mới nhận được tin để lưu.
 
-- **Mặc định tắt** cho mọi kênh, kể cả kênh đang listen. Kênh đã bật có badge "🧠 Nhớ" trong bảng kênh.
+- **Mặc định tắt** cho mọi kênh, kể cả kênh đang listen. Kênh đã bật hiện chữ `Nhớ` ở cột "Tính năng" của bảng kênh.
 - **Bật**: bot bắt đầu lưu từ lúc đó. Tin trong buffer Redis (≤200 tin, 7 ngày) được nạp vào ở lần khởi động API sau.
 - **Tắt**: có hiệu lực ngay, không cần restart. Bot ngừng lưu, ngừng tra, ngừng chèn ngữ cảnh. **Tin đã lưu vẫn giữ trong DB** và dùng tiếp khi bật lại. Tin bị thu hồi trên Zalo vẫn bị xoá nội dung, kể cả khi kênh đã tắt trí nhớ.
 - Giá trị nhập ngoài giới hạn được tự kẹp lại (vd 99 → 30), ở cả dashboard lẫn API (`normalizeChatMemoryConfig` trong `@zalobot/contracts`).

@@ -85,5 +85,5 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 
 ## Web UI
 
-- `/zca` table, Listening column badges `📁 Drive` / `📸 Photos` and the actions-column Drive button open `ThreadStorageLinksDialog` (shared `Modal`, bottom sheet on mobile). `ThreadConfigModal` "Mở Google Drive / Photos" buttons open the same dialog.
+- `/zca` table, row "⋯" menu items open Drive / open Photos open `ThreadStorageLinksDialog` (shared `Modal`, bottom sheet on mobile). `ThreadConfigModal` "Mở Google Drive / Photos" buttons open the same dialog.
 - Dialog: query `useThreadStorageLinksQuery(threadId, enabled)` (key `zcaQueryKeys.storageLinks`, `staleTime: 0`, fetched on open). Rows: label (path/title), account email or "previous account", used range, `In use` badge on the current row; whole row is a link (new tab). A Drive link opens the channel root showing `bill`, `image`, `video` (+ `file`). States: skeleton, error + retry, empty, list. Strings `zca.storageLinks.*` (vi/en).

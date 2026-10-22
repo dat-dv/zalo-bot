@@ -44,7 +44,7 @@ Tài liệu canonical tương ứng: [`channel-storage.md`](../../../knowledge/m
 
 ### 2.4. Trên dashboard (`/zca`)
 
-- Ở cột "Lắng nghe", bấm **📁 Drive** hoặc **📸 Photos**, hoặc bấm nút **Drive** ở cột thao tác, sẽ mở hộp thoại liệt kê mọi link của kênh:
+- Ở cột thao tác, mở menu **⋯** rồi chọn mục xem thư mục Google Drive hoặc album Google Photos của kênh. Hộp thoại sẽ liệt kê mọi link của kênh:
   - Dòng **Đang dùng** (viền xanh) là nơi media mới sẽ vào.
   - Mỗi dòng ghi đường dẫn hoặc tên album, email tài khoản và khoảng thời gian dùng.
   - Bấm vào link Drive sẽ mở thẳng thư mục gốc của kênh, thấy ngay `bill`, `image`, `video`.

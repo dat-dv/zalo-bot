@@ -138,7 +138,7 @@ Giờ nguyên tắc là **người dùng chủ động gọi thì bot mới làm
 ## 1c. Thả Tim / Phẫn Nộ & Sao Lưu Media Lịch Sử
 
 - **Reaction** chỉ được xử lý khi kênh đang lắng nghe **và** bật `allowReactions`. Bot đọc `gMsgID`/`cMsgID` từ `rMsg` để biết reaction thuộc thẻ chờ nào. ❤️ cộng dồn tới `requiredHearts` (bot báo "❤️ x/y"), 😡 huỷ thao tác. **Chỉ reaction đặt đúng lên thẻ chờ mới được tính** (khớp `msgId` hoặc `cliMsgId` của thẻ, cùng kênh, còn hạn). Trước đây nếu không khớp, hệ thống lấy luôn thẻ chờ gần nhất của nhóm/người dùng. Hậu quả là thả tim vào một tin bất kỳ (ví dụ tin "🎉 đã xác nhận" của yêu cầu trước) lại duyệt nhầm một yêu cầu khác, rồi còn thu hồi luôn tin vừa được thả tim. Trong nhóm đông người, điều này cho phép duyệt hoặc huỷ giao dịch ngoài ý muốn, nên cơ chế fallback đã bị bỏ. Mỗi thẻ chờ chép `requiredHearts` từ cấu hình kênh lúc tạo thẻ, nên đổi cấu hình sau đó không ảnh hưởng thẻ đang mở.
-- **Sao lưu media lịch sử** (`POST /api/zca/threads/:threadId/sync-media`, mở từ nút Sao lưu → `SyncMediaModal`):
+- **Sao lưu media lịch sử** (`POST /api/zca/threads/:threadId/sync-media`, mở từ menu **⋯** của dòng nhóm → "Sao lưu media lịch sử" → `SyncMediaModal`):
   - Chọn khoảng thời gian (`1_month`, `2_months`, `3_months`, `6_months`, `all`) và loại media (ảnh, video, file, âm thanh). Tối đa 500 tin mỗi lần.
   - Chỉ hỗ trợ **nhóm**; chat 1-1 trả về thông báo và số đếm 0. ZCA phải đang đăng nhập.
   - Nếu API đọc lịch sử nhóm của Zalo lỗi, hệ thống dùng tin đã đệm trong Redis; không có thì trả cảnh báo `zalo_history_api_unavailable` (sao lưu thời gian thực vẫn chạy bình thường).
@@ -163,11 +163,22 @@ Bật lắng nghe **không** tự cấp quyền, và ngược lại. Ví dụ: b
 
 ### Ba loại dòng
 
-- **👥 Nhóm**: chỉ có cột Lắng nghe. Quyền được cấp cho từng người, không cấp cho nhóm.
-- **👤 Cá nhân**: bạn bè ZCA. Nếu người này chưa có trong `users`, cột quyền hiện "Chưa cấp". Bấm **Cấp quyền** thì backend tự tạo bản ghi `users`.
-- **🆔 Người dùng**: có trong `users` nhưng không có trong danh bạ ZCA, ví dụ ID của Zalo Bot chính thức (hex 20 ký tự) hoặc thành viên nhóm chưa kết bạn. Các dòng này vẫn hiện khi chưa đăng nhập ZCA, nên admin luôn duyệt được người mới.
+- **Nhóm**: chỉ có cột Lắng nghe. Quyền được cấp cho từng người, không cấp cho nhóm.
+- **Cá nhân**: bạn bè ZCA. Nếu người này chưa có trong `users`, cột quyền hiện "Chưa cấp". Bấm **Cấp quyền** thì backend tự tạo bản ghi `users`.
+- **Người dùng**: có trong `users` nhưng không có trong danh bạ ZCA, ví dụ ID của Zalo Bot chính thức (hex 20 ký tự) hoặc thành viên nhóm chưa kết bạn. Các dòng này vẫn hiện khi chưa đăng nhập ZCA, nên admin luôn duyệt được người mới.
 
 Logic ghép dòng là hàm thuần trong `model/chat-rows.ts`, có unit test ở `chat-rows.spec.ts`. "Chờ duyệt" tương ứng `grantAccess = 0` trong DB.
+
+### Bố cục bảng (phẳng, mỗi ô một dòng)
+
+Bảng này phục vụ việc lướt nhanh hàng trăm dòng, nên giữ cùng phong cách vuông, trung tính với các bảng khác (ví dụ bảng công nợ):
+
+- **Không dùng chip/pill bo tròn và emoji trong ô.** Trạng thái là chữ kèm chấm `●`/`○`; màu chỉ nằm ở chữ và chỉ khi có ý nghĩa (xanh = đang nghe/đã cấp, vàng = chờ duyệt, tím = admin).
+- **Mỗi ô một dòng.** Riêng ô tên có 2 dòng: dòng 1 là tên và `(gợi nhớ)`, dòng 2 là thông tin phụ nối bằng `·` (số thành viên, tên Zalo, SĐT, `@username`, link "N người liên quan"). Chữ dài thì cắt bớt, không xuống dòng.
+- **Cột "Tính năng"** tách khỏi cột Lắng nghe, chỉ ghi các tính năng đang bật: `@Bot` (nhóm) hoặc `Chat riêng` (1-1), `Nhớ`, `Sao lưu media`. Trước đây chúng là chip màu nằm dưới nút lắng nghe nên mỗi dòng cao 2–3 dòng.
+- **Cột Quyền tương tác**: trạng thái và nút Cấp quyền/Thu hồi nằm cùng một dòng.
+- **Cột Thao tác**: chỉ một nút chính **Cấu hình** và menu **⋯**. Mở Google Drive, mở Google Photos, và Sao lưu media lịch sử (chỉ nhóm) nằm trong menu, cùng các thao tác người dùng (sửa, gộp, xem người liên quan, xoá).
+- Nút trong bảng là nút vuông `h-[22px] rounded-[2px]` có viền; avatar cũng vuông (`rounded-[3px]`).
 
 ### Cách duyệt người mới
 

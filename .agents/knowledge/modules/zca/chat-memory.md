@@ -45,7 +45,7 @@ Configured per ZCA thread in the dashboard thread-config modal (card "🧠 Trí 
 - `normalizeChatMemoryConfig` (`@zalobot/contracts`, with `CHAT_MEMORY_DEFAULTS`, `CHAT_MEMORY_LIMITS`) fills defaults, rounds and clamps. Applied on default creation, `entityToConfig`, cached Redis/JSON configs, the `updateConfig` merge and the web form. `PUT /api/zca/thread-configs/:id` has no class-validator DTO, so this is the guard.
 - Memory needs `isListened` **and** `chatMemory.enabled` (only listened threads receive messages). Official Zalo Bot webhook chats are never stored.
 - Turning memory off stops storing, searching and context injection; rows already stored are **kept** and reused if it is turned on again. Turning it on stores from then; buffered Redis messages are imported at the next start.
-- Dashboard chat table shows badge "🧠 Nhớ" for threads with memory on.
+- Dashboard chat table shows `Nhớ` in the Features column for threads with memory on.
 - `ChatMemoryService` has no switch of its own and no ZcaModule dependency (avoids a module cycle); callers gate on the thread config.
 
 ## Storage (`zca_messages`, migration `1724810000000-CreateZcaMessages`)

@@ -59,7 +59,7 @@ export function ChatRowMenu({ items, label }: { items: ChatRowMenuItem[]; label:
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label={label}
-        className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+        className="inline-flex h-[22px] items-center rounded-[2px] border border-slate-200 bg-white px-1.5 text-xs font-bold text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
         onClick={() => setIsOpen(!isOpen)}
         title={label}
         type="button"

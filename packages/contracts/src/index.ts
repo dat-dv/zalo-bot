@@ -131,7 +131,7 @@ const messages = {
       'Bạn vừa gộp chính tài khoản đang đăng nhập. Hãy mở lại dashboard từ link mà bot gửi qua Zalo.',
     'users.merge.error': 'Không thể gộp tài khoản. Vui lòng thử lại.',
     'users.linkedContacts.action': '🔗 Xem người liên quan đã gắn',
-    'users.linkedContacts.badge': '🔗 {count} người liên quan',
+    'users.linkedContacts.badge': '{count} người liên quan',
     'users.linkedContacts.title': 'Người liên quan đã gắn',
     'users.linkedContacts.description':
       'Các mục trong danh bạ công nợ chung đang được liên kết với tài khoản {name}.',
@@ -868,7 +868,7 @@ const messages = {
       'You merged the account you are signed in with. Reopen the dashboard from the link the bot sends you on Zalo.',
     'users.merge.error': 'Unable to merge accounts. Please try again.',
     'users.linkedContacts.action': '🔗 View linked contacts',
-    'users.linkedContacts.badge': '🔗 {count} contacts',
+    'users.linkedContacts.badge': '{count} contacts',
     'users.linkedContacts.title': 'Linked contacts',
     'users.linkedContacts.description':
       'Entries in the shared debt-contact directory that are linked to {name}.',

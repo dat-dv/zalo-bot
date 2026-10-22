@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import type { ChannelStorageLinkKind, ThreadBotConfig } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import type { ZcaThread } from '../../api/zca-api';
 import { hasInteractionAccess, type ChatRow } from '../../model/chat-rows';
 import { ChatRowMenu, type ChatRowMenuItem } from './chat-row-menu';
-import { CopyIcon, GoogleDriveIcon } from './zca-icons';
+import { CopyIcon } from './zca-icons';
 import { ThreadStorageLinksDialog } from './thread-storage-links-dialog';
 
 interface ChatTableRowProps {
@@ -25,43 +25,47 @@ interface ChatTableRowProps {
   onDeleteUser: (row: ChatRow) => void;
 }
 
-const KIND_BADGE: Record<ChatRow['kind'], { label: string; className: string; title?: string }> = {
-  group: {
-    label: '👥 Nhóm',
-    className: 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300',
-  },
-  personal: {
-    label: '👤 Cá nhân',
-    className: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300',
-  },
+interface InlineItem {
+  key: string;
+  node: ReactNode;
+}
+
+const KIND_LABEL: Record<ChatRow['kind'], { label: string; title?: string }> = {
+  group: { label: 'Nhóm' },
+  personal: { label: 'Cá nhân' },
   'user-only': {
-    label: '🆔 Người dùng',
-    className: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+    label: 'Người dùng',
     title: 'Có trong hệ thống nhưng không có trong danh bạ ZCA (ID webhook hoặc chưa kết bạn)',
   },
 };
 
-const ACCESS_BADGE: Record<
+// Plain text + status dot instead of pills: colour only carries the state.
+const ACCESS_STATUS: Record<
   Exclude<ChatRow['access'], 'n/a'>,
-  { label: string; className: string }
+  { label: string; dot: string; className: string }
 > = {
-  admin: {
-    label: '👑 Admin',
-    className: 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300',
-  },
-  granted: {
-    label: '● Đã cấp quyền',
-    className: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300',
-  },
-  pending: {
-    label: '○ Chờ duyệt',
-    className: 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300',
-  },
-  none: {
-    label: '○ Chưa cấp',
-    className: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
-  },
+  admin: { label: 'Admin', dot: '●', className: 'text-purple-700 dark:text-purple-300' },
+  granted: { label: 'Đã cấp', dot: '●', className: 'text-emerald-700 dark:text-emerald-400' },
+  pending: { label: 'Chờ duyệt', dot: '●', className: 'text-amber-700 dark:text-amber-400' },
+  none: { label: 'Chưa cấp', dot: '○', className: 'text-slate-500 dark:text-slate-400' },
 };
+
+const CELL_BUTTON =
+  'inline-flex h-[22px] shrink-0 items-center gap-1 rounded-[2px] border px-1.5 text-[11px] whitespace-nowrap transition-colors';
+const NEUTRAL_BUTTON = `${CELL_BUTTON} border-slate-200 bg-white font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800`;
+const POSITIVE_BUTTON = `${CELL_BUTTON} border-emerald-600 bg-emerald-50 font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/60`;
+
+const EMPTY_CELL = <span className="text-slate-300 dark:text-slate-600">—</span>;
+
+/** Renders items on one line separated by a middle dot. */
+function InlineList({ items }: { items: InlineItem[] }) {
+  return items.map((item, index) => (
+    <Fragment key={item.key}>
+      {index > 0 && <span className="px-1 text-slate-300 dark:text-slate-600">·</span>}
+      {item.node}
+    </Fragment>
+  ));
+}
 
 function RowAvatar({ row }: { row: ChatRow }) {
   const [imgError, setImgError] = useState(false);
@@ -70,7 +74,7 @@ function RowAvatar({ row }: { row: ChatRow }) {
     return (
       <img
         alt={row.name || 'Avatar'}
-        className="size-9 shrink-0 rounded-full object-cover ring-1 ring-slate-200 dark:ring-slate-700"
+        className="size-8 shrink-0 rounded-[3px] object-cover ring-1 ring-slate-200 dark:ring-slate-700"
         onError={() => setImgError(true)}
         referrerPolicy="no-referrer"
         src={row.avatar}
@@ -79,71 +83,51 @@ function RowAvatar({ row }: { row: ChatRow }) {
   }
 
   return (
-    <div
-      className={`flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${KIND_BADGE[row.kind].className}`}
-    >
-      {row.name ? row.name.charAt(0).toUpperCase() : row.kind === 'group' ? '👥' : '👤'}
+    <div className="flex size-8 shrink-0 items-center justify-center rounded-[3px] bg-slate-100 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+      {row.name ? row.name.charAt(0).toUpperCase() : '?'}
     </div>
   );
 }
 
-function ConfigBadges({
-  row,
-  config,
-  onOpenStorageLinks,
-}: {
-  row: ChatRow;
-  config: ThreadBotConfig;
-  onOpenStorageLinks: (kind: ChannelStorageLinkKind) => void;
-}) {
-  const { t } = useLocale();
-  const thread = row.thread;
-  const isGroup = row.kind === 'group';
-  const prefixes = config.directInteraction?.triggerPrefixes ?? [];
-  return (
-    <div className="mt-1 flex flex-wrap items-center justify-center gap-1">
-      {config.directInteraction?.enabled && (
-        <span
-          className="inline-flex items-center rounded bg-purple-50 px-1.5 py-0.5 text-[9px] font-medium text-purple-700 dark:bg-purple-950 dark:text-purple-300"
-          title={
-            isGroup
-              ? `Cần @Bot${prefixes.length > 0 ? ` hoặc tiền tố ${prefixes.join(' ')}` : ''} để kích hoạt`
-              : 'Chat riêng: mọi tin nhắn chữ đều gửi tới bot'
+function featureItems(row: ChatRow, config: ThreadBotConfig): InlineItem[] {
+  const items: InlineItem[] = [];
+  if (config.directInteraction?.enabled) {
+    const prefixes = config.directInteraction.triggerPrefixes ?? [];
+    items.push(
+      row.kind === 'group'
+        ? {
+            key: 'bot',
+            node: (
+              <span
+                title={`Cần @Bot${prefixes.length > 0 ? ` hoặc tiền tố ${prefixes.join(' ')}` : ''} để kích hoạt`}
+              >
+                @Bot
+              </span>
+            ),
           }
-        >
-          {isGroup ? '🤖 @Bot' : '🤖 Chat riêng'}
+        : {
+            key: 'bot',
+            node: <span title="Chat riêng: mọi tin nhắn chữ đều gửi tới bot">Chat riêng</span>,
+          },
+    );
+  }
+  if (config.chatMemory?.enabled) {
+    items.push({
+      key: 'memory',
+      node: (
+        <span title="Trí nhớ hội thoại đang bật: bot lưu tin nhắn của kênh để tra lại chuyện cũ">
+          Nhớ
         </span>
-      )}
-      {config.chatMemory?.enabled && (
-        <span
-          className="inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300"
-          title="Trí nhớ hội thoại đang bật: bot lưu tin nhắn của kênh để tra lại chuyện cũ"
-        >
-          🧠 Nhớ
-        </span>
-      )}
-      {thread && config.mediaBackup.enabled && (
-        <button
-          className="inline-flex items-center gap-0.5 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900"
-          onClick={() => onOpenStorageLinks('drive')}
-          title={t('zca.storageLinks.openDrive')}
-          type="button"
-        >
-          📁 Drive
-        </button>
-      )}
-      {thread && config.mediaBackup.enabled && (
-        <button
-          className="inline-flex items-center gap-0.5 rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-medium text-indigo-700 transition-colors hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300 dark:hover:bg-indigo-900"
-          onClick={() => onOpenStorageLinks('photos')}
-          title={t('zca.storageLinks.openPhotos')}
-          type="button"
-        >
-          📸 Photos
-        </button>
-      )}
-    </div>
-  );
+      ),
+    });
+  }
+  if (config.mediaBackup.enabled) {
+    items.push({
+      key: 'media',
+      node: <span title="Tự sao lưu media của kênh lên Google Drive & Photos">Sao lưu media</span>,
+    });
+  }
+  return items;
 }
 
 export function ChatTableRow({
@@ -169,10 +153,74 @@ export function ChatTableRow({
     onDriveOpened();
   };
   const linkedContactCount = row.user?.linkedContactCount ?? 0;
-  const kindBadge = KIND_BADGE[row.kind];
+  const kindLabel = KIND_LABEL[row.kind];
   const isGranted = hasInteractionAccess(row.access);
+  const features = thread && config ? featureItems(row, config) : [];
 
-  const menuItems: ChatRowMenuItem[] =
+  const identityItems: InlineItem[] = [];
+  if (row.kind === 'group') {
+    identityItems.push({
+      key: 'members',
+      node:
+        typeof thread?.totalMembers === 'number'
+          ? `${thread.totalMembers.toLocaleString()} thành viên`
+          : 'Nhóm chat',
+    });
+  } else {
+    if (row.zaloName && row.zaloName !== row.name) {
+      identityItems.push({ key: 'zalo', node: `Zalo: ${row.zaloName}` });
+    }
+    if (row.phoneNumber) {
+      identityItems.push({
+        key: 'phone',
+        node: <span className="font-mono">{row.phoneNumber}</span>,
+      });
+    }
+    if (row.user?.username) {
+      identityItems.push({ key: 'username', node: `@${row.user.username}` });
+    }
+  }
+  if (linkedContactCount > 0) {
+    identityItems.push({
+      key: 'linked',
+      node: (
+        <button
+          className="text-sky-700 hover:underline dark:text-sky-400"
+          onClick={() => onViewLinkedContacts(row)}
+          title={t('users.linkedContacts.action')}
+          type="button"
+        >
+          {t('users.linkedContacts.badge', { count: linkedContactCount })}
+        </button>
+      ),
+    });
+  }
+
+  const threadMenuItems: ChatRowMenuItem[] = thread
+    ? [
+        {
+          key: 'drive',
+          label: `📁 ${t('zca.storageLinks.openDrive')}`,
+          onSelect: () => openStorageLinks('drive'),
+        },
+        {
+          key: 'photos',
+          label: `📸 ${t('zca.storageLinks.openPhotos')}`,
+          onSelect: () => openStorageLinks('photos'),
+        },
+        ...(thread.type === 'group'
+          ? [
+              {
+                key: 'sync',
+                label: '⏳ Sao lưu media lịch sử',
+                onSelect: () => onSyncMedia(thread),
+              },
+            ]
+          : []),
+      ]
+    : [];
+
+  const userMenuItems: ChatRowMenuItem[] =
     row.kind === 'group'
       ? []
       : [
@@ -210,17 +258,15 @@ export function ChatTableRow({
       }`}
     >
       {/* Loại */}
-      <td className="whitespace-nowrap px-3.5 py-2.5">
-        <span
-          className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ${kindBadge.className}`}
-          title={kindBadge.title}
-        >
-          {kindBadge.label}
-        </span>
+      <td
+        className="whitespace-nowrap px-3.5 py-2 text-[11px] text-slate-600 dark:text-slate-400"
+        title={kindLabel.title}
+      >
+        {kindLabel.label}
       </td>
 
       {/* Tên, avatar, thông tin nhận diện */}
-      <td className="px-3.5 py-2.5">
+      <td className="px-3.5 py-2">
         <div className="flex items-center gap-2.5">
           <div className="relative shrink-0">
             <RowAvatar row={row} />
@@ -231,59 +277,37 @@ export function ChatTableRow({
               />
             )}
           </div>
-          <div className="flex min-w-0 flex-col">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="max-w-[280px] truncate font-semibold text-slate-900 dark:text-slate-100">
+          <div className="min-w-0">
+            <div className="max-w-[360px] truncate whitespace-nowrap">
+              <span className="font-semibold text-slate-900 dark:text-slate-100">
                 {row.name || 'Không có tên'}
               </span>
               {row.alias && (
-                <span className="inline-flex items-center rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300">
-                  🏷️ Gợi nhớ: {row.alias}
-                </span>
-              )}
-              {linkedContactCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => onViewLinkedContacts(row)}
-                  className="inline-flex cursor-pointer items-center rounded bg-sky-50 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:bg-sky-950/60 dark:text-sky-300 dark:hover:bg-sky-900"
-                  title={t('users.linkedContacts.action')}
+                <span
+                  className="ml-1.5 text-[11px] text-slate-500 dark:text-slate-400"
+                  title={`Gợi nhớ: ${row.alias}`}
                 >
-                  {t('users.linkedContacts.badge', { count: linkedContactCount })}
-                </button>
-              )}
-            </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-              {row.kind === 'group' ? (
-                <span>
-                  👥{' '}
-                  {typeof thread?.totalMembers === 'number'
-                    ? `${thread.totalMembers.toLocaleString()} thành viên`
-                    : 'Nhóm chat'}
+                  ({row.alias})
                 </span>
-              ) : (
-                <>
-                  {row.zaloName && row.zaloName !== row.name && <span>Zalo: {row.zaloName}</span>}
-                  {row.phoneNumber && (
-                    <span className="font-mono text-emerald-600 dark:text-emerald-400">
-                      📞 {row.phoneNumber}
-                    </span>
-                  )}
-                  {row.user?.username && <span>@{row.user.username}</span>}
-                </>
               )}
             </div>
+            {identityItems.length > 0 && (
+              <div className="mt-0.5 max-w-[360px] truncate whitespace-nowrap text-[11px] text-slate-500 dark:text-slate-400">
+                <InlineList items={identityItems} />
+              </div>
+            )}
           </div>
         </div>
       </td>
 
       {/* ID */}
-      <td className="whitespace-nowrap px-3.5 py-2.5 font-mono text-slate-600 dark:text-slate-400">
+      <td className="whitespace-nowrap px-3.5 py-2 font-mono text-slate-600 dark:text-slate-400">
         <div className="flex items-center gap-1.5">
-          <span className="max-w-[150px] truncate" title={row.id}>
+          <span className="max-w-[140px] truncate" title={row.id}>
             {row.id}
           </span>
           <button
-            className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            className="rounded-[2px] p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             onClick={() => onCopyId(row.id)}
             title="Sao chép ID"
             type="button"
@@ -298,99 +322,66 @@ export function ChatTableRow({
       </td>
 
       {/* Lắng nghe */}
-      <td className="whitespace-nowrap px-3.5 py-2.5 text-center">
+      <td className="whitespace-nowrap px-3.5 py-2">
         {thread ? (
-          <>
-            <button
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold transition-colors ${
-                row.isListened
-                  ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/60 dark:text-emerald-300'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400'
-              }`}
-              onClick={() => onToggleListen(thread.id)}
-              title={row.isListened ? 'Bấm để tắt lắng nghe' : 'Bấm để bật lắng nghe'}
-              type="button"
-            >
-              {row.isListened ? '● Đang lắng nghe' : '○ Bỏ qua'}
-            </button>
-            {config && (
-              <ConfigBadges config={config} onOpenStorageLinks={openStorageLinks} row={row} />
-            )}
-          </>
+          <button
+            className={row.isListened ? POSITIVE_BUTTON : NEUTRAL_BUTTON}
+            onClick={() => onToggleListen(thread.id)}
+            title={row.isListened ? 'Bấm để tắt lắng nghe' : 'Bấm để bật lắng nghe'}
+            type="button"
+          >
+            {row.isListened ? '● Đang nghe' : '○ Bỏ qua'}
+          </button>
         ) : (
-          <span className="text-slate-300 dark:text-slate-600" title="Không có cuộc trò chuyện ZCA">
-            —
-          </span>
+          <span title="Không có cuộc trò chuyện ZCA">{EMPTY_CELL}</span>
         )}
       </td>
 
+      {/* Tính năng */}
+      <td className="whitespace-nowrap px-3.5 py-2 text-[11px] text-slate-600 dark:text-slate-400">
+        {features.length > 0 ? <InlineList items={features} /> : EMPTY_CELL}
+      </td>
+
       {/* Quyền tương tác */}
-      <td className="whitespace-nowrap px-3.5 py-2.5 text-center">
+      <td className="whitespace-nowrap px-3.5 py-2">
         {row.access === 'n/a' ? (
-          <span
-            className="text-slate-300 dark:text-slate-600"
-            title="Quyền được cấp cho từng người, không cấp cho nhóm"
-          >
-            —
-          </span>
+          <span title="Quyền được cấp cho từng người, không cấp cho nhóm">{EMPTY_CELL}</span>
         ) : (
-          <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-2">
             <span
-              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${ACCESS_BADGE[row.access].className}`}
+              className={`w-[72px] shrink-0 text-[11px] font-medium ${ACCESS_STATUS[row.access].className}`}
             >
-              {ACCESS_BADGE[row.access].label}
+              {ACCESS_STATUS[row.access].dot} {ACCESS_STATUS[row.access].label}
             </span>
             <button
-              className={`rounded px-2 py-0.5 text-[11px] font-semibold transition active:scale-95 ${
+              className={
                 isGranted
-                  ? 'border border-slate-200 bg-white text-slate-600 hover:text-rose-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
-                  : 'bg-emerald-600 text-white shadow-sm hover:bg-emerald-700'
-              }`}
+                  ? `${NEUTRAL_BUTTON} hover:text-rose-600 dark:hover:text-rose-400`
+                  : POSITIVE_BUTTON
+              }
               onClick={() => onToggleAccess(row)}
               type="button"
             >
-              {isGranted ? 'Thu hồi' : 'Cấp quyền ✓'}
+              {isGranted ? 'Thu hồi' : 'Cấp quyền'}
             </button>
           </div>
         )}
       </td>
 
       {/* Thao tác */}
-      <td className="whitespace-nowrap px-3.5 py-2.5 text-right">
+      <td className="whitespace-nowrap px-3.5 py-2 text-right">
         <div className="flex items-center justify-end gap-1.5">
-          {thread?.type === 'group' && (
-            <button
-              className="inline-flex items-center gap-1 rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 transition-colors hover:border-blue-300 hover:bg-blue-100 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-900/40"
-              onClick={() => onSyncMedia(thread)}
-              title="Quét và sao lưu media lịch sử của nhóm lên Google Drive & Google Photos"
-              type="button"
-            >
-              <span>⏳</span>
-              <span>Sao lưu</span>
-            </button>
-          )}
           {thread && (
             <button
-              className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 transition-colors hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400"
-              onClick={() => openStorageLinks('drive')}
-              title={t('zca.storageLinks.openDrive')}
-              type="button"
-            >
-              <GoogleDriveIcon className="size-3.5 shrink-0" />
-              <span>Drive</span>
-            </button>
-          )}
-          {thread && (
-            <button
-              className="rounded border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              className={NEUTRAL_BUTTON}
               onClick={() => onConfigure(thread)}
               title="Cấu hình tính năng bot cho nhóm hoặc cá nhân này"
               type="button"
             >
-              ⚙️ Cấu hình
+              Cấu hình
             </button>
           )}
-          <ChatRowMenu items={menuItems} label="Thao tác người dùng" />
+          <ChatRowMenu items={[...threadMenuItems, ...userMenuItems]} label="Thao tác khác" />
         </div>
         {thread && storageLinksKind && (
           <ThreadStorageLinksDialog

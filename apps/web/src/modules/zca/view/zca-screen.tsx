@@ -630,22 +630,25 @@ export function ZcaScreen() {
             <table className="min-w-full divide-y divide-slate-200 text-left text-xs dark:divide-slate-800">
               <thead className="bg-slate-50 dark:bg-slate-800/50">
                 <tr>
-                  <th className="w-24 px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
+                  <th className="w-20 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
                     Loại
                   </th>
-                  <th className="px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
+                  <th className="whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
                     Cuộc trò chuyện / Người dùng
                   </th>
-                  <th className="w-44 px-3.5 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
+                  <th className="w-40 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
                     ID
                   </th>
-                  <th className="w-40 px-3.5 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300">
+                  <th className="w-28 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
                     Lắng nghe
                   </th>
-                  <th className="w-36 px-3.5 py-2.5 text-center font-semibold text-slate-700 dark:text-slate-300">
+                  <th className="w-40 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
+                    Tính năng
+                  </th>
+                  <th className="w-48 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
                     Quyền tương tác
                   </th>
-                  <th className="w-48 px-3.5 py-2.5 text-right font-semibold text-slate-700 dark:text-slate-300">
+                  <th className="w-28 text-right whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
                     Thao tác
                   </th>
                 </tr>
@@ -653,7 +656,7 @@ export function ZcaScreen() {
               <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
                 {isTableLoading ? (
                   <tr>
-                    <td className="px-4 py-12 text-center text-slate-400" colSpan={6}>
+                    <td className="px-4 py-12 text-center text-slate-400" colSpan={7}>
                       <div className="flex flex-col items-center justify-center gap-2">
                         <span className="size-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
                         <span>Đang tải danh sách nhóm, bạn bè và người dùng...</span>
@@ -662,7 +665,7 @@ export function ZcaScreen() {
                   </tr>
                 ) : sortedRows.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-8 text-center text-slate-400" colSpan={6}>
+                    <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
                       {chatRows.length === 0
                         ? 'Chưa có cuộc trò chuyện hay người dùng nào. Hãy đăng nhập Zalo hoặc thêm thủ công ở trên.'
                         : 'Không tìm thấy kết quả phù hợp với từ khóa hoặc bộ lọc.'}
