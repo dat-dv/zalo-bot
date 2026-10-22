@@ -7,6 +7,7 @@ import { ConfirmationRulesSection } from './confirmation-rules-section';
 import { DirectInteractionSection } from './direct-interaction-section';
 import { ListenToggleCard } from './listen-toggle-card';
 import { MediaBackupSection } from './media-backup-section';
+import { MemberAccessSection } from './member-access-section';
 import { ThreadConfigActionBar } from './thread-config-action-bar';
 import { useThreadConfigForm } from './use-thread-config-form';
 
@@ -36,6 +37,9 @@ export function ThreadConfigForm({
             onChange={(isListened) => setForm({ ...form, isListened })}
           />
           <DirectInteractionSection form={form} onChange={setForm} threadType={threadType} />
+          {threadType === 'group' && (
+            <MemberAccessSection form={form} onChange={setForm} threadId={threadId} />
+          )}
           <ConfirmationRulesSection form={form} onChange={setForm} />
         </div>
         <div className="flex min-w-0 flex-col gap-4">

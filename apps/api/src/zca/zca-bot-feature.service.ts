@@ -38,6 +38,8 @@ import {
 import { RedisService } from '../redis/redis.service';
 import type { InitialAdminBootstrapGuard } from './guards/initial-admin-bootstrap.guard';
 import type { GrantAccessGuard } from './guards/grant-access.guard';
+import { ThreadAccessService } from './access/thread-access.service';
+import type { ThreadAccessKind } from './access/thread-access-policy';
 import type { UsersService } from '../users/users.service';
 import type { PendingImageActionDispatcher } from './pending-image/pending-image-dispatcher.service';
 import type { ImageBatchHandler } from './pending-image/image-batch-handler.service';
@@ -289,6 +291,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
   private zcaService?: ZcaService;
   private adminBootstrapGuard?: InitialAdminBootstrapGuard;
   private grantAccessGuard?: GrantAccessGuard;
+  private readonly threadAccessService: ThreadAccessService;
   private usersService?: UsersService;
   private pendingImageDispatcher?: PendingImageActionDispatcher;
   private imageBatchHandler?: ImageBatchHandler;
@@ -315,7 +318,9 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     @Optional() imageBatchHandler?: ImageBatchHandler,
     @Optional() ocrService?: OcrService,
     @Optional() private readonly chatMemoryService?: ChatMemoryService,
+    @Optional() threadAccessService?: ThreadAccessService,
   ) {
+    this.threadAccessService = threadAccessService ?? new ThreadAccessService();
     if (mediaStorageServiceOrConfirmation) {
       if ('handleReaction' in mediaStorageServiceOrConfirmation) {
         this.confirmationService = mediaStorageServiceOrConfirmation;
@@ -594,15 +599,19 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     }
   }
 
-  private async checkDirectGuardsAndCooldown(
-    senderId: string,
-    displayName: string,
-    chatId: string,
-    text: string,
-    threadType: number,
-    api: API,
-    isSelf?: boolean,
-  ): Promise<boolean> {
+  private async checkDirectGuardsAndCooldown(params: {
+    senderId: string;
+    displayName: string;
+    chatId: string;
+    text: string;
+    threadType: number;
+    api: API;
+    isSelf?: boolean;
+    config: ThreadBotConfig;
+    accessKind: ThreadAccessKind;
+  }): Promise<boolean> {
+    const { senderId, displayName, chatId, text, threadType, api, isSelf, config, accessKind } =
+      params;
     const ownId = (api as unknown as { getOwnId?: () => string })?.getOwnId?.() || '';
     const isOwner = Boolean(isSelf || (ownId && ownId === senderId));
 
@@ -628,7 +637,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     }
 
     if (this.grantAccessGuard && typeof this.grantAccessGuard.canActivate === 'function') {
-      const canAccess = await this.grantAccessGuard.canActivate(input);
+      const threadGrant = this.threadAccessService.grantsThreadAccess(senderId, config, accessKind);
+      const canAccess = await this.grantAccessGuard.canActivate(input, { threadGrant });
       if (!canAccess) {
         return false;
       }
@@ -1033,8 +1043,24 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     const hasText = text.trim().length > 0;
     const isDirectTriggered = Boolean(hasMention || hasPrefix || (!isGroup && hasText));
 
+    // Everything below answers the sender, so a message that does not address the bot stops here
+    // (it was already backed up / remembered above) and access is checked once for the rest.
+    if (!isDirectTriggered) return;
+    const allowed = await this.checkDirectGuardsAndCooldown({
+      senderId,
+      displayName,
+      chatId: threadId,
+      text,
+      threadType: message.type,
+      api,
+      isSelf: Boolean(message.isSelf),
+      config,
+      accessKind: isGroup ? 'group' : 'user',
+    });
+    if (!allowed) return;
+
     // Single number "1" or "2" fast-path hint when no image is pending
-    if (text && /^[12]$/.test(text.trim()) && isDirectTriggered) {
+    if (text && /^[12]$/.test(text.trim())) {
       await api.sendMessage(
         '💡 Hiện không có hình ảnh hoặc giao dịch nào đang chờ xử lý. Bạn có thể gửi ảnh mới hoặc nhập yêu cầu cụ thể (Ví dụ: "ăn trưa 45k", "mai 9h họp").',
         threadId,
@@ -1054,18 +1080,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       );
     }
 
-    if (quotedMediaUrl && isDirectTriggered) {
-      const allowed = await this.checkDirectGuardsAndCooldown(
-        senderId,
-        displayName,
-        threadId,
-        text,
-        message.type,
-        api,
-        Boolean(message.isSelf),
-      );
-      if (!allowed) return;
-
+    if (quotedMediaUrl) {
       const cleanedText = cleanBotMention(text, botName, triggerPrefixes);
 
       // 5a. Quoted media storage upload request (e.g. "@bot lưu ảnh này lên drive")
@@ -1117,19 +1132,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     if (isImage) {
       const { url: mediaUrl } = extractMediaMeta(message.data?.content);
 
-      // If image has caption and is direct-triggered (e.g. tagged @bot in group or captioned in 1-1)
-      if (isDirectTriggered && mediaUrl) {
-        const allowed = await this.checkDirectGuardsAndCooldown(
-          senderId,
-          displayName,
-          threadId,
-          text,
-          message.type,
-          api,
-          Boolean(message.isSelf),
-        );
-        if (!allowed) return;
-
+      // Image with a caption that addresses the bot (tagged @bot in group or captioned in 1-1)
+      if (mediaUrl) {
         const cleanedText = cleanBotMention(text, botName, triggerPrefixes);
 
         // 6a. Direct image captioned with request to save to Drive (e.g. "@bot lưu ảnh này lên drive")
@@ -1174,23 +1178,12 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         return;
       }
 
-      // Image that does not address the bot: already backed up (if enabled), do nothing else
+      // No resolvable image URL: nothing to read
       return;
     }
 
     // 7. Direct Video Processing
-    if (isVideo && isDirectTriggered) {
-      const allowed = await this.checkDirectGuardsAndCooldown(
-        senderId,
-        displayName,
-        threadId,
-        text,
-        message.type,
-        api,
-        Boolean(message.isSelf),
-      );
-      if (!allowed) return;
-
+    if (isVideo) {
       const { url: videoUrl } = extractMediaMeta(message.data?.content);
       if (videoUrl && this.mediaStorageService) {
         try {
@@ -1221,18 +1214,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     }
 
     // 8. Text Message Processing: only text that addresses the bot reaches the AI.
-    if (text && this.textInputService && isDirectTriggered) {
-      const allowed = await this.checkDirectGuardsAndCooldown(
-        senderId,
-        displayName,
-        threadId,
-        text,
-        message.type,
-        api,
-        Boolean(message.isSelf),
-      );
-      if (!allowed) return;
-
+    if (text && this.textInputService) {
       const agentInput: AgentInput = {
         type: 'text',
         senderId,

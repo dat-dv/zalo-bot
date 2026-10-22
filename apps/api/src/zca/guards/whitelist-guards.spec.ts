@@ -116,3 +116,37 @@ void test('GrantAccessGuard saves pending user and rejects ungranted users with 
   assert.equal(res2, true);
   assert.equal(sentMessages.length, 1); // No new rejection message sent
 });
+
+void test('GrantAccessGuard lets a thread-granted member through but still registers them', async () => {
+  const registeredUsers: string[] = [];
+  const sentMessages: string[] = [];
+  const mockUsersService = {
+    isAdmin: () => false,
+    registerPendingUser: (id: string) => {
+      registeredUsers.push(id);
+      return Promise.resolve({} as never);
+    },
+    isGrantAccess: () => Promise.resolve(false),
+  } as unknown as UsersService;
+  const mockZaloService = {
+    sendMessage: (_chatId: string, text: string) => {
+      sentMessages.push(text);
+      return Promise.resolve(true);
+    },
+  } as unknown as ZcaService;
+  const guard = new GrantAccessGuard(mockUsersService, mockZaloService);
+  const input: AgentInput = {
+    type: 'text',
+    senderId: 'member_1',
+    chatId: 'group_1',
+    displayName: 'Thành viên',
+    text: '@bot ăn trưa 50k',
+  };
+
+  assert.equal(await guard.canActivate(input, { threadGrant: true }), true);
+  assert.deepEqual(registeredUsers, ['member_1']);
+  assert.equal(sentMessages.length, 0);
+
+  assert.equal(await guard.canActivate(input, { threadGrant: false }), false);
+  assert.equal(sentMessages.length, 1);
+});

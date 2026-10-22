@@ -47,6 +47,7 @@ import type {
   UpdateThreadBotConfigDto,
   SyncThreadMediaDto,
   SyncThreadMediaResponse,
+  IZcaGroupMembersResponse,
 } from '@zalobot/contracts';
 
 /** Admin-only: every route requires a dashboard access token whose user is an admin. */
@@ -327,6 +328,27 @@ export class ZcaController {
       throw new BadRequestException('ZcaBotFeatureService chưa được khởi tạo');
     }
     const result = await this.botFeatureService.syncThreadMediaHistory(threadId, body);
+    return { data: result };
+  }
+
+  @Get('threads/:threadId/members')
+  @ApiOperation({
+    summary: 'Danh sách thành viên của một nhóm ZCA, để cấp quyền gọi bot theo nhóm',
+  })
+  public async getThreadMembers(
+    @Req() req: Request,
+    @Param('threadId') threadId: string,
+    @Query('refresh') refresh?: string,
+  ): Promise<{ data: IZcaGroupMembersResponse }> {
+    this.admin(req);
+    if (!this.zcaService.isLoggedIn()) {
+      throw new BadRequestException('Tài khoản ZCA chưa đăng nhập.');
+    }
+    const result = await this.zcaService.getGroupMembers(
+      threadId,
+      refresh === 'true' || refresh === '1',
+    );
+    if (!result) throw new NotFoundException('Không tìm thấy nhóm Zalo này.');
     return { data: result };
   }
 

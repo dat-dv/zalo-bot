@@ -38,6 +38,7 @@
 - Phone backup: `updateUserProfile`, `upsertUser`, `syncUsersWithZca` call `fillLinkedContactPhones(userId, phone)` → fills linked `debt_contacts` with null/empty phone (never overwrites). `syncUsersWithZca` still overwrites `users.phoneNumber` when ZCA returns a different non-empty number (no manual-phone lock).
 - `getUsers()` enriches rows with ZCA thread data (`alias`, `displayName`, `zaloName`, avatar/phone fallback) without writing.
 - Group text that does not address the bot (no mention/prefix) is ignored before any access check, so it never calls `registerPendingUser` (see zca module "Message Flows").
+- Per-thread access (zca `memberAccess`) is separate from `grantAccess`: a sender granted only by a group is still registered as a DENIED ("pending") row by `GrantAccessGuard`, is allowed in that group, and gains no global access (see modules/zca/member-access.md).
 - **Cleanup script** `apps/api/scripts/cleanup-group-users.ts` (`npm run users:cleanup-groups --workspace @zalobot/api [-- --apply]`): candidates = users whose id equals a `zca_thread_configs.thread_id` with `thread_type='group'`; skips admins and ids still referenced by real data (`finance_transactions.created_by_user_id`, `debt_contacts.linked_user_id`, `user_tokens`, `reminders`, `dashboard_exchange_tokens` by `user_id`; finance tables have no owner column). Default dry-run prints a table; `--apply` deletes in one transaction (audit subscriber logs each delete) and clears Redis `whitelist:user:<id>` when `REDIS_URL` is set.
 
 ## Account Merge (Duplicate Zalo Identities)

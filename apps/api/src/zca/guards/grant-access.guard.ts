@@ -19,10 +19,14 @@ export class GrantAccessGuard {
    * Guard 2:
    * Kiểm tra xem user có quyền truy cập bot (isGrantAccess / Whitelist) hay không:
    * 1. Tự động lưu user vào DB nếu chưa có với cờ grantAccess = DENIED (chờ duyệt).
-   * 2. Kiểm tra quyền truy cập (check Redis cache trước, DB sau).
-   * 3. Nếu chưa được cấp quyền: REJECT (trả về false) và gửi tin nhắn kèm User ID cho user gửi Admin duyệt.
+   * 2. Kênh cấp quyền riêng (`threadGrant`, từ `ThreadAccessService`) thì cho qua, cộng thêm vào quyền toàn cục.
+   * 3. Kiểm tra quyền truy cập toàn cục (check Redis cache trước, DB sau).
+   * 4. Nếu chưa được cấp quyền: REJECT (trả về false) và gửi tin nhắn kèm User ID cho user gửi Admin duyệt.
    */
-  public async canActivate(input: AgentInput): Promise<boolean> {
+  public async canActivate(
+    input: AgentInput,
+    options?: { threadGrant?: boolean },
+  ): Promise<boolean> {
     const senderId = input.senderId;
     if (!senderId) {
       return false;
@@ -38,14 +42,19 @@ export class GrantAccessGuard {
     // 1. Lưu user vào DB với cờ grantAccess = DENIED nếu chưa có
     await this.usersService.registerPendingUser(senderId, input.displayName);
 
-    // 2. Kiểm tra quyền truy cập (check Redis cache whitelist)
+    // 2. Kênh (nhóm) đã cấp quyền cho người này: không cần quyền toàn cục
+    if (options?.threadGrant) {
+      return true;
+    }
+
+    // 3. Kiểm tra quyền truy cập toàn cục (check Redis cache whitelist)
     const isGranted = await this.usersService.isGrantAccess(senderId);
 
     if (isGranted) {
       return true;
     }
 
-    // 3. Nếu chưa được cấp quyền: REJECT & gửi tin nhắn kèm User ID
+    // 4. Nếu chưa được cấp quyền: REJECT & gửi tin nhắn kèm User ID
     this.logger.warn(
       `[GRANT ACCESS GUARD] User ${senderId} (${input.displayName || 'Anonymous'}) blocked: grantAccess is denied.`,
     );

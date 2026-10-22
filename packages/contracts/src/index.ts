@@ -53,6 +53,7 @@ export const API_ROUTES = {
   zcaThreadStorageLinks: (threadId: string) => `/api/zca/threads/${threadId}/storage-links`,
   zcaThreadStorageLink: (threadId: string, linkId: string) =>
     `/api/zca/threads/${threadId}/storage-links/${linkId}`,
+  zcaThreadMembers: (threadId: string) => `/api/zca/threads/${threadId}/members`,
   driveFolderLink: '/api/drive/folder-link',
   driveOpen: '/api/drive/open',
   photosAlbumLink: '/api/photos/album-link',
@@ -1077,6 +1078,32 @@ const messages = {
     'zca.threadConfig.deleteError': 'Không thể xoá cấu hình kênh. Vui lòng thử lại.',
     'zca.threadConfig.deleteInDirectory':
       'Cuộc trò chuyện vẫn còn trong danh bạ Zalo nên không xoá được. Hãy tắt lắng nghe, hoặc bấm Làm mới nếu danh bạ đã cũ.',
+    'zca.memberAccess.title': 'Ai được gọi bot trong nhóm',
+    'zca.memberAccess.description':
+      'Quyền theo nhóm cộng thêm vào quyền toàn cục: admin và người đã được cấp quyền trên trang Zalo & Người dùng luôn dùng được bot.',
+    'zca.memberAccess.mode.grantedUsers': 'Chỉ người đã được cấp quyền toàn cục',
+    'zca.memberAccess.mode.grantedUsersHint':
+      'Như mặc định: người chưa được cấp quyền mention bot sẽ nhận User ID để gửi admin duyệt.',
+    'zca.memberAccess.mode.allMembers': 'Mọi thành viên nhóm',
+    'zca.memberAccess.mode.allMembersHint':
+      'Ai trong nhóm cũng được @mention hoặc dùng tiền tố để gọi bot.',
+    'zca.memberAccess.mode.selectedMembers': 'Thành viên được chọn',
+    'zca.memberAccess.mode.selectedMembersHint':
+      'Chỉ những thành viên được bật bên dưới được gọi bot trong nhóm này.',
+    'zca.memberAccess.searchPlaceholder': 'Tìm theo tên, tên Zalo hoặc UID',
+    'zca.memberAccess.filter.all': 'Tất cả',
+    'zca.memberAccess.filter.selected': 'Đã chọn',
+    'zca.memberAccess.selectedCount': 'Đã chọn {count}/{total}',
+    'zca.memberAccess.refresh': 'Làm mới danh sách',
+    'zca.memberAccess.loading': 'Đang tải thành viên nhóm…',
+    'zca.memberAccess.loadError': 'Không tải được danh sách thành viên nhóm.',
+    'zca.memberAccess.retry': 'Thử lại',
+    'zca.memberAccess.empty': 'Không có thành viên nào khớp.',
+    'zca.memberAccess.badge.admin': 'Admin',
+    'zca.memberAccess.badge.global': 'Quyền toàn cục',
+    'zca.memberAccess.badge.left': 'Không còn trong nhóm',
+    'zca.memberAccess.alwaysAllowed': 'Luôn được dùng bot',
+    'zca.memberAccess.toggleMember': 'Cho {name} gọi bot trong nhóm',
     'zca.storageLinks.driveTitle': 'Thư mục Google Drive',
     'zca.storageLinks.photosTitle': 'Album Google Photos',
     'zca.storageLinks.description':
@@ -2085,6 +2112,32 @@ const messages = {
     'zca.threadConfig.deleteError': 'Could not delete the chat config. Please try again.',
     'zca.threadConfig.deleteInDirectory':
       'This chat is still in the Zalo directory, so it cannot be deleted. Stop listening to it instead, or press Refresh if the directory is out of date.',
+    'zca.memberAccess.title': 'Who can call the bot in this group',
+    'zca.memberAccess.description':
+      'Group access adds to global access: admins and users granted on the Zalo & Users page can always use the bot.',
+    'zca.memberAccess.mode.grantedUsers': 'Only globally granted users',
+    'zca.memberAccess.mode.grantedUsersHint':
+      'The default: an ungranted member who mentions the bot gets their User ID to send to an admin.',
+    'zca.memberAccess.mode.allMembers': 'Every group member',
+    'zca.memberAccess.mode.allMembersHint':
+      'Anyone in the group can @mention the bot or use a prefix.',
+    'zca.memberAccess.mode.selectedMembers': 'Selected members',
+    'zca.memberAccess.mode.selectedMembersHint':
+      'Only the members switched on below can call the bot in this group.',
+    'zca.memberAccess.searchPlaceholder': 'Search by name, Zalo name or UID',
+    'zca.memberAccess.filter.all': 'All',
+    'zca.memberAccess.filter.selected': 'Selected',
+    'zca.memberAccess.selectedCount': '{count}/{total} selected',
+    'zca.memberAccess.refresh': 'Refresh list',
+    'zca.memberAccess.loading': 'Loading group members…',
+    'zca.memberAccess.loadError': 'Could not load the group members.',
+    'zca.memberAccess.retry': 'Retry',
+    'zca.memberAccess.empty': 'No matching members.',
+    'zca.memberAccess.badge.admin': 'Admin',
+    'zca.memberAccess.badge.global': 'Global access',
+    'zca.memberAccess.badge.left': 'No longer in the group',
+    'zca.memberAccess.alwaysAllowed': 'Always allowed',
+    'zca.memberAccess.toggleMember': 'Let {name} call the bot in this group',
     'zca.storageLinks.driveTitle': 'Google Drive folders',
     'zca.storageLinks.photosTitle': 'Google Photos albums',
     'zca.storageLinks.description':
@@ -3286,6 +3339,75 @@ export function normalizeChatMemoryConfig(value: unknown): ThreadChatMemoryConfi
   };
 }
 
+/**
+ * Who may call the bot in a thread, on top of global access (admins and `grantAccess` users are
+ * always allowed). `granted-users` keeps the global rule only.
+ */
+export type ThreadMemberAccessMode = 'granted-users' | 'all-members' | 'selected-members';
+
+export const THREAD_MEMBER_ACCESS_MODES: readonly ThreadMemberAccessMode[] = [
+  'granted-users',
+  'all-members',
+  'selected-members',
+];
+
+export interface ThreadMemberAccessConfig {
+  mode: ThreadMemberAccessMode;
+  /** ZCA UIDs granted in this thread only; used when `mode` is `selected-members`. */
+  memberIds: string[];
+}
+
+export const MEMBER_ACCESS_DEFAULTS: ThreadMemberAccessConfig = {
+  mode: 'granted-users',
+  memberIds: [],
+};
+
+export const MEMBER_ACCESS_LIMITS = {
+  MAX_MEMBERS: 1000,
+} as const;
+
+function isThreadMemberAccessMode(value: unknown): value is ThreadMemberAccessMode {
+  return THREAD_MEMBER_ACCESS_MODES.some((mode) => mode === value);
+}
+
+/**
+ * Cleans a stored or submitted member-access config: an unknown mode falls back to
+ * `granted-users`, ids are trimmed strings, de-duplicated and capped.
+ */
+export function normalizeMemberAccessConfig(value: unknown): ThreadMemberAccessConfig {
+  const raw: Record<string, unknown> =
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  const memberIds: string[] = [];
+  for (const candidate of Array.isArray(raw.memberIds) ? raw.memberIds : []) {
+    const id =
+      typeof candidate === 'string' || typeof candidate === 'number'
+        ? String(candidate).trim()
+        : '';
+    if (id && !memberIds.includes(id)) memberIds.push(id);
+    if (memberIds.length >= MEMBER_ACCESS_LIMITS.MAX_MEMBERS) break;
+  }
+  return {
+    mode: isThreadMemberAccessMode(raw.mode) ? raw.mode : MEMBER_ACCESS_DEFAULTS.mode,
+    memberIds,
+  };
+}
+
+/** A member of a ZCA group, as listed on the thread config page. */
+export interface IZcaGroupMember {
+  id: string;
+  displayName: string;
+  zaloName?: string;
+  avatar?: string;
+}
+
+export interface IZcaGroupMembersResponse {
+  members: IZcaGroupMember[];
+  totalMembers: number;
+  fetchedAt: number;
+}
+
 export const TRIGGER_PREFIX_LIMITS = {
   MAX_COUNT: 10,
   MAX_LENGTH: 20,
@@ -3348,6 +3470,7 @@ export interface ThreadBotConfig {
   mediaBackup: ThreadMediaBackupConfig;
   confirmationRules: ThreadConfirmationConfig;
   chatMemory: ThreadChatMemoryConfig;
+  memberAccess: ThreadMemberAccessConfig;
   updatedAt?: number;
 }
 
@@ -3365,6 +3488,7 @@ export type UpdateThreadBotConfigDto = Partial<{
   mediaBackup: Partial<ThreadMediaBackupConfig>;
   confirmationRules: Partial<ThreadConfirmationConfig>;
   chatMemory: Partial<ThreadChatMemoryConfig>;
+  memberAccess: Partial<ThreadMemberAccessConfig>;
 }>;
 
 export type ChannelStorageLinkKind = 'drive' | 'photos';

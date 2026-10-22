@@ -1,5 +1,6 @@
 import {
   normalizeChatMemoryConfig,
+  normalizeMemberAccessConfig,
   type ThreadBotConfig,
   type UpdateThreadBotConfigDto,
 } from '@zalobot/contracts';
@@ -43,6 +44,7 @@ export function configToForm(config: ThreadBotConfig, threadType: ThreadKind): T
       timeoutMinutes: 5,
     },
     chatMemory: normalizeChatMemoryConfig(config.chatMemory),
+    memberAccess: normalizeMemberAccessConfig(config.memberAccess),
   };
 }
 
@@ -85,5 +87,6 @@ export function formToPayload(
     mediaBackup: form.mediaBackup,
     confirmationRules: form.confirmationRules,
     chatMemory: resolveChatMemory(form, draft),
+    memberAccess: normalizeMemberAccessConfig(form.memberAccess),
   };
 }
