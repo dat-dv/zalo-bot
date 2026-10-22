@@ -30,6 +30,7 @@ import { fetchImageBuffer } from '../common/utils/image-fetcher.util';
 import type { AgentInput } from '../types/agent-input.type';
 import {
   findTriggerPrefix,
+  type IReminderTargetUser,
   type ThreadBotConfig,
   type ThreadDirectInteractionConfig,
   type SyncThreadMediaDto,
@@ -161,6 +162,34 @@ export function extractQuotedImageUrl(quote: unknown): string | null {
     if (url) return url;
   }
   return null;
+}
+
+/**
+ * People tagged in a group message, except the bot and `@All` (uid `-1`), named by the tag
+ * text (`@Trí` → `Trí`). Tools use them as the people to remind, so the LLM never has to
+ * guess a person from a name.
+ */
+export function extractTaggedUsers(
+  text: string,
+  mentions: unknown,
+  ownId: string,
+): IReminderTargetUser[] {
+  if (!Array.isArray(mentions)) return [];
+  const users: IReminderTargetUser[] = [];
+  for (const raw of mentions) {
+    const mention = parseJsonRecord(raw);
+    if (!mention) continue;
+    const { uid, pos, len } = mention;
+    if (typeof uid !== 'string' || !uid || uid === ownId || uid === '-1') continue;
+    if (typeof pos !== 'number' || typeof len !== 'number' || pos < 0 || len <= 0) continue;
+    if (users.some((user) => user.id === uid)) continue;
+    const name = text
+      .slice(pos, pos + len)
+      .replace(/^@/, '')
+      .trim();
+    users.push({ id: uid, name: name || uid });
+  }
+  return users;
 }
 
 /**
@@ -1233,6 +1262,13 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         allowAiChat: directConfig.allowAiChat ?? true,
         triggerPrefixes,
         messageId,
+        taggedUsers: isGroupMessage(message)
+          ? extractTaggedUsers(
+              text,
+              message.data.mentions,
+              typeof api?.getOwnId === 'function' ? api.getOwnId() : '',
+            )
+          : [],
         ...memory,
       };
 

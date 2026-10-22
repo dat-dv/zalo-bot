@@ -1,4 +1,9 @@
-import type { TaskSource, TaskStatus } from '@zalobot/contracts';
+import type {
+  IReminderTargetUser,
+  ReminderTargetMode,
+  TaskSource,
+  TaskStatus,
+} from '@zalobot/contracts';
 import {
   Column,
   CreateDateColumn,
@@ -56,7 +61,14 @@ export class TaskEntity {
   @Column({ name: 'remind_chat_id', type: 'varchar', nullable: true })
   remindChatId?: string | null;
 
-  /** Set when the reminder was sent or skipped; cleared when the time or chat changes. */
+  /** Members of the reminder group to remind (see `ReminderTarget`); empty for a private chat. */
+  @Column({ name: 'remind_users', type: 'jsonb', default: () => "'[]'" })
+  remindUsers?: IReminderTargetUser[];
+
+  @Column({ name: 'remind_mode', type: 'varchar', default: 'mention' })
+  remindMode?: ReminderTargetMode;
+
+  /** Set when the reminder was sent or skipped; cleared when the time or target changes. */
   @Column({ name: 'reminded_at', type: 'timestamptz', nullable: true })
   remindedAt?: Date | null;
 

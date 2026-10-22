@@ -1,3 +1,4 @@
+import type { IReminderTargetUser, ReminderTargetMode } from '@zalobot/contracts';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -45,6 +46,17 @@ export class ReminderEntity {
 
   @Column({ name: 'repeat_type', type: 'varchar', default: 'none' })
   repeatType: 'none' | 'daily' | 'weekly';
+
+  /** Chat the reminder goes to; NULL (rows before reminder targets) = `userId`'s private chat. */
+  @Column({ name: 'chat_id', type: 'varchar', nullable: true })
+  chatId?: string | null;
+
+  /** Members of the reminder group to remind (see `ReminderTarget`); empty for a private chat. */
+  @Column({ name: 'remind_users', type: 'jsonb', default: () => "'[]'" })
+  remindUsers?: IReminderTargetUser[];
+
+  @Column({ name: 'remind_mode', type: 'varchar', default: 'mention' })
+  remindMode?: ReminderTargetMode;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

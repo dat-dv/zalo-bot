@@ -1,7 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import type { TaskStatus } from '@zalobot/contracts';
+import {
+  REMINDER_TARGET_LIMITS,
+  REMINDER_TARGET_MODES,
+  type ReminderTargetMode,
+  type TaskStatus,
+} from '@zalobot/contracts';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsIn,
   IsISO8601,
   IsInt,
@@ -65,6 +72,19 @@ export class CreateTaskDto {
   @IsString()
   @MaxLength(64)
   remindChatId?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'Members of the reminder group to remind' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(REMINDER_TARGET_LIMITS.MAX_USERS)
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
+  remindUserIds?: string[];
+
+  @ApiPropertyOptional({ enum: REMINDER_TARGET_MODES })
+  @IsOptional()
+  @IsIn(REMINDER_TARGET_MODES)
+  remindMode?: ReminderTargetMode;
 }
 
 export class UpdateTaskDto {
@@ -104,4 +124,17 @@ export class UpdateTaskDto {
   @IsNotEmpty()
   @MaxLength(64)
   remindChatId?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'Group members to remind; [] clears them' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(REMINDER_TARGET_LIMITS.MAX_USERS)
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
+  remindUserIds?: string[];
+
+  @ApiPropertyOptional({ enum: REMINDER_TARGET_MODES })
+  @IsOptional()
+  @IsIn(REMINDER_TARGET_MODES)
+  remindMode?: ReminderTargetMode;
 }

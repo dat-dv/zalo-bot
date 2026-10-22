@@ -4,18 +4,24 @@ import { useMemo } from 'react';
 import {
   localeTag,
   type IReminderListItem,
+  type IReminderTargetChannel,
   type ReminderNotifyType,
   type ReminderRepeatType,
 } from '@zalobot/contracts';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
+import type { ReminderTargetDraft } from '@/modules/reminders/model/reminder-target';
+import { ReminderTargetFields } from './reminder-target-fields';
+import { ReminderTargetSummary } from './reminder-target-summary';
 
 export type ReminderEditDraft = {
   title: string;
   remindAt: string;
   notifyType: ReminderNotifyType;
   repeatType: ReminderRepeatType;
+  /** Empty chat = keep the current one. */
+  target: ReminderTargetDraft;
 };
 
 export type RemindersTableProps = {
@@ -33,6 +39,10 @@ export type RemindersTableProps = {
   onDelete?: (id: string) => void | Promise<void>;
   onChangeEditDraft?: React.Dispatch<React.SetStateAction<ReminderEditDraft>>;
   isPending?: boolean;
+  /** Show and edit where each reminder goes (the full /reminders page). */
+  showTarget?: boolean;
+  /** Chats a reminder can be sent to, for the inline edit. */
+  targetChannels?: readonly IReminderTargetChannel[];
 };
 
 export function RemindersTable({
@@ -50,6 +60,8 @@ export function RemindersTable({
   onDelete,
   onChangeEditDraft,
   isPending = false,
+  showTarget = false,
+  targetChannels = [],
 }: RemindersTableProps) {
   const { locale, t } = useLocale();
   // Compact screens edit inside the row sheet; focusing a field there would pop the keyboard.
@@ -250,6 +262,43 @@ export function RemindersTable({
       },
     ];
 
+    if (showTarget) {
+      list.push({
+        id: 'target',
+        header: t('reminders.columns.target'),
+        minWidth: '180px',
+        cell: (item) => {
+          if (editingId === item.id && editDraft && onChangeEditDraft) {
+            return (
+              <div className="min-w-[200px]">
+                <ReminderTargetFields
+                  compact
+                  value={editDraft.target}
+                  onChange={(target) => onChangeEditDraft((prev) => ({ ...prev, target }))}
+                  channels={targetChannels}
+                  savedChat={item.chatId ? { id: item.chatId, name: item.chatName } : undefined}
+                />
+              </div>
+            );
+          }
+          return (
+            <span
+              className={`flex flex-col text-[11.5px] leading-tight select-none ${
+                onStartEdit ? 'cursor-pointer' : ''
+              }`}
+              onDoubleClick={() => onStartEdit?.(item)}
+            >
+              <ReminderTargetSummary
+                chatName={item.chatName ?? t('reminderTarget.self')}
+                users={item.remindUsers}
+                mode={item.remindMode}
+              />
+            </span>
+          );
+        },
+      });
+    }
+
     if (hasActions) {
       list.push({
         id: 'actions',
@@ -334,7 +383,9 @@ export function RemindersTable({
     onSaveEdit,
     onSnooze,
     onStartEdit,
+    showTarget,
     t,
+    targetChannels,
   ]);
 
   return (

@@ -4,7 +4,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { FindOperator, type Repository } from 'typeorm';
 import { TaskEntity } from '../database/entities/task.entity';
 import type { UserEntity } from '../database/entities/user.entity';
-import type { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
+import { createTargetService } from '../reminders/reminder-target.fixtures.spec';
 import { TasksService } from './tasks.service';
 
 type Row = TaskEntity;
@@ -65,33 +65,15 @@ function createRepo(rows: Row[]) {
   return repo as unknown as Repository<TaskEntity>;
 }
 
-type Thread = Pick<ZcaThreadConfigEntity, 'threadId' | 'threadName' | 'threadType' | 'isListened'>;
-
-/** `zca_thread_configs` stand-in: `count` / `find` by exact field values. */
-function createThreadRepo(threads: Thread[]) {
-  const pick = (where: Partial<Thread>) =>
-    threads.filter((t) =>
-      Object.entries(where).every(([key, value]) => t[key as keyof Thread] === value),
-    );
-  const repo = {
-    count: ({ where }: { where: Partial<Thread> }) => Promise.resolve(pick(where).length),
-    find: ({ where }: { where: Partial<Thread> }) => Promise.resolve(pick(where)),
-  };
-  return repo as unknown as Repository<ZcaThreadConfigEntity>;
-}
-
 const createService = (rows: Row[]) => new TasksService(createRepo(rows));
 
-const THREADS: Thread[] = [
-  { threadId: 'g1', threadName: 'Nhà mình', threadType: 'group', isListened: true },
-  { threadId: 'g2', threadName: 'Cũ', threadType: 'group', isListened: false },
-];
-
+/** Tasks over the shared reminder-target fixtures: g1 (members 111, 222) and g3 listened, g2 not. */
 const createReminderService = (rows: Row[] = []) =>
   new TasksService(
     createRepo(rows),
     { findOne: () => Promise.resolve(null) } as unknown as Repository<UserEntity>,
-    createThreadRepo(THREADS),
+    undefined,
+    createTargetService().service,
   );
 
 const inHours = (hours: number) => new Date(Date.now() + hours * 60 * 60 * 1000);
@@ -276,20 +258,53 @@ void test('markTaskReminded only succeeds once', async () => {
   assert.equal(await service.markTaskReminded(row.id), false);
 });
 
-void test('listReminderChannels lists listened threads, plus the private chat of Zalo users', async () => {
+void test('a task reminder can tag group members, and changing them re-arms it', async () => {
   const service = createReminderService();
-  assert.deepEqual(await service.listReminderChannels('dashboard-owner'), [
-    { id: 'g1', name: 'Nhà mình', type: 'group' },
-  ]);
-  assert.deepEqual(await service.listReminderChannels('111'), [
-    { id: '111', name: '111', type: 'user', isSelf: true },
-    { id: 'g1', name: 'Nhà mình', type: 'group' },
-  ]);
+  const actor = { userId: '111' };
+  const row = await service.createTask(
+    { title: 'Họp', remindAt: inHours(2), remindChatId: 'g1', remindUserIds: ['222'] },
+    { ...actor, source: 'dashboard' },
+  );
+  assert.deepEqual(row.remindUsers, [{ id: '222', name: 'Trí' }]);
+  assert.equal(row.remindMode, 'mention');
+  await service.markTaskReminded(row.id);
+
+  const direct = await service.updateTask(row.id, { remindMode: 'direct' }, actor);
+  assert.equal(direct.remindMode, 'direct');
+  assert.equal(direct.remindedAt, null, 'changing how to remind re-arms it');
+  assert.deepEqual(direct.remindUsers, [{ id: '222', name: 'Trí' }], 'keeps the people');
+
+  const moved = await service.updateTask(row.id, { remindChatId: 'g3' }, actor);
+  assert.deepEqual(moved.remindUsers, [], 'people of the old group are dropped');
+  assert.equal(moved.remindMode, 'mention');
 });
 
-void test('isUnlistenedGroup flags groups the admin stopped listening to', async () => {
+void test('a bot task keeps the people tagged in the message', async () => {
+  const row = await createReminderService().createTask(
+    { title: 'Họp', remindAt: inHours(2), remindUsers: [{ id: '333', name: 'Lan' }] },
+    { userId: '111', chatId: 'g1', source: 'zalo' },
+  );
+  assert.equal(row.remindChatId, 'g1');
+  assert.deepEqual(row.remindUsers, [{ id: '333', name: 'Lan' }]);
+});
+
+void test('picking someone outside the group is rejected', async () => {
+  await assert.rejects(
+    createReminderService().createTask(
+      { title: 'Họp', remindAt: inHours(2), remindChatId: 'g1', remindUserIds: ['999'] },
+      { userId: '111', source: 'dashboard' },
+    ),
+    BadRequestException,
+  );
+});
+
+void test('clearing the reminder clears its people', async () => {
   const service = createReminderService();
-  assert.equal(await service.isUnlistenedGroup('g2'), true);
-  assert.equal(await service.isUnlistenedGroup('g1'), false);
-  assert.equal(await service.isUnlistenedGroup('111'), false);
+  const row = await service.createTask(
+    { title: 'Họp', remindAt: inHours(2), remindChatId: 'g1', remindUserIds: ['222'] },
+    { userId: '111', source: 'dashboard' },
+  );
+  const cleared = await service.updateTask(row.id, { remindAt: null }, { userId: '111' });
+  assert.deepEqual(cleared.remindUsers, []);
+  assert.equal(cleared.remindChatId, null);
 });

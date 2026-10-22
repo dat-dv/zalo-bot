@@ -5,6 +5,7 @@ import {
   buildImageOcrPrompt,
   extractMediaUrl,
   extractQuotedImageUrl,
+  extractTaggedUsers,
   isStorageUploadInstruction,
   stripBotMentions,
 } from './zca-bot-feature.service';
@@ -2343,4 +2344,21 @@ void test('ZcaBotFeatureService keeps the global rule for groups in granted-user
   assert.equal(scenario.processed.length, 0);
   assert.equal(scenario.rejections.length, 1, 'only the mention is answered with a rejection');
   assert.deepEqual(scenario.usersService.registered, ['member-1']);
+});
+
+void test('extractTaggedUsers names tagged members and skips the bot and @All', () => {
+  const text = '@Đen 3h nhắc @Trí và @Đạt Đoàn, @All';
+  const at = (tag: string) => ({ pos: text.indexOf(tag), len: tag.length });
+  const mentions = [
+    { uid: 'bot', ...at('@Đen') },
+    { uid: '222', ...at('@Trí') },
+    { uid: '111', ...at('@Đạt Đoàn') },
+    { uid: '222', ...at('@Trí') },
+    { uid: '-1', ...at('@All') },
+  ];
+  assert.deepEqual(extractTaggedUsers(text, mentions, 'bot'), [
+    { id: '222', name: 'Trí' },
+    { id: '111', name: 'Đạt Đoàn' },
+  ]);
+  assert.deepEqual(extractTaggedUsers(text, undefined, 'bot'), []);
 });

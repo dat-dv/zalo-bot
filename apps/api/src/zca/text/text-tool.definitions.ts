@@ -135,6 +135,23 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           type: 'STRING',
           description: 'Thời điểm nhắc nhở dạng ISO string (ví dụ: 2026-10-08T09:00:00.000Z)',
         },
+        remindInGroup: {
+          type: 'BOOLEAN',
+          description:
+            'true khi muốn nhắc trong nhóm đang nhắn ("nhắc cả nhóm"). Mặc định bot nhắn riêng cho ' +
+            'người nhắn; tin có tag @ ai đó thì tự nhắc trong nhóm và tag người đó.',
+        },
+        remindSelf: {
+          type: 'BOOLEAN',
+          description:
+            'true khi nhắc trong nhóm mà người nhắn cũng muốn được tag ("nhắc tôi và @Trí").',
+        },
+        remindMode: {
+          type: 'STRING',
+          enum: ['mention', 'direct'],
+          description:
+            'direct khi muốn nhắn riêng / inbox cho từng người được tag; mặc định mention (tag trong nhóm).',
+        },
       },
       required: ['title', 'remindAt'],
     },
@@ -255,6 +272,19 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           description:
             'Thời điểm bot nhắc việc này trong cuộc trò chuyện, dạng ISO (ví dụ: 2026-10-08T08:00:00.000Z). ' +
             'Chỉ điền khi người dùng muốn được nhắc.',
+        },
+        remindSelf: {
+          type: 'BOOLEAN',
+          description:
+            'true khi người nhắn muốn chính họ được nhắc ("nhắc tôi"). Người được tag @ trong tin ' +
+            'tự động được nhắc, không cần ghi tên ở đây.',
+        },
+        remindMode: {
+          type: 'STRING',
+          enum: ['mention', 'direct'],
+          description:
+            'direct khi người dùng muốn nhắn riêng / inbox cho người được nhắc; mặc định mention ' +
+            '(tag họ trong nhóm).',
         },
       },
       required: ['title'],

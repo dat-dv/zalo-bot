@@ -1,12 +1,13 @@
 import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { DEFAULT_LOCALE } from '@zalobot/contracts';
+import { ReminderTargetService } from '../reminders/reminder-target.service';
 import { UsersService } from '../users/users.service';
 import { ZcaMessengerService } from '../zca/zca-messenger.service';
 import { formatTaskReminderMessage } from './task.mapper';
 import { TasksService } from './tasks.service';
 
-/** Posts each open task into its reminder chat once its reminder time has come. */
+/** Sends each open task to its reminder target once its reminder time has come. */
 @Injectable()
 export class TaskReminderSchedulerService {
   private readonly logger = new Logger(TaskReminderSchedulerService.name);
@@ -14,6 +15,8 @@ export class TaskReminderSchedulerService {
 
   constructor(
     private readonly tasks: TasksService,
+    @Inject(forwardRef(() => ReminderTargetService))
+    private readonly targets: ReminderTargetService,
     @Inject(forwardRef(() => UsersService))
     private readonly users: UsersService,
     @Inject(forwardRef(() => ZcaMessengerService))
@@ -45,19 +48,17 @@ export class TaskReminderSchedulerService {
       if (!chatId) continue;
       // Claim first: whoever marks it sends it, so it never goes out twice.
       if (!(await this.tasks.markTaskReminded(task.id, now))) continue;
-      if (await this.tasks.isUnlistenedGroup(chatId)) {
-        this.logger.warn(`Skipped reminder of task ${task.id}: group ${chatId} is not listened.`);
-        continue;
-      }
       const locale = task.createdByUserId
         ? await this.users.getPreferredLocale(task.createdByUserId)
         : DEFAULT_LOCALE;
-      const sent = await this.zcaMessenger.sendMessage(
-        chatId,
+      const result = await this.targets.deliver(
+        { chatId, users: task.remindUsers ?? [], mode: task.remindMode ?? 'mention' },
         formatTaskReminderMessage(task, locale),
+        locale,
       );
-      if (sent) this.logger.log(`Sent reminder of task ${task.id} to ${chatId}.`);
-      else this.logger.error(`Could not send reminder of task ${task.id} to ${chatId}.`);
+      if (result === 'failed') {
+        this.logger.error(`Could not send reminder of task ${task.id} to ${chatId}.`);
+      }
     }
   }
 }

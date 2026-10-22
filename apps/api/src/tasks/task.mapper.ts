@@ -40,6 +40,8 @@ export function toTaskItem(row: TaskEntity, lookups: RecordOriginLookups): ITask
     remindChatName: row.remindChatId
       ? lookups.chats.get(row.remindChatId)?.name || lookups.userNames.get(row.remindChatId)
       : undefined,
+    remindUsers: row.remindChatId ? (row.remindUsers ?? []) : undefined,
+    remindMode: row.remindChatId ? (row.remindMode ?? 'mention') : undefined,
     remindedAt: row.remindedAt?.toISOString(),
   };
 }
@@ -65,11 +67,11 @@ const REMINDER_NOTES_LENGTH = 200;
 export function formatTaskReminderMessage(
   row: Pick<TaskEntity, 'title' | 'notes' | 'dueAt'>,
   locale: SupportedLocale,
-): string {
+): { header: string; body: string } {
   const notes = row.notes?.trim();
   const due = formatTaskDueDay(row);
-  return [
-    translate(locale, 'task.reminder.header'),
+  // The tag line of the people to remind goes between the header and the body.
+  const body = [
     REMINDER_RULE,
     `📌 ${row.title}`,
     due ? `⏳ ${translate(locale, 'task.reminder.due')}: ${due}` : '',
@@ -81,4 +83,5 @@ export function formatTaskReminderMessage(
   ]
     .filter(Boolean)
     .join('\n');
+  return { header: translate(locale, 'task.reminder.header'), body };
 }

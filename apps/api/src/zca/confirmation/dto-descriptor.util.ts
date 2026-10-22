@@ -2,6 +2,7 @@ import { CreateFinanceTransactionDto, CreateDebtDto } from '../../finance/financ
 import { CreateReminderDto } from '../../reminders/reminders.service';
 import { CreateTaskOptions } from '../../tasks/task.types';
 import { CreateEventOptions } from '../../google/google-calendar.service';
+import type { IReminderTargetUser, ReminderTargetMode } from '@zalobot/contracts';
 
 /**
  * Định nghĩa cấu hình hiển thị và định dạng cho từng trường của DTO.
@@ -31,6 +32,15 @@ export interface DtoFieldConfig<T, K extends keyof T> {
 export type DtoDescriptor<T> = {
   [K in keyof T]-?: DtoFieldConfig<T, K>;
 };
+
+/** Người được nhắc trên thẻ xác nhận: "@Trí, @Đạt", hoặc không tag ai. */
+export function formatRemindUsers(users?: readonly IReminderTargetUser[]): string {
+  return users?.length ? users.map((user) => `@${user.name}`).join(', ') : 'Không tag ai';
+}
+
+export function formatRemindMode(mode?: ReminderTargetMode): string {
+  return mode === 'direct' ? '✉️ Nhắn riêng từng người' : '👥 Tag trong nhóm';
+}
 
 /**
  * Format ngày giờ theo định dạng tiếng Việt (Asia/Ho_Chi_Minh).
@@ -230,6 +240,15 @@ export const REMINDER_DESCRIPTOR: DtoDescriptor<CreateReminderDto> = {
     order: 4,
     format: (v) => (v === 'daily' ? 'Hàng ngày' : v === 'weekly' ? 'Hàng tuần' : 'Không lặp'),
   },
+  chatId: {
+    label: 'Gửi tới',
+    order: 5,
+    format: (v, dto) => (v && v !== String(dto.userId) ? '👥 Nhóm này' : '👤 Chat riêng của bạn'),
+  },
+  remindUsers: { label: 'Nhắc ai', order: 6, format: (v) => formatRemindUsers(v) },
+  remindMode: { label: 'Cách nhắc', order: 7, format: (v) => formatRemindMode(v) },
+  remindUserIds: { label: 'Người được chọn', hidden: true },
+  originChatId: { label: 'Kênh gốc', hidden: true },
   status: { label: 'Trạng thái', hidden: true },
 };
 
@@ -252,9 +271,11 @@ export const TASK_DESCRIPTOR: DtoDescriptor<CreateTaskOptions> = {
     order: 3,
     format: (v) => formatDateTimeVN(v),
   },
+  remindUsers: { label: 'Nhắc ai', order: 4, format: (v) => formatRemindUsers(v) },
+  remindMode: { label: 'Cách nhắc', order: 5, format: (v) => formatRemindMode(v) },
   notes: {
     label: 'Ghi chú',
-    order: 4,
+    order: 6,
     format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
   },
 };

@@ -1,37 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type {
-  ICreateTaskRequest,
-  ITaskListItem,
-  ITaskReminderChannel,
-  IUpdateTaskRequest,
-} from '@zalobot/contracts';
-import {
-  createTask,
-  deleteTask,
-  getTaskReminderChannels,
-  getTasks,
-  updateTask,
-} from './tasks-api';
+import type { ICreateTaskRequest, ITaskListItem, IUpdateTaskRequest } from '@zalobot/contracts';
+import { createTask, deleteTask, getTasks, updateTask } from './tasks-api';
 
-export const tasksQueryKeys = {
-  list: () => ['tasks'] as const,
-  reminderChannels: () => ['tasks', 'reminder-channels'] as const,
-};
+export const tasksQueryKeys = { list: () => ['tasks'] as const };
 
 export function useTasksQuery() {
   return useQuery<ITaskListItem[]>({
     queryKey: tasksQueryKeys.list(),
     queryFn: ({ signal }) => getTasks(signal),
-  });
-}
-
-/** Loaded only while a form that picks a reminder chat is open. */
-export function useTaskReminderChannelsQuery(enabled: boolean) {
-  return useQuery<ITaskReminderChannel[]>({
-    queryKey: tasksQueryKeys.reminderChannels(),
-    queryFn: ({ signal }) => getTaskReminderChannels(signal),
-    enabled,
-    staleTime: 60_000,
   });
 }
 

@@ -46,6 +46,7 @@ import { CreateTasks1724880000000 } from './migrations/1724880000000-CreateTasks
 import { DropTaskGoogleCopy1724890000000 } from './migrations/1724890000000-DropTaskGoogleCopy';
 import { AddMemberAccessToZcaThreadConfigs1724900000000 } from './migrations/1724900000000-AddMemberAccessToZcaThreadConfigs';
 import { AddReminderToTasks1724910000000 } from './migrations/1724910000000-AddReminderToTasks';
+import { AddReminderTargets1724930000000 } from './migrations/1724930000000-AddReminderTargets';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -108,6 +109,7 @@ export const AppDataSource = new DataSource({
     DropTaskGoogleCopy1724890000000,
     AddMemberAccessToZcaThreadConfigs1724900000000,
     AddReminderToTasks1724910000000,
+    AddReminderTargets1724930000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

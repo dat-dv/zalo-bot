@@ -3,14 +3,16 @@
 import { useMemo } from 'react';
 import {
   localeTag,
+  type IReminderTargetChannel,
   type ITaskListItem,
-  type ITaskReminderChannel,
   type TranslationKey,
 } from '@zalobot/contracts';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
-import { TaskReminderChannelOptions } from './task-reminder-channel-options';
+import type { ReminderTargetDraft } from '@/modules/reminders/model/reminder-target';
+import { INLINE_EDIT_FIELD as EDIT_FIELD, ReminderTargetFields } from './reminder-target-fields';
+import { ReminderTargetSummary } from './reminder-target-summary';
 
 export type TaskEditDraft = {
   title: string;
@@ -19,12 +21,9 @@ export type TaskEditDraft = {
   status: 'needsAction' | 'completed';
   /** `datetime-local` value; empty clears the reminder. */
   remindAt: string;
-  /** Empty = keep the current chat, or the user's private chat for a new reminder. */
-  remindChatId: string;
+  /** Empty chat = keep the current one, or the user's private chat for a new reminder. */
+  remindTarget: ReminderTargetDraft;
 };
-
-const EDIT_FIELD =
-  'h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100';
 
 export type TasksTableProps = {
   id?: string;
@@ -46,7 +45,7 @@ export type TasksTableProps = {
   /** Show and edit each task's reminder (the full /tasks page). */
   showReminder?: boolean;
   /** Chats a reminder can be sent to, for the inline edit. */
-  reminderChannels?: readonly ITaskReminderChannel[];
+  reminderChannels?: readonly IReminderTargetChannel[];
 };
 
 const SOURCE_LABEL: Record<NonNullable<ITaskListItem['source']>, TranslationKey> = {
@@ -294,11 +293,8 @@ export function TasksTable({
                   onSaveEdit &&
                   onCancelEdit
                 ) {
-                  const hasSelf = reminderChannels.some((channel) => channel.isSelf);
-                  const fallback =
-                    item.remindChatId ?? reminderChannels.find((c) => c.isSelf)?.id ?? '';
                   return (
-                    <div className="grid gap-1">
+                    <div className="grid min-w-[200px] gap-1">
                       <input
                         type="datetime-local"
                         className={EDIT_FIELD}
@@ -313,29 +309,19 @@ export function TasksTable({
                         aria-label={t('tasks.columns.remindAt')}
                       />
                       {editDraft.remindAt && (
-                        <select
-                          className={EDIT_FIELD}
-                          value={editDraft.remindChatId || fallback}
-                          onChange={(e) =>
-                            onChangeEditDraft((prev) => ({
-                              ...prev,
-                              remindChatId: e.target.value,
-                            }))
+                        <ReminderTargetFields
+                          compact
+                          value={editDraft.remindTarget}
+                          onChange={(remindTarget) =>
+                            onChangeEditDraft((prev) => ({ ...prev, remindTarget }))
                           }
-                          aria-label={t('tasks.remind.channel')}
-                        >
-                          <TaskReminderChannelOptions
-                            channels={reminderChannels}
-                            showPlaceholder={!fallback && !hasSelf}
-                          />
-                          {/* Keep the current chat selectable even if it is no longer listed. */}
-                          {item.remindChatId &&
-                            !reminderChannels.some((c) => c.id === item.remindChatId) && (
-                              <option value={item.remindChatId}>
-                                {item.remindChatName ?? item.remindChatId}
-                              </option>
-                            )}
-                        </select>
+                          channels={reminderChannels}
+                          savedChat={
+                            item.remindChatId
+                              ? { id: item.remindChatId, name: item.remindChatName }
+                              : undefined
+                          }
+                        />
                       )}
                     </div>
                   );
@@ -357,11 +343,11 @@ export function TasksTable({
                       🔔 {date(item.remindAt)}
                       {item.remindedAt && ` · ${t('tasks.remind.sent')}`}
                     </span>
-                    {item.remindChatName && (
-                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {item.remindChatName}
-                      </span>
-                    )}
+                    <ReminderTargetSummary
+                      chatName={item.remindChatName}
+                      users={item.remindUsers}
+                      mode={item.remindMode}
+                    />
                   </span>
                 );
               },

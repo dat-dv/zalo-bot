@@ -1,3 +1,5 @@
+import type { IReminderTargetUser } from '@zalobot/contracts';
+
 export type AgentInputType =
   'text' | 'image' | 'video' | 'voice' | 'sticker' | 'event' | 'unsupported';
 
@@ -30,4 +32,6 @@ export interface AgentInput {
   shortTermMemory?: { contextWindow: number };
   /** Trí nhớ dài hạn của kênh (tra lại chuyện cũ); chỉ có khi kênh bật `chatMemory.enabled` */
   longTermMemory?: { searchLimit: number };
+  /** Người được tag trong tin nhóm (trừ bot và @All); là người được nhắc của nhắc việc/nhắc nhở */
+  taggedUsers?: IReminderTargetUser[];
 }

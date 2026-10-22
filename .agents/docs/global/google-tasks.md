@@ -25,6 +25,9 @@ Khi người dùng nhắn kiểu "thêm việc nộp báo cáo trước 17h", `L
 - `notes`: ghi chú chi tiết (tùy chọn).
 - `due`: hạn chót dạng ISO 8601 (tùy chọn).
 - `remindAt`: giờ bot nhắc việc này, dạng ISO (tùy chọn). Bot nhắc ngay trong cuộc trò chuyện đã nhắn, xem [nhắc việc](../modules/tasks/README.md#2-nhắc-việc).
+- `remindSelf`, `remindMode` (tùy chọn): "nhắc tôi" thì tag người nhắn; "nhắn riêng" thì nhắn riêng từng người thay vì tag trong nhóm.
+
+**Người được nhắc lấy từ tag thật**: ai được @tag trong tin ("3h chiều nhắc @Trí") thì được nhắc. AI không bao giờ tự đoán người theo tên, vì trong nhóm rất hay có người trùng tên và nhắc nhầm người còn tệ hơn không nhắc.
 
 **Nhắc việc khác lời nhắc cá nhân**: "thêm việc làm slide, 3h chiều mai nhắc tôi" là một **việc cần làm** có giờ nhắc nên đi vào `CREATE_TASK` + `remindAt`; còn "3h chiều nhắc tôi đón con" không phải việc trong danh sách nên vẫn là `SET_REMINDER`. Mô tả tool và system prompt đã ghi rõ ranh giới này để LLM không chọn nhầm.
 
@@ -40,7 +43,7 @@ Thêm việc là thay đổi dữ liệu dùng chung, nên bot tạo **thao tác
 - Coi là có thể trùng nếu hai tiêu đề giống hệt sau chuẩn hóa, hoặc tiêu đề ngắn hơn (từ 2 từ trở lên) nằm trọn trong tiêu đề dài hơn.
 - Nếu trùng, bot gửi thêm tin nhắn cảnh báo liệt kê các việc tương tự. Đây chỉ là cảnh báo: người dùng vẫn xác nhận được vì hai việc cùng tên có thể là chủ ý.
 
-Thẻ xác nhận có thêm dòng **Nhắc lúc**, tóm tắt sau khi duyệt có `⏰ nhắc HH:mm dd/MM`.
+Thẻ xác nhận có thêm dòng **Nhắc lúc**, **Nhắc ai**, **Cách nhắc**; tóm tắt sau khi duyệt có `⏰ nhắc HH:mm dd/MM · 👤 @Trí`.
 
 Sau khi xác nhận, việc được lưu vào DB kèm người tạo và nhóm chat nguồn; bot gợi ý gõ `/tasks` để xem toàn bộ. Nếu lúc duyệt giờ nhắc đã trôi qua (thẻ có thể chờ tới 5 phút) hoặc LLM trả giờ sai định dạng, việc **vẫn được tạo** nhưng không có nhắc, thay vì làm hỏng cả thao tác.
 

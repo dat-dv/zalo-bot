@@ -27,12 +27,6 @@ export class TasksController {
     return { data: await this.tasks.toItems(rows) };
   }
 
-  @Get('reminder-channels')
-  @ApiOperation({ summary: 'Kênh Zalo có thể nhận nhắc việc' })
-  async reminderChannels(@Req() req: Request) {
-    return { data: await this.tasks.listReminderChannels(this.userId(req)) };
-  }
-
   @Get(':id')
   async get(@Req() req: Request, @Param('id') id: string) {
     this.userId(req);
@@ -50,6 +44,8 @@ export class TasksController {
         dueAt: body.due ? new Date(body.due) : null,
         remindAt: body.remindAt ? new Date(body.remindAt) : null,
         remindChatId: body.remindChatId,
+        remindUserIds: body.remindUserIds,
+        remindMode: body.remindMode,
       },
       { userId, source: 'dashboard' },
     );
@@ -70,6 +66,8 @@ export class TasksController {
         remindAt:
           body.remindAt === undefined ? undefined : body.remindAt ? new Date(body.remindAt) : null,
         remindChatId: body.remindChatId,
+        remindUserIds: body.remindUserIds,
+        remindMode: body.remindMode,
       },
       { userId },
     );

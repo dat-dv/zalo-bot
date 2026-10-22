@@ -30,7 +30,9 @@ export const API_ROUTES = {
   calendarEvent: (id: string) => `/api/calendar/events/${id}`,
   calendarEventResync: (id: string) => `/api/calendar/events/${id}/resync`,
   tasks: '/api/tasks',
-  taskReminderChannels: '/api/tasks/reminder-channels',
+  reminderTargetChannels: '/api/reminder-targets/channels',
+  reminderTargetMembers: (chatId: string) =>
+    `/api/reminder-targets/channels/${encodeURIComponent(chatId)}/members`,
   task: (id: string) => `/api/tasks/${id}`,
   googleAuthCallback: '/api/oauth2callback',
   swaggerDocs: '/api/docs',
@@ -919,13 +921,26 @@ const messages = {
     'tasks.create.success': 'Đã thêm việc cần làm',
     'tasks.create.error': 'Không thể thêm việc. Vui lòng thử lại.',
     'tasks.columns.remindAt': 'Nhắc lúc',
-    'tasks.remind.channel': 'Gửi nhắc vào',
-    'tasks.remind.channelPlaceholder': 'Chọn kênh nhận nhắc...',
-    'tasks.remind.channelRequired': 'Chọn kênh Zalo nhận nhắc.',
     'tasks.remind.pastTime': 'Thời điểm nhắc phải ở tương lai.',
-    'tasks.remind.self': 'Chat riêng với tôi',
     'tasks.remind.sent': 'Đã nhắc',
-    'tasks.remind.noChannels': 'Chưa có kênh Zalo nào đang được listen.',
+    'reminderTarget.channel': 'Gửi nhắc vào',
+    'reminderTarget.channelPlaceholder': 'Chọn kênh nhận nhắc...',
+    'reminderTarget.channelRequired': 'Chọn kênh Zalo nhận nhắc.',
+    'reminderTarget.self': 'Chat riêng với tôi',
+    'reminderTarget.noChannels': 'Chưa có kênh Zalo nào đang được listen.',
+    'reminderTarget.users': 'Nhắc ai',
+    'reminderTarget.usersHint': 'Không chọn ai thì bot gửi vào nhóm, không tag.',
+    'reminderTarget.usersSearch': 'Tìm thành viên...',
+    'reminderTarget.usersMax': 'Chọn tối đa {max} người.',
+    'reminderTarget.usersLoading': 'Đang tải thành viên...',
+    'reminderTarget.usersUnavailable': 'Chưa lấy được thành viên nhóm (ZCA chưa đăng nhập?).',
+    'reminderTarget.usersNone': 'Không có thành viên khớp.',
+    'reminderTarget.mode': 'Cách nhắc',
+    'reminderTarget.mode.mention': 'Tag trong nhóm',
+    'reminderTarget.mode.direct': 'Nhắn riêng',
+    'reminderTarget.directIntro': 'Bạn được nhắc trong {chat}.',
+    'reminders.columns.target': 'Gửi tới',
+    'reminders.notifyType.callPrivateOnly': 'Gọi điện chỉ dùng khi gửi vào chat riêng.',
     'task.reminder.header': '⏰ Nhắc việc cần làm',
     'task.reminder.due': 'Hạn',
     'task.reminder.completeHint': 'Nhắn bot "xong {title}" để đánh dấu hoàn thành.',
@@ -2006,13 +2021,26 @@ const messages = {
     'tasks.create.success': 'Task added',
     'tasks.create.error': 'Could not add the task. Please try again.',
     'tasks.columns.remindAt': 'Remind at',
-    'tasks.remind.channel': 'Send reminder to',
-    'tasks.remind.channelPlaceholder': 'Choose a chat...',
-    'tasks.remind.channelRequired': 'Choose the Zalo chat that gets the reminder.',
     'tasks.remind.pastTime': 'The reminder time must be in the future.',
-    'tasks.remind.self': 'My private chat',
     'tasks.remind.sent': 'Reminded',
-    'tasks.remind.noChannels': 'No Zalo chat is being listened to yet.',
+    'reminderTarget.channel': 'Send reminder to',
+    'reminderTarget.channelPlaceholder': 'Choose a chat...',
+    'reminderTarget.channelRequired': 'Choose the Zalo chat that gets the reminder.',
+    'reminderTarget.self': 'My private chat',
+    'reminderTarget.noChannels': 'No Zalo chat is being listened to yet.',
+    'reminderTarget.users': 'Who to remind',
+    'reminderTarget.usersHint': 'Nobody picked: the bot posts in the group without tags.',
+    'reminderTarget.usersSearch': 'Search members...',
+    'reminderTarget.usersMax': 'Pick at most {max} people.',
+    'reminderTarget.usersLoading': 'Loading members...',
+    'reminderTarget.usersUnavailable': 'Could not load the group members (is ZCA logged in?).',
+    'reminderTarget.usersNone': 'No matching member.',
+    'reminderTarget.mode': 'How to remind',
+    'reminderTarget.mode.mention': 'Tag in the group',
+    'reminderTarget.mode.direct': 'Private message',
+    'reminderTarget.directIntro': 'You are reminded in {chat}.',
+    'reminders.columns.target': 'Sent to',
+    'reminders.notifyType.callPrivateOnly': 'Calls only work for a private chat.',
     'task.reminder.header': '⏰ Task reminder',
     'task.reminder.due': 'Due',
     'task.reminder.completeHint': 'Tell the bot "done {title}" to mark it complete.',
@@ -2642,6 +2670,11 @@ export interface IReminderListItem {
   status?: 'pending' | 'completed' | 'snoozed' | 'cancelled';
   snoozeCount?: number;
   snoozedUntil?: string;
+  /** Chat the reminder goes to; absent on old rows = the owner's private chat. */
+  chatId?: string;
+  chatName?: string;
+  remindUsers?: IReminderTargetUser[];
+  remindMode?: ReminderTargetMode;
 }
 
 export interface IUpdateReminderRequest {
@@ -2652,6 +2685,10 @@ export interface IUpdateReminderRequest {
   status?: 'pending' | 'completed' | 'snoozed' | 'cancelled';
   snoozeCount?: number;
   snoozedUntil?: string;
+  chatId?: string;
+  /** Members of the reminder group to remind; `[]` clears them. */
+  remindUserIds?: string[];
+  remindMode?: ReminderTargetMode;
 }
 
 export interface IUpdateTransactionRequest {
@@ -2731,7 +2768,9 @@ export interface ITaskListItem {
   remindAt?: string;
   remindChatId?: string;
   remindChatName?: string;
-  /** Set once the reminder went out (or was skipped); cleared when the time or chat changes. */
+  remindUsers?: IReminderTargetUser[];
+  remindMode?: ReminderTargetMode;
+  /** Set once the reminder went out (or was skipped); cleared when the time or target changes. */
   remindedAt?: string;
 }
 
@@ -2742,9 +2781,12 @@ export interface IUpdateTaskRequest {
   /** ISO date-time; empty string clears it. */
   due?: string;
   status?: TaskStatus;
-  /** ISO date-time; empty string clears the reminder (and its chat). */
+  /** ISO date-time; empty string clears the reminder (and its chat and people). */
   remindAt?: string;
   remindChatId?: string;
+  /** Members of the reminder group to remind; `[]` clears them. */
+  remindUserIds?: string[];
+  remindMode?: ReminderTargetMode;
 }
 
 export interface ICreateTaskRequest {
@@ -2754,10 +2796,26 @@ export interface ICreateTaskRequest {
   remindAt?: string;
   /** Required with `remindAt` unless the dashboard user has a Zalo account (then their private chat). */
   remindChatId?: string;
+  remindUserIds?: string[];
+  remindMode?: ReminderTargetMode;
 }
 
-/** A Zalo chat that can receive task reminders: a listened thread, or the user's own private chat. */
-export interface ITaskReminderChannel {
+/**
+ * How a reminder with chosen people goes out: one message in the group tagging them
+ * (`mention`), or a private message to each of them (`direct`).
+ */
+export type ReminderTargetMode = 'mention' | 'direct';
+export const REMINDER_TARGET_MODES: readonly ReminderTargetMode[] = ['mention', 'direct'];
+export const REMINDER_TARGET_LIMITS = { MAX_USERS: 10 } as const;
+
+/** A Zalo user to remind, with the name shown in the `@name` tag. */
+export interface IReminderTargetUser {
+  id: string;
+  name: string;
+}
+
+/** A Zalo chat that can receive reminders: a listened thread, or the user's own private chat. */
+export interface IReminderTargetChannel {
   id: string;
   name: string;
   type: 'user' | 'group';
@@ -2898,6 +2956,10 @@ export interface ICreateReminderRequest {
   remindAt: string;
   notifyType?: ReminderNotifyType;
   repeatType?: ReminderRepeatType;
+  /** Defaults to the creator's private chat; required for `dashboard-owner`. */
+  chatId?: string;
+  remindUserIds?: string[];
+  remindMode?: ReminderTargetMode;
   status?: 'pending' | 'completed' | 'snoozed' | 'cancelled';
   snoozeCount?: number;
   snoozedUntil?: string;

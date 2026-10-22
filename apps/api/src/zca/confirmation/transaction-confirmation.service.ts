@@ -16,6 +16,8 @@ import {
   CreateReminderDto,
   toValidReminderDate,
 } from '../../reminders/reminders.service';
+import { isReminderTargetMode, parseTargetUsers } from '../../reminders/reminder-target';
+import { REMINDER_TARGET_MODES } from '@zalobot/contracts';
 import { CreateTaskOptions } from '../../tasks/task.types';
 import { TasksService } from '../../tasks/tasks.service';
 import { CreateEventOptions } from '../../google/google-calendar.service';
@@ -140,6 +142,7 @@ export function parseReminderPayload(payload: Record<string, unknown>): CreateRe
   if (typeof title !== 'string' || !title.trim()) {
     throw new Error('Thiếu nội dung lịch nhắc.');
   }
+  const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : undefined);
   return {
     userId,
     title,
@@ -147,6 +150,10 @@ export function parseReminderPayload(payload: Record<string, unknown>): CreateRe
     notifyType: pickOption(payload.notifyType, REMINDER_NOTIFY_TYPES),
     repeatType: pickOption(payload.repeatType, REMINDER_REPEAT_TYPES),
     status: pickOption(payload.status, REMINDER_STATUSES),
+    chatId: text(payload.chatId),
+    remindUsers: parseTargetUsers(payload.remindUsers),
+    remindMode: pickOption(payload.remindMode, REMINDER_TARGET_MODES),
+    originChatId: text(payload.originChatId),
   };
 }
 
@@ -1321,6 +1328,8 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               dueAt: toValidTaskDue(payload.due),
               // Reminds in the chat the task was asked in (the actor's chatId).
               remindAt: toValidTaskRemindAt(payload.remindAt),
+              remindUsers: parseTargetUsers(payload.remindUsers),
+              remindMode: isReminderTargetMode(payload.remindMode) ? payload.remindMode : undefined,
             },
             { userId: pending.userId, chatId: pending.chatId, source: 'zalo' },
           );

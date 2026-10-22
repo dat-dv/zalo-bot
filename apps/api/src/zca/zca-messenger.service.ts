@@ -4,6 +4,13 @@ import { splitMessage } from '../common/utils/message-splitter.util';
 
 export type ChatAction = 'typing' | 'upload_photo';
 
+/** A tag inside an outgoing message, as `zca-js` expects it. */
+export interface MessageMention {
+  pos: number;
+  uid: string;
+  len: number;
+}
+
 /** Long replies go out as several messages of at most this many characters. */
 const MESSAGE_CHUNK_LENGTH = 1900;
 const CHUNK_DELAY_MS = 300;
@@ -169,6 +176,35 @@ export class ZcaMessengerService {
     } catch (err) {
       this.logger.warn(
         `Failed to delete message ${msgId} in chat ${targetChatId}: ${(err as Error).message}`,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * One message that tags people (`mentions` positions point into `text`). Not split into
+   * chunks, since a split would move the tags; a text over the chunk length goes out untagged.
+   */
+  public async sendMessageWithMentions(
+    chatId: string | number,
+    text: string,
+    mentions: readonly MessageMention[],
+  ): Promise<boolean> {
+    const targetChatId = String(chatId);
+    if (mentions.length === 0 || text.length > MESSAGE_CHUNK_LENGTH) {
+      return this.sendMessage(targetChatId, text);
+    }
+    if (!this.zcaService?.isLoggedIn()) {
+      this.logger.warn(`ZCA is not logged in. Outgoing message to ${targetChatId}: "${text}"`);
+      return false;
+    }
+    try {
+      await this.zcaService.sendMessage({ msg: text, mentions: [...mentions] }, targetChatId);
+      this.logger.log(`Sent a message tagging ${mentions.length} people to ${targetChatId}`);
+      return true;
+    } catch (err: unknown) {
+      this.logger.error(
+        `Failed to send message via ZCA to ${targetChatId}: ${err instanceof Error ? err.message : 'unknown error'}`,
       );
       return false;
     }

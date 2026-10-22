@@ -3,6 +3,7 @@ import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZcaMessengerService } from '../../zca-messenger.service';
 import { TransactionConfirmationService } from '../../confirmation/transaction-confirmation.service';
+import { reminderModeFromArgs, reminderUsersFromContext } from '../reminder-target-args.util';
 
 @Injectable()
 export class SetReminderToolStrategy implements TextToolStrategy {
@@ -24,6 +25,11 @@ export class SetReminderToolStrategy implements TextToolStrategy {
       typeof args.remindAt === 'string' && args.remindAt.trim() ? args.remindAt.trim() : '';
     const remindAt = remindAtStr ? new Date(remindAtStr) : new Date(Date.now() + 60 * 60 * 1000);
 
+    // A personal reminder stays private unless the message tags people or asks for the group.
+    const tagged = reminderUsersFromContext(context, false);
+    const inGroup = args.remindInGroup === true || tagged.length > 0;
+    const remindUsers = inGroup ? reminderUsersFromContext(context, args.remindSelf === true) : [];
+
     try {
       await this.confirmationService.createPendingReminder({
         userId: context.senderId,
@@ -33,6 +39,10 @@ export class SetReminderToolStrategy implements TextToolStrategy {
           userId: context.senderId,
           title,
           remindAt: Number.isNaN(remindAt.getTime()) ? new Date(Date.now() + 3600000) : remindAt,
+          chatId: inGroup ? context.chatId : undefined,
+          remindUsers: remindUsers.length > 0 ? remindUsers : undefined,
+          remindMode: remindUsers.length > 0 ? reminderModeFromArgs(args) : undefined,
+          originChatId: context.chatId,
         },
       });
     } catch (err) {

@@ -4,6 +4,7 @@ import { TaskEntity } from '../database/entities/task.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
+import { RemindersModule } from '../reminders/reminders.module';
 import { UsersModule } from '../users/users.module';
 import { ZcaModule } from '../zca/zca.module';
 import { TaskReminderSchedulerService } from './task-reminder-scheduler.service';
@@ -14,6 +15,7 @@ import { TasksService } from './tasks.service';
   imports: [
     TypeOrmModule.forFeature([TaskEntity, UserEntity, ZcaThreadConfigEntity]),
     DashboardAuthModule,
+    forwardRef(() => RemindersModule),
     forwardRef(() => UsersModule),
     forwardRef(() => ZcaModule),
   ],

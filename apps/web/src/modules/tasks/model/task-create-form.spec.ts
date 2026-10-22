@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { ITaskReminderChannel } from '@zalobot/contracts';
+import type { IReminderTargetChannel } from '@zalobot/contracts';
 import { buildCreateTaskRequest, emptyTaskDraft } from './task-create-form';
 
 const NOW = new Date('2026-10-22T03:00:00.000Z');
-const SELF: ITaskReminderChannel = { id: '111', name: 'Dat', type: 'user', isSelf: true };
-const GROUP: ITaskReminderChannel = { id: '999', name: 'Nhà mình', type: 'group' };
+const SELF: IReminderTargetChannel = { id: '111', name: 'Dat', type: 'user', isSelf: true };
+const GROUP: IReminderTargetChannel = { id: '999', name: 'Nhà mình', type: 'group' };
 const future = new Date(NOW.getTime() + 2 * 60 * 60 * 1000);
 const pad = (n: number) => String(n).padStart(2, '0');
 /** `datetime-local` value of a date in the test runner's time zone. */
@@ -65,7 +65,12 @@ test('a reminder defaults to the user\'s own private chat', () => {
 
 test('a picked reminder chat wins over the default', () => {
   const result = buildCreateTaskRequest(
-    { ...emptyTaskDraft(), title: 'Họp', remindAt: localInput(future), remindChatId: '999' },
+    {
+      ...emptyTaskDraft(),
+      title: 'Họp',
+      remindAt: localInput(future),
+      remindTarget: { chatId: '999', userIds: [], mode: 'mention' },
+    },
     [SELF, GROUP],
     NOW,
   );
@@ -93,4 +98,24 @@ test('rejects a reminder time in the past', () => {
     ),
     { ok: false, error: 'remindPastTime' },
   );
+});
+
+test('people and mode are sent for a group reminder only', () => {
+  const draft = {
+    ...emptyTaskDraft(),
+    title: 'Họp',
+    remindAt: localInput(future),
+    remindTarget: { chatId: '999', userIds: ['222'], mode: 'direct' as const },
+  };
+  const result = buildCreateTaskRequest(draft, [SELF, GROUP], NOW);
+  assert.equal(result.ok && result.request.remindChatId, '999');
+  assert.deepEqual(result.ok && result.request.remindUserIds, ['222']);
+  assert.equal(result.ok && result.request.remindMode, 'direct');
+
+  const own = buildCreateTaskRequest(
+    { ...draft, remindTarget: { ...draft.remindTarget, chatId: '111' } },
+    [SELF, GROUP],
+    NOW,
+  );
+  assert.equal(own.ok && own.request.remindUserIds, undefined);
 });

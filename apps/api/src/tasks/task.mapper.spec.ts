@@ -61,16 +61,16 @@ void test('toTaskItem names the reminder chat from threads, else from users', ()
 });
 
 void test('formatTaskReminderMessage shows title, due day and notes', () => {
-  const message = formatTaskReminderMessage(
+  const { header, body } = formatTaskReminderMessage(
     { title: 'Nộp báo cáo', notes: 'Quý 3', dueAt: new Date('2026-10-23T23:59:59.000Z') },
     'vi',
   );
-  assert.match(message, /^⏰ Nhắc việc cần làm/);
-  assert.match(message, /📌 Nộp báo cáo/);
-  assert.match(message, /⏳ Hạn: 23\/10/);
-  assert.match(message, /📝 Quý 3/);
-  assert.match(message, /Nhắn bot "xong Nộp báo cáo"/);
+  assert.equal(header, '⏰ Nhắc việc cần làm');
+  assert.match(body, /📌 Nộp báo cáo/);
+  assert.match(body, /⏳ Hạn: 23\/10/);
+  assert.match(body, /📝 Quý 3/);
+  assert.match(body, /Nhắn bot "xong Nộp báo cáo"/);
   const bare = formatTaskReminderMessage({ title: 'Họp', notes: null, dueAt: null }, 'en');
-  assert.doesNotMatch(bare, /⏳|📝/);
-  assert.match(bare, /Task reminder/);
+  assert.doesNotMatch(bare.body, /⏳|📝/);
+  assert.match(bare.header, /Task reminder/);
 });

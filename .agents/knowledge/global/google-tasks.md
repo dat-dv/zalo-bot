@@ -17,6 +17,8 @@ metadata:
       - apps/api/src/zca/confirmation/compact-summary.util.ts
       - apps/api/src/zca/confirmation/dto-descriptor.util.ts
       - apps/api/src/zca/text/text-input.service.ts
+      - apps/api/src/zca/text/reminder-target-args.util.ts
+      - apps/api/src/zca/zca-bot-feature.service.ts
 ---
 
 # Task Commands
@@ -25,7 +27,7 @@ Tasks live only in the shared `tasks` table, with no Google Tasks copy (see [`mo
 
 ## LLM Tools
 
-- `CREATE_TASK` creates exactly one task per call: `title` (required), `notes` (optional), `due` (optional RFC 3339 / ISO 8601), `remindAt` (optional ISO time: the bot reminds about the task in the same chat, see [`modules/tasks/README.md`](../modules/tasks/README.md#task-reminders)). There is no batch/multi-task tool.
+- `CREATE_TASK` creates exactly one task per call: `title` (required), `notes` (optional), `due` (optional RFC 3339 / ISO 8601), `remindAt` (optional ISO time: the bot reminds about the task in the same chat, see [`modules/tasks/README.md`](../modules/tasks/README.md#task-reminders)), `remindSelf` (BOOLEAN, "nhắc tôi": tag the sender), `remindMode` (`mention` default / `direct` for "nhắn riêng"). People tagged in the message (`AgentInput.taggedUsers`, real Zalo mentions minus the bot and `@All`) are the people to remind; the LLM never names people. There is no batch/multi-task tool.
 - `SET_REMINDER` stays the personal reminder (no task). Tool descriptions and the system prompt route "add a task and remind me at X" to `CREATE_TASK` + `remindAt`, and "remind me at X" alone to `SET_REMINDER`.
 - `LIST_TASKS` and `COMPLETE_TASK` (confirmation-gated via `createPendingCompleteTask`) complete the set.
 - No task tool needs Google.
@@ -34,7 +36,7 @@ Tasks live only in the shared `tasks` table, with no Google Tasks copy (see [`mo
 
 1. `CreateTaskToolStrategy` rejects an empty title.
 2. Duplicate check: `TasksService.findPotentialDuplicateTasks` loads up to 200 open DB tasks and matches titles after `normalizeTaskTitle` (`apps/api/src/tasks/task-title.util.ts`) (strip diacritics, `đ`→`d`, lowercase, non-alphanumerics → single space). A match is an exact normalized title, or the shorter title (≥2 words) contained in the longer. Errors in this check are ignored.
-3. A pending action `CREATE_TASK` (3-digit code, standard confirmation) is created with `{ title, due, notes, remindAt }`; the card shows `Nhắc lúc` and the compact summary `⏰ nhắc HH:mm dd/MM`. If duplicates were found, a separate warning message lists them; the user may still confirm.
+3. A pending action `CREATE_TASK` (3-digit code, standard confirmation) is created with `{ title, due, notes, remindAt, remindUsers, remindMode }`; the card shows `Nhắc lúc`, `Nhắc ai`, `Cách nhắc` and the compact summary `⏰ nhắc HH:mm dd/MM · 👤 @A (nhắn riêng)`. If duplicates were found, a separate warning message lists them; the user may still confirm.
 4. On confirmation `TasksService.createTask` saves the row with `{ userId, chatId, source: 'zalo' }` and the reminder (if still in the future) in that chat; the bot replies with the task card and a `/tasks` hint.
 
 ## Fast-Path Commands

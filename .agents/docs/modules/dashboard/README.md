@@ -22,7 +22,8 @@ metadata:
       - apps/web/src/modules/dashboard/presentation/components/reminders-table.tsx
       - apps/web/src/modules/dashboard/presentation/components/create-reminder-dialog.tsx
       - apps/web/src/modules/dashboard/presentation/components/create-task-dialog.tsx
-      - apps/web/src/modules/dashboard/presentation/components/task-reminder-channel-options.tsx
+      - apps/web/src/modules/dashboard/presentation/components/reminder-target-fields.tsx
+      - apps/web/src/modules/dashboard/presentation/components/reminder-target-summary.tsx
       - apps/web/src/modules/dashboard/presentation/components/calendar-table.tsx
       - apps/web/src/modules/dashboard/presentation/components/places-screen.tsx
       - apps/web/src/modules/dashboard/presentation/components/combine-places-dialog.tsx
@@ -159,7 +160,8 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 ## Lịch, Việc cần làm, Nhắc nhở
 
 - `CalendarScreen`: xem tài liệu module calendar (dải tóm tắt, lưới tháng kèm cột ngày đã chọn / sắp tới, sheet chi tiết–tạo–sửa, xoá hỏi lại bằng hộp xác nhận trong app; trên điện thoại mặc định là Lịch trình liền 14 ngày; thanh công cụ gọn một hàng, tiêu đề tháng không xuống dòng, 4 ô tóm tắt nằm chung một hàng).
-- `TasksScreen`: bộ lọc kỳ có Ngày / Tuần / Tháng / Quý / Năm / Tất cả, thẻ tổng quan (tổng, cần làm, đã xong, quá hạn), lọc trạng thái Tất cả / Cần làm / Đã xong, **thêm việc** qua `CreateTaskDialog` (có giờ nhắc và ô chọn kênh nhận nhắc), sửa trực tiếp, xoá bằng hộp xác nhận trong app, cột Người tạo, cột **Nhắc lúc** (chỉ trên trang `/tasks`, khung ở trang Tổng quan giữ bảng rút gọn). Quy tắc nhắc việc xem `modules/tasks/README.md`. Task chỉ lưu trong zalobot, không đồng bộ Google (xem `modules/tasks/README.md`). Khung Việc cần làm ở trang Tổng quan không có dòng nhắc kết nối Google.
+- `TasksScreen`: bộ lọc kỳ có Ngày / Tuần / Tháng / Quý / Năm / Tất cả, thẻ tổng quan (tổng, cần làm, đã xong, quá hạn), lọc trạng thái Tất cả / Cần làm / Đã xong, **thêm việc** qua `CreateTaskDialog` (có giờ nhắc và bộ ô **đích nhắc** `ReminderTargetFields`: kênh, người được nhắc, cách nhắc), sửa trực tiếp, xoá bằng hộp xác nhận trong app, cột Người tạo, cột **Nhắc lúc** (chỉ trên trang `/tasks`, khung ở trang Tổng quan giữ bảng rút gọn). Quy tắc nhắc việc xem `modules/tasks/README.md`. Task chỉ lưu trong zalobot, không đồng bộ Google (xem `modules/tasks/README.md`). Khung Việc cần làm ở trang Tổng quan không có dòng nhắc kết nối Google.
+- `RemindersScreen`: hộp thoại thêm lời nhắc và sửa tại chỗ dùng cùng bộ ô đích nhắc `ReminderTargetFields`, bảng có thêm cột **Gửi tới** (chỉ trên trang `/reminders`). "Gọi điện" chỉ chọn được khi gửi vào chat riêng của chính mình. Lý do và quy tắc xem `modules/reminders/README.md`.
 - `RemindersScreen`: tìm kiếm, sửa trực tiếp, xoá có xác nhận, và **thêm lời nhắc** qua `CreateReminderDialog` (nút trên toolbar ở desktop, thanh hành động dưới cùng ở điện thoại). Quy tắc mặc định và kiểm tra thời điểm xem tài liệu module [reminders](../reminders/README.md).
 - Trên điện thoại: các chip trạng thái của Việc cần làm nằm trên một hàng cuộn ngang cao 40px thay vì xếp chồng, ô tìm kiếm full width 40px. Hai màn này không có nút tạo mới nên cũng không có thanh hành động dưới đáy.
 - Ở màn hẹp (≤ 960px), ba bảng `TasksTable`, `RemindersTable`, `CalendarTable` hiển thị dạng danh sách hai dòng — ở mọi nơi bảng xuất hiện, kể cả trang Tổng quan. Việc cần làm: tiêu đề + hạn (`dd/MM`), dòng hai trạng thái · ghi chú. Nhắc nhở: nội dung + giờ nhắc (`dd/MM HH:mm`), dòng hai kênh (nhắn tin/gọi) · lặp lại. Lịch: tiêu đề + giờ bắt đầu, dòng hai địa điểm · mô tả. Lý do: trên cảm ứng không double-click được, nên chạm vào dòng để mở sheet chi tiết rồi bấm **Sửa** ở chân sheet; các ô trong sheet tự chuyển thành ô nhập. Ô tiêu đề không tự focus trên màn hẹp để bàn phím không bật lên khi vừa bấm Sửa. Desktop vẫn sửa bằng double-click như cũ.

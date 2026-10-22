@@ -154,7 +154,10 @@ const REPEAT_LABELS: Record<NonNullable<CreateReminderDto['repeatType']>, string
 
 export function summarizeReminder(
   code: string,
-  dto: Pick<CreateReminderDto, 'title' | 'notifyType' | 'repeatType'> & {
+  dto: Pick<
+    CreateReminderDto,
+    'title' | 'notifyType' | 'repeatType' | 'remindUsers' | 'remindMode'
+  > & {
     remindAt: string | Date;
   },
   now: Date = new Date(),
@@ -164,8 +167,16 @@ export function summarizeReminder(
   const second = joinParts([
     withPrefix('🔁', dto.repeatType ? REPEAT_LABELS[dto.repeatType] : ''),
     dto.notifyType === 'call' ? '📞 gọi điện' : '',
+    remindPeople(dto),
   ]);
   return joinLines([first, second]);
+}
+
+/** "👤 @Trí, @Đạt (nhắn riêng)", or "" when nobody is tagged. */
+function remindPeople(dto: Pick<CreateTaskOptions, 'remindUsers' | 'remindMode'>): string {
+  if (!dto.remindUsers?.length) return '';
+  const names = dto.remindUsers.map((user) => `@${user.name}`).join(', ');
+  return `👤 ${names}${dto.remindMode === 'direct' ? ' (nhắn riêng)' : ''}`;
 }
 
 export function summarizeTask(
@@ -177,6 +188,7 @@ export function summarizeTask(
     `Thêm việc: ${clean(dto.title)}`,
     withPrefix('⏳ hạn', formatShortDateVN(dto.due, now)),
     withPrefix('⏰ nhắc', formatShortDateTimeVN(dto.remindAt, now)),
+    remindPeople(dto),
   ])}`;
   return joinLines([first, withPrefix('📝', clean(dto.notes))]);
 }

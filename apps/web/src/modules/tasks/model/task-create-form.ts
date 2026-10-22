@@ -1,5 +1,10 @@
-import type { ICreateTaskRequest, ITaskReminderChannel } from '@zalobot/contracts';
+import type { ICreateTaskRequest, IReminderTargetChannel } from '@zalobot/contracts';
 import { dueDateToIso } from '@/shared/lib/local-date-input';
+import {
+  buildReminderTargetFields,
+  emptyReminderTargetDraft,
+  type ReminderTargetDraft,
+} from '@/modules/reminders/model/reminder-target';
 
 export interface TaskCreateDraft {
   title: string;
@@ -8,8 +13,8 @@ export interface TaskCreateDraft {
   due: string;
   /** `datetime-local` value; empty = no reminder. */
   remindAt: string;
-  /** Chosen reminder chat; empty = the user's own private chat, when they have one. */
-  remindChatId: string;
+  /** Where and who to remind; the chat defaults to the user's own private chat. */
+  remindTarget: ReminderTargetDraft;
 }
 
 export type TaskCreateError = 'titleRequired' | 'remindPastTime' | 'remindChannelRequired';
@@ -22,15 +27,8 @@ export const emptyTaskDraft = (): TaskCreateDraft => ({
   notes: '',
   due: '',
   remindAt: '',
-  remindChatId: '',
+  remindTarget: emptyReminderTargetDraft(),
 });
-
-/** The reminder chat used when none is picked: the user's own private chat, if any. */
-export function defaultReminderChannelId(
-  channels: readonly ITaskReminderChannel[],
-): string | undefined {
-  return channels.find((channel) => channel.isSelf)?.id;
-}
 
 /** A `datetime-local` reminder value as ISO; the current minute still counts as the future. */
 export function reminderInputToIso(
@@ -46,7 +44,7 @@ export function reminderInputToIso(
 
 export function buildCreateTaskRequest(
   draft: TaskCreateDraft,
-  channels: readonly ITaskReminderChannel[] = [],
+  channels: readonly IReminderTargetChannel[] = [],
   now: Date = new Date(),
 ): TaskCreateResult {
   const title = draft.title.trim();
@@ -60,7 +58,16 @@ export function buildCreateTaskRequest(
 
   const remindAt = reminderInputToIso(draft.remindAt, now);
   if (!remindAt.ok) return { ok: false, error: 'remindPastTime' };
-  const remindChatId = draft.remindChatId || defaultReminderChannelId(channels);
-  if (!remindChatId) return { ok: false, error: 'remindChannelRequired' };
-  return { ok: true, request: { ...request, remindAt: remindAt.iso, remindChatId } };
+  const target = buildReminderTargetFields(draft.remindTarget, channels);
+  if (!target.ok) return { ok: false, error: 'remindChannelRequired' };
+  const { chatId, remindUserIds, remindMode } = target.fields;
+  return {
+    ok: true,
+    request: {
+      ...request,
+      remindAt: remindAt.iso,
+      remindChatId: chatId,
+      ...(remindUserIds.length > 0 ? { remindUserIds, remindMode } : {}),
+    },
+  };
 }

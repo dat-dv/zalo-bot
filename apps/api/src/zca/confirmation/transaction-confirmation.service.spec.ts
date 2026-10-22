@@ -440,6 +440,25 @@ void test('TransactionConfirmationService confirms reminder whose payload round-
   service.clearAll();
 });
 
+void test('parseReminderPayload keeps the target of a group reminder', () => {
+  const parsed = parseReminderPayload({
+    userId: 'u1',
+    title: 'Họp',
+    remindAt: '2026-10-19T10:00:00.000Z',
+    chatId: 'g1',
+    originChatId: 'g1',
+    remindUsers: [{ id: '222', name: 'Trí' }, { bogus: true }],
+    remindMode: 'direct',
+  });
+  assert.equal(parsed.chatId, 'g1');
+  assert.equal(parsed.originChatId, 'g1');
+  assert.deepEqual(parsed.remindUsers, [{ id: '222', name: 'Trí' }]);
+  assert.equal(parsed.remindMode, 'direct');
+  const personal = parseReminderPayload({ userId: 'u1', title: 'x', remindAt: new Date() });
+  assert.equal(personal.chatId, undefined);
+  assert.equal(personal.remindUsers, undefined);
+});
+
 void test('parseReminderPayload revives ISO remindAt and rejects invalid values', () => {
   const parsed = parseReminderPayload({
     userId: 'u1',

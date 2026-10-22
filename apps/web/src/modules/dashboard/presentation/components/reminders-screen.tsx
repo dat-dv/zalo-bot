@@ -2,10 +2,18 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { type IReminderListItem } from '@zalobot/contracts';
+import { type IReminderListItem, type IUpdateReminderRequest } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataPanel } from '@/shared/ui/data-table';
 import { RemindersTable, type ReminderEditDraft } from './reminders-table';
+import { reminderApiErrorMessage } from '@/modules/reminders/api/reminder-targets-api';
+import { useReminderTargetChannelsQuery } from '@/modules/reminders/api/reminder-targets-query';
+import {
+  buildReminderTargetFields,
+  emptyReminderTargetDraft,
+  isTargetChanged,
+  reminderTargetDraftFrom,
+} from '@/modules/reminders/model/reminder-target';
 import {
   remindersQueryKeys,
   useDeleteReminderMutation,
@@ -17,18 +25,21 @@ import { TOAST_POSITION } from '@/shared/ui/touch';
 import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
 import { CreateReminderDialog } from './create-reminder-dialog';
 
+const emptyEditDraft = (): ReminderEditDraft => ({
+  title: '',
+  remindAt: '',
+  notifyType: 'text',
+  repeatType: 'none',
+  target: emptyReminderTargetDraft(),
+});
+
 export function RemindersScreen() {
   const queryClient = useQueryClient();
   const { t } = useLocale();
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<ReminderEditDraft>({
-    title: '',
-    remindAt: '',
-    notifyType: 'text',
-    repeatType: 'none',
-  });
+  const [editDraft, setEditDraft] = useState<ReminderEditDraft>(emptyEditDraft);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -36,6 +47,7 @@ export function RemindersScreen() {
   const remindersQuery = useRemindersQuery();
   const updateMutation = useUpdateReminderMutation();
   const deleteMutation = useDeleteReminderMutation();
+  const targetChannelsQuery = useReminderTargetChannelsQuery(editingId !== null);
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: remindersQueryKeys.list() });
@@ -71,22 +83,40 @@ export function RemindersScreen() {
       remindAt: item.remindAt ? item.remindAt.slice(0, 16) : '',
       notifyType: item.notifyType || 'text',
       repeatType: item.repeatType || 'none',
+      target: reminderTargetDraftFrom(item.remindUsers, item.remindMode),
     });
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setEditDraft({
-      title: '',
-      remindAt: '',
-      notifyType: 'text',
-      repeatType: 'none',
-    });
+    setEditDraft(emptyEditDraft());
+  };
+
+  /** Target fields of the PATCH, sent only when the chat, people or mode were edited. */
+  const targetPatch = (item: IReminderListItem | undefined): IUpdateReminderRequest | null => {
+    const saved = { chatId: item?.chatId, users: item?.remindUsers, mode: item?.remindMode };
+    if (!isTargetChanged(editDraft.target, saved)) return {};
+    const target = buildReminderTargetFields(
+      editDraft.target,
+      targetChannelsQuery.data ?? [],
+      item?.chatId,
+    );
+    if (!target.ok) return null;
+    return {
+      chatId: target.fields.chatId,
+      remindUserIds: target.fields.remindUserIds,
+      remindMode: target.fields.remindMode,
+    };
   };
 
   const handleSaveEdit = async (id: string) => {
     const trimmedTitle = editDraft.title.trim();
     if (!trimmedTitle) return;
+    const target = targetPatch(remindersQuery.data?.find((item) => item.id === id));
+    if (!target) {
+      showToast(t('reminderTarget.channelRequired'));
+      return;
+    }
 
     try {
       await updateMutation.mutateAsync({
@@ -96,12 +126,14 @@ export function RemindersScreen() {
           remindAt: editDraft.remindAt ? new Date(editDraft.remindAt).toISOString() : undefined,
           notifyType: editDraft.notifyType,
           repeatType: editDraft.repeatType,
+          ...target,
         },
       });
       setEditingId(null);
       showToast(t('reminders.inlineEdit.saved'));
-    } catch {
-      // Error handled by mutation
+    } catch (err: unknown) {
+      // The API explains a rejected target (chat not listened, a call to a group...).
+      showToast(reminderApiErrorMessage(err, t('reminders.create.error')));
     }
   };
 
@@ -193,6 +225,8 @@ export function RemindersScreen() {
               editingId={editingId}
               editDraft={editDraft}
               onChangeEditDraft={setEditDraft}
+              showTarget
+              targetChannels={targetChannelsQuery.data}
               onStartEdit={handleStartEdit}
               onCancelEdit={handleCancelEdit}
               onSaveEdit={handleSaveEdit}
