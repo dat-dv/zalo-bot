@@ -167,7 +167,8 @@ export class ReminderTargetService {
    * The target for a create (`current` = null) or an update. The chat is the requested one,
    * else the current one, else the default. A newly chosen chat must be the actor's own
    * private chat, the chat the bot was asked in, or a listened thread. People only exist in a
-   * group: dashboard picks must be its members; moving to another chat drops them.
+   * group, which needs at least one: dashboard picks must be its members; moving to another chat
+   * drops them. A private chat reminds its own person.
    */
   public async resolve(
     input: ReminderTargetInput,
@@ -192,6 +193,10 @@ export class ReminderTargetService {
       if (input.users !== undefined) users = normalizeTargetUsers(input.users);
       else if (input.userIds !== undefined) users = await this.pickMembers(chatId, input.userIds);
       else if (!chatChanged) users = current?.users ?? [];
+      // A group reminder always tags someone; a private chat reminds its own person.
+      if (users.length === 0) {
+        throw new BadRequestException('Chọn ít nhất một người được nhắc trong nhóm.');
+      }
     }
     // Without people there is nobody to message privately, so the mode is meaningless.
     const keptMode = chatChanged ? undefined : current?.mode;

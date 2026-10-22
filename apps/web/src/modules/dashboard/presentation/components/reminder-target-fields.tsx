@@ -12,6 +12,7 @@ import { useReminderTargetMembersQuery } from '@/modules/reminders/api/reminder-
 import {
   draftChatId,
   isGroupChannel,
+  privateRecipient,
   selfChannelId,
   toggleTargetUser,
   type ReminderTargetDraft,
@@ -32,11 +33,13 @@ interface ReminderTargetFieldsProps {
   compact?: boolean;
   disabled?: boolean;
   showChannelRequired?: boolean;
+  showUsersRequired?: boolean;
 }
 
 /**
- * "Send reminder to" → (for a group) "Who to remind" → (with people) "How to remind": the
- * target of a task reminder or a reminder, in the create dialogs and the inline edits.
+ * "Send reminder to" → "Who to remind" → (with people) "How to remind": the target of a task
+ * reminder or a reminder, in the create dialogs and the inline edits. "Who to remind" is always
+ * shown: a group needs at least one picked member, a private chat reminds its own person.
  */
 export function ReminderTargetFields({
   value,
@@ -47,6 +50,7 @@ export function ReminderTargetFields({
   compact = false,
   disabled = false,
   showChannelRequired = false,
+  showUsersRequired = false,
 }: ReminderTargetFieldsProps) {
   const { t } = useLocale();
   const uid = useId();
@@ -58,6 +62,11 @@ export function ReminderTargetFields({
   const label = compact ? 'text-[11px] font-medium text-slate-500 dark:text-slate-400' : FORM_LABEL;
   const hasDefault = !!(savedChat?.id || selfChannelId(channels));
   const savedMissing = !!savedChat && !channels.some((channel) => channel.id === savedChat.id);
+  // A saved private chat that is no longer listed still names its person.
+  const recipient = isGroup
+    ? undefined
+    : (privateRecipient(channels, chatId) ??
+      (chatId ? { self: false, name: savedChat?.name ?? chatId } : undefined));
 
   const members = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
@@ -105,10 +114,11 @@ export function ReminderTargetFields({
         )}
       </label>
 
-      {isGroup && (
+      {isGroup ? (
         <fieldset className="grid min-w-0 gap-1" disabled={disabled}>
           <legend className={`${label} mb-1`}>
             {t('reminderTarget.users')}
+            <span className="text-rose-500"> *</span>
             {value.userIds.length > 0 &&
               ` (${value.userIds.length}/${REMINDER_TARGET_LIMITS.MAX_USERS})`}
           </legend>
@@ -156,12 +166,30 @@ export function ReminderTargetFields({
               );
             })}
           </div>
-          <span className={FORM_HINT}>
-            {full
-              ? t('reminderTarget.usersMax', { max: REMINDER_TARGET_LIMITS.MAX_USERS })
-              : value.userIds.length === 0 && t('reminderTarget.usersHint')}
-          </span>
+          {showUsersRequired ? (
+            <span className={FORM_ERROR_TEXT}>{t('reminderTarget.usersRequired')}</span>
+          ) : (
+            <span className={FORM_HINT}>
+              {full
+                ? t('reminderTarget.usersMax', { max: REMINDER_TARGET_LIMITS.MAX_USERS })
+                : value.userIds.length === 0 && t('reminderTarget.usersHint')}
+            </span>
+          )}
         </fieldset>
+      ) : (
+        <div className="grid gap-1">
+          <span className={label}>{t('reminderTarget.users')}</span>
+          {recipient ? (
+            <>
+              <span className="truncate text-[12px] text-slate-700 dark:text-slate-200">
+                👤 {recipient.self ? t('reminderTarget.selfPerson') : recipient.name}
+              </span>
+              {!compact && <span className={FORM_HINT}>{t('reminderTarget.usersPrivate')}</span>}
+            </>
+          ) : (
+            <span className={FORM_HINT}>{t('reminderTarget.usersPickChannel')}</span>
+          )}
+        </div>
       )}
 
       {isGroup && value.userIds.length > 0 && (

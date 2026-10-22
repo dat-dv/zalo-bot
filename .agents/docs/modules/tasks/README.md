@@ -71,6 +71,7 @@ Phần đích nhắc dùng chung với lời nhắc cá nhân, giải thích đ�
 | Dashboard, `dashboard-owner` | Không có (tài khoản này không gắn Zalo) | **Bắt buộc chọn** kênh |
 | Dashboard, tài khoản chỉ có ID Zalo Bot cũ (20 ký tự hex) | Không có (ZCA không gửi được tới ID này) | **Bắt buộc chọn** kênh |
 
+- **Người được nhắc** bắt buộc khi có nhắc. Tạo việc từ Zalo trong nhóm: người được tag là người được nhắc; không tag ai thì bot nhắc chính người nhắn. Tạo trong chat riêng thì nhắc chính người đó.
 - Kênh chọn mới phải là chat riêng của chính người đó, hoặc một kênh **đang listen**. Lý do: admin bỏ listen một nhóm nghĩa là không muốn bot hoạt động ở đó.
 - Ô chọn lấy danh sách từ `GET /api/reminder-targets/channels` (dùng chung với lời nhắc), mở cho **mọi** người dùng dashboard (khác `/api/zca/listened-threads` chỉ dành cho admin và chỉ trả ID).
 - Kênh là nhóm thì chọn thêm được **người được nhắc** (thành viên nhóm, tối đa 10) và **cách nhắc**. Trên Zalo: "thêm việc nộp báo cáo, 3h chiều nhắc @Trí" tag Trí; "nhắc tôi" tag người nhắn; "nhắn riêng" thì nhắn riêng từng người.
@@ -127,7 +128,7 @@ Nhắn bot "xong Nộp báo cáo" để đánh dấu hoàn thành.
 ## 4. Màn hình Việc cần làm
 
 - **Thêm việc**: nút `+ Thêm việc` trên toolbar (desktop) hoặc ở thanh hành động dưới cùng (điện thoại) mở hộp thoại gồm tiêu đề (bắt buộc), ghi chú, hạn chót, **Nhắc lúc** (tuỳ chọn, một hoặc nhiều giờ: mỗi giờ một ô, nút xoá từng giờ và nút **+ Thêm giờ nhắc**, tối đa 10).
-  - Bộ ô **đích nhắc** dùng chung (`ReminderTargetFields`) **luôn hiện** ngay dưới giờ nhắc, giống form lời nhắc, để người tạo thấy ngay chỗ "nhắc ai"; chưa có giờ nhắc thì phần này không được gửi đi. Gồm: **Gửi nhắc vào** (người dùng có Zalo được chọn sẵn "Chat riêng với tôi"; `dashboard-owner` và tài khoản ID cũ phải tự chọn; chưa có kênh nào đang listen thì ô báo rõ) → **Nhắc ai** (chỉ khi là nhóm) → **Cách nhắc** (khi đã chọn người).
+  - Bộ ô **đích nhắc** dùng chung (`ReminderTargetFields`) **luôn hiện** ngay dưới giờ nhắc, giống form lời nhắc, để người tạo thấy ngay chỗ "nhắc ai"; chưa có giờ nhắc thì phần này không được gửi đi. Gồm: **Gửi nhắc vào** (người dùng có Zalo được chọn sẵn "Chat riêng với tôi"; `dashboard-owner` và tài khoản ID cũ phải tự chọn; chưa có kênh nào đang listen thì ô báo rõ) → **Nhắc ai** (luôn hiện và bắt buộc khi có giờ nhắc: nhóm phải chọn ít nhất 1 người, chat riêng thì hiện sẵn chính người đó) → **Cách nhắc** (khi đã chọn người). Lý do: nhắc mà không rõ nhắc ai thì tin vào nhóm dễ bị bỏ qua.
   - Giờ đã qua báo lỗi ngay dưới ô; lỗi từ API (kênh không hợp lệ...) hiện đúng thông điệp của API trong hộp thoại.
   - Hạn chót lưu theo cùng quy ước với khi sửa trực tiếp (cuối ngày, giờ UTC).
   - Nếu đang lọc "Đã xong", màn hình tự chuyển về "Cần làm" sau khi thêm để người dùng thấy ngay việc vừa tạo.

@@ -146,7 +146,8 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           type: 'BOOLEAN',
           description:
             'true khi muốn nhắc trong nhóm đang nhắn ("nhắc cả nhóm"). Mặc định bot nhắn riêng cho ' +
-            'người nhắn; tin có tag @ ai đó thì tự nhắc trong nhóm và tag người đó.',
+            'người nhắn; tin có tag @ ai đó thì tự nhắc trong nhóm và tag người đó. Nhắc trong ' +
+            'nhóm mà không tag ai thì bot tag chính người nhắn.',
         },
         remindSelf: {
           type: 'BOOLEAN',

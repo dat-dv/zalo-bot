@@ -34,6 +34,7 @@ export type ReminderCreateError =
   | 'pastTime'
   | 'tooMany'
   | 'channelRequired'
+  | 'usersRequired'
   | 'callPrivateOnly';
 
 export type ReminderCreateResult =
@@ -74,7 +75,7 @@ export function buildCreateReminderRequest(
   if (channels.length === 0) return { ok: true, request };
 
   const target = buildReminderTargetFields(draft.target, channels);
-  if (!target.ok) return { ok: false, error: 'channelRequired' };
+  if (!target.ok) return { ok: false, error: target.error };
   const { chatId, remindUserIds, remindMode } = target.fields;
   // A call reaches one person: only the user's own private chat.
   if (draft.notifyType === 'call' && chatId !== selfChannelId(channels)) {

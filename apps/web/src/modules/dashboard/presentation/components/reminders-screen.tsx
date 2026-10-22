@@ -14,10 +14,12 @@ import { RemindersTable, type ReminderEditDraft } from './reminders-table';
 import { reminderApiErrorMessage } from '@/modules/reminders/api/reminder-targets-api';
 import { useReminderTargetChannelsQuery } from '@/modules/reminders/api/reminder-targets-query';
 import {
+  REMINDER_TARGET_ERROR_MESSAGES,
   buildReminderTargetFields,
   emptyReminderTargetDraft,
   isTargetChanged,
   reminderTargetDraftFrom,
+  type ReminderTargetError,
 } from '@/modules/reminders/model/reminder-target';
 import {
   buildReminderTimes,
@@ -144,19 +146,24 @@ export function RemindersScreen() {
   };
 
   /** Target fields of the PATCH, sent only when the chat, people or mode were edited. */
-  const targetPatch = (item: IReminderListItem | undefined): IUpdateReminderRequest | null => {
+  const targetPatch = (
+    item: IReminderListItem | undefined,
+  ): { ok: true; patch: IUpdateReminderRequest } | { ok: false; error: ReminderTargetError } => {
     const saved = { chatId: item?.chatId, users: item?.remindUsers, mode: item?.remindMode };
-    if (!isTargetChanged(editDraft.target, saved)) return {};
+    if (!isTargetChanged(editDraft.target, saved)) return { ok: true, patch: {} };
     const target = buildReminderTargetFields(
       editDraft.target,
       targetChannelsQuery.data ?? [],
       item?.chatId,
     );
-    if (!target.ok) return null;
+    if (!target.ok) return target;
     return {
-      chatId: target.fields.chatId,
-      remindUserIds: target.fields.remindUserIds,
-      remindMode: target.fields.remindMode,
+      ok: true,
+      patch: {
+        chatId: target.fields.chatId,
+        remindUserIds: target.fields.remindUserIds,
+        remindMode: target.fields.remindMode,
+      },
     };
   };
 
@@ -165,8 +172,8 @@ export function RemindersScreen() {
     if (!trimmedTitle) return;
     const item = remindersQuery.data?.find((reminder) => reminder.id === id);
     const target = targetPatch(item);
-    if (!target) {
-      showToast(t('reminderTarget.channelRequired'));
+    if (!target.ok) {
+      showToast(t(REMINDER_TARGET_ERROR_MESSAGES[target.error]));
       return;
     }
     // Unchanged saved times go back as they are, so a time already sent never blocks saving.
@@ -186,7 +193,7 @@ export function RemindersScreen() {
             : {}),
           notifyType: editDraft.notifyType,
           repeatType: editDraft.repeatType,
-          ...target,
+          ...target.patch,
         },
       });
       setEditingId(null);

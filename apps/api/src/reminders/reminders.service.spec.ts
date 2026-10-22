@@ -155,7 +155,10 @@ void test('changing the target does not re-send a sent time', async () => {
   });
   await service.claimReminderTime(dueTime(reminder, timesOf(reminder.id)[0]));
   await service.refreshReminderSummary(reminder);
-  const moved = await service.updateReminder('111', reminder.id, { chatId: 'g1' });
+  const moved = await service.updateReminder('111', reminder.id, {
+    chatId: 'g1',
+    remindUserIds: ['222'],
+  });
   assert.equal(moved?.chatId, 'g1');
   assert.equal(moved?.isTriggered, true, 'still done');
 });
@@ -182,6 +185,7 @@ void test('a legacy official-bot user must pick a chat for a dashboard reminder'
     title: 'Uống nước',
     remindTimes: [inHours(1)],
     chatId: 'g1',
+    remindUserIds: ['222'],
   });
   assert.equal(saved.chatId, 'g1');
 });
@@ -231,4 +235,23 @@ void test('the done list is latest first and capped', async () => {
     order: { completedAt: { direction: 'DESC', nulls: 'LAST' }, remindAt: 'DESC' },
     take: 200,
   });
+});
+
+void test('an older group reminder without people still saves edits that keep its target', async () => {
+  const { service } = setup();
+  const reminder = await service.createReminder({
+    userId: '111',
+    title: 'Họp',
+    remindTimes: [inHours(1)],
+    chatId: 'g1',
+    remindUserIds: ['222'],
+  });
+  // Saved before people were required in a group.
+  reminder.remindUsers = [];
+  const renamed = await service.updateReminder('111', reminder.id, { title: 'Họp tuần' });
+  assert.equal(renamed?.title, 'Họp tuần');
+  await assert.rejects(
+    service.updateReminder('111', reminder.id, { remindMode: 'direct' }),
+    BadRequestException,
+  );
 });

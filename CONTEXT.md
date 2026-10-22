@@ -41,7 +41,7 @@
 - **Lần nhắc**: Một giờ nhắc của một việc hoặc một lời nhắc, gửi đúng một lần (lời nhắc lặp thì tự dời sang lần kế tiếp). Mỗi việc hoặc lời nhắc có tối đa 10 lần nhắc; sửa danh sách thì lần nào giữ nguyên vẫn giữ dấu đã gửi.
 - **Đích nhắc**: Nơi và người nhận một lần nhắc (nhắc việc hoặc lời nhắc): **kênh nhận nhắc**, **người được nhắc** và **cách nhắc**. Dùng chung cho nhắc việc và lời nhắc, áp cho mọi lần nhắc. Đổi đích chỉ áp cho các lần chưa gửi, không gửi lại lần đã gửi.
 - **Kênh nhận nhắc**: Cuộc trò chuyện Zalo nhận nhắc. Mặc định: nhắc việc → nơi đã nhắn bot tạo việc; lời nhắc → chat riêng của người tạo; trên dashboard → chat riêng của người dùng. Chọn kênh khác thì phải là kênh đang listen. Chủ hệ thống, và người dùng chỉ có ID Zalo Bot cũ (ZCA không nhắn tới được), không có chat riêng nên phải tự chọn.
-- **Người được nhắc**: Thành viên của nhóm nhận nhắc được chọn để nhắc, tối đa 10 người. Trên Zalo lấy từ người được tag trong tin, không đoán theo tên. Chat riêng thì không chọn người.
+- **Người được nhắc**: Ai nhận một lần nhắc; khi có nhắc thì bắt buộc phải có. Nhóm: thành viên được chọn, 1–10 người. Chat riêng: chính người của chat đó. Trên Zalo lấy từ người được tag trong tin, không đoán theo tên; nhắc trong nhóm mà không tag ai thì là người nhắn.
 - **Cách nhắc**: Tag người được nhắc trong nhóm (mặc định), hoặc nhắn riêng từng người; ai không nhắn riêng được thì được tag bù trong nhóm.
 
 ## Nhật ký kiểm toán
