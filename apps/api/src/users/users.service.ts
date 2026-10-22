@@ -11,9 +11,11 @@ import {
 } from '@zalobot/contracts';
 import { RedisService } from '../redis/redis.service';
 import { ZcaService, type AvailableThread } from '../zca/zca.service';
+import { DASHBOARD_OWNER_USER_ID } from './dashboard-owner';
 
-/** `users.id` of the admin that `DASHBOARD_LOGIN_CODE` signs in as (not a Zalo ID). */
-export const DASHBOARD_OWNER_USER_ID = 'dashboard-owner';
+// Lives in its own file so modules can use it without importing this service (and ZCA).
+export { DASHBOARD_OWNER_USER_ID };
+
 const DASHBOARD_OWNER_NAME = 'Chủ hệ thống';
 
 @Injectable()

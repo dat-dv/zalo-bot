@@ -2,13 +2,25 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { FORM_FIELD, FORM_LABEL, FormDialog } from '@/shared/ui/form-dialog';
-import { useCreateTaskMutation } from '@/modules/tasks/api/tasks-query';
+import {
+  FORM_ERROR_TEXT,
+  FORM_FIELD,
+  FORM_HINT,
+  FORM_LABEL,
+  FormDialog,
+} from '@/shared/ui/form-dialog';
+import {
+  useCreateTaskMutation,
+  useTaskReminderChannelsQuery,
+} from '@/modules/tasks/api/tasks-query';
+import { taskApiErrorMessage } from '@/modules/tasks/api/tasks-api';
 import {
   buildCreateTaskRequest,
+  defaultReminderChannelId,
   emptyTaskDraft,
   type TaskCreateDraft,
 } from '@/modules/tasks/model/task-create-form';
+import { TaskReminderChannelOptions } from './task-reminder-channel-options';
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -28,17 +40,23 @@ export function CreateTaskDialog({ open, onClose, onCreated }: CreateTaskDialogP
     setErrorMessage(null);
   }, [open]);
 
-  const result = useMemo(() => buildCreateTaskRequest(draft), [draft]);
+  const channelsQuery = useTaskReminderChannelsQuery(open);
+  const channels = useMemo(() => channelsQuery.data ?? [], [channelsQuery.data]);
+  const defaultChannelId = defaultReminderChannelId(channels);
+  const result = useMemo(() => buildCreateTaskRequest(draft, channels), [draft, channels]);
+  const remindError = result.ok ? null : result.error;
   const update = (patch: Partial<TaskCreateDraft>) => setDraft((prev) => ({ ...prev, ...patch }));
 
   const submit = async () => {
-    if (!result.ok) return;
+    // Re-check against the clock at submit time: the form may have sat open for a while.
+    const latest = buildCreateTaskRequest(draft, channels);
+    if (!latest.ok) return;
     setErrorMessage(null);
     try {
-      await createMutation.mutateAsync(result.request);
+      await createMutation.mutateAsync(latest.request);
       onCreated();
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error && err.message ? err.message : t('tasks.create.error'));
+      setErrorMessage(taskApiErrorMessage(err, t('tasks.create.error')));
     }
   };
 
@@ -93,6 +111,46 @@ export function CreateTaskDialog({ open, onClose, onCreated }: CreateTaskDialogP
           disabled={createMutation.isPending}
         />
       </label>
+
+      <label className="grid gap-1">
+        <span className={FORM_LABEL}>{t('tasks.columns.remindAt')}</span>
+        <input
+          type="datetime-local"
+          className={FORM_FIELD}
+          value={draft.remindAt}
+          onChange={(e) => update({ remindAt: e.target.value })}
+          aria-invalid={remindError === 'remindPastTime'}
+          disabled={createMutation.isPending}
+        />
+        {remindError === 'remindPastTime' && (
+          <span className={FORM_ERROR_TEXT}>{t('tasks.remind.pastTime')}</span>
+        )}
+      </label>
+
+      {draft.remindAt && (
+        <label className="grid gap-1">
+          <span className={FORM_LABEL}>
+            {t('tasks.remind.channel')}
+            {!defaultChannelId && <span className="text-rose-500"> *</span>}
+          </span>
+          <select
+            className={FORM_FIELD}
+            value={draft.remindChatId || defaultChannelId || ''}
+            onChange={(e) => update({ remindChatId: e.target.value })}
+            aria-invalid={remindError === 'remindChannelRequired'}
+            disabled={createMutation.isPending || channelsQuery.isLoading}
+          >
+            <TaskReminderChannelOptions channels={channels} showPlaceholder={!defaultChannelId} />
+          </select>
+          {channelsQuery.isSuccess && channels.length === 0 ? (
+            <span className={FORM_HINT}>{t('tasks.remind.noChannels')}</span>
+          ) : (
+            remindError === 'remindChannelRequired' && (
+              <span className={FORM_ERROR_TEXT}>{t('tasks.remind.channelRequired')}</span>
+            )
+          )}
+        </label>
+      )}
     </FormDialog>
   );
 }

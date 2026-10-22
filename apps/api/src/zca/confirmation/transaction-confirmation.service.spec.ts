@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   TransactionConfirmationService,
   parseReminderPayload,
+  toValidTaskRemindAt,
 } from './transaction-confirmation.service';
 import {
   FinanceService,
@@ -1536,4 +1537,15 @@ void test('createPendingAction applies the saved requiredHearts of the chat thre
   assert.equal(await threadConfigService.findStoredConfig(unknownChat), undefined);
 
   service.clearAll();
+});
+
+void test('toValidTaskRemindAt drops unparseable and past reminder times', () => {
+  const now = new Date('2026-10-22T03:00:00.000Z');
+  assert.equal(
+    toValidTaskRemindAt('2026-10-22T05:00:00.000Z', now)?.toISOString(),
+    '2026-10-22T05:00:00.000Z',
+  );
+  assert.equal(toValidTaskRemindAt('2026-10-22T02:59:00.000Z', now), null);
+  assert.equal(toValidTaskRemindAt('not-a-date', now), null);
+  assert.equal(toValidTaskRemindAt(undefined, now), null);
 });

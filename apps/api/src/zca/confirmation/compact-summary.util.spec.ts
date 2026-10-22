@@ -108,6 +108,13 @@ void test('summarizeTask shows due date inline', () => {
   );
 });
 
+void test('summarizeTask shows the reminder time inline', () => {
+  assert.equal(
+    summarizeTask('501', { title: 'họp', remindAt: '2026-10-22T08:00:00Z' }, NOW),
+    '✅ [501] Thêm việc: họp · ⏰ nhắc 15:00 22/10',
+  );
+});
+
 void test('summarizeCalendarEvent collapses same-day ranges', () => {
   assert.equal(
     summarizeCalendarEvent(

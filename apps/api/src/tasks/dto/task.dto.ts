@@ -54,6 +54,17 @@ export class CreateTaskDto {
   @IsOptional()
   @IsISO8601()
   due?: string;
+
+  @ApiPropertyOptional({ example: '2026-10-23T08:00:00.000Z', description: 'Reminder time' })
+  @IsOptional()
+  @IsISO8601()
+  remindAt?: string;
+
+  @ApiPropertyOptional({ description: 'Zalo chat for the reminder; defaults to your private chat' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  remindChatId?: string;
 }
 
 export class UpdateTaskDto {
@@ -80,4 +91,17 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsIn(TASK_STATUSES)
   status?: TaskStatus;
+
+  @ApiPropertyOptional({ description: 'ISO date-time; empty string clears the reminder' })
+  @IsOptional()
+  @ValidateIf((_dto: UpdateTaskDto, value: unknown) => value !== '')
+  @IsISO8601()
+  remindAt?: string;
+
+  @ApiPropertyOptional({ description: 'Zalo chat for the reminder' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(64)
+  remindChatId?: string;
 }

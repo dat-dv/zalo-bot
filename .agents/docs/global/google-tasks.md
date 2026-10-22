@@ -19,11 +19,14 @@ Việc cần làm chỉ lưu trong bảng `tasks` của zalobot (danh sách chun
 
 ## Nhắn tự nhiên (qua LLM)
 
-Khi người dùng nhắn kiểu "thêm việc nộp báo cáo trước 17h", `LlmService` chọn tool `CREATE_TASK`. Mỗi lần gọi chỉ tạo **một** việc với 3 trường:
+Khi người dùng nhắn kiểu "thêm việc nộp báo cáo trước 17h", `LlmService` chọn tool `CREATE_TASK`. Mỗi lần gọi chỉ tạo **một** việc với 4 trường:
 
 - `title`: tiêu đề việc (bắt buộc).
 - `notes`: ghi chú chi tiết (tùy chọn).
 - `due`: hạn chót dạng ISO 8601 (tùy chọn).
+- `remindAt`: giờ bot nhắc việc này, dạng ISO (tùy chọn). Bot nhắc ngay trong cuộc trò chuyện đã nhắn, xem [nhắc việc](../modules/tasks/README.md#2-nhắc-việc).
+
+**Nhắc việc khác lời nhắc cá nhân**: "thêm việc làm slide, 3h chiều mai nhắc tôi" là một **việc cần làm** có giờ nhắc nên đi vào `CREATE_TASK` + `remindAt`; còn "3h chiều nhắc tôi đón con" không phải việc trong danh sách nên vẫn là `SET_REMINDER`. Mô tả tool và system prompt đã ghi rõ ranh giới này để LLM không chọn nhầm.
 
 Hệ thống không có tool tạo nhiều việc cùng lúc. Ngoài ra còn `LIST_TASKS` (xem việc) và `COMPLETE_TASK` (đánh dấu hoàn thành, cũng phải xác nhận).
 
@@ -37,7 +40,9 @@ Thêm việc là thay đổi dữ liệu dùng chung, nên bot tạo **thao tác
 - Coi là có thể trùng nếu hai tiêu đề giống hệt sau chuẩn hóa, hoặc tiêu đề ngắn hơn (từ 2 từ trở lên) nằm trọn trong tiêu đề dài hơn.
 - Nếu trùng, bot gửi thêm tin nhắn cảnh báo liệt kê các việc tương tự. Đây chỉ là cảnh báo: người dùng vẫn xác nhận được vì hai việc cùng tên có thể là chủ ý.
 
-Sau khi xác nhận, việc được lưu vào DB kèm người tạo và nhóm chat nguồn; bot gợi ý gõ `/tasks` để xem toàn bộ.
+Thẻ xác nhận có thêm dòng **Nhắc lúc**, tóm tắt sau khi duyệt có `⏰ nhắc HH:mm dd/MM`.
+
+Sau khi xác nhận, việc được lưu vào DB kèm người tạo và nhóm chat nguồn; bot gợi ý gõ `/tasks` để xem toàn bộ. Nếu lúc duyệt giờ nhắc đã trôi qua (thẻ có thể chờ tới 5 phút) hoặc LLM trả giờ sai định dạng, việc **vẫn được tạo** nhưng không có nhắc, thay vì làm hỏng cả thao tác.
 
 Hoàn thành việc ("xong việc ...") tìm trong các việc chưa xong của DB theo id hoặc tiêu đề.
 

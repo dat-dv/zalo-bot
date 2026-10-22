@@ -2,16 +2,20 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { type ITaskListItem } from '@zalobot/contracts';
+import { type ITaskListItem, type IUpdateTaskRequest } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { DataPanel } from '@/shared/ui/data-table';
 import { TasksTable, type TaskEditDraft } from './tasks-table';
+import { toLocalDateTimeInput } from '@/shared/lib/local-date-input';
+import { reminderInputToIso } from '@/modules/tasks/model/task-create-form';
+import { taskApiErrorMessage } from '@/modules/tasks/api/tasks-api';
 
 import { usePeriodFilter, type PeriodGrain } from '@/shared/hooks/use-period-filter';
 import { PeriodFilterToolbar } from '@/shared/ui/period-filter-toolbar';
 import {
   tasksQueryKeys,
+  useTaskReminderChannelsQuery,
   useTasksQuery,
   useUpdateTaskMutation,
   useDeleteTaskMutation,
@@ -26,6 +30,18 @@ const CHIP_PHONE =
 
 const TASK_GRAINS: PeriodGrain[] = ['day', 'week', 'month', 'quarter', 'year', 'all'];
 
+const EMPTY_EDIT_DRAFT: TaskEditDraft = {
+  title: '',
+  notes: '',
+  due: '',
+  status: 'needsAction',
+  remindAt: '',
+  remindChatId: '',
+};
+
+/** A stored reminder time as the `datetime-local` value the inline edit starts from. */
+const reminderInput = (iso?: string) => (iso ? toLocalDateTimeInput(new Date(iso)) : '');
+
 export function TasksScreen() {
   const queryClient = useQueryClient();
   const { t } = useLocale();
@@ -37,18 +53,14 @@ export function TasksScreen() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<TaskEditDraft>({
-    title: '',
-    notes: '',
-    due: '',
-    status: 'needsAction',
-  });
+  const [editDraft, setEditDraft] = useState<TaskEditDraft>(EMPTY_EDIT_DRAFT);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
   const tasksQuery = useTasksQuery();
   const updateMutation = useUpdateTaskMutation();
   const deleteMutation = useDeleteTaskMutation();
+  const reminderChannelsQuery = useTaskReminderChannelsQuery(editingId !== null);
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: tasksQueryKeys.list() });
@@ -123,22 +135,41 @@ export function TasksScreen() {
       notes: task.notes || '',
       due: task.dueAt ? task.dueAt.slice(0, 10) : '',
       status: task.status || 'needsAction',
+      remindAt: reminderInput(task.remindAt),
+      remindChatId: '',
     });
   };
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    setEditDraft({
-      title: '',
-      notes: '',
-      due: '',
-      status: 'needsAction',
-    });
+    setEditDraft(EMPTY_EDIT_DRAFT);
+  };
+
+  /**
+   * Reminder fields of the PATCH, sent only when edited: an untouched reminder that already
+   * went out (in the past) must not be re-validated as a new time.
+   */
+  const reminderPatch = (task: ITaskListItem | undefined): IUpdateTaskRequest | null => {
+    const timeChanged = editDraft.remindAt !== reminderInput(task?.remindAt);
+    const chatChanged = !!editDraft.remindChatId && editDraft.remindChatId !== task?.remindChatId;
+    if (!timeChanged && !chatChanged) return {};
+    if (!editDraft.remindAt) return { remindAt: '' };
+    const remindAt = reminderInputToIso(editDraft.remindAt);
+    if (!remindAt.ok) return null;
+    return {
+      remindAt: remindAt.iso,
+      remindChatId: editDraft.remindChatId || undefined,
+    };
   };
 
   const handleSaveEdit = async (id: string) => {
     const trimmedTitle = editDraft.title.trim();
     if (!trimmedTitle) return;
+    const reminder = reminderPatch(rawList.find((task) => task.id === id));
+    if (!reminder) {
+      showToast(t('tasks.remind.pastTime'));
+      return;
+    }
 
     try {
       await updateMutation.mutateAsync({
@@ -149,12 +180,14 @@ export function TasksScreen() {
           notes: editDraft.notes.trim(),
           due: editDraft.due ? new Date(`${editDraft.due}T23:59:59.000Z`).toISOString() : '',
           status: editDraft.status,
+          ...reminder,
         },
       });
       setEditingId(null);
       showToast(t('tasks.inlineEdit.saved'));
-    } catch {
-      // Error handled by mutation
+    } catch (err: unknown) {
+      // The API explains a rejected reminder (no chat, chat not listened); keep the edit open.
+      showToast(taskApiErrorMessage(err, t('tasks.inlineEdit.error')));
     }
   };
 
@@ -330,6 +363,8 @@ export function TasksScreen() {
               onDelete={setPendingDeleteId}
               isPending={updateMutation.isPending}
               showOrigin
+              showReminder
+              reminderChannels={reminderChannelsQuery.data}
             />
           </DataPanel>
         </section>

@@ -121,8 +121,9 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
   {
     name: TextToolType.SET_REMINDER,
     description:
-      'Đặt lịch hẹn hoặc lời nhắc công việc trong tương lai. ' +
-      'Ví dụ: "mai 9h nhắc đi họp", "nhắc tôi 3h chiều đón con".',
+      'Đặt lịch hẹn hoặc lời nhắc cá nhân trong tương lai (không thêm vào danh sách việc). ' +
+      'Ví dụ: "mai 9h nhắc đi họp", "nhắc tôi 3h chiều đón con". ' +
+      'Nếu người dùng thêm một việc cần làm và muốn được nhắc, dùng CREATE_TASK kèm remindAt.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -231,8 +232,9 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
   {
     name: TextToolType.CREATE_TASK,
     description:
-      'Thêm một việc cần làm mới vào danh sách việc chung của zalobot. ' +
-      'Ví dụ: "thêm việc nộp báo cáo trước 17h", "cần mua sữa chua", "nhắc làm slide".',
+      'Thêm một việc cần làm mới vào danh sách việc chung của zalobot, có thể kèm giờ nhắc. ' +
+      'Ví dụ: "thêm việc nộp báo cáo trước 17h", "cần mua sữa chua", ' +
+      '"thêm việc làm slide, 3h chiều mai nhắc tôi".',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -247,6 +249,12 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
         notes: {
           type: 'STRING',
           description: 'Ghi chú thêm về công việc',
+        },
+        remindAt: {
+          type: 'STRING',
+          description:
+            'Thời điểm bot nhắc việc này trong cuộc trò chuyện, dạng ISO (ví dụ: 2026-10-08T08:00:00.000Z). ' +
+            'Chỉ điền khi người dùng muốn được nhắc.',
         },
       },
       required: ['title'],

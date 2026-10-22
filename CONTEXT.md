@@ -36,6 +36,8 @@
 
 - **Việc cần làm (Task)**: Một việc cần hoàn thành, có thể có hạn chót (chỉ tính theo ngày) và ghi chú; ở trạng thái **cần làm** hoặc **đã xong**. Lưu trong **danh sách việc chung** của zalobot, ghi nhận **người tạo** và nguồn (nhóm Zalo, chat riêng hoặc dashboard). Chỉ lưu trong zalobot, không đồng bộ với Google Tasks.
 - **Danh sách việc chung**: Toàn hệ thống có một danh sách việc duy nhất giống sổ chung và lịch chung; ai cũng xem được mọi việc. Không cần kết nối Google.
+- **Nhắc việc**: Một lần nhắc gắn với một việc: đến giờ đã đặt, nếu việc vẫn **cần làm** thì bot gửi tin nhắc vào **kênh nhận nhắc**. Việc đã xong hoặc đã xoá thì không nhắc; đổi giờ hoặc đổi kênh thì nhắc lại. Khác **lời nhắc** cá nhân (không gắn việc, gửi chat riêng, có thể lặp).
+- **Kênh nhận nhắc**: Cuộc trò chuyện Zalo nhận nhắc việc. Mặc định là nơi đã nhắn bot tạo việc, hoặc chat riêng của người dùng dashboard; chọn kênh khác thì phải là kênh đang listen. Chủ hệ thống không có Zalo nên phải tự chọn.
 
 ## Nhật ký kiểm toán
 

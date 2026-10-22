@@ -247,9 +247,14 @@ export const TASK_DESCRIPTOR: DtoDescriptor<CreateTaskOptions> = {
     order: 2,
     format: (v) => formatDateTimeVN(v),
   },
+  remindAt: {
+    label: 'Nhắc lúc',
+    order: 3,
+    format: (v) => formatDateTimeVN(v),
+  },
   notes: {
     label: 'Ghi chú',
-    order: 3,
+    order: 4,
     format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
   },
 };

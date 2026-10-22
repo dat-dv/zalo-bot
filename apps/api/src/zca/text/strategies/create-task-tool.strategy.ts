@@ -21,6 +21,7 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
       title?: string;
       due?: string;
       notes?: string;
+      remindAt?: string;
     };
 
     const title = typeof args.title === 'string' && args.title.trim() ? args.title.trim() : '';
@@ -54,6 +55,10 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
           title,
           due: args.due,
           notes: args.notes,
+          remindAt:
+            typeof args.remindAt === 'string' && args.remindAt.trim()
+              ? args.remindAt.trim()
+              : undefined,
         },
       });
 

@@ -1,17 +1,30 @@
 'use client';
 
 import { useMemo } from 'react';
-import { localeTag, type ITaskListItem, type TranslationKey } from '@zalobot/contracts';
+import {
+  localeTag,
+  type ITaskListItem,
+  type ITaskReminderChannel,
+  type TranslationKey,
+} from '@zalobot/contracts';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
+import { TaskReminderChannelOptions } from './task-reminder-channel-options';
 
 export type TaskEditDraft = {
   title: string;
   notes: string;
   due: string;
   status: 'needsAction' | 'completed';
+  /** `datetime-local` value; empty clears the reminder. */
+  remindAt: string;
+  /** Empty = keep the current chat, or the user's private chat for a new reminder. */
+  remindChatId: string;
 };
+
+const EDIT_FIELD =
+  'h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100';
 
 export type TasksTableProps = {
   id?: string;
@@ -30,6 +43,10 @@ export type TasksTableProps = {
   isPending?: boolean;
   /** Show who made each task (the full /tasks page). */
   showOrigin?: boolean;
+  /** Show and edit each task's reminder (the full /tasks page). */
+  showReminder?: boolean;
+  /** Chats a reminder can be sent to, for the inline edit. */
+  reminderChannels?: readonly ITaskReminderChannel[];
 };
 
 const SOURCE_LABEL: Record<NonNullable<ITaskListItem['source']>, TranslationKey> = {
@@ -53,6 +70,8 @@ export function TasksTable({
   onChangeEditDraft,
   isPending = false,
   showOrigin = false,
+  showReminder = false,
+  reminderChannels = [],
 }: TasksTableProps) {
   const { locale, t } = useLocale();
   // Compact screens edit inside the row sheet; focusing a field there would pop the keyboard.
@@ -90,7 +109,7 @@ export function TasksTable({
           if (isEditing && editDraft && onChangeEditDraft) {
             return (
               <select
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
+                className={EDIT_FIELD}
                 value={editDraft.status}
                 onChange={(e) =>
                   onChangeEditDraft((prev) => ({
@@ -148,7 +167,7 @@ export function TasksTable({
             return (
               <input
                 type="text"
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
+                className={EDIT_FIELD}
                 value={editDraft.title}
                 onChange={(e) => onChangeEditDraft((prev) => ({ ...prev, title: e.target.value }))}
                 onKeyDown={(e) => {
@@ -194,7 +213,7 @@ export function TasksTable({
             return (
               <input
                 type="text"
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
+                className={EDIT_FIELD}
                 value={editDraft.notes}
                 onChange={(e) => onChangeEditDraft((prev) => ({ ...prev, notes: e.target.value }))}
                 onKeyDown={(e) => {
@@ -237,7 +256,7 @@ export function TasksTable({
             return (
               <input
                 type="date"
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
+                className={EDIT_FIELD}
                 value={editDraft.due}
                 onChange={(e) => onChangeEditDraft((prev) => ({ ...prev, due: e.target.value }))}
                 onKeyDown={(e) => {
@@ -260,6 +279,95 @@ export function TasksTable({
           );
         },
       },
+      ...(showReminder
+        ? [
+            {
+              id: 'remindAt',
+              header: t('tasks.columns.remindAt'),
+              align: 'right',
+              minWidth: '170px',
+              cell: (item: ITaskListItem) => {
+                if (
+                  editingId === item.id &&
+                  editDraft &&
+                  onChangeEditDraft &&
+                  onSaveEdit &&
+                  onCancelEdit
+                ) {
+                  const hasSelf = reminderChannels.some((channel) => channel.isSelf);
+                  const fallback =
+                    item.remindChatId ?? reminderChannels.find((c) => c.isSelf)?.id ?? '';
+                  return (
+                    <div className="grid gap-1">
+                      <input
+                        type="datetime-local"
+                        className={EDIT_FIELD}
+                        value={editDraft.remindAt}
+                        onChange={(e) =>
+                          onChangeEditDraft((prev) => ({ ...prev, remindAt: e.target.value }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void onSaveEdit(item.id);
+                          if (e.key === 'Escape') onCancelEdit();
+                        }}
+                        aria-label={t('tasks.columns.remindAt')}
+                      />
+                      {editDraft.remindAt && (
+                        <select
+                          className={EDIT_FIELD}
+                          value={editDraft.remindChatId || fallback}
+                          onChange={(e) =>
+                            onChangeEditDraft((prev) => ({
+                              ...prev,
+                              remindChatId: e.target.value,
+                            }))
+                          }
+                          aria-label={t('tasks.remind.channel')}
+                        >
+                          <TaskReminderChannelOptions
+                            channels={reminderChannels}
+                            showPlaceholder={!fallback && !hasSelf}
+                          />
+                          {/* Keep the current chat selectable even if it is no longer listed. */}
+                          {item.remindChatId &&
+                            !reminderChannels.some((c) => c.id === item.remindChatId) && (
+                              <option value={item.remindChatId}>
+                                {item.remindChatName ?? item.remindChatId}
+                              </option>
+                            )}
+                        </select>
+                      )}
+                    </div>
+                  );
+                }
+                if (!item.remindAt) {
+                  return <span className="text-[11.5px] text-slate-400">—</span>;
+                }
+                return (
+                  <span
+                    className={`flex flex-col items-end text-[11.5px] leading-tight select-none ${
+                      item.remindedAt
+                        ? 'text-slate-400 dark:text-slate-500'
+                        : 'text-slate-700 dark:text-slate-300'
+                    } ${onStartEdit ? 'cursor-pointer' : ''}`}
+                    onDoubleClick={() => onStartEdit?.(item)}
+                    title={item.remindedAt ? t('tasks.remind.sent') : undefined}
+                  >
+                    <span>
+                      🔔 {date(item.remindAt)}
+                      {item.remindedAt && ` · ${t('tasks.remind.sent')}`}
+                    </span>
+                    {item.remindChatName && (
+                      <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {item.remindChatName}
+                      </span>
+                    )}
+                  </span>
+                );
+              },
+            } satisfies DataTableColumn<ITaskListItem>,
+          ]
+        : []),
       {
         id: 'updatedAt',
         header: t('tasks.columns.updatedAt'),
@@ -370,7 +478,9 @@ export function TasksTable({
     onSaveEdit,
     onStartEdit,
     onToggleStatus,
+    reminderChannels,
     showOrigin,
+    showReminder,
     t,
   ]);
 

@@ -15,6 +15,7 @@ import {
  */
 @Entity('tasks')
 @Index('IDX_tasks_status_due_at', ['status', 'dueAt'])
+@Index('IDX_tasks_status_remind_at', ['status', 'remindAt'])
 export class TaskEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -46,6 +47,18 @@ export class TaskEntity {
 
   @Column({ name: 'source_chat_id', type: 'varchar', nullable: true })
   sourceChatId?: string | null;
+
+  /** One-off reminder time; the bot posts the task into `remindChatId` while it is still open. */
+  @Column({ name: 'remind_at', type: 'timestamptz', nullable: true })
+  remindAt?: Date | null;
+
+  /** Zalo thread (group id or private-chat uid) that receives the reminder. */
+  @Column({ name: 'remind_chat_id', type: 'varchar', nullable: true })
+  remindChatId?: string | null;
+
+  /** Set when the reminder was sent or skipped; cleared when the time or chat changes. */
+  @Column({ name: 'reminded_at', type: 'timestamptz', nullable: true })
+  remindedAt?: Date | null;
 
   @Index('IDX_tasks_deleted_at')
   @Column({ name: 'deleted_at', type: 'timestamptz', nullable: true })

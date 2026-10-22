@@ -176,6 +176,7 @@ export function summarizeTask(
   const first = `✅ [${code}] ${joinParts([
     `Thêm việc: ${clean(dto.title)}`,
     withPrefix('⏳ hạn', formatShortDateVN(dto.due, now)),
+    withPrefix('⏰ nhắc', formatShortDateTimeVN(dto.remindAt, now)),
   ])}`;
   return joinLines([first, withPrefix('📝', clean(dto.notes))]);
 }

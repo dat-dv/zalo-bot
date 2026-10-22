@@ -27,6 +27,12 @@ export class TasksController {
     return { data: await this.tasks.toItems(rows) };
   }
 
+  @Get('reminder-channels')
+  @ApiOperation({ summary: 'Kênh Zalo có thể nhận nhắc việc' })
+  async reminderChannels(@Req() req: Request) {
+    return { data: await this.tasks.listReminderChannels(this.userId(req)) };
+  }
+
   @Get(':id')
   async get(@Req() req: Request, @Param('id') id: string) {
     this.userId(req);
@@ -38,7 +44,13 @@ export class TasksController {
   async create(@Req() req: Request, @Body() body: CreateTaskDto) {
     const userId = this.userId(req);
     const row = await this.tasks.createTask(
-      { title: body.title, notes: body.notes, dueAt: body.due ? new Date(body.due) : null },
+      {
+        title: body.title,
+        notes: body.notes,
+        dueAt: body.due ? new Date(body.due) : null,
+        remindAt: body.remindAt ? new Date(body.remindAt) : null,
+        remindChatId: body.remindChatId,
+      },
       { userId, source: 'dashboard' },
     );
     return { data: (await this.tasks.toItems([row]))[0] };
@@ -46,14 +58,21 @@ export class TasksController {
 
   @Patch(':id')
   async update(@Req() req: Request, @Param('id') id: string, @Body() body: UpdateTaskDto) {
-    this.userId(req);
-    const row = await this.tasks.updateTask(id, {
-      title: body.title,
-      // An empty string clears the field; undefined leaves it.
-      notes: body.notes,
-      dueAt: body.due === undefined ? undefined : body.due ? new Date(body.due) : null,
-      status: body.status,
-    });
+    const userId = this.userId(req);
+    const row = await this.tasks.updateTask(
+      id,
+      {
+        title: body.title,
+        // An empty string clears the field; undefined leaves it.
+        notes: body.notes,
+        dueAt: body.due === undefined ? undefined : body.due ? new Date(body.due) : null,
+        status: body.status,
+        remindAt:
+          body.remindAt === undefined ? undefined : body.remindAt ? new Date(body.remindAt) : null,
+        remindChatId: body.remindChatId,
+      },
+      { userId },
+    );
     return { data: (await this.tasks.toItems([row]))[0] };
   }
 

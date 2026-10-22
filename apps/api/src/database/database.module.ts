@@ -44,6 +44,7 @@ import { CreateCalendarEvents1724870000000 } from './migrations/1724870000000-Cr
 import { CreateTasks1724880000000 } from './migrations/1724880000000-CreateTasks';
 import { DropTaskGoogleCopy1724890000000 } from './migrations/1724890000000-DropTaskGoogleCopy';
 import { AddMemberAccessToZcaThreadConfigs1724900000000 } from './migrations/1724900000000-AddMemberAccessToZcaThreadConfigs';
+import { AddReminderToTasks1724910000000 } from './migrations/1724910000000-AddReminderToTasks';
 
 @Module({
   imports: [
@@ -105,6 +106,7 @@ import { AddMemberAccessToZcaThreadConfigs1724900000000 } from './migrations/172
             CreateTasks1724880000000,
             DropTaskGoogleCopy1724890000000,
             AddMemberAccessToZcaThreadConfigs1724900000000,
+            AddReminderToTasks1724910000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

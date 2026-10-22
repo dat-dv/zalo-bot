@@ -111,6 +111,15 @@ function toValidTaskDue(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/**
+ * A task reminder time from an LLM payload. Unparseable or past times (the card may have
+ * waited minutes for approval) mean "no reminder" rather than failing the whole task.
+ */
+export function toValidTaskRemindAt(value: unknown, now: Date = new Date()): Date | null {
+  const date = toValidTaskDue(value);
+  return date && date.getTime() > now.getTime() ? date : null;
+}
+
 const REMINDER_NOTIFY_TYPES = ['text', 'call'] as const;
 const REMINDER_REPEAT_TYPES = ['none', 'daily', 'weekly'] as const;
 const REMINDER_STATUSES = ['pending', 'completed', 'snoozed', 'cancelled'] as const;
@@ -1310,6 +1319,8 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               title: payload.title,
               notes: payload.notes,
               dueAt: toValidTaskDue(payload.due),
+              // Reminds in the chat the task was asked in (the actor's chatId).
+              remindAt: toValidTaskRemindAt(payload.remindAt),
             },
             { userId: pending.userId, chatId: pending.chatId, source: 'zalo' },
           );

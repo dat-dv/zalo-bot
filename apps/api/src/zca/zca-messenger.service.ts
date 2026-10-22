@@ -174,6 +174,11 @@ export class ZcaMessengerService {
     }
   }
 
+  /** Whether messages can go out now (the personal ZCA account is logged in). */
+  public isConnected(): boolean {
+    return Boolean(this.zcaService?.isLoggedIn());
+  }
+
   public async sendMessage(chatId: string | number, text: string): Promise<boolean> {
     const res = await this.sendMessageWithResult(chatId, text);
     return res.success;
