@@ -104,7 +104,7 @@ export function DataTableMobileList<T extends DataTableRow>({
               >
                 <button
                   type="button"
-                  className="flex min-h-[52px] w-full cursor-pointer flex-col justify-center gap-0.5 border-0 !bg-transparent px-3 py-2.5 text-left transition-colors hover:!bg-slate-50 dark:hover:!bg-slate-800/60"
+                  className="flex min-h-[52px] w-full cursor-pointer flex-col justify-center gap-0.5 border-0 !bg-transparent px-3 py-2.5 text-left transition-colors hover:!bg-slate-50 active:!bg-slate-100 dark:hover:!bg-slate-800/60 dark:active:!bg-slate-800"
                   onClick={() => setSelectedKey(getRowKey(row, index))}
                 >
                   <span className="flex w-full min-w-0 items-baseline gap-3">

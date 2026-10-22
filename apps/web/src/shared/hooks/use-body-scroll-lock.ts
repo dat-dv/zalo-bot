@@ -20,6 +20,11 @@ function unlockDocumentScroll(): void {
   document.body.style.overflow = '';
 }
 
+/** True while a drawer or dialog holds the page still (gestures on the page should stand down). */
+export function isDocumentScrollLocked(): boolean {
+  return activeLocks > 0;
+}
+
 export function useBodyScrollLock(active: boolean): void {
   useEffect(() => {
     if (!active) return;

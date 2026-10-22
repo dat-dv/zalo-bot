@@ -129,6 +129,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 ## Cân chỉnh số dư (`AdjustBalanceModal`)
 
 - Mở từ thanh liên kết nhanh trang chủ, thanh công cụ trang Thu chi và trang Cài đặt.
+- Ô số dư thực tế chỉ điền sẵn số dư hiện tại khi đang **hiện** số tiền. Khi số tiền đang bị ẩn, ô để trống: điền sẵn sẽ in số dư thật ra màn hình, làm mất tác dụng của nút ẩn số tiền (lỗi phát hiện khi test prod ngày 22/10/2026).
 - Người dùng nhập số dư thực tế; chênh lệch dương sinh khoản **thu**, chênh lệch âm sinh khoản **chi**, danh mục "Điều chỉnh số dư" (theo ngôn ngữ đang chọn), ghi chú tự sinh có thể sửa, chọn thời điểm. Chênh lệch bằng 0 thì không làm gì.
 - "Số dư trên sổ hiện tại" là **số dư sổ cái toàn thời gian** (tổng thu − tổng chi): trang Thu chi lấy `ledgerBalance` từ API danh sách, trang chủ và Cài đặt lấy `finance.ledgerBalance` từ payload dashboard. Nhờ vậy số tiền điều chỉnh luôn đúng bất kể có dữ liệu các tháng trước.
 

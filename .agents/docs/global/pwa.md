@@ -52,6 +52,8 @@ Push notification **không** làm, vì lời nhắc đã gửi qua Zalo.
 1. Service worker được đăng ký dạng `/sw.js?v=<version>`, trong đó `version` lấy từ `apps/web/package.json` và tăng sau mỗi commit. Version mới thì trình duyệt cài service worker mới.
 2. Service worker mới cài xong sẽ **chờ**, không tự thay bản cũ. App hiện thẻ "Đã có phiên bản mới" ngay dưới header (trên điện thoại), có nút ✕ để ẩn tới lần tải trang sau vì thẻ che một phần đầu trang.
 3. Người dùng bấm "Tải lại": app gửi `SKIP_WAITING`, service worker mới bật lên và trang tải lại đúng một lần. Cache của version cũ bị xoá.
+   - Nếu người dùng không bấm, bản mới **tự áp dụng ở lần chuyển trang kế tiếp** (đổi pathname trong app). Đằng nào trang cũng đổi, nên tải lại lúc đó không làm mất gì: các form chỉ nằm trong một trang. Trang tải lại giữ đúng URL mới.
+   - Trên màn hẹp, thông báo là một hàng cao 40px nằm ngay dưới topbar, trong luồng trang (`PwaUpdateBar`). Nó đẩy nội dung xuống chứ không đè lên thanh chọn kỳ hay các tab nữa.
 4. Khi app quay lại foreground, nó tự kiểm tra bản mới, vì app đã cài thường để mở nhiều ngày.
 
 Vì HTML luôn lấy từ mạng trước và nginx đặt `no-cache`, chỉ cần reload là người dùng có bản mới, kể cả khi chưa bấm "Tải lại".

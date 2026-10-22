@@ -24,6 +24,9 @@ metadata:
       - apps/web/src/shared/ui/breakpoints.ts
       - apps/web/src/shared/ui/touch.ts
       - apps/web/src/shared/ui/mobile-action-bar.tsx
+      - apps/web/src/shared/hooks/use-swipe-dismiss.ts
+      - apps/web/src/shared/hooks/swipe-dismiss.ts
+      - apps/web/src/shared/ui/pull-to-refresh.tsx
 ---
 
 # Định hướng UI web dùng chung
@@ -151,6 +154,31 @@ Trạng thái Skeleton Loading có nhiệm vụ giữ vững khung xương khôn
    - Không được dùng các đoạn text đơn sơ kiểu `{isLoading ? <div>Đang tải...</div> : <MainUI />}` vì sẽ làm mất toàn bộ cấu trúc trang và gây giật khung mạnh khi nạp xong.
 1. **Cấm Header thừa trong View Skeleton**:
    - `WorkspaceHeader` đã được layout chung (`PrivateLayout`) cung cấp. View skeleton tuyệt đối không được tự ý sinh thêm thẻ `<header>` chứa chữ loading.
+
+## Phản hồi khi chạm, chuyển động và cử chỉ vuốt
+
+**Vì sao cần:** sau đợt làm mobile, app đã dùng được trên điện thoại nhưng vẫn "cứng". Chạm vào không thấy gì đổi, vì đã tắt vệt xám mặc định. Sheet hiện ra rồi biến mất tức thì. Không vuốt để đóng được. Trong app đã cài trên iPhone thì không có kéo-xuống-để-làm-mới. Nhấn giữ thì bị bôi đen chữ.
+
+- **Trạng thái nhấn**: chỉ áp dụng trên màn cảm ứng (`@media (hover: none)`), nên desktop không đổi.
+  - Nút, link, tab mờ xuống 60% khi đang nhấn. Dòng danh sách đổi nền.
+  - Thanh điều hướng và nút không bị bôi đen chữ, không hiện menu hệ thống khi nhấn giữ. Ô nhập và nội dung chi tiết vẫn chọn chữ được.
+- **App đã cài**: tắt hiệu ứng nảy (rubber-band) để không lộ nền phía sau.
+- **Máy bật "Giảm chuyển động"**: mọi chuyển động gần như tắt hẳn.
+- **Sheet/dialog**:
+  - Trên điện thoại, sheet trượt từ dưới lên khi mở và trượt xuống khi đóng. Màn lớn thì mờ dần và thu nhỏ nhẹ. Thời gian khoảng 200ms.
+  - `Modal` giữ DOM thêm 200ms sau khi `open = false` để kịp chạy hiệu ứng đóng.
+  - Nếu nơi gọi tự gỡ `Modal` (kiểu `{x && <Modal open />}`) thì không có hiệu ứng đóng, chỉ có hiệu ứng mở.
+- **Vuốt để đóng** (`use-swipe-dismiss.ts`):
+  - Sheet: kéo dải trên cùng (thanh kéo + tiêu đề, 64px) xuống. Kéo quá 1/4 chiều cao, hoặc vuốt nhanh, thì sheet đóng; không thì bật về chỗ cũ.
+  - Chỉ vuốt được khi dialog cho phép đóng: lúc đang gửi request thì không vuốt được. Form dài mở toàn màn hình cũng không vuốt.
+  - Drawer: vuốt sang trái để đóng.
+  - Dùng touch events chứ không dùng pointer events, vì iOS huỷ pointer ngay khi trang bắt đầu cuộn.
+- **Kéo xuống để làm mới** (`pull-to-refresh.tsx`):
+  - Chỉ bật trong app đã cài, trên màn hẹp. Trình duyệt thường đã có sẵn tính năng này.
+  - Kéo ở đỉnh trang thì hiện nhãn "Kéo để làm mới", qua 64px thì đổi thành "Thả để làm mới".
+  - Thả ra thì tải lại mọi dữ liệu, giống nút ↻ trên topbar, và quay tới khi tải xong.
+  - Không chạy khi đang mở dialog hoặc drawer.
+- **Thanh tab**: tab vừa bấm sáng lên ngay, không chờ trang mới tải xong. Nếu mạng chậm thì có một vạch xanh nhấp nháy trên tab. Các tab được `next/link` tải trước sẵn.
 
 ## Modal trên mobile & bàn phím ảo
 

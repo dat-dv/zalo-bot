@@ -9,7 +9,7 @@ import {
   MODAL_STICKY_FOOTER,
   MODAL_STICKY_HEADER,
 } from '@/shared/ui/modal';
-import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
+import { useMoneyFormatter, useMoneyVisibilityStore } from '@/shared/store/money-visibility-store';
 import { useCreateTransactionMutation } from '../../api/transactions-query';
 
 export interface AdjustBalanceModalProps {
@@ -51,7 +51,10 @@ export function AdjustBalanceModal({
   // Initialize draft when modal opens
   useEffect(() => {
     if (isOpen) {
-      setTargetAmountInput(currentBalance.toString());
+      // With amounts hidden, a prefilled field would print the real balance on screen.
+      // Read the flag once at open so toggling visibility does not wipe what was typed.
+      const isMoneyVisible = useMoneyVisibilityStore.getState().isMoneyVisible;
+      setTargetAmountInput(isMoneyVisible ? currentBalance.toString() : '');
       setOccurredAt(getLocalDateTimeString());
       setNote('');
       setIsCustomNote(false);

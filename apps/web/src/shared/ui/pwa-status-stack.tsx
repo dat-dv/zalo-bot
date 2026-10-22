@@ -1,29 +1,46 @@
 'use client';
 
-import { useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { usePwaStore } from '@/shared/pwa/pwa-store';
 import { useOnlineStatus } from '@/shared/pwa/use-online-status';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { Button } from '@/shared/ui/button';
 
+function applyUpdate(worker: ServiceWorker | null) {
+  // The worker activates, `controllerchange` fires and PwaRegistrar reloads the page once.
+  worker?.postMessage({ type: 'SKIP_WAITING' });
+}
+
 /**
- * Small notices pinned to the top center: "offline" and "new version, reload". Top rather than
- * bottom because the phone shell already stacks the tab bar and action bars at the bottom.
+ * A waiting deploy is applied on the next in-app navigation: the page changes anyway, so the
+ * reload costs nothing and no half-typed form is lost (forms live inside one route).
+ */
+function useApplyUpdateOnNavigation(waitingWorker: ServiceWorker | null) {
+  const pathname = usePathname();
+  const previousPathname = useRef(pathname);
+  useEffect(() => {
+    if (previousPathname.current === pathname) return;
+    previousPathname.current = pathname;
+    applyUpdate(waitingWorker);
+  }, [pathname, waitingWorker]);
+}
+
+/**
+ * Small notices pinned to the top center: "offline" and, on desktop, "new version, reload".
+ * Compact screens show the update notice as `PwaUpdateBar` in the page flow instead, so it
+ * pushes content down rather than covering the period toolbar or tabs.
  */
 export function PwaStatusStack() {
   const { t } = useLocale();
   const isOnline = useOnlineStatus();
   const waitingWorker = usePwaStore((state) => state.waitingWorker);
+  useApplyUpdateOnNavigation(waitingWorker);
   // The card covers the top of the page; closing it hides it until the next load.
   const [dismissedWorker, setDismissedWorker] = useState<ServiceWorker | null>(null);
   const showUpdate = waitingWorker !== null && waitingWorker !== dismissedWorker;
 
   if (isOnline && !showUpdate) return null;
-
-  const applyUpdate = () => {
-    // The worker activates, `controllerchange` fires and PwaRegistrar reloads the page once.
-    waitingWorker?.postMessage({ type: 'SKIP_WAITING' });
-  };
 
   return (
     // Phone: just under the workspace header so its menu button stays reachable.
@@ -39,11 +56,11 @@ export function PwaStatusStack() {
       {showUpdate && (
         <div
           role="status"
-          className="pointer-events-auto flex w-full max-w-sm items-center justify-between gap-3 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-md dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          className="pointer-events-auto flex max-[960px]:hidden w-full max-w-sm items-center justify-between gap-3 rounded border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-md dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         >
           <span className="flex-1 font-medium">{t('pwa.update.title')}</span>
           <Button
-            onClick={applyUpdate}
+            onClick={() => applyUpdate(waitingWorker)}
             className="min-h-[36px] shrink-0 rounded bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
           >
             {t('pwa.update.reload')}
@@ -57,6 +74,36 @@ export function PwaStatusStack() {
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Compact-screen update notice: a slim 40px row under the topbar, in the page flow. */
+export function PwaUpdateBar() {
+  const { t } = useLocale();
+  const waitingWorker = usePwaStore((state) => state.waitingWorker);
+  const [dismissedWorker, setDismissedWorker] = useState<ServiceWorker | null>(null);
+  if (waitingWorker === null || waitingWorker === dismissedWorker) return null;
+
+  return (
+    <div
+      role="status"
+      className="hidden min-h-10 items-center gap-2 rounded border border-sky-200 bg-sky-50 py-1 pr-1 pl-3 text-xs text-sky-900 max-[960px]:flex dark:border-sky-900 dark:bg-sky-950/60 dark:text-sky-100"
+    >
+      <span className="min-w-0 flex-1 truncate font-medium">{t('pwa.update.title')}</span>
+      <Button
+        onClick={() => applyUpdate(waitingWorker)}
+        className="h-8 min-h-8 shrink-0 rounded-[3px] bg-sky-700 px-3 text-xs font-semibold text-white hover:bg-sky-800 dark:bg-sky-500 dark:text-slate-950"
+      >
+        {t('pwa.update.reload')}
+      </Button>
+      <Button
+        onClick={() => setDismissedWorker(waitingWorker)}
+        aria-label={t('common.close')}
+        className="inline-flex size-8 shrink-0 items-center justify-center rounded-[3px] !bg-transparent text-sky-700 hover:!bg-sky-100 dark:text-sky-300 dark:hover:!bg-sky-900"
+      >
+        <span aria-hidden="true">✕</span>
+      </Button>
     </div>
   );
 }

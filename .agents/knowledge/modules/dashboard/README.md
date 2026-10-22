@@ -76,6 +76,7 @@
 ## `AdjustBalanceModal`
 
 - Opened from Home quick links, Transactions toolbar, Settings. `currentBalance` = all-time ledger balance: `ledgerBalance` from the transactions list response on Transactions, `dashboard.finance.ledgerBalance` on Home and Settings.
+- The target field is prefilled with `currentBalance` only while amounts are revealed; with amounts hidden it opens empty (read once at open from `useMoneyVisibilityStore`), since a prefilled input would print the real balance on a hidden-amounts screen.
 - User enters target balance; diff > 0 creates an `income`, diff < 0 an `expense` with category `t('category.balanceAdjustment')` (`Điều chỉnh số dư` / `Balance Adjustment` by locale), editable auto note, datetime. Diff 0 makes submit a no-op. Uses `useCreateTransactionMutation`.
 
 ## Analytics (`AnalyticsScreen`)

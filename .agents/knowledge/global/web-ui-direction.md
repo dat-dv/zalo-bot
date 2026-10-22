@@ -24,6 +24,9 @@ metadata:
       - apps/web/src/shared/ui/breakpoints.ts
       - apps/web/src/shared/ui/touch.ts
       - apps/web/src/shared/ui/mobile-action-bar.tsx
+      - apps/web/src/shared/hooks/use-swipe-dismiss.ts
+      - apps/web/src/shared/hooks/swipe-dismiss.ts
+      - apps/web/src/shared/ui/pull-to-refresh.tsx
 ---
 
 # Web UI Direction
@@ -85,6 +88,16 @@ Skeleton loading states must achieve strict 1:1 structural, spatial, and visual 
 2. **Container Preservation**: Skeletons must never collapse or omit outer wrapper containers. `DataPanel` containers with outer borders (`border border-slate-200`), headers (`border-b`), search inputs, `PeriodFilterToolbar` blocks, and Quick Links bars must remain fully rendered during loading.
 3. **No Raw Text Loading**: Replacing full page structures with bare text banners (e.g. `<div className="p-4">Loading...</div>`) is strictly forbidden. Screens must preserve their layout shells and forward `loading={true}` to nested tables and charts.
 4. **No Duplicate or Shifting Headers**: Because `WorkspaceHeader` is universally mounted in `PrivateLayout`, view-level skeletons must never inject an extra `<header>` tag.
+
+## Touch Feedback, Motion & Gestures
+
+- **Pressed state** (`styles.css`, `@media (hover: none)` only): the tap highlight is transparent, so enabled buttons, links, `[role=button]`, `[role=tab]` dim to `opacity: 0.6` while pressed (120ms); mobile list rows also darken their background (`active:`). The same selectors get `user-select: none` and `-webkit-touch-callout: none` (nav too) so long-press never selects chrome text or opens the system menu; inputs and detail text stay selectable.
+- **Installed app** (`@media (display-mode: standalone)`): `overscroll-behavior-y: none` on `html`/`body`, no rubber-band revealing the background.
+- **Reduced motion**: `prefers-reduced-motion: reduce` cuts every transition/animation to ~0ms.
+- **Modal motion**: `Modal` keeps the dialog mounted 200ms after `open` turns false (`rendered` vs `open`). Enter uses Tailwind `starting:` (`@starting-style`): phone sheets slide up from `translate-y-full`, larger screens fade/scale from `.98`; exit reverses; the backdrop fades. Browsers without `@starting-style` just skip the motion. A Modal unmounted by its caller (`{x && <Modal open />}`) has no exit motion.
+- **Swipe to dismiss** (`use-swipe-dismiss.ts`, touch events because iOS cancels pointer events once the page pans; pure math in `swipe-dismiss.ts` with spec): the surface follows the finger, movement the wrong way is resisted (1/4), release past 25% of its size or faster than 0.5px/ms slides it out and dismisses, otherwise it springs back (220ms). Phone sheets: drag from the top 64px (grab bar + header), only when the Modal has `onDismiss` and is not `phoneLayout="fullscreen"`. Navigation drawer: swipe left while open on compact screens.
+- **Pull to refresh** (`pull-to-refresh.tsx`, mounted in the private layout): only in the installed app on compact screens (browsers have their own). At the top of the page, pulling shows a status chip under the topbar (`pullToRefresh.pull|release|refreshing`); release past 64px (half-speed resistance, max 96px) runs `queryClient.invalidateQueries()` like the topbar ↻ and keeps spinning until queries settle. Ignored while a dialog/drawer holds the scroll lock (`isDocumentScrollLocked`).
+- **Tab bar**: a tapped tab highlights immediately (`pendingTab`, cleared on route change) and shows a 2px pulsing bar while `useLinkStatus().pending`. Visible tab links are prefetched by `next/link` already.
 
 ## Mobile Dialogs & On-Screen Keyboard
 

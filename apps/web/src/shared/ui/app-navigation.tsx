@@ -1,14 +1,15 @@
 'use client';
 
-import Link from 'next/link';
+import Link, { useLinkStatus } from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { APP_ROUTES, type TranslationKey } from '@zalobot/contracts';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { useTheme } from '@/shared/store/theme-store';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useBodyScrollLock } from '@/shared/hooks/use-body-scroll-lock';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
+import { useSwipeDismiss } from '@/shared/hooks/use-swipe-dismiss';
 import { useWorkspaceHeader } from './workspace-header';
 
 const TOPBAR_ICON_BUTTON =
@@ -155,13 +156,26 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
   const { locale, setLocale, t } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const isCompact = useIsCompact();
+  const drawerRef = useRef<HTMLElement>(null);
+  // Swipe left to close the open drawer on compact screens.
+  useSwipeDismiss({
+    surfaceRef: drawerRef,
+    axis: 'x',
+    direction: -1,
+    enabled: isCompact && isOpen,
+    onDismiss: () => setIsOpen(false),
+  });
   const nextThemeLabel = theme === 'light' ? t('nav.dark') : t('nav.light');
   const { isMoneyVisible, toggleMoneyVisibility } = useMoneyVisibility();
   const { title, isAuthenticated, handleRefresh, handleLogout, zaloBotUrl } = useWorkspaceHeader();
   const moneyLabel = isMoneyVisible ? t('common.hideMoney') : t('common.showMoney');
 
+  // Tab tapped but its route not shown yet: highlight it at once so the tap feels instant.
+  const [pendingTab, setPendingTab] = useState<NavigationPage | null>(null);
+
   useEffect(() => {
     setIsOpen(false);
+    setPendingTab(null);
   }, [pathname]);
 
   useEffect(() => {
@@ -256,6 +270,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
       )}
 
       <aside
+        ref={drawerRef}
         id="app-navigation-drawer"
         className={`flex h-full w-[210px] flex-col justify-between rounded border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900 max-[960px]:fixed max-[960px]:inset-y-0 max-[960px]:left-0 max-[960px]:z-[60] max-[960px]:h-dvh max-[960px]:max-w-[85vw] max-[960px]:w-[280px] max-[960px]:rounded-none max-[960px]:border-y-0 max-[960px]:border-l-0 max-[960px]:border-r-slate-700 max-[960px]:px-3 max-[960px]:pt-[calc(0.875rem+env(safe-area-inset-top))] max-[960px]:pb-[calc(0.875rem+env(safe-area-inset-bottom))] max-[960px]:pl-[max(0.75rem,env(safe-area-inset-left))] max-[960px]:overflow-y-auto max-[960px]:overscroll-contain max-[960px]:shadow-[4px_0_24px_rgba(0,0,0,0.15)] max-[960px]:transition-transform max-[960px]:duration-[250ms] max-[960px]:ease-out ${isOpen ? 'max-[960px]:translate-x-0' : 'max-[960px]:-translate-x-full'}`}
         aria-label={t('nav.personalSpace')}
@@ -363,13 +378,18 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
       >
         {tabBarItems.map((item) => {
           const activeState = !isOpen && isItemActive(item);
+          const highlighted = pendingTab ? !isOpen && pendingTab === item.page : activeState;
           return (
             <Link
               aria-current={activeState ? 'page' : undefined}
-              className={activeState ? TAB_BAR_ITEM_ACTIVE : TAB_BAR_ITEM_IDLE}
+              className={`relative ${highlighted ? TAB_BAR_ITEM_ACTIVE : TAB_BAR_ITEM_IDLE}`}
               href={item.href}
               key={item.page}
+              onClick={() => {
+                if (!activeState) setPendingTab(item.page);
+              }}
             >
+              <TabLoadingBar />
               <NavigationItemIcon icon={item.icon} size="tab" />
               <span className="max-w-full truncate">{t(item.labelKey)}</span>
             </Link>
@@ -624,5 +644,17 @@ function MoreIcon() {
       <circle cx="12" cy="12" r="1.8" />
       <circle cx="19" cy="12" r="1.8" />
     </svg>
+  );
+}
+
+/** Thin bar across the top of a tab while its route is still loading (slow networks). */
+function TabLoadingBar() {
+  const { pending } = useLinkStatus();
+  if (!pending) return null;
+  return (
+    <span
+      aria-hidden="true"
+      className="absolute inset-x-2 -top-1 h-0.5 animate-pulse rounded-[1px] bg-sky-500 dark:bg-sky-400"
+    />
   );
 }
