@@ -3,7 +3,12 @@
 import Link, { useLinkStatus } from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { APP_ROUTES, type TranslationKey } from '@zalobot/contracts';
+import {
+  APP_ROUTES,
+  SUPPORTED_LOCALES,
+  type SupportedLocale,
+  type TranslationKey,
+} from '@zalobot/contracts';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { useTheme } from '@/shared/store/theme-store';
 import { useLocale } from '@/shared/providers/locale-provider';
@@ -158,6 +163,14 @@ const MENU_TILE_ACTIVE = `${MENU_TILE} border-slate-900 bg-slate-900 font-semibo
 const MENU_TILE_IDLE = `${MENU_TILE} border-slate-200 bg-slate-50 font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200`;
 const MENU_FOOTER_BUTTON =
   'inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[3px] border border-slate-200 !bg-transparent px-3 text-xs font-medium !text-slate-700 dark:border-slate-700 dark:!text-slate-200';
+const MENU_LOCALE =
+  'inline-flex min-w-0 flex-1 items-center justify-center rounded-[2px] border-0 !px-1 !py-0 text-xs';
+const MENU_LOCALE_ACTIVE = `${MENU_LOCALE} !bg-slate-900 font-semibold !text-white dark:!bg-slate-100 dark:!text-slate-900`;
+const MENU_LOCALE_IDLE = `${MENU_LOCALE} !bg-transparent font-medium !text-slate-700 dark:!text-slate-200`;
+const LOCALE_LABEL_KEYS = {
+  vi: 'web.language.vi',
+  en: 'web.language.en',
+} as const satisfies Record<SupportedLocale, TranslationKey>;
 
 export function AppNavigation({ active, footer }: { active?: NavigationPage; footer?: ReactNode }) {
   const pathname = usePathname();
@@ -428,15 +441,25 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
               <ThemeIcon theme={theme} />
               <span className="truncate">{nextThemeLabel}</span>
             </button>
-            <select
-              className="h-10 min-w-0 flex-1 rounded-[3px] border border-slate-200 bg-white px-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            {/* Buttons, not a <select>: touch screens force selects to 16px (iOS zoom guard),
+                which made the language text larger than the theme button beside it. */}
+            <div
+              role="group"
               aria-label={t('common.language')}
-              onChange={(event) => setLocale(event.target.value as typeof locale)}
-              value={locale}
+              className="flex h-10 min-w-0 flex-1 gap-0.5 rounded-[3px] border border-slate-200 p-0.5 dark:border-slate-700"
             >
-              <option value="vi">{t('web.language.vi')}</option>
-              <option value="en">{t('web.language.en')}</option>
-            </select>
+              {SUPPORTED_LOCALES.map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  aria-pressed={locale === code}
+                  className={locale === code ? MENU_LOCALE_ACTIVE : MENU_LOCALE_IDLE}
+                  onClick={() => setLocale(code)}
+                >
+                  <span className="truncate">{t(LOCALE_LABEL_KEYS[code])}</span>
+                </button>
+              ))}
+            </div>
           </div>
           {isAuthenticated && (
             <button

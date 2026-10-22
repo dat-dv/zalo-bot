@@ -79,6 +79,7 @@ Giờ sự kiện nằm trong bảng `calendar_events` của zalobot. Google Cal
 
 **Điện thoại / PWA (≤ 640px)**
 - Đầu trang gọn: `‹ tháng ›`, Hôm nay, icon tìm kiếm (bấm mới hiện ô tìm). Chế độ xem là nút chuyển `Lịch trình | Lưới tháng` chiếm một hàng.
+- **Nhớ chế độ xem**: tab đã chọn được lưu vào `localStorage`, F5 hay mở lại vẫn giữ. Điện thoại (`Lịch trình | Lưới tháng`) và desktop (`Lưới tháng | Danh sách`) nhớ riêng (`zalobot:calendar-view:phone` / `:desktop`) vì hai bên có bộ tab khác nhau. Trình duyệt chặn lưu trữ (chế độ riêng tư) thì vẫn đổi tab được, chỉ không nhớ sau khi tải lại. Tháng đang xem, ngày chọn và ô tìm kiếm không được lưu.
 - **Lịch trình** (mặc định): dải 7 ngày có chấm cho ngày bận, nút tuần trước/tuần sau; bên dưới là ngày đang chọn rồi liền mạch các ngày có sự kiện trong 14 ngày tới. Ngày đang chọn trống chỉ hiện một dòng "Không có sự kiện", phần sắp tới vẫn hiện ngay bên dưới.
 - Nút **+ Thêm sự kiện** nằm trên thanh hành động phía trên thanh tab. Form tạo/sửa mở toàn màn hình để không bị bàn phím che.
 

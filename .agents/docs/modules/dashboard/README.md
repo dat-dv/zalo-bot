@@ -74,7 +74,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - Dải thông tin admin (chỉ admin thấy): số người dùng, số người đã kết nối Google.
 - Các bảng chỉ đọc, mỗi bảng có ô tìm kiếm riêng: Việc cần làm, Nhắc nhở, Lịch, Giao dịch, Công nợ đang mở (tiêu đề là link sang trang chi tiết) và Hoạt động gần đây (không có link).
 - **Trên màn hẹp (≤ 960px)**: trang Tổng quan chỉ là bản xem nhanh, không phải nơi làm việc. Vì vậy mỗi khối chỉ hiện **5 dòng đầu** theo thứ tự API trả về (giao dịch/hoạt động mới nhất, việc/nhắc nhở/sự kiện gần nhất; khối Công nợ giới hạn theo khoản nợ gốc, khoản con vẫn nằm trong khoản gốc), dạng danh sách hai dòng nếu bảng đó hỗ trợ, kèm dòng **Xem tất cả** cao 40px dẫn sang trang đầy đủ. Khối Hoạt động không có trang riêng nên không có link. Lý do: 6 khối × 20 dòng trên điện thoại là một trang dài vô tận, người dùng không tìm được khối mình cần.
-- **Trên điện thoại (≤ 640px)**: bỏ 6 ô tìm kiếm riêng của từng khối (và bỏ luôn từ khoá đã gõ trước khi xoay máy) vì muốn tìm thì vào trang đầy đủ. Thanh liên kết nhanh là một hàng chip 40px cuộn ngang thay vì nhiều hàng chồng nhau. Thẻ KPI vẫn 2 thẻ một hàng nhưng thấp hơn (52px) để thấy nhiều nội dung hơn.
+- **Trên điện thoại (≤ 640px)**: bỏ 6 ô tìm kiếm riêng của từng khối (và bỏ luôn từ khoá đã gõ trước khi xoay máy) vì muốn tìm thì vào trang đầy đủ. Thanh liên kết nhanh (8 lối tắt) là **lưới 4 cột × 2 hàng**, không cuộn ngang; ô cao tối thiểu 40px, nhãn dài như "Cân chỉnh số dư" được xuống 2 dòng. Trước đây là một hàng chip cuộn ngang, nửa số lối tắt bị khuất ngoài màn hình. Thẻ KPI vẫn 2 thẻ một hàng nhưng thấp hơn (52px) để thấy nhiều nội dung hơn.
 
 ## Trang Thu chi (`TransactionsScreen`)
 

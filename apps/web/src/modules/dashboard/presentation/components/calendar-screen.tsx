@@ -26,10 +26,10 @@ import {
   type CalendarSheetTarget,
 } from '@/modules/calendar/view/calendar-event-sheet';
 import { CalendarSummaryStrip } from '@/modules/calendar/view/calendar-summary-strip';
+import { useStoredCalendarViewMode } from '@/modules/calendar/view/use-calendar-view-mode';
+import type { CalendarViewMode } from '@/modules/calendar/model/calendar-view-mode';
 import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
 import { CalendarTable } from './calendar-table';
-
-type CalendarViewMode = 'agenda' | 'month' | 'list';
 
 // The side panel and the summary look this far ahead.
 const UPCOMING_DAYS = 14;
@@ -62,8 +62,11 @@ export function CalendarScreen() {
   const now = useNow();
   const todayKey = toDateKey(now);
 
-  // null = not chosen yet: phones start on the agenda, larger screens on the month grid.
-  const [chosenViewMode, setChosenViewMode] = useState<CalendarViewMode | null>(null);
+  // Remembered per layout in localStorage. null = never chosen: phones start on the agenda,
+  // larger screens on the month grid.
+  const [chosenViewMode, setChosenViewMode] = useStoredCalendarViewMode(
+    isPhone ? 'phone' : 'desktop',
+  );
   const viewMode: CalendarViewMode = isPhone
     ? chosenViewMode === 'month'
       ? 'month'

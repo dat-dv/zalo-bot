@@ -27,8 +27,11 @@ import { useVisualViewportVars } from '@/shared/hooks/use-visual-viewport';
 
 /** Keep dialog headers visible while the panel body scrolls. Pair with a solid background. */
 export const MODAL_STICKY_HEADER = 'sticky top-0 z-10';
-/** Keep dialog actions reachable above the on-screen keyboard. Pair with a solid background. */
-export const MODAL_STICKY_FOOTER = 'sticky bottom-0 z-10';
+/**
+ * Keep dialog actions reachable above the on-screen keyboard. Pair with a solid background.
+ * `mt-auto` pins the row to the bottom of a full-screen phone dialog whose content is short.
+ */
+export const MODAL_STICKY_FOOTER = 'sticky bottom-0 z-10 mt-auto';
 /** Append to a dialog's close (✕) button: 40×40px tap target on phones, desktop size unchanged. */
 export const MODAL_CLOSE_TAP =
   'max-sm:inline-flex max-sm:size-10 max-sm:items-center max-sm:justify-center';
@@ -41,6 +44,10 @@ const KEYBOARD_SETTLE_MS = 300;
 const EXIT_MS = MOTION_MS.sheetOut;
 // A sheet is dragged by its top strip (grab bar + header); lower touches scroll the content.
 const SHEET_DRAG_ZONE_PX = 64;
+// Full-screen phone panel. A wrapping <form> grows to the panel height so the footer inside
+// it (MODAL_STICKY_FOOTER, `mt-auto`) sits at the bottom edge even when the form is short.
+const FULLSCREEN_PANEL =
+  'max-sm:h-full max-sm:rounded-none max-sm:border-t-0 max-sm:pt-[env(safe-area-inset-top)] max-sm:[&>form]:flex max-sm:[&>form]:flex-[1_0_auto] max-sm:[&>form]:flex-col';
 
 interface ModalProps {
   open: boolean;
@@ -209,13 +216,13 @@ export function Modal({
       <div
         aria-hidden="true"
         ref={backdropRef}
-        className={`absolute inset-0 ${backdropClassName}`}
+        className={`absolute inset-0 touch-none ${backdropClassName}`}
         onClick={dismissOnBackdrop && open ? () => dismissRef.current?.() : undefined}
       />
       <div
         ref={panelRef}
         tabIndex={-1}
-        className={`relative flex max-h-full w-full flex-col overflow-y-auto overscroll-contain shadow-2xl outline-none ${panelClassName} max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-[env(safe-area-inset-bottom)] ${isFullscreen ? 'max-sm:h-full max-sm:rounded-none max-sm:border-t-0 max-sm:pt-[env(safe-area-inset-top)]' : ''}`}
+        className={`relative flex max-h-full w-full flex-col overflow-y-auto overscroll-contain shadow-2xl outline-none ${panelClassName} max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-[env(safe-area-inset-bottom)] ${isFullscreen ? FULLSCREEN_PANEL : ''}`}
       >
         {/* Grab bar: marks the sheet's drag strip (swipe down to dismiss when dismissible). */}
         {!isFullscreen && (

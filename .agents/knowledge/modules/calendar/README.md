@@ -18,6 +18,8 @@ metadata:
       - apps/web/src/modules/calendar/model/calendar-date-utils.ts
       - apps/web/src/modules/calendar/presentation/components/calendar-grid.tsx
       - apps/web/src/modules/calendar/presentation/components/calendar-agenda.tsx
+      - apps/web/src/modules/calendar/model/calendar-view-mode.ts
+      - apps/web/src/modules/calendar/presentation/components/use-calendar-view-mode.ts
       - apps/web/src/modules/calendar/presentation/components/calendar-day-list.tsx
       - apps/web/src/modules/calendar/presentation/components/calendar-event-card.tsx
       - apps/web/src/modules/calendar/presentation/components/calendar-event-form.tsx
@@ -91,6 +93,7 @@ Errors: unknown id → 404; Google failures never fail the request (reflected in
 - **Toolbar** (one row on desktop): `‹ Month YYYY ›` (month name and muted year, never wraps), Today, segmented view switch, search (client-side over title/location/description/creator/chat), `+ Add event` (hidden ≤ 960px; `MobileActionBar` button instead).
 - **Desktop/tablet views**: Month (default) or List (`CalendarTable` of the month; row Edit opens the sheet). Month = `CalendarGrid` + right column (300px, sticky above 1180px, stacked below): selected day (`CalendarDayList`) and "Upcoming · 14 days" (compact cards, days with events only).
 - **Grid**: fixed cell height (112px, 96px ≤ 1180px, 52px phone); up to 3 chips (time + title; all-day = filled bar) then `+N` (selects the day); past events dimmed; today = filled circle; selected = sky tint. Phone cells show up to 3 dots.
+- **View persistence**: the chosen view is remembered per layout in `localStorage` (`zalobot:calendar-view:phone` = `agenda|month`, `zalobot:calendar-view:desktop` = `month|list`; `model/calendar-view-mode.ts` + spec, hook `useStoredCalendarViewMode` via `useSyncExternalStore`, server snapshot `null` so the static HTML hydrates with the default). Invalid/foreign values fall back to the default; when storage is unavailable the choice lives in memory for the page load. Month, selected day and search are not persisted.
 - **Phone (≤ 640px)**: views Agenda (default) / Month. One toolbar row (`‹ month ›`, Today, search icon toggling the search field), segmented control full width. Agenda = week strip (prev/next week, 7 day buttons with up to 3 dots) + `CalendarDayList` from the selected day for 14 days (selected day always shown, empty = one dashed line; then only days with events) — never a blank screen. Agenda data = selected week's Monday + 21 days. Month view shows the selected day's list under the grid.
 - **Event card**: 3px left bar by phase (emerald ongoing, sky upcoming, slate past + 70% opacity), time range + duration, "Happening now" tag, title, location, 2-line description (not in compact), creator · chat, sync badge only when not synced.
 - **Sheet** `CalendarEventSheet` (`Modal`; phone bottom sheet, full screen while editing): details (when + duration, location, description, reminders, origin + created time), sync row (badge, Google account, `Sync again` when not OK), footer Delete / Edit. Edit & create share `CalendarEventForm` (title, all-day checkbox switching `datetime-local`/`date`, start/end, location, textarea description, reminder chips 0/10/30/60/1440 min). Delete confirms with the shared `ConfirmDialog`. Errors show inline in the sheet; success toasts via `TOAST_POSITION`.

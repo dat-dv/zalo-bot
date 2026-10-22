@@ -15,7 +15,7 @@ import { RemindersTable } from './reminders-table';
 import { CalendarTable } from './calendar-table';
 import { AdjustBalanceModal } from './adjust-balance-modal';
 import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
-import { MOBILE_TOOLBAR_ROW, TOAST_POSITION } from '@/shared/ui/touch';
+import { TOAST_POSITION } from '@/shared/ui/touch';
 import { useIsCompact, useIsPhone } from '@/shared/hooks/use-media-query';
 
 type DashboardData = NonNullable<ReturnType<typeof useDashboardQuery>['data']>;
@@ -23,8 +23,11 @@ type DashboardData = NonNullable<ReturnType<typeof useDashboardQuery>['data']>;
 /** Compact screens show a short preview per widget; the full list lives on its own page. */
 const HOME_COMPACT_ROW_LIMIT = 5;
 
+// Phones: quick links form a 4-column grid (two rows, nothing scrolls sideways); long labels
+// wrap to two lines inside their 40px+ tile.
+const QUICK_LINKS_PHONE = 'max-[640px]:grid max-[640px]:grid-cols-4';
 const QUICK_LINK_PHONE =
-  'shrink-0 whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
+  'shrink-0 whitespace-nowrap max-[640px]:h-auto max-[640px]:min-h-10 max-[640px]:justify-center max-[640px]:px-1 max-[640px]:py-1 max-[640px]:text-center max-[640px]:text-[12px] max-[640px]:leading-tight max-[640px]:whitespace-normal';
 
 function limitRows<T>(rows: T[], isCompact: boolean): T[] {
   return isCompact ? rows.slice(0, HOME_COMPACT_ROW_LIMIT) : rows;
@@ -296,7 +299,7 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
       </section>
 
       <section
-        className={`flex flex-wrap gap-1.5 rounded border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900 ${MOBILE_TOOLBAR_ROW}`}
+        className={`flex flex-wrap gap-1.5 rounded border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900 ${QUICK_LINKS_PHONE}`}
         aria-label={t('dashboard.quickStats')}
       >
         <Link
@@ -526,13 +529,13 @@ function DashboardHomeSkeleton() {
 
       {/* Quick links skeleton */}
       <section
-        className={`flex flex-wrap gap-1.5 rounded border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900 ${MOBILE_TOOLBAR_ROW}`}
+        className={`flex flex-wrap gap-1.5 rounded border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900 ${QUICK_LINKS_PHONE}`}
         aria-hidden="true"
       >
-        {Array.from({ length: 7 }, (_, i) => (
+        {Array.from({ length: 8 }, (_, i) => (
           <div
             key={i}
-            className="h-6 w-20 shrink-0 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 max-[640px]:h-10"
+            className="h-6 w-20 shrink-0 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 max-[640px]:h-10 max-[640px]:w-auto"
           />
         ))}
       </section>

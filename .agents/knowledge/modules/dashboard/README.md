@@ -41,7 +41,7 @@
 - Admin strip (admins only): user count, Google-connected count.
 - Read-only panels, each with its own search box: Tasks, Reminders, Calendar, Transactions, Open debts (titles link via `DataPanel titleHref` to their pages) and Activity (audit log, no link). Table ids `home-*`.
 - **Compact (<= 960px, `useIsCompact`)**: each panel is a preview: only the first `HOME_COMPACT_ROW_LIMIT` = 5 rows in API order (newest transactions/activity, nearest tasks/reminders/events; Open debts limits root debts, children stay nested) render through the tables' DataTable mobile list (where the table declares `mobileSlot`s), followed by a 40px "View all" (`dashboard.viewAll`) link to the page (`APP_ROUTES`; Activity has no page, so no link). Activity list: primary `action · tableName`, trailing date.
-- **Phone (<= 640px, `useIsPhone`)**: per-panel search inputs are not rendered and their queries are ignored (a query typed before rotating stops filtering). Quick links form one sideways-scrolling row of 40px chips (`MOBILE_TOOLBAR_ROW`). KPI cards stay 2 per row, 52px tall, 14px values. Skeleton mirrors this (40px chip placeholders, no search placeholders).
+- **Phone (<= 640px, `useIsPhone`)**: per-panel search inputs are not rendered and their queries are ignored (a query typed before rotating stops filtering). Quick links (8) form a 4-column grid, two rows, no sideways scroll (`QUICK_LINKS_PHONE`; tiles `min-h-10`, 12px centered text that may wrap to 2 lines). KPI cards stay 2 per row, 52px tall, 14px values. Skeleton mirrors this (8 placeholders in the same grid, no search placeholders).
 
 ## Transactions (`TransactionsScreen`)
 
