@@ -39,7 +39,6 @@ export interface AppConfig {
     dashboardLoginCode?: string;
   };
   security: { encryptionKey: string };
-  deploy: { notifyToken?: string };
   llm: {
     provider: string;
     /** Tried in order after `provider` when it fails (`LLM_FALLBACK_PROVIDERS`). */
@@ -136,7 +135,6 @@ export default (): AppConfig => {
       dashboardLoginCode: readOptionalEnv('DASHBOARD_LOGIN_CODE'),
     },
     security: { encryptionKey: readEnv('DATA_ENCRYPTION_KEY', '0'.repeat(64)) },
-    deploy: { notifyToken: readOptionalEnv('DEPLOY_NOTIFY_TOKEN') },
     llm: {
       provider: readEnv('LLM_PROVIDER', 'gemini'),
       fallbackProviders: readEnv('LLM_FALLBACK_PROVIDERS')

@@ -5,8 +5,7 @@ metadata:
     type: documentation
     depends_on:
       - .agents/knowledge/global/backend-runtime-services.md
-      - apps/api/src/health/deploy-notify.service.ts
-      - apps/api/src/health/deploy-notify.guard.ts
+      - apps/api/src/health/health.controller.ts
       - apps/api/src/google/google-resources.controller.ts
       - apps/api/src/reminders/reminder-scheduler.service.ts
 ---
@@ -15,18 +14,12 @@ metadata:
 
 Tài liệu này ánh xạ với tri thức canonical [`backend-runtime-services.md`](../../knowledge/global/backend-runtime-services.md). Đây là các dịch vụ dùng chung trong `apps/api/src`, không thuộc một tính năng CRUD cụ thể nào.
 
-## 1. Health check và thông báo deploy (`health/`)
+## 1. Health check (`health/`)
 
-**Mục đích:** cho hệ thống hạ tầng (Coolify, load balancer) kiểm tra API còn sống, và báo cho Quản trị viên qua Zalo mỗi khi có bản deploy mới.
+**Mục đích:** cho hạ tầng (Coolify, Docker healthcheck, load balancer) kiểm tra API còn sống.
 
-- `GET /health` trả `{ status: 'ok', timestamp }`. Route này không có tiền tố `/api`.
-- Gửi thông báo deploy: `GET|POST /health/deploy`, `GET|POST /deploy/notify`, `GET /deploy/ping`. Tham số tuỳ chọn: `message`, `version`, `commit`, `branch`, `environment`, `deployedBy`. Các route này được bảo vệ bằng `DeployNotifyGuard` (`GET /health` vẫn công khai cho healthcheck của Docker):
-  - Đặt biến `DEPLOY_NOTIFY_TOKEN` (tạo bằng `openssl rand -hex 32`). Gửi token qua header `X-Deploy-Token`, `Authorization: Bearer <token>` hoặc query `?token=<token>`. Hook của Coolify/CI thường chỉ cho nhập URL, nên dùng dạng `https://<domain>/deploy/notify?token=<token>`.
-  - Chưa đặt `DEPLOY_NOTIFY_TOKEN` thì các route deploy trả **403**, tức tính năng bị tắt (fail-closed). Sai hoặc thiếu token thì trả **401**.
-  - **Vì sao?** Route này gửi tin Zalo tới mọi admin với nội dung do người gọi tự đặt. Để mở thì ai cũng có thể spam hoặc giả mạo thông báo deploy.
-- Nội dung tin nhắn gồm thời gian (giờ Việt Nam), môi trường, các trường trên và tối đa 5 dòng thay đổi lấy từ mục `## ` mới nhất trong `CHANGELOG.md`. Tin được gửi tới mọi admin; chưa có admin thì trả `notified: false`.
-- **Tự báo khi khởi động:** sau khi app chạy 1,5 giây, bot tự gửi thông báo. Tắt bằng `NOTIFY_ON_STARTUP=false` (hoặc `0`). Ở môi trường `development`, mặc định không gửi trừ khi đặt `NOTIFY_ON_STARTUP=true`.
-- Phiên bản lấy theo thứ tự `APP_VERSION` → `npm_package_version` → `package.json`. Commit lấy theo `GIT_COMMIT` → `COOLIFY_COMMIT_SHA` → `COMMIT_SHA` → lệnh `git`.
+- `GET /health` trả `{ status: 'ok', timestamp }`, công khai, không có tiền tố `/api`.
+- **Không còn thông báo deploy.** Trước đây có webhook `/health/deploy`, `/deploy/notify`, `/deploy/ping` (bảo vệ bằng `DEPLOY_NOTIFY_TOKEN`) và bot tự nhắn admin mỗi lần API khởi động (`NOTIFY_ON_STARTUP`). Cả hai đã bị bỏ: các route deploy giờ trả 404, hai biến môi trường trên không còn được đọc. Nếu Coolify/CI còn cấu hình gọi URL deploy thì gỡ đi.
 
 ## 2. Redis (`redis/`)
 

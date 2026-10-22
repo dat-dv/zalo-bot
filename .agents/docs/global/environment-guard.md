@@ -50,13 +50,11 @@ Mặc định ghi trong ngoặc.
 
 - **Mạng**: `BE_PORT` (3005), `WEB_ORIGIN` (= `APP_URL`), `CORS_ALLOW_ALL` (false), `DEFAULT_TIMEZONE` (`Asia/Ho_Chi_Minh`).
 - **Database/cache**: `DATABASE_SSL` (false), `TYPEORM_SYNCHRONIZE` (false), `REDIS_URL`. Chỉ có tác dụng khi chạy ngoài Docker Compose (dev); trong `docker-compose.yml` đã ghi cứng.
-- **Thông báo deploy**: `DEPLOY_NOTIFY_TOKEN`, bí mật cho webhook `/health/deploy`, `/deploy/*`. Để trống thì các route này trả 403 (xem [Dịch vụ nền của Backend](backend-runtime-services.md)).
 - **Bot**: `BOT_NAME` (`Bot`).
 - **Mã đăng nhập dashboard cố định**: `DASHBOARD_LOGIN_CODE` (để trống = tắt). Đây là secret không hết hạn: không commit giá trị thật, đổi mã bằng cách sửa env rồi restart.
 - **ZCA (Zalo cá nhân)**: `DATA_DIR` (`./data`; `docker-compose.yml` ghi cứng `/app/data`), `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT` (thường không cần: đăng nhập bằng QR trên dashboard, phiên lưu vào file + Redis), `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN` (false), `ZCA_CHECK_UPDATE` (false), `ZCA_LOGGING` (false, bật khi debug), `ZCA_ENABLE_WELCOME` (false), `ZCA_WELCOME_IMAGE_PATH`.
 - **LLM**: `LLM_PROVIDER` chọn nhà cung cấp đầu chuỗi cho `LlmService` (`gemini` mặc định, `openai`, `qwen`/`ollama`, `router`/`9router`); `LLM_FALLBACK_PROVIDERS` là danh sách provider dự phòng, phân cách bằng dấu phẩy (vd `gemini`); `LLM_TIMEOUT_MS` (mặc định `30000`); provider `router` dùng `ROUTER_BASE_URL`, `ROUTER_MODEL`, `ROUTER_API_KEY`; kèm `GEMINI_API_KEY`, `GEMINI_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `QWEN_BASE_URL`, `QWEN_MODEL`, `QWEN_API_KEY`. `ollama`/`9router` chỉ là tên provider trong `LLM_PROVIDER`, không phải tên biến.
 - **Trí nhớ hội thoại**: không có biến môi trường; bật theo từng kênh trong "Cấu hình kênh" trên dashboard. Xem [Trí nhớ hội thoại](../modules/zca/chat-memory.md).
-- **Thông báo deploy**: `NOTIFY_ON_STARTUP` (đặt `false` để tắt; ở `NODE_ENV=development` phải đặt `true` mới gửi), `APP_VERSION` (mặc định lấy từ `package.json`), các biến commit/branch do Coolify/CI cung cấp.
 - **Chỉ dùng cho Docker Compose**: `POSTGRES_PASSWORD` (bắt buộc; compose tự dựng `DATABASE_URL` từ nó), `POSTGRES_PORT`, `REDIS_PORT`, `NGINX_PORT` (3000 local, 3009 production), `FE_PORT` (5173).
 
 ## Biến của web dashboard
