@@ -1,6 +1,7 @@
 import {
   REMINDER_TARGET_LIMITS,
   type IReminderTargetChannel,
+  type TranslationKey,
   type IReminderTargetUser,
   type ReminderTargetMode,
 } from '@zalobot/contracts';
@@ -21,8 +22,16 @@ export interface ReminderTargetFields {
   remindMode: ReminderTargetMode;
 }
 
+export type ReminderTargetError = 'channelRequired' | 'usersRequired';
+
 export type ReminderTargetResult =
-  { ok: true; fields: ReminderTargetFields } | { ok: false; error: 'channelRequired' };
+  { ok: true; fields: ReminderTargetFields } | { ok: false; error: ReminderTargetError };
+
+/** Message of a target error, for the inline edits that report it in a toast. */
+export const REMINDER_TARGET_ERROR_MESSAGES: Record<ReminderTargetError, TranslationKey> = {
+  channelRequired: 'reminderTarget.channelRequired',
+  usersRequired: 'reminderTarget.usersRequired',
+};
 
 export const emptyReminderTargetDraft = (): ReminderTargetDraft => ({
   chatId: '',
@@ -52,6 +61,19 @@ export function draftChatId(
   return draft.chatId || fallbackChatId || selfChannelId(channels);
 }
 
+/**
+ * Who a private chat reminds: its own person (`self` for the user's own chat). Undefined for a
+ * group or an unknown chat.
+ */
+export function privateRecipient(
+  channels: readonly IReminderTargetChannel[],
+  chatId: string | undefined,
+): { self: boolean; name: string } | undefined {
+  const channel = channels.find((item) => item.id === chatId);
+  if (!channel || channel.type === 'group') return undefined;
+  return { self: !!channel.isSelf, name: channel.name };
+}
+
 export function isGroupChannel(
   channels: readonly IReminderTargetChannel[],
   chatId: string | undefined,
@@ -67,8 +89,9 @@ export function toggleTargetUser(userIds: readonly string[], id: string): string
 }
 
 /**
- * Target fields of a request. People only exist in a group; without people the mode is the
- * default. Without any chat (no pick, no saved chat, no private chat) the user must pick one.
+ * Target fields of a request. Without any chat (no pick, no saved chat, no private chat) the
+ * user must pick one. A group needs at least one person to remind; a private chat reminds its
+ * own person, so it sends no people and the default mode.
  */
 export function buildReminderTargetFields(
   draft: ReminderTargetDraft,
@@ -77,9 +100,9 @@ export function buildReminderTargetFields(
 ): ReminderTargetResult {
   const chatId = draftChatId(draft, channels, fallbackChatId);
   if (!chatId) return { ok: false, error: 'channelRequired' };
-  const userIds = isGroupChannel(channels, chatId)
-    ? draft.userIds.slice(0, REMINDER_TARGET_LIMITS.MAX_USERS)
-    : [];
+  const isGroup = isGroupChannel(channels, chatId);
+  const userIds = isGroup ? draft.userIds.slice(0, REMINDER_TARGET_LIMITS.MAX_USERS) : [];
+  if (isGroup && userIds.length === 0) return { ok: false, error: 'usersRequired' };
   return {
     ok: true,
     fields: {

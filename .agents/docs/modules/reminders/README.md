@@ -51,7 +51,7 @@ Lời nhắc là một tin nhắn Zalo mà bot tự gửi khi tới giờ: mặc
 | Phần | Ý nghĩa | Quy tắc |
 | --- | --- | --- |
 | **Kênh nhận nhắc** | Nhóm hoặc chat riêng nhận tin | Mặc định: lời nhắc → chat riêng người tạo; nhắc việc → nơi đã nhắn bot. Chọn kênh khác thì phải là kênh **đang listen**. `dashboard-owner` và tài khoản chỉ có **ID Zalo Bot cũ** (20 ký tự hex) không có chat riêng mà ZCA gửi được, nên phải tự chọn |
-| **Người được nhắc** | Thành viên của **nhóm** cần được nhắc | Tối đa 10 người. Chat riêng thì không có. Đổi sang kênh khác thì danh sách bị xoá vì nhóm mới có thành viên khác |
+| **Người được nhắc** | Ai nhận nhắc | **Bắt buộc khi có nhắc.** Nhóm: chọn 1–10 thành viên. Chat riêng: chính người của chat đó, không cần chọn. Đổi sang kênh khác thì danh sách bị xoá vì nhóm mới có thành viên khác, nên phải chọn lại |
 | **Cách nhắc** | `mention` (tag trong nhóm, mặc định) hoặc `direct` (nhắn riêng từng người) | Chỉ có ý nghĩa khi đã chọn người |
 
 ### Vì sao chọn người như vậy
@@ -97,7 +97,7 @@ Một lời nhắc (giống việc cần làm) có thể nhắc **nhiều lần*
 
 - Dữ liệu lấy từ `useRemindersQuery`. Nếu API trả danh sách rỗng, màn hình dùng tạm `reminders` trong dữ liệu dashboard.
 - Bảng có ô tìm kiếm theo tiêu đề và các cột: tiêu đề, loại thông báo (`text` tin nhắn / `call` cuộc gọi), thời điểm nhắc, lặp lại (`none` / `daily` / `weekly`), **Gửi tới** (kênh · người được nhắc · "Nhắn riêng"; chỉ trên trang `/reminders`), thao tác.
-- **Thêm lời nhắc**: nút `+ Thêm lời nhắc` trên toolbar (desktop) hoặc ở thanh hành động dưới cùng (điện thoại) mở hộp thoại gồm tiêu đề, **các giờ nhắc** (mỗi giờ một ô, nút **+ Thêm giờ nhắc**), **đích nhắc** (Gửi nhắc vào → Nhắc ai → Cách nhắc), loại thông báo, kiểu lặp.
+- **Thêm lời nhắc**: nút `+ Thêm lời nhắc` trên toolbar (desktop) hoặc ở thanh hành động dưới cùng (điện thoại) mở hộp thoại gồm tiêu đề, **các giờ nhắc** (mỗi giờ một ô, nút **+ Thêm giờ nhắc**), **đích nhắc** (Gửi nhắc vào → Nhắc ai → Cách nhắc; ô **Nhắc ai** luôn hiện: chưa chọn kênh thì nhắc chọn kênh trước, chat riêng thì hiện sẵn người đó, nhóm thì bắt buộc chọn ít nhất 1 người), loại thông báo, kiểu lặp.
   - "Gọi điện" chỉ chọn được khi gửi vào **chat riêng của chính mình**: một cuộc gọi chỉ tới được một người, gọi "vào nhóm" không có nghĩa.
   - Mặc định nhắc **sau 1 giờ**, bằng tin nhắn, không lặp, để người dùng chỉ cần gõ tiêu đề là lưu được.
   - Không cho chọn thời điểm đã qua: bộ hẹn giờ sẽ bắn ngay lời nhắc quá giờ ở lượt chạy kế tiếp, nên đó gần như luôn là chọn nhầm. Phút hiện tại vẫn được chấp nhận vì ô nhập chỉ chính xác tới phút. Form kiểm tra lại lúc bấm Lưu phòng khi form để mở lâu.
@@ -132,7 +132,7 @@ Lời nhắc chạy trên hàng đợi BullMQ `reminders` (cơ chế chung xem [
 ## 7. Tạo lời nhắc từ chat
 
 - AI dùng tool `SET_REMINDER`. Trong nhóm Zalo, tin nhắn chỉ tới được AI khi người gửi @mention bot hoặc dùng tiền tố của nhóm (xem tài liệu module ZCA).
-- **Lời nhắc vẫn mặc định là việc cá nhân**: "3h nhắc tôi đón con" nhắn trong nhóm vẫn gửi vào chat riêng của người nhắn, như trước. Chỉ khi tin có **tag người** ("3h nhắc @Trí gọi khách") hoặc nói "nhắc cả nhóm" thì bot mới nhắc trong nhóm. "nhắc tôi và @Trí" thì tag cả người nhắn. "nhắn riêng" / "inbox" thì chọn cách nhắn riêng.
+- **Lời nhắc vẫn mặc định là việc cá nhân**: "3h nhắc tôi đón con" nhắn trong nhóm vẫn gửi vào chat riêng của người nhắn, như trước. Chỉ khi tin có **tag người** ("3h nhắc @Trí gọi khách") hoặc nói "nhắc cả nhóm" thì bot mới nhắc trong nhóm. Nhắc trong nhóm luôn tag ít nhất một người: "nhắc cả nhóm" mà không tag ai thì bot tag chính người nhắn. "nhắc tôi và @Trí" thì tag cả người nhắn. "nhắn riêng" / "inbox" thì chọn cách nhắn riêng.
 - Thẻ xác nhận có thêm **Gửi tới**, **Nhắc ai**, **Cách nhắc**; tóm tắt sau khi duyệt có `👤 @Trí (nhắn riêng)`.
 - Sửa thẻ chờ (`edit <code> ...`) chạy lại tool trên câu sửa, mà câu sửa không có tag, nên người được nhắc bị mất. Muốn đổi người thì huỷ và nhắn lại.
 - Thao tác chờ duyệt được lưu trong Redis dưới dạng JSON, nên `remindAt` bị biến thành chuỗi. Khi người dùng xác nhận, `parseReminderPayload` (trong `transaction-confirmation.service.ts`) chuyển lại thành `Date` bằng `toValidReminderDate` trước khi tạo lời nhắc. Thiếu bước này thì việc tạo lời nhắc sẽ lỗi.

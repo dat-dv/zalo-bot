@@ -18,6 +18,20 @@ export function reminderUsersFromContext(
 }
 
 /**
+ * The people to remind in this chat: as `reminderUsersFromContext`, but a group always reminds
+ * someone, so a group message that tags nobody reminds its sender. A private chat (its id is
+ * the sender's uid) needs nobody: it reminds its own person.
+ */
+export function reminderUsersOrSender(
+  context: TextToolContext,
+  includeSender: boolean,
+): IReminderTargetUser[] {
+  const isGroup = context.chatId !== context.senderId;
+  if (!isGroup) return [];
+  return reminderUsersFromContext(context, includeSender || !context.input.taggedUsers?.length);
+}
+
+/**
  * Reminder times from LLM args: the `remindTimes` list, else the single `remindAt`; invalid
  * values are dropped. Empty when the message gave no time.
  */

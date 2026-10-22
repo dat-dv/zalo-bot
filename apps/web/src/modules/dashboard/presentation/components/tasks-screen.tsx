@@ -20,6 +20,7 @@ import {
 import { reminderApiErrorMessage } from '@/modules/reminders/api/reminder-targets-api';
 import { useReminderTargetChannelsQuery } from '@/modules/reminders/api/reminder-targets-query';
 import {
+  REMINDER_TARGET_ERROR_MESSAGES,
   buildReminderTargetFields,
   emptyReminderTargetDraft,
   isTargetChanged,
@@ -190,7 +191,7 @@ export function TasksScreen() {
         reminderChannelsQuery.data ?? [],
         task?.remindChatId,
       );
-      if (!target.ok) return { ok: false, error: 'reminderTarget.channelRequired' };
+      if (!target.ok) return { ok: false, error: REMINDER_TARGET_ERROR_MESSAGES[target.error] };
       patch.remindChatId = target.fields.chatId;
       patch.remindUserIds = target.fields.remindUserIds;
       patch.remindMode = target.fields.remindMode;

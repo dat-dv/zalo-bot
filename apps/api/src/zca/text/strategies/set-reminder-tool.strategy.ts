@@ -7,6 +7,7 @@ import {
   reminderModeFromArgs,
   reminderTimesFromArgs,
   reminderUsersFromContext,
+  reminderUsersOrSender,
 } from '../reminder-target-args.util';
 
 @Injectable()
@@ -32,7 +33,8 @@ export class SetReminderToolStrategy implements TextToolStrategy {
     // A personal reminder stays private unless the message tags people or asks for the group.
     const tagged = reminderUsersFromContext(context, false);
     const inGroup = args.remindInGroup === true || tagged.length > 0;
-    const remindUsers = inGroup ? reminderUsersFromContext(context, args.remindSelf === true) : [];
+    // In the group someone is always tagged: the sender when nobody else is.
+    const remindUsers = inGroup ? reminderUsersOrSender(context, args.remindSelf === true) : [];
 
     try {
       await this.confirmationService.createPendingReminder({

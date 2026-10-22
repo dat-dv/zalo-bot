@@ -48,23 +48,28 @@ test('rejects an empty title, a missing time and a time in the past', () => {
     ok: false,
     error: 'remindAtRequired',
   });
-  assert.deepEqual(buildCreateReminderRequest({ ...base, remindTimes: [{ value: '2026-10-22T10:00' }] }, now), {
-    ok: false,
-    error: 'pastTime',
-  });
+  assert.deepEqual(
+    buildCreateReminderRequest({ ...base, remindTimes: [{ value: '2026-10-22T10:00' }] }, now),
+    {
+      ok: false,
+      error: 'pastTime',
+    },
+  );
   // The current minute is still accepted.
-  assert.equal(buildCreateReminderRequest({ ...base, remindTimes: [{ value: '2026-10-22T10:30' }] }, now).ok, true);
+  assert.equal(
+    buildCreateReminderRequest({ ...base, remindTimes: [{ value: '2026-10-22T10:30' }] }, now).ok,
+    true,
+  );
 });
 
 const SELF: IReminderTargetChannel = { id: '111', name: 'Dat', type: 'user', isSelf: true };
 const GROUP: IReminderTargetChannel = { id: 'g1', name: 'Nhà mình', type: 'group' };
 
 test('with chats loaded the target defaults to the private chat', () => {
-  const result = buildCreateReminderRequest(
-    { ...createReminderDraft(now), title: 'Họp' },
-    now,
-    [SELF, GROUP],
-  );
+  const result = buildCreateReminderRequest({ ...createReminderDraft(now), title: 'Họp' }, now, [
+    SELF,
+    GROUP,
+  ]);
   assert.equal(result.ok && result.request.chatId, '111');
   assert.equal(result.ok && result.request.remindUserIds, undefined);
 });
@@ -92,7 +97,7 @@ test('dashboard-owner must pick a chat; a call only goes to the private chat', (
   });
   assert.deepEqual(
     buildCreateReminderRequest(
-      { ...base, notifyType: 'call', target: { chatId: 'g1', userIds: [], mode: 'mention' } },
+      { ...base, notifyType: 'call', target: { chatId: 'g1', userIds: ['222'], mode: 'mention' } },
       now,
       [SELF, GROUP],
     ),

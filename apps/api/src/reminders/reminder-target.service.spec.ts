@@ -30,7 +30,8 @@ void test('listMembers only serves listened groups', async () => {
 void test('the default chat is where the bot was asked (origin) or the own chat (self)', async () => {
   const { service } = createTargetService();
   const actor = { userId: '111', chatId: 'g1' };
-  assert.equal((await service.resolve({}, null, actor, 'origin')).chatId, 'g1');
+  const tagged = { users: [{ id: '222', name: 'Trí' }] };
+  assert.equal((await service.resolve(tagged, null, actor, 'origin')).chatId, 'g1');
   assert.equal((await service.resolve({}, null, actor, 'self')).chatId, '111');
 });
 
@@ -39,7 +40,8 @@ void test('dashboard-owner has no default chat and may only pick a listened one'
   const owner = { userId: 'dashboard-owner' };
   await assert.rejects(service.resolve({}, null, owner, 'self'), BadRequestException);
   await assert.rejects(service.resolve({ chatId: 'g2' }, null, owner, 'self'), BadRequestException);
-  assert.equal((await service.resolve({ chatId: 'g1' }, null, owner, 'self')).chatId, 'g1');
+  const pick = { chatId: 'g1', userIds: ['222'] };
+  assert.equal((await service.resolve(pick, null, owner, 'self')).chatId, 'g1');
 });
 
 const LEGACY_ID = '573462d8909179cf2080';
@@ -57,7 +59,8 @@ void test('a legacy official-bot id has no private chat: no own channel, must pi
     service.resolve({ chatId: LEGACY_ID }, null, legacy, 'self'),
     BadRequestException,
   );
-  assert.equal((await service.resolve({ chatId: 'g1' }, null, legacy, 'self')).chatId, 'g1');
+  const pick = { chatId: 'g1', userIds: ['222'] };
+  assert.equal((await service.resolve(pick, null, legacy, 'self')).chatId, 'g1');
 });
 
 void test('picked people must be group members and are named from the member list', async () => {
@@ -89,8 +92,28 @@ void test('a private chat has no people; moving to another group drops them', as
   const current = { chatId: 'g1', users: [{ id: '222', name: 'Trí' }], mode: 'direct' as const };
   const kept = await service.resolve({}, current, actor, 'self');
   assert.deepEqual(kept, current);
-  const moved = await service.resolve({ chatId: 'g3' }, current, actor, 'self');
-  assert.deepEqual(moved, { chatId: 'g3', users: [], mode: 'mention' });
+  // Moving to another group drops the people, so that group needs its own picks.
+  await assert.rejects(
+    service.resolve({ chatId: 'g3' }, current, actor, 'self'),
+    BadRequestException,
+  );
+  const moved = await service.resolve({ chatId: '111' }, current, actor, 'self');
+  assert.deepEqual(moved, { chatId: '111', users: [], mode: 'mention' });
+});
+
+void test('a group reminder needs at least one person; a private chat needs none', async () => {
+  const { service } = createTargetService();
+  const actor = { userId: '111' };
+  await assert.rejects(service.resolve({ chatId: 'g1' }, null, actor, 'self'), BadRequestException);
+  await assert.rejects(
+    service.resolve({ chatId: 'g1', userIds: [] }, null, actor, 'self'),
+    BadRequestException,
+  );
+  assert.deepEqual(await service.resolve({ chatId: '111' }, null, actor, 'self'), {
+    chatId: '111',
+    users: [],
+    mode: 'mention',
+  });
 });
 
 void test('deliver tags the people in one group message', async () => {

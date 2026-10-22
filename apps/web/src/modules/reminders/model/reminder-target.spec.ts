@@ -5,6 +5,7 @@ import {
   buildReminderTargetFields,
   emptyReminderTargetDraft,
   isTargetChanged,
+  privateRecipient,
   reminderTargetDraftFrom,
   toggleTargetUser,
 } from './reminder-target';
@@ -19,8 +20,10 @@ test('the chat is the picked one, else the saved one, else the private chat', ()
     return result.ok ? result.fields.chatId : result.error;
   };
   assert.equal(fields(), '111');
-  assert.equal(fields('g1'), 'g1');
-  const picked = buildReminderTargetFields({ ...draft, chatId: 'g1' }, [SELF, GROUP], '111');
+  const withPerson = { ...draft, userIds: ['222'] };
+  const saved = buildReminderTargetFields(withPerson, [SELF, GROUP], 'g1');
+  assert.equal(saved.ok && saved.fields.chatId, 'g1', 'the saved chat');
+  const picked = buildReminderTargetFields({ ...withPerson, chatId: 'g1' }, [SELF, GROUP], '111');
   assert.equal(picked.ok && picked.fields.chatId, 'g1', 'the picked chat wins');
   assert.deepEqual(buildReminderTargetFields(draft, [GROUP]), {
     ok: false,
@@ -62,4 +65,16 @@ test('isTargetChanged compares chat, people and mode with the saved target', () 
   assert.equal(isTargetChanged({ ...draft, chatId: 'g2' }, saved), true);
   assert.equal(isTargetChanged({ ...draft, userIds: [] }, saved), true);
   assert.equal(isTargetChanged({ ...draft, mode: 'direct' }, saved), true);
+});
+
+test('a group needs at least one person; a private chat reminds its own person', () => {
+  const draft = { ...emptyReminderTargetDraft(), chatId: 'g1' };
+  assert.deepEqual(buildReminderTargetFields(draft, [SELF, GROUP]), {
+    ok: false,
+    error: 'usersRequired',
+  });
+  const own = buildReminderTargetFields(emptyReminderTargetDraft(), [SELF, GROUP]);
+  assert.deepEqual(own.ok && own.fields.remindUserIds, []);
+  assert.deepEqual(privateRecipient([SELF, GROUP], '111'), { self: true, name: SELF.name });
+  assert.equal(privateRecipient([SELF, GROUP], 'g1'), undefined);
 });

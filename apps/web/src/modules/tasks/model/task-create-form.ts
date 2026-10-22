@@ -23,7 +23,11 @@ export interface TaskCreateDraft {
 }
 
 export type TaskCreateError =
-  'titleRequired' | 'remindPastTime' | 'remindTooMany' | 'remindChannelRequired';
+  | 'titleRequired'
+  | 'remindPastTime'
+  | 'remindTooMany'
+  | 'remindChannelRequired'
+  | 'remindUsersRequired';
 
 export type TaskCreateResult =
   { ok: true; request: ICreateTaskRequest } | { ok: false; error: TaskCreateError };
@@ -55,7 +59,12 @@ export function buildCreateTaskRequest(
   if (times.iso.length === 0) return { ok: true, request };
 
   const target = buildReminderTargetFields(draft.remindTarget, channels);
-  if (!target.ok) return { ok: false, error: 'remindChannelRequired' };
+  if (!target.ok) {
+    return {
+      ok: false,
+      error: target.error === 'usersRequired' ? 'remindUsersRequired' : 'remindChannelRequired',
+    };
+  }
   const { chatId, remindUserIds, remindMode } = target.fields;
   return {
     ok: true,

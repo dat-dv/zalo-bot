@@ -69,12 +69,26 @@ test('a picked reminder chat wins over the default', () => {
       ...emptyTaskDraft(),
       title: 'Họp',
       remindTimes: [{ value: localInput(future) }],
-      remindTarget: { chatId: '999', userIds: [], mode: 'mention' },
+      remindTarget: { chatId: '999', userIds: ['222'], mode: 'mention' },
     },
     [SELF, GROUP],
     NOW,
   );
   assert.equal(result.ok && result.request.remindChatId, '999');
+});
+
+test('a group reminder needs someone to remind', () => {
+  const result = buildCreateTaskRequest(
+    {
+      ...emptyTaskDraft(),
+      title: 'Họp',
+      remindTimes: [{ value: localInput(future) }],
+      remindTarget: { chatId: '999', userIds: [], mode: 'mention' },
+    },
+    [SELF, GROUP],
+    NOW,
+  );
+  assert.deepEqual(result, { ok: false, error: 'remindUsersRequired' });
 });
 
 test('a reminder needs a chat when the user has no private chat (dashboard-owner)', () => {

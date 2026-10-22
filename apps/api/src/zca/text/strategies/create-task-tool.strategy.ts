@@ -7,7 +7,7 @@ import { TransactionConfirmationService } from '../../confirmation/transaction-c
 import {
   reminderModeFromArgs,
   reminderTimesFromArgs,
-  reminderUsersFromContext,
+  reminderUsersOrSender,
 } from '../reminder-target-args.util';
 
 @Injectable()
@@ -53,10 +53,11 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
       }
 
       const remindTimes = reminderTimesFromArgs(context.toolArgs ?? {});
-      // People only matter with a reminder; the task reminder goes to this chat.
+      // People only matter with a reminder; the task reminder goes to this chat, and in a
+      // group it tags someone (the sender when nobody is tagged).
       const remindUsers =
         remindTimes.length > 0
-          ? reminderUsersFromContext(context, context.toolArgs?.remindSelf === true)
+          ? reminderUsersOrSender(context, context.toolArgs?.remindSelf === true)
           : [];
       await this.confirmationService.createPendingTask({
         userId: context.senderId,

@@ -110,6 +110,7 @@ export function CreateReminderDialog({ open, onClose, onCreated }: CreateReminde
         channelsLoading={channelsQuery.isLoading}
         disabled={createMutation.isPending}
         showChannelRequired={!result.ok && result.error === 'channelRequired'}
+        showUsersRequired={!result.ok && result.error === 'usersRequired'}
       />
 
       <div className="grid grid-cols-2 gap-2">

@@ -234,7 +234,15 @@ void test('dashboard-owner must pick a reminder chat, and only a listened one', 
     service.createTask({ title: 'Họp', remindTimes, remindChatId: 'g2' }, owner),
     BadRequestException,
   );
-  const row = await service.createTask({ title: 'Họp', remindTimes, remindChatId: 'g1' }, owner);
+  // A group needs someone to remind.
+  await assert.rejects(
+    service.createTask({ title: 'Họp', remindTimes, remindChatId: 'g1' }, owner),
+    BadRequestException,
+  );
+  const row = await service.createTask(
+    { title: 'Họp', remindTimes, remindChatId: 'g1', remindUserIds: ['222'] },
+    owner,
+  );
   assert.equal(row.remindChatId, 'g1');
 });
 

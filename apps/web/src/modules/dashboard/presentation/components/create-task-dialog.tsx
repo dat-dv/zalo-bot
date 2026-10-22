@@ -125,6 +125,7 @@ export function CreateTaskDialog({ open, onClose, onCreated }: CreateTaskDialogP
         channelsLoading={channelsQuery.isLoading}
         disabled={createMutation.isPending}
         showChannelRequired={remindError === 'remindChannelRequired'}
+        showUsersRequired={remindError === 'remindUsersRequired'}
       />
     </FormDialog>
   );
