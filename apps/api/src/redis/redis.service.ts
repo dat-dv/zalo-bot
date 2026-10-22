@@ -217,4 +217,20 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       return false;
     }
   }
+
+  /**
+   * Increments a counter and starts its TTL on the first hit. Returns `null` when Redis is
+   * unavailable so callers can fall back instead of failing.
+   */
+  public async incrWithTtl(key: string, ttlSeconds: number): Promise<number | null> {
+    if (!this.client || !this.isConnected) return null;
+    try {
+      const count = await this.client.incr(key);
+      if (count === 1) await this.client.expire(key, ttlSeconds);
+      return count;
+    } catch (err) {
+      this.logger.warn(`Redis INCR failed for key "${key}": ${(err as Error).message}`);
+      return null;
+    }
+  }
 }

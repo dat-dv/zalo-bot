@@ -6,6 +6,7 @@ import { RemindersModule } from '../reminders/reminders.module';
 import { UsersModule } from '../users/users.module';
 import { DatabaseModule } from '../database/database.module';
 import { ReportsController } from './reports.controller';
+import { AccessCodeRateLimiter } from './access-code-rate-limiter';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 @Module({
   imports: [
@@ -18,6 +19,6 @@ import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
     UsersModule,
   ],
   controllers: [ReportsController],
-  providers: [],
+  providers: [AccessCodeRateLimiter],
 })
 export class ReportsModule {}

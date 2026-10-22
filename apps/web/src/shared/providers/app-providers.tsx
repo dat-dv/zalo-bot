@@ -8,6 +8,8 @@ import { LocaleProvider } from './locale-provider';
 import { ReactScanProvider } from './react-scan-provider';
 import { ErrorBoundary } from '@/shared/ui/error-boundary';
 import { IosViewportFix } from '@/shared/ui/ios-viewport-fix';
+import { PwaRegistrar } from '@/shared/pwa/pwa-registrar';
+import { PwaStatusStack } from '@/shared/ui/pwa-status-stack';
 
 function AppLoadingFallback() {
   return (
@@ -43,9 +45,13 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ErrorBoundary>
       <IosViewportFix />
+      <PwaRegistrar />
       <ReactScanProvider>
         <QueryClientProvider client={queryClient}>
-          <LocaleProvider>{ready ? children : <AppLoadingFallback />}</LocaleProvider>
+          <LocaleProvider>
+            {ready ? children : <AppLoadingFallback />}
+            <PwaStatusStack />
+          </LocaleProvider>
         </QueryClientProvider>
       </ReactScanProvider>
     </ErrorBoundary>

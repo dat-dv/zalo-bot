@@ -1,0 +1,80 @@
+---
+metadata:
+  agent-artifact:
+    id: global-pwa-knowledge
+    type: documentation
+    depends_on:
+      - apps/web/app/manifest.ts
+      - apps/web/app/layout.tsx
+      - apps/web/public/sw.js
+      - apps/web/public/offline.html
+      - apps/web/next.config.ts
+      - apps/web/nginx.conf
+      - apps/web/src/shared/pwa
+      - apps/web/src/shared/ui/pwa-status-stack.tsx
+      - apps/web/src/shared/providers/app-providers.tsx
+      - apps/web/src/modules/settings/presentation/components/install-app-row.tsx
+---
+
+# Installable Web App (PWA)
+
+Human guide: [PWA](../../docs/global/pwa.md).
+
+Owner: Core Engineering Team
+Status: active
+
+## Purpose
+
+The dashboard can be installed on the phone home screen and opened full screen like an app, keeps working as a shell offline, and picks up new deploys without users clearing caches. No push notifications (reminders already go through Zalo).
+
+## Manifest (`app/manifest.ts`)
+
+- Next metadata route, `dynamic = 'force-static'`, exported as `/manifest.webmanifest`; Next injects `<link rel="manifest">` (no `manifest` field in `layout.tsx`). Replaces the old `public/site.webmanifest`.
+- `id`/`start_url`/`scope` = `APP_ROUTES.home`. Never change `id`: browsers would treat it as a different app.
+- `display: standalone`, `orientation: portrait-primary`, `lang: vi`, colors match `layout.tsx` (`#0f172a` theme, `#090d16` background).
+- Icons: `icon-192.png`/`icon-512.png` (`any`), `icon-maskable-192.png`/`icon-maskable-512.png` (`maskable`: full-bleed background, mark scaled to 80% inside the safe zone), `icon.svg`.
+- Shortcuts (names from i18n `nav.*`, default locale): Transactions, Debts, Reminders.
+- iOS meta stays in `layout.tsx` (`appleWebApp`, `apple-touch-icon`, `viewportFit: 'cover'`).
+
+## Service worker (`public/sw.js`)
+
+- Hand-written plain JS, no build step or library. Registered as `/sw.js?v=<NEXT_PUBLIC_APP_VERSION>`; `NEXT_PUBLIC_APP_VERSION` is `apps/web/package.json` `version`, injected by `next.config.ts` (`env`), bumped on every commit. A new version installs a new worker; caches are named `zalobot-{shell|pages|assets}-<version>` and old `zalobot-*` caches are deleted on `activate`.
+- Install precaches `/offline.html`, the manifest and icons.
+- Not intercepted (always network): non-GET, other origins, `/api/`, `/webhook`, `/zalo/`, `/oauth2callback`. Finance data is never cached; the sign-in link and OAuth redirects reach the server untouched.
+- Navigations: network first; a successful response is stored per URL; offline falls back to that URL's copy (also ignoring the query string), then `/offline.html`.
+- `/_next/static/*`: cache first (hashed, immutable). Same-origin images/icons/fonts: stale-while-revalidate.
+- The worker never calls `skipWaiting` on its own; it waits for a `{ type: 'SKIP_WAITING' }` message from the page.
+- `offline.html`: self-contained (inline CSS, vi/en, light/dark), Retry button, reloads itself on `online`.
+
+## Client side (`src/shared/pwa`)
+
+- `pwa-environment.ts` (pure, with spec): `isIosUserAgent` (iPadOS desktop UA counts when touch points > 1), `isZaloInAppUserAgent`, `shouldRegisterServiceWorker` (production build + secure context + `serviceWorker` support; never in `next dev`).
+- `pwa-store.ts` (Zustand): `waitingWorker`, `installPrompt` (`BeforeInstallPromptEvent`, checked by `isBeforeInstallPromptEvent`), `installed`.
+- `pwa-registrar.tsx` (`PwaRegistrar`, mounted once in `AppProviders`, renders nothing):
+  - Marks `installed` when running standalone; captures `beforeinstallprompt` (prevents Chrome's mini-infobar) and `appinstalled`.
+  - Registers the worker; a worker that reaches `installed` while the page is controlled becomes `waitingWorker`.
+  - Calls `registration.update()` whenever the page becomes visible again (installed apps stay open for days).
+  - On `controllerchange` reloads once, only if a `waitingWorker` was set (first install does not reload).
+- `use-online-status.ts`: `useSyncExternalStore` on `online`/`offline`; server snapshot `true`.
+- `shared/ui/pwa-status-stack.tsx` (`PwaStatusStack`, inside `LocaleProvider`): fixed top-center stack below the safe area, `z-[70]`. Desktop `top-3`; phone (<= 960px) just under the workspace header (`4.5rem` + safe area) so the menu button stays reachable. Offline pill (`pwa.offline.banner`) and an update card (`pwa.update.title` + Reload button that posts `SKIP_WAITING` + ✕ `common.close` that hides the card for that waiting worker until the next load, since it covers the top of the page). Top, not bottom, because the phone shell stacks the tab bar and action bars at the bottom.
+
+## Install entry point
+
+- Only in Settings → Preferences (`InstallAppRow`, see `modules/settings`); no install banner elsewhere.
+
+## Sign-in inside the installed app
+
+- iOS standalone apps do not share storage with Safari, so the link login never reaches them. The bot sends a sign-in code with the link; see `global/dashboard-session.md` and `modules/auth`.
+
+## nginx (`apps/web/nginx.conf`)
+
+- `location /` (HTML): `Cache-Control: no-cache`.
+- `location = /sw.js` and `location = /manifest.webmanifest` (`application/manifest+json`): `no-cache`. Exact matches win over the 1-year `\.js$` rule; a cached worker could never update.
+- Local `docker/nginx/nginx.local.conf.template` proxies to `next dev`, where no worker is registered.
+
+## Known limits
+
+- PWA needs HTTPS (production domain) or localhost.
+- iOS may evict data of an app unused for a long time; the user signs in again with a code.
+- Google OAuth started inside an iOS standalone app can open Safari and not come back; connect Google from the browser.
+- Emergency rollback: ship a `sw.js` that unregisters itself and deletes `zalobot-*` caches.

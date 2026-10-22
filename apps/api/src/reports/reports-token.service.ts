@@ -2,10 +2,21 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
-import { Repository } from 'typeorm';
+import { QueryFailedError, Repository } from 'typeorm';
 import { DashboardExchangeTokenEntity } from '../database/entities/dashboard-exchange-token.entity';
+import { generateDashboardAccessCode, hashDashboardAccessCode } from './dashboard-access-code';
 
 type TokenKind = 'access' | 'refresh';
+
+/** Retries when a fresh sign-in code collides with an old one (unique `code_hash`). */
+const ISSUE_EXCHANGE_ATTEMPTS = 3;
+
+export interface DashboardExchangeCredentials {
+  /** One-time token for the `/api/access` link. */
+  token: string;
+  /** Sign-in code typed in the installed app; consumed together with the link. */
+  code: string;
+}
 
 interface DashboardTokenPayload {
   expiresAt: number;
@@ -29,33 +40,55 @@ export class ReportsTokenService {
     return this.issue(userId, 'refresh', 7 * 24 * 60 * 60 * 1000);
   }
 
-  public async issueExchangeToken(userId: number | string): Promise<string> {
-    const token = randomBytes(32).toString('base64url');
-    await this.exchangeTokens.save(
-      this.exchangeTokens.create({
-        userId: userId.toString(),
-        tokenHash: this.hashExchangeToken(token),
-        expiresAt: new Date(Date.now() + 20 * 60 * 1000),
-      }),
-    );
-    return token;
+  public async issueExchangeToken(userId: number | string): Promise<DashboardExchangeCredentials> {
+    for (let attempt = 1; ; attempt += 1) {
+      const token = randomBytes(32).toString('base64url');
+      const code = generateDashboardAccessCode();
+      try {
+        await this.exchangeTokens.save(
+          this.exchangeTokens.create({
+            userId: userId.toString(),
+            tokenHash: this.hashExchangeToken(token),
+            codeHash: hashDashboardAccessCode(code),
+            expiresAt: new Date(Date.now() + 20 * 60 * 1000),
+          }),
+        );
+        return { token, code };
+      } catch (error) {
+        if (!(error instanceof QueryFailedError) || attempt >= ISSUE_EXCHANGE_ATTEMPTS) throw error;
+      }
+    }
   }
 
   public async consumeExchangeToken(token: string): Promise<string | number> {
     if (!token) throw new UnauthorizedException();
+    return this.consumeExchange('token_hash', this.hashExchangeToken(token));
+  }
+
+  /** Same one-time rules as the link: using either the code or the link spends both. */
+  public async consumeExchangeCode(code: string): Promise<string | number> {
+    const codeHash = hashDashboardAccessCode(code);
+    if (!codeHash) throw new UnauthorizedException();
+    return this.consumeExchange('code_hash', codeHash);
+  }
+
+  private async consumeExchange(
+    column: 'token_hash' | 'code_hash',
+    hash: string,
+  ): Promise<string | number> {
     const now = new Date();
     const result = await this.exchangeTokens
       .createQueryBuilder()
       .update(DashboardExchangeTokenEntity)
       .set({ consumedAt: now })
-      .where('token_hash = :tokenHash', { tokenHash: this.hashExchangeToken(token) })
+      .where(`${column} = :hash`, { hash })
       .andWhere('consumed_at IS NULL')
       .andWhere('expires_at > :now', { now })
       .execute();
     if (result.affected !== 1) throw new UnauthorizedException();
-    const record = await this.exchangeTokens.findOneBy({
-      tokenHash: this.hashExchangeToken(token),
-    });
+    const record = await this.exchangeTokens.findOneBy(
+      column === 'token_hash' ? { tokenHash: hash } : { codeHash: hash },
+    );
     if (!record || !record.userId) throw new UnauthorizedException();
     return Number.isSafeInteger(Number(record.userId)) ? Number(record.userId) : record.userId;
   }

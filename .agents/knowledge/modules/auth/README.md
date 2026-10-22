@@ -10,6 +10,9 @@
 
 - `client/auth-storage.ts`: `getAccessToken`, `setAccessToken`, `clearAccessToken`, `captureDashboardToken`.
 - `presentation/components/session-state-screen.tsx` (re-exported by `view/session-state-screen.tsx`): `SessionStateScreen`.
+- `api/access-code-api.ts`: `signInWithAccessCode` (`POST API_ROUTES.accessCode`), `getAccessCodeErrorKind` (401 -> `rejected`, 429 -> `tooManyAttempts`, else `failed`).
+- `api/access-code-query.ts`: `useAccessCodeSignInMutation`.
+- `presentation/components/access-code-form.tsx`: `AccessCodeForm`.
 
 ## Token storage and capture
 
@@ -36,6 +39,13 @@
   - Close mini app: rendered only when `window.zalo.WebApp.close` exists (leftover from an earlier mini-app integration; Zalo does not inject this global today, so the button normally never shows).
   - Clear session & retry: `clearAccessToken()`, `queryClient.clear()`, `sessionStorage.clear()`, then `onRetry()` if provided, else `window.location.assign('/')`.
   - Link to `APP_ROUTES.about`.
+
+## Sign-in code (installed app / PWA)
+
+- Why: on iOS the installed app has its own storage, so the one-time link opened from Zalo signs in Safari, never the app. The bot reply carries an 8-character code (Crockford base32, shown `XXXX-XXXX`) issued from the same `dashboard_exchange_tokens` row as the link; using either spends both (20-minute TTL).
+- `SessionStateScreen` always renders `AccessCodeForm` below its actions. The form normalizes with `normalizeDashboardAccessCode`, validates with `isDashboardAccessCode` (contracts) before calling the API, then `setAccessToken(accessToken)` and does a full load of `APP_ROUTES.dashboard`. The API also sets the `reports_refresh` cookie.
+- `httpClient` never runs refresh-and-retry for a 401 from `API_ROUTES.accessCode` (a wrong code is not an expired session).
+- API side: `POST /api/access/code`, rate limited per client IP and overall (see `global/dashboard-session.md`).
 
 ## Invariants
 

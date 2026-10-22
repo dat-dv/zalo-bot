@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Query, Req, Res, UnauthorizedException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpException,
+  HttpStatus,
+  Post,
+  Query,
+  Req,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
@@ -11,7 +23,10 @@ import { GoogleTasksService } from '../google/google-tasks.service';
 import { RemindersService } from '../reminders/reminders.service';
 import { UsersService } from '../users/users.service';
 import { DebtEntity } from '../database/entities/debt.entity';
+import type { IApiResponse, IDashboardAccessTokenResponse } from '@zalobot/contracts';
 import { ReportsTokenService } from './reports-token.service';
+import { AccessCodeRateLimiter } from './access-code-rate-limiter';
+import { DashboardAccessCodeDto } from './dto/dashboard-access-code.dto';
 
 function toIsoDate(value: unknown, fallback?: string): string {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
@@ -49,6 +64,7 @@ export class ReportsController {
     private readonly reminders: RemindersService,
     private readonly users: UsersService,
     private readonly tokens: ReportsTokenService,
+    private readonly accessCodeLimiter: AccessCodeRateLimiter,
   ) {}
 
   @Get('access')
@@ -89,6 +105,35 @@ export class ReportsController {
     }
 
     res.redirect(`${webOrigin}/dashboard#dashboard_token=${encodeURIComponent(access.token)}`);
+  }
+
+  @Post('access/code')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Đổi mã đăng nhập (gửi kèm link) lấy Dashboard Session Token' })
+  public async accessWithCode(
+    @Body() body: DashboardAccessCodeDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<IApiResponse<IDashboardAccessTokenResponse>> {
+    if (!(await this.accessCodeLimiter.tryAttempt(this.getClientIp(req)))) {
+      throw new HttpException('Too many sign-in code attempts', HttpStatus.TOO_MANY_REQUESTS);
+    }
+    const userId = await this.tokens.consumeExchangeCode(body.code);
+    const access = this.tokens.issueAccessToken(userId);
+    this.setRefreshCookie(res, this.tokens.issueRefreshToken(userId).token);
+    return { data: { accessToken: access.token, expiresAt: access.expiresAt } };
+  }
+
+  /**
+   * Express has no `trust proxy` here, so `req.ip` is nginx for everyone. Cloudflare and nginx
+   * headers carry the real client; they can be forged, which the overall attempt cap covers.
+   */
+  private getClientIp(req: Request): string {
+    const header = (name: string): string | undefined => {
+      const value = req.get(name)?.split(',')[0]?.trim();
+      return value || undefined;
+    };
+    return header('cf-connecting-ip') ?? header('x-real-ip') ?? req.ip ?? 'unknown';
   }
 
   private renderAccessError(res: Response): void {

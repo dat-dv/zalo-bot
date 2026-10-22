@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { APP_ROUTES } from '@zalobot/contracts';
 import { clearAccessToken } from '@/modules/auth/client/auth-storage';
+import { AccessCodeForm } from './access-code-form';
 import { useLocale } from '@/shared/providers/locale-provider';
 
 export type SessionStateReason = 'logged_out' | 'expired' | 'error';
@@ -129,6 +130,10 @@ export function SessionStateScreen({ reason = 'expired', onRetry }: SessionState
             >
               {t('auth.clearSessionAndRetry')}
             </button>
+          </div>
+
+          <div className="mt-6 w-full border-t border-slate-100 pt-5 dark:border-slate-800">
+            <AccessCodeForm />
           </div>
 
           <div className="mt-6 border-t border-slate-100 pt-4 dark:border-slate-800">

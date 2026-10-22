@@ -56,7 +56,13 @@ httpClient.interceptors.response.use(undefined, async (error: unknown) => {
   }
   const request = error.config as
     (InternalAxiosRequestConfig & { _dashboardRetried?: boolean }) | undefined;
-  if (!request || request._dashboardRetried || request.url === API_ROUTES.dashboardRefresh)
+  // A rejected sign-in code is a wrong code, not an expired session: never refresh and retry it.
+  if (
+    !request ||
+    request._dashboardRetried ||
+    request.url === API_ROUTES.dashboardRefresh ||
+    request.url === API_ROUTES.accessCode
+  )
     return Promise.reject(error);
   if (!getAccessToken()) return Promise.reject(error);
   request._dashboardRetried = true;

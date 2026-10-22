@@ -17,6 +17,7 @@ import {
 } from '../../api/categories-query';
 import { useDashboardQuery } from '@/modules/dashboard/api/dashboard-query';
 import { AdjustBalanceModal } from '@/modules/dashboard/presentation/components/adjust-balance-modal';
+import { InstallAppRow } from './install-app-row';
 
 /** Chip sizing at phone width (40px tall), matching the Transactions toolbar. */
 const PHONE_CHIP = 'max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
@@ -462,6 +463,7 @@ export function SettingsScreen() {
                   {t('settings.preferences.supported')}
                 </span>
               </article>
+              <InstallAppRow />
               <article className="flex items-center justify-between gap-4 border-b border-slate-200 py-3 dark:border-slate-800">
                 <div>
                   <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100">

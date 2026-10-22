@@ -7,6 +7,9 @@ metadata:
       - .agents/knowledge/modules/auth/README.md
       - apps/web/src/modules/auth/client/auth-storage.ts
       - apps/web/src/modules/auth/presentation/components/session-state-screen.tsx
+      - apps/web/src/modules/auth/presentation/components/access-code-form.tsx
+      - apps/web/src/modules/auth/api/access-code-api.ts
+      - apps/web/src/modules/auth/api/access-code-query.ts
       - apps/web/src/shared/api/http-client.ts
       - apps/web/src/shared/ui/workspace-header.tsx
       - apps/api/src/reports/reports.controller.ts
@@ -40,6 +43,19 @@ Dashboard không có màn hình đăng nhập. Người dùng mở dashboard b�
   - **Đóng mini app**: chỉ hiện khi tồn tại `window.zalo.WebApp.close`. Đây là phần còn sót từ tích hợp mini-app trước đây; Zalo hiện không cung cấp biến toàn cục này nên thực tế nút gần như không bao giờ xuất hiện.
   - **Xoá phiên & thử lại**: xoá token, xoá cache query, xoá `sessionStorage`, rồi gọi `onRetry()` nếu có, nếu không thì về trang `/`.
   - Link về trang Giới thiệu (`APP_ROUTES.about`).
+
+## Đăng nhập bằng mã (ứng dụng đã cài / PWA)
+
+- **Vì sao cần**: trên iOS, app đã cài lên màn hình chính có bộ nhớ riêng, tách khỏi Safari. Link một lần mở từ Zalo sẽ đăng nhập vào Safari chứ không vào app, nên người dùng cần một cách đăng nhập ngay trong app.
+- **Cách hoạt động**:
+  - Tin trả lời của bot kèm một mã 8 ký tự (dạng `K7P2-QX9M`), sinh cùng bản ghi với link.
+  - Dùng link hoặc mã thì cả hai đều hết hiệu lực, hạn 20 phút.
+  - Form `AccessCodeForm` luôn hiện trong `SessionStateScreen`. Form tự chuẩn hoá mã: không phân biệt hoa/thường, bỏ dấu `-` và khoảng trắng.
+  - Đăng nhập thành công thì lưu access token và tải lại trang `/dashboard`. API cũng đặt cookie `reports_refresh` như khi dùng link.
+- **Thông báo lỗi**:
+  - `401`: mã sai, đã hết hạn hoặc đã dùng.
+  - `429`: thử quá nhiều lần, phải đợi 15 phút.
+- `httpClient` không tự refresh rồi gọi lại khi `/api/access/code` trả 401, vì mã sai không phải là phiên hết hạn.
 
 ## Lưu ý khi phát triển
 

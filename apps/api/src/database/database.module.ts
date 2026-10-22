@@ -37,6 +37,7 @@ import { AddChatMemoryToZcaThreadConfigs1724820000000 } from './migrations/17248
 import { CreateChannelStorageLinks1724830000000 } from './migrations/1724830000000-CreateChannelStorageLinks';
 import { AddDisplayNameToChannelStorageLinks1724840000000 } from './migrations/1724840000000-AddDisplayNameToChannelStorageLinks';
 import { AddProfileFieldsToDebtContacts1724850000000 } from './migrations/1724850000000-AddProfileFieldsToDebtContacts';
+import { AddCodeHashToDashboardExchangeTokens1724860000000 } from './migrations/1724860000000-AddCodeHashToDashboardExchangeTokens';
 
 @Module({
   imports: [
@@ -91,6 +92,7 @@ import { AddProfileFieldsToDebtContacts1724850000000 } from './migrations/172485
             CreateChannelStorageLinks1724830000000,
             AddDisplayNameToChannelStorageLinks1724840000000,
             AddProfileFieldsToDebtContacts1724850000000,
+            AddCodeHashToDashboardExchangeTokens1724860000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

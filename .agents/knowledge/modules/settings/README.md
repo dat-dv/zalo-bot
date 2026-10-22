@@ -11,6 +11,7 @@
 - `api/categories-api.ts`: `getCategories(type?)` (`API_ROUTES.categories`, optional `?type=income|expense`), `createCategory`, `updateCategory`, `deleteCategory` (`/api/categories/:id`).
 - `api/categories-query.ts`: `categoriesQueryKeys.all` (`['categories']`), `list(type)`; hooks `useCategoriesQuery`, `useCreateCategoryMutation`, `useUpdateCategoryMutation`, `useDeleteCategoryMutation`. Mutations invalidate `categoriesQueryKeys.all`.
 - `presentation/components/settings-screen.tsx` (`SettingsScreen`), re-exported by `view/settings-screen.tsx`.
+- `presentation/components/install-app-row.tsx` (`InstallAppRow`): the Preferences "Mobile app" row.
 - Backend endpoints live in `apps/api/src/finance/finance.controller.ts` (`GET/POST /categories`, `PATCH/DELETE /categories/:id`).
 
 ## UI (`SettingsScreen`)
@@ -20,6 +21,7 @@
 - **Categories tab**: two `DataPanel`s (expense, income). Each has client search by name, inline add (`settings.categories.addExpense` / `addIncome`; Enter saves, Escape cancels), inline rename (double-click or Edit; Enter/Escape), delete with `window.confirm`. Action buttons use `flex-nowrap whitespace-nowrap` / `shrink-0`. Loading and empty (`settings.categories.empty`) states come from the table; error state shows an alert with Retry.
 - **Preferences tab** (static info + tools):
   - Language and Theme: informational rows with a "Supported" badge (no switcher here).
+  - Mobile app (`InstallAppRow`, after Theme): the only install entry point of the PWA (see `global/pwa.md`). Reads `usePwaStore`: `installed` -> "Installed" badge; a captured `installPrompt` (Chromium) -> "Install app" button calling `prompt()` (a dismissed prompt is dropped, it can be used once); otherwise a hint chosen by user agent: Zalo in-app browser -> open in Safari/Chrome, iOS -> Share -> Add to Home Screen, else unsupported. User agent is read with `useSyncExternalStore` (empty on the server).
   - Wallet & Balance: button opens `AdjustBalanceModal` (`@/modules/dashboard/presentation/components/adjust-balance-modal`) to reconcile the ledger balance with a real wallet balance; `currentBalance` = `dashboard.finance.ledgerBalance` (all-time income − expense).
   - React Scan: toggle bound to `useReactScan()`.
 - **Compact / phone** (desktop unchanged): both category `DataTable`s use the mobile list (<= 960px): primary `name`, secondary type label; no trailing (categories carry no count/usage). Rename goes through the sheet footer Edit (input 40px), Save/✕ and Delete sit in the sheet footer. At <= 640px the tabs are one sideways-scrolling row of 40px chips (`MOBILE_TOOLBAR_ROW`); panel toolbars stack a full-width 40px search (`TAP_INPUT`) over a full-width 40px Add button; the inline add row's input and ✓/✕ are 40px (`TAP_CONTROL`); Preferences buttons are 40px and the panel padding shrinks. Category panels stack at 640px (`grid-cols-1`). Toast uses `TOAST_POSITION`; Retry 40px.

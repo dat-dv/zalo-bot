@@ -1,5 +1,6 @@
 export const API_ROUTES = {
   access: '/api/access',
+  accessCode: '/api/access/code',
   dashboard: '/api/dashboard',
   dashboardRefresh: '/api/refresh',
   dashboardLogout: '/api/logout',
@@ -323,8 +324,8 @@ const messages = {
     'dashboard.noReminders': 'Chưa có nhắc nhở',
     'dashboard.noCalendar': 'Chưa có lịch sắp tới',
     'dashboard.noActivity': 'Chưa có hoạt động',
-    'dashboard.noTransactions': 'Chưa có giao dịch',
     'dashboard.viewAll': 'Xem tất cả',
+    'dashboard.noTransactions': 'Chưa có giao dịch',
     'dashboard.noDebts': 'Không có khoản vay nợ',
     'dashboard.noExpenses': 'Chưa có chi tiêu',
     'dashboard.noContacts': 'Chưa có người liên quan nào',
@@ -358,6 +359,29 @@ const messages = {
     'auth.clearSessionAndRetry': 'Xóa phiên & Thử lại',
     'auth.backToAbout': 'Xem trang giới thiệu',
     'auth.closeMiniApp': 'Đóng cửa sổ',
+    'auth.accessCode.title': 'Đăng nhập bằng mã',
+    'auth.accessCode.desc':
+      'Nhắn "dashboard" cho zalo bot, rồi nhập mã đăng nhập 8 ký tự trong tin trả lời.',
+    'auth.accessCode.label': 'Mã đăng nhập',
+    'auth.accessCode.placeholder': 'VD: K7P2-QX9M',
+    'auth.accessCode.submit': 'Đăng nhập',
+    'auth.accessCode.submitting': 'Đang đăng nhập...',
+    'auth.accessCode.invalidFormat': 'Mã gồm 8 ký tự chữ và số.',
+    'auth.accessCode.rejected': 'Mã không đúng, đã hết hạn hoặc đã được dùng.',
+    'auth.accessCode.tooManyAttempts': 'Bạn đã thử quá nhiều lần. Vui lòng đợi 15 phút.',
+    'auth.accessCode.failed': 'Chưa đăng nhập được. Vui lòng thử lại.',
+    'pwa.update.title': 'Đã có phiên bản mới',
+    'pwa.update.reload': 'Tải lại',
+    'pwa.offline.banner': 'Đang offline — dữ liệu có thể chưa cập nhật',
+    'settings.app.title': 'Ứng dụng trên điện thoại',
+    'settings.app.description': 'Cài zalobot lên màn hình chính để mở như một ứng dụng',
+    'settings.app.install': 'Cài ứng dụng',
+    'settings.app.installed': 'Đã cài',
+    'settings.app.iosHint': 'Trên Safari: bấm Chia sẻ, rồi chọn "Thêm vào MH chính".',
+    'settings.app.zaloHint':
+      'Trình duyệt trong Zalo không cài được. Hãy mở trang này bằng Safari hoặc Chrome.',
+    'settings.app.unsupported':
+      'Trình duyệt này chưa hỗ trợ cài ứng dụng. Hãy dùng Chrome hoặc Safari.',
     'debts.title': 'Vay & cho vay',
     'debts.subtitle': 'Theo dõi tiền bạn cho mượn và tiền bạn đang vay',
     'expenses.title': 'Chi tiêu',
@@ -417,6 +441,8 @@ const messages = {
     'contacts.columns.linkedUser': 'Tài khoản User',
     'contacts.columns.resources': 'Dữ liệu liên quan',
     'contacts.actions.profile': 'Hồ sơ',
+    'contacts.actions.select': 'Chọn để gộp',
+    'contacts.actions.selected': 'Đã chọn',
     'contacts.profile.title': 'Hồ sơ',
     'contacts.profile.back': 'Người liên quan',
     'contacts.profile.missingId': 'Thiếu mã người liên quan trong đường dẫn.',
@@ -441,8 +467,6 @@ const messages = {
     'contacts.profile.summary.openDebts': '{count} khoản đang mở',
     'contacts.profile.summary.transactions': '{count} giao dịch',
     'contacts.profile.section.info': 'Thông tin',
-    'contacts.actions.select': 'Chọn để gộp',
-    'contacts.actions.selected': 'Đã chọn',
     'contacts.profile.section.debts': 'Khoản nợ',
     'contacts.profile.section.transactions': 'Giao dịch gần đây',
     'contacts.profile.transactionsLimited': '{shown} / {total} giao dịch gần nhất',
@@ -515,6 +539,8 @@ const messages = {
     'places.selectAll': 'Chọn tất cả',
     'places.deselectAll': 'Bỏ chọn',
     'places.selectedCount': 'Đã chọn {count}',
+    'places.selectMode': 'Chọn',
+    'places.selectModeDone': 'Xong',
     'places.combineModal.title': 'Gộp nơi chốn / Cửa hàng',
     'places.combineModal.desc':
       'Tập hợp các địa điểm trùng lặp và chuyển toàn bộ giao dịch sang một địa điểm chính.',
@@ -524,6 +550,9 @@ const messages = {
       'Mặc định chọn nơi chốn có nhiều giao dịch nhất làm lead. Bạn có thể chọn địa điểm khác nếu muốn.',
     'places.combineModal.newNameLabel': 'Tên nơi chốn mới sau khi gộp',
     'places.combineModal.transactionsBadge': '{count} giao dịch',
+    'places.combineModal.newNameHint': '{transactions} sẽ được cập nhật sang nơi chốn này.',
+    'places.combineModal.setLead': 'Chọn {name} làm nơi chốn chính',
+    'places.combineModal.topBadge': 'Top',
     'places.combineModal.warning':
       'Toàn bộ giao dịch liên quan đến các nơi chốn cũ sẽ được chuyển sang nơi chốn chính. Các nơi chốn phụ sẽ bị xóa vĩnh viễn.',
     'places.combineModal.confirm': 'Xác nhận gộp',
@@ -539,8 +568,6 @@ const messages = {
     'debts.filter.statusSettled': 'Đã tất toán',
     'debts.filter.directionAll': 'Tất cả luồng',
     'debts.filter.allDirections': 'Tất cả luồng',
-    'places.selectMode': 'Chọn',
-    'places.selectModeDone': 'Xong',
     'debts.stats.receivable': 'Tổng tiền cho vay (Phải thu)',
     'debts.stats.payable': 'Tổng tiền đi vay (Phải trả)',
     'debts.stats.activeCount': 'Khoản nợ đang mở',
@@ -550,9 +577,6 @@ const messages = {
     'debts.history.paymentDate': 'Ngày trả',
     'expenses.columns.paymentMethod': 'Nguồn tiền',
     'expenses.columns.currency': 'Tiền tệ',
-    'places.combineModal.newNameHint': '{transactions} sẽ được cập nhật sang nơi chốn này.',
-    'places.combineModal.setLead': 'Chọn {name} làm nơi chốn chính',
-    'places.combineModal.topBadge': 'Top',
     'expenses.actions.edit': 'Sửa',
     'expenses.actions.save': 'Lưu',
     'expenses.actions.cancel': 'Hủy',
@@ -587,6 +611,9 @@ const messages = {
     'debts.selectedCount': 'Đã chọn {count}',
     'debts.selectAll': 'Chọn tất cả',
     'debts.deselectAll': 'Bỏ chọn',
+    'debts.selectOne': 'Chọn',
+    'debts.deselectOne': 'Bỏ chọn',
+    'debts.paidPercent': 'Đã trả {percent}%',
     'contacts.combineModal.consolidateDebts':
       'Tự động gộp các khoản nợ cùng chiều thành 1 khoản tổng',
     'debts.inlineEdit.saved': 'Đã cập nhật khoản vay nợ',
@@ -612,9 +639,6 @@ const messages = {
     'transactions.deleteModal.impactExpenseRefund': 'Cộng hoàn lại vào số dư ví: +{amount}',
     'transactions.deleteModal.impactExpenseExplain':
       'Khoản chi này sẽ bị xóa khỏi sổ sách, số dư ví khả dụng sẽ tăng thêm tương ứng.',
-    'debts.selectOne': 'Chọn',
-    'debts.deselectOne': 'Bỏ chọn',
-    'debts.paidPercent': 'Đã trả {percent}%',
     'transactions.deleteModal.impactIncomeDeduct': 'Khấu trừ giảm khỏi số dư ví: -{amount}',
     'transactions.deleteModal.impactIncomeExplain':
       'Khoản thu này sẽ bị hủy khỏi sổ sách, số dư ví khả dụng sẽ giảm đi tương ứng.',
@@ -651,6 +675,12 @@ const messages = {
     'transactions.badge.allocatedChild': 'Phân bổ',
     'transactions.allocation.viewDebt': 'Xem khoản nợ',
     'transactions.allocation.editAllocations': 'Chỉnh sửa phân bổ',
+    'transactions.allocation.candidatesTitle': 'Danh sách công nợ phù hợp ({count})',
+    'transactions.allocation.loadingCandidates': 'Đang tải danh sách công nợ...',
+    'transactions.allocation.allocateMax': 'Phân bổ tối đa',
+    'transactions.allocation.originalAmount': 'Nợ gốc',
+    'transactions.allocation.remainingAmount': 'Còn lại',
+    'transactions.allocation.amountLabel': 'Số tiền phân bổ (VND)',
     'debts.badge.paymentChild': 'Đợt trả nợ',
     'debts.badge.paymentInstallment': '{count} đợt trả',
     'debts.expandPayments': 'Xem {count} đợt trả nợ',
@@ -675,12 +705,6 @@ const messages = {
     'transactions.balanceAdjust.diffDecrease': 'Giảm bớt (-{amount}) · Ghi nhận Chi',
     'transactions.balanceAdjust.diffZero': 'Số dư thực tế trùng khớp với số dư trên sổ (0 ₫)',
     'transactions.balanceAdjust.note': 'Ghi chú điều chỉnh',
-    'transactions.allocation.candidatesTitle': 'Danh sách công nợ phù hợp ({count})',
-    'transactions.allocation.loadingCandidates': 'Đang tải danh sách công nợ...',
-    'transactions.allocation.allocateMax': 'Phân bổ tối đa',
-    'transactions.allocation.originalAmount': 'Nợ gốc',
-    'transactions.allocation.remainingAmount': 'Còn lại',
-    'transactions.allocation.amountLabel': 'Số tiền phân bổ (VND)',
     'transactions.balanceAdjust.defaultNote': 'Cân chỉnh số dư ví: {current} ➔ {target}',
     'transactions.balanceAdjust.date': 'Ngày giờ áp dụng',
     'transactions.balanceAdjust.submit': 'Xác nhận cân chỉnh',
@@ -740,6 +764,10 @@ const messages = {
     'calendar.placeholder.description': 'Nhập mô tả chi tiết...',
     'calendar.view.grid': 'Lưới tháng',
     'calendar.view.table': 'Danh sách',
+    'calendar.view.agenda': 'Lịch trình',
+    'calendar.agenda.prevWeek': 'Tuần trước',
+    'calendar.agenda.nextWeek': 'Tuần sau',
+    'calendar.allDay': 'Cả ngày',
     'calendar.nav.today': 'Hôm nay',
     'calendar.nav.prev': 'Tháng trước',
     'calendar.nav.next': 'Tháng sau',
@@ -764,10 +792,6 @@ const messages = {
     'tasks.placeholder.title': 'Nhập tiêu đề công việc...',
     'tasks.placeholder.notes': 'Nhập ghi chú...',
     'tasks.placeholder.due': 'Hạn chót...',
-    'calendar.view.agenda': 'Lịch trình',
-    'calendar.agenda.prevWeek': 'Tuần trước',
-    'calendar.agenda.nextWeek': 'Tuần sau',
-    'calendar.allDay': 'Cả ngày',
     'tasks.actions.edit': 'Sửa',
     'tasks.actions.save': 'Lưu',
     'tasks.actions.cancel': 'Hủy',
@@ -810,6 +834,7 @@ const messages = {
     'period.all': 'Tất cả',
     'period.prev': 'Kỳ trước',
     'period.next': 'Kỳ sau',
+    'period.grain': 'Chu kỳ',
     'period.label.day': 'Ngày {date}',
     'period.label.week': 'Tuần {week} ({range})',
     'period.label.month': 'Tháng {month}/{year}',
@@ -834,7 +859,6 @@ const messages = {
     'settings.categories.addIncome': '+ Thêm danh mục thu',
     'settings.categories.namePlaceholder': 'Nhập tên danh mục...',
     'settings.categories.name': 'Tên danh mục',
-    'period.grain': 'Chu kỳ',
     'settings.categories.type': 'Loại',
     'settings.categories.count': '{count} danh mục',
     'settings.categories.empty': 'Chưa có danh mục nào',
@@ -932,6 +956,11 @@ const messages = {
     'zca.directory.fetchedAt': 'Cập nhật lúc {time}',
     'zca.directory.fetchedAtHint':
       'Danh bạ và nhóm Zalo được lưu tạm tối đa 7 ngày. Bấm Làm mới để lấy bản mới nhất từ Zalo.',
+    'zca.chatList.type': 'Loại',
+    'zca.chatList.listen': 'Lắng nghe',
+    'zca.chatList.features': 'Tính năng',
+    'zca.chatList.access': 'Quyền tương tác',
+    'zca.chatList.actions': 'Thao tác',
     'zca.threadConfig.delete': '🗑️ Xoá cấu hình kênh',
     'zca.threadConfig.deleteConfirm':
       'Xoá hẳn cấu hình của "{name}"? Zalo không còn trả về cuộc trò chuyện này. Trí nhớ hội thoại và lịch sử link Drive/Photos vẫn được giữ. Không thể hoàn tác.',
@@ -956,11 +985,6 @@ const messages = {
     'zca.storageLinks.edit': 'Sửa',
     'zca.storageLinks.delete': 'Xoá',
     'zca.storageLinks.save': 'Lưu',
-    'zca.chatList.type': 'Loại',
-    'zca.chatList.listen': 'Lắng nghe',
-    'zca.chatList.features': 'Tính năng',
-    'zca.chatList.access': 'Quyền tương tác',
-    'zca.chatList.actions': 'Thao tác',
     'zca.storageLinks.saving': 'Đang lưu…',
     'zca.storageLinks.cancel': 'Huỷ',
     'zca.storageLinks.displayNameLabel': 'Tên hiển thị',
@@ -1199,6 +1223,7 @@ const messages = {
     'dashboard.noReminders': 'No reminders',
     'dashboard.noCalendar': 'No upcoming events',
     'dashboard.noActivity': 'No recent activity',
+    'dashboard.viewAll': 'View all',
     'dashboard.noTransactions': 'No transactions',
     'dashboard.noDebts': 'No open loans or debts',
     'dashboard.noExpenses': 'No expenses found',
@@ -1223,7 +1248,6 @@ const messages = {
     'dashboard.columns.schedule': 'Schedule',
     'dashboard.error.title': 'Unable to load page',
     'dashboard.error.desc': 'Session expired. Please open again from the zalo bot.',
-    'dashboard.viewAll': 'View all',
     'auth.loggedOut.title': 'Logged out successfully',
     'auth.loggedOut.desc':
       'Your session has ended securely. Please open again from the zalo bot to start a new session.',
@@ -1234,6 +1258,29 @@ const messages = {
     'auth.clearSessionAndRetry': 'Clear session & retry',
     'auth.backToAbout': 'About zalobot',
     'auth.closeMiniApp': 'Close window',
+    'auth.accessCode.title': 'Sign in with a code',
+    'auth.accessCode.desc':
+      'Send "dashboard" to the zalo bot, then enter the 8-character sign-in code from its reply.',
+    'auth.accessCode.label': 'Sign-in code',
+    'auth.accessCode.placeholder': 'e.g. K7P2-QX9M',
+    'auth.accessCode.submit': 'Sign in',
+    'auth.accessCode.submitting': 'Signing in...',
+    'auth.accessCode.invalidFormat': 'The code has 8 letters and digits.',
+    'auth.accessCode.rejected': 'The code is wrong, expired or already used.',
+    'auth.accessCode.tooManyAttempts': 'Too many attempts. Please wait 15 minutes.',
+    'auth.accessCode.failed': 'Could not sign in. Please try again.',
+    'pwa.update.title': 'A new version is available',
+    'pwa.update.reload': 'Reload',
+    'pwa.offline.banner': 'You are offline — data may be out of date',
+    'settings.app.title': 'Mobile app',
+    'settings.app.description': 'Install zalobot on your home screen to open it like an app',
+    'settings.app.install': 'Install app',
+    'settings.app.installed': 'Installed',
+    'settings.app.iosHint': 'In Safari: tap Share, then "Add to Home Screen".',
+    'settings.app.zaloHint':
+      'The Zalo in-app browser cannot install apps. Open this page in Safari or Chrome.',
+    'settings.app.unsupported':
+      'This browser cannot install apps yet. Please use Chrome or Safari.',
     'debts.title': 'Loans & Debts',
     'debts.subtitle': 'Track money you lent and money you owe',
     'expenses.title': 'Expenses',
@@ -1294,6 +1341,8 @@ const messages = {
     'contacts.columns.linkedUser': 'Linked User',
     'contacts.columns.resources': 'Related Data',
     'contacts.actions.profile': 'Profile',
+    'contacts.actions.select': 'Select to combine',
+    'contacts.actions.selected': 'Selected',
     'contacts.profile.title': 'Profile',
     'contacts.profile.back': 'Contacts',
     'contacts.profile.missingId': 'The contact id is missing from the link.',
@@ -1341,8 +1390,6 @@ const messages = {
     'contacts.profile.placeholder.phone': 'Phone number',
     'contacts.profile.placeholder.accountNumber': 'Account number',
     'contacts.profile.placeholder.bankName': 'Bank',
-    'contacts.actions.select': 'Select to combine',
-    'contacts.actions.selected': 'Selected',
     'contacts.profile.placeholder.address': 'Home address, area...',
     'contacts.profile.placeholder.workplace': 'Company, school, workplace...',
     'contacts.profile.placeholder.notes': 'Personality, repayment habits, contact tips...',
@@ -1393,6 +1440,8 @@ const messages = {
     'places.selectAll': 'Select all',
     'places.deselectAll': 'Deselect all',
     'places.selectedCount': '{count} selected',
+    'places.selectMode': 'Select',
+    'places.selectModeDone': 'Done',
     'places.combineModal.title': 'Combine Places / Stores',
     'places.combineModal.desc':
       'Merge duplicate places and reassign all transactions to a single lead place.',
@@ -1402,6 +1451,9 @@ const messages = {
       'Defaults to the place with the highest transaction count. You can select another place if preferred.',
     'places.combineModal.newNameLabel': 'New place name after merge',
     'places.combineModal.transactionsBadge': '{count} transactions',
+    'places.combineModal.newNameHint': '{transactions} will be moved to this place.',
+    'places.combineModal.setLead': 'Make {name} the main place',
+    'places.combineModal.topBadge': 'Top',
     'places.combineModal.warning':
       'All transactions linked to former places will be reassigned to the lead place. Secondary places will be permanently deleted.',
     'places.combineModal.confirm': 'Confirm Combine',
@@ -1440,8 +1492,6 @@ const messages = {
     'debts.actions.edit': 'Edit',
     'debts.actions.save': 'Save',
     'debts.actions.cancel': 'Cancel',
-    'places.selectMode': 'Select',
-    'places.selectModeDone': 'Done',
     'debts.actions.repay': 'Repay',
     'debts.actions.combine': 'Combine Debts ({count})',
     'debts.combineModal.title': 'Combine Debt Records',
@@ -1452,9 +1502,6 @@ const messages = {
       'Selected debts will become child items under this consolidated debt. Historical payments are fully preserved.',
     'debts.combineModal.mismatchedDirection':
       'Can only combine debts of the same direction (all receivables or all payables).',
-    'places.combineModal.newNameHint': '{transactions} will be moved to this place.',
-    'places.combineModal.setLead': 'Make {name} the main place',
-    'places.combineModal.topBadge': 'Top',
     'debts.combineModal.mismatchedCurrency': 'Can only combine debts with the same currency.',
     'debts.combineModal.confirm': 'Confirm Combine',
     'debts.combine.success': 'Successfully combined {count} debts',
@@ -1465,6 +1512,9 @@ const messages = {
     'debts.selectedCount': '{count} selected',
     'debts.selectAll': 'Select all',
     'debts.deselectAll': 'Deselect all',
+    'debts.selectOne': 'Select',
+    'debts.deselectOne': 'Deselect',
+    'debts.paidPercent': '{percent}% paid',
     'contacts.combineModal.consolidateDebts':
       'Automatically consolidate debts of the same direction into parent debts',
     'debts.inlineEdit.saved': 'Debt updated successfully',
@@ -1512,9 +1562,6 @@ const messages = {
       'Total allocated amount cannot exceed transaction amount',
     'transactions.allocation.exceededDebtRemaining': 'Allocated amount exceeds remaining debt',
     'transactions.allocation.noCandidates': 'No matching open debts available for allocation',
-    'debts.selectOne': 'Select',
-    'debts.deselectOne': 'Deselect',
-    'debts.paidPercent': '{percent}% paid',
     'transactions.allocation.badgeAllocated': '{count} allocations',
     'transactions.allocation.modalSubtitleIncome':
       'Allocate received income to open receivable debts',
@@ -1529,6 +1576,12 @@ const messages = {
     'transactions.badge.allocatedChild': 'Allocation',
     'transactions.allocation.viewDebt': 'View debt record',
     'transactions.allocation.editAllocations': 'Edit allocations',
+    'transactions.allocation.candidatesTitle': 'Matching debts ({count})',
+    'transactions.allocation.loadingCandidates': 'Loading debts...',
+    'transactions.allocation.allocateMax': 'Allocate max',
+    'transactions.allocation.originalAmount': 'Original',
+    'transactions.allocation.remainingAmount': 'Remaining',
+    'transactions.allocation.amountLabel': 'Allocated amount (VND)',
     'debts.badge.paymentChild': 'Debt payment',
     'debts.badge.paymentInstallment': '{count} payments',
     'debts.expandPayments': 'View {count} debt payments',
@@ -1576,12 +1629,6 @@ const messages = {
     'analytics.chart.walletBalance': 'Wallet Balance Trend',
     'analytics.chart.netCashflow': 'Period Cash Flow',
     'analytics.chart.receivables': 'Receivables (Lent)',
-    'transactions.allocation.candidatesTitle': 'Matching debts ({count})',
-    'transactions.allocation.loadingCandidates': 'Loading debts...',
-    'transactions.allocation.allocateMax': 'Allocate max',
-    'transactions.allocation.originalAmount': 'Original',
-    'transactions.allocation.remainingAmount': 'Remaining',
-    'transactions.allocation.amountLabel': 'Allocated amount (VND)',
     'analytics.chart.payables': 'Payables (Borrowed)',
     'analytics.emptyChartData': 'No data for the selected period',
     'analytics.topCategories': 'Top Spending Categories',
@@ -1618,6 +1665,10 @@ const messages = {
     'calendar.placeholder.description': 'Event description...',
     'calendar.view.grid': 'Month Grid',
     'calendar.view.table': 'List View',
+    'calendar.view.agenda': 'Agenda',
+    'calendar.agenda.prevWeek': 'Previous week',
+    'calendar.agenda.nextWeek': 'Next week',
+    'calendar.allDay': 'All day',
     'calendar.nav.today': 'Today',
     'calendar.nav.prev': 'Previous Month',
     'calendar.nav.next': 'Next Month',
@@ -1665,10 +1716,6 @@ const messages = {
     'reminders.actions.save': 'Save',
     'reminders.actions.cancel': 'Cancel',
     'reminders.actions.delete': 'Delete',
-    'calendar.view.agenda': 'Agenda',
-    'calendar.agenda.prevWeek': 'Previous week',
-    'calendar.agenda.nextWeek': 'Next week',
-    'calendar.allDay': 'All day',
     'reminders.actions.snooze': 'Snooze 15m',
     'reminders.inlineEdit.saved': 'Reminder updated successfully',
     'reminders.delete.confirm': 'Are you sure you want to delete this reminder?',
@@ -1688,6 +1735,7 @@ const messages = {
     'period.all': 'All',
     'period.prev': 'Previous period',
     'period.next': 'Next period',
+    'period.grain': 'Period',
     'period.label.day': '{date}',
     'period.label.week': 'Week {week} ({range})',
     'period.label.month': '{month}/{year}',
@@ -1735,7 +1783,6 @@ const messages = {
     'public.brand': 'zalobot',
     'public.supportEmail': 'datdoan.dev@gmail.com',
     'public.updated': 'UPDATED: 24/08/2026',
-    'period.grain': 'Period',
     'public.about.navigation': 'Information navigation',
     'public.about.privacy': 'Privacy',
     'public.about.terms': 'Terms',
@@ -1810,6 +1857,11 @@ const messages = {
     'zca.directory.fetchedAt': 'Updated {time}',
     'zca.directory.fetchedAtHint':
       'Zalo contacts and groups are cached for up to 7 days. Press Refresh to fetch the latest from Zalo.',
+    'zca.chatList.type': 'Type',
+    'zca.chatList.listen': 'Listening',
+    'zca.chatList.features': 'Features',
+    'zca.chatList.access': 'Interaction access',
+    'zca.chatList.actions': 'Actions',
     'zca.threadConfig.delete': '🗑️ Delete chat config',
     'zca.threadConfig.deleteConfirm':
       'Permanently delete the config of "{name}"? Zalo no longer returns this chat. Chat memory and the Drive/Photos link history are kept. This cannot be undone.',
@@ -1855,11 +1907,6 @@ const messages = {
     'zca.storageLinks.errors.urlInvalid': 'The link must be a valid https:// address.',
     'zca.storageLinks.errors.urlWrongHost': 'The link must be on {hosts}.',
     'zca.storageLinks.errors.emailInvalid': 'Invalid email.',
-    'zca.chatList.type': 'Type',
-    'zca.chatList.listen': 'Listening',
-    'zca.chatList.features': 'Features',
-    'zca.chatList.access': 'Interaction access',
-    'zca.chatList.actions': 'Actions',
   },
 } as const;
 
@@ -1893,6 +1940,27 @@ export interface IApiErrorResponse {
 export interface IDashboardAccessTokenResponse {
   accessToken: string;
   expiresAt: string;
+}
+
+/** Sign-in code sent by the bot next to the one-time link, for the installed app (PWA). */
+export interface IDashboardAccessCodeRequest {
+  code: string;
+}
+
+/** Crockford base32 without I, L, O, U: what the bot issues and the API accepts. */
+export const DASHBOARD_ACCESS_CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+export const DASHBOARD_ACCESS_CODE_LENGTH = 8;
+
+/** Uppercases and drops spaces/dashes so `k7p2-qx9m` and `K7P2QX9M` are the same code. */
+export function normalizeDashboardAccessCode(raw: string): string {
+  return raw.toUpperCase().replace(/[\s-]/g, '');
+}
+
+export function isDashboardAccessCode(value: string): boolean {
+  return (
+    value.length === DASHBOARD_ACCESS_CODE_LENGTH &&
+    [...value].every((char) => DASHBOARD_ACCESS_CODE_ALPHABET.includes(char))
+  );
 }
 
 export interface IContactListItem {

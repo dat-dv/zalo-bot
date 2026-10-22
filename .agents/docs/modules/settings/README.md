@@ -8,6 +8,7 @@ metadata:
       - apps/web/src/modules/settings/api/categories-api.ts
       - apps/web/src/modules/settings/api/categories-query.ts
       - apps/web/src/modules/settings/presentation/components/settings-screen.tsx
+      - apps/web/src/modules/settings/presentation/components/install-app-row.tsx
       - apps/web/src/shared/providers/react-scan-provider.tsx
 ---
 
@@ -41,6 +42,10 @@ Tiêu đề trang, nút Làm mới và Đăng xuất do `WorkspaceHeader` của 
   - Có trạng thái đang tải, rỗng và lỗi (kèm nút Thử lại).
 - **Tuỳ chọn**:
   - Ngôn ngữ và Giao diện Sáng/Tối: chỉ là dòng thông tin kèm nhãn "Đã hỗ trợ", không có công tắc đổi ở đây.
+  - **Ứng dụng trên điện thoại** (`InstallAppRow`): nơi duy nhất mời cài dashboard thành app (PWA, xem [`global/pwa.md`](../../global/pwa.md)).
+    - Đang chạy trong app đã cài: hiện nhãn "Đã cài".
+    - Chrome/Android đã cho phép cài: hiện nút **Cài ứng dụng**. Hộp thoại cài chỉ mở được một lần; người dùng bấm huỷ thì nút ẩn đi cho tới lần tải trang sau.
+    - Các trường hợp khác hiện hướng dẫn theo trình duyệt: trong Zalo thì mở bằng Safari/Chrome, trên iOS thì Chia sẻ → "Thêm vào MH chính", còn lại thì báo trình duyệt chưa hỗ trợ.
   - **Quản lý số dư & Cân chỉnh ví**: nút `⚖️` mở `AdjustBalanceModal` (thuộc module dashboard) để cân số dư sổ sách với số dư ví thật. Số dư trên sổ lấy từ `finance.ledgerBalance` của payload dashboard (tổng thu − tổng chi toàn thời gian), không phải số dư của tháng.
   - Công tắc **React Scan**.
 - **Trên điện thoại / màn hình hẹp** (desktop giữ nguyên):

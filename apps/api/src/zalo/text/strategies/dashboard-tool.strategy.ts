@@ -3,7 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
+import { API_ROUTES } from '@zalobot/contracts';
 import { ReportsTokenService } from '../../../reports/reports-token.service';
+import { formatDashboardAccessCode } from '../../../reports/dashboard-access-code';
 
 import * as fs from 'fs';
 import { fromProjectRoot } from '../../../config/project-root';
@@ -71,15 +73,16 @@ export class DashboardToolStrategy implements TextToolStrategy {
     const appUrl = this.resolveAppUrl();
 
     try {
-      const token = await this.reportsTokens.issueExchangeToken(context.senderId);
-      const accessUrl = `${appUrl}/api/access?token=${encodeURIComponent(token)}`;
+      const { token, code } = await this.reportsTokens.issueExchangeToken(context.senderId);
+      const accessUrl = `${appUrl}${API_ROUTES.access}?token=${encodeURIComponent(token)}`;
 
       const reply =
         `📊 BẢNG ĐIỀU KHIỂN TRỰC QUAN (WEB DASHBOARD)\n` +
         `━━━━━━━━━━━━━━━━━━━━\n\n` +
         `Xem biểu đồ Thu–Chi, Danh sách Việc, Lịch Google, Nhắc việc & Công nợ tại:\n\n` +
         `👉 ${accessUrl}\n\n` +
-        `🔒 Đường dẫn đăng nhập một lần, bảo mật và có hạn trong 20 phút. Vui lòng không chia sẻ cho người khác.`;
+        `🔑 Mã đăng nhập trong ứng dụng đã cài: ${formatDashboardAccessCode(code)}\n\n` +
+        `🔒 Đường dẫn và mã chỉ dùng được một lần, có hạn trong 20 phút. Vui lòng không chia sẻ cho người khác.`;
 
       await this.zaloService.sendMessage(context.chatId, reply);
     } catch (err) {

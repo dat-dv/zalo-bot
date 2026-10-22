@@ -1,11 +1,18 @@
 import type { NextConfig } from 'next';
 import { loadEnvConfig } from '@next/env';
+import { readFileSync } from 'fs';
 import path from 'path';
 
 // Chỉ nạp 1 file biến môi trường duy nhất tại root
 loadEnvConfig(path.resolve(import.meta.dirname, '../..'));
 
 const isStaticExport = process.env.NODE_ENV === 'production';
+// Bumped on every commit; the service worker is registered with it so each deploy installs a new one.
+const appVersion = (
+  JSON.parse(readFileSync(path.resolve(import.meta.dirname, 'package.json'), 'utf8')) as {
+    version: string;
+  }
+).version;
 const defaultPort = process.env.NGINX_PORT || '3000';
 const configuredApiOrigin = (process.env.NEXT_PUBLIC_API_URL || `http://localhost:${defaultPort}`)
   .trim()
@@ -51,6 +58,7 @@ registerOrigin(process.env.NEXT_PUBLIC_APP_URL);
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: Array.from(devOrigins),
+  env: { NEXT_PUBLIC_APP_VERSION: appVersion },
   ...(isStaticExport ? { output: 'export' } : {}),
   trailingSlash: false,
   ...(isStaticExport

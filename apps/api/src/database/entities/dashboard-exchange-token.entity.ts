@@ -9,6 +9,11 @@ export class DashboardExchangeTokenEntity {
   @Column({ name: 'token_hash', type: 'varchar' })
   tokenHash: string;
 
+  /** SHA-256 of the normalized sign-in code sent with the link; consumed together with the link. */
+  @Index({ unique: true })
+  @Column({ name: 'code_hash', type: 'varchar', nullable: true })
+  codeHash?: string | null;
+
   @Index()
   @Column({ name: 'user_id', type: 'varchar' })
   userId: string;
