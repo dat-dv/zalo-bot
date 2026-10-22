@@ -39,7 +39,7 @@ allowed = bot account (owner / self)
        || users.grant_access = GRANTED      (global)
 ```
 
-1-1 chats and the official Zalo Bot webhook (`InputProcessorService`) keep the global rule only.
+1-1 chats keep the global rule only.
 
 ## Config (`ThreadBotConfig.memberAccess`, column `zca_thread_configs.member_access` jsonb)
 
