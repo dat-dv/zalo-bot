@@ -13,6 +13,7 @@ import { useIsPhone } from '@/shared/hooks/use-media-query';
 import { useSwipeDismiss } from '@/shared/hooks/use-swipe-dismiss';
 import { PHONE_MEDIA_QUERY } from '@/shared/ui/breakpoints';
 import {
+  EASE_IOS,
   MOTION_MS,
   cardEnter,
   cardExit,
@@ -99,7 +100,8 @@ export function Modal({
     // Phones: the sheet drops from where it is (mid-swipe included); larger screens fade.
     if (window.matchMedia(PHONE_MEDIA_QUERY).matches) sheetExit(panelRef.current);
     else cardExit(panelRef.current);
-    fadeOut(backdropRef.current, MOTION_MS.sheetOut);
+    // The backdrop moves in step with the sheet (same duration and curve).
+    fadeOut(backdropRef.current, MOTION_MS.sheetOut, EASE_IOS);
     const timer = window.setTimeout(() => setRendered(false), EXIT_MS);
     return () => window.clearTimeout(timer);
   }, [closing]);
@@ -132,7 +134,7 @@ export function Modal({
     // Web Animations rather than CSS @starting-style: it also runs on iOS < 17.5.
     if (window.matchMedia(PHONE_MEDIA_QUERY).matches) sheetEnter(panel);
     else cardEnter(panel);
-    fadeIn(backdropRef.current, MOTION_MS.sheetIn);
+    fadeIn(backdropRef.current, MOTION_MS.sheetIn, EASE_IOS);
     return () => {
       if (dialog.open) dialog.close();
       // When `open` flips to false on a mounted Modal, React detaches the <dialog> before

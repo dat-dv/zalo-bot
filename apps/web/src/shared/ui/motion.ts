@@ -11,8 +11,10 @@ export const EASE_IOS = 'cubic-bezier(0.32, 0.72, 0, 1)';
 export const EASE_OUT = 'cubic-bezier(0.2, 0, 0, 1)';
 
 export const MOTION_MS = {
-  sheetIn: 380,
-  sheetOut: 260,
+  // iOS-like sheets need ~500ms: with this curve most of the travel happens early, so
+  // anything shorter reads as the sheet popping in rather than sliding up.
+  sheetIn: 500,
+  sheetOut: 300,
   fadeIn: 200,
   fadeOut: 160,
   page: 220,
@@ -72,12 +74,20 @@ export function cardExit(element: Element | null): Animation | null {
   });
 }
 
-export function fadeIn(element: Element | null, duration: number = MOTION_MS.fadeIn) {
-  return play(element, [{ opacity: 0 }, { opacity: 1 }], { duration, easing: EASE_OUT });
+export function fadeIn(
+  element: Element | null,
+  duration: number = MOTION_MS.fadeIn,
+  easing: string = EASE_OUT,
+) {
+  return play(element, [{ opacity: 0 }, { opacity: 1 }], { duration, easing });
 }
 
-export function fadeOut(element: Element | null, duration: number = MOTION_MS.fadeOut) {
-  return play(element, [{ opacity: 0 }], { duration, easing: EASE_OUT, fill: 'forwards' });
+export function fadeOut(
+  element: Element | null,
+  duration: number = MOTION_MS.fadeOut,
+  easing: string = EASE_OUT,
+) {
+  return play(element, [{ opacity: 0 }], { duration, easing, fill: 'forwards' });
 }
 
 /** Small pop for a tapped tab icon. */

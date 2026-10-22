@@ -167,8 +167,8 @@ Trạng thái Skeleton Loading có nhiệm vụ giữ vững khung xương khôn
 - **Máy bật "Giảm chuyển động"**: mọi chuyển động gần như tắt hẳn.
 - **Sheet/dialog**:
   - **Chuyển động**: chạy bằng Web Animations API (`motion.ts`), không dùng CSS `@starting-style` nữa, vì Safari dưới 17.5 bỏ qua `@starting-style` và anh thấy sheet chưa có cảm giác trượt.
-  - Trên điện thoại, sheet trượt lên trong **380ms** với đường cong kiểu iOS `cubic-bezier(0.32, 0.72, 0, 1)`: nhanh lúc đầu, chậm êm lúc cuối. Khi đóng, sheet trượt xuống trong 260ms từ đúng vị trí đang có (kể cả lúc đang vuốt dở). Màn lớn thì mờ dần và thu nhỏ nhẹ.
-  - `Modal` giữ DOM thêm 260ms sau khi `open = false` để kịp chạy hiệu ứng đóng.
+  - Trên điện thoại, sheet trượt lên trong **500ms** với đường cong kiểu iOS `cubic-bezier(0.32, 0.72, 0, 1)`: nhanh lúc đầu, chậm êm lúc cuối. Khi đóng, sheet trượt xuống trong 300ms từ đúng vị trí đang có (kể cả lúc đang vuốt dở). Màn lớn thì mờ dần và thu nhỏ nhẹ.
+  - `Modal` giữ DOM thêm 300ms sau khi `open = false` để kịp chạy hiệu ứng đóng.
   - Nếu nơi gọi tự gỡ `Modal` (kiểu `{x && <Modal open />}`) thì không có hiệu ứng đóng, chỉ có hiệu ứng mở.
 - **Vuốt để đóng** (`use-swipe-dismiss.ts`):
   - Sheet: kéo dải trên cùng (thanh kéo + tiêu đề, 64px) xuống. Kéo quá 1/4 chiều cao, hoặc vuốt nhanh, thì sheet đóng; không thì bật về chỗ cũ.

@@ -122,7 +122,7 @@ Các con số dưới đây đều đã chạy thật trên prod và được g�
 | Thông số | Giá trị |
 |---|---|
 | Đường cong chính (kiểu iOS) | `cubic-bezier(0.32, 0.72, 0, 1)` |
-| Sheet mở / đóng | 380ms / 260ms |
+| Sheet mở / đóng | 500ms / 300ms (ngắn hơn thì nhìn như sheet bật ra, vì đường cong này dồn quãng đường vào đầu) |
 | Fade vào / ra | 200 / 160ms |
 | Đổi trang | 220ms (chỉ opacity) |
 | Vạch chỉ báo tab | 300ms |
@@ -131,7 +131,7 @@ Các con số dưới đây đều đã chạy thật trên prod và được g�
 - **Sheet**: dùng **Web Animations API** (`el.animate`), **không** dùng `@starting-style`, vì Safari < 17.5 bỏ qua nên người dùng thấy "không trượt".
   - Mở: `translateY(100%) → 0`.
   - Đóng: chỉ khai báo keyframe đích `translateY(100%)` (có `fill: 'forwards'`), nên sheet đi tiếp từ vị trí hiện tại, kể cả khi đang vuốt dở.
-  - Giữ DOM thêm 260ms sau khi `open=false` để kịp chạy hiệu ứng đóng.
+  - Giữ DOM thêm 300ms sau khi `open=false` để kịp chạy hiệu ứng đóng.
 - **Đổi trang**: fade cột nội dung khi pathname đổi. **Chỉ dùng opacity.** Transform trên tổ tiên sẽ thành containing block của các phần tử `fixed` (toast, thanh hành động) và làm chúng giật.
 - **Vào màn** (`@keyframes` trong `@theme` của Tailwind):
   - 10 dòng đầu của danh sách trượt lên 6px, mỗi dòng trễ 20ms.
@@ -147,7 +147,7 @@ Các con số dưới đây đều đã chạy thật trên prod và được g�
 - **Vuốt để đóng**: dùng **touch events** (`touchmove` với `passive: false` rồi `preventDefault`), vì iOS huỷ pointer events ngay khi trang bắt đầu cuộn.
   - Khoá trục sau 8px.
   - Kéo ngược hướng thì cản lại (chỉ đi 1/4 quãng).
-  - Thả quá **25%** kích thước, hoặc vận tốc > **0.5px/ms**, thì đóng; không thì bật về (260ms, đường cong iOS).
+  - Thả quá **25%** kích thước, hoặc vận tốc > **0.5px/ms**, thì đóng; không thì bật về (300ms, đường cong iOS).
   - Tách phần tính toán ra hàm thuần và viết unit test.
   - Sheet chỉ kéo được từ dải trên cùng 64px, và chỉ khi dialog cho phép đóng.
 - **Kéo để làm mới**: **chỉ trong app đã cài** (`display-mode: standalone`), vì trình duyệt đã có sẵn.
@@ -219,7 +219,7 @@ Làm theo thứ tự, mỗi giai đoạn một commit, lập kế hoạch và ch
    màn cảm ứng.
 5. Modal dùng <dialog>: bottom sheet trên điện thoại, theo visual viewport, header/footer sticky,
    không tự focus input.
-6. Chuyển động: motion.ts (cubic-bezier(0.32,0.72,0,1); sheet 380/260ms bằng Web Animations API),
+6. Chuyển động: motion.ts (cubic-bezier(0.32,0.72,0,1); sheet 500/300ms bằng Web Animations API, nền mờ cùng nhịp),
    fade khi đổi trang (chỉ opacity), danh sách hiện lần lượt, toast/thanh trượt vào, co giãn bằng
    grid-rows, nút thu nhỏ khi nhấn; vuốt xuống đóng sheet (touch events); kéo để làm mới chỉ trong
    app đã cài; rung trên Android; tôn trọng prefers-reduced-motion.

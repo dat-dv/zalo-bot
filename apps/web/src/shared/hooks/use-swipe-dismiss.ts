@@ -6,7 +6,7 @@ import { SWIPE_DISMISS_RATIO, shouldDismissSwipe, swipeOffset } from './swipe-di
 
 // Finger travel before the gesture locks to an axis (smaller moves stay taps).
 const LOCK_DISTANCE_PX = 8;
-const SETTLE_MS = 260;
+const SETTLE_MS = 300;
 
 interface SwipeDismissOptions {
   /** The element that follows the finger and slides away. */
