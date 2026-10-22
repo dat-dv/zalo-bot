@@ -154,6 +154,7 @@ export class UserMergeService {
         recordId: targetId,
         action: 'update',
         actorId,
+        actorSource: 'dashboard',
         beforeData: before,
         afterData: {
           operation: 'merge',

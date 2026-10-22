@@ -10,6 +10,7 @@ import { ParsePositiveNumberPipe } from './pipes/parse-positive-number.pipe';
 import { TrimStringsPipe } from './pipes/trim-strings.pipe';
 import { RequestIdMiddleware } from './middleware/request-id.middleware';
 import { HttpLoggerMiddleware } from './middleware/http-logger.middleware';
+import { AuditContextMiddleware } from './middleware/audit-context.middleware';
 
 @Module({
   providers: [
@@ -42,6 +43,7 @@ import { HttpLoggerMiddleware } from './middleware/http-logger.middleware';
     TrimStringsPipe,
     RequestIdMiddleware,
     HttpLoggerMiddleware,
+    AuditContextMiddleware,
   ],
   exports: [
     ParseIsoDatePipe,
@@ -53,6 +55,8 @@ import { HttpLoggerMiddleware } from './middleware/http-logger.middleware';
 })
 export class CommonModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RequestIdMiddleware, HttpLoggerMiddleware).forRoutes('*');
+    consumer
+      .apply(RequestIdMiddleware, HttpLoggerMiddleware, AuditContextMiddleware)
+      .forRoutes('*');
   }
 }

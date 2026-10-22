@@ -2,7 +2,11 @@
 
 import { useState, useMemo, useCallback, useEffect, useTransition } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { DEFAULT_INCOME_CATEGORIES, DEFAULT_EXPENSE_CATEGORIES } from '@zalobot/contracts';
+import {
+  APP_ROUTES,
+  DEFAULT_INCOME_CATEGORIES,
+  DEFAULT_EXPENSE_CATEGORIES,
+} from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataPanel } from '@/shared/ui/data-table';
 import {
@@ -26,6 +30,7 @@ import { usePeriodFilter } from '@/shared/hooks/use-period-filter';
 import { PeriodFilterToolbar } from '@/shared/ui/period-filter-toolbar';
 import { TrendSummaryStrip } from '@/shared/ui/trend-summary-strip';
 import { SessionStateScreen } from '@/modules/auth/view/session-state-screen';
+import { useSessionUserQuery } from '@/modules/auth/api/session-user-query';
 import { useCategoriesQuery } from '@/modules/settings/api/categories-query';
 import { usePlacesQuery } from '../../api/places-query';
 import {
@@ -37,11 +42,15 @@ import { PHONE_CHIP, PHONE_TOOLBAR_INPUT, TOAST_POSITION } from '@/shared/ui/tou
 
 const SEARCH_DEBOUNCE_MS = 300;
 
+const transactionHistoryHref = (id: string) => APP_ROUTES.activityFor('finance_transactions', id);
+
 export function TransactionsScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { t } = useLocale();
+  // Only admins can read the activity log, so only they get the history link.
+  const isAdmin = useSessionUserQuery({ enabled: true }).data?.isAdmin === true;
 
   const periodFilter = usePeriodFilter('month');
 
@@ -394,6 +403,7 @@ export function TransactionsScreen() {
             columnFilters={columnFilters}
             onChangeColumnFilters={setColumnFilters}
             filterOptions={filterOptions}
+            historyHref={isAdmin ? transactionHistoryHref : undefined}
           />
           {transactionsQuery.hasNextPage && (
             <div className="flex justify-center border-t border-slate-200 py-2 dark:border-slate-800">

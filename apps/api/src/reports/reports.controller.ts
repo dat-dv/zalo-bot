@@ -30,6 +30,7 @@ import type {
   IDashboardAccessTokenResponse,
   IDashboardSessionUser,
 } from '@zalobot/contracts';
+import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from './reports-token.service';
 import { AccessCodeRateLimiter } from './access-code-rate-limiter';
 import { DashboardAccessCodeDto } from './dto/dashboard-access-code.dto';
@@ -398,9 +399,7 @@ export class ReportsController {
   }
 
   private getAccessUserId(req: Request): string | number {
-    const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
-    if (!token) throw new UnauthorizedException();
-    return this.tokens.verifyAccessToken(token);
+    return getDashboardUserId(req, this.tokens);
   }
 
   private getCookie(req: Request, name: string): string | undefined {

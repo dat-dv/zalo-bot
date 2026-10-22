@@ -30,7 +30,7 @@ Tài liệu này ánh xạ với tri thức canonical [`finance-domain.md`](../.
 - Lịch (`calendar_events`) và việc cần làm (`tasks`) cũng dùng chung theo cùng cách này, xem `modules/calendar/README.md` và `modules/tasks/README.md`.
 - **Vẫn theo từng người** (không phải dữ liệu tài chính): nhắc nhở, upload Drive/Photos (dùng token Google của người gửi), thẻ xác nhận chờ duyệt, quyền admin.
 - API tài chính trên dashboard vẫn **bắt buộc đăng nhập** (thiếu token → 401); đăng nhập chỉ để xác thực, không để giới hạn dữ liệu.
-- Nhật ký kiểm toán: `actor_id` của dòng tài chính lấy theo người tạo, nên mục "Hoạt động gần đây" vẫn thấy giao dịch mình ghi.
+- Nhật ký kiểm toán: `actor_id` là **người thực hiện thay đổi** (người dùng dashboard, người nhắn bot, hoặc người yêu cầu của thao tác chờ duyệt), không phải người tạo giao dịch. Sổ là sổ chung nên ai cũng sửa được giao dịch của người khác; nhật ký phải ghi đúng người sửa để trả lời được câu hỏi "ai đã đổi khoản này". Xem `backend-runtime-services.md` mục 7 và `modules/audit`.
 
 ### Migration gộp dữ liệu cũ (`1724790000000-RemoveFinanceUserScope`)
 Chạy tự động một lần khi API khởi động, trong **một transaction DB**:

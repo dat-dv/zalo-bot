@@ -74,6 +74,7 @@ Người dùng Zalo không có mật khẩu dashboard. Thay vào đó bot cấp 
 - `/contacts`: Người liên quan; `/places`: Nơi chốn.
 - `/zca`: Zalo & Người dùng (đăng nhập ZCA, cuộc trò chuyện, quản lý user cho admin).
 - `/google-storage`: Google Drive (tài khoản Google lưu trữ media, chỉ admin).
+- `/activity`: Nhật ký hoạt động (ai thêm/sửa/xoá dữ liệu, chỉ admin).
 - `/settings`: Cài đặt, danh mục thu chi.
 
 ## Biết mình đang đăng nhập bằng tài khoản nào
@@ -88,7 +89,7 @@ Người dùng Zalo không có mật khẩu dashboard. Thay vào đó bot cấp 
 
 ## Mục menu chỉ dành cho admin
 
-- "Zalo & Người dùng" và "Google Drive" chỉ hiện khi đã xác nhận phiên là admin. Trong lúc đang tải, hoặc khi API `/api/me` lỗi, hai mục này bị ẩn. Vì vậy admin F5 sẽ thấy chúng hiện ra trễ một nhịp; chuyển trang trong app thì không bị.
+- "Zalo & Người dùng", "Google Drive" và "Nhật ký hoạt động" chỉ hiện khi đã xác nhận phiên là admin. Trong lúc đang tải, hoặc khi API `/api/me` lỗi, các mục này bị ẩn. Vì vậy admin F5 sẽ thấy chúng hiện ra trễ một nhịp; chuyển trang trong app thì không bị.
 - Đây chỉ là ẩn trên giao diện. Quyền vẫn do API kiểm tra (`requireDashboardAdmin`); người không phải admin gõ thẳng URL vẫn gặp màn hình chặn.
 
 Trang Người liên quan gọi `GET /api/contacts`; API tự lấy user từ access token (tối đa 200 người), không nhận `userId` từ client.

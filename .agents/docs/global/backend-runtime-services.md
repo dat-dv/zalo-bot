@@ -78,6 +78,11 @@ Lý do: hệ thống không kiểm tra người gọi có thuộc kênh hay khô
 
 ## 7. Nhật ký kiểm toán (`audit/`)
 
-- `AuditLogSubscriber` tự ghi bảng `audit_logs` sau mỗi lần thêm/sửa/xoá entity qua TypeORM: tên bảng, ID bản ghi, hành động, người thực hiện (`userId` của bản ghi), dữ liệu trước/sau. Trường có tên chứa `token`, `secret`, `password`, `authorization` được che thành `[REDACTED]`.
-- Chỉ các thao tác `save`/`remove` theo entity được ghi; câu lệnh xoá/cập nhật hàng loạt (`delete()`, query builder) không được ghi.
-- Dashboard (`GET /api/dashboard`) hiển thị 10 hoạt động gần nhất của người dùng.
+- `AuditLogSubscriber` tự ghi bảng `audit_logs` sau mỗi lần thêm/sửa/xoá entity qua TypeORM: tên bảng, ID bản ghi, hành động, **người thực hiện**, **nguồn** (dashboard, Zalo hoặc hệ thống), **kênh Zalo**, dữ liệu trước/sau. Trường có tên chứa `token`, `secret`, `password`, `authorization` được che thành `[REDACTED]`.
+- **Người thực hiện là người gây ra thay đổi**, không phải người đã tạo bản ghi. Trước đây hệ thống lấy `userId`/`createdByUserId` của chính dòng dữ liệu, nên B sửa giao dịch của A vẫn bị ghi là A. Bây giờ mỗi request hoặc tin nhắn mang theo một "ngữ cảnh kiểm toán" (`AuditContext`, dùng AsyncLocalStorage của Node):
+  - Dashboard: middleware mở ngữ cảnh cho mỗi request, rồi `getDashboardUserId` ghi người dùng **sau khi token đã được xác thực**.
+  - Zalo: mỗi tin nhắn hoặc reaction chạy dưới tên người gửi và kênh. Thao tác chờ duyệt khi được duyệt thì ghi cho **người yêu cầu**, dù người khác bấm duyệt.
+  - Job nhắc việc/lời nhắc và việc nhập lịch từ Google chạy với nguồn **hệ thống**. Không có ngữ cảnh thì cũng là hệ thống.
+- Dòng ghi trước migration `AddAuditLogActorSource` có nguồn rỗng ("dữ liệu cũ"): người hiển thị là người tạo bản ghi, có thể không phải người sửa. Không thể suy ngược nên không sửa lại.
+- `save`/`remove` ghi đủ dữ liệu. Lệnh `update()` hàng loạt chỉ có các giá trị mới (thường không có mã bản ghi), còn `delete()` theo điều kiện chỉ để lại một dòng trống. Ghi với `callListeners(false)` (nhập lịch) thì không có dòng nào.
+- Dashboard (`GET /api/dashboard`) hiển thị 10 hoạt động gần nhất do chính người dùng thực hiện. Trang Nhật ký hoạt động cho admin nằm ở [modules/audit](../modules/audit/README.md).

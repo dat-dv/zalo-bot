@@ -75,6 +75,10 @@ const ROUTE_HEADER_MAP: Record<string, RouteHeaderMeta> = {
     titleKey: 'googleStorage.title',
     subtitleKey: 'googleStorage.subtitle',
   },
+  [APP_ROUTES.activity]: {
+    titleKey: 'audit.title',
+    subtitleKey: 'audit.subtitle',
+  },
   [APP_ROUTES.settings]: {
     titleKey: 'settings.title',
     subtitleKey: 'settings.subtitle',

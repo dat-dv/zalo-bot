@@ -25,6 +25,7 @@ import { CalendarService } from '../../calendar/calendar.service';
 import { UsersService } from '../../users/users.service';
 import { GoogleAuthService } from '../../google/google-auth.service';
 import { RedisService } from '../../redis/redis.service';
+import { AuditContext, zaloAuditContext } from '../../audit/audit-context';
 import { ThreadConfigService } from '../thread-config.service';
 import {
   DtoDescriptor,
@@ -1233,6 +1234,19 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     await this.deletePending(pending.code, pending.userId);
     await this.recallTempMessages(chatId, pending.code);
 
+    // The writes belong to whoever asked for the action, not to whoever approved it.
+    const confirmed = pending;
+    return AuditContext.run(zaloAuditContext(confirmed.userId, confirmed.chatId), () =>
+      this.executeConfirmed(confirmed, userId, chatId, silent),
+    );
+  }
+
+  private async executeConfirmed(
+    pending: PendingAction,
+    userId: string,
+    chatId: string,
+    silent: boolean,
+  ): Promise<boolean> {
     try {
       switch (pending.actionType) {
         case 'RECORD_TRANSACTION':

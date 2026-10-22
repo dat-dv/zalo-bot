@@ -46,7 +46,9 @@
 
 ## Nhật ký kiểm toán
 
-- **Nhật ký kiểm toán**: Bản ghi không thể thay thế về việc thêm, sửa hoặc xoá một dữ liệu, gồm dữ liệu trước/sau, thời điểm và người liên quan nếu xác định được.
+- **Nhật ký kiểm toán**: Bản ghi không thể thay thế về việc thêm, sửa hoặc xoá một dữ liệu, gồm dữ liệu trước/sau, thời điểm, **người thực hiện**, **nguồn** và kênh Zalo nếu có. Admin xem trên trang **Nhật ký hoạt động**.
+- **Người thực hiện**: Người gây ra thay đổi, không phải người đã tạo bản ghi: người dùng dashboard, người nhắn bot trên Zalo, hoặc người yêu cầu của một thao tác chờ duyệt (không phải người bấm duyệt). Việc tự động (gửi nhắc, nhập lịch từ Google) có người thực hiện là **hệ thống**. Không xác định được thì để trống, không đoán.
+- **Dữ liệu cũ (nhật ký)**: Dòng nhật ký ghi trước khi hệ thống lưu người thực hiện; người hiển thị là người tạo bản ghi, có thể không phải người sửa.
 
 ## Thao tác chờ duyệt & Thu hồi tin nhắn
 

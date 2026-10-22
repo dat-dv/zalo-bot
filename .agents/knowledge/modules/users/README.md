@@ -55,7 +55,7 @@
   5. `user_tokens` (Google): keep the only token, else the one with a refresh token, else the newest `updatedAt`.
   6. Delete source `dashboard_exchange_tokens`.
   7. Target profile: fill empty `firstName/username/phoneNumber/avatarUrl/driveFolder*` from source; role ADMIN if either is admin; `grantAccess` GRANTED if either granted or admin; earliest `createdAt`.
-  8. Delete source user; insert one `audit_logs` row (`tableName=users`, `action=update`, `afterData.operation=merge`, counts). Existing audit rows are never rewritten.
+  8. Delete source user; insert one `audit_logs` row (`tableName=users`, `action=update`, `actorSource=dashboard`, `afterData.operation=merge`, counts). Existing audit rows are never rewritten.
 - **After commit**: `UsersService.afterUsersMerged()` drops source caches + Redis `whitelist:user:<source>` and rebuilds caches. Dashboard sessions of the source ID become invalid (`sourceWasCurrentSession` in result).
 - Tests (`user-merge.service.spec.ts`): token choice, preview validation, preview counts/conflicts, merge moves authorship+links and keeps shared finance rows/admin/audits, merge moves task/calendar authorship and reminder targets, `replaceRemindUser`, drops the source link when the target already has one, "merge is refused when the source is the bot own ZCA account", rollback on failure.
 

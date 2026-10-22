@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { CalendarEventSource } from '@zalobot/contracts';
 import { In, IsNull, Repository } from 'typeorm';
+import { AuditContext } from '../audit/audit-context';
 import { CalendarEventEntity } from '../database/entities/calendar-event.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
@@ -317,9 +318,10 @@ export class CalendarService {
     const key = `${accountEmail}|${timeMin.toISOString()}|${timeMax.toISOString()}`;
     let running = this.runningImports.get(key);
     if (running === undefined) {
-      running = this.importRange(accountEmail, viewerId, timeMin, timeMax).finally(() =>
-        this.runningImports.delete(key),
-      );
+      // A Google import is a sync, not an edit by whoever happened to open the calendar.
+      running = AuditContext.runAsSystem(() =>
+        this.importRange(accountEmail, viewerId, timeMin, timeMax),
+      ).finally(() => this.runningImports.delete(key));
       this.runningImports.set(key, running);
     }
     try {

@@ -88,6 +88,7 @@ import {
 import { createSharpImageMetadataGetter } from './zca-metadata.util';
 import { createFetchPolyfill } from './utils';
 import { GroupEventDispatcher } from './group-event-dispatcher.service';
+import { AuditContext, zaloAuditContext } from '../audit/audit-context';
 import {
   WelcomeGroupEventStrategy,
   type WelcomeStrategyOptions,
@@ -2021,20 +2022,27 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       return;
     }
 
-    for (const plugin of this.plugins) {
-      if (plugin.onMessage) {
-        try {
-          this.logger.debug(
-            `[ZCA dispatchMessage] Chuyển tiếp tin nhắn tới plugin "${plugin.name}"...`,
-          );
-          await plugin.onMessage(message, this.api);
-        } catch (err) {
-          this.logger.error(
-            `Error in plugin "${plugin.name}" onMessage: ${formatErrorMessage(err)}`,
-          );
+    const api = this.api;
+    // Database writes made while handling the message are credited to its sender and chat.
+    await AuditContext.run(
+      zaloAuditContext(message?.data?.uidFrom, message?.threadId),
+      async () => {
+        for (const plugin of this.plugins) {
+          if (plugin.onMessage) {
+            try {
+              this.logger.debug(
+                `[ZCA dispatchMessage] Chuyển tiếp tin nhắn tới plugin "${plugin.name}"...`,
+              );
+              await plugin.onMessage(message, api);
+            } catch (err) {
+              this.logger.error(
+                `Error in plugin "${plugin.name}" onMessage: ${formatErrorMessage(err)}`,
+              );
+            }
+          }
         }
-      }
-    }
+      },
+    );
   }
 
   /**
@@ -2043,17 +2051,24 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   public async dispatchReaction(reaction: Reaction): Promise<void> {
     if (!this.api) return;
 
-    for (const plugin of this.plugins) {
-      if (plugin.onReaction) {
-        try {
-          await plugin.onReaction(reaction, this.api);
-        } catch (err) {
-          this.logger.error(
-            `Error in plugin "${plugin.name}" onReaction: ${formatErrorMessage(err)}`,
-          );
+    const api = this.api;
+    // Credited to whoever reacted; a confirmation run by the reaction switches to the requester.
+    await AuditContext.run(
+      zaloAuditContext(reaction?.data?.uidFrom, reaction?.threadId),
+      async () => {
+        for (const plugin of this.plugins) {
+          if (plugin.onReaction) {
+            try {
+              await plugin.onReaction(reaction, api);
+            } catch (err) {
+              this.logger.error(
+                `Error in plugin "${plugin.name}" onReaction: ${formatErrorMessage(err)}`,
+              );
+            }
+          }
         }
-      }
-    }
+      },
+    );
   }
 
   /**
