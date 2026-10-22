@@ -21,6 +21,7 @@ metadata:
       - apps/api/src/google/google-resources.controller.ts
       - apps/api/src/dashboard-auth/dashboard-user.ts
       - apps/web/src/modules/zca/view/zca-screen.tsx
+      - apps/web/src/modules/zca/presentation/components/zca-admin-only-notice.tsx
       - apps/web/src/modules/zca/view/thread-config-screen.tsx
       - apps/web/src/modules/zca/view/sync-media-modal.tsx
       - apps/web/src/modules/zca/model/chat-rows.ts
@@ -195,6 +196,7 @@ Bảng này phục vụ việc lướt nhanh hàng trăm dòng, nên giữ cùng
 ### Thành phần màn hình
 
 - **`ZcaScreen` (`view/zca-screen.tsx`)**: header (làm mới, đăng nhập QR / đăng xuất), 4 thẻ tổng quan (kết nối, số đang lắng nghe, số chờ duyệt, tổng số dòng), thanh công cụ ("Đồng bộ thông tin" lấy tên/avatar/SĐT từ danh bạ ZCA; "+ Thêm người dùng"; link kho Drive gốc), ô nhập ID để bật lắng nghe thủ công, tìm kiếm (không dấu), sắp xếp, bộ lọc và phân trang.
+- **Người không phải admin mở `/zca`** (`presentation/components/zca-admin-only-notice.tsx`): mọi API `/api/zca/*` chỉ admin gọi được. Trước đây user thường vẫn vào được trang nhưng chỉ thấy thẻ trống, danh sách rỗng, còn lỗi 403 nằm trong DevTools nên không ai hiểu chuyện gì. Giờ khi `GET /api/zca/status` trả 403, cả trang được thay bằng khung **"Trang này chỉ dành cho admin"**, có hướng dẫn nhờ admin cấp quyền hoặc đăng nhập bằng tài khoản admin, kèm link về trang tổng quan (chữ ở các key `zca.forbidden.*`). Query status, thread-configs và link Drive không retry khi gặp 403 để thông báo hiện ngay. Các lỗi khác (mạng, 500) vẫn giữ trang như cũ.
 - **Trạng thái bảng nằm trên URL** (`view/use-chat-table-url-state.ts`, logic thuần ở `model/chat-table-url-state.ts` có test): ô tìm kiếm, bộ lọc, sắp xếp, trang và số mục mỗi trang được ghi vào query của `/zca` (`?q=&filter=&sort=&page=&size=`, giá trị mặc định thì bỏ). Lý do: bấm **Cấu hình** là sang trang khác, nếu không giữ thì quay lại sẽ mất bộ lọc và trang đang xem, rất phiền khi cấu hình lần lượt nhiều kênh. Giá trị lạ trên URL tự về mặc định. Đổi tìm kiếm/bộ lọc/sắp xếp/số mục thì về trang 1. Query gần nhất cũng được giữ trong `sessionStorage` để nút quay lại ở trang cấu hình mở đúng chỗ cũ.
 - **Modal đăng nhập QR**: tự nạp mã QR, polling trạng thái và tự đóng khi đăng nhập thành công.
 - **`ChatTableRow` (`presentation/components/chat-table-row.tsx`)**: một dòng của bảng. Bấm vào nhãn "Đang lắng nghe / Bỏ qua" để bật/tắt lắng nghe; nút Cấp quyền / Thu hồi (thu hồi Admin phải xác nhận); nút Sao lưu lịch sử (nhóm, mở `SyncMediaModal`), nút Drive và nút Cấu hình. Các nút `📁 Drive` / `📸 Photos` (cột Lắng nghe) và nút Drive (cột thao tác) mở hộp thoại `ThreadStorageLinksDialog`, liệt kê mọi thư mục Drive/album Photos kênh từng dùng qua các tài khoản Google (xem [Lưu trữ media theo kênh](channel-storage.md)).
@@ -284,7 +286,7 @@ Mọi route của `ZcaController` và 5 route Drive/Photos ở trên đều **ch
   - Ảnh QR trên dashboard dùng `getZcaQrImageUrl()` (dựa trên `API_ROUTES.zcaQr`) và xác thực bằng cookie.
 - `GET /api/drive/open` và `GET /api/photos/open` (link "📁 Drive ↗", "📸 Photos ↗") nhận Bearer hoặc cookie `reports_refresh` của admin.
 
-**Xử lý sự cố**: trang Zalo & Người dùng báo 403 nghĩa là tài khoản đang đăng nhập dashboard không phải admin. Link QR trong Zalo báo 401 nghĩa là luồng đăng nhập đó đã kết thúc; hãy gõ lại `/zalo-login` để lấy link mới.
+**Xử lý sự cố**: trang Zalo & Người dùng hiện "Trang này chỉ dành cho admin" (API trả 403) nghĩa là tài khoản đang đăng nhập dashboard không phải admin. Hay gặp khi vào bằng link bot gửi trong Zalo: ID Zalo cá nhân (ZCA, dạng số) là một user khác với ID webhook cũ (20 ký tự hex), có thể mới chỉ được cấp quyền thường. Cách xử lý: đăng nhập bằng `DASHBOARD_LOGIN_CODE`, hoặc nhờ admin gộp ID cũ vào ID mới (quyền Admin được chuyển theo) hay đổi role thành Admin. Link QR trong Zalo báo 401 nghĩa là luồng đăng nhập đó đã kết thúc; hãy gõ lại `/zalo-login` để lấy link mới.
 
 Contracts liên quan trong `packages/contracts`: `ThreadBotConfig`, `UpdateThreadBotConfigDto`, `ThreadDirectInteractionConfig`, `ThreadMediaBackupConfig`, `ThreadExpenseConfig`, `ThreadCalendarConfig`, `ThreadConfirmationConfig`, `SyncThreadMediaDto`, `SyncMediaTimeRange`, `SyncThreadMediaResponse`.
 

@@ -201,6 +201,10 @@ const messages = {
     'zca.logoutConfirm':
       'Bạn có chắc chắn muốn ngắt kết nối và đăng xuất tài khoản Zalo cá nhân (ZCA) này không?',
     'zca.logoutSuccess': 'Đã đăng xuất tài khoản ZCA thành công.',
+    'zca.forbidden.title': 'Trang này chỉ dành cho admin',
+    'zca.forbidden.body':
+      'Tài khoản bạn đang đăng nhập dashboard chưa có quyền admin. Hãy nhờ admin cấp quyền hoặc đăng nhập bằng tài khoản admin.',
+    'zca.forbidden.backHome': 'Về trang tổng quan',
     'nav.personalSpace': 'Cá nhân',
     'nav.section.overview': 'TỔNG QUAN',
     'nav.section.finance': 'TÀI CHÍNH',
@@ -1298,6 +1302,10 @@ const messages = {
     'zca.logoutConfirm':
       'Are you sure you want to disconnect and logout this ZCA personal account?',
     'zca.logoutSuccess': 'ZCA account logged out successfully.',
+    'zca.forbidden.title': 'This page is for admins only',
+    'zca.forbidden.body':
+      'The account signed in to the dashboard is not an admin. Ask an admin to grant access or sign in with an admin account.',
+    'zca.forbidden.backHome': 'Back to overview',
     'nav.personalSpace': 'Personal',
     'nav.section.overview': 'OVERVIEW',
     'nav.section.finance': 'FINANCE',

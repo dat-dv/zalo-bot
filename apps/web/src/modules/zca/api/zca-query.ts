@@ -57,6 +57,8 @@ export function useZcaStatusQuery(options?: { refetchInterval?: number | false }
     queryKey: zcaQueryKeys.status(),
     queryFn: ({ signal }) => getZcaStatus(signal),
     refetchInterval: options?.refetchInterval,
+    // 403 is the "admins only" signal for the whole /zca page; retrying only delays the notice.
+    retry: (failureCount, error) => !isForbiddenError(error) && failureCount < 1,
   });
 }
 
@@ -171,6 +173,7 @@ export function useZcaThreadConfigsQuery() {
   return useQuery<ThreadBotConfig[]>({
     queryKey: zcaQueryKeys.configs(),
     queryFn: ({ signal }) => getZcaThreadConfigs(signal),
+    retry: (failureCount, error) => !isForbiddenError(error) && failureCount < 1,
   });
 }
 
@@ -202,6 +205,7 @@ export function useGoogleDriveFolderLinkQuery(channelId?: string, threadName?: s
     queryKey: zcaQueryKeys.driveLink(channelId, threadName),
     queryFn: ({ signal }) => getGoogleDriveFolderLink(channelId, threadName, signal),
     staleTime: 5 * 60 * 1000,
+    retry: (failureCount, error) => !isForbiddenError(error) && failureCount < 1,
   });
 }
 

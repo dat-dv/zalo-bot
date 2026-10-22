@@ -24,6 +24,7 @@ import {
   zcaQueryKeys,
 } from '../api/zca-query';
 import { getThreadDriveOpenUrl, getZcaQrImageUrl, type ZcaThread } from '../api/zca-api';
+import { isForbiddenError } from '../model/google-storage-account';
 import {
   buildChatRows,
   countChatRows,
@@ -38,6 +39,7 @@ import { ChatListRow } from '../presentation/components/chat-list-row';
 import type { ChatRowProps } from '../presentation/components/chat-row-parts';
 import { ChatTableRow } from '../presentation/components/chat-table-row';
 import { UserFormDialog } from '../presentation/components/user-form-dialog';
+import { ZcaAdminOnlyNotice } from '../presentation/components/zca-admin-only-notice';
 import {
   ExternalLinkIcon,
   GoogleDriveIcon,
@@ -110,7 +112,11 @@ export function ZcaScreen() {
   const { t, locale } = useLocale();
   const isCompact = useIsCompact();
   const [pollInterval, setPollInterval] = useState<number | false>(false);
-  const { data: status, refetch: refetchStatus } = useZcaStatusQuery({
+  const {
+    data: status,
+    error: statusError,
+    refetch: refetchStatus,
+  } = useZcaStatusQuery({
     refetchInterval: pollInterval,
   });
   const {
@@ -397,6 +403,9 @@ export function ZcaScreen() {
     onToggleAccess: (r) => void handleToggleAccess(r),
     onToggleListen: (threadId) => void handleToggleThread(threadId),
   });
+
+  // Every /api/zca route is admin-only; without this a non-admin sees an empty page and no reason.
+  if (isForbiddenError(statusError)) return <ZcaAdminOnlyNotice />;
 
   return (
     <div className="flex flex-col gap-4 p-1">
