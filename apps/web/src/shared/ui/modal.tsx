@@ -8,6 +8,11 @@ import { useVisualViewportVars } from '@/shared/hooks/use-visual-viewport';
 export const MODAL_STICKY_HEADER = 'sticky top-0 z-10';
 /** Keep dialog actions reachable above the on-screen keyboard. Pair with a solid background. */
 export const MODAL_STICKY_FOOTER = 'sticky bottom-0 z-10';
+/** Append to a dialog's close (✕) button: 40×40px tap target on phones, desktop size unchanged. */
+export const MODAL_CLOSE_TAP =
+  'max-sm:inline-flex max-sm:size-10 max-sm:items-center max-sm:justify-center';
+/** Append to each footer action button: 40px tall and sharing the row evenly on phones. */
+export const MODAL_FOOTER_TAP = 'max-sm:h-10 max-sm:min-h-10 max-sm:flex-1';
 
 // Wait for the on-screen keyboard animation before revealing the focused field.
 const KEYBOARD_SETTLE_MS = 300;
@@ -24,6 +29,8 @@ interface ModalProps {
   /** Visual styling of the panel: width cap, border, radius, background. */
   panelClassName: string;
   backdropClassName?: string;
+  /** Phone layout (< 640px): a bottom sheet by default; long forms can take the full screen. */
+  phoneLayout?: 'sheet' | 'fullscreen';
   children: ReactNode;
 }
 
@@ -47,8 +54,10 @@ export function Modal({
   role = 'dialog',
   panelClassName,
   backdropClassName = 'bg-slate-900/60 backdrop-blur-xs dark:bg-slate-950/80',
+  phoneLayout = 'sheet',
   children,
 }: ModalProps) {
+  const isFullscreen = phoneLayout === 'fullscreen';
   const dialogRef = useRef<HTMLDialogElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const dismissRef = useRef(onDismiss);
@@ -135,7 +144,7 @@ export function Modal({
       onClose={handleClose}
       // Reset UA dialog styles (margin, max size, border, padding, colors) and size the
       // dialog to the visual viewport; the panel sits inside as centered card / bottom sheet.
-      className="fixed inset-x-0 top-[var(--app-vv-top,0px)] bottom-auto m-0 h-[var(--app-vvh,100dvh)] max-h-none w-full max-w-none items-center justify-center overflow-hidden border-0 bg-transparent p-4 text-inherit backdrop:bg-transparent open:flex max-sm:items-end max-sm:p-0 max-sm:pt-6"
+      className={`fixed inset-x-0 top-[var(--app-vv-top,0px)] bottom-auto m-0 h-[var(--app-vvh,100dvh)] max-h-none w-full max-w-none items-center justify-center overflow-hidden border-0 bg-transparent p-4 text-inherit backdrop:bg-transparent open:flex max-sm:items-end max-sm:p-0 ${isFullscreen ? '' : 'max-sm:pt-6'}`}
     >
       <div
         aria-hidden="true"
@@ -145,8 +154,15 @@ export function Modal({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className={`relative flex max-h-full w-full flex-col overflow-y-auto overscroll-contain shadow-2xl outline-none ${panelClassName} max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-[env(safe-area-inset-bottom)]`}
+        className={`relative flex max-h-full w-full flex-col overflow-y-auto overscroll-contain shadow-2xl outline-none ${panelClassName} max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-[env(safe-area-inset-bottom)] ${isFullscreen ? 'max-sm:h-full max-sm:rounded-none max-sm:border-t-0 max-sm:pt-[env(safe-area-inset-top)]' : ''}`}
       >
+        {/* Grab bar: tells phone users this is a sheet over the page (decorative, no drag yet). */}
+        {!isFullscreen && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1.5 left-1/2 z-20 hidden h-1 w-9 -translate-x-1/2 rounded-[2px] bg-slate-300 max-sm:block dark:bg-slate-600"
+          />
+        )}
         {children}
       </div>
     </dialog>

@@ -8,6 +8,7 @@ import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { useTheme } from '@/shared/store/theme-store';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useBodyScrollLock } from '@/shared/hooks/use-body-scroll-lock';
+import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useWorkspaceHeader } from './workspace-header';
 
 const TOPBAR_ICON_BUTTON =
@@ -128,11 +129,32 @@ const navSections: readonly NavSection[] = [
   },
 ];
 
+/** Destinations pinned to the bottom tab bar on compact screens; the rest live behind "More". */
+const TAB_BAR_PAGES: readonly NavigationPage[] = ['home', 'transactions', 'debts', 'calendar'];
+
+/** Shorter labels where the sidebar label does not fit a fifth of a phone screen. */
+const TAB_BAR_LABEL_KEYS: Partial<Record<NavigationPage, TranslationKey>> = {
+  debts: 'nav.tab.debts',
+};
+
+const tabBarItems: readonly NavItem[] = TAB_BAR_PAGES.flatMap((page) =>
+  navSections
+    .flatMap((section) => section.items)
+    .filter((item) => item.page === page)
+    .map((item) => ({ ...item, labelKey: TAB_BAR_LABEL_KEYS[page] ?? item.labelKey })),
+);
+
+const TAB_BAR_ITEM =
+  'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[3px] !bg-transparent !p-0 text-[10.5px] leading-tight no-underline';
+const TAB_BAR_ITEM_ACTIVE = `${TAB_BAR_ITEM} font-semibold !text-slate-900 dark:!text-slate-100`;
+const TAB_BAR_ITEM_IDLE = `${TAB_BAR_ITEM} font-medium !text-slate-500 dark:!text-slate-400`;
+
 export function AppNavigation({ active, footer }: { active?: NavigationPage; footer?: ReactNode }) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const { locale, setLocale, t } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
+  const isCompact = useIsCompact();
   const nextThemeLabel = theme === 'light' ? t('nav.dark') : t('nav.light');
   const { isMoneyVisible, toggleMoneyVisibility } = useMoneyVisibility();
   const { title, isAuthenticated, handleRefresh, handleLogout, zaloBotUrl } = useWorkspaceHeader();
@@ -164,11 +186,17 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
     }
     return pathname.startsWith(item.href);
   };
+  const isMoreActive = isOpen || !tabBarItems.some(isItemActive);
 
   return (
     <>
+      {/* Opaque strip under the status bar so content scrolling past the sticky topbar never shows through. */}
+      <div
+        aria-hidden="true"
+        className="fixed inset-x-0 top-0 z-40 hidden h-[env(safe-area-inset-top)] bg-[#f8fafc] dark:bg-[#090d16] max-[960px]:block"
+      />
       {/* Mobile topbar doubles as the page header: WorkspaceHeader is hidden at this width. */}
-      <header className="sticky top-0 z-40 hidden min-h-[52px] items-center gap-2 rounded border border-slate-200 bg-white px-1.5 py-1.5 dark:border-slate-700 dark:bg-slate-900 max-[960px]:flex">
+      <header className="sticky top-0 z-40 max-[960px]:top-[env(safe-area-inset-top)] hidden min-h-[52px] items-center gap-2 rounded border border-slate-200 bg-white px-1.5 py-1.5 dark:border-slate-700 dark:bg-slate-900 max-[960px]:flex">
         <button
           aria-controls="app-navigation-drawer"
           aria-expanded={isOpen}
@@ -229,8 +257,10 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
 
       <aside
         id="app-navigation-drawer"
-        className={`flex h-full w-[210px] flex-col justify-between rounded border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900 max-[960px]:fixed max-[960px]:inset-y-0 max-[960px]:left-0 max-[960px]:z-[60] max-[960px]:h-dvh max-[960px]:max-w-[85vw] max-[960px]:w-[280px] max-[960px]:rounded-none max-[960px]:border-y-0 max-[960px]:border-l-0 max-[960px]:border-r-slate-700 max-[960px]:px-3 max-[960px]:py-3.5 max-[960px]:shadow-[4px_0_24px_rgba(0,0,0,0.15)] max-[960px]:transition-transform max-[960px]:duration-[250ms] max-[960px]:ease-out ${isOpen ? 'max-[960px]:translate-x-0' : 'max-[960px]:-translate-x-full'}`}
+        className={`flex h-full w-[210px] flex-col justify-between rounded border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900 max-[960px]:fixed max-[960px]:inset-y-0 max-[960px]:left-0 max-[960px]:z-[60] max-[960px]:h-dvh max-[960px]:max-w-[85vw] max-[960px]:w-[280px] max-[960px]:rounded-none max-[960px]:border-y-0 max-[960px]:border-l-0 max-[960px]:border-r-slate-700 max-[960px]:px-3 max-[960px]:pt-[calc(0.875rem+env(safe-area-inset-top))] max-[960px]:pb-[calc(0.875rem+env(safe-area-inset-bottom))] max-[960px]:pl-[max(0.75rem,env(safe-area-inset-left))] max-[960px]:overflow-y-auto max-[960px]:overscroll-contain max-[960px]:shadow-[4px_0_24px_rgba(0,0,0,0.15)] max-[960px]:transition-transform max-[960px]:duration-[250ms] max-[960px]:ease-out ${isOpen ? 'max-[960px]:translate-x-0' : 'max-[960px]:-translate-x-full'}`}
         aria-label={t('nav.personalSpace')}
+        // Off-canvas drawer: keep its links out of the tab order and the accessibility tree.
+        inert={isCompact && !isOpen}
       >
         <div className="mb-3.5 block max-[960px]:flex max-[960px]:items-center max-[960px]:justify-between">
           <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
@@ -326,6 +356,36 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           </div>
         </div>
       </aside>
+
+      <nav
+        aria-label={t('nav.tabBar')}
+        className="fixed inset-x-0 bottom-0 z-40 hidden h-[calc(56px+env(safe-area-inset-bottom))] items-stretch gap-1 border-t border-slate-200 bg-white px-[max(0.25rem,env(safe-area-inset-left))] pt-1 pb-[env(safe-area-inset-bottom)] dark:border-slate-700 dark:bg-slate-900 max-[960px]:flex"
+      >
+        {tabBarItems.map((item) => {
+          const activeState = !isOpen && isItemActive(item);
+          return (
+            <Link
+              aria-current={activeState ? 'page' : undefined}
+              className={activeState ? TAB_BAR_ITEM_ACTIVE : TAB_BAR_ITEM_IDLE}
+              href={item.href}
+              key={item.page}
+            >
+              <NavigationItemIcon icon={item.icon} size="tab" />
+              <span className="max-w-full truncate">{t(item.labelKey)}</span>
+            </Link>
+          );
+        })}
+        <button
+          aria-controls="app-navigation-drawer"
+          aria-expanded={isOpen}
+          className={isMoreActive ? TAB_BAR_ITEM_ACTIVE : TAB_BAR_ITEM_IDLE}
+          onClick={() => setIsOpen((prev) => !prev)}
+          type="button"
+        >
+          <MoreIcon />
+          <span className="max-w-full truncate">{t('nav.more')}</span>
+        </button>
+      </nav>
     </>
   );
 }
@@ -354,10 +414,16 @@ function ThemeIcon({ theme }: { theme: 'light' | 'dark' }) {
   );
 }
 
-function NavigationItemIcon({ icon }: { icon: NavigationIcon }) {
+function NavigationItemIcon({
+  icon,
+  size = 'list',
+}: {
+  icon: NavigationIcon;
+  size?: 'list' | 'tab';
+}) {
   const sharedProps = {
     'aria-hidden': true,
-    className: 'size-[15px] shrink-0',
+    className: size === 'tab' ? 'size-5 shrink-0' : 'size-[15px] shrink-0',
     fill: 'none',
     stroke: 'currentColor',
     strokeLinecap: 'round' as const,
@@ -547,6 +613,16 @@ function CloseIcon() {
     <svg {...sharedProps}>
       <line x1="18" x2="6" y1="6" y2="18" />
       <line x1="6" x2="18" y1="6" y2="18" />
+    </svg>
+  );
+}
+
+function MoreIcon() {
+  return (
+    <svg aria-hidden="true" className="size-5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+      <circle cx="5" cy="12" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="19" cy="12" r="1.8" />
     </svg>
   );
 }

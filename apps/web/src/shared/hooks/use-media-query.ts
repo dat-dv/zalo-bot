@@ -1,9 +1,7 @@
 'use client';
 
 import { useCallback, useSyncExternalStore } from 'react';
-
-/** Phone-width layouts (list rows, bottom sheets) start at or below this width. */
-export const MOBILE_MEDIA_QUERY = '(max-width: 640px)';
+import { COMPACT_MEDIA_QUERY, PHONE_MEDIA_QUERY } from '@/shared/ui/breakpoints';
 
 /**
  * Subscribes to a CSS media query. The prerendered HTML and the first client
@@ -25,4 +23,14 @@ export function useMediaQuery(query: string): boolean {
     () => window.matchMedia(query).matches,
     () => false,
   );
+}
+
+/** True at phone width (<= 640px): list rows, bottom sheets, 40px touch targets. */
+export function useIsPhone(): boolean {
+  return useMediaQuery(PHONE_MEDIA_QUERY);
+}
+
+/** True at compact width (<= 960px): top bar, bottom tab bar and list rows replace desktop chrome. */
+export function useIsCompact(): boolean {
+  return useMediaQuery(COMPACT_MEDIA_QUERY);
 }

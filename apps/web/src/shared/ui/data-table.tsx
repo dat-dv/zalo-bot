@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef, useMemo, Fragment, type ReactNode } from 'react';
 import type { TranslationKey } from '@zalobot/contracts';
-import { MOBILE_MEDIA_QUERY, useMediaQuery } from '@/shared/hooks/use-media-query';
+import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTableMobileList } from './data-table-mobile-list';
 import { supportsMobileList, type MobileSlot } from './data-table-mobile';
@@ -612,8 +612,10 @@ export function DataTable<T extends DataTableRow>({
   mobileList = true,
 }: DataTableProps<T>) {
   const { t } = useLocale();
-  const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
-  const isMobileList = mobileList && isMobile && supportsMobileList(columns);
+  // Compact tier (<= 960px), not just phones: tablets and landscape phones get the
+  // bottom tab bar too, and a wide table there still needs sideways scrolling.
+  const isCompact = useIsCompact();
+  const isMobileList = mobileList && isCompact && supportsMobileList(columns);
   const isToggleAllowed = allowColumnToggle ?? (Boolean(id) || columns.length > 2);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const [inspectedRowId, setInspectedRowId] = useState<string | null>(null);

@@ -89,6 +89,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  // Draw under the notch / home indicator; the shell pads itself with env(safe-area-inset-*).
+  viewportFit: 'cover',
   // Android Chrome shrinks the layout viewport when the on-screen keyboard opens,
   // so fixed dialogs stay above the keyboard instead of being covered by it.
   interactiveWidget: 'resizes-content',

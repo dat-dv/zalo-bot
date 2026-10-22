@@ -25,6 +25,19 @@ html[data-theme='dark'] select:focus-visible {
 
 html {
   -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Drop the double-tap-to-zoom delay on controls; pinch zoom keeps working. */
+a,
+button,
+input,
+select,
+textarea,
+label,
+summary,
+[role='button'] {
+  touch-action: manipulation;
 }
 
 * {

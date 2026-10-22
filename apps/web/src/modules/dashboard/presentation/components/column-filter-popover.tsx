@@ -10,10 +10,11 @@ import {
   type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useIsPhone } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { MODAL_STICKY_HEADER, Modal } from '@/shared/ui/modal';
 
 const POPOVER_WIDTH = 240;
-const MOBILE_BREAKPOINT = 640;
 const TEXT_DEBOUNCE_MS = 400;
 /** Option lists longer than this get a search box. */
 const OPTION_SEARCH_THRESHOLD = 8;
@@ -30,7 +31,8 @@ type ColumnFilterHeaderProps = {
 
 /**
  * Column header label plus a funnel button opening the column's filter. The panel is portalled to
- * the body because the table scroller would clip it; on phones it becomes a bottom sheet.
+ * the body because the table scroller would clip it. On phones it opens in the shared `Modal`
+ * bottom sheet instead (backdrop, scroll lock, touch dismissal).
  */
 export function ColumnFilterHeader({
   label,
@@ -46,17 +48,14 @@ export function ColumnFilterHeader({
   const panelRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [position, setPosition] = useState<CSSProperties>({});
+  const isPhone = useIsPhone();
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || isPhone) return;
 
     const updatePosition = () => {
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
-      if (window.innerWidth < MOBILE_BREAKPOINT) {
-        setPosition({ left: 8, right: 8, bottom: 8 });
-        return;
-      }
       const preferredLeft = align === 'right' ? rect.right - POPOVER_WIDTH : rect.left;
       const left = Math.min(Math.max(8, preferredLeft), window.innerWidth - POPOVER_WIDTH - 8);
       setPosition({ left, top: rect.bottom + 4, width: POPOVER_WIDTH });
@@ -89,9 +88,25 @@ export function ColumnFilterHeader({
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
-  }, [isOpen, align]);
+  }, [isOpen, isPhone, align]);
 
   const buttonLabel = t('table.columnFilter.open', { column: label });
+
+  const panelHeader = (
+    <div
+      className={`flex items-center justify-between gap-2 border-b border-slate-200 px-2.5 py-1.5 dark:border-slate-800 max-sm:bg-white max-sm:pt-3 max-sm:pb-1 dark:max-sm:bg-slate-900 ${isPhone ? MODAL_STICKY_HEADER : ''}`}
+    >
+      <span className="truncate font-semibold text-slate-900 dark:text-slate-100">{label}</span>
+      <button
+        type="button"
+        onClick={onClear}
+        disabled={!active}
+        className="shrink-0 cursor-pointer text-[11px] font-medium text-sky-700 hover:underline disabled:cursor-default disabled:text-slate-400 disabled:no-underline max-sm:h-10 max-sm:px-2 dark:text-sky-400 dark:disabled:text-slate-600"
+      >
+        {t('table.columnFilter.clear')}
+      </button>
+    </div>
+  );
 
   return (
     <span
@@ -109,7 +124,7 @@ export function ColumnFilterHeader({
         title={buttonLabel}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
-        aria-controls={isOpen ? panelId : undefined}
+        aria-controls={isOpen && !isPhone ? panelId : undefined}
         className={`relative inline-flex size-5 cursor-pointer items-center max-[640px]:size-10 justify-center rounded-[3px] border normal-case transition-colors ${
           active
             ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-500 dark:bg-sky-950/60 dark:text-sky-300'
@@ -127,40 +142,39 @@ export function ColumnFilterHeader({
         )}
       </button>
 
-      {isOpen && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-              ref={panelRef}
-              id={panelId}
-              role="dialog"
-              aria-label={buttonLabel}
-              style={position}
-              className="fixed z-[100] flex max-h-[min(24rem,70vh)] flex-col rounded-[4px] border border-slate-300 bg-white text-[11.5px] font-normal tracking-normal text-slate-700 normal-case shadow-2xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-            >
-              <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-2.5 py-1.5 dark:border-slate-800">
-                <span className="truncate font-semibold text-slate-900 dark:text-slate-100">
-                  {label}
-                </span>
-                <button
-                  type="button"
-                  onClick={onClear}
-                  disabled={!active}
-                  className="shrink-0 cursor-pointer text-[11px] font-medium text-sky-700 hover:underline disabled:cursor-default disabled:text-slate-400 disabled:no-underline dark:text-sky-400 dark:disabled:text-slate-600"
-                >
-                  {t('table.columnFilter.clear')}
-                </button>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto p-2.5">{children}</div>
-            </div>,
-            document.body,
-          )
-        : null}
+      {isPhone ? (
+        <Modal
+          open={isOpen}
+          onDismiss={() => setIsOpen(false)}
+          dismissOnBackdrop
+          ariaLabel={buttonLabel}
+          panelClassName="rounded-t-[4px] border-t border-slate-300 bg-white text-[11.5px] font-normal tracking-normal text-slate-700 normal-case dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        >
+          {panelHeader}
+          <div className="p-2.5 pb-4">{children}</div>
+        </Modal>
+      ) : isOpen && typeof document !== 'undefined' ? (
+        createPortal(
+          <div
+            ref={panelRef}
+            id={panelId}
+            role="dialog"
+            aria-label={buttonLabel}
+            style={position}
+            className="fixed z-[100] flex max-h-[min(24rem,70vh)] flex-col rounded-[4px] border border-slate-300 bg-white text-[11.5px] font-normal tracking-normal text-slate-700 normal-case shadow-2xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          >
+            {panelHeader}
+            <div className="min-h-0 flex-1 overflow-y-auto p-2.5">{children}</div>
+          </div>,
+          document.body,
+        )
+      ) : null}
     </span>
   );
 }
 
 const INPUT_CLASS =
-  'h-7 min-h-7 w-full rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500';
+  'h-7 min-h-7 max-sm:h-10 max-sm:min-h-10 w-full rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500';
 
 export type FilterOption = { value: string; label: string };
 
@@ -213,7 +227,7 @@ export function OptionsFilter({ options, selected, onChange }: OptionsFilterProp
         <ul className="flex flex-col">
           {visibleOptions.map((option) => (
             <li key={option.value}>
-              <label className="flex cursor-pointer items-center gap-2 rounded-[3px] px-1 py-1 hover:bg-slate-50 dark:hover:bg-slate-800">
+              <label className="flex cursor-pointer items-center gap-2 rounded-[3px] px-1 py-1 hover:bg-slate-50 max-sm:min-h-10 dark:hover:bg-slate-800">
                 <input
                   type="checkbox"
                   className="size-3.5 accent-sky-600"
@@ -329,7 +343,7 @@ export function ChoiceFilter<T extends string>({
       {options.map((option) => (
         <label
           key={option.value}
-          className="flex cursor-pointer items-center gap-2 rounded-[3px] px-1 py-1 hover:bg-slate-50 dark:hover:bg-slate-800"
+          className="flex cursor-pointer items-center gap-2 rounded-[3px] px-1 py-1 hover:bg-slate-50 max-sm:min-h-10 dark:hover:bg-slate-800"
         >
           <input
             type="radio"

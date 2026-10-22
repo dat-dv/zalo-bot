@@ -21,6 +21,9 @@ metadata:
       - apps/web/src/shared/hooks/use-body-scroll-lock.ts
       - apps/web/src/shared/hooks/use-visual-viewport.ts
       - apps/web/app/layout.tsx
+      - apps/web/src/shared/ui/breakpoints.ts
+      - apps/web/src/shared/ui/touch.ts
+      - apps/web/src/shared/ui/mobile-action-bar.tsx
 ---
 
 # Định hướng UI web dùng chung
@@ -33,13 +36,45 @@ Các bảng dữ liệu nghiệp vụ bắt buộc sử dụng các thành phầ
 
 Thành phần `DataTable` tích hợp sẵn nút Cài đặt cột (`TableColumnSettings`) với menu popover cho phép người dùng bật/tắt hiển thị từng cột và tự động lưu cấu hình vào `localStorage` (`zalobot:table-columns:<id>`). Mỗi dòng bắt buộc có trường `id`: `DataTable` tự thêm hai cột bắt buộc `STT` (số thứ tự theo danh sách đang hiển thị) và `ID` trước các cột nghiệp vụ; người dùng không thể ẩn hai cột này, còn ID được hiển thị dưới dạng nút bấm mono tương tác. Khi nhấp vào ô ID, hệ thống mở hộp thoại `IdExplainerDialog` giải thích thông tin bảng CSDL (`finance_transactions`, `debts`, `tasks`, `reminders`, `calendar_events`, `debt_contacts`, `finance_places`, `categories`...), cung cấp nút sao chép ID 1-click và bộ 3 câu lệnh mẫu cho AI Agent (Sửa, Xóa, Tra cứu) để người dùng dán trực tiếp vào Zalo Bot. Bảng tự sắp xếp sau khi lọc theo thời gian phát sinh nghiệp vụ: dữ liệu lịch sử ưu tiên mới nhất (`occurredAt`, rồi `paymentDate`, rồi `createdAt`), còn lịch/nhắc việc/công việc ưu tiên mốc sắp tới (`remindAt`, `startAt`, `dueAt`); dòng không có hạn nằm cuối. Mọi bảng có `id` cũng cho phép kéo mép phải của header để đổi độ rộng cột, lưu riêng theo `zalobot:table-widths:<id>` và tự khôi phục khi tải lại trang; khi cần, view có thể tắt bằng `allowColumnResize={false}`. Mỗi view tự quản lý danh sách cột nghiệp vụ, tải dữ liệu, lỗi và hành động.
 
-## Chế độ danh sách trên điện thoại (DataTable, <= 640px)
+## Khung giao diện trên màn hẹp: breakpoint, thanh tab, safe-area
+
+**Vì sao cần:** trước đây trên điện thoại, dashboard chỉ là bản desktop thu nhỏ. Muốn đổi trang phải mở hamburger rồi chọn trong 11 mục. Nút chính nằm tít trên đầu trang, ngón cái khó với tới. Khi "Thêm vào màn hình chính" trên iPhone, topbar còn bị tai thỏ che. Mục tiêu là dùng trên điện thoại giống một app thật. Desktop (> 960px) giữ nguyên.
+
+- **Hai mốc breakpoint, khai báo một chỗ** (`apps/web/src/shared/ui/breakpoints.ts`):
+  - **Điện thoại (≤ 640px)**: bottom sheet, vùng chạm 40px. Trong Tailwind viết `max-sm:` / `max-[640px]:`.
+  - **Màn hẹp (≤ 960px)**, gồm cả tablet dọc và điện thoại xoay ngang: topbar + thanh tab dưới đáy + chế độ danh sách của bảng. Trong Tailwind viết `max-[960px]:`.
+  - Trong code dùng hook `useIsPhone()` / `useIsCompact()`. Không tự đặt thêm mốc khác.
+- **Thanh tab dưới đáy** (trong `AppNavigation`, ≤ 960px):
+  - 5 ô: Tổng quan, Thu chi, Công nợ, Lịch, **Thêm**. Nhãn tab "Công nợ" là bản rút gọn của "Vay & cho vay" cho vừa 1/5 bề ngang.
+  - "Thêm" mở drawer menu cũ, nơi có đủ mọi trang, Đăng xuất, giao diện và ngôn ngữ. Ô này sáng lên khi drawer đang mở hoặc khi trang hiện tại không thuộc 4 tab kia.
+  - Chọn 4 tab này vì đó là những trang mở nhiều nhất trên điện thoại. Muốn đổi thì sửa `TAB_BAR_PAGES`.
+- **Safe-area (tai thỏ, thanh home)**:
+  - Viewport đặt `viewportFit: 'cover'`.
+  - Layout chừa `env(safe-area-inset-*)` ở trên, trái và phải. Ở dưới chừa thêm chiều cao thanh tab (56px).
+  - Topbar dính ngay dưới vùng status bar. Có một dải màu nền che vùng status bar để nội dung cuộn qua không bị lộ.
+  - Drawer cũng chừa safe-area và tự cuộn bên trong.
+- **Drawer đóng thì `inert`**: link trong drawer không còn nhận Tab hay bị screen reader đọc khi đang ẩn. Sidebar desktop không bị ảnh hưởng.
+- **CSS cho thao tác chạm** (`styles.css`):
+  - Tắt vệt xám khi chạm (`-webkit-tap-highlight-color`).
+  - Đặt `touch-action: manipulation` cho nút, link và input, để bỏ độ trễ chờ double-tap. Zoom bằng hai ngón vẫn dùng được.
+- **Hằng class dùng chung** (`touch.ts`). Khi làm giao diện mobile mới, dùng các hằng này thay vì tự viết lại class:
+  - `TAP_CONTROL`, `TAP_INPUT`: control cao 40px trên điện thoại.
+  - `MOBILE_TOOLBAR_ROW`: một hàng chip cuộn ngang.
+  - `TOAST_POSITION`: góc phải dưới trên desktop; trên màn hẹp rộng hết màn và nằm trên thanh tab.
+- **Toast**: đã chuyển sang `TOAST_POSITION` ở Tổng quan, Thu chi, Nơi chốn, Việc cần làm, Nhắc nhở, Lịch. Các màn còn lại chuyển khi tới lượt làm mobile cho màn đó.
+- **Thanh hành động chính** (`MobileActionBar`):
+  - Trên màn hẹp, nút chính *đã có sẵn* của màn hình chuyển từ toolbar trên đầu xuống một thanh cố định ngay trên thanh tab. Nút cao 40px, bo góc 3px.
+  - Nút trên toolbar thêm `max-[960px]:hidden` để không hiện hai lần.
+  - Hiện dùng cho Thu chi ("Điều chỉnh số dư") và Nơi chốn ("+ Tạo"; ẩn khi form tạo đang mở).
+  - Không dùng thanh này để thêm tính năng mới. Không dùng nút nổi tròn (FAB).
+
+## Chế độ danh sách trên điện thoại (DataTable, màn hẹp ≤ 960px)
 
 **Vì sao cần:** trên màn 375px, chỉ riêng hai cột STT và ID đã chiếm gần hết chiều ngang. Bảng Thu chi rộng khoảng 1.650px nên người dùng phải cuộn ngang mới thấy số tiền. Chế độ danh sách cho mỗi giao dịch một dòng hai tầng để nhìn lướt được ngay.
 
 **Cách bật (opt-in):**
 - Danh sách chỉ hiện khi đủ ba điều kiện:
-  - Màn hình ≤ 640px (`useMediaQuery(MOBILE_MEDIA_QUERY)`; trước khi hydrate luôn coi là desktop).
+  - Màn hình ≤ 960px (`useIsCompact()`; trước khi hydrate luôn coi là desktop). Trước đây mốc là 640px; nâng lên 960px vì tablet và điện thoại xoay ngang cũng đã có thanh tab, nên bảng desktop cuộn ngang ở đó cũng khó dùng.
   - Có ít nhất một cột khai báo `mobileSlot`.
   - Không truyền `mobileList={false}`.
 - Bảng chưa khai báo slot vẫn là bảng cuộn ngang như cũ, nên có thể chuyển dần từng màn.
@@ -124,6 +159,9 @@ Trạng thái Skeleton Loading có nhiệm vụ giữ vững khung xương khôn
 - Mọi modal/dialog phải dùng `Modal` trong `apps/web/src/shared/ui/modal.tsx`. Không tự viết overlay `fixed inset-0` nữa (ngoại lệ duy nhất là lớp nền của drawer menu mobile).
 - `Modal` dựng trên thẻ `<dialog>` native + `showModal()`. Trình duyệt lo phần lớp hiển thị (top layer), làm trang nền "trơ" (Tab không lọt ra ngoài, screen reader không đọc nền) và gửi Escape cho dialog trên cùng qua sự kiện `cancel`. Cần Safari 15.4 trở lên, không dùng polyfill. Style mặc định của `<dialog>` (margin, max-width/height, border, padding, màu) đã được reset; nền mờ là một `div` bên trong, còn `::backdrop` để trong suốt.
 - **Desktop (≥ 640px)**: panel căn giữa như cũ. **Mobile (< 640px)**: dạng *bottom-sheet*, tức panel rộng hết màn hình, dính mép dưới và chỉ bo góc trên, giống bảng "Chia sẻ" của iOS. Kiểu này giúp nút hành động nằm ngay trên bàn phím và dễ bấm bằng ngón cái.
+  - Sheet có một **thanh kéo** nhỏ 36×4px ở trên cùng, để người dùng nhận ra đây là lớp nổi trên trang. Hiện thanh này chỉ để nhìn, chưa kéo được.
+  - Form dài có thể dùng `phoneLayout="fullscreen"` để chiếm cả màn hình trên điện thoại (chừa safe-area phía trên).
+  - Nút đóng (✕) gắn thêm `MODAL_CLOSE_TAP`, các nút ở footer gắn `MODAL_FOOTER_TAP`, để thành vùng chạm 40px trên điện thoại mà desktop không đổi.
 - Overlay lấy chiều cao theo phần màn hình còn nhìn thấy (CSS var `--app-vvh`, do hook `useVisualViewportVars` cập nhật từ `window.visualViewport`). Panel tự cuộn bên trong. Header gắn `MODAL_STICKY_HEADER`, hàng nút gắn `MODAL_STICKY_FOOTER`, cả hai phải có nền đặc để nội dung cuộn bên dưới không bị lộ.
 - `onDismiss` dùng cho phím Escape và cho click ra nền nếu bật `dismissOnBackdrop`. Khi đang gửi request (mutation pending) thì truyền `undefined` để người dùng không đóng nhầm. React giữ trạng thái `open`, nên sự kiện `cancel` luôn bị chặn rồi chuyển cho `onDismiss`. Nếu trình duyệt vẫn ép đóng (Chrome làm vậy khi bấm Escape liên tục), `Modal` sẽ gọi `onDismiss` hoặc mở lại để khớp với `open`.
 - Khi mở modal, focus đặt vào panel (gắn `autofocus`) chứ không vào input, để bàn phím không tự bật lên. Khi đóng, focus trả về nút đã mở modal. `Modal` tự làm việc này, vì khi prop `open` chuyển sang false thì React đã gỡ `<dialog>` khỏi DOM trước lúc cleanup, nên trình duyệt không tự trả focus được. Trang nền bị khoá cuộn qua `useBodyScrollLock`. Hook này đếm tham chiếu và dùng chung với drawer menu, nên mở chồng nhiều lớp không bị mở khoá sớm.

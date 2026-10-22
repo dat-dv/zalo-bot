@@ -15,6 +15,7 @@ import { RemindersTable } from './reminders-table';
 import { CalendarTable } from './calendar-table';
 import { AdjustBalanceModal } from './adjust-balance-modal';
 import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
+import { TOAST_POSITION } from '@/shared/ui/touch';
 
 type DashboardData = NonNullable<ReturnType<typeof useDashboardQuery>['data']>;
 
@@ -469,7 +470,7 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
         <div
           role="status"
           aria-live="polite"
-          className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 max-sm:left-4 rounded border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-900 shadow-lg dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100"
+          className={`${TOAST_POSITION} rounded border border-emerald-300 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-900 shadow-lg dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100`}
         >
           {toastMessage}
         </div>

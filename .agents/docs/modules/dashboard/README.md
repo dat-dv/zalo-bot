@@ -73,7 +73,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - **Tải thêm**: mỗi lần tải 100 dòng; nếu kỳ có nhiều hơn, cuối bảng có nút "Tải thêm" và bộ đếm hiện "Đã tải X/Y dòng". Khi đổi kỳ/bộ lọc, dữ liệu cũ vẫn hiển thị đến khi dữ liệu mới về.
 - Bộ lọc kỳ mặc định theo tháng; thanh chọn kỳ mặc định có Tuần / Tháng / Quý / Năm, đồng bộ lên URL (`?period=&ref=`). Dải xu hướng: tổng thu/chi lấy từ `summary` của server (chính xác cho cả kỳ, gồm cả thu và chi bất kể đang lọc loại nào); biểu đồ cột vẽ từ các dòng đã tải.
 - Bộ lọc loại Tất cả / Thu / Chi đồng bộ với `?type=` — đây là lý do `/expenses` và `/income` chỉ cần chuyển hướng về đây. Ô tìm kiếm theo danh mục, ghi chú, tên nơi chốn. Nút Cân chỉnh số dư.
-- **Lọc theo cột (trên header)**: các cột Loại, Danh mục, Ghi chú, Nơi chốn, Người tạo, Ảnh, Số tiền có nút hình phễu; cột đang lọc có chấm xanh. Bấm vào mở bảng chọn (trên điện thoại hiện dạng sheet dưới đáy màn hình):
+- **Lọc theo cột (trên header)**: các cột Loại, Danh mục, Ghi chú, Nơi chốn, Người tạo, Ảnh, Số tiền có nút hình phễu; cột đang lọc có chấm xanh. Bấm vào mở bảng chọn. Trên điện thoại, bảng chọn mở bằng bottom sheet của `Modal` dùng chung: có nền mờ, khoá cuộn trang, chạm ra ngoài để đóng. Bảng chọn không tự focus vào ô nhập để bàn phím không bật lên ngay, và ô nhập, dòng lựa chọn, nút "Xoá lọc" đều cao 40px:
   - Loại: Tất cả / Thu / Chi — dùng chung trạng thái với nút trên toolbar.
   - Danh mục, Người tạo: chọn nhiều; danh sách lấy từ server (`facets`) theo kỳ đang xem, nên có cả danh mục gõ tay chưa cấu hình. Danh sách không co lại khi đang lọc, để dễ chọn thêm. Người tạo chưa có tên (chưa có hồ sơ và giao dịch cũng không lưu tên) hiện là "Không rõ tên (…4 số cuối ID)" và nằm cuối danh sách — thường là tài khoản trùng nên gộp ở trang Zalo & Người dùng.
   - Nơi chốn: chọn nhiều từ danh sách nơi chốn, kèm mục "Không có nơi chốn".
@@ -99,7 +99,8 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
     - Bấm **Sửa** thì các trường thành ô nhập ngay trong bảng trượt.
     - Nút Lưu/Huỷ/Xoá nằm ở chân bảng trượt, luôn thấy kể cả khi bàn phím mở.
   - Các nút lọc theo cột chuyển lên một dải cuộn ngang phía trên danh sách.
-  - Toolbar gom chip Tất cả / Thu / Chi / Cân chỉnh số dư / Xoá bộ lọc vào một hàng cuộn ngang. Ô tìm kiếm nằm hàng riêng. Mọi nút, ô nhập và "Tải thêm" cao 40px.
+  - Toolbar gom chip Tất cả / Thu / Chi / Xoá bộ lọc vào một hàng cuộn ngang. Ô tìm kiếm nằm hàng riêng. Mọi nút, ô nhập và "Tải thêm" cao 40px.
+  - Trên màn hẹp (≤ 960px), nút **Cân chỉnh số dư** rời toolbar, xuống thanh hành động (`MobileActionBar`) ngay trên thanh tab, để ngón cái bấm được mà không phải cuộn lên đầu trang. Chế độ danh sách cũng áp dụng tới 960px.
   - Bảng giao dịch ở trang Tổng quan chưa bật chế độ này (để sang giai đoạn B).
 
 ## Phân bổ giao dịch vào công nợ (`DebtAllocationModal`)
@@ -127,7 +128,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 ## Trang Nơi chốn (`PlacesScreen`)
 
 - **Nơi chốn** là quán ăn, cửa hàng, địa điểm phát sinh giao dịch — khác với người liên quan trong danh bạ công nợ.
-- Bảng `id="places"`: chọn, Tên (sửa trực tiếp, `Enter`/`Escape`), Số giao dịch, Ngày tạo, Thao tác (Sửa, Xoá xác nhận 2 bước ngay trên dòng). Có ô tìm kiếm và form thêm nhanh.
+- Bảng `id="places"`: chọn, Tên (sửa trực tiếp, `Enter`/`Escape`), Số giao dịch, Ngày tạo, Thao tác (Sửa, Xoá xác nhận 2 bước ngay trên dòng). Có ô tìm kiếm và form thêm nhanh. Trên màn hẹp (≤ 960px), nút "+ Tạo" chuyển xuống thanh hành động trên thanh tab và ẩn đi khi form đang mở. Trên điện thoại, ô nhập và nút của form cao 40px, rộng hết hàng.
 - **Gộp nơi chốn**: chọn từ 2 dòng → `CombinePlacesDialog` xếp hạng ứng viên theo số giao dịch nhiều nhất rồi tạo sớm nhất, người dùng chọn nơi chốn chính và tên cuối cùng; gọi `POST /api/places/combine`. Backend chuyển giao dịch sang nơi chốn chính và từ chối nếu tên mới trùng một nơi chốn khác.
 - Xoá nơi chốn không bao giờ xoá giao dịch; giao dịch chỉ mất liên kết nơi chốn.
 
@@ -144,7 +145,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - `DataTable` ghi nhớ cột ẩn/hiện và độ rộng cột theo id bảng trong `localStorage`; có cơ chế so sánh trước khi cập nhật state để tránh vòng lặp render.
 - Điều hướng: sidebar cố định trên desktop (nhóm Tổng quan, Tài chính, Kế hoạch, Dữ liệu, Hệ thống); màn hình ≤ 960px chuyển thành thanh trên cùng + menu trượt. Cuối menu có nút đổi giao diện sáng/tối (lần đầu theo hệ thống) và chọn ngôn ngữ Việt/Anh.
 
-- `DebtAllocationModal`, `AdjustBalanceModal`, `DeleteTransactionModal`, `CombinePlacesDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo). Toast cuối màn hình chừa khoảng `env(safe-area-inset-bottom)` để không bị thanh home iPhone che.
+- `DebtAllocationModal`, `AdjustBalanceModal`, `DeleteTransactionModal`, `CombinePlacesDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo). Toast dùng vị trí chung `TOAST_POSITION`: trên desktop ở góc phải dưới; trên màn hẹp rộng hết màn và nằm trên thanh tab, có chừa `env(safe-area-inset-bottom)`. Áp dụng cho Tổng quan, Thu chi, Nơi chốn, Việc cần làm, Nhắc nhở, Lịch.
 
 ## Mở dashboard, chạy local và production
 

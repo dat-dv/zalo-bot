@@ -13,6 +13,7 @@ import {
   useUpdateReminderMutation,
 } from '@/modules/reminders/api/reminders-query';
 import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
+import { TOAST_POSITION } from '@/shared/ui/touch';
 
 export function RemindersScreen() {
   const queryClient = useQueryClient();
@@ -134,7 +135,7 @@ export function RemindersScreen() {
       {toastMessage && (
         <div
           role="status"
-          className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 max-sm:left-4 rounded bg-slate-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-slate-100 dark:text-slate-900"
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
         >
           {toastMessage}
         </div>

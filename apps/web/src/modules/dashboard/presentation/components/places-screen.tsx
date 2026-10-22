@@ -13,6 +13,8 @@ import {
   useDeletePlaceMutation,
 } from '../../api/places-query';
 import { CombinePlacesDialog } from './combine-places-dialog';
+import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
+import { TOAST_POSITION } from '@/shared/ui/touch';
 
 export function PlacesScreen() {
   const queryClient = useQueryClient();
@@ -318,7 +320,7 @@ export function PlacesScreen() {
     <>
       {toastMessage && (
         <div
-          className="fixed top-4 left-1/2 z-[1000] -translate-x-1/2 rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900"
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
           role="status"
           aria-live="polite"
         >
@@ -385,11 +387,11 @@ export function PlacesScreen() {
                 {isCreating ? (
                   <form
                     onSubmit={(e) => void handleCreatePlace(e)}
-                    className="flex items-center gap-1"
+                    className="flex items-center gap-1 max-[640px]:w-full"
                   >
                     <input
                       type="text"
-                      className="h-6 min-h-6 w-48 rounded-[3px] border border-sky-600 bg-white px-2 text-[11.5px] text-slate-900 outline-none dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
+                      className="h-6 min-h-6 w-48 max-[640px]:h-10 max-[640px]:min-w-0 max-[640px]:flex-1 rounded-[3px] border border-sky-600 bg-white px-2 text-[11.5px] text-slate-900 outline-none dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
                       placeholder={t('places.placeholder.name')}
                       value={newPlaceName}
                       onChange={(e) => setNewPlaceName(e.target.value)}
@@ -399,7 +401,7 @@ export function PlacesScreen() {
                     <button
                       type="submit"
                       disabled={createMutation.isPending || !newPlaceName.trim()}
-                      className="inline-flex h-6 min-h-6 cursor-pointer items-center justify-center rounded-[3px] border border-emerald-600 bg-emerald-600 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 dark:border-emerald-500 dark:bg-emerald-500"
+                      className="inline-flex h-6 min-h-6 max-[640px]:h-10 max-[640px]:px-3 cursor-pointer items-center justify-center rounded-[3px] border border-emerald-600 bg-emerald-600 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 dark:border-emerald-500 dark:bg-emerald-500"
                     >
                       ✓ {t('places.actions.save')}
                     </button>
@@ -409,7 +411,7 @@ export function PlacesScreen() {
                         setIsCreating(false);
                         setNewPlaceName('');
                       }}
-                      className="inline-flex h-6 min-h-6 cursor-pointer items-center justify-center rounded-[3px] border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                      className="inline-flex h-6 min-h-6 max-[640px]:size-10 cursor-pointer items-center justify-center rounded-[3px] border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                     >
                       ✕
                     </button>
@@ -418,7 +420,8 @@ export function PlacesScreen() {
                   <button
                     type="button"
                     onClick={() => setIsCreating(true)}
-                    className="inline-flex h-6 min-h-6 cursor-pointer items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                    // Compact screens get this action in the MobileActionBar instead.
+                    className="inline-flex h-6 min-h-6 max-[960px]:hidden cursor-pointer items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
                   >
                     + {t('places.actions.create')}
                   </button>
@@ -445,6 +448,18 @@ export function PlacesScreen() {
             />
           </DataPanel>
         </section>
+      )}
+
+      {!isCreating && (
+        <MobileActionBar>
+          <button
+            type="button"
+            onClick={() => setIsCreating(true)}
+            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+          >
+            + {t('places.actions.create')}
+          </button>
+        </MobileActionBar>
       )}
 
       <CombinePlacesDialog
