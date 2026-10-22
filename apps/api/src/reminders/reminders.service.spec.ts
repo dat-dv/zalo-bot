@@ -169,3 +169,19 @@ void test('a past time from chat is accepted and goes out on the next tick', asy
   });
   assert.equal(timesOf(reminder.id).length, 1);
 });
+
+void test('a legacy official-bot user must pick a chat for a dashboard reminder', async () => {
+  const { service } = setup();
+  const legacy = '573462d8909179cf2080';
+  await assert.rejects(
+    service.createReminder({ userId: legacy, title: 'Uống nước', remindTimes: [inHours(1)] }),
+    BadRequestException,
+  );
+  const saved = await service.createReminder({
+    userId: legacy,
+    title: 'Uống nước',
+    remindTimes: [inHours(1)],
+    chatId: 'g1',
+  });
+  assert.equal(saved.chatId, 'g1');
+});

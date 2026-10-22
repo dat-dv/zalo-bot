@@ -19,6 +19,7 @@ import { In, Repository } from 'typeorm';
 import { UserEntity } from '../database/entities/user.entity';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 import { DASHBOARD_OWNER_USER_ID } from '../users/dashboard-owner';
+import { isLegacyZaloBotId } from '../users/legacy-zalo-bot-id';
 import { ZcaMessengerService } from '../zca/zca-messenger.service';
 import { ZcaService } from '../zca/zca.service';
 import { type ReminderTarget, buildReminderMessage, normalizeTargetUsers } from './reminder-target';
@@ -48,9 +49,13 @@ export type ReminderTargetDefault = 'origin' | 'self';
 
 export type ReminderDeliveryResult = 'sent' | 'failed' | 'skipped';
 
-/** `dashboard-owner` signs in with the fixed code and has no Zalo account to message. */
+/**
+ * Whether ZCA can message the user privately. `dashboard-owner` signs in with the fixed code
+ * and has no Zalo account; a legacy official-bot id is not a ZCA uid. Neither has a private
+ * chat to remind, so they must pick a chat.
+ */
 export function hasZaloAccount(userId: string | undefined): userId is string {
-  return !!userId && userId !== DASHBOARD_OWNER_USER_ID;
+  return !!userId && userId !== DASHBOARD_OWNER_USER_ID && !isLegacyZaloBotId(userId);
 }
 
 /**
@@ -207,8 +212,11 @@ export class ReminderTargetService {
   ): Promise<ReminderDeliveryResult> {
     const messenger = this.messenger;
     if (!messenger) return 'failed';
-    if (target.chatId === DASHBOARD_OWNER_USER_ID) {
-      this.logger.warn('Skipped a reminder addressed to dashboard-owner (no Zalo account).');
+    // Retrying cannot help: ZCA has no chat with these ids.
+    if (target.chatId === DASHBOARD_OWNER_USER_ID || isLegacyZaloBotId(target.chatId)) {
+      this.logger.warn(
+        `Skipped a reminder addressed to ${target.chatId} (no Zalo account ZCA can message).`,
+      );
       return 'skipped';
     }
     if (await this.isUnlistenedGroup(target.chatId)) {

@@ -50,7 +50,7 @@ Lời nhắc là một tin nhắn Zalo mà bot tự gửi khi tới giờ: mặc
 
 | Phần | Ý nghĩa | Quy tắc |
 | --- | --- | --- |
-| **Kênh nhận nhắc** | Nhóm hoặc chat riêng nhận tin | Mặc định: lời nhắc → chat riêng người tạo; nhắc việc → nơi đã nhắn bot. Chọn kênh khác thì phải là kênh **đang listen**. `dashboard-owner` không có Zalo nên phải tự chọn |
+| **Kênh nhận nhắc** | Nhóm hoặc chat riêng nhận tin | Mặc định: lời nhắc → chat riêng người tạo; nhắc việc → nơi đã nhắn bot. Chọn kênh khác thì phải là kênh **đang listen**. `dashboard-owner` và tài khoản chỉ có **ID Zalo Bot cũ** (20 ký tự hex) không có chat riêng mà ZCA gửi được, nên phải tự chọn |
 | **Người được nhắc** | Thành viên của **nhóm** cần được nhắc | Tối đa 10 người. Chat riêng thì không có. Đổi sang kênh khác thì danh sách bị xoá vì nhóm mới có thành viên khác |
 | **Cách nhắc** | `mention` (tag trong nhóm, mặc định) hoặc `direct` (nhắn riêng từng người) | Chỉ có ý nghĩa khi đã chọn người |
 
@@ -65,6 +65,7 @@ Lời nhắc là một tin nhắn Zalo mà bot tự gửi khi tới giờ: mặc
 - Tin nhắc có dạng: tiêu đề, **dòng tag** (`@Trí @Đạt`), rồi nội dung. Vị trí tag được tính theo cách `zca-js` yêu cầu (đơn vị UTF-16 của JavaScript).
 - Đổi kênh, đổi người hoặc đổi cách nhắc **không gửi lại** những lần đã gửi, chỉ áp cho các lần chưa gửi. Muốn nhắc thêm thì thêm giờ mới.
 - Nhóm đã bị admin bỏ listen ⇒ không gửi (ghi log). Nhắc nhở cũ do `dashboard-owner` tạo trỏ vào `dashboard-owner` cũng bị bỏ qua, vì trước giờ nó chưa bao giờ tới được ai.
+- Đích là **ID Zalo Bot cũ** (ví dụ lời nhắc cũ chưa chọn kênh của tài khoản ID cũ) ⇒ bỏ qua và ghi cảnh báo, không thử lại, vì ZCA không có cuộc trò chuyện nào với ID này. Cách sửa: gộp ID cũ vào UID ZCA của người đó (gộp tài khoản chuyển luôn kênh nhận nhắc), hoặc sửa lời nhắc và chọn kênh.
 - Danh sách kênh và thành viên mở cho **mọi** người dùng dashboard (trước đây chỉ admin xem được thành viên nhóm). Đây là đánh đổi có chủ ý để ai cũng chọn được người được nhắc.
 
 ### Code

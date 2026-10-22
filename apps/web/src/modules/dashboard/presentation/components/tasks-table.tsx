@@ -11,7 +11,7 @@ import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import type { ReminderTargetDraft } from '@/modules/reminders/model/reminder-target';
-import { hasReminderTime, type ReminderTimeDraft } from '@/modules/reminders/model/reminder-times';
+import type { ReminderTimeDraft } from '@/modules/reminders/model/reminder-times';
 import { ReminderTimesField, ReminderTimesSummary } from './reminder-times-field';
 import { INLINE_EDIT_FIELD as EDIT_FIELD, ReminderTargetFields } from './reminder-target-fields';
 import { ReminderTargetSummary } from './reminder-target-summary';
@@ -307,21 +307,19 @@ export function TasksTable({
                         onEscape={onCancelEdit}
                         ariaLabel={t('tasks.columns.remindAt')}
                       />
-                      {hasReminderTime(editDraft.remindTimes) && (
-                        <ReminderTargetFields
-                          compact
-                          value={editDraft.remindTarget}
-                          onChange={(remindTarget) =>
-                            onChangeEditDraft((prev) => ({ ...prev, remindTarget }))
-                          }
-                          channels={reminderChannels}
-                          savedChat={
-                            item.remindChatId
-                              ? { id: item.remindChatId, name: item.remindChatName }
-                              : undefined
-                          }
-                        />
-                      )}
+                      <ReminderTargetFields
+                        compact
+                        value={editDraft.remindTarget}
+                        onChange={(remindTarget) =>
+                          onChangeEditDraft((prev) => ({ ...prev, remindTarget }))
+                        }
+                        channels={reminderChannels}
+                        savedChat={
+                          item.remindChatId
+                            ? { id: item.remindChatId, name: item.remindChatName }
+                            : undefined
+                        }
+                      />
                     </div>
                   );
                 }

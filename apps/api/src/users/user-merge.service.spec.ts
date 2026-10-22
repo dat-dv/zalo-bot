@@ -2,13 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { EntityTarget, ObjectLiteral } from 'typeorm';
 import { GrantAccessStatus, UserRole } from '@zalobot/contracts';
-import { UserMergeService, chooseGoogleToken } from './user-merge.service';
+import { UserMergeService, chooseGoogleToken, replaceRemindUser } from './user-merge.service';
 import type { UserMergeManager, UserMergeUnitOfWork, UserMergeUsersPort } from './user-merge.types';
 import { AuditLogEntity } from '../database/entities/audit-log.entity';
+import { CalendarEventEntity } from '../database/entities/calendar-event.entity';
 import { DashboardExchangeTokenEntity } from '../database/entities/dashboard-exchange-token.entity';
 import { DebtContactEntity } from '../database/entities/debt-contact.entity';
 import { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
 import { ReminderEntity } from '../database/entities/reminder.entity';
+import { TaskEntity } from '../database/entities/task.entity';
 import { UserTokenEntity } from '../database/entities/user-token.entity';
 import { UserEntity } from '../database/entities/user.entity';
 
@@ -265,4 +267,72 @@ void test('merge rolls back everything when a step fails', async () => {
     OLD,
   );
   assert.equal(merged.length, 0);
+});
+
+void test('merge moves task and calendar authorship and where reminders go', async () => {
+  const seed = seedDuplicate().filter(([entity]) => entity !== ReminderEntity);
+  seed.push(
+    [
+      ReminderEntity,
+      [
+        { id: 'r-own', userId: OLD, chatId: null, remindUsers: [] },
+        { id: 'r-chat', userId: NEW, chatId: OLD, remindUsers: [] },
+        { id: 'r-tag', userId: 'x', chatId: 'g1', remindUsers: [{ id: OLD, name: 'Đạt' }] },
+        {
+          id: 'r-both',
+          userId: 'x',
+          chatId: 'g1',
+          remindUsers: [
+            { id: OLD, name: 'Đạt' },
+            { id: NEW, name: 'Đạt' },
+          ],
+        },
+        { id: 'r-other', userId: 'x', chatId: 'g1', remindUsers: [{ id: 'y', name: 'Y' }] },
+      ],
+    ],
+    [
+      TaskEntity,
+      [
+        { id: 'k1', createdByUserId: OLD, remindChatId: OLD, remindUsers: [] },
+        {
+          id: 'k2',
+          createdByUserId: 'x',
+          remindChatId: 'g1',
+          remindUsers: [{ id: OLD, name: 'Đạt' }],
+        },
+      ],
+    ],
+    [CalendarEventEntity, [{ id: 'e1', createdByUserId: OLD }]],
+  );
+  const { service, manager } = setup(seed);
+  await service.merge(OLD, NEW, NEW);
+  const rows = (e: EntityTarget<ObjectLiteral>) => manager.tables.get(e) ?? [];
+  const byId = (e: EntityTarget<ObjectLiteral>, id: string) => rows(e).find((r) => r.id === id);
+
+  assert.equal(byId(ReminderEntity, 'r-own')?.userId, NEW);
+  assert.equal(byId(ReminderEntity, 'r-chat')?.chatId, NEW);
+  assert.deepEqual(byId(ReminderEntity, 'r-tag')?.remindUsers, [{ id: NEW, name: 'Đạt' }]);
+  assert.deepEqual(byId(ReminderEntity, 'r-both')?.remindUsers, [{ id: NEW, name: 'Đạt' }]);
+  assert.deepEqual(byId(ReminderEntity, 'r-other')?.remindUsers, [{ id: 'y', name: 'Y' }]);
+  assert.equal(byId(TaskEntity, 'k1')?.createdByUserId, NEW);
+  assert.equal(byId(TaskEntity, 'k1')?.remindChatId, NEW);
+  assert.deepEqual(byId(TaskEntity, 'k2')?.remindUsers, [{ id: NEW, name: 'Đạt' }]);
+  assert.equal(byId(CalendarEventEntity, 'e1')?.createdByUserId, NEW);
+});
+
+void test('replaceRemindUser swaps the source, drops it when the target is listed', () => {
+  const people = [
+    { id: OLD, name: 'Đạt' },
+    { id: 'y', name: 'Y' },
+  ];
+  assert.deepEqual(replaceRemindUser(people, OLD, NEW), [
+    { id: NEW, name: 'Đạt' },
+    { id: 'y', name: 'Y' },
+  ]);
+  assert.deepEqual(replaceRemindUser([...people, { id: NEW, name: 'Đạt' }], OLD, NEW), [
+    { id: 'y', name: 'Y' },
+    { id: NEW, name: 'Đạt' },
+  ]);
+  assert.equal(replaceRemindUser(people, 'z', NEW), null);
+  assert.equal(replaceRemindUser(undefined, OLD, NEW), null);
 });

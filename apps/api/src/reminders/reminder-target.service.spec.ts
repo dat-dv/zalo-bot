@@ -42,6 +42,24 @@ void test('dashboard-owner has no default chat and may only pick a listened one'
   assert.equal((await service.resolve({ chatId: 'g1' }, null, owner, 'self')).chatId, 'g1');
 });
 
+const LEGACY_ID = '573462d8909179cf2080';
+
+void test('a legacy official-bot id has no private chat: no own channel, must pick a chat', async () => {
+  const { service } = createTargetService();
+  assert.equal(
+    (await service.listChannels(LEGACY_ID)).some((channel) => channel.isSelf),
+    false,
+  );
+  const legacy = { userId: LEGACY_ID };
+  await assert.rejects(service.resolve({}, null, legacy, 'self'), BadRequestException);
+  await assert.rejects(service.resolve({}, null, legacy, 'origin'), BadRequestException);
+  await assert.rejects(
+    service.resolve({ chatId: LEGACY_ID }, null, legacy, 'self'),
+    BadRequestException,
+  );
+  assert.equal((await service.resolve({ chatId: 'g1' }, null, legacy, 'self')).chatId, 'g1');
+});
+
 void test('picked people must be group members and are named from the member list', async () => {
   const { service } = createTargetService();
   const actor = { userId: '111' };
@@ -106,7 +124,7 @@ void test('direct messages each person; whoever cannot be reached is tagged in t
   ]);
 });
 
-void test('deliver skips unlistened groups and dashboard-owner', async () => {
+void test('deliver skips unlistened groups, dashboard-owner and legacy bot ids', async () => {
   const { service, sent } = createTargetService();
   const message = { header: 'H', body: 'B' };
   const none: Omit<ReminderTarget, 'chatId'> = { users: [], mode: 'mention' };
@@ -115,5 +133,6 @@ void test('deliver skips unlistened groups and dashboard-owner', async () => {
     await service.deliver({ chatId: 'dashboard-owner', ...none }, message, 'vi'),
     'skipped',
   );
+  assert.equal(await service.deliver({ chatId: LEGACY_ID, ...none }, message, 'vi'), 'skipped');
   assert.equal(sent.length, 0);
 });

@@ -69,6 +69,7 @@ Phần đích nhắc dùng chung với lời nhắc cá nhân, giải thích đ�
 | Bot Zalo (nhóm hoặc chat riêng) | Chính cuộc trò chuyện đã nhắn bot | Sửa trên dashboard thì đổi được |
 | Dashboard, người dùng có Zalo | Chat riêng với chính họ | Có, chọn ở ô **Gửi nhắc vào** |
 | Dashboard, `dashboard-owner` | Không có (tài khoản này không gắn Zalo) | **Bắt buộc chọn** kênh |
+| Dashboard, tài khoản chỉ có ID Zalo Bot cũ (20 ký tự hex) | Không có (ZCA không gửi được tới ID này) | **Bắt buộc chọn** kênh |
 
 - Kênh chọn mới phải là chat riêng của chính người đó, hoặc một kênh **đang listen**. Lý do: admin bỏ listen một nhóm nghĩa là không muốn bot hoạt động ở đó.
 - Ô chọn lấy danh sách từ `GET /api/reminder-targets/channels` (dùng chung với lời nhắc), mở cho **mọi** người dùng dashboard (khác `/api/zca/listened-threads` chỉ dành cho admin và chỉ trả ID).
@@ -126,14 +127,14 @@ Nhắn bot "xong Nộp báo cáo" để đánh dấu hoàn thành.
 ## 4. Màn hình Việc cần làm
 
 - **Thêm việc**: nút `+ Thêm việc` trên toolbar (desktop) hoặc ở thanh hành động dưới cùng (điện thoại) mở hộp thoại gồm tiêu đề (bắt buộc), ghi chú, hạn chót, **Nhắc lúc** (tuỳ chọn, một hoặc nhiều giờ: mỗi giờ một ô, nút xoá từng giờ và nút **+ Thêm giờ nhắc**, tối đa 10).
-  - Có giờ nhắc thì hiện thêm bộ ô **đích nhắc** dùng chung (`ReminderTargetFields`): **Gửi nhắc vào** (người dùng có Zalo được chọn sẵn "Chat riêng với tôi"; `dashboard-owner` phải tự chọn; chưa có kênh nào đang listen thì ô báo rõ) → **Nhắc ai** (chỉ khi là nhóm) → **Cách nhắc** (khi đã chọn người).
+  - Bộ ô **đích nhắc** dùng chung (`ReminderTargetFields`) **luôn hiện** ngay dưới giờ nhắc, giống form lời nhắc, để người tạo thấy ngay chỗ "nhắc ai"; chưa có giờ nhắc thì phần này không được gửi đi. Gồm: **Gửi nhắc vào** (người dùng có Zalo được chọn sẵn "Chat riêng với tôi"; `dashboard-owner` và tài khoản ID cũ phải tự chọn; chưa có kênh nào đang listen thì ô báo rõ) → **Nhắc ai** (chỉ khi là nhóm) → **Cách nhắc** (khi đã chọn người).
   - Giờ đã qua báo lỗi ngay dưới ô; lỗi từ API (kênh không hợp lệ...) hiện đúng thông điệp của API trong hộp thoại.
   - Hạn chót lưu theo cùng quy ước với khi sửa trực tiếp (cuối ngày, giờ UTC).
   - Nếu đang lọc "Đã xong", màn hình tự chuyển về "Cần làm" sau khi thêm để người dùng thấy ngay việc vừa tạo.
 - **Lọc theo kỳ** (mặc định Tháng), **thẻ tổng quan**: tổng, cần làm, đã xong, quá hạn.
 - **Lọc trạng thái** Tất cả / Cần làm (mặc định) / Đã xong; tìm theo tiêu đề và ghi chú.
 - **Cột bảng**: Trạng thái, Tiêu đề, Ghi chú, Hạn chót, **Nhắc lúc** (🔔 lần nhắc kế tiếp kèm "+N lần" còn lại, rê chuột xem đủ các giờ; dòng dưới là kênh · người được nhắc · "Nhắn riêng"; mờ đi kèm "Đã nhắc" khi mọi lần đã gửi), Cập nhật, **Người tạo** (tên hoặc nguồn, kèm nhóm Zalo), Thao tác.
-- Sửa trực tiếp như cũ; xoá trống ô ghi chú, hạn chót hoặc giờ nhắc rồi lưu thì trường đó được xoá. Ô Nhắc lúc khi sửa là danh sách giờ (lần đã gửi có chữ "đã gửi") cùng bộ ô đích nhắc (bản gọn). Màn hình chỉ gửi trường nhắc khi người dùng thật sự sửa nó, và giờ nào giữ nguyên thì gửi lại đúng giá trị cũ, để lần nhắc đã qua giờ không bị báo "phải ở tương lai". Lưu lỗi thì toast hiện lý do và giữ nguyên chế độ sửa. Xoá task dùng hộp xác nhận trong app (thay `window.confirm`).
+- Sửa trực tiếp như cũ; xoá trống ô ghi chú, hạn chót hoặc giờ nhắc rồi lưu thì trường đó được xoá. Ô Nhắc lúc khi sửa là danh sách giờ (lần đã gửi có chữ "đã gửi") cùng bộ ô đích nhắc (bản gọn), bộ ô này luôn hiện kể cả khi việc chưa có giờ nhắc. Màn hình chỉ gửi trường nhắc khi người dùng thật sự sửa nó, và giờ nào giữ nguyên thì gửi lại đúng giá trị cũ, để lần nhắc đã qua giờ không bị báo "phải ở tương lai". Lưu lỗi thì toast hiện lý do và giữ nguyên chế độ sửa. Xoá task dùng hộp xác nhận trong app (thay `window.confirm`).
 - Trang Tổng quan dùng bảng rút gọn (không có cột Người tạo).
 
 ## 5. Kiểm thử

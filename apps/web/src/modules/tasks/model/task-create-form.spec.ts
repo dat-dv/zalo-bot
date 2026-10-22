@@ -43,7 +43,7 @@ test('rejects an empty title', () => {
   });
 });
 
-test('a reminder defaults to the user\'s own private chat', () => {
+test("a reminder defaults to the user's own private chat", () => {
   assert.deepEqual(
     buildCreateTaskRequest(
       { ...emptyTaskDraft(), title: 'Họp', remindTimes: [{ value: localInput(future) }] },
@@ -144,4 +144,22 @@ test('empty reminder rows mean no reminder', () => {
     NOW,
   );
   assert.equal(result.ok && result.request.remindTimes, undefined);
+});
+
+test('a chat picked without any reminder time is not sent, and needs no chat', () => {
+  const picked = buildCreateTaskRequest(
+    {
+      ...emptyTaskDraft(),
+      title: 'Họp',
+      remindTarget: { chatId: '999', userIds: [], mode: 'mention' },
+    },
+    [SELF, GROUP],
+    NOW,
+  );
+  assert.equal(picked.ok && picked.request.remindChatId, undefined);
+  // No private chat (dashboard-owner, legacy bot id) and no time: the task is still valid.
+  assert.equal(
+    buildCreateTaskRequest({ ...emptyTaskDraft(), title: 'Họp' }, [GROUP], NOW).ok,
+    true,
+  );
 });

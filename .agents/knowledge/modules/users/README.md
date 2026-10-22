@@ -43,20 +43,21 @@
 
 ## Account Merge (Duplicate Zalo Identities)
 
-- **Why**: One person can reach the bot through two channels with different IDs — the legacy official Zalo Bot webhook (removed; old IDs remain in `users`) gave an app-scoped ID (20-hex, e.g. `573462d8909179cf2080`), ZCA (`zca-js`) gives the personal Zalo UID (numeric). `GrantAccessGuard` (ZCA) auto-registers unknown IDs as pending users, so the same person appears twice (authorship, contact links, reminders and Google token split across IDs; finance data itself is shared, see global/finance-domain.md). `users.id` is the only identity; there is no identity-link table.
+- Legacy official-bot ids cannot receive ZCA messages: reminders treat them like `dashboard-owner` (no private chat, delivery skipped; see reminders module). Merging the legacy id into the ZCA uid is the fix for existing data.
+- **Why**: One person can reach the bot through two channels with different IDs — the legacy official Zalo Bot webhook (removed; old IDs remain in `users`) gave an app-scoped ID (20-hex, e.g. `573462d8909179cf2080`), ZCA (`zca-js`) gives the personal Zalo UID (numeric). `GrantAccessGuard` (ZCA) auto-registers unknown IDs as pending users, so the same person appears twice (authorship, contact links, reminders, reminder targets and Google token split across IDs; finance data itself is shared, see global/finance-domain.md). `users.id` is the only identity; there is no identity-link table.
 - **Service**: `UserMergeService` (`apps/api/src/users/user-merge.service.ts`) with DI tokens `USER_MERGE_UNIT_OF_WORK` (wraps `DataSource.manager` / `DataSource.transaction`) and `USER_MERGE_USERS_PORT` (`UsersService`), declared in `user-merge.types.ts`.
 - **Preview** (`preview(source, target)`): read-only; counts (`USER_MERGE_TABLES` = `financeTransactions` created by source, `debtContacts` linked to source, `reminders`, `googleToken`), conflicts (`linkedContacts` = source links that will be dropped because the target already links to a contact; Google token decision), `sourceIsBotAccount`.
 - **Merge** (`merge(source, target, actor)`), single transaction, all-or-nothing:
   1. Reject self-merge, unknown users, and the bot's own ZCA account as source (`isBotAccount`) — it is recreated as admin on every startup.
   2. Finance rows are shared and untouched (no owner column); only authorship follows: `finance_transactions.createdByUserId` source → target.
   3. `debt_contacts.linkedUserId` source → target; if the target already links to a contact (a user links to at most one), the source links are set to `null` instead.
-  4. Move `reminders.userId`.
+  4. Move `reminders.userId`; authorship `tasks.createdByUserId` and `calendar_events.createdByUserId`; reminder targets: `reminders.chatId` and `tasks.remindChatId` equal to source ⇒ target, and the source among `remind_users` (jsonb, reminders and tasks) ⇒ target (`replaceRemindUser`: dropped when the target is already listed). Preview counts are unchanged (`USER_MERGE_TABLES`).
   5. `user_tokens` (Google): keep the only token, else the one with a refresh token, else the newest `updatedAt`.
   6. Delete source `dashboard_exchange_tokens`.
   7. Target profile: fill empty `firstName/username/phoneNumber/avatarUrl/driveFolder*` from source; role ADMIN if either is admin; `grantAccess` GRANTED if either granted or admin; earliest `createdAt`.
   8. Delete source user; insert one `audit_logs` row (`tableName=users`, `action=update`, `afterData.operation=merge`, counts). Existing audit rows are never rewritten.
 - **After commit**: `UsersService.afterUsersMerged()` drops source caches + Redis `whitelist:user:<source>` and rebuilds caches. Dashboard sessions of the source ID become invalid (`sourceWasCurrentSession` in result).
-- Tests (`user-merge.service.spec.ts`): token choice, preview validation, preview counts/conflicts, merge moves authorship+links and keeps shared finance rows/admin/audits, drops the source link when the target already has one, "merge is refused when the source is the bot own ZCA account", rollback on failure.
+- Tests (`user-merge.service.spec.ts`): token choice, preview validation, preview counts/conflicts, merge moves authorship+links and keeps shared finance rows/admin/audits, merge moves task/calendar authorship and reminder targets, `replaceRemindUser`, drops the source link when the target already has one, "merge is refused when the source is the bot own ZCA account", rollback on failure.
 
 ## Backend API (`UsersController`, admin only via `UsersService.isAdmin(dashboard user)`)
 

@@ -11,7 +11,6 @@ import {
   emptyTaskDraft,
   type TaskCreateDraft,
 } from '@/modules/tasks/model/task-create-form';
-import { hasReminderTime } from '@/modules/reminders/model/reminder-times';
 import { ReminderTargetFields } from './reminder-target-fields';
 import { ReminderTimesField } from './reminder-times-field';
 
@@ -118,16 +117,15 @@ export function CreateTaskDialog({ open, onClose, onCreated }: CreateTaskDialogP
         )}
       </div>
 
-      {hasReminderTime(draft.remindTimes) && (
-        <ReminderTargetFields
-          value={draft.remindTarget}
-          onChange={(remindTarget) => update({ remindTarget })}
-          channels={channels}
-          channelsLoading={channelsQuery.isLoading}
-          disabled={createMutation.isPending}
-          showChannelRequired={remindError === 'remindChannelRequired'}
-        />
-      )}
+      {/* Always shown, like the reminder dialog; it only applies once a time is set. */}
+      <ReminderTargetFields
+        value={draft.remindTarget}
+        onChange={(remindTarget) => update({ remindTarget })}
+        channels={channels}
+        channelsLoading={channelsQuery.isLoading}
+        disabled={createMutation.isPending}
+        showChannelRequired={remindError === 'remindChannelRequired'}
+      />
     </FormDialog>
   );
 }

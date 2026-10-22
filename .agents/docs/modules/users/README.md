@@ -101,6 +101,8 @@ Toàn bộ chạy trong **một transaction**: lỗi ở bất kỳ bước nào
 - **Dữ liệu tài chính** (giao dịch, nơi chốn, người liên quan, công nợ, danh mục) là kho chung nên **không di chuyển**; chỉ cột **Người tạo** của giao dịch do ID nguồn ghi được đổi sang user đích.
 - **Liên kết người liên quan** (`linkedUserId`) của ID nguồn chuyển sang user đích. Vì mỗi tài khoản chỉ liên kết tối đa một người liên quan, nếu user đích đã có liên kết thì liên kết của ID nguồn bị gỡ.
 - **Lời nhắc**: chuyển sang user đích.
+- **Người tạo** việc cần làm và sự kiện lịch do ID nguồn tạo: đổi sang user đích (giống giao dịch).
+- **Đích nhắc** của lời nhắc và việc cần làm: kênh nhận nhắc là chat riêng của ID nguồn ⇒ đổi sang user đích; ID nguồn nằm trong danh sách **người được nhắc** ⇒ đổi sang user đích (bỏ bớt nếu user đích đã có trong danh sách). Lý do: ID cũ của Zalo Bot chính thức không nhận được tin qua ZCA, nên nếu không chuyển thì nhắc vẫn gửi vào chỗ không ai nhận.
 - **Kết nối Google**: nếu chỉ một bên có thì giữ bên đó. Nếu cả hai cùng có thì giữ token có refresh token, còn hoà thì giữ token mới hơn.
 - **Hồ sơ user đích**: các trường đang trống (tên, SĐT, avatar, thư mục Drive) được lấy từ user nguồn. Giữ quyền Admin và "Đã cấp quyền" nếu một trong hai có. Ngày kết nối lấy ngày sớm hơn.
 - Xoá user nguồn và ghi **một** dòng nhật ký kiểm toán mới. Nhật ký cũ giữ nguyên, không bị sửa.

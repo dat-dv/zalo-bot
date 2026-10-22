@@ -2,6 +2,7 @@ import { BadRequestException, Inject, Injectable, Logger, NotFoundException } fr
 import {
   GrantAccessStatus,
   UserRole,
+  type IReminderTargetUser,
   type IUserMergeConflicts,
   type IUserMergeResult,
   type IUserMergeSummary,
@@ -9,10 +10,12 @@ import {
   type UserMergeTable,
 } from '@zalobot/contracts';
 import { AuditLogEntity } from '../database/entities/audit-log.entity';
+import { CalendarEventEntity } from '../database/entities/calendar-event.entity';
 import { DashboardExchangeTokenEntity } from '../database/entities/dashboard-exchange-token.entity';
 import { DebtContactEntity } from '../database/entities/debt-contact.entity';
 import { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
 import { ReminderEntity } from '../database/entities/reminder.entity';
+import { TaskEntity } from '../database/entities/task.entity';
 import { UserTokenEntity } from '../database/entities/user-token.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import {
@@ -57,9 +60,27 @@ export function chooseGoogleToken(
 }
 
 /**
+ * People to remind with `sourceId` replaced by `targetId` (dropped when the target is already
+ * listed), or null when `sourceId` is not among them.
+ */
+export function replaceRemindUser(
+  users: readonly IReminderTargetUser[] | undefined,
+  sourceId: string,
+  targetId: string,
+): IReminderTargetUser[] | null {
+  if (!users?.some((user) => user.id === sourceId)) return null;
+  const hasTarget = users.some((user) => user.id === targetId);
+  return users.flatMap((user) => {
+    if (user.id !== sourceId) return [user];
+    return hasTarget ? [] : [{ ...user, id: targetId }];
+  });
+}
+
+/**
  * Merges a duplicate user identity (e.g. a legacy app-scoped ID from the removed official Zalo Bot webhook) into the
  * canonical user (e.g. the ZCA UID). Finance data is shared and has no owner, so only the
- * person's own traces move: authorship, contact links, reminders and the Google token.
+ * person's own traces move: authorship (transactions, tasks, calendar events), contact links,
+ * reminders, where reminders go (chat and people) and the Google token.
  * Everything happens atomically in one transaction.
  */
 @Injectable()
@@ -105,6 +126,20 @@ export class UserMergeService {
         { createdByUserId: targetId },
       );
       await manager.update(ReminderEntity, { userId: sourceId }, { userId: targetId });
+      await manager.update(
+        TaskEntity,
+        { createdByUserId: sourceId },
+        { createdByUserId: targetId },
+      );
+      await manager.update(
+        CalendarEventEntity,
+        { createdByUserId: sourceId },
+        { createdByUserId: targetId },
+      );
+      // Reminders that go to the source's private chat or tag the source follow the person.
+      await manager.update(ReminderEntity, { chatId: sourceId }, { chatId: targetId });
+      await manager.update(TaskEntity, { remindChatId: sourceId }, { remindChatId: targetId });
+      await this.moveRemindUsers(manager, sourceId, targetId);
 
       await this.mergeGoogleToken(manager, sourceId, targetId, snapshot.conflicts.googleToken);
       await manager.delete(DashboardExchangeTokenEntity, { userId: sourceId });
@@ -133,6 +168,26 @@ export class UserMergeService {
     await this.users.afterUsersMerged(sourceId, targetId);
     this.logger.log(`Merged user ${sourceId} into ${targetId} (actor ${actorId}).`);
     return { ...summary, sourceWasCurrentSession: actorId === sourceId };
+  }
+
+  /** Replaces the source among the people to remind of every reminder and task. */
+  private async moveRemindUsers(
+    manager: UserMergeManager,
+    sourceId: string,
+    targetId: string,
+  ): Promise<void> {
+    const reminders = await manager.find(ReminderEntity, {
+      select: { id: true, remindUsers: true },
+    });
+    for (const row of reminders) {
+      const remindUsers = replaceRemindUser(row.remindUsers, sourceId, targetId);
+      if (remindUsers) await manager.update(ReminderEntity, { id: row.id }, { remindUsers });
+    }
+    const tasks = await manager.find(TaskEntity, { select: { id: true, remindUsers: true } });
+    for (const row of tasks) {
+      const remindUsers = replaceRemindUser(row.remindUsers, sourceId, targetId);
+      if (remindUsers) await manager.update(TaskEntity, { id: row.id }, { remindUsers });
+    }
   }
 
   private async summarize(
