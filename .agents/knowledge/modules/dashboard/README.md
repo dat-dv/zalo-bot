@@ -98,7 +98,7 @@
 
 ## Calendar / Tasks / Reminders screens
 
-- `CalendarScreen`: see calendar module (summary strip, month grid + day/upcoming side column or list via `CalendarTable`, details/create/edit sheet, `ConfirmDialog` delete; phones default to the agenda view).
+- `CalendarScreen`: see calendar module (summary strip, month grid + day/upcoming side column or list via `CalendarTable`, details/create/edit sheet, `ConfirmDialog` delete; phones default to the agenda view; on phones the toolbar is one row with the month title never wrapping and the 4 summary tiles stay on one compact row).
 - `TasksScreen`: `useTasksQuery`, period toolbar with grains `day / week / month / quarter / year / all`, status filter All / Needs action / Completed, inline edit, confirm delete.
 - `RemindersScreen`: `useRemindersQuery`, search, inline edit, confirm delete.
 - Phone toolbars: Tasks status chips in one sideways-scrolling 40px row (`MOBILE_TOOLBAR_ROW`); Tasks/Reminders search full width 40px. No create action on these screens.

@@ -155,7 +155,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 
 ## Lịch, Việc cần làm, Nhắc nhở
 
-- `CalendarScreen`: xem tài liệu module calendar (dải tóm tắt, lưới tháng kèm cột ngày đã chọn / sắp tới, sheet chi tiết–tạo–sửa, xoá hỏi lại bằng hộp xác nhận trong app; trên điện thoại mặc định là Lịch trình liền 14 ngày).
+- `CalendarScreen`: xem tài liệu module calendar (dải tóm tắt, lưới tháng kèm cột ngày đã chọn / sắp tới, sheet chi tiết–tạo–sửa, xoá hỏi lại bằng hộp xác nhận trong app; trên điện thoại mặc định là Lịch trình liền 14 ngày; thanh công cụ gọn một hàng, tiêu đề tháng không xuống dòng, 4 ô tóm tắt nằm chung một hàng).
 - `TasksScreen`: bộ lọc kỳ có Ngày / Tuần / Tháng / Quý / Năm / Tất cả, lọc trạng thái Tất cả / Cần làm / Đã xong, sửa trực tiếp, xoá có xác nhận.
 - `RemindersScreen`: tìm kiếm, sửa trực tiếp, xoá có xác nhận.
 - Trên điện thoại: các chip trạng thái của Việc cần làm nằm trên một hàng cuộn ngang cao 40px thay vì xếp chồng, ô tìm kiếm full width 40px. Hai màn này không có nút tạo mới nên cũng không có thanh hành động dưới đáy.

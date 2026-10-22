@@ -65,7 +65,7 @@ Giờ sự kiện nằm trong bảng `calendar_events` của zalobot. Google Cal
 **Vấn đề cũ**: trên điện thoại thanh công cụ chiếm 3 hàng trước khi tới nội dung; chế độ Lịch trình chỉ hiện đến hết tuần, nên hôm nay trống là gần như cả màn hình trống. Trên desktop phải cuộn xuống dưới lưới mới thấy chi tiết ngày; thẻ sự kiện thiếu thông tin; không tạo được sự kiện từ dashboard.
 
 **Chung**
-- Dải tóm tắt: Hôm nay, 7 ngày tới, Trong tháng, **Chưa lên Google** (bấm để chỉ xem các sự kiện cần đồng bộ lại; bấm lại hoặc "Bỏ lọc" để tắt). Số đếm không phụ thuộc ô tìm kiếm.
+- Dải tóm tắt 4 ô trên một hàng (điện thoại thu nhỏ ô, nhãn được xuống 2 dòng): Hôm nay, 7 ngày tới, Trong tháng, **Chưa lên Google** (bấm để chỉ xem các sự kiện cần đồng bộ lại; bấm lại hoặc "Bỏ lọc" để tắt). Số đếm không phụ thuộc ô tìm kiếm.
 - Chưa kết nối Google thì hiện dòng nhắc: sự kiện vẫn lưu trong zalobot, chỉ chưa có nhắc trên Google.
 - Thẻ sự kiện: vạch màu bên trái theo trạng thái (xanh lá = đang diễn ra, xanh dương = sắp tới, xám mờ = đã qua), giờ bắt đầu–kết thúc và thời lượng, tiêu đề, địa điểm, mô tả 2 dòng, người tạo · nhóm Zalo, nhãn đồng bộ (chỉ hiện khi chưa đồng bộ xong).
 - Chạm sự kiện mở **sheet chi tiết**: thời gian, địa điểm, mô tả, các mốc nhắc, nguồn và thời điểm tạo, trạng thái bản sao Google kèm email tài khoản, nút Đồng bộ lại; chân sheet là Xoá / Sửa. Xoá hỏi lại bằng hộp xác nhận trong app (`ConfirmDialog`), không dùng `window.confirm`.

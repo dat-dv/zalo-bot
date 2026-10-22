@@ -83,9 +83,9 @@ Errors: unknown id → 404; Google failures never fail the request (reflected in
 
 ## UI (`CalendarScreen` in the dashboard module)
 
-- **Header strip** `CalendarSummaryStrip`: Today, Next 7 days (from a separate today..+15d query), This month, Not on Google (month + upcoming, unique). The last tile toggles an "unsynced only" filter (amber banner with Clear). Counts ignore search/filter. 4 columns, 2 on phones.
+- **Header strip** `CalendarSummaryStrip`: Today, Next 7 days (from a separate today..+15d query), This month, Not on Google (month + upcoming, unique). The last tile toggles an "unsynced only" filter (amber banner with Clear). Counts ignore search/filter. 4 columns everywhere; on phones the tiles shrink and labels may wrap to 2 lines.
 - `calendar.localOnlyTip` banner when `dashboard.user.googleConnected === false`.
-- **Toolbar** (one row on desktop): `‹ Month YYYY ›`, Today, segmented view switch, search (client-side over title/location/description/creator/chat), `+ Add event` (hidden ≤ 960px; `MobileActionBar` button instead).
+- **Toolbar** (one row on desktop): `‹ Month YYYY ›` (month name and muted year, never wraps), Today, segmented view switch, search (client-side over title/location/description/creator/chat), `+ Add event` (hidden ≤ 960px; `MobileActionBar` button instead).
 - **Desktop/tablet views**: Month (default) or List (`CalendarTable` of the month; row Edit opens the sheet). Month = `CalendarGrid` + right column (300px, sticky above 1180px, stacked below): selected day (`CalendarDayList`) and "Upcoming · 14 days" (compact cards, days with events only).
 - **Grid**: fixed cell height (112px, 96px ≤ 1180px, 52px phone); up to 3 chips (time + title; all-day = filled bar) then `+N` (selects the day); past events dimmed; today = filled circle; selected = sky tint. Phone cells show up to 3 dots.
 - **Phone (≤ 640px)**: views Agenda (default) / Month. One toolbar row (`‹ month ›`, Today, search icon toggling the search field), segmented control full width. Agenda = week strip (prev/next week, 7 day buttons with up to 3 dots) + `CalendarDayList` from the selected day for 14 days (selected day always shown, empty = one dashed line; then only days with events) — never a blank screen. Agenda data = selected week's Monday + 21 days. Month view shows the selected day's list under the grid.

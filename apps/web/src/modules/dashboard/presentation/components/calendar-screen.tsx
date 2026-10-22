@@ -138,11 +138,9 @@ export function CalendarScreen() {
     };
   }, [currentMonth, monthQuery.data, now, upcomingQuery.data]);
 
-  const monthLabel = useMemo(
-    () =>
-      new Intl.DateTimeFormat(localeTag(locale), { month: 'long', year: 'numeric' }).format(
-        currentMonth,
-      ),
+  // Month name and year apart, so the phone toolbar keeps "Tháng 10 2026" on one line.
+  const monthName = useMemo(
+    () => new Intl.DateTimeFormat(localeTag(locale), { month: 'long' }).format(currentMonth),
     [currentMonth, locale],
   );
 
@@ -238,7 +236,6 @@ export function CalendarScreen() {
           next7Days={summary.next7Days}
           inMonth={summary.inMonth}
           unsynced={summary.unsynced}
-          monthLabel={monthLabel}
           unsyncedOnly={unsyncedOnly}
           onToggleUnsynced={() => setUnsyncedOnly((value) => !value)}
         />
@@ -254,8 +251,11 @@ export function CalendarScreen() {
               >
                 ‹
               </button>
-              <h2 className="m-0 min-w-[9.5rem] px-1 text-center text-sm font-bold text-slate-900 capitalize dark:text-slate-100 max-[640px]:min-w-0 max-[640px]:flex-1">
-                {monthLabel}
+              <h2 className="m-0 min-w-[9.5rem] truncate px-1 text-center text-sm font-bold whitespace-nowrap text-slate-900 dark:text-slate-100 max-[640px]:min-w-0 max-[640px]:flex-1">
+                <span className="capitalize">{monthName}</span>{' '}
+                <span className="font-medium text-slate-500 dark:text-slate-400">
+                  {currentMonth.getFullYear()}
+                </span>
               </h2>
               <button
                 type="button"
