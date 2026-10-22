@@ -2,6 +2,8 @@ import {
   API_ROUTES,
   type ChannelStorageLinksResponse,
   type IApiResponse,
+  type IGoogleStorageAccountStatus,
+  type IGoogleStorageLoginResponse,
   type IZcaGroupMembersResponse,
   type UpdateChannelStorageLinkDto,
   type ThreadBotConfig,
@@ -82,6 +84,32 @@ export async function loginZcaQr(
     API_ROUTES.zcaLoginQr,
     options,
     { signal },
+  );
+  return response.data.data;
+}
+
+export async function getGoogleStorageAccount(
+  signal?: AbortSignal,
+): Promise<IGoogleStorageAccountStatus> {
+  const response = await httpClient.get<IApiResponse<IGoogleStorageAccountStatus>>(
+    API_ROUTES.googleStorageAccount,
+    { signal },
+  );
+  return response.data.data;
+}
+
+export async function startGoogleStorageLogin(): Promise<IGoogleStorageLoginResponse> {
+  const response = await httpClient.post<IApiResponse<IGoogleStorageLoginResponse>>(
+    API_ROUTES.googleStorageAccountLogin,
+    {},
+  );
+  return response.data.data;
+}
+
+export async function logoutGoogleStorageAccount(): Promise<IGoogleStorageAccountStatus> {
+  const response = await httpClient.post<IApiResponse<IGoogleStorageAccountStatus>>(
+    API_ROUTES.googleStorageAccountLogout,
+    {},
   );
   return response.data.data;
 }

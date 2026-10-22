@@ -10,6 +10,8 @@ metadata:
       - apps/api/src/google/google-auth.service.ts
       - apps/api/src/database/migrations/1724830000000-CreateChannelStorageLinks.ts
       - apps/web/src/modules/zca/presentation/components/thread-storage-links-dialog.tsx
+      - apps/web/src/modules/zca/presentation/components/google-storage-account-card.tsx
+      - apps/api/src/google/google-resources.controller.ts
 ---
 
 # Lưu trữ media theo kênh (Drive/Photos)
@@ -29,6 +31,17 @@ Tài liệu canonical tương ứng: [`channel-storage.md`](../../../knowledge/m
 - Mọi media của kênh đều lưu bằng **tài khoản Google dùng chung**, không dùng token Google riêng của thành viên.
 - Tài khoản dùng chung được ghim bằng cột `user_tokens.is_shared`. **Chỉ khi admin bấm `/login` và cấp quyền** thì tài khoản dùng chung mới đổi. Việc tự làm mới token mỗi giờ không còn làm đổi tài khoản.
 - Mỗi lần đăng nhập, app tạo một OAuth client mới, nên cache ID thư mục/album của tài khoản cũ bị bỏ đi ngay mà không cần khởi động lại API.
+- **Không còn tự chọn tài khoản thay thế**: trước đây, nếu chưa có tài khoản được ghim, hệ thống lấy đại token Google của bất kỳ ai. Như vậy đăng xuất xong, bot sẽ âm thầm lưu media sang Gmail của một admin khác. Giờ chỉ token được ghim (`is_shared`) mới là tài khoản lưu trữ; không có thì bot ngừng lưu lên Google cho tới khi admin đăng nhập lại.
+
+### 2.1b. Xem, đăng nhập, đăng xuất trên dashboard
+
+- Trang **Zalo & Người dùng** (`/zca`, nhóm HỆ THỐNG) có thẻ **Tài khoản Google lưu trữ** ngay dưới các thẻ tổng quan. Chỉ admin thấy và gọi được.
+- Thẻ cho biết: đã kết nối hay chưa, email Gmail đang dùng, và có thiếu quyền Drive/Photos không (thiếu thì media không lưu được).
+- **Đăng nhập Google / Đổi tài khoản / Cấp lại quyền**: mở trang đăng nhập Google ở tab mới. Cấp quyền xong, quay lại tab dashboard, thẻ tự cập nhật email mới. Cách này đi chung đường với lệnh `/login` trên Zalo: tài khoản vừa đăng nhập thành tài khoản dùng chung.
+- **Đăng xuất**: có hộp xác nhận. Hệ thống thu hồi quyền của app ngay trên tài khoản Google đó (nếu Google không phản hồi thì vẫn đăng xuất phía bot), rồi xoá token.
+  - File đã lưu vẫn nằm nguyên trên Google; lịch sử link của các kênh vẫn giữ.
+  - Mỗi người chỉ có một token Google, nên đăng xuất cũng ngắt luôn kết nối Google cá nhân của admin sở hữu token đó.
+- Lưu ý bảo mật đã biết (chưa xử lý): tham số `state` của link đăng nhập Google chỉ là ID người dùng, chưa được ký.
 
 ### 2.2. Nơi lưu của từng kênh
 
@@ -81,7 +94,7 @@ Mỗi dòng trong hộp thoại có hai nút **✏️ Sửa** và **🗑️ Xoá
 
 ## 4. Vận hành và kiểm tra
 
-- **Đổi tài khoản Google**: admin gõ `/login` trên Zalo, chọn Gmail mới, rồi bấm Cho phép. Không cần khởi động lại API. Media mới sẽ vào Drive/Photos của tài khoản mới; mở dialog Drive/Photos sẽ thấy dòng mới ở trạng thái "Đang dùng", còn dòng cũ vẫn giữ.
+- **Đổi tài khoản Google**: admin bấm **Đổi tài khoản** trên thẻ Tài khoản Google lưu trữ ở `/zca` (hoặc gõ `/login` trên Zalo), chọn Gmail mới, rồi bấm Cho phép. Không cần khởi động lại API. Media mới sẽ vào Drive/Photos của tài khoản mới; mở dialog Drive/Photos sẽ thấy dòng mới ở trạng thái "Đang dùng", còn dòng cũ vẫn giữ.
 - **Migration** `1724830000000-CreateChannelStorageLinks` và `1724840000000-AddDisplayNameToChannelStorageLinks` tự chạy khi API khởi động (`migrationsRun: true`). Rollback: `migration:revert`, mỗi lần gỡ một migration (lần đầu bỏ cột `display_name`, lần sau bỏ bảng `channel_storage_links` và cột `is_shared`); không đụng dữ liệu tài chính.
 - Test liên quan: `channel-storage-link-update.spec.ts` (kiểm tra dữ liệu + sửa/xoá theo nhóm), `media-storage.service.spec.ts`, `google-photos.service.spec.ts`, `google-auth.service.spec.ts`, `channel-storage-links.mapper.spec.ts`, `receipt-source.spec.ts`, `zca.controller.spec.ts`.
 - Không tự động kiểm chứng được upload thật lên Google và việc đổi tài khoản thật; cần thử trên môi trường thật.

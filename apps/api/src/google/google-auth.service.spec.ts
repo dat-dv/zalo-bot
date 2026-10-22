@@ -6,10 +6,17 @@ import { GoogleAuthService } from './google-auth.service';
 import type { TokenEncryptionService } from './token-encryption.service';
 import type { UserTokenEntity } from '../database/entities/user-token.entity';
 
-function createService() {
-  const rows = new Map<string, Partial<UserTokenEntity>>();
+function createService(initialRows: Partial<UserTokenEntity>[] = []) {
+  const rows = new Map<string, Partial<UserTokenEntity>>(
+    initialRows.map((row) => [String(row.userId), row]),
+  );
   const unmarked: string[] = [];
   const tokenRepo = {
+    find: () => Promise.resolve([...rows.values()]),
+    delete: ({ userId }: { userId: string }) => {
+      rows.delete(userId);
+      return Promise.resolve();
+    },
     findOne: ({ where }: { where: { userId: string } }) =>
       Promise.resolve(rows.get(where.userId) ?? null),
     create: (data: Partial<UserTokenEntity>) => ({ ...data }),
@@ -66,10 +73,68 @@ void test('GoogleAuthService: a login pins the shared account in the DB and buil
   assert.equal(service.getSharedOAuth2Client()?.credentials.access_token, 'a2');
 });
 
-void test('GoogleAuthService: the first saved token becomes shared when none is pinned yet', async () => {
+void test('GoogleAuthService: a token saved without a login never becomes the shared account', async () => {
   const { service } = createService();
 
   await service.saveTokensForUser('admin-b', { access_token: 'b1' });
 
+  assert.equal(service.getSharedOAuth2Client(), null);
+  assert.equal(service.isSharedAuthorized(), false);
+});
+
+void test('GoogleAuthService: preload only pins the token marked is_shared', async () => {
+  const { service } = createService([
+    { userId: 'admin-a', accessToken: 'a1', isShared: false },
+    { userId: 'admin-b', accessToken: 'b1', isShared: true },
+  ]);
+
+  await service.onModuleInit();
+
   assert.equal(service.getSharedOAuth2Client()?.credentials.access_token, 'b1');
+});
+
+void test('GoogleAuthService: preload leaves no shared account when none is marked', async () => {
+  const { service } = createService([{ userId: 'admin-a', accessToken: 'a1', isShared: false }]);
+
+  await service.onModuleInit();
+
+  assert.equal(service.getSharedOAuth2Client(), null);
+});
+
+void test('GoogleAuthService: disconnecting revokes at Google, deletes the token and does not fall back', async () => {
+  const { service, rows } = createService();
+  await service.saveTokensForUser('admin-a', { access_token: 'a1' }, { shared: true });
+  await service.saveTokensForUser('admin-b', { access_token: 'b1' });
+  const sharedClient = service.getSharedOAuth2Client();
+  assert.ok(sharedClient);
+  let revoked = 0;
+  Object.assign(sharedClient, {
+    revokeCredentials: () => {
+      revoked += 1;
+      return Promise.resolve();
+    },
+  });
+
+  await service.disconnectSharedAccount();
+
+  assert.equal(revoked, 1);
+  assert.equal(rows.has('admin-a'), false);
+  assert.equal(rows.has('admin-b'), true);
+  assert.equal(service.getSharedOAuth2Client(), null);
+  assert.equal(service.isSharedAuthorized(), false);
+});
+
+void test('GoogleAuthService: disconnecting still signs out locally when Google revoke fails', async () => {
+  const { service, rows } = createService();
+  await service.saveTokensForUser('admin-a', { access_token: 'a1' }, { shared: true });
+  const sharedClient = service.getSharedOAuth2Client();
+  assert.ok(sharedClient);
+  Object.assign(sharedClient, {
+    revokeCredentials: () => Promise.reject(new Error('network down')),
+  });
+
+  await service.disconnectSharedAccount();
+
+  assert.equal(rows.has('admin-a'), false);
+  assert.equal(service.getSharedOAuth2Client(), null);
 });

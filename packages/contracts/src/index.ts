@@ -58,6 +58,9 @@ export const API_ROUTES = {
   driveOpen: '/api/drive/open',
   photosAlbumLink: '/api/photos/album-link',
   photosOpen: '/api/photos/open',
+  googleStorageAccount: '/api/google/storage-account',
+  googleStorageAccountLogin: '/api/google/storage-account/login',
+  googleStorageAccountLogout: '/api/google/storage-account/logout',
 } as const;
 
 export const APP_ROUTES = {
@@ -1140,6 +1143,33 @@ const messages = {
     'zca.storageLinks.errors.urlInvalid': 'Đường link phải là địa chỉ https:// hợp lệ.',
     'zca.storageLinks.errors.urlWrongHost': 'Đường link phải thuộc {hosts}.',
     'zca.storageLinks.errors.emailInvalid': 'Email không hợp lệ.',
+    'zca.googleAccount.title': 'Tài khoản Google lưu trữ',
+    'zca.googleAccount.description':
+      'Ảnh, video, file và hoá đơn của mọi kênh được lưu vào Google Drive & Photos của tài khoản này.',
+    'zca.googleAccount.loading': 'Đang kiểm tra tài khoản Google…',
+    'zca.googleAccount.error': 'Không tải được trạng thái tài khoản Google.',
+    'zca.googleAccount.retry': 'Thử lại',
+    'zca.googleAccount.disconnected': 'Chưa kết nối',
+    'zca.googleAccount.disconnectedHint': 'Media của các kênh chưa được lưu lên Drive và Photos.',
+    'zca.googleAccount.connected': 'Đã kết nối',
+    'zca.googleAccount.unknownEmail': 'Không lấy được email tài khoản',
+    'zca.googleAccount.missingScopes': 'Thiếu quyền Drive/Photos',
+    'zca.googleAccount.missingScopesHint':
+      'Tài khoản chưa cấp quyền Drive và Photos nên chưa lưu được media. Hãy cấp lại quyền.',
+    'zca.googleAccount.login': 'Đăng nhập Google',
+    'zca.googleAccount.switch': 'Đổi tài khoản',
+    'zca.googleAccount.regrant': 'Cấp lại quyền',
+    'zca.googleAccount.logout': 'Đăng xuất',
+    'zca.googleAccount.loggingOut': 'Đang đăng xuất…',
+    'zca.googleAccount.openingLogin': 'Đang mở…',
+    'zca.googleAccount.openDrive': 'Mở Drive',
+    'zca.googleAccount.loginHint':
+      'Trang đăng nhập Google mở ở tab mới. Đăng nhập xong, quay lại đây để thấy tài khoản mới.',
+    'zca.googleAccount.logoutConfirm':
+      'Đăng xuất {email}? Bot sẽ ngừng lưu media lên Google cho tới khi có người đăng nhập lại. File đã lưu vẫn giữ nguyên trên Google.',
+    'zca.googleAccount.loginError': 'Không tạo được link đăng nhập Google. Vui lòng thử lại.',
+    'zca.googleAccount.logoutError': 'Đăng xuất Google thất bại. Vui lòng thử lại.',
+    'zca.googleAccount.logoutTitle': 'Đăng xuất tài khoản Google lưu trữ?',
   },
   en: {
     'users.merge.action': 'Merge into…',
@@ -2176,6 +2206,33 @@ const messages = {
     'zca.storageLinks.errors.urlInvalid': 'The link must be a valid https:// address.',
     'zca.storageLinks.errors.urlWrongHost': 'The link must be on {hosts}.',
     'zca.storageLinks.errors.emailInvalid': 'Invalid email.',
+    'zca.googleAccount.title': 'Google storage account',
+    'zca.googleAccount.description':
+      'Images, videos, files and receipts of every channel are saved to this account’s Google Drive & Photos.',
+    'zca.googleAccount.loading': 'Checking the Google account…',
+    'zca.googleAccount.error': 'Could not load the Google account status.',
+    'zca.googleAccount.retry': 'Retry',
+    'zca.googleAccount.disconnected': 'Not connected',
+    'zca.googleAccount.disconnectedHint': 'Channel media is not being saved to Drive and Photos.',
+    'zca.googleAccount.connected': 'Connected',
+    'zca.googleAccount.unknownEmail': 'Could not read the account email',
+    'zca.googleAccount.missingScopes': 'Missing Drive/Photos access',
+    'zca.googleAccount.missingScopesHint':
+      'The account has not granted Drive and Photos access, so media cannot be saved. Grant access again.',
+    'zca.googleAccount.login': 'Sign in with Google',
+    'zca.googleAccount.switch': 'Switch account',
+    'zca.googleAccount.regrant': 'Grant access again',
+    'zca.googleAccount.logout': 'Sign out',
+    'zca.googleAccount.loggingOut': 'Signing out…',
+    'zca.googleAccount.openingLogin': 'Opening…',
+    'zca.googleAccount.openDrive': 'Open Drive',
+    'zca.googleAccount.loginHint':
+      'Google sign-in opens in a new tab. Once done, come back here to see the new account.',
+    'zca.googleAccount.logoutConfirm':
+      'Sign out {email}? The bot stops saving media to Google until someone signs in again. Files already saved stay on Google.',
+    'zca.googleAccount.loginError': 'Could not create the Google sign-in link. Please try again.',
+    'zca.googleAccount.logoutError': 'Google sign-out failed. Please try again.',
+    'zca.googleAccount.logoutTitle': 'Sign out of the Google storage account?',
   },
 } as const;
 
@@ -3524,6 +3581,18 @@ export interface ChannelStorageLink {
   lastUsedAt: string;
   /** Where new media of the channel goes with the current shared Google account. */
   isCurrent: boolean;
+}
+
+/** The shared Google account every channel's media is uploaded with. */
+export interface IGoogleStorageAccountStatus {
+  connected: boolean;
+  email: string | null;
+  /** Granted both Drive and Photos scopes; uploads need both. */
+  hasStorageScopes: boolean;
+}
+
+export interface IGoogleStorageLoginResponse {
+  authUrl: string;
 }
 
 /** Newest first. */

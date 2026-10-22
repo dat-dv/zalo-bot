@@ -12,7 +12,11 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
-import { type ThreadBotConfig } from '@zalobot/contracts';
+import {
+  type IGoogleStorageAccountStatus,
+  type IGoogleStorageLoginResponse,
+  type ThreadBotConfig,
+} from '@zalobot/contracts';
 import {
   assertDashboardAdmin,
   getDashboardUserIdFromBrowser,
@@ -266,6 +270,38 @@ export class GoogleResourcesController {
     const result = await this.resolvePhotosAlbumLink(channelId, threadName);
     const targetUrl = result.data.webViewLink || 'https://photos.google.com';
     res.redirect(targetUrl);
+  }
+
+  @Get('google/storage-account')
+  @ApiOperation({ summary: 'Tài khoản Google lưu trữ dùng chung (Drive/Photos) đang dùng (Admin)' })
+  async getStorageAccount(@Req() req: Request): Promise<{ data: IGoogleStorageAccountStatus }> {
+    this.admin(req);
+    return { data: await this.storageAccountStatus() };
+  }
+
+  @Post('google/storage-account/login')
+  @ApiOperation({ summary: 'Tạo link đăng nhập Google làm tài khoản lưu trữ dùng chung (Admin)' })
+  startStorageAccountLogin(@Req() req: Request): { data: IGoogleStorageLoginResponse } {
+    const adminId = this.admin(req);
+    // The callback saves the token under this admin and pins it as the shared account.
+    return { data: { authUrl: this.authService.generateAuthUrl(adminId) } };
+  }
+
+  @Post('google/storage-account/logout')
+  @ApiOperation({ summary: 'Đăng xuất tài khoản Google lưu trữ dùng chung (Admin)' })
+  async logoutStorageAccount(@Req() req: Request): Promise<{ data: IGoogleStorageAccountStatus }> {
+    this.admin(req);
+    await this.authService.disconnectSharedAccount();
+    return { data: await this.storageAccountStatus() };
+  }
+
+  private async storageAccountStatus(): Promise<IGoogleStorageAccountStatus> {
+    const connected = this.authService.isSharedAuthorized();
+    return {
+      connected,
+      email: connected ? await this.authService.getSharedAccountEmail() : null,
+      hasStorageScopes: connected && this.authService.hasStorageScopes(),
+    };
   }
 
   private admin(req: Request) {

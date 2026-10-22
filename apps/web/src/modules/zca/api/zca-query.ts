@@ -13,6 +13,9 @@ import {
   getZcaThreadConfig,
   updateZcaThreadConfig,
   getGoogleDriveFolderLink,
+  getGoogleStorageAccount,
+  startGoogleStorageLogin,
+  logoutGoogleStorageAccount,
   syncThreadMedia,
   getThreadStorageLinks,
   getZcaThreadMembers,
@@ -26,6 +29,7 @@ import {
 } from './zca-api';
 import type {
   ChannelStorageLinksResponse,
+  IGoogleStorageAccountStatus,
   IZcaGroupMembersResponse,
   UpdateChannelStorageLinkDto,
   ThreadBotConfig,
@@ -44,6 +48,7 @@ export const zcaQueryKeys = {
     ['zca', 'drive-link', channelId || 'root', threadName || ''] as const,
   storageLinks: (threadId: string) => ['zca', 'storage-links', threadId] as const,
   members: (threadId: string) => ['zca', 'members', threadId] as const,
+  googleAccount: () => ['zca', 'google-account'] as const,
 };
 
 export function useZcaStatusQuery(options?: { refetchInterval?: number | false }) {
@@ -196,6 +201,31 @@ export function useGoogleDriveFolderLinkQuery(channelId?: string, threadName?: s
     queryKey: zcaQueryKeys.driveLink(channelId, threadName),
     queryFn: ({ signal }) => getGoogleDriveFolderLink(channelId, threadName, signal),
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+// Sign-in happens on Google in another tab: refetching when the admin comes back shows the result.
+export function useGoogleStorageAccountQuery() {
+  return useQuery<IGoogleStorageAccountStatus>({
+    queryKey: zcaQueryKeys.googleAccount(),
+    queryFn: ({ signal }) => getGoogleStorageAccount(signal),
+    refetchOnWindowFocus: true,
+  });
+}
+
+export function useStartGoogleStorageLoginMutation() {
+  return useMutation({ mutationFn: () => startGoogleStorageLogin() });
+}
+
+export function useLogoutGoogleStorageAccountMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => logoutGoogleStorageAccount(),
+    onSuccess: (status) => {
+      queryClient.setQueryData(zcaQueryKeys.googleAccount(), status);
+      // Folder links resolve through the shared account, which is gone now.
+      void queryClient.invalidateQueries({ queryKey: ['zca', 'drive-link'] });
+    },
   });
 }
 

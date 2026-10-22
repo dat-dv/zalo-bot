@@ -384,3 +384,91 @@ void test('GoogleResourcesController getPhotosAlbumLink follows the photosAlbum 
   });
   assert.deepEqual(requestedTitles, ['Album mới']);
 });
+
+function createStorageAccountAuth(state: { connected: boolean; scopes: boolean }) {
+  const calls = { disconnect: 0, authUrlFor: [] as Array<string | number> };
+  const auth = {
+    isSharedAuthorized: () => state.connected,
+    hasStorageScopes: () => state.scopes,
+    getSharedAccountEmail: () => Promise.resolve(state.connected ? 'owner@gmail.com' : null),
+    generateAuthUrl: (userId: string | number) => {
+      calls.authUrlFor.push(userId);
+      return `https://accounts.google.com/o/oauth2/auth?state=${userId}`;
+    },
+    disconnectSharedAccount: () => {
+      calls.disconnect += 1;
+      state.connected = false;
+      return Promise.resolve();
+    },
+  } as unknown as GoogleAuthService;
+  return { auth, calls };
+}
+
+void test('GoogleResourcesController storage account reports the shared Google account', async () => {
+  const { auth } = createStorageAccountAuth({ connected: true, scopes: false });
+  const controller = new GoogleResourcesController(
+    adminTokens,
+    auth,
+    undefined,
+    undefined,
+    adminUsers,
+  );
+
+  const res = await controller.getStorageAccount(createMockRequest(ADMIN_ID));
+
+  assert.deepEqual(res, {
+    data: { connected: true, email: 'owner@gmail.com', hasStorageScopes: false },
+  });
+});
+
+void test('GoogleResourcesController storage account login builds the auth URL for the admin', () => {
+  const { auth, calls } = createStorageAccountAuth({ connected: false, scopes: false });
+  const controller = new GoogleResourcesController(
+    adminTokens,
+    auth,
+    undefined,
+    undefined,
+    adminUsers,
+  );
+
+  const res = controller.startStorageAccountLogin(createMockRequest(ADMIN_ID));
+
+  assert.deepEqual(calls.authUrlFor, [ADMIN_ID]);
+  assert.match(res.data.authUrl, /state=admin-1/);
+});
+
+void test('GoogleResourcesController storage account logout disconnects and returns the new status', async () => {
+  const { auth, calls } = createStorageAccountAuth({ connected: true, scopes: true });
+  const controller = new GoogleResourcesController(
+    adminTokens,
+    auth,
+    undefined,
+    undefined,
+    adminUsers,
+  );
+
+  const res = await controller.logoutStorageAccount(createMockRequest(ADMIN_ID));
+
+  assert.equal(calls.disconnect, 1);
+  assert.deepEqual(res, { data: { connected: false, email: null, hasStorageScopes: false } });
+});
+
+void test('GoogleResourcesController storage account routes reject non-admin users', async () => {
+  const { auth, calls } = createStorageAccountAuth({ connected: true, scopes: true });
+  const controller = new GoogleResourcesController(
+    adminTokens,
+    auth,
+    undefined,
+    undefined,
+    adminUsers,
+  );
+  const userReq = {
+    headers: { authorization: 'Bearer other-token' },
+  } as unknown as Request;
+
+  await assert.rejects(() => controller.getStorageAccount(userReq), ForbiddenException);
+  assert.throws(() => controller.startStorageAccountLogin(userReq), ForbiddenException);
+  await assert.rejects(() => controller.logoutStorageAccount(userReq), ForbiddenException);
+  assert.equal(calls.disconnect, 0);
+  assert.deepEqual(calls.authUrlFor, []);
+});

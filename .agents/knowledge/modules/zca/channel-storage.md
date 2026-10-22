@@ -16,6 +16,8 @@ metadata:
       - apps/api/src/google/google-auth.service.ts
       - apps/api/src/google/google-drive.service.ts
       - apps/api/src/google/google-photos.service.ts
+      - apps/api/src/google/google-resources.controller.ts
+      - apps/api/src/google/google-auth.controller.ts
       - apps/api/src/zca/thread-config.service.ts
       - apps/api/src/zca/zca.controller.ts
       - apps/api/src/finance/receipt-source.ts
@@ -23,6 +25,8 @@ metadata:
       - apps/web/src/modules/zca/presentation/components/thread-storage-links-dialog.tsx
       - apps/web/src/modules/zca/presentation/components/chat-table-row.tsx
       - apps/web/src/modules/zca/view/thread-config-screen.tsx
+      - apps/web/src/modules/zca/presentation/components/google-storage-account-card.tsx
+      - apps/web/src/modules/zca/api/zca-query.ts
 ---
 
 # ZCA Channel Storage (Drive/Photos history)
@@ -41,9 +45,19 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 - All channel media is uploaded with the **shared Google account** (`GoogleAuthService.getSharedOAuth2Client()`), never a member's own token. Calendar/Tasks still use per-user tokens.
 - The shared account is pinned by `user_tokens.is_shared` (one row). Only an explicit login (`exchangeCodeForTokens` → `saveTokensForUser(id, tokens, { shared: true })`) sets it and unmarks the others. Token refreshes (`client.on('tokens')`) never move it.
   - Why: before, every saved token (incl. hourly refreshes of any admin, e.g. one person with a webhook id and a ZCA uid) re-pointed the shared account, so media went to different Google accounts and album ids were overwritten across accounts.
-  - Fallback: no pinned token → first token with credentials.
+  - **No fallback**: only the token marked `is_shared` (preload) or the last login is the shared account. With none, `getSharedOAuth2Client()` returns `null` and uploads stop; another admin's token is never picked silently. A token saved without a login (refresh, merge) never becomes shared.
 - A login always builds a **new OAuth client**. Caches are keyed by client object (`WeakMap`): account email (`getAccountEmail(userId?)`), Drive folder ids (`GoogleDriveService`), Photos album ids/urls (`GooglePhotosService`). So switching accounts never reuses ids of the old account.
 - Migration `1724830000000-CreateChannelStorageLinks` marks the most recently updated token as shared.
+
+### Dashboard sign-in / sign-out (admin-only, `GoogleResourcesController`)
+
+- Why: before, the shared account could only be seen/changed via Zalo `/login` and `/status`; admins had no dashboard view of which Gmail holds the media.
+- `GET API_ROUTES.googleStorageAccount` → `IGoogleStorageAccountStatus { connected, email, hasStorageScopes }` (no token owner id is exposed). `hasStorageScopes` = Drive + Photos granted.
+- `POST API_ROUTES.googleStorageAccountLogin` → `{ authUrl }` from `generateAuthUrl(<dashboard admin id>)`. The existing callback stores the token under that admin and pins it as shared (same path as Zalo `/login`). The callback skips the Zalo confirmation message for `dashboard-owner` (no Zalo account).
+- `POST API_ROUTES.googleStorageAccountLogout` → `GoogleAuthService.disconnectSharedAccount()`: best-effort `revokeCredentials()` at Google (failure only logged), then `revokeUserTokens(sharedUserId)` deletes the `user_tokens` row, drops the client, clears `sharedUserId`. Returns the new status (disconnected).
+  - The token is one-per-user, so signing out also removes the owning admin's personal Google connection.
+  - Files already stored stay in the old account; storage history rows keep their links.
+- Known gap (pre-existing, out of scope): OAuth `state` is the plain user id, not signed, for both Zalo and dashboard flows.
 
 ## Storage target (`ChannelStorageTarget`, `google/channel-storage.util.ts`)
 
@@ -91,6 +105,11 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 - `GET /api/transactions/:id/receipt` Drive receipts: `downloadDriveReceipt` (`finance/receipt-source.ts`) tries shared token → creator token → public link `drive.google.com/uc?export=download&id=` (`GoogleDriveService.downloadPublicFile`, files are uploaded "anyone with the link: reader"). `drive.file` only reads files created by the same account, so old receipts stay viewable after an account change. Fails if the old account was deleted or the Workspace blocks public sharing.
 
 ## Web UI
+
+- `/zca` shows `GoogleStorageAccountCard` (full width, under the overview cards). Query `useGoogleStorageAccountQuery` (key `zcaQueryKeys.googleAccount()`, `refetchOnWindowFocus: true` so returning from the Google tab shows the new account). States: skeleton; error + Retry; disconnected (red dot, primary "Sign in with Google"); connected with missing scopes (amber badge, primary "Grant access again", Sign out); connected (green dot, email, Open Drive, Switch account, Sign out).
+  - Sign-in opens a blank tab inside the click, then sets its URL after `useStartGoogleStorageLoginMutation` resolves (a tab opened after an await is popup-blocked); no tab → same-window navigation. A hint tells the admin to come back.
+  - Sign-out goes through `ConfirmDialog` (bottom sheet on phones); `useLogoutGoogleStorageAccountMutation` writes the returned status to the cache and invalidates `drive-link` queries.
+  - Phones: action buttons take the full row, 40px tall (`TAP_CONTROL`). Strings `zca.googleAccount.*` (vi/en).
 
 - `/zca` table, row "⋯" menu items open Drive / open Photos open `ThreadStorageLinksDialog` (shared `Modal`, bottom sheet on mobile). The thread config page (`/zca/thread?id=…`) "Mở Google Drive / Photos" banner buttons open the same dialog.
 - The dialog is rendered with `createPortal(…, document.body)`: it is opened from a table cell (`whitespace-nowrap text-right`), and a top-layer `<dialog>` still inherits those styles, which kept the description on one line and broke the layout. Any dialog opened from a table row must portal out of the cell.

@@ -48,10 +48,7 @@ export class GoogleAuthService implements OnModuleInit {
 
   private async preloadTokensFromDatabase(): Promise<void> {
     try {
-      // Shared token last, so the `!sharedUserId` fallback never overrides it.
-      const allTokens = (await this.tokenRepo.find()).sort(
-        (a, b) => Number(a.isShared) - Number(b.isShared),
-      );
+      const allTokens = await this.tokenRepo.find();
       for (const t of allTokens) {
         if (t.accessToken || t.refreshToken) {
           const accessToken = this.encryption.decrypt(t.accessToken);
@@ -74,7 +71,9 @@ export class GoogleAuthService implements OnModuleInit {
               void this.saveTokensForUser(t.userId, refreshed);
             });
             this.userClients.set(t.userId, client);
-            if (t.isShared || !this.sharedUserId) {
+            // Only the token marked `is_shared` is the storage account: after a sign-out there is
+            // none, rather than silently another admin's Google account.
+            if (t.isShared) {
               this.sharedUserId = t.userId;
             }
           }
@@ -105,17 +104,8 @@ export class GoogleAuthService implements OnModuleInit {
   }
 
   public getSharedOAuth2Client(): OAuth2Client | null {
-    if (this.sharedUserId && this.userClients.has(this.sharedUserId)) {
-      return this.userClients.get(this.sharedUserId) || null;
-    }
-    for (const [id, client] of this.userClients.entries()) {
-      const creds = client.credentials;
-      if (creds && (creds.access_token || creds.refresh_token)) {
-        this.sharedUserId = id;
-        return client;
-      }
-    }
-    return null;
+    if (!this.sharedUserId) return null;
+    return this.userClients.get(this.sharedUserId) || null;
   }
 
   public getOAuth2Client(userId?: string | number): OAuth2Client | null {
@@ -303,7 +293,7 @@ export class GoogleAuthService implements OnModuleInit {
           expiry_date: dbToken.expiryDate ? Number(dbToken.expiryDate) : undefined,
         });
       }
-      if (shared || !this.sharedUserId) {
+      if (shared) {
         this.sharedUserId = strId;
       }
       this.logger.log(`Saved OAuth tokens for user ${userId} to PostgreSQL.`);
@@ -320,6 +310,26 @@ export class GoogleAuthService implements OnModuleInit {
       .set({ isShared: false })
       .where('"userId" <> :sharedUserId AND "is_shared" = true', { sharedUserId })
       .execute();
+  }
+
+  /**
+   * Signs the shared storage account out: revokes the grant at Google (best effort, the local
+   * sign-out still happens if Google is unreachable) and deletes its token. No other token takes
+   * over; uploads stop until an admin signs in again.
+   */
+  public async disconnectSharedAccount(): Promise<void> {
+    const sharedUserId = this.sharedUserId;
+    if (!sharedUserId) return;
+    const client = this.userClients.get(sharedUserId);
+    if (client?.credentials?.access_token || client?.credentials?.refresh_token) {
+      try {
+        await client.revokeCredentials();
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'unknown error';
+        this.logger.warn(`Could not revoke the shared Google grant at Google: ${message}`);
+      }
+    }
+    await this.revokeUserTokens(sharedUserId);
   }
 
   public async revokeUserTokens(userId: number | string): Promise<void> {

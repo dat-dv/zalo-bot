@@ -5,6 +5,7 @@ import { GoogleAuthService } from './google-auth.service';
 import { renderSuccessHtml, renderErrorHtml } from './templates/oauth-html.template';
 import { ZcaMessengerService } from '../zca/zca-messenger.service';
 import { BypassTransform } from '../common/decorators/bypass-transform.decorator';
+import { DASHBOARD_OWNER_USER_ID } from '../users/users.service';
 
 @ApiTags('Google Auth & System Health')
 @Controller()
@@ -57,7 +58,8 @@ export class GoogleAuthController {
       this.logger.log(`Google OAuth callback completed successfully for user ${userId}`);
 
       // Gửi thông báo xác nhận thành công tới tài khoản Zalo của người dùng
-      if (this.zcaMessenger && userId) {
+      // A dashboard sign-in by `dashboard-owner` has no Zalo account to notify.
+      if (this.zcaMessenger && userId && userId !== DASHBOARD_OWNER_USER_ID) {
         try {
           await this.zcaMessenger.sendMessage(
             userId,

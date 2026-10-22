@@ -63,7 +63,7 @@
 - **Quyền theo kênh**: Quyền gọi bot (mention hoặc tiền tố) chỉ trong một nhóm, admin cấu hình trên trang cấu hình kênh: không ai thêm, mọi thành viên, hoặc thành viên được chọn. Cộng thêm vào quyền toàn cục, không thu hồi quyền toàn cục; không tự cấp quyền toàn cục.
 - **Danh tính kênh Zalo**: Cùng một người có thể có nhiều ID: ID theo app của Zalo Bot chính thức đã bỏ (webhook, 20 ký tự hex, chỉ còn ở dữ liệu cũ) và UID Zalo cá nhân qua ZCA (dạng số). Hệ thống chỉ coi `users.id` là danh tính.
 - **Gộp tài khoản (User Merge)**: Thao tác của admin chuyển dấu vết của một ID trùng (người tạo giao dịch, liên kết người liên quan, lời nhắc, token Google) sang người dùng giữ lại, rồi xoá ID trùng. Dữ liệu tài chính là sổ chung nên không phải di chuyển. Chạy trong một transaction và không thể hoàn tác.
-- **Tài khoản lưu trữ dùng chung**: Tài khoản Google mà admin đăng nhập gần nhất qua `/login`; mọi media của các kênh được lưu vào đây. Việc tự làm mới token không làm đổi tài khoản này.
+- **Tài khoản lưu trữ dùng chung**: Tài khoản Google mà admin đăng nhập gần nhất qua `/login` hoặc trên dashboard (trang Zalo & Người dùng); mọi media của các kênh được lưu vào đây. Việc tự làm mới token không làm đổi tài khoản này. Admin đăng xuất thì hệ thống không còn tài khoản lưu trữ nào cho tới khi có người đăng nhập lại, không tự chuyển sang tài khoản Google khác.
 - **Lịch sử nơi lưu trữ**: Danh sách mọi thư mục Drive gốc và album Photos mà một kênh từng dùng, kèm tài khoản Google và thời gian dùng. Đổi tài khoản thì link cũ vẫn còn trong danh sách.
 - **Phân vùng lưu trữ (Drive Partition)**: Thư mục Google Drive được tạo riêng biệt cho từng kênh theo quy chuẩn `zalobot/<channelId>/<category>` (`bill`, `image`, `video`, `file`, `audio`).
 

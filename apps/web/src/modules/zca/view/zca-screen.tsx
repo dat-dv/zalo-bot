@@ -37,6 +37,7 @@ import {
 import { ChatListRow } from '../presentation/components/chat-list-row';
 import type { ChatRowProps } from '../presentation/components/chat-row-parts';
 import { ChatTableRow } from '../presentation/components/chat-table-row';
+import { GoogleStorageAccountCard } from '../presentation/components/google-storage-account-card';
 import { UserFormDialog } from '../presentation/components/user-form-dialog';
 import {
   ExternalLinkIcon,
@@ -556,6 +557,8 @@ export function ZcaScreen() {
           </p>
         </div>
       </div>
+
+      <GoogleStorageAccountCard driveUrl={driveRootData?.webViewLink || getThreadDriveOpenUrl()} />
 
       {/* Notice Banner */}
       {notice && (
