@@ -1,6 +1,6 @@
 {
   "name": "zalobot-monorepo",
-  "version": "1.0.120",
+  "version": "1.0.121",
   "private": true,
   "workspaces": [
     "apps/*",

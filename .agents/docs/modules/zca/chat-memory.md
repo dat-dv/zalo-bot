@@ -9,7 +9,7 @@ metadata:
       - apps/api/src/zalo/text/strategies/search-chat-history-tool.strategy.ts
       - apps/api/src/database/migrations/1724810000000-CreateZcaMessages.ts
       - apps/api/src/database/migrations/1724820000000-AddChatMemoryToZcaThreadConfigs.ts
-      - apps/web/src/modules/zca/view/thread-config-modal.tsx
+      - apps/web/src/modules/zca/view/thread-config-screen.tsx
 ---
 
 # Trí nhớ hội thoại (ZCA)
@@ -43,7 +43,7 @@ Ngoài ra, khoảng 10 tin gần nhất của kênh được đưa vào prompt �
 
 ## 3. Bật tính năng cho từng kênh
 
-Trí nhớ được bật **riêng cho từng nhóm/chat**, không còn biến môi trường nào. Trên dashboard, vào trang "Zalo & Users", mở "Cấu hình kênh" của nhóm rồi bật card **🧠 Trí nhớ hội thoại**:
+Trí nhớ được bật **riêng cho từng nhóm/chat**, không còn biến môi trường nào. Trên dashboard, vào trang "Zalo & Users", bấm **Cấu hình** ở dòng của nhóm để mở trang cấu hình kênh rồi bật card **🧠 Trí nhớ hội thoại**:
 
 | Trường | Mặc định | Giới hạn | Ý nghĩa |
 | --- | --- | --- | --- |

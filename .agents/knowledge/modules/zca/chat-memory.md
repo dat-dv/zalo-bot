@@ -19,7 +19,7 @@ metadata:
       - apps/api/src/zalo/text/text-input.service.ts
       - apps/api/src/llm/llm.service.ts
       - packages/contracts/src/index.ts
-      - apps/web/src/modules/zca/view/thread-config-modal.tsx
+      - apps/web/src/modules/zca/view/thread-config-screen.tsx
 ---
 
 # ZCA Chat Memory
@@ -34,7 +34,7 @@ The bot answers questions about past conversations of the current Zalo chat ("n�
 
 ## Per-thread switch (`ThreadBotConfig.chatMemory`)
 
-Configured per ZCA thread in the dashboard thread-config modal (card "🧠 Trí nhớ hội thoại"), stored in `zca_thread_configs.chat_memory` (jsonb, migration `1724820000000-AddChatMemoryToZcaThreadConfigs`). There are no env vars; the former global `CHAT_MEMORY_*` env switches were removed.
+Configured per ZCA thread on the dashboard thread config page `/zca/thread?id=…` (card "🧠 Trí nhớ hội thoại"), stored in `zca_thread_configs.chat_memory` (jsonb, migration `1724820000000-AddChatMemoryToZcaThreadConfigs`). There are no env vars; the former global `CHAT_MEMORY_*` env switches were removed.
 
 | Field | Default | Range | Meaning |
 | --- | --- | --- | --- |

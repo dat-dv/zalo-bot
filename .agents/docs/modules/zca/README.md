@@ -20,7 +20,7 @@ metadata:
       - apps/api/src/google/google-resources.controller.ts
       - apps/api/src/dashboard-auth/dashboard-user.ts
       - apps/web/src/modules/zca/view/zca-screen.tsx
-      - apps/web/src/modules/zca/view/thread-config-modal.tsx
+      - apps/web/src/modules/zca/view/thread-config-screen.tsx
       - apps/web/src/modules/zca/view/sync-media-modal.tsx
       - apps/web/src/modules/zca/model/chat-rows.ts
       - apps/web/src/modules/zca/api/zca-api.ts
@@ -120,7 +120,7 @@ Giờ nguyên tắc là **người dùng chủ động gọi thì bot mới làm
 - AI chỉ được gọi lại đúng tool của thao tác gốc. Muốn đổi sang loại thao tác khác thì `cancel <mã>` rồi nhắn lại.
 - Thao tác không ứng với tool (ví dụ cấm user) không chỉnh sửa được; bot sẽ hướng dẫn hủy và tạo lại.
 
-**Cách đặt tiền tố trên dashboard**: mở `ThreadConfigModal` của kênh → mục "Tương tác Bot trực tiếp" → ô "Tiền tố gọi bot nhanh". Gõ tiền tố rồi nhấn Enter (hoặc dấu phẩy, hoặc nút "Thêm"); bấm × để xoá. Ô báo lỗi ngay nếu tiền tố có dấu cách, quá 20 ký tự, trùng (không phân biệt hoa thường) hoặc đã đủ 10 cái. Nếu đặt tiền tố `/`, modal cảnh báo vì `/dashboard` sẽ bị cắt thành `dashboard`. Khi tin khớp nhiều tiền tố, tiền tố dài nhất được ưu tiên (`bot:` thắng `b`). Logic kiểm tra dùng chung giữa API và web nằm trong `packages/contracts` (`validateTriggerPrefix`, `normalizeTriggerPrefixes`, `findTriggerPrefix`).
+**Cách đặt tiền tố trên dashboard**: bấm **Cấu hình** ở dòng của kênh để mở trang cấu hình (`/zca/thread?id=…`) → mục "Tương tác Bot trực tiếp" → ô "Tiền tố gọi bot nhanh". Gõ tiền tố rồi nhấn Enter (hoặc dấu phẩy, hoặc nút "Thêm"); bấm × để xoá. Ô báo lỗi ngay nếu tiền tố có dấu cách, quá 20 ký tự, trùng (không phân biệt hoa thường) hoặc đã đủ 10 cái. Nếu đặt tiền tố `/`, trang cấu hình cảnh báo vì `/dashboard` sẽ bị cắt thành `dashboard`. Khi tin khớp nhiều tiền tố, tiền tố dài nhất được ưu tiên (`bot:` thắng `b`). Logic kiểm tra dùng chung giữa API và web nằm trong `packages/contracts` (`validateTriggerPrefix`, `normalizeTriggerPrefixes`, `findTriggerPrefix`).
 
 ## 1b. Nhận Biết Nhóm Hay Cá Nhân
 
@@ -179,7 +179,7 @@ Bảng này phục vụ việc lướt nhanh hàng trăm dòng, nên giữ cùng
 - **Mỗi ô một dòng.** Riêng ô tên có 2 dòng: dòng 1 là tên và `(gợi nhớ)`, dòng 2 là thông tin phụ nối bằng `·` (số thành viên, tên Zalo, SĐT, `@username`, link "N người liên quan"). Chữ dài thì cắt bớt, không xuống dòng.
 - **Cột "Tính năng"** tách khỏi cột Lắng nghe, chỉ ghi các tính năng đang bật: `@Bot` (nhóm) hoặc `Chat riêng` (1-1), `Nhớ`, `Sao lưu media`. Trước đây chúng là chip màu nằm dưới nút lắng nghe nên mỗi dòng cao 2–3 dòng.
 - **Cột Quyền tương tác**: trạng thái và nút Cấp quyền/Thu hồi nằm cùng một dòng.
-- **Cột Thao tác**: chỉ một nút chính **Cấu hình** và menu **⋯**. Mở Google Drive, mở Google Photos, và Sao lưu media lịch sử (chỉ nhóm) nằm trong menu, cùng các thao tác người dùng (sửa, gộp, xem người liên quan, xoá).
+- **Cột Thao tác**: chỉ một nút chính **Cấu hình** (là link sang trang cấu hình của kênh, Cmd/Ctrl+click để mở tab mới) và menu **⋯**. Mở Google Drive, mở Google Photos, và Sao lưu media lịch sử (chỉ nhóm) nằm trong menu, cùng các thao tác người dùng (sửa, gộp, xem người liên quan, xoá).
 - Nút trong bảng là nút vuông `h-[22px] rounded-[2px]` có viền; avatar cũng vuông (`rounded-[3px]`).
 
 ### Cách duyệt người mới
@@ -191,26 +191,28 @@ Bảng này phục vụ việc lướt nhanh hàng trăm dòng, nên giữ cùng
 ### Thành phần màn hình
 
 - **`ZcaScreen` (`view/zca-screen.tsx`)**: header (làm mới, đăng nhập QR / đăng xuất), 4 thẻ tổng quan (kết nối, số đang lắng nghe, số chờ duyệt, tổng số dòng), thanh công cụ ("Đồng bộ thông tin" lấy tên/avatar/SĐT từ danh bạ ZCA; "+ Thêm người dùng"; link kho Drive gốc), ô nhập ID để bật lắng nghe thủ công, tìm kiếm (không dấu), sắp xếp, bộ lọc và phân trang.
+- **Trạng thái bảng nằm trên URL** (`view/use-chat-table-url-state.ts`, logic thuần ở `model/chat-table-url-state.ts` có test): ô tìm kiếm, bộ lọc, sắp xếp, trang và số mục mỗi trang được ghi vào query của `/zca` (`?q=&filter=&sort=&page=&size=`, giá trị mặc định thì bỏ). Lý do: bấm **Cấu hình** là sang trang khác, nếu không giữ thì quay lại sẽ mất bộ lọc và trang đang xem, rất phiền khi cấu hình lần lượt nhiều kênh. Giá trị lạ trên URL tự về mặc định. Đổi tìm kiếm/bộ lọc/sắp xếp/số mục thì về trang 1. Query gần nhất cũng được giữ trong `sessionStorage` để nút quay lại ở trang cấu hình mở đúng chỗ cũ.
 - **Modal đăng nhập QR**: tự nạp mã QR, polling trạng thái và tự đóng khi đăng nhập thành công.
 - **`ChatTableRow` (`presentation/components/chat-table-row.tsx`)**: một dòng của bảng. Bấm vào nhãn "Đang lắng nghe / Bỏ qua" để bật/tắt lắng nghe; nút Cấp quyền / Thu hồi (thu hồi Admin phải xác nhận); nút Sao lưu lịch sử (nhóm, mở `SyncMediaModal`), nút Drive và nút Cấu hình. Các nút `📁 Drive` / `📸 Photos` (cột Lắng nghe) và nút Drive (cột thao tác) mở hộp thoại `ThreadStorageLinksDialog`, liệt kê mọi thư mục Drive/album Photos kênh từng dùng qua các tài khoản Google (xem [Lưu trữ media theo kênh](channel-storage.md)).
 - **Menu "⋯" (`chat-row-menu.tsx`)**: Sửa thông tin & vai trò, Gộp tài khoản trùng, Xem người liên quan đã gắn, Xoá người dùng (không áp dụng cho Admin).
 - **Badge "🔗 N người liên quan"** cạnh tên người dùng: hiện khi tài khoản đang được gắn với ít nhất một Người liên quan trong danh bạ công nợ. Bấm vào để mở dialog liệt kê (xem tài liệu module users). Nhờ badge này, trang ZCA và trang Người liên quan nối được với nhau theo cả hai chiều.
 - **`UserFormDialog` (`user-form-dialog.tsx`)**: thêm mới hoặc sửa tên, SĐT, vai trò của người dùng.
 - **`SyncMediaModal` (`view/sync-media-modal.tsx`)**: chọn khoảng thời gian và loại media để sao lưu lịch sử nhóm.
-- **Modal Cấu hình Kênh (`ThreadConfigModal`)**:
-  - Lắng nghe kênh.
-  - Tương tác trực tiếp: bật/tắt, ghi chú quy tắc gọi bot (nhóm cần @mention/tiền tố, chat riêng thì không), cho phép trò chuyện AI, xử lý tin của chính bot, ô nhập nhiều tiền tố dạng chip (`presentation/components/trigger-prefix-input.tsx`).
-  - Sao lưu media: bật/tắt, chọn loại (ảnh, video, file, âm thanh), thông báo trong nhóm, thư mục Drive tuỳ chỉnh, hậu tố file, tên album Photos.
-  - Quy tắc xác nhận: thả tim, số tim tối thiểu, thời gian timeout (phút).
-  - Link thư mục Drive và album Photos của kênh.
-  - **Bố cục không được tràn ngang**: panel của modal cuộn dọc (`overflow-y-auto`), nên chỉ cần một phần tử con rộng hơn panel là xuất hiện thanh cuộn ngang. Trường hợp hay gặp là nhóm có tên dài hoặc ID dài, nhất là trên mobile. Vì vậy:
-    - tên nhóm ở header bị cắt bằng `…`, rê chuột để xem đủ (`title`); ID và nhãn thư mục Drive/album Photos (`<code>`) được ngắt dòng ở bất kỳ ký tự nào (`break-all`);
-    - banner Drive và Photos dùng `flex-wrap`: thiếu chỗ thì nút "Mở Google Drive/Photos" xuống hàng;
-    - mỗi hàng bật/tắt kiểu `justify-between` cho khối chữ `min-w-0` và nút gạt hoặc nút bấm `shrink-0`, để mô tả dài tự xuống dòng thay vì ép méo nút gạt.
+- **Trang cấu hình kênh** `/zca/thread?id=<mã kênh>` (`app/(private)/zca/thread/page.tsx` → `view/thread-config-screen.tsx`). Trang này thay cho modal Cấu hình cũ: modal rộng 672px phải chứa 5 nhóm cấu hình xếp một cột với chữ 10–11px nên quá chật. Web build dạng static export nên không có route động `/zca/[id]`; mã kênh nằm ở `?id=`, đọc bằng `useSearchParams` trong `<Suspense>`. Mục menu "Zalo & Người dùng" vẫn sáng khi ở trang này.
+  - **Tên và loại kênh** lấy từ danh sách thread (đọc từ cache Redis, không gọi Zalo). Nếu Zalo không còn trả về kênh đó thì lấy từ cấu hình đã lưu. Nếu vẫn không biết là nhóm hay chat riêng thì trang báo "Không tìm thấy" và không cho lưu, vì API lưu bắt buộc có loại kênh.
+  - **Các trạng thái**: thiếu `id` hoặc không tìm thấy kênh thì hiện thông báo kèm link quay lại; đang tải thì hiện khung xương; lỗi tải thì có nút "Thử lại".
+  - **Bố cục**: header có link quay lại bảng (giữ bộ lọc cũ), chữ cái đại diện, tên (dài thì cắt `…`), nhãn Nhóm/Cá nhân và ID. Màn rộng chia 2 cột: trái là Lắng nghe, Tương tác trực tiếp, Quy tắc xác nhận; phải là Lưu trữ tài nguyên và Trí nhớ hội thoại. Màn dưới 1024px còn 1 cột. Thanh "Lưu cấu hình" dính ở đáy màn hình. Lưu xong vẫn ở lại trang và hiện "Đã lưu" (lỗi thì báo "Lưu thất bại").
+  - **Nội dung các mục** (không đổi so với modal cũ):
+    - Lắng nghe kênh.
+    - Tương tác trực tiếp: bật/tắt, ghi chú quy tắc gọi bot (nhóm cần @mention/tiền tố, chat riêng thì không), cho phép trò chuyện AI, xử lý tin của chính bot, ô nhập nhiều tiền tố dạng chip (`presentation/components/trigger-prefix-input.tsx`).
+    - Sao lưu media: banner thư mục Drive và album Photos (mở hộp thoại lịch sử link), chọn loại (ảnh, video, file, âm thanh), thông báo trong nhóm, thư mục Drive tuỳ chỉnh, tên album Photos, hậu tố file.
+    - Quy tắc xác nhận: thả tim, số tim tối thiểu (1–50), thời gian chờ (1–60 phút).
+    - Trí nhớ hội thoại: bật/tắt, số tin ngữ cảnh, số kết quả mỗi lần tra. Ô số giữ nguyên chữ đang gõ và chỉ chuẩn hoá khi rời ô hoặc khi lưu.
+  - **Cách code tổ chức** (`presentation/components/thread-config/`, mỗi file dưới khoảng 100 dòng): `ConfigSectionCard` (khung một mục có nút bật mục), `ConfigToggleRow` và `ConfigSwitch` (một component nút gạt dùng chung, có `role="switch"` và viền focus khi dùng bàn phím; thay cho 8 khối markup lặp lại trước đây), `ConfigField` (nhãn gắn với ô nhập). Logic chuyển dữ liệu form ↔ API là hàm thuần ở `model/thread-config-form.ts`, có test; ví dụ cấu hình cũ chưa có quy tắc xác nhận thì mặc định 5 tim cho nhóm, 1 tim cho chat riêng.
+  - **Không tràn ngang**: khung trang cuộn dọc nên chỉ cần một phần tử rộng quá là hiện thanh cuộn ngang, nhất là khi tên hoặc ID nhóm dài trên mobile. Vì vậy tên ở header bị cắt bằng `…` (rê chuột để xem đủ); ID và nhãn thư mục/album ngắt dòng ở bất kỳ ký tự nào (`break-all`); banner Drive/Photos dùng `flex-wrap`; mỗi hàng bật/tắt cho khối chữ `min-w-0` và nút gạt `shrink-0`. Khi thêm mục mới, giữ đúng mẫu này.
+  - Chưa có cảnh báo "thay đổi chưa lưu" khi rời trang (modal cũ cũng không có).
 
-    Khi thêm hàng cấu hình mới, giữ đúng mẫu này.
-
-- Modal QR đăng nhập, `ThreadConfigModal`, `SyncMediaModal`, `UserFormDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo). `ThreadConfigModal` bỏ giới hạn `75vh` riêng của form, giờ cả panel cuộn.
+- Modal QR đăng nhập, `SyncMediaModal`, `UserFormDialog`, `ThreadStorageLinksDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo).
 
 ## 3. Các Endpoint API
 

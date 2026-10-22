@@ -79,6 +79,9 @@ export const APP_ROUTES = {
   contacts: '/contacts',
   places: '/places',
   zca: '/zca',
+  // Static export has no dynamic segments, so the thread id travels in the query string.
+  zcaThreadPage: '/zca/thread',
+  zcaThread: (threadId: string) => `/zca/thread?id=${encodeURIComponent(threadId)}`,
   settings: '/settings',
 } as const;
 

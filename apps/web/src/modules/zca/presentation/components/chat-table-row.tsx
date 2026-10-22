@@ -1,7 +1,8 @@
 'use client';
 
 import { Fragment, useState, type ReactNode } from 'react';
-import type { ChannelStorageLinkKind, ThreadBotConfig } from '@zalobot/contracts';
+import Link from 'next/link';
+import { APP_ROUTES, type ChannelStorageLinkKind, type ThreadBotConfig } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import type { ZcaThread } from '../../api/zca-api';
 import { hasInteractionAccess, type ChatRow } from '../../model/chat-rows';
@@ -16,7 +17,6 @@ interface ChatTableRowProps {
   onCopyId: (id: string) => void;
   onToggleListen: (threadId: string) => void;
   onToggleAccess: (row: ChatRow) => void;
-  onConfigure: (thread: ZcaThread) => void;
   onSyncMedia: (thread: ZcaThread) => void;
   onDriveOpened: () => void;
   onEditUser: (row: ChatRow) => void;
@@ -137,7 +137,6 @@ export function ChatTableRow({
   onCopyId,
   onToggleListen,
   onToggleAccess,
-  onConfigure,
   onSyncMedia,
   onDriveOpened,
   onEditUser,
@@ -372,14 +371,13 @@ export function ChatTableRow({
       <td className="whitespace-nowrap px-3.5 py-2 text-right">
         <div className="flex items-center justify-end gap-1.5">
           {thread && (
-            <button
+            <Link
               className={NEUTRAL_BUTTON}
-              onClick={() => onConfigure(thread)}
+              href={APP_ROUTES.zcaThread(thread.id)}
               title="Cấu hình tính năng bot cho nhóm hoặc cá nhân này"
-              type="button"
             >
               Cấu hình
-            </button>
+            </Link>
           )}
           <ChatRowMenu items={[...threadMenuItems, ...userMenuItems]} label="Thao tác khác" />
         </div>

@@ -37,7 +37,8 @@ Zalobot is an intelligent 24/7 personal and group AI assistant operating nativel
   - `/` and `/dashboard`: overview (`DashboardHomeScreen`).
   - `/transactions`: income/expense ledger; `/expenses` and `/income` redirect to `/transactions?type=expense|income`.
   - `/debts`, `/analytics`, `/calendar`, `/tasks`, `/reminders`, `/contacts`, `/places`, `/settings`.
-  - `/zca`: "Zalo & Users" — ZCA login, listened threads, thread configs, and admin user management.
+  - `/zca`: "Zalo & Users" — ZCA login, listened threads, and admin user management; table search/filter/page live in the query string.
+  - `/zca/thread?id=<threadId>`: per-thread bot configuration page (query param because the static export has no dynamic segments).
   - Public pages outside the private group: `/about`, `/privacy`, `/terms`.
 
 - **Target Audience**:

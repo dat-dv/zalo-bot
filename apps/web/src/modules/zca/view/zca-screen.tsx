@@ -41,8 +41,8 @@ import {
   QrIcon,
   RefreshIcon,
 } from '../presentation/components/zca-icons';
-import { ThreadConfigModal } from './thread-config-modal';
 import { SyncMediaModal } from './sync-media-modal';
+import { useChatTableUrlState } from './use-chat-table-url-state';
 import {
   useDeleteUserMutation,
   useSetGrantAccessMutation,
@@ -116,14 +116,14 @@ export function ZcaScreen() {
 
   const isLoggingOut = logoutMutation.isPending;
 
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<ChatRowFilter>('all');
-  const [sortBy, setSortBy] = useState<ChatRowSort>('listened_first');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const { state: tableState, update: updateTable, setPage } = useChatTableUrlState();
+  const { search, filter, sortBy, pageSize } = tableState;
+  const setSearch = (value: string) => updateTable({ search: value });
+  const setFilter = (value: ChatRowFilter) => updateTable({ filter: value });
+  const setSortBy = (value: ChatRowSort) => updateTable({ sortBy: value });
+  const setPageSize = (value: number) => updateTable({ pageSize: value });
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [selectedThreadForConfig, setSelectedThreadForConfig] = useState<ZcaThread | null>(null);
   const [syncThreadTarget, setSyncThreadTarget] = useState<ZcaThread | null>(null);
   const [userDialog, setUserDialog] = useState<UserDialogState | null>(null);
   const [mergingUser, setMergingUser] = useState<IUserListItem | null>(null);
@@ -163,11 +163,6 @@ export function ZcaScreen() {
       void refetchThreads();
     }
   }, [isQrModalOpen, status?.loggedIn, refetchThreads]);
-
-  // Reset pagination on filter or search change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [search, filter, sortBy, pageSize]);
 
   const showNotice = (type: 'success' | 'error', message: string, durationMs = 5000) => {
     setNotice({ type, message });
@@ -328,6 +323,9 @@ export function ZcaScreen() {
   const sortedRows = useMemo(() => sortChatRows(filteredRows, sortBy), [filteredRows, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize));
+  // A page restored from the URL may exceed the rows loaded so far; clamp for display only so it
+  // still applies once the list finishes loading.
+  const currentPage = Math.min(tableState.page, totalPages);
   const paginatedRows = useMemo(() => {
     if (pageSize >= sortedRows.length) return sortedRows;
     const startIndex = (currentPage - 1) * pageSize;
@@ -704,7 +702,6 @@ export function ZcaScreen() {
                       config={configMap.get(row.id)}
                       isCopied={copiedId === row.id}
                       key={`${row.kind}:${row.id}`}
-                      onConfigure={setSelectedThreadForConfig}
                       onCopyId={copyToClipboard}
                       onDeleteUser={(r) => void handleDeleteUser(r)}
                       onDriveOpened={handleDriveOpened}
@@ -752,7 +749,7 @@ export function ZcaScreen() {
                 <button
                   className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
                   disabled={currentPage <= 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  onClick={() => setPage(Math.max(1, currentPage - 1))}
                   type="button"
                 >
                   ← Trước
@@ -763,7 +760,7 @@ export function ZcaScreen() {
                 <button
                   className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
                   disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
                   type="button"
                 >
                   Sau →
@@ -906,17 +903,6 @@ export function ZcaScreen() {
           </button>
         </div>
       </Modal>
-
-      {/* Thread Feature Config Modal */}
-      {selectedThreadForConfig && (
-        <ThreadConfigModal
-          isOpen={Boolean(selectedThreadForConfig)}
-          onClose={() => setSelectedThreadForConfig(null)}
-          threadId={selectedThreadForConfig.id}
-          threadName={selectedThreadForConfig.name}
-          threadType={selectedThreadForConfig.type}
-        />
-      )}
 
       {/* Historical Media Backup Modal */}
       {syncThreadTarget && (

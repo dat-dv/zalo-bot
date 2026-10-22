@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { ZcaScreen } from '@/modules/zca/view/zca-screen';
 
 export const metadata: Metadata = {
@@ -8,5 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function ZcaPage() {
-  return <ZcaScreen />;
+  // ZcaScreen reads its table state from the query string (useSearchParams).
+  return (
+    <Suspense>
+      <ZcaScreen />
+    </Suspense>
+  );
 }

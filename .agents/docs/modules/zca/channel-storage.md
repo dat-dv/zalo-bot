@@ -48,7 +48,7 @@ Tài liệu canonical tương ứng: [`channel-storage.md`](../../../knowledge/m
   - Dòng **Đang dùng** (viền xanh) là nơi media mới sẽ vào.
   - Mỗi dòng ghi đường dẫn hoặc tên album, email tài khoản và khoảng thời gian dùng.
   - Bấm vào link Drive sẽ mở thẳng thư mục gốc của kênh, thấy ngay `bill`, `image`, `video`.
-- Modal "Cấu hình" của kênh cũng mở cùng hộp thoại này.
+- Trang cấu hình của kênh (`/zca/thread?id=…`) cũng mở cùng hộp thoại này từ banner Drive/Photos.
 - Hộp thoại được render thẳng vào `document.body` qua `createPortal`. Lý do: nó được mở từ một ô trong bảng có `whitespace-nowrap text-right`, và `<dialog>` dù nổi lên trên cùng màn hình vẫn kế thừa các style đó. Trước khi sửa, mô tả bị kéo thành một dòng dài và làm vỡ layout. **Quy tắc:** hộp thoại nào mở từ một dòng của bảng đều phải dùng portal để thoát khỏi ô đó.
 
 ### 2.4a. Sửa và xoá link

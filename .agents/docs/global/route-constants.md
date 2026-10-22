@@ -56,11 +56,15 @@ export const APP_ROUTES = {
   transactions: '/transactions',
   debts: '/debts',
   zca: '/zca',
+  zcaThreadPage: '/zca/thread',
+  zcaThread: (threadId: string) => `/zca/thread?id=${encodeURIComponent(threadId)}`,
   settings: '/settings',
 } as const;
 ```
 
 Lưu ý: `APP_ROUTES.analyticsSpending`, `analyticsCashflow`, `analyticsDebts` đã khai báo nhưng chưa có trang tương ứng trong `apps/web/app/`.
+
+**Trang chi tiết dùng query param, không dùng route động**: web build dạng static export (`output: 'export'`), nên không có route kiểu `/zca/[id]`. Trang chi tiết là một trang tĩnh (ví dụ `app/(private)/zca/thread/page.tsx`) đọc mã qua `?id=` bằng `useSearchParams` bọc trong `<Suspense>`. Builder như `APP_ROUTES.zcaThread(id)` tự `encodeURIComponent` mã; còn `zcaThreadPage` là đường dẫn gốc của trang.
 
 ---
 

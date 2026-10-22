@@ -22,7 +22,7 @@ metadata:
       - packages/contracts/src/index.ts
       - apps/web/src/modules/zca/presentation/components/thread-storage-links-dialog.tsx
       - apps/web/src/modules/zca/presentation/components/chat-table-row.tsx
-      - apps/web/src/modules/zca/view/thread-config-modal.tsx
+      - apps/web/src/modules/zca/view/thread-config-screen.tsx
 ---
 
 # ZCA Channel Storage (Drive/Photos history)
@@ -92,6 +92,6 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 
 ## Web UI
 
-- `/zca` table, row "⋯" menu items open Drive / open Photos open `ThreadStorageLinksDialog` (shared `Modal`, bottom sheet on mobile). `ThreadConfigModal` "Mở Google Drive / Photos" buttons open the same dialog.
+- `/zca` table, row "⋯" menu items open Drive / open Photos open `ThreadStorageLinksDialog` (shared `Modal`, bottom sheet on mobile). The thread config page (`/zca/thread?id=…`) "Mở Google Drive / Photos" banner buttons open the same dialog.
 - The dialog is rendered with `createPortal(…, document.body)`: it is opened from a table cell (`whitespace-nowrap text-right`), and a top-layer `<dialog>` still inherits those styles, which kept the description on one line and broke the layout. Any dialog opened from a table row must portal out of the cell.
 - Dialog: query `useThreadStorageLinksQuery(threadId, enabled)` (key `zcaQueryKeys.storageLinks`, `staleTime: 0`, fetched on open). Rows: title = `displayName` or label (link, new tab; label shown below when renamed), account email or "previous account", used range, `In use` badge on the current row, buttons Edit (inline form: display name, URL — disabled on the row in use, email; client-side validation with the shared validator, field errors, Save/Cancel) and Delete (`window.confirm`; disabled with a tooltip on the row in use). Mutations `useUpdateThreadStorageLinkMutation` / `useDeleteThreadStorageLinkMutation` replace the query cache with the returned list. A Drive link opens the channel root showing `bill`, `image`, `video` (+ `file`). States: skeleton, error + retry, empty, list. Strings `zca.storageLinks.*` (vi/en).
