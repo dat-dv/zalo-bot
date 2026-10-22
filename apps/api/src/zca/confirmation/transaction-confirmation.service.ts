@@ -16,7 +16,8 @@ import {
   CreateReminderDto,
   toValidReminderDate,
 } from '../../reminders/reminders.service';
-import { GoogleTasksService, CreateTaskOptions } from '../../google/google-tasks.service';
+import { CreateTaskOptions } from '../../google/google-tasks.service';
+import { TasksService } from '../../tasks/tasks.service';
 import { CreateEventOptions } from '../../google/google-calendar.service';
 import { CalendarService } from '../../calendar/calendar.service';
 import { UsersService } from '../../users/users.service';
@@ -103,6 +104,13 @@ export function normalizePlaceName(val: string): string {
     .replace(/\s+/g, ' ');
 }
 
+/** A task due date from an LLM payload; unparseable values mean "no due date". */
+function toValidTaskDue(value: unknown): Date | null {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 const REMINDER_NOTIFY_TYPES = ['text', 'call'] as const;
 const REMINDER_REPEAT_TYPES = ['none', 'daily', 'weekly'] as const;
 const REMINDER_STATUSES = ['pending', 'completed', 'snoozed', 'cancelled'] as const;
@@ -157,7 +165,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     rawMessenger: ChatMessenger | undefined,
     private readonly financeService: FinanceService,
     @Optional() private readonly remindersService?: RemindersService,
-    @Optional() private readonly googleTasksService?: GoogleTasksService,
+    @Optional() private readonly tasksService?: TasksService,
     @Optional() private readonly calendarService?: CalendarService,
     @Optional() private readonly usersService?: UsersService,
     @Optional() private readonly googleAuthService?: GoogleAuthService,
@@ -775,7 +783,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   }
 
   /**
-   * Tạo yêu cầu xác nhận việc cần làm Google Tasks.
+   * Tạo yêu cầu xác nhận việc cần làm (lưu trong zalobot, sao chép lên Google Tasks).
    */
   public async createPendingTask(params: {
     userId: string;
@@ -787,7 +795,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       userId: params.userId,
       chatId: params.chatId,
       actionType: 'CREATE_TASK',
-      title: 'thêm việc cần làm (Google Tasks)',
+      title: 'thêm việc cần làm',
       payload: params.payload,
       descriptor: TASK_DESCRIPTOR,
       rawPrompt: params.rawPrompt,
@@ -795,7 +803,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   }
 
   /**
-   * Tạo yêu cầu xác nhận hoàn thành việc cần làm trên Google Tasks.
+   * Tạo yêu cầu xác nhận hoàn thành việc cần làm.
    */
   public async createPendingCompleteTask(params: {
     userId: string;
@@ -1292,11 +1300,19 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           break;
         }
         case 'CREATE_TASK': {
-          if (!this.googleTasksService) {
-            throw new Error('GoogleTasksService chưa được cấu hình.');
+          if (!this.tasksService) {
+            throw new Error('TasksService chưa được cấu hình.');
           }
           const payload = pending.payload as unknown as CreateTaskOptions;
-          const task = await this.googleTasksService.createTask(payload, pending.userId);
+          // Saved in the shared task list; copied to Google when an account is connected.
+          const task = await this.tasksService.createTask(
+            {
+              title: payload.title,
+              notes: payload.notes,
+              dueAt: toValidTaskDue(payload.due),
+            },
+            { userId: pending.userId, chatId: pending.chatId, source: 'zalo' },
+          );
           if (!silent) {
             const summary = summarizeTask(pending.code, {
               ...payload,
@@ -1307,11 +1323,12 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           break;
         }
         case 'COMPLETE_TASK': {
-          if (!this.googleTasksService) {
-            throw new Error('GoogleTasksService chưa được cấu hình.');
+          if (!this.tasksService) {
+            throw new Error('TasksService chưa được cấu hình.');
           }
           const payload = pending.payload as unknown as CompleteTaskDto;
-          await this.googleTasksService.completeTask(payload.taskId, '@default', pending.userId);
+          // Row id, or a Google task id for actions queued before tasks moved to the DB.
+          await this.tasksService.completeTask(payload.taskId, pending.userId);
           if (!silent) {
             await this.zcaMessenger.sendMessage(
               chatId,

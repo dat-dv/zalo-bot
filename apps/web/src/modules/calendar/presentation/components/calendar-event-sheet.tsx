@@ -25,7 +25,8 @@ import {
   draftToRequest,
 } from '../../model/calendar-date-utils';
 import { CalendarEventForm } from './calendar-event-form';
-import { SYNC_TONE_CLASS, useCalendarFormat } from './use-calendar-format';
+import { SYNC_TONE_CLASS } from '@/shared/ui/google-sync';
+import { useCalendarFormat } from './use-calendar-format';
 
 /** What the sheet shows: an existing event (details, then edit) or a new event on a day. */
 export type CalendarSheetTarget =

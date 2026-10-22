@@ -17,6 +17,7 @@ import { ZcaThreadConfigEntity } from './entities/zca-thread-config.entity';
 import { ZcaMessageEntity } from './entities/zca-message.entity';
 import { ChannelStorageLinkEntity } from './entities/channel-storage-link.entity';
 import { CalendarEventEntity } from './entities/calendar-event.entity';
+import { TaskEntity } from './entities/task.entity';
 import { AuditLogSubscriber } from './audit-log.subscriber';
 import { InitSchema1724650000000 } from './migrations/1724650000000-InitSchema';
 import { MigrateLegacyPlaceContacts1724660000000 } from './migrations/1724660000000-MigrateLegacyPlaceContacts';
@@ -41,6 +42,7 @@ import { AddDisplayNameToChannelStorageLinks1724840000000 } from './migrations/1
 import { AddProfileFieldsToDebtContacts1724850000000 } from './migrations/1724850000000-AddProfileFieldsToDebtContacts';
 import { AddCodeHashToDashboardExchangeTokens1724860000000 } from './migrations/1724860000000-AddCodeHashToDashboardExchangeTokens';
 import { CreateCalendarEvents1724870000000 } from './migrations/1724870000000-CreateCalendarEvents';
+import { CreateTasks1724880000000 } from './migrations/1724880000000-CreateTasks';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -72,6 +74,7 @@ export const AppDataSource = new DataSource({
     ZcaMessageEntity,
     ChannelStorageLinkEntity,
     CalendarEventEntity,
+    TaskEntity,
   ],
   subscribers: [AuditLogSubscriber],
   migrations: [
@@ -98,6 +101,7 @@ export const AppDataSource = new DataSource({
     AddProfileFieldsToDebtContacts1724850000000,
     AddCodeHashToDashboardExchangeTokens1724860000000,
     CreateCalendarEvents1724870000000,
+    CreateTasks1724880000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

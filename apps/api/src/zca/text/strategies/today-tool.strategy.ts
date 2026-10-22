@@ -4,8 +4,8 @@ import { TextToolType } from '../text-tool.enum';
 import { ZcaMessengerService } from '../../zca-messenger.service';
 import { CalendarService } from '../../../calendar/calendar.service';
 import { formatEventStartVN } from '../../../calendar/calendar-event.mapper';
-import { GoogleTasksService } from '../../../google/google-tasks.service';
-import { GoogleAuthService } from '../../../google/google-auth.service';
+import { TasksService } from '../../../tasks/tasks.service';
+import { formatTaskDueVN } from '../../../tasks/task.mapper';
 import { FinanceService } from '../../../finance/finance.service';
 import { getStartAndEndOfDayInTz } from '../../../common/utils/datetime.util';
 
@@ -17,14 +17,11 @@ export class TodayToolStrategy implements TextToolStrategy {
   constructor(
     private readonly zcaMessenger: ZcaMessengerService,
     private readonly calendarService: CalendarService,
-    private readonly tasksService: GoogleTasksService,
-    private readonly googleAuthService: GoogleAuthService,
+    private readonly tasksService: TasksService,
     private readonly financeService: FinanceService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
-    const isGoogleConnected = this.googleAuthService.isAuthorized(context.senderId);
-
     const now = new Date();
     const { startOfDay, endOfDay } = getStartAndEndOfDayInTz(now, 'Asia/Ho_Chi_Minh');
 
@@ -56,32 +53,24 @@ export class TodayToolStrategy implements TextToolStrategy {
       calendarSection = '📅 Lịch hẹn: Không thể tra cứu lúc này.';
     }
 
-    // Events live in zalobot; tasks still come straight from Google Tasks.
-    if (isGoogleConnected) {
-      try {
-        const tasks = await this.tasksService.listTasks(
-          { showCompleted: false, maxResults: 10 },
-          context.senderId,
-        );
+    // Events and tasks both live in zalobot; Google only holds copies.
+    try {
+      const tasks = await this.tasksService.listTasks({
+        status: 'needsAction',
+        limit: 10,
+        importForUserId: context.senderId,
+      });
 
-        if (tasks.length === 0) {
-          tasksSection = '📝 Việc cần làm: Tuyệt vời! Không còn việc nào tồn đọng.';
-        } else {
-          tasksSection =
-            `📝 Việc cần làm (${tasks.length}):\n` +
-            tasks
-              .map((t, idx) => {
-                const dueText = t.due ? ` (Hạn: ${t.due.slice(0, 10)})` : '';
-                return `  ${idx + 1}. ▫️ ${t.title || 'Chưa đặt tên'}${dueText}`;
-              })
-              .join('\n');
-        }
-      } catch (err) {
-        this.logger.error(`Failed to fetch tasks: ${(err as Error).message}`);
-        tasksSection = '📝 Việc cần làm: Không thể tra cứu lúc này.';
+      if (tasks.length === 0) {
+        tasksSection = '📝 Việc cần làm: Tuyệt vời! Không còn việc nào tồn đọng.';
+      } else {
+        tasksSection =
+          `📝 Việc cần làm (${tasks.length}):\n` +
+          tasks.map((t, idx) => `  ${idx + 1}. ▫️ ${t.title}${formatTaskDueVN(t)}`).join('\n');
       }
-    } else {
-      tasksSection = '⚠️ Google Tasks: Chưa kết nối. Gõ /login để liên kết ngay.';
+    } catch (err) {
+      this.logger.error(`Failed to fetch tasks: ${(err as Error).message}`);
+      tasksSection = '📝 Việc cần làm: Không thể tra cứu lúc này.';
     }
 
     let financeSection = '';

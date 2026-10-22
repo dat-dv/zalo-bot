@@ -10,7 +10,7 @@ import {
   CreateDebtDto,
 } from '../../finance/finance.service';
 import { RemindersService, CreateReminderDto } from '../../reminders/reminders.service';
-import { GoogleTasksService, CreateTaskOptions } from '../../google/google-tasks.service';
+import type { TaskActor, TaskInput, TasksService } from '../../tasks/tasks.service';
 import type {
   CalendarActor,
   CalendarEventInput,
@@ -30,8 +30,8 @@ interface TestContext {
   deletedTransactions: Array<{ id: string }>;
   createdDebts: CreateDebtDto[];
   createdReminders: CreateReminderDto[];
-  createdTasks: Array<CreateTaskOptions & { userId: string }>;
-  completedTasks: Array<{ taskId: string; listId: string; userId: string }>;
+  createdTasks: Array<TaskInput & { actor: TaskActor }>;
+  completedTasks: Array<{ taskId: string; userId: string }>;
   createdEvents: Array<CalendarEventInput & { actor: CalendarActor }>;
   deletedCalendarEvents: Array<{ eventId: string; userId: string }>;
   bannedUsers: string[];
@@ -47,8 +47,8 @@ function createTestContext(
   const deletedTransactions: Array<{ id: string }> = [];
   const createdDebts: CreateDebtDto[] = [];
   const createdReminders: CreateReminderDto[] = [];
-  const createdTasks: Array<CreateTaskOptions & { userId: string }> = [];
-  const completedTasks: Array<{ taskId: string; listId: string; userId: string }> = [];
+  const createdTasks: Array<TaskInput & { actor: TaskActor }> = [];
+  const completedTasks: Array<{ taskId: string; userId: string }> = [];
   const createdEvents: Array<CalendarEventInput & { actor: CalendarActor }> = [];
   const deletedCalendarEvents: Array<{ eventId: string; userId: string }> = [];
   const bannedUsers: string[] = [];
@@ -100,19 +100,16 @@ function createTestContext(
     },
   } as unknown as RemindersService;
 
-  const mockGoogleTasksService = {
-    createTask: (options: CreateTaskOptions, userId: string) => {
-      createdTasks.push({ ...options, userId });
-      return Promise.resolve({
-        id: 'task_1',
-        title: options.title,
-      } as never);
+  const mockTasksService = {
+    createTask: (input: TaskInput, actor: TaskActor) => {
+      createdTasks.push({ ...input, actor });
+      return Promise.resolve({ id: 'task_1', title: input.title } as never);
     },
-    completeTask: (taskId: string, listId: string, userId: string) => {
-      completedTasks.push({ taskId, listId, userId });
-      return Promise.resolve(true);
+    completeTask: (taskId: string, userId: string) => {
+      completedTasks.push({ taskId, userId });
+      return Promise.resolve({ id: taskId } as never);
     },
-  } as unknown as GoogleTasksService;
+  } as unknown as TasksService;
 
   const mockCalendarService = {
     createEvent: (input: CalendarEventInput, actor: CalendarActor) => {
@@ -143,7 +140,7 @@ function createTestContext(
     mockZaloService,
     mockFinanceService,
     mockRemindersService,
-    mockGoogleTasksService,
+    mockTasksService,
     mockCalendarService,
     mockUsersService,
     mockGoogleAuthService,
@@ -462,7 +459,7 @@ void test('parseReminderPayload revives ISO remindAt and rejects invalid values'
   assert.throws(() => parseReminderPayload({ userId: 'u1', title: '  ', remindAt: new Date() }));
 });
 
-void test('TransactionConfirmationService creates and confirms Google Task with strict shape', async () => {
+void test('TransactionConfirmationService creates and confirms a task with strict shape', async () => {
   const { service, sentMessages, createdTasks } = createTestContext();
 
   const pending = await service.createPendingTask({
@@ -483,6 +480,8 @@ void test('TransactionConfirmationService creates and confirms Google Task with 
   await service.handleCommand('u1', 'c1', `yes ${pending.code}`);
   assert.equal(createdTasks.length, 1);
   assert.equal(createdTasks[0].title, 'Hoàn thành báo cáo quý 4');
+  assert.equal(createdTasks[0].dueAt?.toISOString(), '2026-10-20T23:59:59.000Z');
+  assert.deepEqual(createdTasks[0].actor, { userId: 'u1', chatId: 'c1', source: 'zalo' });
   assert.match(sentMessages[1].text, /^✅ \[\d{3}\] Thêm việc: Hoàn thành báo cáo quý 4/);
 
   service.clearAll();
@@ -1012,7 +1011,7 @@ void test('TransactionConfirmationService captures messageId from sendMessageWit
     mockZaloService,
     mockFinanceService,
     {} as unknown as RemindersService,
-    {} as unknown as GoogleTasksService,
+    {} as unknown as TasksService,
     {} as unknown as CalendarService,
     {} as unknown as UsersService,
     {} as unknown as GoogleAuthService,
@@ -1079,7 +1078,7 @@ void test('TransactionConfirmationService captures cliMsgId and exposes undoMess
     mockZaloService,
     mockFinanceService,
     {} as unknown as RemindersService,
-    {} as unknown as GoogleTasksService,
+    {} as unknown as TasksService,
     {} as unknown as CalendarService,
     {} as unknown as UsersService,
     {} as unknown as GoogleAuthService,

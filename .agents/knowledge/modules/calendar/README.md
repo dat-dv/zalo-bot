@@ -11,6 +11,8 @@ metadata:
       - apps/api/src/database/entities/calendar-event.entity.ts
       - apps/api/src/database/migrations/1724870000000-CreateCalendarEvents.ts
       - apps/api/src/google/google-calendar.service.ts
+      - apps/api/src/google/google-copy.util.ts
+      - apps/web/src/shared/ui/google-sync.ts
       - apps/web/src/modules/calendar/api/calendar-api.ts
       - apps/web/src/modules/calendar/api/calendar-query.ts
       - apps/web/src/modules/calendar/model/calendar-date-utils.ts
@@ -55,6 +57,7 @@ Shared system calendar. Events live in the DB (`calendar_events`); Google Calend
 - `getEvent(id)`: by uuid, or by `google_event_id` (bot delete actions queued in Redis before the DB move).
 - `listEvents({ timeMin, timeMax?, query?, limit?, importForUserId? })`: overlap query (`end_at > timeMin AND start_at < timeMax`), ILIKE on title/location/description, ordered by start, default limit 500.
 - **Import from Google** (when `importForUserId` set): for the viewer's account (needs authorization + known email). First time an account is seen: import ±365 days (flag `calendar:initial-import:<email>` in Redis, plus in-memory). Then per `(email, range)` at most every 5 min (in-memory), concurrent callers share one run. Upsert by `(email, google_event_id)`; rows deleted in zalobot are never resurrected; rows of that account starting inside the range that Google no longer returns are soft-deleted (deleted in Google). Written with `callListeners(false)` so bulk imports do not flood `audit_logs`; user writes go through `save()` and are audited.
+- Google-copy helpers shared with tasks live in `apps/api/src/google/google-copy.util.ts` (copy target, connected emails, creator/chat lookups, `toGoogleCopySync`); web sync badge tones/states in `apps/web/src/shared/ui/google-sync.ts`.
 - `toItems(rows, viewerId)`: `ICalendarEventItem` with creator name (current `users.first_name` wins over the snapshot), source chat name/type (`zca_thread_configs`), `sync { status, accountEmail, isCurrentAccount, syncedAt }` (`isCurrentAccount` = email is the viewer's or the shared account's).
 
 ### HTTP (`CalendarController`, Bearer dashboard token, any signed-in user)
@@ -73,7 +76,7 @@ Errors: unknown id → 404; Google failures never fail the request (reflected in
 ### Other callers
 
 - `GET /api/dashboard` `calendar`: next 7 days from `CalendarService` (limit 10), independent of Google connection.
-- Bot: `/today`, `/week`, `LIST_CALENDAR_EVENTS` read the DB (with import); `DELETE_CALENDAR_EVENT` searches upcoming DB events; `CREATE_CALENDAR_EVENT` no longer requires Google. Confirm (`TransactionConfirmationService`) creates via `CalendarService` with `{ userId, chatId, source: 'zalo' }` and deletes by id. Tasks parts of `/today`, `/week` still need Google.
+- Bot: `/today`, `/week`, `LIST_CALENDAR_EVENTS` read the DB (with import); `DELETE_CALENDAR_EVENT` searches upcoming DB events; `CREATE_CALENDAR_EVENT` no longer requires Google. Confirm (`TransactionConfirmationService`) creates via `CalendarService` with `{ userId, chatId, source: 'zalo' }` and deletes by id. Tasks parts of `/today`, `/week` read the DB too (see `modules/tasks/README.md`).
 
 ## Web: `apps/web/src/modules/calendar`
 

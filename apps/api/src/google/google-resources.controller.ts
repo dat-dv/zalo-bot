@@ -2,14 +2,9 @@ import {
   BadRequestException,
   Body,
   Controller,
-  Delete,
-  ForbiddenException,
   Get,
   Logger,
-  NotFoundException,
   Optional,
-  Param,
-  Patch,
   Post,
   Query,
   Req,
@@ -17,16 +12,13 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
-import { type ITaskListItem, type ThreadBotConfig } from '@zalobot/contracts';
-import { type tasks_v1 } from 'googleapis';
+import { type ThreadBotConfig } from '@zalobot/contracts';
 import {
   assertDashboardAdmin,
-  getDashboardUserId,
   getDashboardUserIdFromBrowser,
   requireDashboardAdmin,
 } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
-import { GoogleTasksService } from './google-tasks.service';
 import { GoogleAuthService } from './google-auth.service';
 import { GooglePhotosService } from './google-photos.service';
 import { GoogleDriveService, GG_DRIVE_ROOT_FOLDER } from './google-drive.service';
@@ -45,14 +37,13 @@ import {
   resolveChannelPhotosAlbumTitle,
 } from './channel-storage.util';
 
-@ApiTags('Google Workspace (Tasks, Drive, Photos)')
+@ApiTags('Google Workspace (Drive, Photos)')
 @ApiBearerAuth('bearer-jwt')
 @Controller()
 export class GoogleResourcesController {
   private readonly logger = new Logger(GoogleResourcesController.name);
 
   constructor(
-    private readonly tasks: GoogleTasksService,
     private readonly tokens: ReportsTokenService,
     private readonly authService: GoogleAuthService,
     @Optional() private readonly driveService?: GoogleDriveService,
@@ -277,206 +268,12 @@ export class GoogleResourcesController {
     res.redirect(targetUrl);
   }
 
-  @Get('tasks')
-  async listTasks(@Req() req: Request, @Query() query: Record<string, string | undefined>) {
-    const userId = this.userId(req);
-    if (!this.authService.isAuthorized(userId)) {
-      return { data: [] };
-    }
-    const showCompleted = query.showCompleted === undefined ? true : query.showCompleted === 'true';
-    const showHidden = query.showHidden === undefined ? showCompleted : query.showHidden === 'true';
-    try {
-      const items = await this.tasks.listTasks(
-        {
-          taskListId: query.taskListId,
-          showCompleted,
-          showHidden,
-          dueMin: query.dueMin,
-          dueMax: query.dueMax,
-          maxResults: query.maxResults ? this.limit(query.maxResults) : 100,
-        },
-        userId,
-      );
-      return {
-        data: items.map((item) => this.mapTaskToListItem(item)),
-      };
-    } catch (err) {
-      if (
-        typeof this.authService?.handleAuthError === 'function' &&
-        (await this.authService.handleAuthError(userId, err))
-      ) {
-        return { data: [] };
-      }
-      this.logger.warn(
-        `Failed to retrieve Google Tasks for user ${userId}: ${(err as Error).message}`,
-      );
-      return { data: [] };
-    }
-  }
-
-  @Get('tasks/:id')
-  async getTask(
-    @Req() req: Request,
-    @Param('id') id: string,
-    @Query('taskListId') taskListId?: string,
-  ) {
-    const userId = this.userId(req);
-    try {
-      const item = await this.tasks.getTask(id, taskListId, userId);
-      return { data: this.mapTaskToListItem(item) };
-    } catch (err) {
-      await this.handleGoogleResourceError(userId, err, 'công việc');
-    }
-  }
-
-  @Post('tasks')
-  async createTask(@Req() req: Request, @Body() body: Record<string, unknown>) {
-    const userId = this.userId(req);
-    try {
-      const item = await this.tasks.createTask(this.taskInput(body), userId);
-      return { data: this.mapTaskToListItem(item) };
-    } catch (err) {
-      await this.handleGoogleResourceError(userId, err, 'công việc');
-    }
-  }
-
-  @Patch('tasks/:id')
-  async updateTask(
-    @Req() req: Request,
-    @Param('id') id: string,
-    @Body() body: Record<string, unknown>,
-  ) {
-    const userId = this.userId(req);
-    try {
-      const item = await this.tasks.updateTask(
-        id,
-        this.taskInput(body, true),
-        this.optional(body.taskListId),
-        userId,
-      );
-      return {
-        data: this.mapTaskToListItem(item),
-      };
-    } catch (err) {
-      await this.handleGoogleResourceError(userId, err, 'công việc');
-    }
-  }
-
-  @Delete('tasks/:id')
-  async deleteTask(
-    @Req() req: Request,
-    @Param('id') id: string,
-    @Query('taskListId') taskListId?: string,
-  ) {
-    const userId = this.userId(req);
-    try {
-      await this.tasks.deleteTask(id, taskListId, userId);
-      return { data: { deleted: true } };
-    } catch (err) {
-      await this.handleGoogleResourceError(userId, err, 'công việc');
-    }
-  }
-
-  private async handleGoogleResourceError(
-    userId: string | number,
-    err: unknown,
-    resourceName: string,
-  ): Promise<never> {
-    if (
-      err instanceof BadRequestException ||
-      err instanceof NotFoundException ||
-      err instanceof ForbiddenException
-    ) {
-      throw err;
-    }
-    if (
-      typeof this.authService?.handleAuthError === 'function' &&
-      (await this.authService.handleAuthError(userId, err))
-    ) {
-      throw new BadRequestException(
-        'Tài khoản Google của bạn chưa được kết nối hoặc phiên đăng nhập đã hết hạn. Vui lòng gõ /login trên bot để liên kết lại tài khoản.',
-      );
-    }
-    const gError = err as {
-      status?: number;
-      response?: { status?: number; data?: { error?: string | { message?: string } } };
-      message?: string;
-    };
-    const status = gError.response?.status || gError.status;
-    const respError = gError.response?.data?.error;
-    const msg =
-      typeof respError === 'string'
-        ? respError
-        : typeof respError === 'object' && respError?.message
-          ? respError.message
-          : gError.message || '';
-
-    if (status === 404) {
-      throw new NotFoundException(`Không tìm thấy ${resourceName} trên Google.`);
-    }
-    if (status === 403) {
-      throw new ForbiddenException(`Không có quyền truy cập ${resourceName} trên Google.`);
-    }
-    if (status === 400) {
-      throw new BadRequestException(msg || `Dữ liệu ${resourceName} không hợp lệ.`);
-    }
-    throw new BadRequestException(msg || `Thao tác ${resourceName} trên Google thất bại.`);
-  }
-
-  private mapTaskToListItem(item: tasks_v1.Schema$Task): ITaskListItem {
-    return {
-      id: item.id || item.title || 'task',
-      title: item.title || 'Không có tiêu đề',
-      notes: item.notes || undefined,
-      dueAt: item.due || undefined,
-      status: (item.status as 'needsAction' | 'completed') || 'needsAction',
-      updatedAt: item.updated || undefined,
-      completedAt: item.completed || undefined,
-    };
-  }
-
-  private userId(req: Request) {
-    return getDashboardUserId(req, this.tokens);
-  }
   private admin(req: Request) {
     return requireDashboardAdmin(req, this.tokens, this.usersService);
   }
   /** `drive/open` and `photos/open` are plain `<a href>` links, so the refresh cookie is accepted. */
   private browserAdmin(req: Request) {
     return assertDashboardAdmin(getDashboardUserIdFromBrowser(req, this.tokens), this.usersService);
-  }
-  private text(value: unknown, name: string) {
-    if (typeof value !== 'string' || !value.trim())
-      throw new BadRequestException(`${name} is required.`);
-    return value.trim();
-  }
-  private optional(value: unknown) {
-    return value === undefined || value === null ? undefined : this.text(value, 'value');
-  }
-  private date(value: unknown, name: string) {
-    const result = this.text(value, name);
-    if (Number.isNaN(new Date(result).getTime()))
-      throw new BadRequestException(`${name} is invalid.`);
-    return result;
-  }
-  private limit(value: string) {
-    const number = Number(value);
-    if (!Number.isInteger(number) || number < 1 || number > 100)
-      throw new BadRequestException('maxResults is invalid.');
-    return number;
-  }
-  private taskInput(body: Record<string, unknown>, partial = false) {
-    return {
-      title: body.title === undefined && partial ? undefined : this.text(body.title, 'title'),
-      notes: this.optional(body.notes),
-      due: body.due === undefined ? undefined : this.date(body.due, 'due'),
-      taskListId: this.optional(body.taskListId),
-      status: body.status === undefined ? undefined : this.status(body.status),
-    };
-  }
-  private status(value: unknown): 'needsAction' | 'completed' {
-    if (value === 'needsAction' || value === 'completed') return value;
-    throw new BadRequestException('status is invalid.');
   }
 
   /** Group folders live on the thread config; only 1-1 channels map to a user record. */

@@ -12,6 +12,7 @@ import { FinanceModule } from './finance/finance.module';
 import { AuditModule } from './audit/audit.module';
 import { ReportsModule } from './reports/reports.module';
 import { CalendarModule } from './calendar/calendar.module';
+import { TasksModule } from './tasks/tasks.module';
 import { fromApiRoot, fromProjectRoot } from './config/project-root';
 import { CommonModule } from './common/common.module';
 import { HealthModule } from './health/health.module';
@@ -36,6 +37,7 @@ import { HealthModule } from './health/health.module';
     UsersModule,
     GoogleModule,
     CalendarModule,
+    TasksModule,
     RemindersModule,
     FinanceModule,
     AuditModule,

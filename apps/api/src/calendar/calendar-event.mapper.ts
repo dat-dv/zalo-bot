@@ -1,6 +1,11 @@
 import type { calendar_v3 } from 'googleapis';
 import type { ICalendarEventItem } from '@zalobot/contracts';
 import type { CalendarEventEntity } from '../database/entities/calendar-event.entity';
+import {
+  type RecordOriginLookups,
+  creatorDisplayName,
+  toGoogleCopySync,
+} from '../google/google-copy.util';
 
 /** Event fields shared by a `calendar_events` row and its Google copy. */
 export interface CalendarEventFields {
@@ -126,20 +131,14 @@ export function differsFromRow(row: CalendarEventEntity, fields: CalendarEventFi
   );
 }
 
-/** Names looked up in one batch per response (users.firstName, zca_thread_configs.thread_name). */
-export interface CalendarItemLookups {
-  userNames: ReadonlyMap<string, string>;
-  chats: ReadonlyMap<string, { name?: string; type: 'user' | 'group' }>;
-  /** Google accounts the system can currently write to. */
-  connectedEmails: ReadonlySet<string>;
-}
+/** Names looked up in one batch per response; see `loadRecordOriginLookups`. */
+export type CalendarItemLookups = RecordOriginLookups;
 
 export function toCalendarEventItem(
   row: CalendarEventEntity,
   lookups: CalendarItemLookups,
 ): ICalendarEventItem {
   const chat = row.sourceChatId ? lookups.chats.get(row.sourceChatId) : undefined;
-  const accountEmail = row.googleAccountEmail ?? undefined;
   return {
     id: row.id,
     title: row.title,
@@ -151,20 +150,11 @@ export function toCalendarEventItem(
     allDay: row.allDay,
     reminderMinutes: row.reminderMinutes ?? [],
     createdByUserId: row.createdByUserId ?? undefined,
-    // Current profile name wins; the snapshot covers creators without a users row.
-    createdByName:
-      (row.createdByUserId && lookups.userNames.get(row.createdByUserId)) ||
-      row.createdByName ||
-      undefined,
+    createdByName: creatorDisplayName(row, lookups),
     source: row.source,
     sourceChatName: chat?.name,
     sourceChatType: chat?.type,
-    sync: {
-      status: row.syncStatus,
-      accountEmail,
-      isCurrentAccount: accountEmail ? lookups.connectedEmails.has(accountEmail) : true,
-      syncedAt: row.syncedAt?.toISOString(),
-    },
+    sync: toGoogleCopySync(row, lookups),
     createdAt: row.createdAt?.toISOString(),
   };
 }

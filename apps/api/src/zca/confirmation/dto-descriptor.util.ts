@@ -234,7 +234,7 @@ export const REMINDER_DESCRIPTOR: DtoDescriptor<CreateReminderDto> = {
 };
 
 /**
- * Strict Descriptor cho CreateTaskOptions (Google Tasks).
+ * Strict Descriptor cho CreateTaskOptions (việc cần làm).
  */
 export const TASK_DESCRIPTOR: DtoDescriptor<CreateTaskOptions> = {
   title: {
@@ -294,7 +294,7 @@ export const CALENDAR_EVENT_DESCRIPTOR: DtoDescriptor<CreateEventOptions> = {
 };
 
 /**
- * DTO đại diện cho việc hoàn thành công việc Google Tasks.
+ * DTO đại diện cho việc hoàn thành một việc cần làm (`taskId` là id trong DB, hoặc id Google cũ).
  */
 export interface CompleteTaskDto {
   taskId: string;

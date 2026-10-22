@@ -21,7 +21,7 @@ REST surface of `apps/api` (global prefix `/api`). The API is organized by top-l
 ## Identity & Scoping
 
 - Caller identity comes only from the dashboard Bearer access token (`getDashboardUserId`). No endpoint accepts a client `userId` for scoping.
-- Finance data (transactions, places, contacts, debts, payments, allocations, categories) is ONE shared store: every signed-in user reads and writes all of it; the token only authenticates (see finance-domain). Reminder, calendar, and task records stay scoped to the caller; calendar/task calls act on the caller's linked Google account. OAuth tokens and audit rows are never returned.
+- Finance data (transactions, places, contacts, debts, payments, allocations, categories) is ONE shared store: every signed-in user reads and writes all of it; the token only authenticates (see finance-domain). Calendar events and tasks are shared the same way (DB records with a Google copy); reminder records stay scoped to the caller. OAuth tokens and audit rows are never returned.
 - `/api/users*` requires admin (`UsersService.isAdmin`: the ZCA own account or a user with admin role); otherwise `403`.
 - `POST /api/drive/share`, `GET /api/drive/folder-link`, `GET /api/photos/album-link` require a dashboard admin (`requireDashboardAdmin`, Bearer); `GET /api/drive/open`, `GET /api/photos/open` are `<a href>` links and accept the Bearer token or the dashboard refresh cookie, admin only (`getDashboardUserIdFromBrowser` + `assertDashboardAdmin`). 401 without a token, 403 for non-admins.
 
@@ -41,7 +41,7 @@ REST surface of `apps/api` (global prefix `/api`). The API is organized by top-l
 | Reminders | `GET/POST /api/reminders`, `GET/PATCH/DELETE /api/reminders/:id` (`title`, `remindAt`, `notifyType`, `repeatType`) |
 | Users (admin) | `GET/POST /api/users`, `GET/PATCH/DELETE /api/users/:id`, `POST /api/users/sync-zca`, `PATCH /api/users/:id/grant-access`, `GET /api/users/:id/merge-preview?targetUserId=`, `POST /api/users/:id/merge`, `GET /api/users/:id/linked-contacts` |
 | Calendar (shared, DB) | `GET/POST /api/calendar/events`, `GET/PATCH/DELETE /api/calendar/events/:id`, `POST /api/calendar/events/:id/resync` (see `modules/calendar/README.md`) |
-| Google | `GET/POST /api/tasks`, `GET/PATCH/DELETE /api/tasks/:id` |
+| Tasks (shared, DB) | `GET/POST /api/tasks`, `GET/PATCH/DELETE /api/tasks/:id`, `POST /api/tasks/:id/resync` (see `modules/tasks/README.md`) |
 
 ## Business Rules
 

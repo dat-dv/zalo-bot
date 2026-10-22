@@ -367,7 +367,6 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
         <DataPanel
           title={t('dashboard.tasks')}
           titleHref={APP_ROUTES.tasks}
-          description={data.user.googleConnected ? undefined : t('dashboard.connectGoogleTip')}
           counter={t('table.rowsCount', { count: filteredTasks.length })}
           toolbar={panelSearch(taskSearch, setTaskSearch)}
         >

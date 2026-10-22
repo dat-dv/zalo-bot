@@ -15,18 +15,18 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
-import { tasks_v1 } from 'googleapis';
 import { AuditService } from '../audit/audit.service';
 import { FinanceService } from '../finance/finance.service';
 import { GoogleAuthService } from '../google/google-auth.service';
 import { CalendarService } from '../calendar/calendar.service';
-import { GoogleTasksService } from '../google/google-tasks.service';
+import { TasksService } from '../tasks/tasks.service';
 import { RemindersService } from '../reminders/reminders.service';
 import { UsersService } from '../users/users.service';
 import { DebtEntity } from '../database/entities/debt.entity';
 import type {
   IApiResponse,
   ICalendarEventItem,
+  ITaskListItem,
   IDashboardAccessTokenResponse,
 } from '@zalobot/contracts';
 import { ReportsTokenService } from './reports-token.service';
@@ -67,7 +67,7 @@ export class ReportsController {
     private readonly audit: AuditService,
     private readonly googleAuth: GoogleAuthService,
     private readonly calendar: CalendarService,
-    private readonly tasks: GoogleTasksService,
+    private readonly tasks: TasksService,
     private readonly reminders: RemindersService,
     private readonly users: UsersService,
     private readonly tokens: ReportsTokenService,
@@ -177,13 +177,13 @@ export class ReportsController {
   @ApiOperation({ summary: 'Lấy dữ liệu tổng quan cho Dashboard' })
   public async dashboard(@Req() req: Request) {
     const userId = this.getAccessUserId(req);
-    // Finance figures are system-wide; calendar, tasks, reminders stay personal.
+    // Finance, calendar and tasks are system-wide; reminders stay personal.
     const now = new Date();
     const startAt = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const endAt = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
     const googleConnected = this.googleAuth.isAuthorized(userId);
     const calendarPromise = this.getCalendarEvents(String(userId), now);
-    const tasksPromise = this.getTasks(googleConnected, userId);
+    const tasksPromise = this.getTasks(String(userId));
     const [summary, ledgerBalance, debts, reminders, activity, calendar, tasks] = await Promise.all(
       [
         this.finance.getSummary(startAt, endAt),
@@ -216,15 +216,7 @@ export class ReportsController {
         transactions: await this.finance.toTransactionItems(summary.transactions.slice(0, 20)),
         debts: debts.map((item) => this.mapDebt(item)),
         calendar,
-        tasks: tasks.map((item) => ({
-          id: item.id || item.title || 'task',
-          title: item.title || 'Không có tiêu đề',
-          notes: item.notes || undefined,
-          dueAt: item.due || undefined,
-          status: (item.status as 'needsAction' | 'completed') || 'needsAction',
-          updatedAt: item.updated || undefined,
-          completedAt: item.completed || undefined,
-        })),
+        tasks,
         reminders: reminders.slice(0, 10).map((item) => ({
           id: item.id,
           title: item.title,
@@ -386,16 +378,10 @@ export class ReportsController {
     }
   }
 
-  private async getTasks(
-    googleConnected: boolean,
-    userId: number | string,
-  ): Promise<tasks_v1.Schema$Task[]> {
-    if (!googleConnected) return [];
+  private async getTasks(userId: string): Promise<ITaskListItem[]> {
     try {
-      return await this.tasks.listTasks(
-        { maxResults: 50, showCompleted: true, showHidden: true },
-        userId,
-      );
+      const rows = await this.tasks.listTasks({ limit: 50, importForUserId: userId });
+      return await this.tasks.toItems(rows, userId);
     } catch {
       return [];
     }

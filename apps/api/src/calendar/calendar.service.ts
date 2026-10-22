@@ -8,6 +8,12 @@ import { UserEntity } from '../database/entities/user.entity';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 import { GoogleAuthService } from '../google/google-auth.service';
 import { GoogleCalendarService } from '../google/google-calendar.service';
+import {
+  errorMessage,
+  googleErrorStatus,
+  loadRecordOriginLookups,
+  resolveGoogleCopyTarget,
+} from '../google/google-copy.util';
 import { RedisService } from '../redis/redis.service';
 import {
   type CalendarEventFields,
@@ -54,24 +60,6 @@ const DAY_MS = 86_400_000;
 const IMPORT_THROTTLE_MS = 5 * 60_000;
 const INITIAL_IMPORT_DAYS = 365;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function googleStatus(err: unknown): number | undefined {
-  if (typeof err !== 'object' || err === null) return undefined;
-  const { code, status, response } = err as {
-    code?: unknown;
-    status?: unknown;
-    response?: { status?: unknown };
-  };
-  for (const value of [response?.status, status, code]) {
-    if (typeof value === 'number') return value;
-  }
-  return undefined;
-}
-
-function errorMessage(err: unknown): string {
-  if (err instanceof Error) return err.message;
-  return typeof err === 'string' ? err : 'Unknown error';
-}
 
 /**
  * The system calendar. Events live in `calendar_events` (shared by everyone, like the
@@ -188,7 +176,7 @@ export class CalendarService {
         try {
           await this.google.deleteEvent(row.googleEventId, target.userId);
         } catch (err) {
-          const status = googleStatus(err);
+          const status = googleErrorStatus(err);
           // Already gone on Google (deleted there or never existed): nothing left to do.
           if (status !== 404 && status !== 410) {
             this.logger.warn(`Could not delete Google copy of ${row.id}: ${errorMessage(err)}`);
@@ -278,19 +266,8 @@ export class CalendarService {
     return this.eventRepo.save(row);
   }
 
-  /** Which client reaches the Google account holding a copy: the actor's own, or the shared one. */
-  private async resolveGoogleTarget(
-    accountEmail: string | null | undefined,
-    actorId?: string,
-  ): Promise<{ reachable: boolean; userId?: string }> {
-    if (!accountEmail) return { reachable: false };
-    for (const candidate of [actorId, undefined]) {
-      if (!this.googleAuth.isAuthorized(candidate)) continue;
-      if ((await this.googleAuth.getAccountEmail(candidate)) === accountEmail) {
-        return { reachable: true, userId: candidate };
-      }
-    }
-    return { reachable: false };
+  private resolveGoogleTarget(accountEmail: string | null | undefined, actorId?: string) {
+    return resolveGoogleCopyTarget(this.googleAuth, accountEmail, actorId);
   }
 
   /** Import the viewer's Google account for a range, at most once per range every few minutes. */
@@ -424,62 +401,18 @@ export class CalendarService {
     await vanished.callListeners(false).execute();
   }
 
-  private async loadLookups(
+  private loadLookups(
     rows: readonly CalendarEventEntity[],
     viewerId?: string,
   ): Promise<CalendarItemLookups> {
-    const creatorIds = [
-      ...new Set(rows.map((row) => row.createdByUserId).filter((id): id is string => !!id)),
-    ];
-    const chatIds = [
-      ...new Set(rows.map((row) => row.sourceChatId).filter((id): id is string => !!id)),
-    ];
-    const [users, chats, connectedEmails] = await Promise.all([
-      creatorIds.length && this.userRepo
-        ? this.userRepo.find({
-            where: { id: In(creatorIds) },
-            select: { id: true, firstName: true },
-          })
-        : Promise.resolve<UserEntity[]>([]),
-      chatIds.length && this.threadConfigRepo
-        ? this.threadConfigRepo.find({
-            where: { threadId: In(chatIds) },
-            select: { threadId: true, threadName: true, threadType: true },
-          })
-        : Promise.resolve<ZcaThreadConfigEntity[]>([]),
-      this.connectedEmails(viewerId),
-    ]);
-    return {
-      userNames: new Map(
-        users.flatMap((user): [string, string][] => {
-          const name = user.firstName?.trim();
-          return name ? [[user.id, name]] : [];
-        }),
-      ),
-      chats: new Map(
-        chats.map((chat) => [
-          chat.threadId,
-          {
-            name: chat.threadName?.trim() || undefined,
-            type: chat.threadType === 'group' ? 'group' : 'user',
-          },
-        ]),
-      ),
-      connectedEmails,
-    };
-  }
-
-  private async connectedEmails(viewerId?: string): Promise<Set<string>> {
-    const emails = new Set<string>();
-    for (const candidate of [viewerId, undefined]) {
-      if (!this.googleAuth.isAuthorized(candidate)) continue;
-      try {
-        const email = await this.googleAuth.getAccountEmail(candidate);
-        if (email) emails.add(email);
-      } catch {
-        // Unknown account: its events just show as "other account".
-      }
-    }
-    return emails;
+    return loadRecordOriginLookups(
+      rows,
+      {
+        googleAuth: this.googleAuth,
+        userRepo: this.userRepo,
+        threadConfigRepo: this.threadConfigRepo,
+      },
+      viewerId,
+    );
   }
 }

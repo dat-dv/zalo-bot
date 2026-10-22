@@ -4,7 +4,9 @@ import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { type ITaskListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { DataPanel } from '@/shared/ui/data-table';
+import { googleSyncState } from '@/shared/ui/google-sync';
 import { TasksTable, type TaskEditDraft } from './tasks-table';
 
 import { usePeriodFilter, type PeriodGrain } from '@/shared/hooks/use-period-filter';
@@ -14,6 +16,7 @@ import {
   useTasksQuery,
   useUpdateTaskMutation,
   useDeleteTaskMutation,
+  useResyncTaskMutation,
 } from '@/modules/tasks/api/tasks-query';
 import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
 import { MOBILE_TOOLBAR_ROW, TOAST_POSITION } from '@/shared/ui/touch';
@@ -23,6 +26,13 @@ const CHIP_PHONE =
 
 const TASK_GRAINS: PeriodGrain[] = ['day', 'week', 'month', 'quarter', 'year', 'all'];
 
+/** Not (or no longer reachable) on Google: app-only, failed, or in a previous account. */
+function isUnsynced(task: ITaskListItem): boolean {
+  if (!task.sync) return false;
+  const { state } = googleSyncState(task.sync);
+  return state !== 'synced' && state !== 'pending';
+}
+
 export function TasksScreen() {
   const queryClient = useQueryClient();
   const { t } = useLocale();
@@ -31,6 +41,8 @@ export function TasksScreen() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'needsAction' | 'completed'>(
     'needsAction',
   );
+  const [unsyncedOnly, setUnsyncedOnly] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<TaskEditDraft>({
     title: '',
@@ -45,18 +57,15 @@ export function TasksScreen() {
   const tasksQuery = useTasksQuery();
   const updateMutation = useUpdateTaskMutation();
   const deleteMutation = useDeleteTaskMutation();
+  const resyncMutation = useResyncTaskMutation();
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: tasksQueryKeys.list() });
     void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.detail() });
   };
 
-  const rawList = useMemo(() => {
-    if (tasksQuery.data && tasksQuery.data.length > 0) {
-      return tasksQuery.data;
-    }
-    return dashboard.data?.tasks ?? [];
-  }, [tasksQuery.data, dashboard.data?.tasks]);
+  // Tasks live in zalobot, so the list shows whether or not Google is connected.
+  const rawList = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
 
   const isGoogleConnected = dashboard.data?.user.googleConnected;
 
@@ -73,9 +82,11 @@ export function TasksScreen() {
     let pending = 0;
     let completed = 0;
     let overdue = 0;
+    let unsynced = 0;
     const now = new Date();
 
     for (const task of periodTasks) {
+      if (isUnsynced(task)) unsynced++;
       const isCompleted = task.status === 'completed';
       if (isCompleted) {
         completed++;
@@ -92,12 +103,14 @@ export function TasksScreen() {
       pending,
       completed,
       overdue,
+      unsynced,
     };
   }, [periodTasks]);
 
   // 3. Filter by status & search
   const filteredTasks = useMemo(() => {
     return periodTasks.filter((item) => {
+      if (unsyncedOnly && !isUnsynced(item)) return false;
       if (statusFilter !== 'all') {
         const itemStatus = item.status || 'needsAction';
         if (itemStatus !== statusFilter) return false;
@@ -108,7 +121,7 @@ export function TasksScreen() {
         item.title.toLowerCase().includes(q) || (item.notes && item.notes.toLowerCase().includes(q))
       );
     });
-  }, [periodTasks, statusFilter, search]);
+  }, [periodTasks, unsyncedOnly, statusFilter, search]);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -148,8 +161,9 @@ export function TasksScreen() {
         id,
         data: {
           title: trimmedTitle,
-          notes: editDraft.notes.trim() || undefined,
-          due: editDraft.due ? new Date(`${editDraft.due}T23:59:59.000Z`).toISOString() : undefined,
+          // Empty strings clear the notes / due date.
+          notes: editDraft.notes.trim(),
+          due: editDraft.due ? new Date(`${editDraft.due}T23:59:59.000Z`).toISOString() : '',
           status: editDraft.status,
         },
       });
@@ -176,18 +190,30 @@ export function TasksScreen() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm(t('tasks.delete.confirm'))) return;
+  const confirmDelete = async () => {
+    if (!pendingDeleteId) return;
     try {
-      await deleteMutation.mutateAsync(id);
+      await deleteMutation.mutateAsync(pendingDeleteId);
+      setPendingDeleteId(null);
       showToast(t('tasks.delete.success'));
     } catch {
       // Error handled by mutation
     }
   };
 
-  const isLoading = tasksQuery.isLoading || dashboard.isLoading;
-  const isError = tasksQuery.isError || dashboard.isError;
+  const handleResync = async (task: ITaskListItem) => {
+    try {
+      const updated = await resyncMutation.mutateAsync(task.id);
+      showToast(
+        updated.sync?.status === 'synced' ? t('tasks.sync.resynced') : t('tasks.sync.failed'),
+      );
+    } catch {
+      showToast(t('tasks.sync.failed'));
+    }
+  };
+
+  const isLoading = tasksQuery.isLoading;
+  const isError = tasksQuery.isError;
 
   return (
     <>
@@ -254,11 +280,28 @@ export function TasksScreen() {
                 {stats.overdue}
               </strong>
             </article>
+            <button
+              type="button"
+              className={`flex min-h-[62px] cursor-pointer flex-col justify-center rounded-[3px] border px-3 py-2 text-left transition-colors ${
+                unsyncedOnly
+                  ? 'border-sky-500 bg-sky-50 dark:border-sky-400 dark:bg-sky-950/50'
+                  : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:bg-slate-800/60'
+              }`}
+              aria-pressed={unsyncedOnly}
+              onClick={() => setUnsyncedOnly((value) => !value)}
+            >
+              <span className="block text-[11px] font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+                {t('tasks.stats.unsynced')}
+              </span>
+              <strong className="mt-0.5 block text-base font-bold tabular-nums tracking-tight text-slate-900 dark:text-slate-100">
+                {stats.unsynced}
+              </strong>
+            </button>
           </section>
 
           <DataPanel
             title={t('dashboard.tasks')}
-            description={isGoogleConnected ? undefined : t('dashboard.connectGoogleTip')}
+            description={isGoogleConnected === false ? t('tasks.localOnlyTip') : undefined}
             counter={t('table.rowsCount', { count: filteredTasks.length })}
             toolbar={
               <div className="flex flex-wrap items-center gap-1.5 max-[640px]:w-full max-[640px]:flex-col max-[640px]:items-stretch">
@@ -296,6 +339,16 @@ export function TasksScreen() {
                   >
                     {t('tasks.filter.completed')}
                   </button>
+                  {unsyncedOnly && (
+                    <button
+                      type="button"
+                      className={`inline-flex h-6 min-h-6 cursor-pointer items-center gap-1 rounded-[3px] border border-amber-300 bg-amber-50 px-2 text-[11px] font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300 ${CHIP_PHONE}`}
+                      onClick={() => setUnsyncedOnly(false)}
+                      title={t('tasks.filter.clear')}
+                    >
+                      {t('tasks.filter.unsyncedOnly')} ✕
+                    </button>
+                  )}
                 </div>
                 <input
                   type="search"
@@ -321,12 +374,25 @@ export function TasksScreen() {
               onCancelEdit={handleCancelEdit}
               onSaveEdit={handleSaveEdit}
               onToggleStatus={handleToggleStatus}
-              onDelete={handleDelete}
+              onDelete={setPendingDeleteId}
               isPending={updateMutation.isPending}
+              showOrigin
+              onResync={handleResync}
+              resyncingId={resyncMutation.isPending ? (resyncMutation.variables ?? null) : null}
             />
           </DataPanel>
         </section>
       )}
+
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title={t('tasks.delete.title')}
+        message={t('tasks.delete.message')}
+        confirmLabel={t('tasks.actions.delete')}
+        isPending={deleteMutation.isPending}
+        onCancel={() => setPendingDeleteId(null)}
+        onConfirm={() => void confirmDelete()}
+      />
     </>
   );
 }

@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Request } from 'express';
 import { GoogleResourcesController } from './google-resources.controller';
-import { GoogleTasksService } from './google-tasks.service';
 import { GoogleAuthService } from './google-auth.service';
 import { GoogleDriveService } from './google-drive.service';
 import type { GooglePhotosService } from './google-photos.service';
@@ -34,85 +33,8 @@ function createMockRequest(userId = 'test-user'): Request {
   } as unknown as Request;
 }
 
-void test('GoogleResourcesController listTasks returns empty data array when user is not authorized', async () => {
-  const mockTokens = {
-    verifyAccessToken: () => 'user-123',
-  } as unknown as ReportsTokenService;
-
-  const mockAuthService = {
-    isAuthorized: () => false,
-  } as unknown as GoogleAuthService;
-
-  const mockTasksService = {
-    listTasks: () => Promise.reject(new Error('Should not be called')),
-  } as unknown as GoogleTasksService;
-
-  const controller = new GoogleResourcesController(mockTasksService, mockTokens, mockAuthService);
-
-  const req = createMockRequest('user-123');
-  const result = await controller.listTasks(req, {});
-
-  assert.deepEqual(result, { data: [] });
-});
-
-void test('GoogleResourcesController createTask throws BadRequestException when user is not authorized', async () => {
-  const mockTokens = {
-    verifyAccessToken: () => 'user-123',
-  } as unknown as ReportsTokenService;
-
-  const mockAuthService = {
-    isAuthorized: () => false,
-    getOAuth2Client: (): null => null,
-  } as unknown as GoogleAuthService;
-
-  const tasksService = new GoogleTasksService(mockAuthService);
-
-  const controller = new GoogleResourcesController(tasksService, mockTokens, mockAuthService);
-
-  const req = createMockRequest('user-123');
-
-  await assert.rejects(
-    async () => {
-      await controller.createTask(req, { title: 'Test Task' });
-    },
-    (err: unknown) => {
-      assert.ok(err instanceof BadRequestException);
-      assert.match(err.message, /Tài khoản Google Tasks của bạn chưa được kết nối/);
-      return true;
-    },
-  );
-});
-
-void test('GoogleResourcesController listTasks returns empty data when Google Tasks API throws auth error', async () => {
-  let revokedUserId: string | number | null = null;
-  const mockTokens = {
-    verifyAccessToken: () => 'user-123',
-  } as unknown as ReportsTokenService;
-
-  const mockAuthService = {
-    isAuthorized: () => true,
-    handleAuthError: (userId: string | number) => {
-      revokedUserId = userId;
-      return Promise.resolve(true);
-    },
-  } as unknown as GoogleAuthService;
-
-  const mockTasksService = {
-    listTasks: () => Promise.reject(new Error('invalid_token')),
-  } as unknown as GoogleTasksService;
-
-  const controller = new GoogleResourcesController(mockTasksService, mockTokens, mockAuthService);
-
-  const req = createMockRequest('user-123');
-  const result = await controller.listTasks(req, {});
-
-  assert.deepEqual(result, { data: [] });
-  assert.equal(revokedUserId, 'user-123');
-});
-
 void test('GoogleResourcesController shareDrive throws BadRequestException when email is invalid', async () => {
   const controller = new GoogleResourcesController(
-    {} as unknown as GoogleTasksService,
     adminTokens,
     {
       isSharedAuthorized: () => true,
@@ -149,7 +71,6 @@ void test('GoogleResourcesController shareDrive successfully shares channel fold
   } as unknown as GoogleDriveService;
 
   const controller = new GoogleResourcesController(
-    {} as unknown as GoogleTasksService,
     adminTokens,
     {
       isSharedAuthorized: () => true,
@@ -176,7 +97,6 @@ void test('GoogleResourcesController getDriveFolderLink returns root zalobot lin
   } as unknown as GoogleDriveService;
 
   const controller = new GoogleResourcesController(
-    {} as unknown as GoogleTasksService,
     adminTokens,
     {} as unknown as GoogleAuthService,
     mockDrive,
@@ -209,7 +129,6 @@ void test('GoogleResourcesController getDriveFolderLink returns channel folder l
   } as unknown as GoogleDriveService;
 
   const controller = new GoogleResourcesController(
-    {} as unknown as GoogleTasksService,
     adminTokens,
     {} as unknown as GoogleAuthService,
     mockDrive,
@@ -243,7 +162,6 @@ void test('GoogleResourcesController getDriveFolderLink uses customFolder if con
   } as unknown as GoogleDriveService;
 
   const controller = new GoogleResourcesController(
-    {} as unknown as GoogleTasksService,
     adminTokens,
     {} as unknown as GoogleAuthService,
     mockDrive,
@@ -267,7 +185,6 @@ void test('GoogleResourcesController openDriveFolder redirects to channel folder
   } as unknown as GoogleDriveService;
 
   const controller = new GoogleResourcesController(
-    {} as unknown as GoogleTasksService,
     adminTokens,
     {} as unknown as GoogleAuthService,
     mockDrive,
@@ -311,7 +228,6 @@ void test('GoogleResourcesController shareDrive stores numeric ZCA group folder 
   } as unknown as UsersService;
 
   const controller = new GoogleResourcesController(
-    {} as unknown as GoogleTasksService,
     adminTokens,
     {
       isSharedAuthorized: () => true,
@@ -333,7 +249,6 @@ void test('GoogleResourcesController shareDrive stores numeric ZCA group folder 
 
 void test('GoogleResourcesController shareDrive rejects requests without a dashboard token', async () => {
   const controller = new GoogleResourcesController(
-    {} as unknown as GoogleTasksService,
     adminTokens,
     {} as unknown as GoogleAuthService,
     {} as unknown as GoogleDriveService,
@@ -349,7 +264,6 @@ void test('GoogleResourcesController shareDrive rejects requests without a dashb
 
 void test('GoogleResourcesController drive/photos link routes reject non-admin users', async () => {
   const controller = new GoogleResourcesController(
-    {} as unknown as GoogleTasksService,
     adminTokens,
     {} as unknown as GoogleAuthService,
     {} as unknown as GoogleDriveService,
@@ -369,7 +283,6 @@ void test('GoogleResourcesController drive/photos link routes reject non-admin u
 
 void test('GoogleResourcesController open routes accept the admin refresh cookie and reject anonymous calls', async () => {
   const controller = new GoogleResourcesController(
-    {} as unknown as GoogleTasksService,
     adminTokens,
     {} as unknown as GoogleAuthService,
     {
@@ -419,7 +332,6 @@ void test('GoogleResourcesController getDriveFolderLink ignores a stored month s
   } as unknown as GoogleDriveService;
 
   const controller = new GoogleResourcesController(
-    {} as unknown as GoogleTasksService,
     adminTokens,
     {} as unknown as GoogleAuthService,
     mockDrive,
@@ -458,7 +370,6 @@ void test('GoogleResourcesController getPhotosAlbumLink follows the photosAlbum 
   } as unknown as GooglePhotosService;
 
   const controller = new GoogleResourcesController(
-    {} as unknown as GoogleTasksService,
     adminTokens,
     {} as unknown as GoogleAuthService,
     undefined,
