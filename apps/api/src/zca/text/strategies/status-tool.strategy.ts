@@ -32,7 +32,6 @@ export class StatusToolStrategy implements TextToolStrategy {
         `• Trạng thái: ✅ Đã kết nối (Dùng chung)${emailLine}\n` +
         `• Dịch vụ sẵn sàng:\n` +
         `  - 📅 Google Calendar (Lịch trình & cuộc họp)\n` +
-        `  - 📝 Google Tasks (Danh sách việc cần làm)\n` +
         `  - 📁 Google Drive (Lưu trữ: zalobot/bills, images, videos)\n` +
         `  - 📸 Google Photos (Album ZaloBot)`;
     } else {

@@ -2,6 +2,7 @@ import {
   API_ROUTES,
   type IApiResponse,
   type ICreateDebtPaymentRequest,
+  type ICreateDebtRequest,
   type IDebtListItem,
   type IDebtPaymentItem,
   type IUpdateDebtRequest,
@@ -13,6 +14,24 @@ export async function getDebts(signal?: AbortSignal): Promise<IDebtListItem[]> {
     signal,
   });
   return response.data.data;
+}
+
+export async function createDebt(
+  data: ICreateDebtRequest,
+  signal?: AbortSignal,
+): Promise<IDebtListItem> {
+  const response = await httpClient.post<IApiResponse<IDebtListItem>>(API_ROUTES.debts, data, {
+    signal,
+  });
+  return response.data.data;
+}
+
+export async function deleteDebt(id: string, signal?: AbortSignal): Promise<boolean> {
+  const response = await httpClient.delete<IApiResponse<{ deleted: boolean }>>(
+    `${API_ROUTES.debts}/${id}`,
+    { signal },
+  );
+  return response.data.data.deleted;
 }
 
 export async function updateDebt(

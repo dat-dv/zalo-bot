@@ -17,7 +17,6 @@ metadata:
 
 - `openid`, `userinfo.email`, `userinfo.profile` — identify the connected account.
 - `calendar` — read/create/update/delete events on user command.
-- `tasks` — Google Tasks create/list/complete.
 - `drive.file` — app-created Drive folders/files for channel partitions (`zalobot/<channelId>/<category>`) and folder sharing.
 - `photoslibrary.appendonly` — create albums and upload bill/image/video media.
 

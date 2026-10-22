@@ -624,7 +624,8 @@ export function DebtsTable({
                   type="button"
                   className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-rose-200 bg-rose-50 px-1.5 text-[11px] font-medium text-rose-700 whitespace-nowrap transition-colors hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-950/70"
                   onClick={() => void onDelete(item.id)}
-                  title={t('common.cancel')}
+                  title={t('debts.actions.delete')}
+                  aria-label={t('debts.actions.delete')}
                 >
                   ✕
                 </button>

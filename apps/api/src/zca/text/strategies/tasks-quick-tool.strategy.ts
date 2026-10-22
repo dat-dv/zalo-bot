@@ -31,13 +31,9 @@ export class TasksQuickToolStrategy implements TextToolStrategy {
             source: 'zalo',
           },
         );
-        const syncNote =
-          created.syncStatus === 'synced'
-            ? ''
-            : '\n\nℹ️ Việc đã lưu trong zalobot nhưng chưa lên Google Tasks (chưa kết nối Google hoặc đồng bộ lỗi).';
         await this.zcaMessenger.sendMessage(
           context.chatId,
-          `✅ Đã thêm việc cần làm!\n\n• Tiêu đề: ${created.title}${syncNote}`,
+          `✅ Đã thêm việc cần làm!\n\n• Tiêu đề: ${created.title}`,
         );
         return;
       } catch (err) {
@@ -55,7 +51,6 @@ export class TasksQuickToolStrategy implements TextToolStrategy {
       const tasks = await this.tasksService.listTasks({
         status: 'needsAction',
         limit: 15,
-        importForUserId: context.senderId,
       });
 
       if (tasks.length === 0) {

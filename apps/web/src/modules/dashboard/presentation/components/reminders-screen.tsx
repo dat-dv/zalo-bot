@@ -14,11 +14,14 @@ import {
 } from '@/modules/reminders/api/reminders-query';
 import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
 import { TOAST_POSITION } from '@/shared/ui/touch';
+import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
+import { CreateReminderDialog } from './create-reminder-dialog';
 
 export function RemindersScreen() {
   const queryClient = useQueryClient();
   const { t } = useLocale();
   const [search, setSearch] = useState('');
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<ReminderEditDraft>({
     title: '',
@@ -161,14 +164,24 @@ export function RemindersScreen() {
             title={t('dashboard.reminders')}
             counter={t('table.rowsCount', { count: filteredReminders.length })}
             toolbar={
-              <input
-                type="search"
-                className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:h-10 max-[640px]:w-full"
-                placeholder={t('table.searchPlaceholder')}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                aria-label={t('table.searchPlaceholder')}
-              />
+              <div className="flex flex-wrap items-center gap-1.5 max-[640px]:w-full">
+                <button
+                  type="button"
+                  // Compact screens get this action in the MobileActionBar instead.
+                  className="inline-flex h-6 min-h-6 max-[960px]:hidden cursor-pointer items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                  onClick={() => setIsCreateOpen(true)}
+                >
+                  + {t('reminders.actions.create')}
+                </button>
+                <input
+                  type="search"
+                  className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:h-10 max-[640px]:w-full"
+                  placeholder={t('table.searchPlaceholder')}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  aria-label={t('table.searchPlaceholder')}
+                />
+              </div>
             }
           >
             <RemindersTable
@@ -190,6 +203,25 @@ export function RemindersScreen() {
           </DataPanel>
         </section>
       )}
+
+      <MobileActionBar>
+        <button
+          type="button"
+          className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+          onClick={() => setIsCreateOpen(true)}
+        >
+          + {t('reminders.actions.create')}
+        </button>
+      </MobileActionBar>
+
+      <CreateReminderDialog
+        open={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onCreated={() => {
+          setIsCreateOpen(false);
+          showToast(t('reminders.create.success'));
+        }}
+      />
     </>
   );
 }

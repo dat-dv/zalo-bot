@@ -3,7 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { GoogleAuthController } from './google-auth.controller';
 import { GoogleAuthService } from './google-auth.service';
 import { GoogleCalendarService } from './google-calendar.service';
-import { GoogleTasksService } from './google-tasks.service';
 import { UserTokenEntity } from '../database/entities/user-token.entity';
 import { TokenEncryptionService } from './token-encryption.service';
 import { GoogleResourcesController } from './google-resources.controller';
@@ -25,17 +24,10 @@ import { GooglePhotosService } from './google-photos.service';
   providers: [
     GoogleAuthService,
     GoogleCalendarService,
-    GoogleTasksService,
     GoogleDriveService,
     GooglePhotosService,
     TokenEncryptionService,
   ],
-  exports: [
-    GoogleAuthService,
-    GoogleCalendarService,
-    GoogleTasksService,
-    GoogleDriveService,
-    GooglePhotosService,
-  ],
+  exports: [GoogleAuthService, GoogleCalendarService, GoogleDriveService, GooglePhotosService],
 })
 export class GoogleModule {}

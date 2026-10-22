@@ -32,14 +32,10 @@ export class CompleteTaskToolStrategy implements TextToolStrategy {
       const tasks = await this.tasksService.listTasks({
         status: 'needsAction',
         limit: 200,
-        importForUserId: context.senderId,
       });
 
       if (targetTaskId) {
-        // The model may pass a row id or the id of the task's Google copy.
-        const matchedById = tasks.find(
-          (t) => t.id === targetTaskId || t.googleTaskId === targetTaskId,
-        );
+        const matchedById = tasks.find((t) => t.id === targetTaskId);
         if (matchedById) {
           targetTaskId = matchedById.id;
           taskName = matchedById.title || taskName;

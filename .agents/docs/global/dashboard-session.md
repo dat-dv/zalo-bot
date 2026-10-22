@@ -68,7 +68,7 @@ Người dùng Zalo không có mật khẩu dashboard. Thay vào đó bot cấp 
 - `/transactions`: Thu chi; `/expenses` và `/income` tự chuyển sang `/transactions?type=expense|income`.
 - `/debts`: Vay & cho vay.
 - `/analytics`: Phân tích thu–chi.
-- `/calendar`, `/tasks`, `/reminders`: Lịch Google, việc cần làm Google Tasks, lời nhắc.
+- `/calendar`, `/tasks`, `/reminders`: Lịch Google, việc cần làm, lời nhắc.
 - `/contacts`: Người liên quan; `/places`: Nơi chốn.
 - `/zca`: Zalo & Người dùng (đăng nhập ZCA, cuộc trò chuyện, quản lý user cho admin).
 - `/settings`: Cài đặt, danh mục thu chi.

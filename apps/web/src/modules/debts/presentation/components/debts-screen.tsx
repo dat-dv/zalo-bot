@@ -8,6 +8,8 @@ import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { DataPanel } from '@/shared/ui/data-table';
 import { DebtsTable, type DebtEditDraft, getDebtStatus } from './debts-table';
 import { CombineDebtsDialog } from './combine-debts-dialog';
+import { CreateDebtDialog } from './create-debt-dialog';
+import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
 import { MOBILE_TOOLBAR_ROW, TAP_CONTROL, TAP_INPUT, TOAST_POSITION } from '@/shared/ui/touch';
 
@@ -15,13 +17,16 @@ import { useContactsQuery } from '@/modules/contacts/api/contacts-query';
 import {
   debtsQueryKeys,
   useCreateDebtPaymentMutation,
+  useDeleteDebtMutation,
   useDeleteDebtPaymentMutation,
   useDebtsQuery,
   useUpdateDebtMutation,
 } from '../../api/debts-query';
+import { matchContact } from '../../model/debt-create-form';
 
 /** Toolbar chip sizing at phone width (40px tall), matching the Transactions toolbar. */
 const PHONE_CHIP = 'max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
+const CONTACTS_DATALIST_ID = 'debt-contacts-autocomplete';
 
 type DirectionFilter = 'all' | 'receivable' | 'payable';
 type StatusFilter = 'all' | 'active' | 'settled';
@@ -34,6 +39,8 @@ export function DebtsScreen() {
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isCombineOpen, setIsCombineOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<IDebtListItem | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<DebtEditDraft>({
     direction: 'receivable',
@@ -53,6 +60,7 @@ export function DebtsScreen() {
   const updateMutation = useUpdateDebtMutation();
   const paymentMutation = useCreateDebtPaymentMutation();
   const deletePaymentMutation = useDeleteDebtPaymentMutation();
+  const deleteMutation = useDeleteDebtMutation();
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: debtsQueryKeys.list() });
@@ -165,11 +173,7 @@ export function DebtsScreen() {
   };
 
   const handleCounterpartyChange = (val: string) => {
-    const matched = contactsList.find(
-      (c) =>
-        c.displayName.toLowerCase() === val.trim().toLowerCase() ||
-        (c.alias && c.alias.toLowerCase() === val.trim().toLowerCase()),
-    );
+    const matched = matchContact(contactsList, val);
     if (matched) {
       setEditDraft((prev) => ({
         ...prev,
@@ -249,6 +253,47 @@ export function DebtsScreen() {
     }
   };
 
+  const handleDelete = (id: string) => {
+    const target = rawList.find((d) => d.id === id);
+    if (target) setDeleteTarget(target);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const id = deleteTarget.id;
+    try {
+      await deleteMutation.mutateAsync(id);
+      setSelectedIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      if (editingId === id) handleCancelEdit();
+      showToast(t('debts.delete.success'));
+    } catch (err: unknown) {
+      showToast(err instanceof Error && err.message ? err.message : t('debts.delete.error'));
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
+  const deleteMessage = useMemo(() => {
+    if (!deleteTarget) return '';
+    const name = deleteTarget.counterpartyAlias
+      ? `${deleteTarget.counterparty} (${deleteTarget.counterpartyAlias})`
+      : deleteTarget.counterparty;
+    const paymentCount = deleteTarget.payments?.length ?? 0;
+    const childCount = deleteTarget.childCount ?? deleteTarget.children?.length ?? 0;
+    return [
+      t('debts.delete.message', { name, amount: money(deleteTarget.originalAmount) }),
+      paymentCount > 0 ? t('debts.delete.paymentsWarning', { count: paymentCount }) : '',
+      childCount > 0 ? t('debts.delete.childrenWarning', { count: childCount }) : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+  }, [deleteTarget, money, t]);
+
   const filteredRootDebts = useMemo(
     () => filteredDebts.filter((d) => !d.parentDebtId),
     [filteredDebts],
@@ -302,8 +347,29 @@ export function DebtsScreen() {
         />
       )}
 
+      <CreateDebtDialog
+        open={isCreateOpen}
+        contacts={contactsList}
+        contactsListId={CONTACTS_DATALIST_ID}
+        onClose={() => setIsCreateOpen(false)}
+        onCreated={() => {
+          setIsCreateOpen(false);
+          showToast(t('debts.create.success'));
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t('debts.delete.title')}
+        message={deleteMessage}
+        confirmLabel={t('debts.actions.delete')}
+        isPending={deleteMutation.isPending}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => void confirmDelete()}
+      />
+
       {contactsList.length > 0 && (
-        <datalist id="debt-contacts-autocomplete">
+        <datalist id={CONTACTS_DATALIST_ID}>
           {contactsList.map((contact) => (
             <option
               key={contact.id}
@@ -377,6 +443,14 @@ export function DebtsScreen() {
                 <div
                   className={`contents max-[640px]:flex max-[640px]:items-center max-[640px]:gap-1.5 ${MOBILE_TOOLBAR_ROW}`}
                 >
+                  <button
+                    type="button"
+                    // Compact screens get this action in the MobileActionBar instead.
+                    className="inline-flex h-6 min-h-6 max-[960px]:hidden cursor-pointer items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                    onClick={() => setIsCreateOpen(true)}
+                  >
+                    + {t('debts.actions.create')}
+                  </button>
                   {selectedIds.size >= 2 && (
                     <button
                       type="button"
@@ -511,6 +585,7 @@ export function DebtsScreen() {
               onCancelEdit={handleCancelEdit}
               onSaveEdit={handleSaveEdit}
               onQuickSettle={handleQuickSettle}
+              onDelete={handleDelete}
               onDeletePayment={handleDeletePayment}
               onCounterpartyChange={handleCounterpartyChange}
               isPending={
@@ -523,8 +598,8 @@ export function DebtsScreen() {
         </section>
       )}
 
-      {selectedIds.size >= 2 && (
-        <MobileActionBar>
+      <MobileActionBar>
+        {selectedIds.size >= 2 ? (
           <button
             type="button"
             className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
@@ -532,8 +607,16 @@ export function DebtsScreen() {
           >
             {t('debts.actions.combine', { count: selectedIds.size })}
           </button>
-        </MobileActionBar>
-      )}
+        ) : (
+          <button
+            type="button"
+            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+            onClick={() => setIsCreateOpen(true)}
+          >
+            + {t('debts.actions.create')}
+          </button>
+        )}
+      </MobileActionBar>
     </div>
   );
 }

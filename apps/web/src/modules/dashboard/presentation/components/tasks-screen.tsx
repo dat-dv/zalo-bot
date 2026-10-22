@@ -6,7 +6,6 @@ import { type ITaskListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { DataPanel } from '@/shared/ui/data-table';
-import { googleSyncState } from '@/shared/ui/google-sync';
 import { TasksTable, type TaskEditDraft } from './tasks-table';
 
 import { usePeriodFilter, type PeriodGrain } from '@/shared/hooks/use-period-filter';
@@ -16,22 +15,16 @@ import {
   useTasksQuery,
   useUpdateTaskMutation,
   useDeleteTaskMutation,
-  useResyncTaskMutation,
 } from '@/modules/tasks/api/tasks-query';
-import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
+import { dashboardQueryKeys } from '../../api/dashboard-query';
 import { MOBILE_TOOLBAR_ROW, TOAST_POSITION } from '@/shared/ui/touch';
+import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
+import { CreateTaskDialog } from './create-task-dialog';
 
 const CHIP_PHONE =
   'max-[640px]:shrink-0 max-[640px]:whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
 
 const TASK_GRAINS: PeriodGrain[] = ['day', 'week', 'month', 'quarter', 'year', 'all'];
-
-/** Not (or no longer reachable) on Google: app-only, failed, or in a previous account. */
-function isUnsynced(task: ITaskListItem): boolean {
-  if (!task.sync) return false;
-  const { state } = googleSyncState(task.sync);
-  return state !== 'synced' && state !== 'pending';
-}
 
 export function TasksScreen() {
   const queryClient = useQueryClient();
@@ -41,8 +34,8 @@ export function TasksScreen() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'needsAction' | 'completed'>(
     'needsAction',
   );
-  const [unsyncedOnly, setUnsyncedOnly] = useState(false);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<TaskEditDraft>({
     title: '',
@@ -53,21 +46,16 @@ export function TasksScreen() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  const dashboard = useDashboardQuery();
   const tasksQuery = useTasksQuery();
   const updateMutation = useUpdateTaskMutation();
   const deleteMutation = useDeleteTaskMutation();
-  const resyncMutation = useResyncTaskMutation();
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: tasksQueryKeys.list() });
     void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.detail() });
   };
 
-  // Tasks live in zalobot, so the list shows whether or not Google is connected.
   const rawList = useMemo(() => tasksQuery.data ?? [], [tasksQuery.data]);
-
-  const isGoogleConnected = dashboard.data?.user.googleConnected;
 
   // 1. Filter by period first
   const periodTasks = useMemo(() => {
@@ -82,11 +70,9 @@ export function TasksScreen() {
     let pending = 0;
     let completed = 0;
     let overdue = 0;
-    let unsynced = 0;
     const now = new Date();
 
     for (const task of periodTasks) {
-      if (isUnsynced(task)) unsynced++;
       const isCompleted = task.status === 'completed';
       if (isCompleted) {
         completed++;
@@ -103,14 +89,12 @@ export function TasksScreen() {
       pending,
       completed,
       overdue,
-      unsynced,
     };
   }, [periodTasks]);
 
   // 3. Filter by status & search
   const filteredTasks = useMemo(() => {
     return periodTasks.filter((item) => {
-      if (unsyncedOnly && !isUnsynced(item)) return false;
       if (statusFilter !== 'all') {
         const itemStatus = item.status || 'needsAction';
         if (itemStatus !== statusFilter) return false;
@@ -121,7 +105,7 @@ export function TasksScreen() {
         item.title.toLowerCase().includes(q) || (item.notes && item.notes.toLowerCase().includes(q))
       );
     });
-  }, [periodTasks, unsyncedOnly, statusFilter, search]);
+  }, [periodTasks, statusFilter, search]);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -201,17 +185,6 @@ export function TasksScreen() {
     }
   };
 
-  const handleResync = async (task: ITaskListItem) => {
-    try {
-      const updated = await resyncMutation.mutateAsync(task.id);
-      showToast(
-        updated.sync?.status === 'synced' ? t('tasks.sync.resynced') : t('tasks.sync.failed'),
-      );
-    } catch {
-      showToast(t('tasks.sync.failed'));
-    }
-  };
-
   const isLoading = tasksQuery.isLoading;
   const isError = tasksQuery.isError;
 
@@ -280,28 +253,10 @@ export function TasksScreen() {
                 {stats.overdue}
               </strong>
             </article>
-            <button
-              type="button"
-              className={`flex min-h-[62px] cursor-pointer flex-col justify-center rounded-[3px] border px-3 py-2 text-left transition-colors ${
-                unsyncedOnly
-                  ? 'border-sky-500 bg-sky-50 dark:border-sky-400 dark:bg-sky-950/50'
-                  : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900/60 dark:hover:bg-slate-800/60'
-              }`}
-              aria-pressed={unsyncedOnly}
-              onClick={() => setUnsyncedOnly((value) => !value)}
-            >
-              <span className="block text-[11px] font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
-                {t('tasks.stats.unsynced')}
-              </span>
-              <strong className="mt-0.5 block text-base font-bold tabular-nums tracking-tight text-slate-900 dark:text-slate-100">
-                {stats.unsynced}
-              </strong>
-            </button>
           </section>
 
           <DataPanel
             title={t('dashboard.tasks')}
-            description={isGoogleConnected === false ? t('tasks.localOnlyTip') : undefined}
             counter={t('table.rowsCount', { count: filteredTasks.length })}
             toolbar={
               <div className="flex flex-wrap items-center gap-1.5 max-[640px]:w-full max-[640px]:flex-col max-[640px]:items-stretch">
@@ -339,17 +294,15 @@ export function TasksScreen() {
                   >
                     {t('tasks.filter.completed')}
                   </button>
-                  {unsyncedOnly && (
-                    <button
-                      type="button"
-                      className={`inline-flex h-6 min-h-6 cursor-pointer items-center gap-1 rounded-[3px] border border-amber-300 bg-amber-50 px-2 text-[11px] font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300 ${CHIP_PHONE}`}
-                      onClick={() => setUnsyncedOnly(false)}
-                      title={t('tasks.filter.clear')}
-                    >
-                      {t('tasks.filter.unsyncedOnly')} ✕
-                    </button>
-                  )}
                 </div>
+                <button
+                  type="button"
+                  // Compact screens get this action in the MobileActionBar instead.
+                  className="inline-flex h-6 min-h-6 max-[960px]:hidden cursor-pointer items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                  onClick={() => setIsCreateOpen(true)}
+                >
+                  + {t('tasks.actions.create')}
+                </button>
                 <input
                   type="search"
                   className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:h-10 max-[640px]:w-full"
@@ -377,12 +330,31 @@ export function TasksScreen() {
               onDelete={setPendingDeleteId}
               isPending={updateMutation.isPending}
               showOrigin
-              onResync={handleResync}
-              resyncingId={resyncMutation.isPending ? (resyncMutation.variables ?? null) : null}
             />
           </DataPanel>
         </section>
       )}
+
+      <MobileActionBar>
+        <button
+          type="button"
+          className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+          onClick={() => setIsCreateOpen(true)}
+        >
+          + {t('tasks.actions.create')}
+        </button>
+      </MobileActionBar>
+
+      <CreateTaskDialog
+        open={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onCreated={() => {
+          setIsCreateOpen(false);
+          // A new task is open; show it even if the list was filtered to completed ones.
+          if (statusFilter === 'completed') setStatusFilter('needsAction');
+          showToast(t('tasks.create.success'));
+        }}
+      />
 
       <ConfirmDialog
         open={pendingDeleteId !== null}

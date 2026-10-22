@@ -1,6 +1,6 @@
 import { CreateFinanceTransactionDto, CreateDebtDto } from '../../finance/finance.service';
 import { CreateReminderDto } from '../../reminders/reminders.service';
-import { CreateTaskOptions } from '../../google/google-tasks.service';
+import { CreateTaskOptions } from '../../tasks/task.types';
 import { CreateEventOptions } from '../../google/google-calendar.service';
 
 /**
@@ -252,7 +252,6 @@ export const TASK_DESCRIPTOR: DtoDescriptor<CreateTaskOptions> = {
     order: 3,
     format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
   },
-  taskListId: { label: 'Danh sách việc', hidden: true },
 };
 
 /**

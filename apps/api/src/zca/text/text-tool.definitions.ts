@@ -231,7 +231,7 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
   {
     name: TextToolType.CREATE_TASK,
     description:
-      'Thêm một việc cần làm mới vào danh sách việc chung (lưu trong zalobot, sao chép lên Google Tasks nếu đã kết nối). ' +
+      'Thêm một việc cần làm mới vào danh sách việc chung của zalobot. ' +
       'Ví dụ: "thêm việc nộp báo cáo trước 17h", "cần mua sữa chua", "nhắc làm slide".',
     parameters: {
       type: 'OBJECT',

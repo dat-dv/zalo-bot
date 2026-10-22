@@ -4,20 +4,22 @@
 
 ## Purpose
 
-Scheduled reminders delivered to the user as a Zalo message. Reminders are created from chat (LLM tool `SET_REMINDER`, confirmation-gated) or from the API, listed/edited on the dashboard, and fired by a backend cron.
+Scheduled reminders delivered to the user as a Zalo message. Reminders are created from chat (LLM tool `SET_REMINDER`, confirmation-gated) or from the dashboard, listed/edited there, and fired by a backend cron.
 
 ## Code ownership
 
-- `apps/web/src/modules/reminders` contains only `api/`:
-  - `reminders-api.ts`: `getReminders`, `updateReminder`, `deleteReminder` → `API_ROUTES.reminders` (`/api/reminders`, `/api/reminders/:id`).
-  - `reminders-query.ts`: `remindersQueryKeys.list()` (`['reminders']`), `useRemindersQuery`, `useUpdateReminderMutation`, `useDeleteReminderMutation`. Mutations invalidate `['reminders']` and `['dashboard']`.
-- The screen lives in the dashboard module: `RemindersScreen` (`apps/web/src/modules/dashboard/presentation/components/reminders-screen.tsx`, re-exported by `dashboard/view/reminders-screen.tsx`, routed by `apps/web/app/(private)/reminders/page.tsx`) and `RemindersTable` (`reminders-table.tsx`, same folder).
+- `apps/web/src/modules/reminders` contains `api/` and `model/`:
+  - `reminders-api.ts`: `getReminders`, `createReminder` (`POST`), `updateReminder`, `deleteReminder` → `API_ROUTES.reminders` (`/api/reminders`, `/api/reminders/:id`).
+  - `reminders-query.ts`: `remindersQueryKeys.list()` (`['reminders']`), `useRemindersQuery`, `useCreateReminderMutation`, `useUpdateReminderMutation`, `useDeleteReminderMutation`. Mutations invalidate `['reminders']` and `['dashboard']`.
+  - `model/reminder-create-form.ts` (pure, unit-tested): `REMINDER_NOTIFY_TYPES`, `REMINDER_REPEAT_TYPES`, `createReminderDraft` (default now + 1h, `text`, `none`), `buildCreateReminderRequest` (errors `titleRequired` | `remindAtRequired` | `pastTime`; the current minute still counts as valid).
+- The screen lives in the dashboard module: `RemindersScreen` (`apps/web/src/modules/dashboard/presentation/components/reminders-screen.tsx`, re-exported by `dashboard/view/reminders-screen.tsx`, routed by `apps/web/app/(private)/reminders/page.tsx`) `RemindersTable` (`reminders-table.tsx`) and `CreateReminderDialog` (`create-reminder-dialog.tsx`, on the shared `FormDialog`), same folder.
 - Backend: `apps/api/src/reminders` (`RemindersController`, `RemindersService`, `ReminderSchedulerService`), entity `ReminderEntity` (`apps/api/src/database/entities/reminder.entity.ts`).
 
 ## Web UI (`RemindersScreen`)
 
 - Data source: `useRemindersQuery`; when it returns an empty list, falls back to `dashboard.data.reminders` (`useDashboardQuery`).
 - `DataPanel` with row counter and client search by title.
+- Create: `+ Add reminder` toolbar button (desktop, `max-[960px]:hidden`) / `MobileActionBar` (compact) opens `CreateReminderDialog` with title, `remindAt` (`datetime-local`, local time → ISO), notify type, repeat type. Save is disabled while invalid or in the past; validity is re-checked against the clock on submit. API errors stay in the dialog; success closes it with a toast.
 - Columns: title, notify type (`text` / `call`), schedule (`remindAt`), repeat (`none` / `daily` / `weekly`), actions.
 - Inline edit (title, `remindAt` datetime, notify type, repeat type) with Save/Cancel; Snooze = PATCH `remindAt` + 15 minutes; Delete asks `window.confirm`. Toasts on save/snooze/delete.
 - Error state: alert strip with Retry (invalidates reminders + dashboard caches). Loading is passed to the table.
@@ -34,7 +36,7 @@ All endpoints are scoped to the dashboard user (`getDashboardUserId`).
 | PATCH | `/api/reminders/:id` | Updates `title`, `remindAt`, `notifyType`, `repeatType`. Changing `remindAt` resets `isTriggered=false`, `status='pending'` |
 | DELETE | `/api/reminders/:id` | Returns `{ deleted: true }`, 404 if not found |
 
-Contracts: `IReminderListItem`, `IUpdateReminderRequest` (`@zalobot/contracts`). The controller ignores `status`/`snoozeCount`/`snoozedUntil` from the request body.
+Contracts: `IReminderListItem`, `ICreateReminderRequest`, `IUpdateReminderRequest` (`@zalobot/contracts`). The controller ignores `status`/`snoozeCount`/`snoozedUntil` from the request body.
 
 ## Scheduler (`ReminderSchedulerService`)
 

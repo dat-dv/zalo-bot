@@ -1,6 +1,7 @@
 import {
   API_ROUTES,
   type IApiResponse,
+  type ICreateReminderRequest,
   type IReminderListItem,
   type IUpdateReminderRequest,
 } from '@zalobot/contracts';
@@ -10,6 +11,18 @@ export async function getReminders(signal?: AbortSignal): Promise<IReminderListI
   const response = await httpClient.get<IApiResponse<IReminderListItem[]>>(API_ROUTES.reminders, {
     signal,
   });
+  return response.data.data;
+}
+
+export async function createReminder(
+  data: ICreateReminderRequest,
+  signal?: AbortSignal,
+): Promise<IReminderListItem> {
+  const response = await httpClient.post<IApiResponse<IReminderListItem>>(
+    API_ROUTES.reminders,
+    data,
+    { signal },
+  );
   return response.data.data;
 }
 

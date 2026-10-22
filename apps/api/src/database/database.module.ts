@@ -42,6 +42,7 @@ import { AddProfileFieldsToDebtContacts1724850000000 } from './migrations/172485
 import { AddCodeHashToDashboardExchangeTokens1724860000000 } from './migrations/1724860000000-AddCodeHashToDashboardExchangeTokens';
 import { CreateCalendarEvents1724870000000 } from './migrations/1724870000000-CreateCalendarEvents';
 import { CreateTasks1724880000000 } from './migrations/1724880000000-CreateTasks';
+import { DropTaskGoogleCopy1724890000000 } from './migrations/1724890000000-DropTaskGoogleCopy';
 
 @Module({
   imports: [
@@ -101,6 +102,7 @@ import { CreateTasks1724880000000 } from './migrations/1724880000000-CreateTasks
             AddCodeHashToDashboardExchangeTokens1724860000000,
             CreateCalendarEvents1724870000000,
             CreateTasks1724880000000,
+            DropTaskGoogleCopy1724890000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

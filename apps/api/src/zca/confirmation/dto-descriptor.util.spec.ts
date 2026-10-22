@@ -14,7 +14,7 @@ import {
 } from './dto-descriptor.util';
 import { CreateFinanceTransactionDto, CreateDebtDto } from '../../finance/finance.service';
 import { CreateReminderDto } from '../../reminders/reminders.service';
-import { CreateTaskOptions } from '../../google/google-tasks.service';
+import { CreateTaskOptions } from '../../tasks/task.types';
 import { CreateEventOptions } from '../../google/google-calendar.service';
 
 void test('DtoDescriptor strictly typechecks full DTO shape and displays (trống) for empty fields', () => {
@@ -70,7 +70,7 @@ void test('REMINDER_DESCRIPTOR renders notifyType and repeatType correctly', () 
   assert.match(card, /• Lặp lại: Hàng ngày/);
 });
 
-void test('TASK_DESCRIPTOR renders Google Tasks fields with missing options', () => {
+void test('TASK_DESCRIPTOR renders task fields with missing options', () => {
   const taskDto: CreateTaskOptions = {
     title: 'Dọn nhà đón Tết',
   };
@@ -79,7 +79,6 @@ void test('TASK_DESCRIPTOR renders Google Tasks fields with missing options', ()
   assert.match(card, /• Việc cần làm: Dọn nhà đón Tết/);
   assert.match(card, /• Hạn chót: \(trống\)/);
   assert.match(card, /• Ghi chú: \(trống\)/);
-  assert.doesNotMatch(card, /Danh sách việc/); // hidden
 });
 
 void test('CALENDAR_EVENT_DESCRIPTOR renders Google Calendar event details with reminders', () => {

@@ -11,7 +11,7 @@ This directory contains system-wide business policies, cross-cutting architectur
 - [Local-First AI Usage](local-first-ai-usage.md): Token-conserving local extraction and minimal AI interpretation policy.
 - [Dashboard Session and Pages](dashboard-session.md): One-time Zalo exchange, sign-in code for the installed app, access/refresh policy, contacts isolation, and web views.
 - [Installable Web App (PWA)](pwa.md): Manifest, hand-written service worker caching rules, update handoff, offline shell, install entry, and nginx cache headers.
-- [Google Tasks Commands](google-tasks.md): `CREATE_TASK` tool, duplicate check, and `/tasks` listing.
+- [Task Commands](google-tasks.md): `CREATE_TASK` tool, duplicate check, and `/tasks` listing.
 - [Public Google OAuth Verification](google-oauth-public-verification.md): Minimal scope contract, public policy pages, and production review requirements.
 - [Zalo Response Layout](zalo-response-layout.md): Compact response hierarchy, pending-action codes, reactions, and message recall.
 - [Zalo Command Intake](zalo-command-intake.md): ZCA intake, guards, cooldown, and fast-path commands.

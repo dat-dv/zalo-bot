@@ -25,7 +25,6 @@ export class ListTasksToolStrategy implements TextToolStrategy {
       const tasks = await this.tasksService.listTasks({
         status: args.showCompleted ? undefined : 'needsAction',
         limit: args.maxResults || 20,
-        importForUserId: context.senderId,
       });
 
       if (tasks.length === 0) {

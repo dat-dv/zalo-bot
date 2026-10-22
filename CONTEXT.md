@@ -34,9 +34,8 @@
 
 ## Việc cần làm
 
-- **Việc cần làm (Task)**: Một việc cần hoàn thành, có thể có hạn chót (chỉ tính theo ngày) và ghi chú; ở trạng thái **cần làm** hoặc **đã xong**. Lưu trong **danh sách việc chung** của zalobot, ghi nhận **người tạo** và nguồn (nhóm Zalo, chat riêng, dashboard hoặc Google Tasks).
-- **Danh sách việc chung**: Toàn hệ thống có một danh sách việc duy nhất giống sổ chung và lịch chung; ai cũng xem được mọi việc. Đổi tài khoản Google không làm mất việc.
-- **Bản sao Google (task)**: Bản chép của việc trong Google Tasks của tài khoản đang kết nối. Như với lịch, việc nhớ bản sao nằm ở tài khoản nào; bản sao ở tài khoản cũ được tạo lại ở tài khoản hiện tại khi sửa hoặc **đồng bộ lại**. Việc tạo hoặc xoá thẳng trên Google Tasks được nhập/xoá theo ở lần xem kế tiếp.
+- **Việc cần làm (Task)**: Một việc cần hoàn thành, có thể có hạn chót (chỉ tính theo ngày) và ghi chú; ở trạng thái **cần làm** hoặc **đã xong**. Lưu trong **danh sách việc chung** của zalobot, ghi nhận **người tạo** và nguồn (nhóm Zalo, chat riêng hoặc dashboard). Chỉ lưu trong zalobot, không đồng bộ với Google Tasks.
+- **Danh sách việc chung**: Toàn hệ thống có một danh sách việc duy nhất giống sổ chung và lịch chung; ai cũng xem được mọi việc. Không cần kết nối Google.
 
 ## Nhật ký kiểm toán
 

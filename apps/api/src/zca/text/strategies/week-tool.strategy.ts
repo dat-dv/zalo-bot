@@ -50,12 +50,11 @@ export class WeekToolStrategy implements TextToolStrategy {
       calendarText = '📅 Lịch trình: Không thể tải sự kiện lúc này.';
     }
 
-    // Events and tasks both live in zalobot; Google only holds copies.
+    // Events live in zalobot with a Google copy; tasks live only in zalobot.
     try {
       const tasks = await this.tasksService.listTasks({
         status: 'needsAction',
         limit: 15,
-        importForUserId: context.senderId,
       });
 
       if (tasks.length === 0) {

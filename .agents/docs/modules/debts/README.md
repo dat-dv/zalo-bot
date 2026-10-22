@@ -10,6 +10,9 @@ metadata:
       - apps/web/src/modules/debts/presentation/components/debts-screen.tsx
       - apps/web/src/modules/debts/presentation/components/debts-table.tsx
       - apps/web/src/modules/debts/presentation/components/combine-debts-dialog.tsx
+      - apps/web/src/modules/debts/presentation/components/create-debt-dialog.tsx
+      - apps/web/src/modules/debts/model/debt-create-form.ts
+      - apps/web/src/shared/ui/form-dialog.tsx
       - apps/api/src/reports/reports.controller.ts
       - apps/api/src/finance/finance.controller.ts
       - apps/api/src/finance/finance.service.ts
@@ -22,14 +25,15 @@ Tài liệu này ánh xạ trực tiếp với tri thức canonical [`README.md`
 
 ## Vai trò nghiệp vụ
 
-Trang `/debts` cho người dùng theo dõi **khoản phải thu** (người khác nợ mình) và **khoản phải trả** (mình nợ người khác), cả đang mở lẫn đã tất toán. Khoản nợ chỉ hoàn tất khi **số còn lại** bằng 0. Người dùng có thể sửa nhanh, trả hết một khoản, xem lịch sử các đợt trả và gộp nhiều khoản nợ thành một khoản nợ cha.
+Trang `/debts` cho người dùng theo dõi **khoản phải thu** (người khác nợ mình) và **khoản phải trả** (mình nợ người khác), cả đang mở lẫn đã tất toán. Khoản nợ chỉ hoàn tất khi **số còn lại** bằng 0. Người dùng có thể thêm khoản nợ mới, sửa nhanh, xoá, trả hết một khoản, xem lịch sử các đợt trả và gộp nhiều khoản nợ thành một khoản nợ cha.
 
 ## API và cache
 
 - `GET /api/debts`: trả khoản nợ của người đang đăng nhập, sắp theo ngày phát sinh mới nhất → ngày tạo → id (giảm dần), **tối đa 200 bản ghi**, kèm danh sách đợt trả và khoản con. API hỗ trợ `?status=active|settled` nhưng web không dùng — lọc trạng thái làm ở phía client.
 - Khoản nợ thiếu `occurredAt` (dữ liệu cũ) dùng `createdAt` thay thế.
 - Khoản con xuất hiện cả như một bản ghi riêng (có `parentDebtId`); bảng chỉ hiện khoản gốc/khoản cha, còn khoản con nằm trong panel mở rộng của khoản cha.
-- Mọi mutation (sửa, trả nợ, xoá đợt trả, gộp) làm mới cache `debts` và `dashboard`. Nút Thử lại trên màn hình làm mới `debts` và `contacts`.
+- `POST /api/debts` tạo khoản nợ, `DELETE /api/debts/:id` xoá khoản nợ.
+- Mọi mutation (thêm, sửa, xoá, trả nợ, xoá đợt trả, gộp) làm mới cache `debts` và `dashboard`; thêm và xoá còn làm mới `contacts` vì thêm nợ có thể tạo người liên quan mới. Nút Thử lại trên màn hình làm mới `debts` và `contacts`.
 
 ## Màn hình công nợ
 
@@ -41,7 +45,12 @@ Trang `/debts` cho người dùng theo dõi **khoản phải thu** (người kh�
 - **Trả nhanh (+)**: chỉ có ở khoản đang mở, luôn trả **toàn bộ** số còn lại.
 - **Panel mở rộng**: bảng nhỏ các khoản con và bảng lịch sử đợt trả (số tiền, ngày, ghi chú, biểu tượng 🔗 nếu đợt trả đến từ phân bổ giao dịch, nút xoá). Xoá đợt trả có hộp `window.confirm` xác nhận.
 - **Gộp nợ**: chọn từ 2 khoản gốc → `CombineDebtsDialog` (ghi chú, hạn trả). Nếu chọn lệch chiều nợ hoặc lệch loại tiền, dialog báo lỗi và khoá nút xác nhận.
-- Không có nút xoá khoản nợ trên giao diện. Trang chủ dùng lại `DebtsTable` ở chế độ chỉ đọc.
+- **Thêm khoản nợ** (nút `+ Thêm khoản nợ` trên toolbar desktop, hoặc thanh hành động dưới cùng trên điện thoại) mở `CreateDebtDialog`: chọn chiều nợ (mặc định Cho vay), người liên quan (gợi ý từ danh bạ), số tiền (> 0), ngày phát sinh (mặc định là lúc mở form), hạn trả (tuỳ chọn), ghi chú.
+  - Vì **danh bạ công nợ dùng chung** và tra cứu bằng tên/biệt danh khớp chính xác, nếu tên gõ vào khớp một người có sẵn thì form gửi đúng mã người đó (`contactId`).
+  - Nếu tên không khớp ai, form **không tự tạo người mới**: phải tick ô "Tạo người liên quan mới «tên»" (có thể nhập thêm biệt danh) thì nút Lưu mới bật. Lý do: tránh vô tình tạo người trùng tên khi người dùng gõ sai chính tả; đồng thời API cũng từ chối khi không có `contactId` hay `createNewContact`.
+  - Logic khớp tên và dựng request nằm trong hàm thuần `model/debt-create-form.ts` (có unit test), dùng chung với ô người liên quan khi sửa trực tiếp.
+- **Xoá khoản nợ** (nút ✕ ở cột Thao tác, hoặc chân sheet trên điện thoại) mở hộp xác nhận `ConfirmDialog` nêu tên người và số tiền gốc, kèm cảnh báo nếu khoản nợ đã có đợt trả hoặc là khoản cha đã gộp (xem quy tắc backend bên dưới).
+- Trang chủ dùng lại `DebtsTable` ở chế độ chỉ đọc.
 
 - `CombineDebtsDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo).
 
@@ -52,11 +61,17 @@ Giao diện desktop (> 960px) giữ nguyên. Trên màn hình hẹp, bảng côn
 - **Mỗi dòng** (`DebtsTable`, cả ở Trang chủ): dòng 1 là người liên quan (kèm biệt danh) và **số còn lại** bên phải — cùng màu với cột trên desktop (xanh = phải thu, cam = phải trả, xám khi đã hết) và bị che khi đang ẩn số tiền. Dòng 2: chiều nợ · trạng thái · hạn trả · "Đã trả x%" nếu đã trả một phần. Chiều nợ đứng trước vì đó là điều người dùng cần biết đầu tiên.
 - **Chạm vào dòng** mở bottom-sheet có đủ mọi cột. Nút **Sửa** ở chân sheet chuyển các ô thành ô nhập cao 40px (kể cả ô chọn ngày hạn trả); trên điện thoại không có nhấp đúp nên đây là đường sửa duy nhất. Lưu/✕ cũng nằm ở chân sheet.
 - **Khoản con và lịch sử đợt trả** trong sheet hiện thành danh sách phẳng 2 dòng thay vì bảng lồng phải cuộn ngang; mỗi đợt trả có nút xoá 40×40px (vẫn hỏi xác nhận). Nút mở rộng ▶ bị ẩn vì sheet luôn hiện phần chi tiết.
-- **Chọn để gộp**: dòng danh sách là một nút bấm nên không đặt được checkbox. Cách đơn giản nhất: chân sheet có nút **Chọn / Bỏ chọn**; dòng đã chọn có dấu `✓` trước tên. Chip "Chọn tất cả" và chip "Đã chọn n ✕" trên thanh công cụ vẫn dùng được. Khi chọn từ 2 khoản, nút **Gộp** chuyển xuống thanh hành động cố định phía trên thanh tab (nút trên toolbar bị ẩn để không trùng).
+- **Chọn để gộp**: dòng danh sách là một nút bấm nên không đặt được checkbox. Cách đơn giản nhất: chân sheet có nút **Chọn / Bỏ chọn**; dòng đã chọn có dấu `✓` trước tên. Chip "Chọn tất cả" và chip "Đã chọn n ✕" trên thanh công cụ vẫn dùng được. Thanh hành động cố định phía trên thanh tab luôn có đúng một nút: **Gộp** khi chọn từ 2 khoản, còn lại là **+ Thêm khoản nợ** (các nút tương ứng trên toolbar bị ẩn để không trùng). Chân sheet có thêm nút **✕ Xoá**.
 - **Thanh công cụ (≤ 640px)**: các chip trạng thái, chiều nợ và chọn nằm trên **một hàng cuộn ngang** cao 40px, ô tìm kiếm rộng hết màn hình ở hàng riêng. Thông báo (toast) nằm phía trên thanh tab.
 - **Hộp thoại gộp nợ**: mở toàn màn hình trên điện thoại (form dài), nút ✕ và nút chân hộp thoại 40px, ô nhập 40px; danh sách khoản đã chọn không còn khung cuộn riêng, cả hộp thoại cuộn một lần.
 
 ## Quy tắc nghiệp vụ phía backend
+
+- **Thêm khoản nợ** (`POST /api/debts`): bắt buộc chiều nợ, tên người, số tiền, và **hoặc** `contactId` của người có sẵn **hoặc** `createNewContact: true` (tạo người mới từ tên/biệt danh). Thiếu cả hai thì service ném lỗi và hiện trả về lỗi máy chủ (500), nên form chặn trường hợp này từ phía client. Ngày phát sinh mặc định là lúc tạo.
+- **Xoá khoản nợ** (`DELETE /api/debts/:id`): xoá vĩnh viễn.
+  - Các đợt trả và phân bổ giao dịch của khoản đó bị xoá theo (khoá ngoại `CASCADE`).
+  - **Khác với xoá lẻ một đợt trả**: các giao dịch thu/chi (_Thu hồi nợ_/_Trả nợ_) đã ghi cho những đợt trả này **vẫn ở lại sổ thu–chi**. Hộp xác nhận nói rõ điều này; nếu muốn số dư dòng tiền khớp lại thì xoá từng đợt trả trước rồi mới xoá khoản nợ.
+  - Nếu là khoản cha đã gộp, các khoản con được tách ra (`parentDebtId` về `NULL`) và hiện lại thành khoản nợ riêng.
 
 - **Sửa số còn lại**: về 0 thì chuyển `settled` và ghi ngày tất toán; lớn hơn 0 thì mở lại.
 - **Ghi nhận đợt trả** (`POST /api/debts/:id/payments`, một transaction): khoản nợ phải đang mở và số trả không vượt số còn lại. Hệ thống đồng thời tạo một giao dịch thu–chi để số dư dòng tiền khớp với công nợ: thu hồi khoản **phải thu** → khoản **thu** danh mục _Thu hồi nợ_; trả khoản **phải trả** → khoản **chi** danh mục _Trả nợ_. Đợt trả lưu `financeTransactionId` trỏ tới giao dịch đó, nên hai bản ghi luôn đi cùng nhau (đợt trả tạo trước bản sửa này không có liên kết và không được bổ sung).

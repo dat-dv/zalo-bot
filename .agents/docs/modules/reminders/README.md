@@ -9,6 +9,9 @@ metadata:
       - apps/web/src/modules/reminders/api/reminders-query.ts
       - apps/web/src/modules/dashboard/presentation/components/reminders-screen.tsx
       - apps/web/src/modules/dashboard/presentation/components/reminders-table.tsx
+      - apps/web/src/modules/dashboard/presentation/components/create-reminder-dialog.tsx
+      - apps/web/src/modules/reminders/model/reminder-create-form.ts
+      - apps/web/src/shared/ui/form-dialog.tsx
       - apps/api/src/reminders/reminders.controller.ts
       - apps/api/src/reminders/reminders.service.ts
       - apps/api/src/reminders/reminder-scheduler.service.ts
@@ -21,20 +24,25 @@ Tài liệu này ánh xạ trực tiếp với tri thức canonical [`README.md`
 
 ## 1. Nghiệp vụ
 
-Lời nhắc là một tin nhắn Zalo mà bot tự gửi cho người dùng khi tới giờ. Người dùng tạo lời nhắc bằng cách chat với bot (AI gọi tool `SET_REMINDER`, phải xác nhận như mọi thao tác chờ duyệt) hoặc qua API. Trên dashboard, người dùng xem, sửa, hoãn và xoá lời nhắc.
+Lời nhắc là một tin nhắn Zalo mà bot tự gửi cho người dùng khi tới giờ. Người dùng tạo lời nhắc bằng cách chat với bot (AI gọi tool `SET_REMINDER`, phải xác nhận như mọi thao tác chờ duyệt) hoặc ngay trên dashboard. Trên dashboard, người dùng thêm, xem, sửa, hoãn và xoá lời nhắc.
 
 ## 2. Ai sở hữu code nào
 
-- `apps/web/src/modules/reminders` **chỉ có thư mục `api/`**:
-  - `reminders-api.ts`: `getReminders`, `updateReminder`, `deleteReminder`, gọi `API_ROUTES.reminders` (`/api/reminders`).
-  - `reminders-query.ts`: query key `['reminders']`, các hook `useRemindersQuery`, `useUpdateReminderMutation`, `useDeleteReminderMutation`. Sau khi sửa/xoá thành công sẽ làm mới cache `reminders` và `dashboard`.
-- **Màn hình nằm ở module dashboard**: `RemindersScreen` và `RemindersTable` trong `apps/web/src/modules/dashboard/presentation/components/`. Trang `/reminders` (`apps/web/app/(private)/reminders/page.tsx`) import từ `@/modules/dashboard/view/reminders-screen`. Khi cần sửa giao diện, hãy mở thư mục dashboard, không phải thư mục reminders.
+- `apps/web/src/modules/reminders` có thư mục `api/` và `model/`:
+  - `reminders-api.ts`: `getReminders`, `createReminder`, `updateReminder`, `deleteReminder`, gọi `API_ROUTES.reminders` (`/api/reminders`).
+  - `reminders-query.ts`: query key `['reminders']`, các hook `useRemindersQuery`, `useCreateReminderMutation`, `useUpdateReminderMutation`, `useDeleteReminderMutation`. Sau khi thêm/sửa/xoá thành công sẽ làm mới cache `reminders` và `dashboard`.
+  - `model/reminder-create-form.ts`: hàm thuần (có unit test) đặt giá trị mặc định và kiểm tra form thêm lời nhắc.
+- **Màn hình nằm ở module dashboard**: `RemindersScreen`, `RemindersTable` và `CreateReminderDialog` trong `apps/web/src/modules/dashboard/presentation/components/`. Trang `/reminders` (`apps/web/app/(private)/reminders/page.tsx`) import từ `@/modules/dashboard/view/reminders-screen`. Khi cần sửa giao diện, hãy mở thư mục dashboard, không phải thư mục reminders.
 - Backend: `apps/api/src/reminders` gồm `RemindersController`, `RemindersService` và `ReminderSchedulerService`.
 
 ## 3. Màn hình Nhắc nhở
 
 - Dữ liệu lấy từ `useRemindersQuery`. Nếu API trả danh sách rỗng, màn hình dùng tạm `reminders` trong dữ liệu dashboard.
 - Bảng có ô tìm kiếm theo tiêu đề và các cột: tiêu đề, loại thông báo (`text` tin nhắn / `call` cuộc gọi), thời điểm nhắc, lặp lại (`none` / `daily` / `weekly`), thao tác.
+- **Thêm lời nhắc**: nút `+ Thêm lời nhắc` trên toolbar (desktop) hoặc ở thanh hành động dưới cùng (điện thoại) mở hộp thoại gồm tiêu đề, thời điểm nhắc, loại thông báo, kiểu lặp.
+  - Mặc định nhắc **sau 1 giờ**, bằng tin nhắn, không lặp, để người dùng chỉ cần gõ tiêu đề là lưu được.
+  - Không cho chọn thời điểm đã qua: bộ hẹn giờ sẽ bắn ngay lời nhắc quá giờ ở lượt chạy kế tiếp, nên đó gần như luôn là chọn nhầm. Phút hiện tại vẫn được chấp nhận vì ô nhập chỉ chính xác tới phút. Form kiểm tra lại lúc bấm Lưu phòng khi form để mở lâu.
+  - Giờ nhập theo múi giờ của trình duyệt rồi đổi sang ISO trước khi gửi.
 - Sửa trực tiếp trên dòng (tiêu đề, thời điểm, loại thông báo, kiểu lặp) rồi bấm Lưu hoặc Huỷ.
 - Nút **Nhắc lại** (snooze) chỉ dời `remindAt` thêm 15 phút bằng PATCH.
 - Xoá có hộp thoại xác nhận của trình duyệt. Mỗi thao tác thành công hiện toast.

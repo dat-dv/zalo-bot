@@ -17,13 +17,12 @@ export const GOOGLE_SCOPES = [
   // 2. Google Calendar (Toàn quyền quản lý lịch trình & sự kiện)
   'https://www.googleapis.com/auth/calendar',
 
-  // 3. Google Tasks (quản lý To-Do list & công việc)
-  'https://www.googleapis.com/auth/tasks',
+  // Việc cần làm chỉ lưu trong zalobot nên không xin quyền Google Tasks.
 
-  // 4. Google Drive (quản lý và lưu trữ file/thư mục bill, ảnh, video do app tạo)
+  // 3. Google Drive (quản lý và lưu trữ file/thư mục bill, ảnh, video do app tạo)
   'https://www.googleapis.com/auth/drive.file',
 
-  // 5. Google Photos (tạo album và upload ảnh/video)
+  // 4. Google Photos (tạo album và upload ảnh/video)
   'https://www.googleapis.com/auth/photoslibrary.appendonly',
 ];
 

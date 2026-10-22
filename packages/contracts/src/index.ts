@@ -31,7 +31,6 @@ export const API_ROUTES = {
   calendarEventResync: (id: string) => `/api/calendar/events/${id}/resync`,
   tasks: '/api/tasks',
   task: (id: string) => `/api/tasks/${id}`,
-  taskResync: (id: string) => `/api/tasks/${id}/resync`,
   googleAuthCallback: '/api/oauth2callback',
   swaggerDocs: '/api/docs',
   transactionCandidateDebts: (id: string) => `/api/transactions/${id}/candidate-debts`,
@@ -704,6 +703,28 @@ const messages = {
       'Bạn có chắc chắn muốn xóa đợt trả nợ này? Số tiền nợ còn lại sẽ được khôi phục.',
     'debts.deletePayment.success': 'Đã xóa đợt trả nợ thành công',
     'debts.payments.linkedTransaction': 'Giao dịch liên kết',
+    'debts.actions.create': 'Thêm khoản nợ',
+    'debts.actions.delete': 'Xóa',
+    'debts.create.title': 'Thêm khoản vay nợ',
+    'debts.create.description': 'Ghi một khoản cho vay hoặc đi vay vào sổ chung.',
+    'debts.create.occurredAt': 'Ngày phát sinh',
+    'debts.create.alias': 'Biệt danh (để phân biệt người trùng tên)',
+    'debts.create.matchedContact': 'Đã chọn người trong danh bạ: {name}',
+    'debts.create.newContact': 'Tạo người liên quan mới «{name}»',
+    'debts.create.newContactRequired':
+      'Không có ai tên này trong danh bạ. Chọn từ gợi ý hoặc xác nhận tạo người mới.',
+    'debts.create.amountInvalid': 'Số tiền phải lớn hơn 0.',
+    'debts.create.submit': 'Lưu khoản nợ',
+    'debts.create.success': 'Đã thêm khoản vay nợ',
+    'debts.create.error': 'Không thể thêm khoản nợ. Vui lòng thử lại.',
+    'debts.delete.title': 'Xóa khoản nợ?',
+    'debts.delete.message': 'Khoản nợ với {name} ({amount}) sẽ bị xóa vĩnh viễn khỏi sổ chung.',
+    'debts.delete.paymentsWarning':
+      '{count} đợt trả nợ và các phân bổ giao dịch đi kèm cũng bị xóa; các giao dịch thu/chi đã ghi cho những đợt trả này vẫn giữ trong sổ.',
+    'debts.delete.childrenWarning':
+      '{count} khoản con đã gộp sẽ được tách ra và hiện lại thành khoản nợ riêng.',
+    'debts.delete.success': 'Đã xóa khoản nợ',
+    'debts.delete.error': 'Không thể xóa khoản nợ. Vui lòng thử lại.',
     'category.debtRecovery': 'Thu hồi công nợ',
     'category.debtPayment': 'Trả công nợ',
     'category.balanceAdjustment': 'Điều chỉnh số dư',
@@ -853,7 +874,7 @@ const messages = {
     'calendar.form.description': 'Mô tả',
     'calendar.form.invalidRange': 'Thời điểm kết thúc phải sau lúc bắt đầu',
     'tasks.title': 'Việc cần làm',
-    'tasks.subtitle': 'Việc cần làm dùng chung, lưu trong zalobot và sao chép lên Google Tasks',
+    'tasks.subtitle': 'Việc cần làm dùng chung của cả hệ thống, lưu trong zalobot',
     'tasks.columns.status': 'Trạng thái',
     'tasks.columns.notes': 'Ghi chú',
     'tasks.columns.updatedAt': 'Cập nhật',
@@ -876,29 +897,19 @@ const messages = {
     'tasks.stats.pending': 'Cần làm',
     'tasks.stats.completed': 'Đã xong',
     'tasks.stats.overdue': 'Quá hạn',
-    'tasks.stats.unsynced': 'Chưa lên Google',
-    'tasks.columns.sync': 'Google Tasks',
     'tasks.columns.origin': 'Người tạo',
-    'tasks.filter.unsyncedOnly': 'Đang lọc việc chưa lên Google',
-    'tasks.filter.clear': 'Bỏ lọc',
-    'tasks.localOnlyTip':
-      'Chưa kết nối Google: việc vẫn lưu trong zalobot, chỉ chưa có trên Google Tasks.',
     'tasks.delete.title': 'Xoá việc cần làm?',
-    'tasks.delete.message':
-      'Việc bị xoá khỏi zalobot và khỏi Google Tasks nếu tài khoản giữ bản sao vẫn còn kết nối.',
-    'tasks.sync.synced': 'Đã lên Google',
-    'tasks.sync.pending': 'Đang đồng bộ',
-    'tasks.sync.failed': 'Lỗi đồng bộ Google',
-    'tasks.sync.local': 'Chỉ lưu trong app',
-    'tasks.sync.otherAccount': 'Ở tài khoản Google cũ',
-    'tasks.sync.account': 'Bản sao Google: {email}',
-    'tasks.sync.resync': 'Đồng bộ lại',
-    'tasks.sync.resynced': 'Đã đồng bộ lên Google',
+    'tasks.delete.message': 'Việc sẽ bị xoá khỏi danh sách việc chung.',
     'tasks.source.zalo': 'Tạo từ Zalo',
     'tasks.source.dashboard': 'Tạo từ dashboard',
-    'tasks.source.google': 'Tạo trên Google Tasks',
     'tasks.meta.createdBy': 'Tạo bởi {name}',
     'tasks.meta.inChat': 'trong {chat}',
+    'tasks.actions.create': 'Thêm việc',
+    'tasks.create.title': 'Thêm việc cần làm',
+    'tasks.create.description': 'Việc được thêm vào danh sách việc chung của zalobot.',
+    'tasks.create.submit': 'Lưu việc',
+    'tasks.create.success': 'Đã thêm việc cần làm',
+    'tasks.create.error': 'Không thể thêm việc. Vui lòng thử lại.',
     'reminders.title': 'Nhắc nhở',
     'reminders.subtitle': 'Danh sách lời nhắc tự động qua zalo & Gọi điện',
     'reminders.columns.notifyType': 'Hình thức',
@@ -918,6 +929,14 @@ const messages = {
     'reminders.repeatType.daily': 'Hàng ngày',
     'reminders.repeatType.weekly': 'Hàng tuần',
     'reminders.placeholder.title': 'Nhập tiêu đề lời nhắc...',
+    'reminders.actions.create': 'Thêm lời nhắc',
+    'reminders.create.title': 'Thêm lời nhắc',
+    'reminders.create.description': 'Bot sẽ nhắc bạn qua zalo vào thời điểm đã chọn.',
+    'reminders.create.remindAt': 'Thời điểm nhắc',
+    'reminders.create.pastTime': 'Thời điểm nhắc phải ở tương lai.',
+    'reminders.create.submit': 'Lưu lời nhắc',
+    'reminders.create.success': 'Đã thêm lời nhắc',
+    'reminders.create.error': 'Không thể thêm lời nhắc. Vui lòng thử lại.',
     'period.day': 'Ngày',
     'period.week': 'Tuần',
     'period.month': 'Tháng',
@@ -991,7 +1010,7 @@ const messages = {
       'Tạo nhắc nhở, theo dõi việc cần làm và quản lý lịch trình cá nhân.',
     'public.about.googleTitle': 'Kết nối Google theo lựa chọn',
     'public.about.googleDescription':
-      'Khi bạn cấp quyền, zalobot dùng Google Calendar và Google Tasks để thực hiện đúng các lệnh bạn yêu cầu.',
+      'Khi bạn cấp quyền, zalobot dùng Google Calendar để thực hiện đúng các lệnh bạn yêu cầu.',
     'public.about.copyright': '© {year} zalobot',
     'public.about.support': 'Hỗ trợ: {email}',
     'public.about.privacyPolicy': 'Privacy Policy',
@@ -1008,8 +1027,6 @@ const messages = {
       'Thông tin hồ sơ cơ bản và địa chỉ email để nhận diện tài khoản đã kết nối.',
     'public.privacy.calendarScope':
       'Google Calendar để đọc, tạo, cập nhật hoặc xóa sự kiện theo lệnh của bạn.',
-    'public.privacy.tasksScope':
-      'Google Tasks để đọc, tạo, cập nhật hoặc hoàn thành việc cần làm theo lệnh của bạn.',
     'public.privacy.useTitle': '2. Cách chúng tôi sử dụng dữ liệu Google',
     'public.privacy.useDescription':
       'Dữ liệu Google chỉ được dùng để cung cấp các tính năng Calendar và Tasks mà bạn trực tiếp yêu cầu trong zalobot. Chúng tôi không bán, cho thuê, dùng dữ liệu Google cho quảng cáo, hoặc chuyển dữ liệu đó cho bên thứ ba ngoài nhà cung cấp hạ tầng cần thiết để vận hành dịch vụ.',
@@ -1693,6 +1710,29 @@ const messages = {
       'Are you sure you want to delete this payment record? The remaining debt amount will be restored.',
     'debts.deletePayment.success': 'Debt payment deleted successfully',
     'debts.payments.linkedTransaction': 'Linked Transaction',
+    'debts.actions.create': 'Add debt',
+    'debts.actions.delete': 'Delete',
+    'debts.create.title': 'Add a debt',
+    'debts.create.description': 'Record money lent or borrowed in the shared ledger.',
+    'debts.create.occurredAt': 'Date',
+    'debts.create.alias': 'Nickname (to tell apart people with the same name)',
+    'debts.create.matchedContact': 'Selected from contacts: {name}',
+    'debts.create.newContact': 'Create new person «{name}»',
+    'debts.create.newContactRequired':
+      'Nobody with this name is in the contacts. Pick a suggestion or confirm creating a new person.',
+    'debts.create.amountInvalid': 'Amount must be greater than 0.',
+    'debts.create.submit': 'Save debt',
+    'debts.create.success': 'Debt added',
+    'debts.create.error': 'Could not add the debt. Please try again.',
+    'debts.delete.title': 'Delete debt?',
+    'debts.delete.message':
+      'The debt with {name} ({amount}) will be permanently removed from the shared ledger.',
+    'debts.delete.paymentsWarning':
+      '{count} payments and their transaction allocations are deleted too; the income/expense transactions recorded for those payments stay in the ledger.',
+    'debts.delete.childrenWarning':
+      '{count} combined sub-debts will be split off and show up as separate debts again.',
+    'debts.delete.success': 'Debt deleted',
+    'debts.delete.error': 'Could not delete the debt. Please try again.',
     'category.debtRecovery': 'Debt Recovery',
     'category.debtPayment': 'Debt Repayment',
     'category.balanceAdjustment': 'Balance Adjustment',
@@ -1842,7 +1882,7 @@ const messages = {
     'calendar.form.description': 'Description',
     'calendar.form.invalidRange': 'The end must be after the start',
     'tasks.title': 'Tasks',
-    'tasks.subtitle': 'Shared task list, stored in zalobot and copied to Google Tasks',
+    'tasks.subtitle': 'Shared task list, stored in zalobot',
     'tasks.columns.status': 'Status',
     'tasks.columns.notes': 'Notes',
     'tasks.columns.updatedAt': 'Updated',
@@ -1865,29 +1905,19 @@ const messages = {
     'tasks.stats.pending': 'Pending',
     'tasks.stats.completed': 'Completed',
     'tasks.stats.overdue': 'Overdue',
-    'tasks.stats.unsynced': 'Not on Google',
-    'tasks.columns.sync': 'Google Tasks',
     'tasks.columns.origin': 'Created by',
-    'tasks.filter.unsyncedOnly': 'Showing tasks not on Google',
-    'tasks.filter.clear': 'Clear filter',
-    'tasks.localOnlyTip':
-      'Google is not connected: tasks are still saved in zalobot, just not on Google Tasks.',
     'tasks.delete.title': 'Delete task?',
-    'tasks.delete.message':
-      'The task is removed from zalobot, and from Google Tasks if the account holding its copy is still connected.',
-    'tasks.sync.synced': 'On Google',
-    'tasks.sync.pending': 'Syncing',
-    'tasks.sync.failed': 'Google sync failed',
-    'tasks.sync.local': 'App only',
-    'tasks.sync.otherAccount': 'In a previous Google account',
-    'tasks.sync.account': 'Google copy: {email}',
-    'tasks.sync.resync': 'Sync again',
-    'tasks.sync.resynced': 'Synced to Google',
+    'tasks.delete.message': 'The task is removed from the shared task list.',
     'tasks.source.zalo': 'Created from Zalo',
     'tasks.source.dashboard': 'Created from the dashboard',
-    'tasks.source.google': 'Created in Google Tasks',
     'tasks.meta.createdBy': 'Created by {name}',
     'tasks.meta.inChat': 'in {chat}',
+    'tasks.actions.create': 'Add task',
+    'tasks.create.title': 'Add a task',
+    'tasks.create.description': 'The task is added to the shared zalobot task list.',
+    'tasks.create.submit': 'Save task',
+    'tasks.create.success': 'Task added',
+    'tasks.create.error': 'Could not add the task. Please try again.',
     'reminders.title': 'Reminders',
     'reminders.subtitle': 'Automated reminders via zalo & Call',
     'reminders.columns.notifyType': 'Type',
@@ -1907,6 +1937,14 @@ const messages = {
     'reminders.repeatType.daily': 'Daily',
     'reminders.repeatType.weekly': 'Weekly',
     'reminders.placeholder.title': 'Reminder title...',
+    'reminders.actions.create': 'Add reminder',
+    'reminders.create.title': 'Add a reminder',
+    'reminders.create.description': 'The bot reminds you on zalo at the chosen time.',
+    'reminders.create.remindAt': 'Remind at',
+    'reminders.create.pastTime': 'The reminder time must be in the future.',
+    'reminders.create.submit': 'Save reminder',
+    'reminders.create.success': 'Reminder added',
+    'reminders.create.error': 'Could not add the reminder. Please try again.',
     'period.day': 'Day',
     'period.week': 'Week',
     'period.month': 'Month',
@@ -1980,7 +2018,7 @@ const messages = {
       'Create reminders, track tasks, and manage your personal schedule.',
     'public.about.googleTitle': 'Google connection by choice',
     'public.about.googleDescription':
-      'When you grant permission, zalobot uses Google Calendar and Google Tasks only to perform the actions you request.',
+      'When you grant permission, zalobot uses Google Calendar only to perform the actions you request.',
     'public.about.copyright': '© {year} zalobot',
     'public.about.support': 'Support: {email}',
     'public.about.privacyPolicy': 'Privacy Policy',
@@ -1997,8 +2035,6 @@ const messages = {
       'Basic profile information and email address to identify the connected account.',
     'public.privacy.calendarScope':
       'Google Calendar to read, create, update, or delete events that you request.',
-    'public.privacy.tasksScope':
-      'Google Tasks to read, create, update, or complete tasks that you request.',
     'public.privacy.useTitle': '2. How we use Google data',
     'public.privacy.useDescription':
       'Google data is used only to provide the Calendar and Tasks features you directly request in zalobot. We do not sell, rent, use Google data for advertising, or transfer it to third parties except infrastructure providers required to operate the service.',
@@ -2367,7 +2403,7 @@ export interface IDashboardData {
 }
 
 /**
- * Where the Google copy of a calendar event or task stands. The record itself always lives
+ * Where the Google copy of a calendar event stands. The record itself always lives
  * in the DB; `local` means it never reached Google (no account connected when written).
  */
 export type GoogleSyncStatus = 'synced' | 'pending' | 'failed' | 'local';
@@ -2481,6 +2517,19 @@ export interface IUpdateExpenseRequest {
   occurredAt?: string;
 }
 
+/** `POST /api/debts`: needs either `contactId` or `createNewContact: true`, otherwise the API rejects it. */
+export interface ICreateDebtRequest {
+  direction: 'receivable' | 'payable';
+  counterparty: string;
+  counterpartyAlias?: string;
+  contactId?: string;
+  createNewContact?: boolean;
+  amount: number;
+  note?: string;
+  occurredAt?: string;
+  dueAt?: string;
+}
+
 export interface IUpdateDebtRequest {
   direction?: 'receivable' | 'payable';
   counterparty?: string;
@@ -2497,9 +2546,9 @@ export interface IUpdateDebtRequest {
 
 export type TaskStatus = 'needsAction' | 'completed';
 
-export type TaskSource = 'zalo' | 'dashboard' | 'google';
+export type TaskSource = 'zalo' | 'dashboard';
 
-/** A task of the shared task list. It lives in the DB; Google Tasks holds a copy. */
+/** A task of the shared task list. It lives only in the zalobot DB. */
 export interface ITaskListItem {
   id: string;
   title: string;
@@ -2513,7 +2562,6 @@ export interface ITaskListItem {
   source?: TaskSource;
   sourceChatName?: string;
   sourceChatType?: 'user' | 'group';
-  sync?: IGoogleCopySync;
   createdAt?: string;
 }
 

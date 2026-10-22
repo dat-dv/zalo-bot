@@ -54,7 +54,6 @@ export class LoginToolStrategy implements TextToolStrategy {
         `${statusNote}\n\n` +
         `Tài khoản này sẽ được dùng chung cho toàn bộ thành viên trong bot để:\n` +
         `• 📅 Quản lý Lịch trình (Google Calendar)\n` +
-        `• 📝 Việc cần làm (Google Tasks)\n` +
         `• 📁 Lưu trữ hóa đơn, ảnh & video (Google Drive: zalobot/bills, images, videos)\n` +
         `• 📸 Tự động tạo Album & đẩy ảnh (Google Photos: ZaloBot)\n\n` +
         `Các bước thực hiện:\n` +
