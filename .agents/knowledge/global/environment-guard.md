@@ -47,25 +47,25 @@ Enforcement: `main.ts` calls `validateEnvironment()` right after `loadEnvironmen
 
 ## Env File Policy
 
-An env file lists only keys whose value is a deployment decision (secrets, domain, non-default port/switch). Keys equal to a code default or derivable from another key stay out of `.env*`; code still reads them as overrides. Exception: `BE_PORT` and `DEFAULT_TIMEZONE` stay in `.env*` with their default values because `docker-compose.yml` interpolates them, so Coolify always lists them and refuses to delete them. No legacy alias names are read (removed: `BOT_TOKEN`, `WEBHOOK_URL`, `ZALO_BOT_NAME`, `ZCA_DATA_DIR`, `OLLAMA_*`, `PORT`, `GATEWAY_PORT`, `WEB_PORT`, `ZCA_AUTO_LOGIN`).
+An env file lists only keys whose value is a deployment decision (secrets, domain, non-default port/switch). Keys equal to a code default or derivable from another key stay out of `.env*`; code still reads them as overrides. Coolify lists every `${VAR}` interpolated in `docker-compose.yml` as an env it refuses to delete, so the compose file interpolates only real deployment choices: `POSTGRES_PASSWORD`, `BE_PORT`, `DEFAULT_TIMEZONE`, `NGINX_PORT`, `POSTGRES_PORT`, `REDIS_PORT`. `BE_PORT` and `DEFAULT_TIMEZONE` therefore stay in `.env*` with their default values. Values fixed for the compose stack are hardcoded there: `POSTGRES_DB`/`POSTGRES_USER` `zalobot` (changing them after the volume exists breaks the connection), `DATABASE_URL` (`postgres:5432/zalobot`), `REDIS_URL` (`redis:6379`), `DATABASE_SSL` `false`, `TYPEORM_SYNCHRONIZE` `false` (migrations only), `DATA_DIR` `/app/data` (matches the `./data:/app/data` mount); no `NEXT_PUBLIC_API_URL` build arg. No legacy alias names are read (removed: `BOT_TOKEN`, `WEBHOOK_URL`, `ZALO_BOT_NAME`, `ZCA_DATA_DIR`, `OLLAMA_*`, `PORT`, `GATEWAY_PORT`, `WEB_PORT`, `ZCA_AUTO_LOGIN`).
 
 ## Optional Values (`configuration.ts`)
 
 Defaults in parentheses.
 
 - Network: `BE_PORT` (3005), `WEB_ORIGIN` (`APP_URL`), `CORS_ALLOW_ALL` (false), `DEFAULT_TIMEZONE` (`Asia/Ho_Chi_Minh`).
-- Database/cache: `DATABASE_SSL` (false), `TYPEORM_SYNCHRONIZE` (false), `REDIS_URL`.
+- Database/cache: `DATABASE_SSL` (false), `TYPEORM_SYNCHRONIZE` (false), `REDIS_URL`. Only effective outside `docker-compose.yml` (dev), which hardcodes them.
 - Deploy notify: `DEPLOY_NOTIFY_TOKEN` (`deploy.notifyToken`). Unset → deploy-notify routes return 403 (see `backend-runtime-services.md`).
 - Zalo bot: `BOT_NAME` (`Bot`), `ZALO_WEBHOOK_URL` (`${APP_URL}/webhook`), `ZALO_WEBHOOK_SECRET_TOKEN`.
-- ZCA: `DATA_DIR` (`./data`, resolved from cwd; compose sets `/app/data`), `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN` (false), `ZCA_CHECK_UPDATE` (false), `ZCA_LOGGING` (false), `ZCA_ENABLE_WELCOME` (false), `ZCA_WELCOME_IMAGE_PATH`. Bootstrap auto-login has no flag (see `modules/zca/README.md`).
+- ZCA: `DATA_DIR` (`./data`, resolved from cwd; `docker-compose.yml` hardcodes `/app/data`), `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN` (false), `ZCA_CHECK_UPDATE` (false), `ZCA_LOGGING` (false), `ZCA_ENABLE_WELCOME` (false), `ZCA_WELCOME_IMAGE_PATH`. Bootstrap auto-login has no flag (see `modules/zca/README.md`).
 - LLM: `LLM_PROVIDER` (`gemini`; also `openai`, `qwen`/`ollama`, `router`/`9router` — provider names, not env aliases), `LLM_FALLBACK_PROVIDERS` (comma-separated chain after `LLM_PROVIDER`, default empty), `LLM_TIMEOUT_MS` (`30000`), `ROUTER_BASE_URL`, `ROUTER_MODEL`, `ROUTER_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL` (`gemini-3.5-flash-lite`), `OPENAI_API_KEY`, `OPENAI_MODEL` (`gpt-4o-mini`), `OPENAI_BASE_URL` (`https://api.openai.com/v1`), `QWEN_BASE_URL` (`http://localhost:11434`), `QWEN_MODEL` (`qwen2.5:14b`), `QWEN_API_KEY`.
 - Read directly from `process.env` (not via `configuration.ts`): `NOTIFY_ON_STARTUP`, `APP_VERSION`, commit/branch vars (`COMMIT_SHA`, `GIT_COMMIT`, `COOLIFY_COMMIT_SHA`, `BRANCH`, `GIT_BRANCH`, `COOLIFY_BRANCH`) in `health/deploy-notify.service.ts`; `ZCA_IMEI`/`ZCA_COOKIE`/`ZCA_USER_AGENT`/`ZCA_LANGUAGE`/`DATA_DIR` fallbacks in `zca/`.
-- Compose-only: `POSTGRES_DB` (`zalobot`), `POSTGRES_USER` (`zalobot`), `POSTGRES_PASSWORD` (required), `POSTGRES_PORT` (5432), `REDIS_PORT` (6379), `NGINX_PORT` (3000 in `docker-compose.local.yml`, 3009 in `docker-compose.yml`), `FE_PORT` (5173, Next dev and local gateway).
+- Compose-only: `POSTGRES_PASSWORD` (required), `POSTGRES_PORT` (5432), `REDIS_PORT` (6379), `NGINX_PORT` (3000 in `docker-compose.local.yml`, 3009 in `docker-compose.yml`), `FE_PORT` (5173, Next dev and local gateway).
 
 ## Web Values
 
 - Only `NEXT_PUBLIC_*` reaches the browser. `next.config.ts` loads the monorepo root env via `@next/env`.
-- `NEXT_PUBLIC_API_URL`: public API origin without `/api`, only needed when the API lives on another domain. Unset (default, including the `docker-compose.yml` build arg) → `httpClient` uses same-origin relative URLs (web Nginx proxies `/api`); localhost/tunnel hosts always use relative URLs; dev rewrites fall back to `http://localhost:${NGINX_PORT|3000}`.
+- `NEXT_PUBLIC_API_URL`: public API origin without `/api`, only needed when the API lives on another domain. Unset (default; `docker-compose.yml` passes no build arg) → `httpClient` uses same-origin relative URLs (web Nginx proxies `/api`); localhost/tunnel hosts always use relative URLs; dev rewrites fall back to `http://localhost:${NGINX_PORT|3000}`.
 - `NEXT_PUBLIC_APP_URL`: metadata base and sitemap origin (fallback `https://bot.datintech.site`).
 
 ## Inventory Notes

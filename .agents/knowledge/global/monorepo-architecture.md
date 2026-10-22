@@ -57,7 +57,7 @@ metadata:
 
 ## Docker
 
-- `docker-compose.yml`: `postgres` (16-alpine), `redis` (7-alpine, AOF), `api` (`BE_PORT`, default 3005; mounts `./data:/app/data`; healthcheck `/health`), `web` (Nginx, host port `NGINX_PORT`, default 3009; build arg `NEXT_PUBLIC_API_URL`, default empty = same-origin).
+- `docker-compose.yml`: `postgres` (16-alpine), `redis` (7-alpine, AOF), `api` (`BE_PORT`, default 3005; mounts `./data:/app/data`; healthcheck `/health`), `web` (Nginx, host port `NGINX_PORT`, default 3009; no build arg, so the web calls the API same-origin). Fixed stack values (DB name/user, SSL off, synchronize off, `DATA_DIR=/app/data`) are hardcoded, not interpolated (see `environment-guard.md`).
 - `docker-compose.local.yml` (`npm run docker:local`): postgres, redis, and an Nginx gateway (`NGINX_PORT`, default 3000) proxying to API/web dev servers on the host.
 - Root `.dockerignore` excludes `node_modules`, build outputs, `.git`, and `.env*`. Both Dockerfiles use BuildKit npm cache mounts.
 - Stage `manifests` (both Dockerfiles): copies all workspace `package.json` + `package-lock.json` and zeroes every `version` (root, workspaces, lockfile). Rationale: `.githooks/pre-commit` auto-bumps the version on every commit; downstream stages `COPY --from=manifests` (content-checksummed), so `npm ci` stays cached unless dependencies actually change.

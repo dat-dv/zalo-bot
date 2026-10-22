@@ -56,7 +56,7 @@ Vì vậy chạy nhiều instance API cùng lúc không tranh nhau nhận update
 ## Dashboard mở từ bot
 
 1. Cấu hình `APP_URL` là URL public của API; `WEB_ORIGIN` là URL public của web (mặc định bằng `APP_URL` khi dùng chung domain).
-2. Đặt `NEXT_PUBLIC_API_URL` trước khi build Docker web, ví dụ `https://zalobot.datintech.site` (không thêm `/api`). Không dùng tiền tố `SERVICE_URL_*` vì Coolify dành riêng.
+2. Không cần `NEXT_PUBLIC_API_URL` khi web và API cùng domain: `docker-compose.yml` không truyền build arg này, web gọi `/api` bằng đường dẫn tương đối. Chỉ đặt khi API ở domain khác (origin, không thêm `/api`). Không dùng tiền tố `SERVICE_URL_*` vì Coolify dành riêng.
 3. Người dùng gõ `/dashboard`; bot gửi link một lần sống 20 phút. API xác nhận token, ghi cookie refresh và chuyển sang `/dashboard#dashboard_token=...`.
 4. Access token sống 24 giờ, lưu ở `localStorage`; refresh token sống 7 ngày, xoay vòng trong cookie `HttpOnly`. Axios tự refresh sau `401`, TanStack Query quản lý cache.
 

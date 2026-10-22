@@ -38,7 +38,7 @@ Danh sách bắt buộc nằm trong `apps/api/src/config/env.validator.ts`:
 
 ## Nguyên tắc giữ file env gọn
 
-File env chỉ chứa biến mà **giá trị là quyết định của người triển khai**: secret, domain, cổng hoặc công tắc khác mặc định. Biến trùng mặc định trong code, hoặc suy ra được từ biến khác (ví dụ `WEB_ORIGIN`, `ZALO_WEBHOOK_URL` suy từ `APP_URL`), không đưa vào env; khi cần đổi thì mới thêm dòng đó. **Ngoại lệ**: `BE_PORT` và `DEFAULT_TIMEZONE` vẫn giữ trong env với giá trị mặc định. `docker-compose.yml` dùng dạng `${BE_PORT:-3005}`, nên Coolify tự tạo env cho 2 biến này và báo lỗi "Please remove it from the Docker Compose file first" khi xoá. Giữ trong env để file env khớp với những gì Coolify hiển thị. Lý do: env dài toàn giá trị mặc định khiến người đọc không biết dòng nào thật sự quan trọng, và dễ sinh lỗi như gõ sai tên khoá mà không ai phát hiện.
+File env chỉ chứa biến mà **giá trị là quyết định của người triển khai**: secret, domain, cổng hoặc công tắc khác mặc định. Biến trùng mặc định trong code, hoặc suy ra được từ biến khác (ví dụ `WEB_ORIGIN`, `ZALO_WEBHOOK_URL` suy từ `APP_URL`), không đưa vào env; khi cần đổi thì mới thêm dòng đó. **Coolify và `docker-compose.yml`**: biến nào được compose tham chiếu dạng `${TÊN:-mặc định}` thì Coolify tự tạo env cho nó và báo lỗi "Please remove it from the Docker Compose file first" khi xoá. Vì vậy compose chỉ tham chiếu những biến thật sự cần chọn: `POSTGRES_PASSWORD`, `BE_PORT`, `DEFAULT_TIMEZONE`, `NGINX_PORT`, `POSTGRES_PORT`, `REDIS_PORT`; `BE_PORT` và `DEFAULT_TIMEZONE` vẫn giữ trong env với giá trị mặc định cho khớp Coolify. Các giá trị cố định của stack được ghi cứng trong compose: `POSTGRES_DB`/`POSTGRES_USER` là `zalobot` (đổi sau khi đã có volume dữ liệu thì API không kết nối được), `DATABASE_SSL` và `TYPEORM_SYNCHRONIZE` là `false` (prod chỉ đổi schema bằng migration), `DATA_DIR` là `/app/data` (khớp volume `./data:/app/data`, đặt khác là mất phiên ZCA sau mỗi lần deploy), và không có build arg `NEXT_PUBLIC_API_URL`. Lý do: env dài toàn giá trị mặc định khiến người đọc không biết dòng nào thật sự quan trọng, và dễ sinh lỗi như gõ sai tên khoá mà không ai phát hiện.
 
 Code không còn đọc tên cũ (alias): `BOT_TOKEN`, `WEBHOOK_URL`, `ZALO_BOT_NAME`, `ZCA_DATA_DIR`, `OLLAMA_*`, `PORT`, `GATEWAY_PORT`, `WEB_PORT`. Cờ `ZCA_AUTO_LOGIN` cũng đã bỏ: bot tự đăng nhập ZCA khi có phiên đã lưu hoặc có `ZCA_IMEI` + `ZCA_COOKIE` (xem [ZCA](../modules/zca/README.md)).
 
@@ -49,20 +49,20 @@ Code không còn đọc tên cũ (alias): `BOT_TOKEN`, `WEBHOOK_URL`, `ZALO_BOT_
 Mặc định ghi trong ngoặc.
 
 - **Mạng**: `BE_PORT` (3005), `WEB_ORIGIN` (= `APP_URL`), `CORS_ALLOW_ALL` (false), `DEFAULT_TIMEZONE` (`Asia/Ho_Chi_Minh`).
-- **Database/cache**: `DATABASE_SSL` (false), `TYPEORM_SYNCHRONIZE` (false), `REDIS_URL`.
+- **Database/cache**: `DATABASE_SSL` (false), `TYPEORM_SYNCHRONIZE` (false), `REDIS_URL`. Chỉ có tác dụng khi chạy ngoài Docker Compose (dev); trong `docker-compose.yml` đã ghi cứng.
 - **Thông báo deploy**: `DEPLOY_NOTIFY_TOKEN`, bí mật cho webhook `/health/deploy`, `/deploy/*`. Để trống thì các route này trả 403 (xem [Dịch vụ nền của Backend](backend-runtime-services.md)).
 - **Zalo Bot**: `BOT_NAME` (`Bot`), `ZALO_WEBHOOK_URL` (`APP_URL/webhook`), `ZALO_WEBHOOK_SECRET_TOKEN` (đổi giá trị thì phải đăng ký lại webhook bằng `npm run zalo:webhook:set`).
-- **ZCA (Zalo cá nhân)**: `DATA_DIR` (`./data`; Docker đặt `/app/data`), `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT` (thường không cần: đăng nhập bằng QR trên dashboard, phiên lưu vào file + Redis), `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN` (false), `ZCA_CHECK_UPDATE` (false), `ZCA_LOGGING` (false, bật khi debug), `ZCA_ENABLE_WELCOME` (false), `ZCA_WELCOME_IMAGE_PATH`.
+- **ZCA (Zalo cá nhân)**: `DATA_DIR` (`./data`; `docker-compose.yml` ghi cứng `/app/data`), `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT` (thường không cần: đăng nhập bằng QR trên dashboard, phiên lưu vào file + Redis), `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN` (false), `ZCA_CHECK_UPDATE` (false), `ZCA_LOGGING` (false, bật khi debug), `ZCA_ENABLE_WELCOME` (false), `ZCA_WELCOME_IMAGE_PATH`.
 - **LLM**: `LLM_PROVIDER` chọn nhà cung cấp đầu chuỗi cho `LlmService` (`gemini` mặc định, `openai`, `qwen`/`ollama`, `router`/`9router`); `LLM_FALLBACK_PROVIDERS` là danh sách provider dự phòng, phân cách bằng dấu phẩy (vd `gemini`); `LLM_TIMEOUT_MS` (mặc định `30000`); provider `router` dùng `ROUTER_BASE_URL`, `ROUTER_MODEL`, `ROUTER_API_KEY`; kèm `GEMINI_API_KEY`, `GEMINI_MODEL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `QWEN_BASE_URL`, `QWEN_MODEL`, `QWEN_API_KEY`. `ollama`/`9router` chỉ là tên provider trong `LLM_PROVIDER`, không phải tên biến.
 - **Trí nhớ hội thoại**: không có biến môi trường; bật theo từng kênh trong "Cấu hình kênh" trên dashboard. Xem [Trí nhớ hội thoại](../modules/zca/chat-memory.md).
 - **Thông báo deploy**: `NOTIFY_ON_STARTUP` (đặt `false` để tắt; ở `NODE_ENV=development` phải đặt `true` mới gửi), `APP_VERSION` (mặc định lấy từ `package.json`), các biến commit/branch do Coolify/CI cung cấp.
-- **Chỉ dùng cho Docker Compose**: `POSTGRES_DB`, `POSTGRES_USER` (đều `zalobot`), `POSTGRES_PASSWORD` (bắt buộc, phải khớp `DATABASE_URL`), `POSTGRES_PORT`, `REDIS_PORT`, `NGINX_PORT` (3000 local, 3009 production), `FE_PORT` (5173).
+- **Chỉ dùng cho Docker Compose**: `POSTGRES_PASSWORD` (bắt buộc; compose tự dựng `DATABASE_URL` từ nó), `POSTGRES_PORT`, `REDIS_PORT`, `NGINX_PORT` (3000 local, 3009 production), `FE_PORT` (5173).
 
 ## Biến của web dashboard
 
 Chỉ biến `NEXT_PUBLIC_*` được đóng gói vào trình duyệt; mọi secret ở trên chỉ dành cho `apps/api`.
 
-- `NEXT_PUBLIC_API_URL`: origin public của API, **không** thêm `/api` vì hằng số route đã có sẵn. Mặc định bỏ trống (kể cả build arg trong `docker-compose.yml`): web gọi API bằng đường dẫn tương đối qua cùng domain, Nginx của web chuyển `/api` sang API. Chỉ khai báo khi API nằm ở domain khác.
+- `NEXT_PUBLIC_API_URL`: origin public của API, **không** thêm `/api` vì hằng số route đã có sẵn. Mặc định bỏ trống (`docker-compose.yml` không truyền build arg này): web gọi API bằng đường dẫn tương đối qua cùng domain, Nginx của web chuyển `/api` sang API. Chỉ khai báo khi API nằm ở domain khác.
 - `NEXT_PUBLIC_APP_URL`: domain dùng cho metadata/sitemap.
 
 ## Cách cấu hình

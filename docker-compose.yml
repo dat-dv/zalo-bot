@@ -5,8 +5,9 @@ services:
     ports:
       - '${POSTGRES_PORT:-5432}:5432'
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-zalobot}
-      POSTGRES_USER: ${POSTGRES_USER:-zalobot}
+      # Fixed on purpose: changing them after the volume exists leaves the API unable to connect.
+      POSTGRES_DB: zalobot
+      POSTGRES_USER: zalobot
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env or .env.production}
     volumes:
       - zalobot-postgres:/var/lib/postgresql/data
@@ -47,11 +48,13 @@ services:
     environment:
       TZ: ${DEFAULT_TIMEZONE:-Asia/Ho_Chi_Minh}
       BE_PORT: ${BE_PORT:-3005}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-zalobot}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zalobot}
-      DATABASE_SSL: ${DATABASE_SSL:-false}
+      # Values below are fixed for this stack (in-compose Postgres without SSL, data volume at
+      # /app/data, migrations only). Not interpolated, so Coolify does not list them as editable env.
+      DATABASE_URL: postgresql://zalobot:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/zalobot
+      DATABASE_SSL: 'false'
       REDIS_URL: redis://redis:6379
-      TYPEORM_SYNCHRONIZE: ${TYPEORM_SYNCHRONIZE:-false}
-      DATA_DIR: ${DATA_DIR:-/app/data}
+      TYPEORM_SYNCHRONIZE: 'false'
+      DATA_DIR: /app/data
     volumes:
       - ./data:/app/data
     extra_hosts:
@@ -71,9 +74,8 @@ services:
   web:
     build:
       context: .
+      # No NEXT_PUBLIC_API_URL build arg: web and API share the domain, so the web calls /api relatively.
       dockerfile: apps/web/Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     environment:
       - BE_PORT=${BE_PORT:-3005}
     restart: unless-stopped
