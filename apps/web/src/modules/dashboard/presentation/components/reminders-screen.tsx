@@ -28,6 +28,14 @@ import {
   snoozeReminderTimes,
 } from '@/modules/reminders/model/reminder-times';
 import {
+  REMINDER_RULE_ERROR_MESSAGES,
+  buildNagFields,
+  emptyNagDraft,
+  isNagChanged,
+  nagDraftFrom,
+  reminderRuleError,
+} from '@/modules/reminders/model/reminder-nag';
+import {
   reminderListStatusFrom,
   writeReminderListStatus,
 } from '@/modules/reminders/model/reminder-list-status';
@@ -60,7 +68,7 @@ const emptyEditDraft = (): ReminderEditDraft => ({
   title: '',
   remindTimes: reminderTimeDraftsFrom(undefined),
   notifyType: 'text',
-  repeatType: 'none',
+  nag: emptyNagDraft(),
   target: emptyReminderTargetDraft(),
 });
 
@@ -133,9 +141,11 @@ export function RemindersScreen() {
       // Saved times (shown in the browser's time zone); a list from the Home payload has none.
       remindTimes: item.remindTimes
         ? reminderTimeDraftsFrom(item.remindTimes)
-        : reminderTimeDraftsFrom([{ id: item.id, remindAt: item.remindAt }]),
+        : reminderTimeDraftsFrom([
+            { id: item.id, remindAt: item.remindAt, repeatType: item.repeatType },
+          ]),
       notifyType: item.notifyType || 'text',
-      repeatType: item.repeatType || 'none',
+      nag: nagDraftFrom(item),
       target: reminderTargetDraftFrom(item.remindUsers, item.remindMode),
     });
   };
@@ -182,17 +192,24 @@ export function RemindersScreen() {
       showToast(t('reminders.create.pastTime'));
       return;
     }
+    const nag = buildNagFields(editDraft.nag);
+    const ruleError = reminderRuleError(times.times, nag);
+    if (ruleError) {
+      showToast(t(REMINDER_RULE_ERROR_MESSAGES[ruleError]));
+      return;
+    }
 
     try {
       await updateMutation.mutateAsync({
         id,
         data: {
           title: trimmedTitle,
-          ...(isReminderTimesChanged(times.iso, item?.remindTimes)
-            ? { remindTimes: times.iso }
+          // A list from the Home payload has no times to compare: always send them.
+          ...(!item?.remindTimes || isReminderTimesChanged(times.times, item.remindTimes)
+            ? { remindTimes: times.times }
             : {}),
           notifyType: editDraft.notifyType,
-          repeatType: editDraft.repeatType,
+          ...(isNagChanged(editDraft.nag, item ?? {}) ? nag : {}),
           ...target.patch,
         },
       });

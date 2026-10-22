@@ -28,13 +28,35 @@ test('builds sorted, distinct ISO times and skips empty rows', () => {
     ],
     NOW,
   );
+  const iso = [
+    new Date(localInput(inHours(1))).toISOString(),
+    new Date(localInput(inHours(3))).toISOString(),
+  ];
   assert.deepEqual(result, {
     ok: true,
-    iso: [
-      new Date(localInput(inHours(1))).toISOString(),
-      new Date(localInput(inHours(3))).toISOString(),
-    ],
+    iso,
+    times: iso.map((remindAt) => ({ remindAt, repeatType: 'none', repeatWeekdays: [] })),
   });
+});
+
+test('each time carries its own repeat; weekdays only for weekly, sorted', () => {
+  const result = buildReminderTimes(
+    [
+      { value: localInput(inHours(1)), repeatType: 'daily', repeatWeekdays: [3] },
+      { value: localInput(inHours(2)), repeatType: 'weekly', repeatWeekdays: [5, 1, 5] },
+      { value: localInput(inHours(3)) },
+    ],
+    NOW,
+  );
+  assert.ok(result.ok);
+  assert.deepEqual(
+    result.times.map((time) => [time.repeatType, time.repeatWeekdays]),
+    [
+      ['daily', []],
+      ['weekly', [1, 5]],
+      ['none', []],
+    ],
+  );
 });
 
 test('a new past time is rejected, an unchanged saved past time is kept as is', () => {
@@ -44,7 +66,11 @@ test('a new past time is rejected, an unchanged saved past time is kept as is', 
   });
   const saved = [{ id: 'a', remindAt: inHours(-1).toISOString(), sentAt: NOW.toISOString() }];
   const drafts = reminderTimeDraftsFrom(saved);
-  assert.deepEqual(buildReminderTimes(drafts, NOW), { ok: true, iso: [saved[0].remindAt] });
+  assert.deepEqual(buildReminderTimes(drafts, NOW), {
+    ok: true,
+    iso: [saved[0].remindAt],
+    times: [{ remindAt: saved[0].remindAt, repeatType: 'none', repeatWeekdays: [] }],
+  });
 });
 
 test('more than 10 times is rejected', () => {
@@ -56,9 +82,27 @@ test('drafts from saved times, change detection, and an empty start row', () => 
   assert.deepEqual(reminderTimeDraftsFrom(undefined), [{ value: '' }]);
   assert.equal(hasReminderTime([{ value: '' }]), false);
   const saved = [{ id: 'a', remindAt: inHours(1).toISOString() }];
-  assert.equal(isReminderTimesChanged([saved[0].remindAt], saved), false);
+  const once = (remindAt: string) => ({
+    remindAt,
+    repeatType: 'none' as const,
+    repeatWeekdays: [],
+  });
+  assert.equal(isReminderTimesChanged([once(saved[0].remindAt)], saved), false);
   assert.equal(isReminderTimesChanged([], saved), true);
-  assert.equal(isReminderTimesChanged([saved[0].remindAt, inHours(2).toISOString()], saved), true);
+  assert.equal(
+    isReminderTimesChanged([once(saved[0].remindAt), once(inHours(2).toISOString())], saved),
+    true,
+  );
+  // Same instant, another repeat: changed.
+  assert.equal(
+    isReminderTimesChanged([{ ...once(saved[0].remindAt), repeatType: 'daily' }], saved),
+    true,
+  );
+  const drafts = reminderTimeDraftsFrom([
+    { id: 'b', remindAt: saved[0].remindAt, repeatType: 'weekly', repeatWeekdays: [2] },
+  ]);
+  assert.equal(drafts[0].repeatType, 'weekly');
+  assert.deepEqual(drafts[0].repeatWeekdays, [2]);
 });
 
 test('snooze moves only the next time not sent', () => {
@@ -67,9 +111,24 @@ test('snooze moves only the next time not sent', () => {
     { id: 'b', remindAt: inHours(1).toISOString() },
     { id: 'c', remindAt: inHours(5).toISOString() },
   ];
+  assert.deepEqual(
+    snoozeReminderTimes(saved, 15).map((time) => time.remindAt),
+    [
+      inHours(-2).toISOString(),
+      new Date(inHours(1).getTime() + 15 * 60 * 1000).toISOString(),
+      inHours(5).toISOString(),
+    ],
+  );
+});
+
+test('snoozing a repeating time keeps it and adds a one-off time', () => {
+  const saved = [{ id: 'a', remindAt: inHours(1).toISOString(), repeatType: 'daily' as const }];
   assert.deepEqual(snoozeReminderTimes(saved, 15), [
-    inHours(-2).toISOString(),
-    new Date(inHours(1).getTime() + 15 * 60 * 1000).toISOString(),
-    inHours(5).toISOString(),
+    { remindAt: inHours(1).toISOString(), repeatType: 'daily', repeatWeekdays: [] },
+    {
+      remindAt: new Date(inHours(1).getTime() + 15 * 60 * 1000).toISOString(),
+      repeatType: 'none',
+      repeatWeekdays: [],
+    },
   ]);
 });

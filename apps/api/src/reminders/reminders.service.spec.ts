@@ -68,7 +68,10 @@ function setup() {
       .sort((a, b) => a.remindAt.getTime() - b.remindAt.getTime());
   const dueTime = (reminder: ReminderEntity, time: ReminderTimeEntity): DueReminderTime =>
     Object.assign(time, { reminder });
-  return { service, reminders, times, timesOf, dueTime };
+  /** Claims a time as the scheduler does, right when it is due. */
+  const claim = (reminder: ReminderEntity, time: ReminderTimeEntity) =>
+    service.claimReminderTime(dueTime(reminder, time), new Date(time.remindAt.getTime() + 1000));
+  return { service, reminders, times, timesOf, dueTime, claim };
 }
 
 const inHours = (hours: number) => new Date(Date.now() + hours * 60 * 60 * 1000);
@@ -86,20 +89,20 @@ void test('a reminder can have several times; remindAt is the earliest', async (
 });
 
 void test('a one-off reminder completes once every time went out', async () => {
-  const { service, timesOf, dueTime } = setup();
+  const { service, timesOf, claim } = setup();
   const reminder = await service.createReminder({
     userId: '111',
     title: 'Họp',
     remindTimes: [inHours(1), inHours(2)],
   });
   const [first, second] = timesOf(reminder.id);
-  assert.equal(await service.claimReminderTime(dueTime(reminder, first)), true);
-  assert.equal(await service.claimReminderTime(dueTime(reminder, first)), false, 'only once');
+  assert.ok(await claim(reminder, first));
+  assert.equal(await claim(reminder, first), null, 'only once');
   await service.refreshReminderSummary(reminder);
   assert.equal(reminder.isTriggered, false);
   assert.equal(reminder.remindAt.getTime(), second.remindAt.getTime());
 
-  await service.claimReminderTime(dueTime(reminder, second));
+  await claim(reminder, second);
   await service.refreshReminderSummary(reminder);
   assert.equal(reminder.isTriggered, true);
   assert.equal(reminder.status, 'completed');
@@ -115,7 +118,7 @@ void test('a daily reminder moves each of its times to the next day', async () =
   });
   const [morning] = timesOf(reminder.id);
   const before = morning.remindAt.getTime();
-  assert.equal(await service.claimReminderTime(dueTime(reminder, morning), new Date(before)), true);
+  assert.ok(await service.claimReminderTime(dueTime(reminder, morning), new Date(before)));
   assert.equal(morning.sentAt, null, 'a repeating time is never marked sent');
   assert.equal(morning.remindAt.getTime(), before + 24 * 60 * 60 * 1000);
   await service.refreshReminderSummary(reminder);
@@ -123,14 +126,14 @@ void test('a daily reminder moves each of its times to the next day', async () =
 });
 
 void test('editing the times keeps the ones still listed and needs at least one', async () => {
-  const { service, timesOf, dueTime } = setup();
+  const { service, timesOf, claim } = setup();
   const first = inHours(1);
   const reminder = await service.createReminder({
     userId: '111',
     title: 'Họp',
     remindTimes: [first, inHours(2)],
   });
-  await service.claimReminderTime(dueTime(reminder, timesOf(reminder.id)[0]));
+  await claim(reminder, timesOf(reminder.id)[0]);
   const third = inHours(3);
   await service.updateReminder('111', reminder.id, { remindTimes: [first, third] });
   assert.deepEqual(
@@ -147,13 +150,13 @@ void test('editing the times keeps the ones still listed and needs at least one'
 });
 
 void test('changing the target does not re-send a sent time', async () => {
-  const { service, timesOf, dueTime } = setup();
+  const { service, timesOf, claim } = setup();
   const reminder = await service.createReminder({
     userId: '111',
     title: 'Họp',
     remindTimes: [inHours(1)],
   });
-  await service.claimReminderTime(dueTime(reminder, timesOf(reminder.id)[0]));
+  await claim(reminder, timesOf(reminder.id)[0]);
   await service.refreshReminderSummary(reminder);
   const moved = await service.updateReminder('111', reminder.id, {
     chatId: 'g1',
@@ -253,5 +256,99 @@ void test('an older group reminder without people still saves edits that keep it
   await assert.rejects(
     service.updateReminder('111', reminder.id, { remindMode: 'direct' }),
     BadRequestException,
+  );
+});
+
+void test('a one-off reminder with reminders again is done only after the last one', async () => {
+  const { service, timesOf, dueTime } = setup();
+  const at = inHours(1);
+  const reminder = await service.createReminder({
+    userId: '111',
+    title: 'Uống thuốc',
+    remindTimes: [at],
+    nagEveryMinutes: 10,
+    nagCount: 1,
+  });
+  const [time] = timesOf(reminder.id);
+  const sentAt = new Date(at.getTime() + 1000);
+  assert.deepEqual(await service.claimReminderTime(dueTime(reminder, time), sentAt), { at });
+  await service.refreshReminderSummary(reminder);
+  assert.equal(reminder.isTriggered, false, 'a reminder again is still to come');
+  const nagAt = time.nagAt;
+  assert.ok(nagAt);
+  const nag = await service.claimReminderTime(dueTime(reminder, time), nagAt);
+  assert.deepEqual(nag, { at: nagAt, nag: { index: 1, total: 1 } });
+  await service.refreshReminderSummary(reminder);
+  assert.equal(reminder.isTriggered, true);
+});
+
+void test('marking a reminder done stops its reminders again', async () => {
+  const { service, timesOf, claim } = setup();
+  const reminder = await service.createReminder({
+    userId: '111',
+    title: 'Uống thuốc',
+    remindTimes: [{ at: inHours(1), repeat: { repeatType: 'weekly', repeatWeekdays: [3, 1] } }],
+    nagEveryMinutes: 30,
+    nagCount: 3,
+  });
+  assert.deepEqual(timesOf(reminder.id)[0].repeatWeekdays, [1, 3]);
+  assert.equal(reminder.repeatType, 'weekly', 'legacy column: the earliest time');
+  await claim(reminder, timesOf(reminder.id)[0]);
+  assert.ok(timesOf(reminder.id)[0].nagAt);
+  await service.markCompleted(reminder.id, '111');
+  assert.equal(timesOf(reminder.id)[0].nagAt, null);
+});
+
+void test('reminding again that would overlap the next repeat is rejected', async () => {
+  const { service } = setup();
+  await assert.rejects(
+    service.createReminder({
+      userId: '111',
+      title: 'Họp',
+      remindTimes: [inHours(1)],
+      repeatType: 'daily',
+      nagEveryMinutes: 600,
+      nagCount: 3,
+    }),
+    BadRequestException,
+  );
+});
+
+void test('each time repeats on its own: a daily time and a one-off time', async () => {
+  const { service, timesOf, claim } = setup();
+  const morning = inHours(1);
+  const once = inHours(2);
+  const reminder = await service.createReminder({
+    userId: '111',
+    title: 'Uống thuốc',
+    remindTimes: [{ at: morning, repeat: { repeatType: 'daily', repeatWeekdays: [] } }, once],
+  });
+  const [daily, oneOff] = timesOf(reminder.id);
+  assert.equal(daily.repeatType, 'daily');
+  assert.equal(oneOff.repeatType, 'none');
+  await claim(reminder, daily);
+  await claim(reminder, oneOff);
+  assert.equal(daily.sentAt, null, 'the daily time moved on');
+  assert.ok(oneOff.sentAt, 'the one-off time went out');
+  await service.refreshReminderSummary(reminder);
+  assert.equal(reminder.isTriggered, false, 'a repeating time never finishes the reminder');
+});
+
+void test('older clients still set one repeat for the whole reminder', async () => {
+  const { service, timesOf } = setup();
+  const reminder = await service.createReminder({
+    userId: '111',
+    title: 'Họp',
+    remindTimes: [inHours(1), inHours(2)],
+    repeatType: 'weekly',
+  });
+  assert.deepEqual(
+    timesOf(reminder.id).map((time) => time.repeatType),
+    ['weekly', 'weekly'],
+  );
+  await service.updateReminder('111', reminder.id, { repeatType: 'none' });
+  assert.deepEqual(
+    timesOf(reminder.id).map((time) => time.repeatType),
+    ['none', 'none'],
   );
 });

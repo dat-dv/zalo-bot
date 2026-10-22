@@ -4,6 +4,9 @@ export interface LlmToolProperty {
   enum?: string[];
   /** Element schema of an `ARRAY` property. */
   items?: LlmToolProperty;
+  /** Fields of an `OBJECT` property (e.g. the elements of an array of objects). */
+  properties?: Record<string, LlmToolProperty>;
+  required?: string[];
 }
 
 export interface LlmToolDefinition {

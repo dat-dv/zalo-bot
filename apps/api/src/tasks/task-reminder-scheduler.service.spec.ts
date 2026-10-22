@@ -8,6 +8,7 @@ import { createTargetService } from '../reminders/reminder-target.fixtures.spec'
 import type { UsersService } from '../users/users.service';
 import type { ZcaMessengerService } from '../zca/zca-messenger.service';
 import { TaskReminderSchedulerService } from './task-reminder-scheduler.service';
+import type { ReminderOccurrence } from '../reminders/reminder-schedule';
 import type { DueTaskReminder, TasksService } from './tasks.service';
 
 const NOW = new Date('2026-10-22T03:00:00.000Z');
@@ -52,10 +53,10 @@ function setup(options: {
   const released: string[] = [];
   const tasks = {
     getDueTaskReminders: () => Promise.resolve(options.due.filter((time) => !marked.has(time.id))),
-    markTaskReminderSent: (id: string) => {
-      if (marked.has(id)) return Promise.resolve(false);
-      marked.add(id);
-      return Promise.resolve(true);
+    claimTaskReminderTime: (time: DueTaskReminder): Promise<ReminderOccurrence | null> => {
+      if (marked.has(time.id)) return Promise.resolve(null);
+      marked.add(time.id);
+      return Promise.resolve({ at: time.remindAt });
     },
     releaseTaskReminderTime: (id: string) => {
       marked.delete(id);
@@ -102,8 +103,8 @@ void test('a scan claims each due time and queues one delivery for it', async ()
   assert.deepEqual(
     jobs.map((job) => [job.name, job.opts?.jobId, job.data.timeId]),
     [
-      ['deliver', 'task-time-a', 'a'],
-      ['deliver', 'task-time-b', 'b'],
+      ['deliver', `task-time-a-${NOW.getTime()}`, 'a'],
+      ['deliver', `task-time-b-${NOW.getTime()}`, 'b'],
     ],
   );
   assert.equal(jobs[0].opts?.attempts, 5);

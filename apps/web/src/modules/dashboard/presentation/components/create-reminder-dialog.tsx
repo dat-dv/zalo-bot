@@ -9,11 +9,11 @@ import { useReminderTargetChannelsQuery } from '@/modules/reminders/api/reminder
 import { draftChatId, selfChannelId } from '@/modules/reminders/model/reminder-target';
 import {
   REMINDER_NOTIFY_TYPES,
-  REMINDER_REPEAT_TYPES,
   buildCreateReminderRequest,
   createReminderDraft,
   type ReminderCreateDraft,
 } from '@/modules/reminders/model/reminder-create-form';
+import { ReminderNagFields } from './reminder-nag-fields';
 import { ReminderTargetFields } from './reminder-target-fields';
 import { ReminderTimesField } from './reminder-times-field';
 
@@ -103,6 +103,14 @@ export function CreateReminderDialog({ open, onClose, onCreated }: CreateReminde
         {isPastTime && <span className={FORM_ERROR_TEXT}>{t('reminders.create.pastTime')}</span>}
       </div>
 
+      <ReminderNagFields
+        kind="reminder"
+        value={draft.nag}
+        onChange={(nag) => update({ nag })}
+        disabled={createMutation.isPending}
+        showTooLong={!result.ok && result.error === 'nagTooLong'}
+      />
+
       <ReminderTargetFields
         value={draft.target}
         onChange={(target) => update({ target })}
@@ -113,7 +121,7 @@ export function CreateReminderDialog({ open, onClose, onCreated }: CreateReminde
         showUsersRequired={!result.ok && result.error === 'usersRequired'}
       />
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid gap-2">
         <label className="grid gap-1">
           <span className={FORM_LABEL}>{t('reminders.columns.notifyType')}</span>
           <select
@@ -134,24 +142,6 @@ export function CreateReminderDialog({ open, onClose, onCreated }: CreateReminde
           {!result.ok && result.error === 'callPrivateOnly' && (
             <span className={FORM_ERROR_TEXT}>{t('reminders.notifyType.callPrivateOnly')}</span>
           )}
-        </label>
-        <label className="grid gap-1">
-          <span className={FORM_LABEL}>{t('reminders.columns.repeatType')}</span>
-          <select
-            className={FORM_FIELD}
-            value={draft.repeatType}
-            onChange={(e) => {
-              const value = REMINDER_REPEAT_TYPES.find((type) => type === e.target.value);
-              if (value) update({ repeatType: value });
-            }}
-            disabled={createMutation.isPending}
-          >
-            {REMINDER_REPEAT_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {t(`reminders.repeatType.${type}`)}
-              </option>
-            ))}
-          </select>
         </label>
       </div>
     </FormDialog>

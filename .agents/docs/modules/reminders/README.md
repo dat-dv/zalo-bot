@@ -80,11 +80,34 @@ Lời nhắc là một tin nhắn Zalo mà bot tự gửi khi tới giờ: mặc
 
 Một lời nhắc (giống việc cần làm) có thể nhắc **nhiều lần**, tối đa 10, ví dụ "uống thuốc 8h và 20h". Mỗi lần là một dòng trong bảng `reminder_times`, có dấu "đã gửi" riêng.
 
-- **Lặp ngày/tuần áp cho từng giờ**: lời nhắc lặp hằng ngày có 8h và 20h thì gửi xong lần 8h, dòng đó tự dời sang 8h hôm sau. Bot ngừng một hôm (ví dụ ZCA đăng xuất) thì không gửi dồn các ngày đã lỡ, chỉ nhảy tới lần kế tiếp.
-- Lời nhắc không lặp chuyển **đã xong** khi mọi lần đã gửi.
+- **Lặp lại chọn riêng cho từng giờ** (xem mục 2b): cùng một lời nhắc, 8h có thể lặp hằng ngày còn 14h ngày 25/10 chỉ nhắc một lần. Bot ngừng một hôm (ví dụ ZCA đăng xuất) thì không gửi dồn các lần đã lỡ, chỉ nhảy tới lần kế tiếp.
+- Lời nhắc chuyển **đã xong** khi mọi giờ không lặp đã gửi, không còn lần nhắc lại nào chờ, và không có giờ nào lặp.
 - `reminders.remind_at` vẫn giữ, nghĩa là **lần nhắc kế tiếp**, để danh sách, trang Tổng quan và lệnh `/reminders` vẫn sắp xếp như cũ.
 - Lời nhắc chưa bao giờ bị server từ chối vì giờ đã qua (giờ đã qua thì bot gửi ngay ở lượt kế tiếp, form dashboard mới kiểm tra), nên vẫn giữ như vậy. Việc cần làm thì server từ chối giờ mới ở quá khứ.
 - Migration `CreateReminderTimes` chuyển mỗi lời nhắc cũ thành một dòng; cột giờ dùng cùng kiểu `timestamp` với `reminders.remind_at` để giá trị đọc ra y như trước.
+
+## 2b. Lặp lại và Nhắc lại (dùng chung với nhắc việc)
+
+**Lặp lại — riêng từng giờ nhắc.** Mỗi dòng "Thời điểm nhắc" có ô Lặp lại:
+
+| Kiểu | Nghĩa |
+| --- | --- |
+| Không lặp | Gửi đúng một lần |
+| Hằng ngày | Mỗi ngày cùng giờ |
+| Ngày thường (T2–T6) | Bỏ thứ 7, Chủ nhật |
+| Hằng tuần | Vào các thứ được chọn (T2 … CN); không chọn thì lặp đúng thứ của giờ đó |
+| Hằng tháng | Cùng ngày trong tháng; tháng không có ngày đó (31, 30, 29) thì dùng ngày cuối tháng, tháng sau quay lại ngày gốc |
+
+- Lý do để riêng từng giờ: một việc thường có giờ cố định hằng ngày và vài giờ nhắc một lần (ví dụ "uống thuốc 8h mỗi ngày, riêng thứ 7 này nhắc thêm 14h").
+- Ngày và thứ tính theo **giờ Việt Nam**. Giờ lặp không bao giờ bị đánh dấu "đã gửi": gửi xong thì dòng đó tự dời sang lần kế tiếp.
+- Dữ liệu cũ: lời nhắc trước đây lặp "hằng ngày/hằng tuần" cho cả lời nhắc, migration `1724950000000-AddReminderRepeatAndNag` chép kiểu lặp đó xuống từng giờ, nên vẫn chạy y như trước. Cột `reminders.repeat_type` chỉ còn để tương thích (ghi kiểu lặp của giờ sớm nhất).
+
+**Nhắc lại — dùng chung cho cả lời nhắc / việc.** Bật "Nhắc lại", chọn "Mỗi" (5, 10, 15, 30 phút, 1 hoặc 2 giờ) và "Tối đa" (1–10 lần).
+
+- Sau mỗi lần nhắc (của bất kỳ giờ nào), bot nhắc thêm theo chu kỳ đó cho tới khi đủ số lần. Tin nhắc lại có thêm dòng "🔁 Nhắc lại 2/3".
+- Dừng ngay khi: việc được đánh dấu **xong** (hoặc bị xoá); lời nhắc được bấm **Đã xong** (hoặc bị xoá); hoặc tắt "Nhắc lại".
+- Tổng thời gian nhắc lại phải ngắn hơn khoảng cách tới lần lặp kế tiếp của mọi giờ có lặp (ví dụ lặp hằng ngày thì "mỗi 3 giờ × 10 lần" = 30 giờ là không được). Lý do: nếu không, các lần nhắc lại sẽ chồng lên lần nhắc của ngày hôm sau. Vi phạm thì form báo lỗi, API trả 400.
+- Nhắc lại tính từ lúc tin thật sự được gửi, nên bot có trễ vài phút cũng không gửi dồn.
 
 ## 3. Ai sở hữu code nào
 
@@ -102,13 +125,13 @@ Một lời nhắc (giống việc cần làm) có thể nhắc **nhiều lần*
 - **Thế nào là "đã xong"**: lời nhắc không lặp đã gửi hết các lần nhắc, hoặc người dùng đã bấm "✅ Đã xong". Lời nhắc lặp (hằng ngày/tuần) tự dời sang lần sau nên không bao giờ xong, vì vậy luôn nằm ở tab Sắp tới. Lời nhắc đã xong **không bị xoá**, giữ lại để xem lại cho tới khi người dùng tự xoá.
 - Dữ liệu lấy từ `useRemindersQuery(status)`. Ở tab Sắp tới, nếu API trả danh sách rỗng, màn hình dùng tạm `reminders` trong dữ liệu dashboard. Tab Đã xong **không** dùng tạm như vậy, vì dữ liệu dashboard chỉ có lời nhắc sắp tới; rỗng thì hiện "Chưa có lời nhắc nào đã xong".
 - Tab Đã xong có thêm cột **Xong lúc** (trên điện thoại hiện ở góc phải thay cho giờ nhắc) và không có nút Nhắc lại. Vẫn sửa được: đổi giờ nhắc sang tương lai thì lời nhắc tự quay về tab Sắp tới (API xử lý sẵn). Chỉ đổi tiêu đề thì nó vẫn ở tab Đã xong.
-- Bảng có ô tìm kiếm theo tiêu đề và các cột: tiêu đề, loại thông báo (`text` tin nhắn / `call` cuộc gọi), thời điểm nhắc, lặp lại (`none` / `daily` / `weekly`), **Gửi tới** (kênh · người được nhắc · "Nhắn riêng"; chỉ trên trang `/reminders`), thao tác.
-- **Thêm lời nhắc**: nút `+ Thêm lời nhắc` trên toolbar (desktop) hoặc ở thanh hành động dưới cùng (điện thoại) mở hộp thoại gồm tiêu đề, **các giờ nhắc** (mỗi giờ một ô, nút **+ Thêm giờ nhắc**), **đích nhắc** (Gửi nhắc vào → Nhắc ai → Cách nhắc; ô **Nhắc ai** luôn hiện: chưa chọn kênh thì nhắc chọn kênh trước, chat riêng thì hiện sẵn người đó, nhóm thì bắt buộc chọn ít nhất 1 người), loại thông báo, kiểu lặp.
+- Bảng có ô tìm kiếm theo tiêu đề và các cột: tiêu đề, loại thông báo (`text` tin nhắn / `call` cuộc gọi), thời điểm nhắc (🔁 khi có giờ lặp; rê chuột xem từng giờ kèm kiểu lặp), lặp lại (các kiểu lặp của các giờ, kèm "nhắc lại mỗi … ×N" nếu bật), **Gửi tới** (kênh · người được nhắc · "Nhắn riêng"; chỉ trên trang `/reminders`), thao tác.
+- **Thêm lời nhắc**: nút `+ Thêm lời nhắc` trên toolbar (desktop) hoặc ở thanh hành động dưới cùng (điện thoại) mở hộp thoại gồm tiêu đề, **các giờ nhắc** (mỗi giờ một ô kèm ô **Lặp lại** riêng, nút **+ Thêm giờ nhắc**), **Nhắc lại** (bật/tắt, mỗi …, tối đa … lần), **đích nhắc** (Gửi nhắc vào → Nhắc ai → Cách nhắc; ô **Nhắc ai** luôn hiện: chưa chọn kênh thì nhắc chọn kênh trước, chat riêng thì hiện sẵn người đó, nhóm thì bắt buộc chọn ít nhất 1 người), loại thông báo. Ô "Kiểu lặp" chung cho cả lời nhắc đã bỏ, thay bằng ô Lặp lại trên từng giờ.
   - "Gọi điện" chỉ chọn được khi gửi vào **chat riêng của chính mình**: một cuộc gọi chỉ tới được một người, gọi "vào nhóm" không có nghĩa.
   - Mặc định nhắc **sau 1 giờ**, bằng tin nhắn, không lặp, để người dùng chỉ cần gõ tiêu đề là lưu được.
   - Không cho chọn thời điểm đã qua: bộ hẹn giờ sẽ bắn ngay lời nhắc quá giờ ở lượt chạy kế tiếp, nên đó gần như luôn là chọn nhầm. Phút hiện tại vẫn được chấp nhận vì ô nhập chỉ chính xác tới phút. Form kiểm tra lại lúc bấm Lưu phòng khi form để mở lâu.
   - Giờ nhập theo múi giờ của trình duyệt rồi đổi sang ISO trước khi gửi.
-- Sửa trực tiếp trên dòng (tiêu đề, thời điểm, loại thông báo, kiểu lặp, đích nhắc) rồi bấm Lưu hoặc Huỷ. Phần đích nhắc chỉ được gửi lên khi thật sự đổi; API từ chối thì toast hiện lý do.
+- Sửa trực tiếp trên dòng (tiêu đề, các giờ kèm kiểu lặp của từng giờ, loại thông báo, Nhắc lại ở cột Lặp lại, đích nhắc) rồi bấm Lưu hoặc Huỷ. Hoãn 15 phút một giờ đang lặp thì giữ nguyên giờ lặp và thêm một giờ nhắc một lần. Phần đích nhắc chỉ được gửi lên khi thật sự đổi; API từ chối thì toast hiện lý do.
 - Nút **Nhắc lại** (snooze) chỉ dời **lần nhắc kế tiếp** thêm 15 phút, các giờ khác giữ nguyên.
 - Xoá có hộp thoại xác nhận của trình duyệt. Mỗi thao tác thành công hiện toast.
 - Khi lỗi: hiện dải cảnh báo kèm nút Thử lại.
@@ -120,7 +143,7 @@ Một lời nhắc (giống việc cần làm) có thể nhắc **nhiều lần*
 | GET | `/api/reminders?status=upcoming\|done` | `upcoming` (mặc định khi không gửi): lời nhắc chưa xong (`isTriggered = false`), sắp theo giờ nhắc tăng dần. `done`: lời nhắc đã xong (`isTriggered = true`), mới xong nhất ở trên, tối đa 200 dòng (chưa phân trang). Giá trị khác ⇒ 400. Mỗi dòng kèm tên kênh nhận nhắc (`chatName`), các giờ nhắc và `completedAt` |
 | GET | `/api/reminders/:id` | Một lời nhắc, 404 nếu không thuộc người dùng |
 | POST | `/api/reminders` | Bắt buộc `title`, `remindAt` hợp lệ; tuỳ chọn `notifyType`, `repeatType`, `chatId`, `remindUserIds`, `remindMode` |
-| PATCH | `/api/reminders/:id` | Sửa tiêu đề, danh sách giờ nhắc (`remindTimes`), loại thông báo, kiểu lặp, đích nhắc. Thêm giờ mới thì lời nhắc đã xong quay lại trạng thái chờ; chỉ đổi đích thì không |
+| PATCH | `/api/reminders/:id` | Sửa tiêu đề, danh sách giờ nhắc (`remindTimes`: chuỗi ISO hoặc `{ remindAt, repeatType, repeatWeekdays }`), loại thông báo, nhắc lại (`nagEveryMinutes`, `nagCount`; `null` để tắt), đích nhắc. `repeatType` cấp ngoài vẫn nhận cho client cũ (áp cho mọi giờ không ghi kiểu lặp riêng). Thêm giờ mới thì lời nhắc đã xong quay lại trạng thái chờ; chỉ đổi đích thì không |
 | DELETE | `/api/reminders/:id` | Xoá, trả `{ deleted: true }` |
 
 Mặc định là `upcoming` để bot (lệnh `/reminders`), trang Tổng quan và client cũ không gửi `status` vẫn nhận đúng danh sách như trước. Mọi endpoint đều lọc theo người dùng đang đăng nhập dashboard. Controller bỏ qua `status` gửi lên trong body. Chọn "Gọi điện" mà đích không phải chat riêng của chính mình ⇒ 400.
@@ -132,7 +155,7 @@ Lời nhắc chạy trên hàng đợi BullMQ `reminders` (cơ chế chung xem [
 - **Quét** (job `scan`, **mỗi 30 giây**): lấy các lần nhắc đã tới giờ (`remindAt <= now`) của lời nhắc chưa kích hoạt, giành quyền gửi từng lần (đánh dấu đã gửi, hoặc dời sang lần lặp kế tiếp), rồi đưa mỗi lần vào hàng đợi gửi. Không đưa được vào hàng đợi thì trả lần nhắc về như cũ để lượt sau thử lại.
 - **ZCA đang đăng xuất thì bỏ qua cả lượt quét**, lời nhắc chờ tới lần đăng nhập sau. Nếu ZCA đăng xuất đúng lúc đang chờ gửi thì lần nhắc cũng được trả về để gửi sau khi đăng nhập lại.
 - **Gửi** (job `deliver`): đọc lại lời nhắc (đã bị xoá thì thôi), định dạng giờ của lần nhắc theo múi `Asia/Ho_Chi_Minh` và ngôn ngữ ưa thích của người dùng, gửi tới **đích nhắc** qua `ReminderTargetService.deliver` (kênh đã chọn, hoặc chat riêng người tạo với lời nhắc cũ). Gửi lỗi thì BullMQ tự thử lại tối đa 5 lần trước khi bỏ.
-- Lặp `daily` thì dời sang ngày hôm sau, `weekly` dời 7 ngày và vẫn ở trạng thái chờ. Không lặp thì chuyển sang `completed`.
+- Giờ có lặp thì dời sang lần kế tiếp theo kiểu lặp của giờ đó (mục 2b); giờ không lặp thì đánh dấu đã gửi. Lần nhắc lại cũng được quét và giành quyền gửi như vậy, mỗi lần một job riêng.
 - **Giới hạn đã biết**: chọn loại `call` chỉ được lưu và hiển thị; bộ hẹn giờ luôn gửi tin nhắn chữ, chưa có luồng gọi điện. Làm cuộc gọi thật là việc riêng (cần tìm API gọi của ZCA).
 
 ## 7. Tạo lời nhắc từ chat
@@ -143,6 +166,8 @@ Lời nhắc chạy trên hàng đợi BullMQ `reminders` (cơ chế chung xem [
 - Sửa thẻ chờ (`edit <code> ...`) chạy lại tool trên câu sửa, mà câu sửa không có tag, nên người được nhắc bị mất. Muốn đổi người thì huỷ và nhắn lại.
 - Thao tác chờ duyệt được lưu trong Redis dưới dạng JSON, nên `remindAt` bị biến thành chuỗi. Khi người dùng xác nhận, `parseReminderPayload` (trong `transaction-confirmation.service.ts`) chuyển lại thành `Date` bằng `toValidReminderDate` trước khi tạo lời nhắc. Thiếu bước này thì việc tạo lời nhắc sẽ lỗi.
 - Lệnh nhanh `/reminders` (hoặc `/reminder`) liệt kê các lời nhắc sắp tới ngay trong chat.
+
+- Giờ lặp từ chat: "8h hằng ngày và 14h thứ 7 tuần này" ⇒ hai giờ, giờ đầu lặp hằng ngày, giờ sau một lần (tham số `repeatingTimes`). "Nhắc lại mỗi 15 phút, 3 lần" ⇒ `nagEveryMinutes`, `nagCount`. Thẻ xác nhận ghi từng giờ kèm kiểu lặp và dòng **Nhắc lại**.
 
 ## 8. Kiểm thử
 

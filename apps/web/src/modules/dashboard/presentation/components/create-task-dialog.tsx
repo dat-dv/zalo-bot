@@ -11,6 +11,7 @@ import {
   emptyTaskDraft,
   type TaskCreateDraft,
 } from '@/modules/tasks/model/task-create-form';
+import { ReminderNagFields } from './reminder-nag-fields';
 import { ReminderTargetFields } from './reminder-target-fields';
 import { ReminderTimesField } from './reminder-times-field';
 
@@ -116,6 +117,14 @@ export function CreateTaskDialog({ open, onClose, onCreated }: CreateTaskDialogP
           <span className={FORM_ERROR_TEXT}>{t('tasks.remind.pastTime')}</span>
         )}
       </div>
+
+      <ReminderNagFields
+        kind="task"
+        value={draft.nag}
+        onChange={(nag) => update({ nag })}
+        disabled={createMutation.isPending}
+        showTooLong={remindError === 'remindNagTooLong'}
+      />
 
       {/* Always shown, like the reminder dialog; it only applies once a time is set. */}
       <ReminderTargetFields

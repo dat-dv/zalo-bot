@@ -56,7 +56,13 @@ test("a reminder defaults to the user's own private chat", () => {
         title: 'Họp',
         notes: undefined,
         due: undefined,
-        remindTimes: [new Date(localInput(future)).toISOString()],
+        remindTimes: [
+          {
+            remindAt: new Date(localInput(future)).toISOString(),
+            repeatType: 'none',
+            repeatWeekdays: [],
+          },
+        ],
         remindChatId: '111',
       },
     },
@@ -145,10 +151,48 @@ test('several reminder times are sent sorted', () => {
     [SELF],
     NOW,
   );
-  assert.deepEqual(result.ok && result.request.remindTimes, [
-    new Date(localInput(future)).toISOString(),
-    new Date(localInput(later)).toISOString(),
+  assert.deepEqual(
+    result.ok &&
+      result.request.remindTimes?.map((time) => (typeof time === 'string' ? time : time.remindAt)),
+    [new Date(localInput(future)).toISOString(), new Date(localInput(later)).toISOString()],
+  );
+});
+
+test('a repeating time and reminding again until done are sent', () => {
+  const result = buildCreateTaskRequest(
+    {
+      ...emptyTaskDraft(),
+      title: 'Uống thuốc',
+      remindTimes: [{ value: localInput(future), repeatType: 'weekly', repeatWeekdays: [4, 2] }],
+      nag: { enabled: true, everyMinutes: 30, count: 3 },
+    },
+    [SELF],
+    NOW,
+  );
+  assert.ok(result.ok);
+  assert.deepEqual(result.request.remindTimes, [
+    {
+      remindAt: new Date(localInput(future)).toISOString(),
+      repeatType: 'weekly',
+      repeatWeekdays: [2, 4],
+    },
   ]);
+  assert.equal(result.request.nagEveryMinutes, 30);
+  assert.equal(result.request.nagCount, 3);
+});
+
+test('reminding again that overlaps the next repeat is rejected', () => {
+  const result = buildCreateTaskRequest(
+    {
+      ...emptyTaskDraft(),
+      title: 'Uống thuốc',
+      remindTimes: [{ value: localInput(future), repeatType: 'daily' }],
+      nag: { enabled: true, everyMinutes: 180, count: 10 },
+    },
+    [SELF],
+    NOW,
+  );
+  assert.deepEqual(result, { ok: false, error: 'remindNagTooLong' });
 });
 
 test('empty reminder rows mean no reminder', () => {

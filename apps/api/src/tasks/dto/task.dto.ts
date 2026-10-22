@@ -68,12 +68,15 @@ export class CreateTaskDto {
   @IsISO8601()
   remindAt?: string;
 
-  @ApiPropertyOptional({ type: [String], description: 'Reminder times (ISO); wins over remindAt' })
+  @ApiPropertyOptional({
+    type: 'array',
+    description:
+      'Reminder times: ISO strings or { remindAt, repeatType?, repeatWeekdays? }; wins over remindAt',
+  })
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(REMINDER_TIME_LIMITS.MAX_TIMES)
-  @IsISO8601({}, { each: true })
-  remindTimes?: string[];
+  remindTimes?: unknown[];
 
   @ApiPropertyOptional({ description: 'Zalo chat for the reminder; defaults to your private chat' })
   @IsOptional()
@@ -93,6 +96,16 @@ export class CreateTaskDto {
   @IsOptional()
   @IsIn(REMINDER_TARGET_MODES)
   remindMode?: ReminderTargetMode;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Remind again every N minutes; null = off' })
+  @IsOptional()
+  @IsInt()
+  nagEveryMinutes?: number | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'How many times to remind again' })
+  @IsOptional()
+  @IsInt()
+  nagCount?: number | null;
 }
 
 export class UpdateTaskDto {
@@ -133,8 +146,7 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(REMINDER_TIME_LIMITS.MAX_TIMES)
-  @IsISO8601({}, { each: true })
-  remindTimes?: string[];
+  remindTimes?: unknown[];
 
   @ApiPropertyOptional({ description: 'Zalo chat for the reminder' })
   @IsOptional()
@@ -155,4 +167,14 @@ export class UpdateTaskDto {
   @IsOptional()
   @IsIn(REMINDER_TARGET_MODES)
   remindMode?: ReminderTargetMode;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Remind again every N minutes; null = off' })
+  @IsOptional()
+  @IsInt()
+  nagEveryMinutes?: number | null;
+
+  @ApiPropertyOptional({ nullable: true, description: 'How many times to remind again' })
+  @IsOptional()
+  @IsInt()
+  nagCount?: number | null;
 }

@@ -4,6 +4,7 @@ import {
   type IReminderTargetUser,
   REMINDER_LIST_LIMITS,
   type ReminderListStatus,
+  type ReminderRepeatType,
   type ReminderTargetMode,
 } from '@zalobot/contracts';
 import { In, IsNull, Repository } from 'typeorm';
@@ -12,10 +13,34 @@ import { ReminderEntity } from '../database/entities/reminder.entity';
 import type { ReminderTarget } from './reminder-target';
 import { ReminderTargetService } from './reminder-target.service';
 import {
+  NO_NAG_RULE,
+  NO_NAG_STATE,
+  NO_REPEAT,
+  type NagRule,
+  type NagRuleInput,
+  type ReminderOccurrence,
+  type ReminderRepeat,
+  checkReminderRules,
+  claimedState,
+  dueOccurrence,
+  hasNag,
+  isSameRepeat,
+  mergeNagRule,
+  nagRuleOf,
+  releasedState,
+  reminderRuleErrorMessage,
+  repeatChangeState,
+  repeatOf,
+  timeRule,
+  touchesNagRule,
+} from './reminder-schedule';
+import {
   type ReminderTimesPlan,
+  type RequestedReminderTime,
+  asRequestedTimes,
   nextPendingReminderAt,
-  nextRepeatAt,
   planReminderTimes,
+  plannedRepeats,
   reminderTimesErrorMessage,
 } from './reminder-times';
 
@@ -30,14 +55,16 @@ export interface ReminderTargetFields {
   remindMode?: ReminderTargetMode;
 }
 
-export interface CreateReminderDto extends ReminderTargetFields {
+export interface CreateReminderDto extends ReminderTargetFields, NagRuleInput {
   userId: number | string;
   title: string;
   /** One time (kept for older callers and pending actions); `remindTimes` wins. */
   remindAt?: Date;
-  remindTimes?: Date[];
+  /** Times, each with its own repeat; a plain date repeats as `repeatType`. */
+  remindTimes?: readonly (Date | RequestedReminderTime)[];
+  /** Legacy: the repeat of times given without one. */
+  repeatType?: ReminderRepeatType;
   notifyType?: 'text' | 'call';
-  repeatType?: 'none' | 'daily' | 'weekly';
   status?: 'pending' | 'completed' | 'snoozed' | 'cancelled';
   /** The chat the bot was asked in (trusted as a target); none for the dashboard. */
   originChatId?: string;
@@ -56,12 +83,16 @@ export function toValidReminderDate(value: unknown): Date {
   return date;
 }
 
-export interface UpdateReminderDto extends Omit<ReminderTargetFields, 'remindUsers'> {
+export interface UpdateReminderDto extends Omit<ReminderTargetFields, 'remindUsers'>, NagRuleInput {
   title?: string;
   /** Replaces the times; times already saved keep whether they were sent. */
-  remindTimes?: Date[];
+  remindTimes?: readonly (Date | RequestedReminderTime)[];
+  /**
+   * Legacy: the repeat of times given without one; without `remindTimes`, the repeat of every
+   * time of the reminder.
+   */
+  repeatType?: ReminderRepeatType;
   notifyType?: 'text' | 'call';
-  repeatType?: 'none' | 'daily' | 'weekly';
   status?: 'pending' | 'completed' | 'snoozed' | 'cancelled';
 }
 
@@ -73,8 +104,8 @@ const DUE_REMINDER_BATCH = 50;
 
 /**
  * Personal reminders. A reminder can remind several times (`reminder_times`);
- * `reminders.remind_at` is the next time not sent, and a reminder is done (`is_triggered`)
- * once every time went out. A repeating reminder moves each time forward instead.
+ * `reminders.remind_at` is the next send, and a reminder is done (`is_triggered`) once every
+ * time and every reminder again went out. A repeating reminder moves each time forward instead.
  */
 @Injectable()
 export class RemindersService {
@@ -97,8 +128,13 @@ export class RemindersService {
       : dto.remindAt
         ? [dto.remindAt]
         : [];
-    const times = this.planTimes([], requested.map(toValidReminderDate)).add;
+    const legacyRepeat: ReminderRepeat | undefined = dto.repeatType
+      ? { repeatType: dto.repeatType, repeatWeekdays: [] }
+      : undefined;
+    const plan = this.planTimes([], asRequestedTimes(requested.map(validTime), legacyRepeat));
+    const times = plan.add;
     if (times.length === 0) throw new BadRequestException('Lời nhắc cần ít nhất một giờ nhắc.');
+    const nag = this.checkRules(plannedRepeats(plan), mergeNagRule(NO_NAG_RULE, dto));
     const userId = dto.userId.toString();
     const notifyType = dto.notifyType || 'text';
     const target = await this.resolveTarget(dto, null, userId, dto.originChatId);
@@ -107,30 +143,33 @@ export class RemindersService {
       this.reminderRepo.create({
         userId,
         title: dto.title.trim(),
-        remindAt: times[0],
+        remindAt: times[0].at,
         notifyType,
-        repeatType: dto.repeatType || 'none',
+        repeatType: times[0].repeat.repeatType,
+        ...nagColumns(nag),
         status: dto.status || 'pending',
         snoozeCount: 0,
         isTriggered: false,
         ...targetColumns(target),
       }),
     );
-    await this.applyTimes(saved.id, { keep: [], remove: [], add: times });
+    await this.applyTimes(saved.id, plan);
     this.logger.log(
-      `Created reminder "${dto.title}" [${saved.notifyType.toUpperCase()}] for user ${dto.userId} at ${times.map((t) => t.toISOString()).join(', ')}`,
+      `Created reminder "${dto.title}" [${saved.notifyType.toUpperCase()}] for user ${dto.userId} at ${times.map((t) => t.at.toISOString()).join(', ')}`,
     );
     return saved;
   }
 
-  /** Times that are due, of reminders not done yet, oldest first. */
+  /** Times with a send due (the time itself or a reminder again), of reminders not done yet. */
   public async getDueReminders(now: Date = new Date()): Promise<DueReminderTime[]> {
     if (!this.timeRepo) return [];
     const rows = await this.timeRepo
       .createQueryBuilder('time')
       .innerJoinAndSelect('time.reminder', 'reminder')
-      .where('time.sent_at IS NULL')
-      .andWhere('time.remind_at <= :now', { now })
+      .where(
+        '((time.sent_at IS NULL AND time.remind_at <= :now) OR (time.nag_at IS NOT NULL AND time.nag_at <= :now))',
+        { now },
+      )
       .andWhere('reminder.is_triggered = false')
       .orderBy('time.remind_at', 'ASC')
       .take(DUE_REMINDER_BATCH)
@@ -139,31 +178,33 @@ export class RemindersService {
   }
 
   /**
-   * Claims a due time: a one-off reminder marks it sent, a repeating one moves it to its next
-   * occurrence. The update only matches the time as read, so overlapping scheduler ticks
-   * cannot both send it; returns whether this call claimed it.
+   * Claims what a time has due (`dueOccurrence`): the time itself (a one-off one is marked sent,
+   * a repeating one moves to its next occurrence) or a reminder again. The update only matches
+   * the state as read, so overlapping scans cannot both send it. Returns the claimed send, or
+   * null when nothing was due or another scan claimed it first.
    */
-  public async claimReminderTime(time: DueReminderTime, now: Date = new Date()): Promise<boolean> {
-    if (!this.timeRepo) return false;
-    const { repeatType } = time.reminder;
-    const change =
-      repeatType === 'daily' || repeatType === 'weekly'
-        ? { remindAt: nextRepeatAt(time.remindAt, repeatType, now) }
-        : { sentAt: now };
-    const result = await this.timeRepo.update(
-      { id: time.id, sentAt: IsNull(), remindAt: time.remindAt },
-      change,
-    );
-    return (result.affected ?? 0) > 0;
+  public async claimReminderTime(
+    time: DueReminderTime,
+    now: Date = new Date(),
+  ): Promise<ReminderOccurrence | null> {
+    if (!this.timeRepo) return null;
+    const rule = timeRule(repeatOf(time), nagRuleOf(time.reminder));
+    const occurrence = dueOccurrence(time, rule, now);
+    if (!occurrence) return null;
+    const where = occurrence.nag
+      ? { id: time.id, nagAt: occurrence.at }
+      : { id: time.id, sentAt: IsNull(), remindAt: time.remindAt };
+    const result = await this.timeRepo.update(where, claimedState(time, rule, occurrence, now));
+    return (result.affected ?? 0) > 0 ? occurrence : null;
   }
 
   /**
-   * Gives a claimed time back (its delivery could not be queued or sent) so the next scan
-   * retries it: `firedAt` restores the occurrence a repeating reminder had moved past.
+   * Gives a claimed send back (its delivery could not be queued or sent) so the next scan
+   * retries it; a repeating time returns to the occurrence it had moved past.
    */
-  public async releaseReminderTime(timeId: string, firedAt: Date): Promise<void> {
+  public async releaseReminderTime(timeId: string, occurrence: ReminderOccurrence): Promise<void> {
     if (!this.timeRepo) return;
-    await this.timeRepo.update({ id: timeId }, { sentAt: null, remindAt: firedAt });
+    await this.timeRepo.update({ id: timeId }, releasedState(occurrence));
   }
 
   /** One reminder time with its reminder, or null once the reminder was deleted. */
@@ -181,10 +222,13 @@ export class RemindersService {
    * left the reminder is completed.
    */
   public async refreshReminderSummary(reminder: ReminderEntity): Promise<void> {
-    const next = nextPendingReminderAt(await this.loadTimes([reminder.id]));
+    const times = await this.loadTimes([reminder.id]);
+    const next = nextPendingReminderAt(times);
     const summary: Partial<ReminderEntity> = next
       ? { remindAt: next, isTriggered: false }
       : { isTriggered: true, status: 'completed', completedAt: new Date() };
+    // Legacy column for older readers: the repeat of the earliest time.
+    if (times[0]) summary.repeatType = repeatOf(times[0]).repeatType;
     if (next && reminder.status === 'completed') summary.status = 'pending';
     Object.assign(reminder, summary);
     await this.reminderRepo.update({ id: reminder.id }, summary);
@@ -242,13 +286,32 @@ export class RemindersService {
   ): Promise<ReminderEntity | null> {
     const reminder = await this.getUserReminder(userId, id);
     if (!reminder) return null;
+    const current = await this.loadTimes([reminder.id]);
+    const legacyRepeat: ReminderRepeat | undefined = input.repeatType
+      ? { repeatType: input.repeatType, repeatWeekdays: [] }
+      : undefined;
     let plan: ReminderTimesPlan<ReminderTimeEntity> | null = null;
     if (input.remindTimes !== undefined) {
-      plan = this.planTimes(await this.loadTimes([reminder.id]), input.remindTimes);
+      plan = this.planTimes(
+        current,
+        asRequestedTimes(input.remindTimes.map(validTime), legacyRepeat),
+      );
       if (plan.keep.length + plan.add.length === 0) {
         throw new BadRequestException('Lời nhắc cần ít nhất một giờ nhắc.');
       }
+    } else if (legacyRepeat) {
+      // Older clients set one repeat for the whole reminder.
+      plan = {
+        keep: current,
+        remove: [],
+        add: [],
+        repeatChanges: changesTo(current, legacyRepeat),
+      };
     }
+    const nagTouched = touchesNagRule(input);
+    const nag = mergeNagRule(nagRuleOf(reminder), input);
+    if (plan || nagTouched)
+      this.checkRules(plan ? plannedRepeats(plan) : current.map(repeatOf), nag);
     if (
       input.chatId !== undefined ||
       input.remindUserIds !== undefined ||
@@ -260,15 +323,21 @@ export class RemindersService {
     if (input.title !== undefined) reminder.title = input.title.trim();
     if (input.notifyType !== undefined) reminder.notifyType = input.notifyType;
     assertCallTarget(reminder.notifyType, reminderTarget(reminder), reminder.userId);
-    if (input.repeatType !== undefined) reminder.repeatType = input.repeatType;
+    let stopNag = false;
+    if (nagTouched) {
+      Object.assign(reminder, nagColumns(nag));
+      stopNag = !hasNag(nag);
+    }
     if (input.status !== undefined) {
       reminder.status = input.status;
       if (input.status === 'completed') {
         reminder.isTriggered = true;
         reminder.completedAt = new Date();
+        stopNag = true;
       }
     }
     const saved = await this.reminderRepo.save(reminder);
+    if (stopNag) await this.timeRepo?.update({ reminderId: saved.id }, NO_NAG_STATE);
     if (plan) {
       await this.applyTimes(saved.id, plan);
       await this.refreshReminderSummary(saved);
@@ -283,7 +352,14 @@ export class RemindersService {
     const next = (await this.loadTimes([reminder.id])).find((time) => !time.sentAt);
     const newTime = new Date(Date.now() + minutes * 60 * 1000);
     if (next) await this.timeRepo?.update({ id: next.id }, { remindAt: newTime });
-    else await this.applyTimes(reminder.id, { keep: [], remove: [], add: [newTime] });
+    else {
+      await this.applyTimes(reminder.id, {
+        keep: [],
+        remove: [],
+        add: [{ at: newTime, repeat: NO_REPEAT }],
+        repeatChanges: [],
+      });
+    }
     reminder.snoozedUntil = newTime;
     reminder.snoozeCount = (reminder.snoozeCount || 0) + 1;
     reminder.status = 'snoozed';
@@ -308,7 +384,10 @@ export class RemindersService {
     reminder.isTriggered = true;
     reminder.status = 'completed';
     reminder.completedAt = new Date();
-    return this.reminderRepo.save(reminder);
+    const saved = await this.reminderRepo.save(reminder);
+    // Done means done: no reminder again goes out afterwards.
+    await this.timeRepo?.update({ reminderId: saved.id }, NO_NAG_STATE);
+    return saved;
   }
 
   public async updateNotifyType(
@@ -340,7 +419,18 @@ export class RemindersService {
     return true;
   }
 
-  private planTimes(current: readonly ReminderTimeEntity[], requested: readonly Date[]) {
+  /** The rule after applying `input`, or a 400 with the reason. */
+  /** The remind-again rule if it fits every time it applies to, else a 400 with the reason. */
+  private checkRules(repeats: readonly ReminderRepeat[], nag: NagRule): NagRule {
+    const error = checkReminderRules(repeats, nag);
+    if (error) throw new BadRequestException(reminderRuleErrorMessage(error));
+    return nag;
+  }
+
+  private planTimes(
+    current: readonly ReminderTimeEntity[],
+    requested: readonly RequestedReminderTime[],
+  ) {
     // Reminders never refused a past time: it goes out on the next tick (the form checks it).
     const result = planReminderTimes(current, requested, new Date(), { allowPast: true });
     if ('error' in result) throw new BadRequestException(reminderTimesErrorMessage(result.error));
@@ -356,8 +446,19 @@ export class RemindersService {
     if (plan.remove.length > 0) await repo.delete(plan.remove.map((time) => time.id));
     if (plan.add.length > 0) {
       await repo.save(
-        plan.add.map((remindAt) => repo.create({ reminderId, remindAt, sentAt: null })),
+        plan.add.map((time) =>
+          repo.create({
+            reminderId,
+            remindAt: time.at,
+            sentAt: null,
+            repeatType: time.repeat.repeatType,
+            repeatWeekdays: [...time.repeat.repeatWeekdays],
+          }),
+        ),
       );
+    }
+    for (const change of plan.repeatChanges) {
+      await repo.update({ id: change.time.id }, repeatChangeState(change.time, change.repeat));
     }
   }
 
@@ -393,6 +494,27 @@ export function reminderTarget(row: ReminderEntity): ReminderTarget {
     users: row.remindUsers ?? [],
     mode: row.remindMode ?? 'mention',
   };
+}
+
+function nagColumns(nag: NagRule): Pick<ReminderEntity, 'nagEveryMinutes' | 'nagCount'> {
+  return { nagEveryMinutes: nag.nagEveryMinutes, nagCount: nag.nagCount };
+}
+
+/** A valid time from a date or a requested time (pending actions carry ISO strings). */
+function validTime(value: Date | RequestedReminderTime): RequestedReminderTime {
+  return value instanceof Date || typeof value === 'string'
+    ? { at: toValidReminderDate(value) }
+    : { ...value, at: toValidReminderDate(value.at) };
+}
+
+/** Repeat changes that give every time `repeat`. */
+function changesTo<T extends ReminderTimeEntity>(
+  times: readonly T[],
+  repeat: ReminderRepeat,
+): Array<{ time: T; repeat: ReminderRepeat }> {
+  return times
+    .filter((time) => !isSameRepeat(repeatOf(time), repeat))
+    .map((time) => ({ time, repeat }));
 }
 
 function targetColumns(

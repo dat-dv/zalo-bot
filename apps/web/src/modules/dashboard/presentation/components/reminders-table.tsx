@@ -16,13 +16,16 @@ import type { ReminderTimeDraft } from '@/modules/reminders/model/reminder-times
 import { ReminderTargetFields } from './reminder-target-fields';
 import { ReminderTimesField, ReminderTimesSummary } from './reminder-times-field';
 import { ReminderTargetSummary } from './reminder-target-summary';
+import type { ReminderNagDraft } from '@/modules/reminders/model/reminder-nag';
+import { ReminderNagFields } from './reminder-nag-fields';
 
 export type ReminderEditDraft = {
   title: string;
   /** Reminder times; at least one filled row. */
   remindTimes: ReminderTimeDraft[];
   notifyType: ReminderNotifyType;
-  repeatType: ReminderRepeatType;
+  /** Remind again until marked done, shared by all times (each time has its own repeat). */
+  nag: ReminderNagDraft;
   /** Empty chat = keep the current one. */
   target: ReminderTargetDraft;
 };
@@ -94,12 +97,32 @@ export function RemindersTable({
         : null;
     const notifyLabel = (item: IReminderListItem) =>
       item.notifyType === 'call' ? t('reminders.notifyType.call') : t('reminders.notifyType.text');
-    const repeatLabel = (item: IReminderListItem) =>
-      item.repeatType === 'daily'
-        ? t('reminders.repeatType.daily')
-        : item.repeatType === 'weekly'
-          ? t('reminders.repeatType.weekly')
-          : t('reminders.repeatType.none');
+    const everyLabel = (minutes: number) =>
+      minutes % 60 === 0
+        ? t('reminderRule.hours', { count: minutes / 60 })
+        : t('reminderRule.minutes', { count: minutes });
+    /** The repeats of the times (each has its own), then reminding again if on. */
+    const repeatLabel = (item: IReminderListItem) => {
+      // The Home payload has no time list: it carries the legacy repeat of the earliest time.
+      const types: ReminderRepeatType[] = item.remindTimes
+        ? item.remindTimes.flatMap((time) =>
+            time.repeatType && time.repeatType !== 'none' ? [time.repeatType] : [],
+          )
+        : item.repeatType && item.repeatType !== 'none'
+          ? [item.repeatType]
+          : [];
+      const repeat = types.length
+        ? [...new Set(types)].map((type) => t(`reminders.repeatType.${type}`)).join(', ')
+        : t('reminders.repeatType.none');
+      const nag =
+        item.nagEveryMinutes && item.nagCount
+          ? t('reminderRule.summaryNag', {
+              every: everyLabel(item.nagEveryMinutes),
+              count: item.nagCount,
+            })
+          : '';
+      return nag ? `${repeat} · ${nag}` : repeat;
+    };
 
     const list: DataTableColumn<IReminderListItem>[] = [
       {
@@ -244,22 +267,14 @@ export function RemindersTable({
         mobileCell: repeatLabel,
         cell: (item) => {
           if (editingId === item.id && editDraft && onChangeEditDraft) {
+            // Each time's repeat is edited with its time; here only reminding again.
             return (
-              <select
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
-                value={editDraft.repeatType}
-                onChange={(e) =>
-                  onChangeEditDraft((prev) => ({
-                    ...prev,
-                    repeatType: e.target.value as ReminderRepeatType,
-                  }))
-                }
-                aria-label={t('reminders.columns.repeatType')}
-              >
-                <option value="none">{t('reminders.repeatType.none')}</option>
-                <option value="daily">{t('reminders.repeatType.daily')}</option>
-                <option value="weekly">{t('reminders.repeatType.weekly')}</option>
-              </select>
+              <ReminderNagFields
+                compact
+                kind="reminder"
+                value={editDraft.nag}
+                onChange={(nag) => onChangeEditDraft((prev) => ({ ...prev, nag }))}
+              />
             );
           }
           return (

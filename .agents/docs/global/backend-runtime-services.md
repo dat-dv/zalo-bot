@@ -68,7 +68,7 @@ Lý do: hệ thống không kiểm tra người gọi có thuộc kênh hay khô
 - `QueueModule` kết nối Redis theo `REDIS_URL` (mặc định `redis://localhost:6379`), mọi key có tiền tố `zalobot`. Không cần biến môi trường mới.
 - Mỗi tính năng có một queue riêng: `task-reminders` (nhắc việc) và `reminders` (lời nhắc). Mỗi queue có hai job:
   - **`scan`**: chạy 30 giây một lần bằng Job Scheduler của BullMQ. Job này đọc các lần nhắc đến hạn trong Postgres, giành quyền gửi (như trước), rồi đẩy một job `deliver` cho mỗi lần.
-  - **`deliver`**: gửi tin. Gửi lỗi thì BullMQ tự thử lại tối đa 5 lần, giãn cách tăng dần từ 30 giây (tổng khoảng 7,5 phút). Hết lượt thì ghi log lỗi, job lỗi được giữ 7 ngày để tra.
+  - **`deliver`**: gửi tin. Mỗi lần gửi (một giờ nhắc, hoặc một lần nhắc lại của giờ đó) là một job riêng. Gửi lỗi thì BullMQ tự thử lại tối đa 5 lần, giãn cách tăng dần từ 30 giây (tổng khoảng 7,5 phút). Hết lượt thì ghi log lỗi, job lỗi được giữ 7 ngày để tra.
 - Mỗi worker xử lý một job một lúc (`concurrency: 1`), nên tin gửi đi đúng thứ tự và không dồn sang Zalo.
 - **Postgres vẫn là nguồn sự thật**: trạng thái lần nhắc nằm trong DB, Redis chỉ giữ việc đang chờ gửi. Vì vậy khi chuyển sang BullMQ không cần migration.
 - **Redis bắt buộc cho luồng nhắc.** Redis chết thì API vẫn khởi động và chạy, nhưng không có lần quét nào; nhắc sẽ đi trễ khi Redis lên lại chứ không mất. Lỗi kết nối chỉ được ghi log tối đa một lần mỗi phút.

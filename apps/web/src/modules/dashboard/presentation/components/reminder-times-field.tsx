@@ -1,6 +1,11 @@
 'use client';
 
-import { REMINDER_TIME_LIMITS, type IReminderTime } from '@zalobot/contracts';
+import {
+  REMINDER_REPEAT_TYPES,
+  REMINDER_TIME_LIMITS,
+  type IReminderTime,
+  type TranslationKey,
+} from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { FORM_FIELD, FORM_HINT } from '@/shared/ui/form-dialog';
 import {
@@ -21,9 +26,22 @@ interface ReminderTimesFieldProps {
   onEscape?: () => void;
 }
 
+/** Monday first, as Vietnamese calendars show the week (0 = Sunday). */
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
+const WEEKDAY_KEYS: Record<number, TranslationKey> = {
+  0: 'weekday.short.0',
+  1: 'weekday.short.1',
+  2: 'weekday.short.2',
+  3: 'weekday.short.3',
+  4: 'weekday.short.4',
+  5: 'weekday.short.5',
+  6: 'weekday.short.6',
+};
+
 /**
- * The reminder times of a task or a reminder: one `datetime-local` per time, a remove button
- * per row and "+ Add a time" (up to `MAX_TIMES`). A time that already went out is marked.
+ * The reminder times of a task or a reminder: one `datetime-local` per time with its own
+ * repeat (and the weekdays of a weekly one), a remove button per row and "+ Add a time" (up
+ * to `MAX_TIMES`). A time that already went out is marked.
  */
 export function ReminderTimesField({
   value,
@@ -52,33 +70,94 @@ export function ReminderTimesField({
   return (
     <div className="grid gap-1">
       {rows.map((row, index) => (
-        <div key={index} className="flex items-center gap-1">
-          <input
-            type="datetime-local"
-            className={`${field} min-w-0 flex-1`}
-            value={row.value}
-            // Editing a saved time makes it a new one, checked against the clock again.
-            onChange={(e) => update(index, { value: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onEnter?.();
-              if (e.key === 'Escape') onEscape?.();
-            }}
-            aria-label={`${ariaLabel} ${index + 1}`}
-            aria-invalid={invalid}
-            disabled={disabled}
-          />
-          {row.sentAt && <span className={`shrink-0 ${FORM_HINT}`}>{t('reminderTimes.sent')}</span>}
-          {(rows.length > 1 || row.value) && (
-            <button
-              type="button"
-              className={button}
-              onClick={() => update(index, null)}
+        <div key={index} className="grid gap-1">
+          <div className="flex flex-wrap items-center gap-1">
+            <input
+              type="datetime-local"
+              className={`${field} min-w-[150px] flex-1`}
+              value={row.value}
+              // Editing a saved time makes it a new one, checked against the clock again; it
+              // keeps the repeat picked for it.
+              onChange={(e) =>
+                update(index, {
+                  value: e.target.value,
+                  repeatType: row.repeatType,
+                  repeatWeekdays: row.repeatWeekdays,
+                })
+              }
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onEnter?.();
+                if (e.key === 'Escape') onEscape?.();
+              }}
+              aria-label={`${ariaLabel} ${index + 1}`}
+              aria-invalid={invalid}
               disabled={disabled}
-              aria-label={t('reminderTimes.remove')}
-              title={t('reminderTimes.remove')}
+            />
+            <select
+              className={`${field} w-auto shrink-0`}
+              value={row.repeatType ?? 'none'}
+              // A saved time keeps whether it was sent; only its repeat changes.
+              onChange={(e) => {
+                const repeatType = REMINDER_REPEAT_TYPES.find((type) => type === e.target.value);
+                if (repeatType) update(index, { ...row, repeatType, repeatWeekdays: [] });
+              }}
+              aria-label={`${t('reminderRule.repeat')} ${index + 1}`}
+              disabled={disabled}
             >
-              ✕
-            </button>
+              {REMINDER_REPEAT_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {t(`reminders.repeatType.${type}`)}
+                </option>
+              ))}
+            </select>
+            {row.sentAt && (
+              <span className={`shrink-0 ${FORM_HINT}`}>{t('reminderTimes.sent')}</span>
+            )}
+            {(rows.length > 1 || row.value) && (
+              <button
+                type="button"
+                className={button}
+                onClick={() => update(index, null)}
+                disabled={disabled}
+                aria-label={t('reminderTimes.remove')}
+                title={t('reminderTimes.remove')}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+          {row.repeatType === 'weekly' && (
+            <div
+              className="flex flex-wrap items-center gap-1"
+              role="group"
+              aria-label={`${t('reminderRule.weekdays')} ${index + 1}`}
+            >
+              {WEEK_ORDER.map((day) => {
+                const picked = row.repeatWeekdays?.includes(day) ?? false;
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    className={`${button} ${picked ? 'border-sky-600 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950 dark:text-sky-200' : ''}`}
+                    aria-pressed={picked}
+                    onClick={() =>
+                      update(index, {
+                        ...row,
+                        repeatWeekdays: picked
+                          ? (row.repeatWeekdays ?? []).filter((value) => value !== day)
+                          : [...(row.repeatWeekdays ?? []), day],
+                      })
+                    }
+                    disabled={disabled}
+                  >
+                    {t(WEEKDAY_KEYS[day])}
+                  </button>
+                );
+              })}
+              {!compact && !row.repeatWeekdays?.length && (
+                <span className={FORM_HINT}>{t('reminderRule.weekdaysHint')}</span>
+              )}
+            </div>
           )}
         </div>
       ))}
@@ -118,18 +197,27 @@ export function ReminderTimesSummary({ remindAt, times, format }: ReminderTimesS
   const pending = (times ?? []).filter((time) => !time.sentAt);
   const allSent = !!times?.length && pending.length === 0;
   const more = Math.max(pending.length - 1, 0);
+  const repeatLabel = (time: IReminderTime) =>
+    time.repeatType && time.repeatType !== 'none'
+      ? ` (${t(`reminders.repeatType.${time.repeatType}`)})`
+      : '';
   const title = (times ?? [])
-    .map((time) => `${format(time.remindAt)}${time.sentAt ? ` (${t('reminderTimes.sent')})` : ''}`)
+    .map(
+      (time) =>
+        `${format(time.remindAt)}${repeatLabel(time)}${time.sentAt ? ` (${t('reminderTimes.sent')})` : ''}`,
+    )
     .join('\n');
+  // A repeating time is never "sent": it shows 🔁 instead.
+  const repeats = (times ?? []).some((time) => time.repeatType && time.repeatType !== 'none');
   return (
     <span
       className={allSent ? 'text-slate-400 dark:text-slate-500' : undefined}
       title={title || undefined}
     >
       🔔 {format(remindAt)}
+      {repeats && ' 🔁'}
       {more > 0 && ` ${t('reminderTimes.more', { count: more })}`}
       {allSent && ` · ${t('tasks.remind.sent')}`}
     </span>
   );
 }
-

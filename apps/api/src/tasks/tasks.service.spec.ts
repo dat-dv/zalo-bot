@@ -12,6 +12,14 @@ type Row = TaskEntity;
 type TimeRow = TaskReminderTimeEntity;
 type Where = Record<string, unknown>;
 
+/** Claims a task time as the scheduler does, right when it is due. */
+function claim(service: TasksService, row: Row, time: TimeRow, after = 1000) {
+  return service.claimTaskReminderTime(
+    { ...time, task: row },
+    new Date(time.remindAt.getTime() + after),
+  );
+}
+
 function matches(row: object, where: Where): boolean {
   return Object.entries(where).every(([key, expected]) => {
     const actual: unknown = Reflect.get(row, key);
@@ -272,7 +280,7 @@ void test('replacing the times keeps a sent time sent and only adds the new ones
     { ...actor, source: 'dashboard' },
   );
   const [firstTime] = timesOf(row.id);
-  assert.equal(await service.markTaskReminderSent(firstTime.id), true);
+  assert.ok(await claim(service, row, firstTime));
   await service.refreshReminderSummary(row);
   assert.equal(row.remindAt?.getTime(), second.getTime(), 'next = the time not sent');
   assert.ok(row.remindedAt);
@@ -296,7 +304,7 @@ void test('changing the target never re-sends a sent time', async () => {
     { title: 'Họp', remindTimes: [inHours(1)] },
     { ...actor, source: 'dashboard' },
   );
-  await service.markTaskReminderSent(timesOf(row.id)[0].id);
+  await claim(service, row, timesOf(row.id)[0]);
   const moved = await service.updateTask(
     row.id,
     { remindChatId: 'g1', remindUserIds: ['222'], remindMode: 'direct' },
@@ -342,15 +350,79 @@ void test('re-opening a task skips the times that passed while it was done', asy
   assert.equal(reopened.remindAt?.getTime(), future.remindAt.getTime());
 });
 
-void test('markTaskReminderSent only succeeds once', async () => {
+void test('a time is claimed only once', async () => {
   const { service, timesOf } = createReminderService();
   const row = await service.createTask(
     { title: 'Họp', remindTimes: [inHours(1)] },
     { userId: '111', source: 'dashboard' },
   );
   const [time] = timesOf(row.id);
-  assert.equal(await service.markTaskReminderSent(time.id), true);
-  assert.equal(await service.markTaskReminderSent(time.id), false);
+  const due = { ...time };
+  assert.ok(await claim(service, row, due));
+  // A second scan read the same row before the first claim: it loses.
+  assert.equal(await claim(service, row, due), null);
+});
+
+void test('a repeating task moves its time on and reminds again until it is done', async () => {
+  const { service, timesOf } = createReminderService();
+  const at = inHours(1);
+  const row = await service.createTask(
+    {
+      title: 'Uống thuốc',
+      remindTimes: [{ at, repeat: { repeatType: 'daily', repeatWeekdays: [] } }],
+      nagEveryMinutes: 15,
+      nagCount: 2,
+    },
+    { userId: '111', source: 'dashboard' },
+  );
+  assert.equal(row.nagCount, 2);
+  const [time] = timesOf(row.id);
+  assert.equal(time.repeatType, 'daily');
+  const sent = await claim(service, row, { ...time });
+  assert.deepEqual(sent, { at });
+  const [moved] = timesOf(row.id);
+  assert.equal(moved.sentAt, null, 'a repeating time is never marked sent');
+  assert.equal(moved.remindAt.getTime(), at.getTime() + 24 * 60 * 60 * 1000);
+  assert.equal(moved.nagLeft, 2);
+  assert.ok(moved.nagAt);
+
+  // Done: reminding again stops at once.
+  await service.updateTask(row.id, { status: 'completed' }, { userId: '111' });
+  assert.equal(timesOf(row.id)[0].nagAt, null);
+  assert.equal(timesOf(row.id)[0].nagLeft, 0);
+});
+
+void test('re-opening a repeating task moves missed times to their next occurrence', async () => {
+  const { service, timesOf } = createReminderService();
+  const row = await service.createTask(
+    {
+      title: 'Tưới cây',
+      remindTimes: [{ at: inHours(1), repeat: { repeatType: 'daily', repeatWeekdays: [] } }],
+    },
+    { userId: '111', source: 'dashboard' },
+  );
+  await service.updateTask(row.id, { status: 'completed' }, { userId: '111' });
+  // Pretend the time passed while the task was done.
+  const [time] = timesOf(row.id);
+  time.remindAt = inHours(-30);
+  await service.updateTask(row.id, { status: 'needsAction' }, { userId: '111' });
+  const [after] = timesOf(row.id);
+  assert.equal(after.sentAt, null);
+  assert.ok(after.remindAt.getTime() > Date.now(), 'moved past now');
+  assert.ok(after.remindAt.getTime() <= inHours(24).getTime(), 'to the next day, not later');
+});
+
+void test('an invalid rule is rejected before anything is saved', async () => {
+  const rows: Row[] = [];
+  const { service } = createReminderService(rows);
+  await assert.rejects(
+    service.createTask(
+      { title: 'Họp', remindTimes: [inHours(1)], nagEveryMinutes: 2, nagCount: 3 },
+      { userId: '111', source: 'dashboard' },
+    ),
+    BadRequestException,
+  );
+  assert.equal(rows.length, 0);
 });
 
 void test('a bot task keeps the people tagged in the message', async () => {
@@ -379,7 +451,7 @@ void test('toItems lists every time and the next one as remindAt', async () => {
     { title: 'Họp', remindTimes: [inHours(1), inHours(2)] },
     { userId: '111', source: 'dashboard' },
   );
-  await service.markTaskReminderSent(timesOf(row.id)[0].id);
+  await claim(service, row, timesOf(row.id)[0]);
   const [item] = await service.toItems([row]);
   assert.equal(item.remindTimes?.length, 2);
   assert.ok(item.remindTimes?.[0].sentAt);

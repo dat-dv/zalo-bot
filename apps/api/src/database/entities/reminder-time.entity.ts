@@ -7,6 +7,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import type { ReminderRepeatType } from '@zalobot/contracts';
 import { ReminderEntity } from './reminder.entity';
 
 /**
@@ -34,6 +35,25 @@ export class ReminderTimeEntity {
   /** When this time went out (one-off reminders only). */
   @Column({ name: 'sent_at', type: Date, nullable: true })
   sentAt?: Date | null;
+
+  /** How this time repeats (`none`, `daily`, `weekdays`, `weekly`, `monthly`). */
+  @Column({ name: 'repeat_type', type: 'varchar', default: 'none' })
+  repeatType?: ReminderRepeatType;
+
+  /** Weekdays of a `weekly` repeat, 0 = Sunday (Vietnam time); empty = this time's weekday. */
+  @Column({ name: 'repeat_weekdays', type: 'smallint', array: true, default: () => "'{}'" })
+  repeatWeekdays?: number[];
+
+  /** The time as first set (null = `remind_at`); a monthly repeat keeps its day of the month. */
+  @Column({ name: 'anchor_at', type: Date, nullable: true })
+  anchorAt?: Date | null;
+
+  /** When to remind again next; null when not reminding again. */
+  @Column({ name: 'nag_at', type: Date, nullable: true })
+  nagAt?: Date | null;
+
+  @Column({ name: 'nag_left', type: 'integer', default: 0 })
+  nagLeft?: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

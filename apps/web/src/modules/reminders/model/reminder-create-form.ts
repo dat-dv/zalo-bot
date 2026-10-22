@@ -2,7 +2,6 @@ import type {
   ICreateReminderRequest,
   IReminderTargetChannel,
   ReminderNotifyType,
-  ReminderRepeatType,
 } from '@zalobot/contracts';
 import { toLocalDateTimeInput } from '@/shared/lib/local-date-input';
 import {
@@ -12,18 +11,24 @@ import {
   type ReminderTargetDraft,
 } from './reminder-target';
 import { buildReminderTimes, type ReminderTimeDraft } from './reminder-times';
+import {
+  buildNagFields,
+  emptyNagDraft,
+  reminderRuleError,
+  type ReminderNagDraft,
+} from './reminder-nag';
 
 export const REMINDER_NOTIFY_TYPES: readonly ReminderNotifyType[] = ['text', 'call'];
-export const REMINDER_REPEAT_TYPES: readonly ReminderRepeatType[] = ['none', 'daily', 'weekly'];
 
 const DEFAULT_LEAD_MS = 60 * 60 * 1000;
 
 export interface ReminderCreateDraft {
   title: string;
-  /** Reminder times; at least one filled row. */
+  /** Reminder times, each with its own repeat; at least one filled row. */
   remindTimes: ReminderTimeDraft[];
   notifyType: ReminderNotifyType;
-  repeatType: ReminderRepeatType;
+  /** Remind again after each time until marked done; shared by all times. */
+  nag: ReminderNagDraft;
   /** Where and who to remind; the chat defaults to the user's own private chat. */
   target: ReminderTargetDraft;
 }
@@ -35,7 +40,8 @@ export type ReminderCreateError =
   | 'tooMany'
   | 'channelRequired'
   | 'usersRequired'
-  | 'callPrivateOnly';
+  | 'callPrivateOnly'
+  | 'nagTooLong';
 
 export type ReminderCreateResult =
   { ok: true; request: ICreateReminderRequest } | { ok: false; error: ReminderCreateError };
@@ -46,7 +52,7 @@ export function createReminderDraft(now: Date = new Date()): ReminderCreateDraft
     title: '',
     remindTimes: [{ value: toLocalDateTimeInput(new Date(now.getTime() + DEFAULT_LEAD_MS)) }],
     notifyType: 'text',
-    repeatType: 'none',
+    nag: emptyNagDraft(),
     target: emptyReminderTargetDraft(),
   };
 }
@@ -66,11 +72,15 @@ export function buildCreateReminderRequest(
   const times = buildReminderTimes(draft.remindTimes, now);
   if (!times.ok) return { ok: false, error: times.error };
   if (times.iso.length === 0) return { ok: false, error: 'remindAtRequired' };
+  const nag = buildNagFields(draft.nag);
+  if (reminderRuleError(times.times, nag)) return { ok: false, error: 'nagTooLong' };
   const request: ICreateReminderRequest = {
     title,
-    remindTimes: times.iso,
+    remindTimes: times.times,
     notifyType: draft.notifyType,
-    repeatType: draft.repeatType,
+    ...(nag.nagEveryMinutes && nag.nagCount
+      ? { nagEveryMinutes: nag.nagEveryMinutes, nagCount: nag.nagCount }
+      : {}),
   };
   if (channels.length === 0) return { ok: true, request };
 

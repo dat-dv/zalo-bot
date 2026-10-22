@@ -49,6 +49,7 @@ import { AddMemberAccessToZcaThreadConfigs1724900000000 } from './migrations/172
 import { AddReminderToTasks1724910000000 } from './migrations/1724910000000-AddReminderToTasks';
 import { AddReminderTargets1724930000000 } from './migrations/1724930000000-AddReminderTargets';
 import { CreateReminderTimes1724940000000 } from './migrations/1724940000000-CreateReminderTimes';
+import { AddReminderRepeatAndNag1724950000000 } from './migrations/1724950000000-AddReminderRepeatAndNag';
 
 @Module({
   imports: [
@@ -115,6 +116,7 @@ import { CreateReminderTimes1724940000000 } from './migrations/1724940000000-Cre
             AddReminderToTasks1724910000000,
             AddReminderTargets1724930000000,
             CreateReminderTimes1724940000000,
+            AddReminderRepeatAndNag1724950000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

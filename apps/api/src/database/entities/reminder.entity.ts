@@ -1,4 +1,8 @@
-import type { IReminderTargetUser, ReminderTargetMode } from '@zalobot/contracts';
+import type {
+  IReminderTargetUser,
+  ReminderRepeatType,
+  ReminderTargetMode,
+} from '@zalobot/contracts';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -44,8 +48,19 @@ export class ReminderEntity {
   @Column({ name: 'notify_type', type: 'varchar', default: 'text' })
   notifyType: 'text' | 'call';
 
+  /**
+   * Legacy: the repeat of the earliest time, kept for older readers. Each time has its own
+   * repeat (`reminder_times.repeat_type`).
+   */
   @Column({ name: 'repeat_type', type: 'varchar', default: 'none' })
-  repeatType: 'none' | 'daily' | 'weekly';
+  repeatType: ReminderRepeatType;
+
+  /** Remind again every this many minutes after each time, `nag_count` times; null = never. */
+  @Column({ name: 'nag_every_minutes', type: 'integer', nullable: true })
+  nagEveryMinutes?: number | null;
+
+  @Column({ name: 'nag_count', type: 'integer', nullable: true })
+  nagCount?: number | null;
 
   /** Chat the reminder goes to; NULL (rows before reminder targets) = `userId`'s private chat. */
   @Column({ name: 'chat_id', type: 'varchar', nullable: true })

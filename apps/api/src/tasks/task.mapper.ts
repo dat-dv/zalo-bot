@@ -6,6 +6,7 @@ import {
 } from '@zalobot/contracts';
 import type { TaskEntity } from '../database/entities/task.entity';
 import { type RecordOriginLookups, creatorDisplayName } from '../google/google-copy.util';
+import { nagRuleOf } from '../reminders/reminder-schedule';
 import {
   type StoredReminderTime,
   nextPendingReminderAt,
@@ -55,7 +56,16 @@ export function toTaskItem(
     remindUsers: row.remindChatId ? (row.remindUsers ?? []) : undefined,
     remindMode: row.remindChatId ? (row.remindMode ?? 'mention') : undefined,
     remindedAt: row.remindedAt?.toISOString(),
+    ...ruleFields(row),
   };
+}
+
+/** The remind-again rule of a task, only when it has one. */
+function ruleFields(row: TaskEntity): Partial<ITaskListItem> {
+  const nag = nagRuleOf(row);
+  return nag.nagEveryMinutes && nag.nagCount
+    ? { nagEveryMinutes: nag.nagEveryMinutes, nagCount: nag.nagCount }
+    : {};
 }
 
 /** Bot reply suffix for a due date, e.g. " (Hạn: 23/10)", or "" when there is none. */

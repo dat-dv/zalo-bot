@@ -11,7 +11,7 @@ test('a new draft defaults to one hour from now, by message, no repeat', () => {
     title: '',
     remindTimes: [{ value: '2026-10-22T11:30' }],
     notifyType: 'text',
-    repeatType: 'none',
+    nag: { enabled: false, everyMinutes: 15, count: 3 },
     target: { chatId: '', userIds: [], mode: 'mention' },
   });
 });
@@ -20,9 +20,9 @@ test('builds the request with a trimmed title and an ISO time', () => {
   const result = buildCreateReminderRequest(
     {
       title: '  uống thuốc ',
-      remindTimes: [{ value: '2026-10-22T21:00' }],
+      remindTimes: [{ value: '2026-10-22T21:00', repeatType: 'daily' }],
       notifyType: 'call',
-      repeatType: 'daily',
+      nag: { enabled: true, everyMinutes: 10, count: 2 },
       target: emptyReminderTargetDraft(),
     },
     now,
@@ -31,9 +31,16 @@ test('builds the request with a trimmed title and an ISO time', () => {
     ok: true,
     request: {
       title: 'uống thuốc',
-      remindTimes: [new Date(2026, 9, 22, 21, 0).toISOString()],
+      remindTimes: [
+        {
+          remindAt: new Date(2026, 9, 22, 21, 0).toISOString(),
+          repeatType: 'daily',
+          repeatWeekdays: [],
+        },
+      ],
       notifyType: 'call',
-      repeatType: 'daily',
+      nagEveryMinutes: 10,
+      nagCount: 2,
     },
   });
 });
@@ -114,8 +121,31 @@ test('a reminder can have several times', () => {
     },
     now,
   );
-  assert.deepEqual(result.ok && result.request.remindTimes, [
-    new Date(2026, 9, 22, 12, 0).toISOString(),
-    new Date(2026, 9, 22, 20, 0).toISOString(),
-  ]);
+  assert.deepEqual(
+    result.ok &&
+      result.request.remindTimes?.map((time) => (typeof time === 'string' ? time : time.remindAt)),
+    [new Date(2026, 9, 22, 12, 0).toISOString(), new Date(2026, 9, 22, 20, 0).toISOString()],
+  );
+});
+
+test('reminding again must end before the next repeat of a time', () => {
+  const base = {
+    ...createReminderDraft(now),
+    title: 'Uống thuốc',
+    remindTimes: [{ value: '2026-10-22T20:00', repeatType: 'daily' as const }],
+  };
+  assert.deepEqual(
+    buildCreateReminderRequest(
+      { ...base, nag: { enabled: true, everyMinutes: 180, count: 10 } },
+      now,
+    ),
+    { ok: false, error: 'nagTooLong' },
+  );
+  assert.equal(
+    buildCreateReminderRequest(
+      { ...base, nag: { enabled: true, everyMinutes: 120, count: 3 } },
+      now,
+    ).ok,
+    true,
+  );
 });

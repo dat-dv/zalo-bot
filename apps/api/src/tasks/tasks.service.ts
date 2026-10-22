@@ -14,18 +14,43 @@ import type {
   TaskSource,
   TaskStatus,
 } from '@zalobot/contracts';
-import { In, IsNull, LessThan, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { TaskReminderTimeEntity } from '../database/entities/task-reminder-time.entity';
 import { TaskEntity } from '../database/entities/task.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 import { loadRecordOriginLookups } from '../google/google-copy.util';
 import type { ReminderTarget } from '../reminders/reminder-target';
+import {
+  NO_NAG_RULE,
+  NO_NAG_STATE,
+  type NagRule,
+  type NagRuleInput,
+  type ReminderOccurrence,
+  type ReminderRepeat,
+  checkReminderRules,
+  claimedState,
+  dueOccurrence,
+  hasNag,
+  mergeNagRule,
+  nagRuleOf,
+  nextOccurrence,
+  releasedState,
+  reminderRuleErrorMessage,
+  repeatChangeState,
+  repeatOf,
+  timeRule,
+  touchesNagRule,
+} from '../reminders/reminder-schedule';
 import { ReminderTargetService } from '../reminders/reminder-target.service';
 import {
+  type ReminderTimesPlan,
+  type RequestedReminderTime,
+  asRequestedTimes,
   lastSentReminderAt,
   nextPendingReminderAt,
   planReminderTimes,
+  plannedRepeats,
   reminderTimesErrorMessage,
 } from '../reminders/reminder-times';
 import { type TaskFields, UNTITLED_TASK, toTaskItem } from './task.mapper';
@@ -39,13 +64,13 @@ export interface TaskActor {
   source: TaskSource;
 }
 
-export interface TaskInput {
+export interface TaskInput extends NagRuleInput {
   title: string;
   notes?: string | null;
   dueAt?: Date | null;
   status?: TaskStatus;
   /** Replaces the reminder times; `null` or `[]` removes every reminder (and the target). */
-  remindTimes?: readonly Date[] | null;
+  remindTimes?: readonly (Date | RequestedReminderTime)[] | null;
   /** Defaults to the actor's chat: the chat the bot was asked in, else the user's private chat. */
   remindChatId?: string | null;
   /** Dashboard picks among the reminder group's members; `[]` clears them. */
@@ -137,13 +162,16 @@ export class TasksService {
   public async createTask(input: TaskInput, actor: TaskActor): Promise<TaskEntity> {
     const fields = this.normalize(input);
     // Validate the reminder before saving, so a bad value never leaves a saved task behind.
-    const times = this.planTimes([], input.remindTimes ?? []).add;
+    const plan = this.planTimes([], input.remindTimes ?? []);
+    const times = plan.add;
+    const nag = this.checkRules(plannedRepeats(plan), mergeNagRule(NO_NAG_RULE, input));
     const target = times.length > 0 ? await this.resolveTarget(input, null, actor) : null;
     const row = await this.taskRepo.save(
       this.taskRepo.create({
         ...fields,
+        ...nagColumns(nag),
         ...targetColumns(target),
-        remindAt: times[0] ?? null,
+        remindAt: times[0]?.at ?? null,
         remindedAt: null,
         createdByUserId: actor.userId ?? null,
         createdByName: actor.name?.trim() || null,
@@ -151,7 +179,7 @@ export class TasksService {
         sourceChatId: actor.chatId ?? null,
       }),
     );
-    if (times.length > 0) await this.insertTimes(row.id, times);
+    await this.applyTimes(row.id, plan);
     return row;
   }
 
@@ -177,6 +205,12 @@ export class TasksService {
       merged.completedAt = row.completedAt;
     }
     const reopened = row.status === 'completed' && status === 'needsAction';
+    const completed = row.status !== 'completed' && status === 'completed';
+    const nagTouched = touchesNagRule(patch);
+    const nag = mergeNagRule(nagRuleOf(row), patch);
+    if (nagTouched) Object.assign(row, nagColumns(nag));
+    // Done means done: reminding again stops, as it does when the rule turns it off.
+    const stopNag = completed || (nagTouched && !hasNag(nag));
     const timesTouched = patch.remindTimes !== undefined;
     const targetTouched =
       patch.remindChatId !== undefined ||
@@ -186,14 +220,21 @@ export class TasksService {
 
     // Edits that leave the reminder alone keep it as is (and need no lookups).
     if (!timesTouched && !targetTouched && !reopened) {
+      if (nagTouched) this.checkRules((await this.loadTimes([row.id])).map(repeatOf), nag);
       Object.assign(row, merged);
-      return this.taskRepo.save(row);
+      const saved = await this.taskRepo.save(row);
+      if (stopNag) {
+        await this.timeRepo?.update({ taskId: row.id }, NO_NAG_STATE);
+        await this.refreshReminderSummary(saved);
+      }
+      return saved;
     }
 
     const current = await this.loadTimes([row.id]);
-    const plan = timesTouched
+    const plan: ReminderTimesPlan<TaskReminderTimeEntity> = timesTouched
       ? this.planTimes(current, patch.remindTimes ?? [])
-      : { keep: current, remove: [], add: [] };
+      : { keep: current, remove: [], add: [], repeatChanges: [] };
+    this.checkRules(plannedRepeats(plan), nag);
     const hasTimes = plan.keep.length + plan.add.length > 0;
     const currentTarget = taskReminderTarget(row);
     let target: ReminderTarget | null = null;
@@ -206,15 +247,9 @@ export class TasksService {
 
     Object.assign(row, merged, targetColumns(target));
     await this.taskRepo.save(row);
-    if (plan.remove.length > 0) await this.timeRepo?.delete(plan.remove.map((time) => time.id));
-    if (plan.add.length > 0) await this.insertTimes(row.id, plan.add);
-    if (reopened) {
-      // Times that passed while the task was done are skipped, not sent all at once.
-      await this.timeRepo?.update(
-        { taskId: row.id, sentAt: IsNull(), remindAt: LessThan(new Date()) },
-        { sentAt: new Date() },
-      );
-    }
+    await this.applyTimes(row.id, plan);
+    if (stopNag) await this.timeRepo?.update({ taskId: row.id }, NO_NAG_STATE);
+    if (reopened) await this.skipMissedTimes(row);
     await this.refreshReminderSummary(row);
     return row;
   }
@@ -269,14 +304,16 @@ export class TasksService {
     );
   }
 
-  /** Reminder times that are due, of open tasks with a reminder chat, oldest first. */
+  /** Times with a send due (the time or a reminder again), of open tasks with a reminder chat. */
   public async getDueTaskReminders(now: Date = new Date()): Promise<DueTaskReminder[]> {
     if (!this.timeRepo) return [];
     const rows = await this.timeRepo
       .createQueryBuilder('time')
       .innerJoinAndSelect('time.task', 'task')
-      .where('time.sent_at IS NULL')
-      .andWhere('time.remind_at <= :now', { now })
+      .where(
+        '((time.sent_at IS NULL AND time.remind_at <= :now) OR (time.nag_at IS NOT NULL AND time.nag_at <= :now))',
+        { now },
+      )
       .andWhere('task.deleted_at IS NULL')
       .andWhere('task.status = :status', { status: 'needsAction' })
       .andWhere('task.remind_chat_id IS NOT NULL')
@@ -287,19 +324,32 @@ export class TasksService {
   }
 
   /**
-   * Marks one reminder time sent. Only the first caller wins, so two overlapping scheduler
-   * ticks cannot both send it; returns whether this call marked it.
+   * Claims what a time has due (`dueOccurrence`): the time itself (sent once, or moved to its
+   * next occurrence when the task repeats) or a reminder again. Only the first caller wins, so
+   * two overlapping scans cannot both send it; returns the claimed send, or null.
    */
-  public async markTaskReminderSent(timeId: string, at: Date = new Date()): Promise<boolean> {
-    if (!this.timeRepo) return false;
-    const result = await this.timeRepo.update({ id: timeId, sentAt: IsNull() }, { sentAt: at });
-    return (result.affected ?? 0) > 0;
+  public async claimTaskReminderTime(
+    time: DueTaskReminder,
+    now: Date = new Date(),
+  ): Promise<ReminderOccurrence | null> {
+    if (!this.timeRepo) return null;
+    const rule = timeRule(repeatOf(time), nagRuleOf(time.task));
+    const occurrence = dueOccurrence(time, rule, now);
+    if (!occurrence) return null;
+    const where = occurrence.nag
+      ? { id: time.id, nagAt: occurrence.at }
+      : { id: time.id, sentAt: IsNull(), remindAt: time.remindAt };
+    const result = await this.timeRepo.update(where, claimedState(time, rule, occurrence, now));
+    return (result.affected ?? 0) > 0 ? occurrence : null;
   }
 
-  /** Gives a claimed time back (it could not be queued or sent), so the next scan retries it. */
-  public async releaseTaskReminderTime(timeId: string): Promise<void> {
+  /** Gives a claimed send back (it could not be queued or sent), so the next scan retries it. */
+  public async releaseTaskReminderTime(
+    timeId: string,
+    occurrence: ReminderOccurrence,
+  ): Promise<void> {
     if (!this.timeRepo) return;
-    await this.timeRepo.update({ id: timeId }, { sentAt: null });
+    await this.timeRepo.update({ id: timeId }, releasedState(occurrence));
   }
 
   /** One reminder time with its task (deleted tasks included, so callers can skip them). */
@@ -324,6 +374,33 @@ export class TasksService {
     );
   }
 
+  /**
+   * Re-opening a done task: times that passed meanwhile are not sent all at once. A one-off
+   * time is marked handled; a repeating one moves to its next occurrence after now.
+   */
+  private async skipMissedTimes(row: TaskEntity, now: Date = new Date()): Promise<void> {
+    const repo = this.timeRepo;
+    if (!repo) return;
+    const missed = (await this.loadTimes([row.id])).filter(
+      (time) => !time.sentAt && time.remindAt.getTime() < now.getTime(),
+    );
+    for (const time of missed) {
+      const anchor = time.anchorAt ?? time.remindAt;
+      const next = nextOccurrence(time.remindAt, anchor, repeatOf(time), now);
+      await repo.update(
+        { id: time.id },
+        next ? { remindAt: next, anchorAt: anchor } : { sentAt: now },
+      );
+    }
+  }
+
+  /** The remind-again rule if it fits every time it applies to, else a 400 with the reason. */
+  private checkRules(repeats: readonly ReminderRepeat[], nag: NagRule): NagRule {
+    const error = checkReminderRules(repeats, nag);
+    if (error) throw new BadRequestException(reminderRuleErrorMessage(error));
+    return nag;
+  }
+
   private async loadTimes(taskIds: readonly string[]): Promise<TaskReminderTimeEntity[]> {
     if (!this.timeRepo || taskIds.length === 0) return [];
     return this.timeRepo.find({
@@ -332,14 +409,38 @@ export class TasksService {
     });
   }
 
-  private async insertTimes(taskId: string, times: readonly Date[]): Promise<void> {
+  /** Removes, adds and re-repeats times as planned. */
+  private async applyTimes(
+    taskId: string,
+    plan: ReminderTimesPlan<TaskReminderTimeEntity>,
+  ): Promise<void> {
     const repo = this.timeRepo;
+    if (plan.remove.length + plan.add.length + plan.repeatChanges.length === 0) return;
     if (!repo) throw new Error('Bảng giờ nhắc việc chưa được cấu hình.');
-    await repo.save(times.map((remindAt) => repo.create({ taskId, remindAt, sentAt: null })));
+    if (plan.remove.length > 0) await repo.delete(plan.remove.map((time) => time.id));
+    if (plan.add.length > 0) {
+      await repo.save(
+        plan.add.map((time) =>
+          repo.create({
+            taskId,
+            remindAt: time.at,
+            sentAt: null,
+            repeatType: time.repeat.repeatType,
+            repeatWeekdays: [...time.repeat.repeatWeekdays],
+          }),
+        ),
+      );
+    }
+    for (const change of plan.repeatChanges) {
+      await repo.update({ id: change.time.id }, repeatChangeState(change.time, change.repeat));
+    }
   }
 
-  private planTimes(current: readonly TaskReminderTimeEntity[], requested: readonly Date[]) {
-    const result = planReminderTimes(current, requested);
+  private planTimes(
+    current: readonly TaskReminderTimeEntity[],
+    requested: readonly (Date | RequestedReminderTime)[],
+  ) {
+    const result = planReminderTimes(current, asRequestedTimes(requested));
     if ('error' in result) throw new BadRequestException(reminderTimesErrorMessage(result.error));
     return result.plan;
   }
@@ -387,6 +488,10 @@ function taskReminderTarget(row: TaskTargetColumns): ReminderTarget | null {
     users: row.remindUsers ?? [],
     mode: row.remindMode ?? 'mention',
   };
+}
+
+function nagColumns(nag: NagRule): Pick<TaskEntity, 'nagEveryMinutes' | 'nagCount'> {
+  return { nagEveryMinutes: nag.nagEveryMinutes, nagCount: nag.nagCount };
 }
 
 function targetColumns(target: ReminderTarget | null): TaskTargetColumns {

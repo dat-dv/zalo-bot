@@ -1,8 +1,19 @@
 import { CreateFinanceTransactionDto, CreateDebtDto } from '../../finance/finance.service';
+import { nagLabel, repeatLabel } from '../../reminders/reminder-rule.format';
+import type { ReminderRepeat } from '../../reminders/reminder-schedule';
+import {
+  type PayloadReminderTime,
+  payloadTimeAt,
+  payloadTimeRepeat,
+} from '../../reminders/reminder-times';
 import { CreateReminderDto } from '../../reminders/reminders.service';
 import { CreateTaskOptions } from '../../tasks/task.types';
 import { CreateEventOptions } from '../../google/google-calendar.service';
-import type { IReminderTargetUser, ReminderTargetMode } from '@zalobot/contracts';
+import type {
+  IReminderTargetUser,
+  ReminderRepeatType,
+  ReminderTargetMode,
+} from '@zalobot/contracts';
 
 /**
  * Định nghĩa cấu hình hiển thị và định dạng cho từng trường của DTO.
@@ -33,13 +44,28 @@ export type DtoDescriptor<T> = {
   [K in keyof T]-?: DtoFieldConfig<T, K>;
 };
 
-/** Các lần nhắc trên thẻ xác nhận (mỗi lần một dòng con), hoặc một lần `remindAt` cũ. */
+/**
+ * Các lần nhắc trên thẻ xác nhận, mỗi lần kèm kiểu lặp nếu có ("… (Hàng ngày)"), hoặc một lần
+ * `remindAt` cũ. `legacyRepeat` là kiểu lặp chung của payload cũ.
+ */
 export function formatRemindTimesVN(
-  times: readonly (string | Date)[] | undefined,
+  times: readonly PayloadReminderTime[] | undefined,
   single?: string | Date | null,
+  legacyRepeat?: ReminderRepeatType,
 ): string {
-  if (!times?.length) return formatDateTimeVN(single);
-  return times.map((time) => formatDateTimeVN(time)).join('; ');
+  const values: readonly PayloadReminderTime[] = times?.length ? times : single ? [single] : [];
+  if (values.length === 0) return formatDateTimeVN(single);
+  return values
+    .map((time) => {
+      const when = formatDateTimeVN(payloadTimeAt(time));
+      const own = payloadTimeRepeat(time);
+      const repeat: ReminderRepeat =
+        own.repeatType === 'none' && legacyRepeat
+          ? { repeatType: legacyRepeat, repeatWeekdays: [] }
+          : own;
+      return repeat.repeatType === 'none' ? when : `${when} (${repeatLabel(repeat)})`;
+    })
+    .join('; ');
 }
 
 /** Người được nhắc trên thẻ xác nhận: "@Trí, @Đạt", hoặc không tag ai. */
@@ -237,7 +263,7 @@ export const REMINDER_DESCRIPTOR: DtoDescriptor<CreateReminderDto> = {
   remindAt: {
     label: 'Thời gian nhắc',
     order: 2,
-    format: (v, dto) => formatRemindTimesVN(dto.remindTimes, v),
+    format: (v, dto) => formatRemindTimesVN(dto.remindTimes, v, dto.repeatType),
   },
   remindTimes: { label: 'Các lần nhắc', hidden: true },
   notifyType: {
@@ -245,18 +271,21 @@ export const REMINDER_DESCRIPTOR: DtoDescriptor<CreateReminderDto> = {
     order: 3,
     format: (v) => (v === 'call' ? '📞 Cuộc gọi' : '💬 Tin nhắn'),
   },
-  repeatType: {
-    label: 'Lặp lại',
-    order: 4,
-    format: (v) => (v === 'daily' ? 'Hàng ngày' : v === 'weekly' ? 'Hàng tuần' : 'Không lặp'),
+  // Each time shows its own repeat (with `remindAt`).
+  repeatType: { label: 'Lặp lại', hidden: true },
+  nagEveryMinutes: {
+    label: 'Nhắc lại',
+    order: 5,
+    format: (_v, dto) => nagLabel(dto) || 'Không',
   },
+  nagCount: { label: 'Số lần nhắc lại', hidden: true },
   chatId: {
     label: 'Gửi tới',
-    order: 5,
+    order: 6,
     format: (v, dto) => (v && v !== String(dto.userId) ? '👥 Nhóm này' : '👤 Chat riêng của bạn'),
   },
-  remindUsers: { label: 'Nhắc ai', order: 6, format: (v) => formatRemindUsers(v) },
-  remindMode: { label: 'Cách nhắc', order: 7, format: (v) => formatRemindMode(v) },
+  remindUsers: { label: 'Nhắc ai', order: 7, format: (v) => formatRemindUsers(v) },
+  remindMode: { label: 'Cách nhắc', order: 8, format: (v) => formatRemindMode(v) },
   remindUserIds: { label: 'Người được chọn', hidden: true },
   originChatId: { label: 'Kênh gốc', hidden: true },
   status: { label: 'Trạng thái', hidden: true },
@@ -282,6 +311,12 @@ export const TASK_DESCRIPTOR: DtoDescriptor<CreateTaskOptions> = {
     format: (v, dto) => formatRemindTimesVN(dto.remindTimes, v),
   },
   remindTimes: { label: 'Các lần nhắc', hidden: true },
+  nagEveryMinutes: {
+    label: 'Nhắc lại',
+    order: 3,
+    format: (_v, dto) => nagLabel(dto) || 'Không',
+  },
+  nagCount: { label: 'Số lần nhắc lại', hidden: true },
   remindUsers: { label: 'Nhắc ai', order: 4, format: (v) => formatRemindUsers(v) },
   remindMode: { label: 'Cách nhắc', order: 5, format: (v) => formatRemindMode(v) },
   notes: {

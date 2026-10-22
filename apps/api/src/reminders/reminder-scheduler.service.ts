@@ -3,10 +3,16 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { localeTag, translate } from '@zalobot/contracts';
 import { REMINDER_DELIVERY_JOB_OPTIONS, REMINDER_JOBS } from '../queue/queue.constants';
 import type { ReminderJobResult } from '../queue/reminder-job';
-import type { ReminderDeliveryJobData, ReminderDeliveryQueue } from '../queue/reminder-queue';
+import {
+  type ReminderDeliveryJobData,
+  type ReminderDeliveryQueue,
+  deliveryJobData,
+  deliveryOccurrence,
+} from '../queue/reminder-queue';
 import { UsersService } from '../users/users.service';
 import { ZcaMessengerService } from '../zca/zca-messenger.service';
 import { REMINDERS_QUEUE, reminderJobId } from './reminder.queue';
+import { withNagLine } from './reminder-rule.format';
 import { RemindersService, reminderTarget } from './reminders.service';
 import { ReminderTargetService } from './reminder-target.service';
 
@@ -38,19 +44,16 @@ export class ReminderSchedulerService {
 
     for (const time of dueTimes) {
       if (!time.reminder.userId) continue;
-      // Claim first: whoever claims this time queues it, so it never goes out twice.
-      if (!(await this.remindersService.claimReminderTime(time, now))) continue;
-      const data: ReminderDeliveryJobData = {
-        timeId: time.id,
-        remindAt: time.remindAt.toISOString(),
-      };
+      // Claim first: whoever claims this send queues it, so it never goes out twice.
+      const occurrence = await this.remindersService.claimReminderTime(time, now);
+      if (!occurrence) continue;
       try {
-        await this.queue.add(REMINDER_JOBS.DELIVER, data, {
+        await this.queue.add(REMINDER_JOBS.DELIVER, deliveryJobData(time.id, occurrence), {
           ...REMINDER_DELIVERY_JOB_OPTIONS,
-          jobId: reminderJobId(time.id, time.remindAt),
+          jobId: reminderJobId(time.id, occurrence),
         });
       } catch (err: unknown) {
-        await this.remindersService.releaseReminderTime(time.id, time.remindAt);
+        await this.remindersService.releaseReminderTime(time.id, occurrence);
         this.logger.error(
           `Could not queue reminder time ${time.id}: ${err instanceof Error ? err.message : 'unknown error'}`,
         );
@@ -68,7 +71,7 @@ export class ReminderSchedulerService {
     if (!reminder || !userId) return 'skipped';
     // Logged out since the scan: retrying would only burn the attempts, so wait for the login.
     if (!this.zcaMessenger.isConnected()) {
-      await this.remindersService.releaseReminderTime(data.timeId, new Date(data.remindAt));
+      await this.remindersService.releaseReminderTime(data.timeId, deliveryOccurrence(data));
       await this.remindersService.refreshReminderSummary(reminder);
       return 'released';
     }
@@ -86,7 +89,7 @@ export class ReminderSchedulerService {
     }).format(new Date(data.remindAt));
 
     // Calls are not placed yet: a `call` reminder is sent as a message like the others.
-    const header = translate(locale, 'reminder.header.text');
+    const header = withNagLine(translate(locale, 'reminder.header.text'), data.nag, locale);
     const body = `━━━━━━━━━━━━━━━━━━━━
 📌 Nội dung: ${reminder.title}
 ⏰ Thời điểm: ${timeStr}

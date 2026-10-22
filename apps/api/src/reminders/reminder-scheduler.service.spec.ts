@@ -8,6 +8,7 @@ import type { UsersService } from '../users/users.service';
 import type { ZcaMessengerService } from '../zca/zca-messenger.service';
 import { createTargetService } from './reminder-target.fixtures.spec';
 import { ReminderSchedulerService } from './reminder-scheduler.service';
+import type { ReminderOccurrence } from './reminder-schedule';
 import type { DueReminderTime, RemindersService } from './reminders.service';
 
 const NOW = new Date('2026-10-22T03:00:00.000Z');
@@ -45,17 +46,17 @@ interface QueuedJob {
 function setup(options: { connected?: boolean; due: DueReminderTime[]; queueFails?: boolean }) {
   const state = { connected: options.connected ?? true };
   const claimed = new Set<string>();
-  const released: Array<{ timeId: string; firedAt: Date }> = [];
+  const released: Array<{ timeId: string; occurrence: ReminderOccurrence }> = [];
   const reminders = {
     getDueReminders: () => Promise.resolve(options.due.filter((time) => !claimed.has(time.id))),
-    claimReminderTime: (time: DueReminderTime) => {
-      if (claimed.has(time.id)) return Promise.resolve(false);
+    claimReminderTime: (time: DueReminderTime): Promise<ReminderOccurrence | null> => {
+      if (claimed.has(time.id)) return Promise.resolve(null);
       claimed.add(time.id);
-      return Promise.resolve(true);
+      return Promise.resolve({ at: time.remindAt });
     },
-    releaseReminderTime: (timeId: string, firedAt: Date) => {
+    releaseReminderTime: (timeId: string, occurrence: ReminderOccurrence) => {
       claimed.delete(timeId);
-      released.push({ timeId, firedAt });
+      released.push({ timeId, occurrence });
       return Promise.resolve();
     },
     getReminderTime: (id: string) =>
@@ -121,7 +122,7 @@ void test('gives the time back when its delivery cannot be queued', async () => 
   const time = due(reminder('r1', { repeatType: 'daily' }));
   const { released, claimed, tick } = setup({ due: [time], queueFails: true });
   await tick();
-  assert.deepEqual(released, [{ timeId: 'r1', firedAt: NOW }]);
+  assert.deepEqual(released, [{ timeId: 'r1', occurrence: { at: NOW } }]);
   assert.equal(claimed.size, 0);
 });
 
@@ -132,7 +133,7 @@ void test('gives the time back when ZCA logs out before the delivery runs', asyn
   await scheduler.scanDueReminders(NOW);
   state.connected = false;
   assert.equal(await scheduler.deliverReminder(jobs[0].data), 'released');
-  assert.deepEqual(released, [{ timeId: 'r1', firedAt: NOW }]);
+  assert.deepEqual(released, [{ timeId: 'r1', occurrence: { at: NOW } }]);
   assert.equal(claimed.size, 0);
   assert.equal(sent.length, 0);
 });
@@ -142,4 +143,14 @@ void test('a reminder deleted after the claim is not sent', async () => {
   const result = await scheduler.deliverReminder({ timeId: 'gone', remindAt: NOW.toISOString() });
   assert.equal(result, 'skipped');
   assert.equal(sent.length, 0);
+});
+
+void test('a reminder again says which one it is', async () => {
+  const { scheduler, sent } = setup({ due: [due(reminder('r1'), 't1')] });
+  await scheduler.deliverReminder({
+    timeId: 't1',
+    remindAt: NOW.toISOString(),
+    nag: { index: 2, total: 3 },
+  });
+  assert.match(sent[0].text, /🔁 Nhắc lại 2\/3/);
 });

@@ -1,5 +1,13 @@
 import { CreateFinanceTransactionDto, CreateDebtDto } from '../../finance/finance.service';
+import { nagLabel, repeatLabel } from '../../reminders/reminder-rule.format';
+import {
+  type PayloadReminderTime,
+  payloadTimeAt,
+  payloadTimeRepeat,
+} from '../../reminders/reminder-times';
+import type { ReminderRepeat } from '../../reminders/reminder-schedule';
 import { CreateReminderDto } from '../../reminders/reminders.service';
+import type { ReminderRepeatType } from '@zalobot/contracts';
 import { CreateTaskOptions } from '../../tasks/task.types';
 import { CreateEventOptions } from '../../google/google-calendar.service';
 import {
@@ -146,42 +154,56 @@ export function summarizeDebt(code: string, dto: CreateDebtDto, now: Date = new 
   return joinLines([first, second]);
 }
 
-const REPEAT_LABELS: Record<NonNullable<CreateReminderDto['repeatType']>, string> = {
-  none: '',
-  daily: 'hàng ngày',
-  weekly: 'hàng tuần',
-};
-
 export function summarizeReminder(
   code: string,
   dto: Pick<
     CreateReminderDto,
-    'title' | 'notifyType' | 'repeatType' | 'remindUsers' | 'remindMode'
+    | 'title'
+    | 'notifyType'
+    | 'repeatType'
+    | 'nagEveryMinutes'
+    | 'nagCount'
+    | 'remindUsers'
+    | 'remindMode'
   > & {
     remindAt: string | Date;
-    remindTimes?: readonly (string | Date)[];
+    remindTimes?: readonly PayloadReminderTime[];
   },
   now: Date = new Date(),
 ): string {
-  const when = formatShortTimesVN(dto.remindTimes, dto.remindAt, now);
+  const when = formatShortTimesVN(dto.remindTimes, dto.remindAt, now, dto.repeatType);
   const first = `⏰ [${code}] Nhắc "${clean(dto.title)}"${when ? ` lúc ${when}` : ''}`;
   const second = joinParts([
-    withPrefix('🔁', dto.repeatType ? REPEAT_LABELS[dto.repeatType] : ''),
+    withPrefix('🔁', nagLabel(dto)),
     dto.notifyType === 'call' ? '📞 gọi điện' : '',
     remindPeople(dto),
   ]);
   return joinLines([first, second]);
 }
 
-/** "08:00 23/10, 14:00 23/10" for several times, else the single `remindAt`. */
+/**
+ * "08:00 23/10 (hàng ngày), 14:00 25/10" for several times, else the single `remindAt`.
+ * `legacyRepeat` is the whole-reminder repeat of older payloads.
+ */
 function formatShortTimesVN(
-  times: readonly (string | Date)[] | undefined,
+  times: readonly PayloadReminderTime[] | undefined,
   single: string | Date | undefined,
   now: Date,
+  legacyRepeat?: ReminderRepeatType,
 ): string {
-  const values = times?.length ? times : [single];
+  const values: readonly (PayloadReminderTime | undefined)[] = times?.length ? times : [single];
   return values
-    .map((value) => formatShortDateTimeVN(value, now))
+    .map((value) => {
+      const when = formatShortDateTimeVN(payloadTimeAt(value), now);
+      const own = payloadTimeRepeat(value);
+      const repeat: ReminderRepeat =
+        own.repeatType === 'none' && legacyRepeat
+          ? { repeatType: legacyRepeat, repeatWeekdays: [] }
+          : own;
+      return when && repeat.repeatType !== 'none'
+        ? `${when} (${repeatLabel(repeat).toLocaleLowerCase('vi')})`
+        : when;
+    })
     .filter(Boolean)
     .join(', ');
 }
@@ -202,6 +224,7 @@ export function summarizeTask(
     `Thêm việc: ${clean(dto.title)}`,
     withPrefix('⏳ hạn', formatShortDateVN(dto.due, now)),
     withPrefix('⏰ nhắc', formatShortTimesVN(dto.remindTimes, dto.remindAt, now)),
+    withPrefix('🔁', nagLabel(dto)),
     remindPeople(dto),
   ])}`;
   return joinLines([first, withPrefix('📝', clean(dto.notes))]);

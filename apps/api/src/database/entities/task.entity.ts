@@ -68,6 +68,13 @@ export class TaskEntity {
   @Column({ name: 'remind_mode', type: 'varchar', default: 'mention' })
   remindMode?: ReminderTargetMode;
 
+  /** Remind again every this many minutes after each time, `nag_count` times; null = never. */
+  @Column({ name: 'nag_every_minutes', type: 'integer', nullable: true })
+  nagEveryMinutes?: number | null;
+
+  @Column({ name: 'nag_count', type: 'integer', nullable: true })
+  nagCount?: number | null;
+
   /** Set when the reminder was sent or skipped; cleared when the time or target changes. */
   @Column({ name: 'reminded_at', type: 'timestamptz', nullable: true })
   remindedAt?: Date | null;

@@ -978,6 +978,31 @@ const messages = {
     'reminders.repeatType.none': 'Không lặp',
     'reminders.repeatType.daily': 'Hàng ngày',
     'reminders.repeatType.weekly': 'Hàng tuần',
+    'reminders.repeatType.weekdays': 'Ngày thường (T2–T6)',
+    'reminders.repeatType.monthly': 'Hàng tháng',
+    'reminderRule.repeat': 'Lặp lại',
+    'reminderRule.weekdays': 'Vào các thứ',
+    'reminderRule.weekdaysHint': 'Không chọn thì lặp đúng thứ của giờ nhắc.',
+    'reminderRule.nag': 'Nhắc lại',
+    'reminderRule.nagTaskHint': 'Sau mỗi lần nhắc, nhắc thêm cho tới khi việc xong.',
+    'reminderRule.nagReminderHint': 'Sau mỗi lần nhắc, nhắc thêm cho tới khi bấm Đã xong.',
+    'reminderRule.nagEvery': 'Mỗi',
+    'reminderRule.nagCount': 'Tối đa (lần)',
+    'reminderRule.minutes': '{count} phút',
+    'reminderRule.hours': '{count} giờ',
+    'reminderRule.summaryNag': 'nhắc lại mỗi {every} ×{count}',
+    'reminderRule.error.nagEvery': 'Nhắc lại mỗi 5 phút đến 24 giờ.',
+    'reminderRule.error.nagCount': 'Nhắc lại từ 1 đến 10 lần.',
+    'reminderRule.error.nagTooLong': 'Nhắc lại phải kết thúc trước lần lặp kế tiếp.',
+    'reminderRule.error.weekdays': 'Thứ trong tuần không hợp lệ.',
+    'reminderRule.nagMessage': '🔁 Nhắc lại {index}/{total}',
+    'weekday.short.0': 'CN',
+    'weekday.short.1': 'T2',
+    'weekday.short.2': 'T3',
+    'weekday.short.3': 'T4',
+    'weekday.short.4': 'T5',
+    'weekday.short.5': 'T6',
+    'weekday.short.6': 'T7',
     'reminders.placeholder.title': 'Nhập tiêu đề lời nhắc...',
     'reminders.actions.create': 'Thêm lời nhắc',
     'reminders.create.title': 'Thêm lời nhắc',
@@ -2095,6 +2120,31 @@ const messages = {
     'reminders.repeatType.none': 'None',
     'reminders.repeatType.daily': 'Daily',
     'reminders.repeatType.weekly': 'Weekly',
+    'reminders.repeatType.weekdays': 'Weekdays (Mon–Fri)',
+    'reminders.repeatType.monthly': 'Monthly',
+    'reminderRule.repeat': 'Repeat',
+    'reminderRule.weekdays': 'On',
+    'reminderRule.weekdaysHint': 'None picked: repeats on the weekday of the time.',
+    'reminderRule.nag': 'Remind again',
+    'reminderRule.nagTaskHint': 'After each reminder, remind again until the task is done.',
+    'reminderRule.nagReminderHint': 'After each reminder, remind again until marked done.',
+    'reminderRule.nagEvery': 'Every',
+    'reminderRule.nagCount': 'At most (times)',
+    'reminderRule.minutes': '{count} min',
+    'reminderRule.hours': '{count} h',
+    'reminderRule.summaryNag': 'again every {every} ×{count}',
+    'reminderRule.error.nagEvery': 'Remind again every 5 minutes to 24 hours.',
+    'reminderRule.error.nagCount': 'Remind again 1 to 10 times.',
+    'reminderRule.error.nagTooLong': 'Reminding again must end before the next repeat.',
+    'reminderRule.error.weekdays': 'Invalid weekday.',
+    'reminderRule.nagMessage': '🔁 Reminder again {index}/{total}',
+    'weekday.short.0': 'Sun',
+    'weekday.short.1': 'Mon',
+    'weekday.short.2': 'Tue',
+    'weekday.short.3': 'Wed',
+    'weekday.short.4': 'Thu',
+    'weekday.short.5': 'Fri',
+    'weekday.short.6': 'Sat',
     'reminders.placeholder.title': 'Reminder title...',
     'reminders.actions.create': 'Add reminder',
     'reminders.create.title': 'Add a reminder',
@@ -2708,7 +2758,11 @@ export interface IReminderListItem {
   title: string;
   remindAt: string;
   notifyType: 'text' | 'call';
-  repeatType?: 'none' | 'daily' | 'weekly';
+  /** Legacy: the repeat of the earliest time. Each time carries its own (`remindTimes`). */
+  repeatType?: ReminderRepeatType;
+  /** Remind again every this many minutes after each time, `nagCount` times; absent = never. */
+  nagEveryMinutes?: number;
+  nagCount?: number;
   status?: 'pending' | 'completed' | 'snoozed' | 'cancelled';
   snoozeCount?: number;
   snoozedUntil?: string;
@@ -2740,12 +2794,16 @@ export interface IUpdateReminderRequest {
   title?: string;
   remindAt?: string;
   notifyType?: 'text' | 'call';
-  repeatType?: 'none' | 'daily' | 'weekly';
+  /** Legacy: the repeat of every time given as a plain ISO string. */
+  repeatType?: ReminderRepeatType;
+  /** `null` turns reminding again off. */
+  nagEveryMinutes?: number | null;
+  nagCount?: number | null;
   status?: 'pending' | 'completed' | 'snoozed' | 'cancelled';
   snoozeCount?: number;
   snoozedUntil?: string;
   /** Replaces the times; times already on the reminder keep whether they were sent. */
-  remindTimes?: string[];
+  remindTimes?: ReminderTimeRequest[];
   chatId?: string;
   /** Members of the reminder group to remind; `[]` clears them. */
   remindUserIds?: string[];
@@ -2835,6 +2893,9 @@ export interface ITaskListItem {
   remindMode?: ReminderTargetMode;
   /** Set once the reminder went out (or was skipped); cleared when the time or target changes. */
   remindedAt?: string;
+  /** Remind again every this many minutes after each time, `nagCount` times; absent = never. */
+  nagEveryMinutes?: number;
+  nagCount?: number;
 }
 
 export interface IUpdateTaskRequest {
@@ -2847,11 +2908,14 @@ export interface IUpdateTaskRequest {
   /** One ISO time (same as `remindTimes: [remindAt]`); empty string clears every reminder. */
   remindAt?: string;
   /** Replaces the reminder times; times already on the task keep whether they were sent. */
-  remindTimes?: string[];
+  remindTimes?: ReminderTimeRequest[];
   remindChatId?: string;
   /** Members of the reminder group to remind; `[]` clears them. */
   remindUserIds?: string[];
   remindMode?: ReminderTargetMode;
+  /** `null` turns reminding again off. */
+  nagEveryMinutes?: number | null;
+  nagCount?: number | null;
 }
 
 export interface ICreateTaskRequest {
@@ -2859,12 +2923,14 @@ export interface ICreateTaskRequest {
   notes?: string;
   due?: string;
   remindAt?: string;
-  /** Up to `REMINDER_TIME_LIMITS.MAX_TIMES` ISO times; wins over `remindAt`. */
-  remindTimes?: string[];
+  /** Up to `REMINDER_TIME_LIMITS.MAX_TIMES` times; wins over `remindAt`. */
+  remindTimes?: ReminderTimeRequest[];
   /** Required with `remindAt` unless the dashboard user has a Zalo account (then their private chat). */
   remindChatId?: string;
   remindUserIds?: string[];
   remindMode?: ReminderTargetMode;
+  nagEveryMinutes?: number;
+  nagCount?: number;
 }
 
 /**
@@ -2875,15 +2941,31 @@ export type ReminderTargetMode = 'mention' | 'direct';
 export const REMINDER_TARGET_MODES: readonly ReminderTargetMode[] = ['mention', 'direct'];
 export const REMINDER_TARGET_LIMITS = { MAX_USERS: 10 } as const;
 
-/** A task or a reminder can remind several times; each time is sent once. */
+/** A task or a reminder can remind several times; each time is sent once, or repeats. */
 export const REMINDER_TIME_LIMITS = { MAX_TIMES: 10 } as const;
 
 export interface IReminderTime {
   id: string;
+  /** The next occurrence of a repeating time, else the time itself. */
   remindAt: string;
-  /** Set once this time went out (or was skipped). */
+  /** Set once this time went out (or was skipped); never set on a repeating time. */
   sentAt?: string;
+  /** How this time repeats; absent = once. */
+  repeatType?: ReminderRepeatType;
+  /** Weekdays of a `weekly` repeat, 0 = Sunday (Vietnam time); empty = the time's weekday. */
+  repeatWeekdays?: number[];
 }
+
+/** One requested time with how it repeats. */
+export interface IReminderTimeInput {
+  remindAt: string;
+  /** Absent: once for a new time, unchanged for a time already saved. */
+  repeatType?: ReminderRepeatType;
+  repeatWeekdays?: number[];
+}
+
+/** A requested time: a plain ISO string (older callers) or a time with its repeat. */
+export type ReminderTimeRequest = string | IReminderTimeInput;
 
 /** A Zalo user to remind, with the name shown in the `@name` tag. */
 export interface IReminderTargetUser {
@@ -2932,7 +3014,102 @@ export const DEFAULT_EXPENSE_CATEGORIES = [
 
 export type DebtDirection = 'receivable' | 'payable';
 export type ReminderNotifyType = 'text' | 'call';
-export type ReminderRepeatType = 'none' | 'daily' | 'weekly';
+/**
+ * How each time of a task or a reminder repeats: `weekdays` = Monday to Friday, `weekly` = on
+ * `repeatWeekdays` (or the weekday of the time), `monthly` = on the day of the month of the
+ * time (the last day in shorter months). Missed occurrences are not sent late.
+ */
+export type ReminderRepeatType = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly';
+export const REMINDER_REPEAT_TYPES: readonly ReminderRepeatType[] = [
+  'none',
+  'daily',
+  'weekdays',
+  'weekly',
+  'monthly',
+];
+
+export function isReminderRepeatType(value: unknown): value is ReminderRepeatType {
+  return typeof value === 'string' && (REMINDER_REPEAT_TYPES as readonly string[]).includes(value);
+}
+
+/** "Remind again": after each time, every 5 minutes to 24 hours, 1 to 10 more times. */
+export const REMINDER_NAG_LIMITS = {
+  MIN_EVERY_MINUTES: 5,
+  MAX_EVERY_MINUTES: 1440,
+  MAX_COUNT: 10,
+} as const;
+export const REMINDER_NAG_EVERY_OPTIONS = [5, 10, 15, 30, 60, 120] as const;
+
+/**
+ * The rule one reminder time follows: its own repeat, and the remind-again setting of its task
+ * or reminder (shared by all of its times).
+ */
+export interface IReminderRule {
+  repeatType: ReminderRepeatType;
+  /** 0 = Sunday … 6 = Saturday (Vietnam time); only read for `weekly`. */
+  repeatWeekdays: readonly number[];
+  /** Both set, or both null (no reminding again). */
+  nagEveryMinutes: number | null;
+  nagCount: number | null;
+}
+
+export type ReminderRuleError = 'nagEvery' | 'nagCount' | 'nagTooLong' | 'weekdays';
+
+const DAY_MINUTES = 24 * 60;
+
+/** Shortest gap between two occurrences of a repeat, in minutes; null without a repeat. */
+export function shortestRepeatGapMinutes(
+  repeatType: ReminderRepeatType,
+  weekdays: readonly number[],
+): number | null {
+  switch (repeatType) {
+    case 'none':
+      return null;
+    case 'daily':
+    case 'weekdays':
+      return DAY_MINUTES;
+    case 'monthly':
+      return 28 * DAY_MINUTES;
+    case 'weekly': {
+      const days = [...new Set(weekdays)].sort((a, b) => a - b);
+      if (days.length <= 1) return 7 * DAY_MINUTES;
+      // Gaps between picked days, including the wrap from the last one to next week's first.
+      const gaps = days.map((day, i) =>
+        i === 0 ? days[0] + 7 - days[days.length - 1] : day - days[i - 1],
+      );
+      return Math.min(...gaps) * DAY_MINUTES;
+    }
+  }
+}
+
+/**
+ * Checks a rule: reminding again needs both values in range, and must be over before the next
+ * repeat (otherwise its last reminders would land after the next occurrence).
+ */
+export function validateReminderRule(rule: IReminderRule): ReminderRuleError | null {
+  const days = rule.repeatWeekdays;
+  if (days.some((day) => !Number.isInteger(day) || day < 0 || day > 6)) return 'weekdays';
+  const { nagEveryMinutes: every, nagCount: count } = rule;
+  if (every === null && count === null) return null;
+  if (
+    every === null ||
+    !Number.isInteger(every) ||
+    every < REMINDER_NAG_LIMITS.MIN_EVERY_MINUTES ||
+    every > REMINDER_NAG_LIMITS.MAX_EVERY_MINUTES
+  ) {
+    return 'nagEvery';
+  }
+  if (
+    count === null ||
+    !Number.isInteger(count) ||
+    count < 1 ||
+    count > REMINDER_NAG_LIMITS.MAX_COUNT
+  ) {
+    return 'nagCount';
+  }
+  const gap = shortestRepeatGapMinutes(rule.repeatType, rule.repeatType === 'weekly' ? days : []);
+  return gap !== null && every * count >= gap ? 'nagTooLong' : null;
+}
 
 export interface ITransactionItem {
   id: string;
@@ -3032,10 +3209,13 @@ export interface ICreateReminderRequest {
   title: string;
   /** One ISO time; give it or `remindTimes`. */
   remindAt?: string;
-  /** Up to `REMINDER_TIME_LIMITS.MAX_TIMES` ISO times; wins over `remindAt`. */
-  remindTimes?: string[];
+  /** Up to `REMINDER_TIME_LIMITS.MAX_TIMES` times; wins over `remindAt`. */
+  remindTimes?: ReminderTimeRequest[];
   notifyType?: ReminderNotifyType;
+  /** Legacy: the repeat of every time given as a plain ISO string. */
   repeatType?: ReminderRepeatType;
+  nagEveryMinutes?: number;
+  nagCount?: number;
   /** Defaults to the creator's private chat; required for `dashboard-owner`. */
   chatId?: string;
   remindUserIds?: string[];

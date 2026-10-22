@@ -1560,7 +1560,7 @@ void test('createPendingAction applies the saved requiredHearts of the chat thre
 
 void test('toValidRemindTimes keeps future times of the list, else of the single remindAt', () => {
   const now = new Date('2026-10-22T03:00:00.000Z');
-  const iso = (dates: Date[]) => dates.map((date) => date.toISOString());
+  const iso = (times: Array<{ at: Date }>) => times.map((time) => time.at.toISOString());
   assert.deepEqual(
     iso(
       toValidRemindTimes(
@@ -1585,8 +1585,34 @@ void test('parseReminderPayload keeps several times, past ones included', () => 
     remindTimes: ['2999-01-01T01:00:00.000Z', '2000-01-01T13:00:00.000Z', 'bogus'],
   });
   assert.deepEqual(
-    parsed.remindTimes?.map((date) => date.toISOString()),
+    parsed.remindTimes?.map((time) => (time instanceof Date ? time : time.at).toISOString()),
     ['2999-01-01T01:00:00.000Z', '2000-01-01T13:00:00.000Z'],
   );
   assert.throws(() => parseReminderPayload({ userId: 'u1', title: 'x', remindTimes: ['bogus'] }));
+});
+
+void test('parseReminderPayload keeps the repeat of each time and the remind-again rule', () => {
+  const parsed = parseReminderPayload(
+    JSON.parse(
+      JSON.stringify({
+        userId: 'u1',
+        title: 'Uống thuốc',
+        remindTimes: [
+          { at: '2999-01-01T01:00:00.000Z', repeat: { repeatType: 'daily', repeatWeekdays: [] } },
+          '2999-01-02T13:00:00.000Z',
+        ],
+        nagEveryMinutes: 15,
+        nagCount: 3,
+      }),
+    ) as Record<string, unknown>,
+  );
+  assert.deepEqual(parsed.remindTimes, [
+    {
+      at: new Date('2999-01-01T01:00:00.000Z'),
+      repeat: { repeatType: 'daily', repeatWeekdays: [] },
+    },
+    { at: new Date('2999-01-02T13:00:00.000Z') },
+  ]);
+  assert.equal(parsed.nagEveryMinutes, 15);
+  assert.equal(parsed.nagCount, 3);
 });

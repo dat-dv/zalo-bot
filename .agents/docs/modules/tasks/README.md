@@ -54,6 +54,13 @@ Mỗi việc có thể có **một hoặc nhiều lần nhắc** (tối đa 10, 
 
 Phần đích nhắc dùng chung với lời nhắc cá nhân, giải thích đầy đủ ở [`reminders/README.md`](../reminders/README.md#2-đích-nhắc-dùng-chung-với-nhắc-việc). Mục này chỉ ghi phần riêng của task.
 
+### Lặp lại và nhắc lại tới khi xong
+
+- Mỗi giờ nhắc của việc có ô **Lặp lại** riêng (không lặp, hằng ngày, ngày thường T2–T6, hằng tuần chọn thứ, hằng tháng), giống lời nhắc. Chi tiết và lý do: mục 2b tài liệu module reminders.
+- **Nhắc lại** dùng chung cho cả việc: sau mỗi lần nhắc, bot nhắc thêm mỗi X phút/giờ, tối đa N lần, **cho tới khi việc được đánh dấu xong**.
+- Bấm **xong** là dừng hết: cả các lần lặp sau lẫn các lần nhắc lại đang chờ. Mở lại việc thì giờ lặp chạy tiếp từ lần kế tiếp sau lúc mở lại, không gửi dồn các lần đã lỡ; giờ không lặp đã qua thì bỏ qua như trước.
+- Tạo việc từ Zalo: "nhắc mình 9h mỗi sáng thứ 2 đến thứ 6, nhắc lại mỗi 30 phút tới khi xong" ⇒ giờ 9h lặp ngày thường, nhắc lại mỗi 30 phút.
+
 ### Vì sao để trên bảng `tasks` chứ không dùng bảng `reminders`
 
 - Bảng `reminders` là **nhắc cá nhân** theo `user_id`, gửi chat riêng, có lặp/hoãn/gọi điện. Còn task là **danh sách việc chung**.
@@ -135,6 +142,7 @@ Nhắn bot "xong Nộp báo cáo" để đánh dấu hoàn thành.
 - **Lọc theo kỳ** (mặc định Tháng), **thẻ tổng quan**: tổng, cần làm, đã xong, quá hạn.
 - **Lọc trạng thái** Tất cả / Cần làm (mặc định) / Đã xong; tìm theo tiêu đề và ghi chú.
 - **Cột bảng**: Trạng thái, Tiêu đề, Ghi chú, Hạn chót, **Nhắc lúc** (🔔 lần nhắc kế tiếp kèm "+N lần" còn lại, rê chuột xem đủ các giờ; dòng dưới là kênh · người được nhắc · "Nhắn riêng"; mờ đi kèm "Đã nhắc" khi mọi lần đã gửi), Cập nhật, **Người tạo** (tên hoặc nguồn, kèm nhóm Zalo), Thao tác.
+- Ô Nhắc lúc khi sửa trực tiếp có thêm ô Lặp lại trên từng giờ và ô **Nhắc lại** (bản gọn). Hộp thoại thêm việc cũng có hai phần này.
 - Sửa trực tiếp như cũ; xoá trống ô ghi chú, hạn chót hoặc giờ nhắc rồi lưu thì trường đó được xoá. Ô Nhắc lúc khi sửa là danh sách giờ (lần đã gửi có chữ "đã gửi") cùng bộ ô đích nhắc (bản gọn), bộ ô này luôn hiện kể cả khi việc chưa có giờ nhắc. Màn hình chỉ gửi trường nhắc khi người dùng thật sự sửa nó, và giờ nào giữ nguyên thì gửi lại đúng giá trị cũ, để lần nhắc đã qua giờ không bị báo "phải ở tương lai". Lưu lỗi thì toast hiện lý do và giữ nguyên chế độ sửa. Xoá task dùng hộp xác nhận trong app (thay `window.confirm`).
 - Trang Tổng quan dùng bảng rút gọn (không có cột Người tạo).
 

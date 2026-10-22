@@ -97,7 +97,24 @@ void test('summarizeReminder adds a second line only for repeat or call', () => 
       },
       NOW,
     ),
-    '⏰ [401] Nhắc "uống thuốc" lúc 20:00 21/10\n🔁 hàng ngày · 📞 gọi điện',
+    '⏰ [401] Nhắc "uống thuốc" lúc 20:00 21/10 (hàng ngày)\n📞 gọi điện',
+  );
+  assert.equal(
+    summarizeReminder(
+      '402',
+      {
+        title: 'uống thuốc',
+        remindAt: '2026-10-21T01:00:00Z',
+        remindTimes: [
+          { at: '2026-10-21T01:00:00Z', repeat: { repeatType: 'daily', repeatWeekdays: [] } },
+          '2026-10-21T07:00:00Z',
+        ],
+        nagEveryMinutes: 15,
+        nagCount: 3,
+      },
+      NOW,
+    ),
+    '⏰ [402] Nhắc "uống thuốc" lúc 08:00 21/10 (hàng ngày), 14:00 21/10\n🔁 nhắc lại mỗi 15 phút ×3',
   );
 });
 

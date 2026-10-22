@@ -67,7 +67,9 @@ void test('REMINDER_DESCRIPTOR renders notifyType and repeatType correctly', () 
   const card = renderDtoConfirmationCard(reminderDto, REMINDER_DESCRIPTOR);
   assert.match(card, /• Nội dung nhắc: Uống thuốc/);
   assert.match(card, /• Hình thức thông báo: 📞 Cuộc gọi/);
-  assert.match(card, /• Lặp lại: Hàng ngày/);
+  // Each time shows its own repeat.
+  assert.match(card, /• Thời gian nhắc: .*\(Hàng ngày\)/);
+  assert.doesNotMatch(card, /• Lặp lại:/);
 });
 
 void test('TASK_DESCRIPTOR renders task fields with missing options', () => {

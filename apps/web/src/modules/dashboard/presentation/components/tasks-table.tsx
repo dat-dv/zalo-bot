@@ -12,6 +12,8 @@ import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import type { ReminderTargetDraft } from '@/modules/reminders/model/reminder-target';
 import type { ReminderTimeDraft } from '@/modules/reminders/model/reminder-times';
+import type { ReminderNagDraft } from '@/modules/reminders/model/reminder-nag';
+import { ReminderNagFields } from './reminder-nag-fields';
 import { ReminderTimesField, ReminderTimesSummary } from './reminder-times-field';
 import { INLINE_EDIT_FIELD as EDIT_FIELD, ReminderTargetFields } from './reminder-target-fields';
 import { ReminderTargetSummary } from './reminder-target-summary';
@@ -25,6 +27,8 @@ export type TaskEditDraft = {
   remindTimes: ReminderTimeDraft[];
   /** Empty chat = keep the current one, or the user's private chat for a new reminder. */
   remindTarget: ReminderTargetDraft;
+  /** Remind again until done, shared by all times. */
+  nag: ReminderNagDraft;
 };
 
 export type TasksTableProps = {
@@ -306,6 +310,12 @@ export function TasksTable({
                         onEnter={() => void onSaveEdit(item.id)}
                         onEscape={onCancelEdit}
                         ariaLabel={t('tasks.columns.remindAt')}
+                      />
+                      <ReminderNagFields
+                        compact
+                        kind="task"
+                        value={editDraft.nag}
+                        onChange={(nag) => onChangeEditDraft((prev) => ({ ...prev, nag }))}
                       />
                       <ReminderTargetFields
                         compact

@@ -10,6 +10,12 @@ import {
   emptyReminderTimeDraft,
   type ReminderTimeDraft,
 } from '@/modules/reminders/model/reminder-times';
+import {
+  buildNagFields,
+  emptyNagDraft,
+  reminderRuleError,
+  type ReminderNagDraft,
+} from '@/modules/reminders/model/reminder-nag';
 
 export interface TaskCreateDraft {
   title: string;
@@ -20,6 +26,8 @@ export interface TaskCreateDraft {
   remindTimes: ReminderTimeDraft[];
   /** Where and who to remind; the chat defaults to the user's own private chat. */
   remindTarget: ReminderTargetDraft;
+  /** Remind again after each time until the task is done; shared by all times. */
+  nag: ReminderNagDraft;
 }
 
 export type TaskCreateError =
@@ -27,7 +35,8 @@ export type TaskCreateError =
   | 'remindPastTime'
   | 'remindTooMany'
   | 'remindChannelRequired'
-  | 'remindUsersRequired';
+  | 'remindUsersRequired'
+  | 'remindNagTooLong';
 
 export type TaskCreateResult =
   { ok: true; request: ICreateTaskRequest } | { ok: false; error: TaskCreateError };
@@ -38,6 +47,7 @@ export const emptyTaskDraft = (): TaskCreateDraft => ({
   due: '',
   remindTimes: [emptyReminderTimeDraft()],
   remindTarget: emptyReminderTargetDraft(),
+  nag: emptyNagDraft(),
 });
 
 export function buildCreateTaskRequest(
@@ -57,6 +67,8 @@ export function buildCreateTaskRequest(
     return { ok: false, error: times.error === 'pastTime' ? 'remindPastTime' : 'remindTooMany' };
   }
   if (times.iso.length === 0) return { ok: true, request };
+  const nag = buildNagFields(draft.nag);
+  if (reminderRuleError(times.times, nag)) return { ok: false, error: 'remindNagTooLong' };
 
   const target = buildReminderTargetFields(draft.remindTarget, channels);
   if (!target.ok) {
@@ -70,9 +82,12 @@ export function buildCreateTaskRequest(
     ok: true,
     request: {
       ...request,
-      remindTimes: times.iso,
+      remindTimes: times.times,
       remindChatId: chatId,
       ...(remindUserIds.length > 0 ? { remindUserIds, remindMode } : {}),
+      ...(nag.nagEveryMinutes && nag.nagCount
+        ? { nagEveryMinutes: nag.nagEveryMinutes, nagCount: nag.nagCount }
+        : {}),
     },
   };
 }

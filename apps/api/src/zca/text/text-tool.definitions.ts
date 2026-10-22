@@ -142,6 +142,44 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           description:
             'Khi người dùng muốn nhắc nhiều lần ("8h và 20h", "sáng và chiều mai"): mọi thời điểm dạng ISO, tối đa 10.',
         },
+        repeatingTimes: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              at: { type: 'STRING', description: 'Lần đầu của giờ lặp, dạng ISO.' },
+              repeatType: {
+                type: 'STRING',
+                enum: ['daily', 'weekdays', 'weekly', 'monthly'],
+                description:
+                  'daily = hằng ngày; weekdays = thứ 2 đến thứ 6; weekly = hằng tuần; ' +
+                  'monthly = hằng tháng (cùng ngày trong tháng).',
+              },
+              repeatWeekdays: {
+                type: 'ARRAY',
+                items: { type: 'NUMBER' },
+                description:
+                  'Chỉ với weekly: các thứ trong tuần, 0 = Chủ nhật, 1 = thứ 2 … 6 = thứ 7. ' +
+                  'Bỏ trống thì lặp đúng thứ của at.',
+              },
+            },
+            required: ['at', 'repeatType'],
+          },
+          description:
+            'Các giờ nhắc có lặp lại, mỗi giờ một kiểu lặp riêng ("8h hằng ngày", "7h thứ 3 và ' +
+            'thứ 5 hằng tuần", "ngày 5 hằng tháng"). Giờ chỉ nhắc một lần thì để ở remindTimes / ' +
+            'remindAt, không lặp lại ở đây.',
+        },
+        nagEveryMinutes: {
+          type: 'NUMBER',
+          description:
+            'Khi người dùng muốn nhắc đi nhắc lại sau mỗi lần nhắc ("nhắc lại mỗi 15 phút"): ' +
+            'số phút giữa hai lần, 5 đến 1440. Đi cùng nagCount.',
+        },
+        nagCount: {
+          type: 'NUMBER',
+          description: 'Số lần nhắc lại tối đa sau mỗi lần nhắc, 1 đến 10 ("3 lần").',
+        },
         remindInGroup: {
           type: 'BOOLEAN',
           description:
@@ -286,6 +324,44 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           items: { type: 'STRING' },
           description:
             'Khi muốn nhắc việc này nhiều lần ("nhắc 8h và 14h mai"): mọi thời điểm dạng ISO, tối đa 10.',
+        },
+        repeatingTimes: {
+          type: 'ARRAY',
+          items: {
+            type: 'OBJECT',
+            properties: {
+              at: { type: 'STRING', description: 'Lần đầu của giờ lặp, dạng ISO.' },
+              repeatType: {
+                type: 'STRING',
+                enum: ['daily', 'weekdays', 'weekly', 'monthly'],
+                description:
+                  'daily = hằng ngày; weekdays = thứ 2 đến thứ 6; weekly = hằng tuần; ' +
+                  'monthly = hằng tháng (cùng ngày trong tháng).',
+              },
+              repeatWeekdays: {
+                type: 'ARRAY',
+                items: { type: 'NUMBER' },
+                description:
+                  'Chỉ với weekly: các thứ trong tuần, 0 = Chủ nhật, 1 = thứ 2 … 6 = thứ 7. ' +
+                  'Bỏ trống thì lặp đúng thứ của at.',
+              },
+            },
+            required: ['at', 'repeatType'],
+          },
+          description:
+            'Các giờ nhắc có lặp lại, mỗi giờ một kiểu lặp riêng ("8h hằng ngày", "7h thứ 3 và ' +
+            'thứ 5 hằng tuần", "ngày 5 hằng tháng"). Giờ chỉ nhắc một lần thì để ở remindTimes / ' +
+            'remindAt, không lặp lại ở đây.',
+        },
+        nagEveryMinutes: {
+          type: 'NUMBER',
+          description:
+            'Khi người dùng muốn nhắc đi nhắc lại sau mỗi lần nhắc ("nhắc lại mỗi 15 phút"): ' +
+            'số phút giữa hai lần, 5 đến 1440. Đi cùng nagCount.',
+        },
+        nagCount: {
+          type: 'NUMBER',
+          description: 'Số lần nhắc lại tối đa sau mỗi lần nhắc, 1 đến 10 ("3 lần").',
         },
         remindSelf: {
           type: 'BOOLEAN',

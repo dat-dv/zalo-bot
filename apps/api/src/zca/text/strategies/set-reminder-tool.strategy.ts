@@ -4,8 +4,9 @@ import { TextToolType } from '../text-tool.enum';
 import { ZcaMessengerService } from '../../zca-messenger.service';
 import { TransactionConfirmationService } from '../../confirmation/transaction-confirmation.service';
 import {
+  nagRuleFromArgs,
   reminderModeFromArgs,
-  reminderTimesFromArgs,
+  requestedTimesFromArgs,
   reminderUsersFromContext,
   reminderUsersOrSender,
 } from '../reminder-target-args.util';
@@ -26,9 +27,15 @@ export class SetReminderToolStrategy implements TextToolStrategy {
       typeof args.title === 'string' && args.title.trim()
         ? args.title.trim()
         : 'Nhắc nhở công việc';
-    // No usable time ⇒ one hour from now, as before.
-    const times = reminderTimesFromArgs(args).map((value) => new Date(value));
-    const remindTimes = times.length > 0 ? times : [new Date(Date.now() + 60 * 60 * 1000)];
+    // No usable time ⇒ one hour from now, as before. Each time keeps its own repeat.
+    const requested = requestedTimesFromArgs(args);
+    const remindTimes =
+      requested.length > 0
+        ? requested.map((time) => ({
+            at: new Date(time.at),
+            ...(time.repeat ? { repeat: time.repeat } : {}),
+          }))
+        : [{ at: new Date(Date.now() + 60 * 60 * 1000) }];
 
     // A personal reminder stays private unless the message tags people or asks for the group.
     const tagged = reminderUsersFromContext(context, false);
@@ -44,8 +51,9 @@ export class SetReminderToolStrategy implements TextToolStrategy {
         payload: {
           userId: context.senderId,
           title,
-          remindAt: remindTimes[0],
+          remindAt: remindTimes[0].at,
           remindTimes,
+          ...nagRuleFromArgs(args),
           chatId: inGroup ? context.chatId : undefined,
           remindUsers: remindUsers.length > 0 ? remindUsers : undefined,
           remindMode: remindUsers.length > 0 ? reminderModeFromArgs(args) : undefined,

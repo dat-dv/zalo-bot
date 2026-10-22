@@ -1,15 +1,36 @@
 import { REMINDER_TIME_LIMITS, type IReminderTime } from '@zalobot/contracts';
+import {
+  NO_REPEAT,
+  type ReminderRepeat,
+  isSameRepeat,
+  normalizeRepeat,
+  repeatOf,
+} from './reminder-schedule';
 
 /** The dashboard picks reminder times by the minute, so the current minute is not "past". */
 export const REMINDER_PAST_TOLERANCE_MS = 60 * 1000;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** A saved reminder time (a `task_reminder_times` or `reminder_times` row). */
 export interface StoredReminderTime {
   id: string;
   remindAt: Date;
   sentAt?: Date | null;
+  /** When to remind again next (`nag_at`); null when not reminding again. */
+  nagAt?: Date | null;
+  repeatType?: string | null;
+  repeatWeekdays?: number[] | null;
+}
+
+/** A requested time; without `repeat` a new time is sent once and a saved one keeps its own. */
+export interface RequestedReminderTime {
+  at: Date;
+  repeat?: ReminderRepeat;
+}
+
+/** A time to add, with its repeat. */
+export interface NewReminderTime {
+  at: Date;
+  repeat: ReminderRepeat;
 }
 
 export type ReminderTimesError = 'tooMany' | 'pastTime';
@@ -18,7 +39,9 @@ export type ReminderTimesError = 'tooMany' | 'pastTime';
 export interface ReminderTimesPlan<T extends StoredReminderTime> {
   keep: T[];
   remove: T[];
-  add: Date[];
+  add: NewReminderTime[];
+  /** Kept times whose repeat changes; whether they were sent is kept. */
+  repeatChanges: Array<{ time: T; repeat: ReminderRepeat }>;
 }
 
 export type ReminderTimesPlanResult<T extends StoredReminderTime> =
@@ -33,56 +56,99 @@ export function reminderTimesErrorMessage(error: ReminderTimesError): string {
   return ERROR_MESSAGES[error];
 }
 
-/** Valid, distinct times, earliest first. */
-export function normalizeReminderTimes(times: readonly Date[]): Date[] {
+/**
+ * Requested times from dates or requested times; `repeat` (a legacy whole-reminder repeat)
+ * fills the times that come without their own.
+ */
+export function asRequestedTimes(
+  times: readonly (Date | RequestedReminderTime)[],
+  repeat?: ReminderRepeat,
+): RequestedReminderTime[] {
+  return times.map((time) => {
+    const requested = time instanceof Date ? { at: time } : time;
+    return requested.repeat || !repeat ? requested : { ...requested, repeat };
+  });
+}
+
+/** Valid, distinct times (the first one of an instant wins), earliest first. */
+export function normalizeReminderTimes(
+  times: readonly RequestedReminderTime[],
+): RequestedReminderTime[] {
   const seen = new Set<number>();
-  const result: Date[] = [];
+  const result: RequestedReminderTime[] = [];
   for (const time of times) {
-    const ms = time.getTime();
+    const ms = time.at.getTime();
     if (Number.isNaN(ms) || seen.has(ms)) continue;
     seen.add(ms);
-    result.push(new Date(ms));
+    result.push({
+      at: new Date(ms),
+      ...(time.repeat ? { repeat: normalizeRepeat(time.repeat) } : {}),
+    });
   }
-  return result.sort((a, b) => a.getTime() - b.getTime());
+  return result.sort((a, b) => a.at.getTime() - b.at.getTime());
 }
 
 /**
- * Replacing the saved times with the requested ones: a time already saved (same instant) is
- * kept with whether it was sent, so editing other times never re-sends it. New times must be
- * in the future unless `allowPast` (personal reminders: a past time simply goes out at once,
- * as it always did).
+ * Replacing the saved times with the requested ones: a time already saved (same instant; a
+ * repeating time is matched on its next occurrence) is kept with whether it was sent, so
+ * editing other times never re-sends it; only its repeat may change. New times must be in the
+ * future unless `allowPast` (personal reminders: a past time simply goes out at once, as it
+ * always did).
  */
 export function planReminderTimes<T extends StoredReminderTime>(
   current: readonly T[],
-  requested: readonly Date[],
+  requested: readonly RequestedReminderTime[],
   now: Date = new Date(),
   options: { allowPast?: boolean } = {},
 ): ReminderTimesPlanResult<T> {
   const wanted = normalizeReminderTimes(requested);
   if (wanted.length > REMINDER_TIME_LIMITS.MAX_TIMES) return { ok: false, error: 'tooMany' };
-  const wantedMs = new Set(wanted.map((time) => time.getTime()));
+  const byMs = new Map(wanted.map((time) => [time.at.getTime(), time]));
   const currentMs = new Set(current.map((time) => time.remindAt.getTime()));
-  const add = wanted.filter((time) => !currentMs.has(time.getTime()));
+  const add = wanted
+    .filter((time) => !currentMs.has(time.at.getTime()))
+    .map((time) => ({ at: time.at, repeat: time.repeat ?? NO_REPEAT }));
   const pastLimit = now.getTime() - REMINDER_PAST_TOLERANCE_MS;
-  if (!options.allowPast && add.some((time) => time.getTime() < pastLimit)) {
+  if (!options.allowPast && add.some((time) => time.at.getTime() < pastLimit)) {
     return { ok: false, error: 'pastTime' };
   }
+  const keep = current.filter((time) => byMs.has(time.remindAt.getTime()));
+  const repeatChanges = keep.flatMap((time) => {
+    const repeat = byMs.get(time.remindAt.getTime())?.repeat;
+    return repeat && !isSameRepeat(repeat, repeatOf(time)) ? [{ time, repeat }] : [];
+  });
   return {
     ok: true,
     plan: {
-      keep: current.filter((time) => wantedMs.has(time.remindAt.getTime())),
-      remove: current.filter((time) => !wantedMs.has(time.remindAt.getTime())),
+      keep,
+      remove: current.filter((time) => !byMs.has(time.remindAt.getTime())),
       add,
+      repeatChanges,
     },
   };
 }
 
-/** The earliest time not sent yet, or null when every time went out. */
+/** The repeats the times have once `plan` is applied. */
+export function plannedRepeats<T extends StoredReminderTime>(
+  plan: ReminderTimesPlan<T>,
+): ReminderRepeat[] {
+  const changed = new Map(plan.repeatChanges.map((change) => [change.time.id, change.repeat]));
+  return [
+    ...plan.keep.map((time) => changed.get(time.id) ?? repeatOf(time)),
+    ...plan.add.map((time) => time.repeat),
+  ];
+}
+
+/**
+ * The earliest send still to come: a time not sent yet or a pending reminder again; null when
+ * nothing is left (a one-off reminder is only done once its reminders again went out too).
+ */
 export function nextPendingReminderAt(times: readonly StoredReminderTime[]): Date | null {
   let next: Date | null = null;
   for (const time of times) {
-    if (time.sentAt) continue;
-    if (!next || time.remindAt.getTime() < next.getTime()) next = time.remindAt;
+    for (const at of [time.sentAt ? null : time.remindAt, time.nagAt ?? null]) {
+      if (at && (!next || at.getTime() < next.getTime())) next = at;
+    }
   }
   return next;
 }
@@ -96,31 +162,73 @@ export function lastSentReminderAt(times: readonly StoredReminderTime[]): Date |
   return last;
 }
 
-/** The next occurrence of a repeating time after `now` (a missed day is not sent twice). */
-export function nextRepeatAt(at: Date, repeat: 'daily' | 'weekly', now: Date): Date {
-  const step = repeat === 'daily' ? DAY_MS : 7 * DAY_MS;
-  let next = at.getTime() + step;
-  while (next <= now.getTime()) next += step;
-  return new Date(next);
-}
-
 /** DTOs of the times, earliest first. */
 export function toReminderTimeItems(times: readonly StoredReminderTime[]): IReminderTime[] {
   return [...times]
     .sort((a, b) => a.remindAt.getTime() - b.remindAt.getTime())
-    .map((time) => ({
-      id: time.id,
-      remindAt: time.remindAt.toISOString(),
-      sentAt: time.sentAt?.toISOString(),
-    }));
+    .map((time) => {
+      const repeat = repeatOf(time);
+      return {
+        id: time.id,
+        remindAt: time.remindAt.toISOString(),
+        sentAt: time.sentAt?.toISOString(),
+        ...(repeat.repeatType !== 'none'
+          ? { repeatType: repeat.repeatType, repeatWeekdays: [...repeat.repeatWeekdays] }
+          : {}),
+      };
+    });
 }
 
-/** Request times from an API body: `remindTimes` wins over the single legacy `remindAt`. */
-export function requestedReminderTimes(
-  remindTimes: readonly string[] | undefined,
-  remindAt: string | undefined,
-): Date[] | undefined {
-  if (remindTimes !== undefined) return remindTimes.map((value) => new Date(value));
-  if (remindAt === undefined) return undefined;
-  return remindAt ? [new Date(remindAt)] : [];
+/**
+ * A reminder time as a bot payload carries it: a date, an ISO string (pending actions go
+ * through Redis as JSON), or a time with its repeat.
+ */
+export type PayloadReminderTime =
+  string | Date | { at: string | Date; repeat?: Partial<ReminderRepeat> };
+
+function payloadDate(value: unknown): Date | null {
+  const date =
+    value instanceof Date
+      ? value
+      : typeof value === 'string' && value.trim()
+        ? new Date(value)
+        : null;
+  return date && !Number.isNaN(date.getTime()) ? date : null;
+}
+
+/** The instant of a payload time (for display), or undefined when it is unusable. */
+export function payloadTimeAt(value: PayloadReminderTime | undefined): string | Date | undefined {
+  if (value === undefined) return undefined;
+  return typeof value === 'string' || value instanceof Date ? value : value.at;
+}
+
+/** The repeat of a payload time; a plain time or an unknown repeat means once. */
+export function payloadTimeRepeat(value: PayloadReminderTime | undefined): ReminderRepeat {
+  if (value === undefined || typeof value === 'string' || value instanceof Date) return NO_REPEAT;
+  return repeatOf({
+    repeatType: value.repeat?.repeatType,
+    repeatWeekdays: (value.repeat?.repeatWeekdays ?? []).filter(
+      (day): day is number => Number.isInteger(day) && day >= 0 && day <= 6,
+    ),
+  });
+}
+
+/**
+ * Requested times of a payload: the `remindTimes` list, else the single `remindAt`.
+ * Unusable entries are dropped; each keeps the repeat it was given.
+ */
+export function revivePayloadTimes(times: unknown, single: unknown): RequestedReminderTime[] {
+  const values: unknown[] = Array.isArray(times) ? times : [single];
+  return values.flatMap((value: unknown) => {
+    if (value instanceof Date || typeof value === 'string') {
+      const at = payloadDate(value);
+      return at ? [{ at }] : [];
+    }
+    if (typeof value !== 'object' || value === null) return [];
+    const item = value as { at?: unknown; repeat?: Partial<ReminderRepeat> };
+    const at = payloadDate(item.at);
+    if (!at) return [];
+    const repeat = payloadTimeRepeat({ at, repeat: item.repeat });
+    return [{ at, ...(repeat.repeatType !== 'none' ? { repeat } : {}) }];
+  });
 }

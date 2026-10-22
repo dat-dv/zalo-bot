@@ -18,6 +18,13 @@ import {
   reminderTimeDraftsFrom,
 } from '@/modules/reminders/model/reminder-times';
 import { reminderApiErrorMessage } from '@/modules/reminders/api/reminder-targets-api';
+import {
+  buildNagFields,
+  emptyNagDraft,
+  isNagChanged,
+  nagDraftFrom,
+  reminderRuleError,
+} from '@/modules/reminders/model/reminder-nag';
 import { useReminderTargetChannelsQuery } from '@/modules/reminders/api/reminder-targets-query';
 import {
   REMINDER_TARGET_ERROR_MESSAGES,
@@ -56,6 +63,7 @@ const EMPTY_EDIT_DRAFT: TaskEditDraft = {
   status: 'needsAction',
   remindTimes: reminderTimeDraftsFrom(undefined),
   remindTarget: emptyReminderTargetDraft(),
+  nag: emptyNagDraft(),
 };
 
 export function TasksScreen() {
@@ -153,6 +161,7 @@ export function TasksScreen() {
       status: task.status || 'needsAction',
       remindTimes: reminderTimeDraftsFrom(task.remindTimes),
       remindTarget: reminderTargetDraftFrom(task.remindUsers, task.remindMode),
+      nag: nagDraftFrom(task),
     });
   };
 
@@ -175,16 +184,24 @@ export function TasksScreen() {
         error: times.error === 'pastTime' ? 'tasks.remind.pastTime' : 'reminderTimes.max',
       };
     }
-    const timesChanged = isReminderTimesChanged(times.iso, task?.remindTimes);
+    const timesChanged = isReminderTimesChanged(times.times, task?.remindTimes);
+    const nag = buildNagFields(editDraft.nag);
+    const nagChanged = times.iso.length > 0 && isNagChanged(editDraft.nag, task ?? {});
+    if (times.iso.length > 0 && reminderRuleError(times.times, nag)) {
+      return { ok: false, error: 'reminderRule.error.nagTooLong' };
+    }
     const saved = { chatId: task?.remindChatId, users: task?.remindUsers, mode: task?.remindMode };
     // A new reminder always sends its target, so the chat default is checked here too.
     const targetChanged =
       times.iso.length > 0 &&
       (!task?.remindChatId || isTargetChanged(editDraft.remindTarget, saved));
-    if (!timesChanged && !targetChanged) return { ok: true, patch: {} };
+    if (!timesChanged && !targetChanged && !nagChanged) return { ok: true, patch: {} };
     if (times.iso.length === 0) return { ok: true, patch: { remindTimes: [] } };
 
-    const patch: IUpdateTaskRequest = timesChanged ? { remindTimes: times.iso } : {};
+    const patch: IUpdateTaskRequest = {
+      ...(timesChanged ? { remindTimes: times.times } : {}),
+      ...(nagChanged ? nag : {}),
+    };
     if (targetChanged) {
       const target = buildReminderTargetFields(
         editDraft.remindTarget,

@@ -17,7 +17,8 @@ import {
   toValidReminderDate,
 } from '../../reminders/reminders.service';
 import { isReminderTargetMode, parseTargetUsers } from '../../reminders/reminder-target';
-import { REMINDER_TARGET_MODES } from '@zalobot/contracts';
+import { REMINDER_REPEAT_TYPES, REMINDER_TARGET_MODES } from '@zalobot/contracts';
+import { type RequestedReminderTime, revivePayloadTimes } from '../../reminders/reminder-times';
 import { CreateTaskOptions } from '../../tasks/task.types';
 import { TasksService } from '../../tasks/tasks.service';
 import { CreateEventOptions } from '../../google/google-calendar.service';
@@ -113,30 +114,33 @@ function toValidTaskDue(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-/** Valid dates of a payload: the `remindTimes` list, else the single `remindAt`. */
-function toValidDates(remindTimes: unknown, remindAt: unknown): Date[] {
-  const values = Array.isArray(remindTimes) ? remindTimes : [remindAt];
-  return values
-    .map((value: unknown) =>
-      value instanceof Date ? value : toValidTaskDue(typeof value === 'string' ? value : null),
-    )
-    .filter((date): date is Date => !!date && !Number.isNaN(date.getTime()));
-}
-
 /**
- * Task reminder times from an LLM payload. Unparseable or past times (the card may have
- * waited minutes for approval) are dropped rather than failing the whole task.
+ * Task reminder times from an LLM payload, each with its repeat. Unparseable or past times
+ * (the card may have waited minutes for approval) are dropped rather than failing the whole
+ * task.
  */
 export function toValidRemindTimes(
   remindTimes: unknown,
   remindAt: unknown,
   now: Date = new Date(),
-): Date[] {
-  return toValidDates(remindTimes, remindAt).filter((date) => date.getTime() > now.getTime());
+): RequestedReminderTime[] {
+  return revivePayloadTimes(remindTimes, remindAt).filter(
+    (time) => time.at.getTime() > now.getTime(),
+  );
+}
+
+/** "Remind again" of a payload: both whole numbers, or neither. */
+export function payloadNagRule(payload: { nagEveryMinutes?: unknown; nagCount?: unknown }): {
+  nagEveryMinutes?: number;
+  nagCount?: number;
+} {
+  const { nagEveryMinutes: every, nagCount: count } = payload;
+  return Number.isInteger(every) && Number.isInteger(count)
+    ? { nagEveryMinutes: Number(every), nagCount: Number(count) }
+    : {};
 }
 
 const REMINDER_NOTIFY_TYPES = ['text', 'call'] as const;
-const REMINDER_REPEAT_TYPES = ['none', 'daily', 'weekly'] as const;
 const REMINDER_STATUSES = ['pending', 'completed', 'snoozed', 'cancelled'] as const;
 
 function pickOption<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
@@ -157,15 +161,17 @@ export function parseReminderPayload(payload: Record<string, unknown>): CreateRe
   }
   const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : undefined);
   // Past times are kept: they go out on the next tick, as a reminder always did.
-  const remindTimes = toValidDates(payload.remindTimes, payload.remindAt);
-  if (remindTimes.length === 0) remindTimes.push(toValidReminderDate(payload.remindAt));
+  const remindTimes = revivePayloadTimes(payload.remindTimes, payload.remindAt);
+  if (remindTimes.length === 0) remindTimes.push({ at: toValidReminderDate(payload.remindAt) });
   return {
     userId,
     title,
-    remindAt: remindTimes[0],
+    remindAt: remindTimes[0].at,
     remindTimes,
     notifyType: pickOption(payload.notifyType, REMINDER_NOTIFY_TYPES),
+    // Older pending payloads carry one repeat for the whole reminder.
     repeatType: pickOption(payload.repeatType, REMINDER_REPEAT_TYPES),
+    ...payloadNagRule(payload),
     status: pickOption(payload.status, REMINDER_STATUSES),
     chatId: text(payload.chatId),
     remindUsers: parseTargetUsers(payload.remindUsers),
@@ -1345,6 +1351,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               dueAt: toValidTaskDue(payload.due),
               // Reminds in the chat the task was asked in (the actor's chatId).
               remindTimes: toValidRemindTimes(payload.remindTimes, payload.remindAt),
+              ...payloadNagRule(payload),
               remindUsers: parseTargetUsers(payload.remindUsers),
               remindMode: isReminderTargetMode(payload.remindMode) ? payload.remindMode : undefined,
             },

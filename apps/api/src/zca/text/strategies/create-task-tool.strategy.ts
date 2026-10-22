@@ -5,8 +5,9 @@ import { ZcaMessengerService } from '../../zca-messenger.service';
 import { TasksService } from '../../../tasks/tasks.service';
 import { TransactionConfirmationService } from '../../confirmation/transaction-confirmation.service';
 import {
+  nagRuleFromArgs,
   reminderModeFromArgs,
-  reminderTimesFromArgs,
+  requestedTimesFromArgs,
   reminderUsersOrSender,
 } from '../reminder-target-args.util';
 
@@ -52,7 +53,7 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
         // ignore duplicate check errors
       }
 
-      const remindTimes = reminderTimesFromArgs(context.toolArgs ?? {});
+      const remindTimes = requestedTimesFromArgs(context.toolArgs ?? {});
       // People only matter with a reminder; the task reminder goes to this chat, and in a
       // group it tags someone (the sender when nobody is tagged).
       const remindUsers =
@@ -67,8 +68,9 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
           title,
           due: args.due,
           notes: args.notes,
-          remindAt: remindTimes[0],
+          remindAt: remindTimes[0]?.at,
           remindTimes: remindTimes.length > 0 ? remindTimes : undefined,
+          ...(remindTimes.length > 0 ? nagRuleFromArgs(context.toolArgs ?? {}) : {}),
           remindUsers: remindUsers.length > 0 ? remindUsers : undefined,
           remindMode:
             remindUsers.length > 0 ? reminderModeFromArgs(context.toolArgs ?? {}) : undefined,

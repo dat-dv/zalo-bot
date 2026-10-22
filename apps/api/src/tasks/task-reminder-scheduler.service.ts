@@ -2,7 +2,13 @@ import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { DEFAULT_LOCALE } from '@zalobot/contracts';
 import { REMINDER_DELIVERY_JOB_OPTIONS, REMINDER_JOBS } from '../queue/queue.constants';
-import type { ReminderDeliveryJobData, ReminderDeliveryQueue } from '../queue/reminder-queue';
+import {
+  type ReminderDeliveryJobData,
+  type ReminderDeliveryQueue,
+  deliveryJobData,
+  deliveryOccurrence,
+} from '../queue/reminder-queue';
+import { withNagLine } from '../reminders/reminder-rule.format';
 import type { ReminderJobResult } from '../queue/reminder-job';
 import { ReminderTargetService } from '../reminders/reminder-target.service';
 import { UsersService } from '../users/users.service';
@@ -37,19 +43,16 @@ export class TaskReminderSchedulerService {
     if (!this.zcaMessenger.isConnected()) return;
     const due = await this.tasks.getDueTaskReminders(now);
     for (const time of due) {
-      // Claim first: whoever marks this time queues it, so it never goes out twice.
-      if (!(await this.tasks.markTaskReminderSent(time.id, now))) continue;
-      const data: ReminderDeliveryJobData = {
-        timeId: time.id,
-        remindAt: time.remindAt.toISOString(),
-      };
+      // Claim first: whoever claims this send queues it, so it never goes out twice.
+      const occurrence = await this.tasks.claimTaskReminderTime(time, now);
+      if (!occurrence) continue;
       try {
-        await this.queue.add(REMINDER_JOBS.DELIVER, data, {
+        await this.queue.add(REMINDER_JOBS.DELIVER, deliveryJobData(time.id, occurrence), {
           ...REMINDER_DELIVERY_JOB_OPTIONS,
-          jobId: taskReminderJobId(time.id),
+          jobId: taskReminderJobId(time.id, occurrence),
         });
       } catch (err: unknown) {
-        await this.tasks.releaseTaskReminderTime(time.id);
+        await this.tasks.releaseTaskReminderTime(time.id, occurrence);
         this.logger.error(
           `Could not queue reminder ${time.id} of task ${time.taskId}: ${err instanceof Error ? err.message : 'unknown error'}`,
         );
@@ -68,20 +71,21 @@ export class TaskReminderSchedulerService {
     }
     // Logged out since the scan: retrying would only burn the attempts, so wait for the login.
     if (!this.zcaMessenger.isConnected()) {
-      await this.tasks.releaseTaskReminderTime(data.timeId);
+      await this.tasks.releaseTaskReminderTime(data.timeId, deliveryOccurrence(data));
       await this.tasks.refreshReminderSummary(task);
       return 'released';
     }
     const locale = task.createdByUserId
       ? await this.users.getPreferredLocale(task.createdByUserId)
       : DEFAULT_LOCALE;
+    const message = formatTaskReminderMessage(task, locale);
     const result = await this.targets.deliver(
       {
         chatId: task.remindChatId,
         users: task.remindUsers ?? [],
         mode: task.remindMode ?? 'mention',
       },
-      formatTaskReminderMessage(task, locale),
+      { ...message, header: withNagLine(message.header, data.nag, locale) },
       locale,
     );
     if (result === 'failed') {
