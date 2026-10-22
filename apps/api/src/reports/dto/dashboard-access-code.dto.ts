@@ -1,12 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
-import type { IDashboardAccessCodeRequest } from '@zalobot/contracts';
+import {
+  DASHBOARD_ACCESS_CODE_MAX_LENGTH,
+  type IDashboardAccessCodeRequest,
+} from '@zalobot/contracts';
 
 export class DashboardAccessCodeDto implements IDashboardAccessCodeRequest {
-  @ApiProperty({ description: 'Sign-in code from the bot reply, e.g. K7P2-QX9M' })
+  @ApiProperty({ description: 'Sign-in code from the bot reply, e.g. 1234-5678' })
   @IsString()
   @IsNotEmpty()
-  // 8 symbols plus room for a dash and stray spaces; the exact format is checked when hashing.
-  @MaxLength(16)
+  // Digits only, any length; the exact format is checked when hashing.
+  @MaxLength(DASHBOARD_ACCESS_CODE_MAX_LENGTH)
   code!: string;
 }

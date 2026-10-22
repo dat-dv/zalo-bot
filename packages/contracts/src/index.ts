@@ -392,12 +392,11 @@ const messages = {
     'auth.closeMiniApp': 'Đóng cửa sổ',
     'auth.accessCode.title': 'Đăng nhập bằng mã',
     'auth.accessCode.desc':
-      'Nhắn "dashboard" cho zalo bot, rồi nhập mã đăng nhập 8 ký tự trong tin trả lời.',
+      'Nhắn "dashboard" cho zalo bot, rồi nhập mã đăng nhập trong tin trả lời.',
     'auth.accessCode.label': 'Mã đăng nhập',
-    'auth.accessCode.placeholder': 'VD: K7P2-QX9M',
+    'auth.accessCode.placeholder': 'VD: 12345678',
     'auth.accessCode.submit': 'Đăng nhập',
     'auth.accessCode.submitting': 'Đang đăng nhập...',
-    'auth.accessCode.invalidFormat': 'Mã gồm 8 ký tự chữ và số.',
     'auth.accessCode.rejected': 'Mã không đúng, đã hết hạn hoặc đã được dùng.',
     'auth.accessCode.tooManyAttempts': 'Bạn đã thử quá nhiều lần. Vui lòng đợi 15 phút.',
     'auth.accessCode.failed': 'Chưa đăng nhập được. Vui lòng thử lại.',
@@ -1505,12 +1504,11 @@ const messages = {
     'auth.closeMiniApp': 'Close window',
     'auth.accessCode.title': 'Sign in with a code',
     'auth.accessCode.desc':
-      'Send "dashboard" to the zalo bot, then enter the 8-character sign-in code from its reply.',
+      'Send "dashboard" to the zalo bot, then enter the sign-in code from its reply.',
     'auth.accessCode.label': 'Sign-in code',
-    'auth.accessCode.placeholder': 'e.g. K7P2-QX9M',
+    'auth.accessCode.placeholder': 'e.g. 12345678',
     'auth.accessCode.submit': 'Sign in',
     'auth.accessCode.submitting': 'Signing in...',
-    'auth.accessCode.invalidFormat': 'The code has 8 letters and digits.',
     'auth.accessCode.rejected': 'The code is wrong, expired or already used.',
     'auth.accessCode.tooManyAttempts': 'Too many attempts. Please wait 15 minutes.',
     'auth.accessCode.failed': 'Could not sign in. Please try again.',
@@ -2386,20 +2384,17 @@ export interface IDashboardAccessCodeRequest {
   code: string;
 }
 
-/** Crockford base32 without I, L, O, U: what the bot issues and the API accepts. */
-export const DASHBOARD_ACCESS_CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
-export const DASHBOARD_ACCESS_CODE_LENGTH = 8;
+/** Longest code the API reads, so oversized input is rejected before hashing. */
+export const DASHBOARD_ACCESS_CODE_MAX_LENGTH = 32;
 
-/** Uppercases and drops spaces/dashes so `k7p2-qx9m` and `K7P2QX9M` are the same code. */
+/** Drops spaces/dashes so `1234-5678` and `12345678` are the same code. */
 export function normalizeDashboardAccessCode(raw: string): string {
-  return raw.toUpperCase().replace(/[\s-]/g, '');
+  return raw.replace(/[\s-]/g, '');
 }
 
+/** A normalized code: digits only, no fixed length. */
 export function isDashboardAccessCode(value: string): boolean {
-  return (
-    value.length === DASHBOARD_ACCESS_CODE_LENGTH &&
-    [...value].every((char) => DASHBOARD_ACCESS_CODE_ALPHABET.includes(char))
-  );
+  return value.length <= DASHBOARD_ACCESS_CODE_MAX_LENGTH && /^\d+$/.test(value);
 }
 
 export interface IContactListItem {

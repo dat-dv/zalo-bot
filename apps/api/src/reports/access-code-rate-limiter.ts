@@ -12,7 +12,7 @@ export interface AttemptCounterStore {
 }
 
 /**
- * Caps sign-in code attempts per client IP and overall. An 8-character code is far weaker than the 32-byte
+ * Caps sign-in code attempts per client IP and overall. A digit code is far weaker than the 32-byte
  * link token, so guessing must stay slow. Counts in Redis; when Redis is down it counts in this
  * process so the cap still holds on a single instance.
  */

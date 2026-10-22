@@ -77,15 +77,20 @@ void test('validateEnvironment validates optional ports, URLs and timezone only 
   ]);
 });
 
-void test('validateEnvironment accepts a well-formed DASHBOARD_LOGIN_CODE', () => {
-  process.env.DASHBOARD_LOGIN_CODE = 'hryj-zp2t';
-  assert.deepEqual(validateEnvironment(), { isValid: true, errors: [] });
+void test('validateEnvironment accepts a DASHBOARD_LOGIN_CODE of at least 6 digits', () => {
+  for (const code of ['893091', '1234-5678', ' 1234 5678 9012 ']) {
+    process.env.DASHBOARD_LOGIN_CODE = code;
+    assert.deepEqual(validateEnvironment(), { isValid: true, errors: [] }, code);
+  }
 });
 
-void test('validateEnvironment rejects a malformed DASHBOARD_LOGIN_CODE', () => {
-  process.env.DASHBOARD_LOGIN_CODE = 'ILOU-1234';
-  assert.deepEqual(
-    validateEnvironment().errors.map((error) => error.key),
-    ['DASHBOARD_LOGIN_CODE'],
-  );
+void test('validateEnvironment rejects a DASHBOARD_LOGIN_CODE with letters or under 6 digits', () => {
+  for (const code of ['ABCD-1234', '12345', '--']) {
+    process.env.DASHBOARD_LOGIN_CODE = code;
+    assert.deepEqual(
+      validateEnvironment().errors.map((error) => error.key),
+      ['DASHBOARD_LOGIN_CODE'],
+      code,
+    );
+  }
 });

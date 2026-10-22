@@ -51,15 +51,16 @@ Dashboard không có màn hình đăng nhập. Người dùng mở dashboard b�
 
 - **Vì sao cần**: trên iOS, app đã cài lên màn hình chính có bộ nhớ riêng, tách khỏi Safari. Link một lần mở từ Zalo sẽ đăng nhập vào Safari chứ không vào app, nên người dùng cần một cách đăng nhập ngay trong app.
 - **Cách hoạt động**:
-  - Tin trả lời của bot kèm một mã 8 ký tự (dạng `K7P2-QX9M`), sinh cùng bản ghi với link.
+  - Tin trả lời của bot kèm một mã 8 chữ số (dạng `1234-5678`), sinh cùng bản ghi với link.
   - Dùng link hoặc mã thì cả hai đều hết hiệu lực, hạn 20 phút.
-  - Form `AccessCodeForm` luôn hiện trong `SessionStateScreen`. Form tự chuẩn hoá mã: không phân biệt hoa/thường, bỏ dấu `-` và khoảng trắng.
+  - Form `AccessCodeForm` luôn hiện trong `SessionStateScreen`. Ô nhập chỉ nhận chữ số và mở bàn phím số; dán `1234-5678` thì tự còn `12345678`.
+  - Form **không** kiểm tra độ dài hay định dạng, chỉ khoá nút "Đăng nhập" khi ô trống. Mã đúng hay sai do API quyết định, nên frontend không cần biết mã dài bao nhiêu.
   - Đăng nhập thành công thì lưu access token và tải lại trang `/dashboard`. API cũng đặt cookie `reports_refresh` như khi dùng link.
 - **Thông báo lỗi**:
   - `401`: mã sai, đã hết hạn hoặc đã dùng.
   - `429`: thử quá nhiều lần, phải đợi 15 phút.
 - `httpClient` không tự refresh rồi gọi lại khi `/api/access/code` trả 401, vì mã sai không phải là phiên hết hạn.
-- Cùng ô nhập này cũng nhận **mã cố định** `DASHBOARD_LOGIN_CODE` trong env (đăng nhập thành admin "Chủ hệ thống", dùng khi ZCA hết phiên hoặc cài mới). Định dạng giống hệt mã 1 lần nên phía web không cần xử lý riêng; chi tiết ở [Phiên dashboard](../../global/dashboard-session.md).
+- Cùng ô nhập này cũng nhận **mã cố định** `DASHBOARD_LOGIN_CODE` trong env (đăng nhập thành admin "Chủ hệ thống", dùng khi ZCA hết phiên hoặc cài mới). Cả hai đều là mã số nên phía web không cần xử lý riêng; chi tiết ở [Phiên dashboard](../../global/dashboard-session.md).
 
 ## Thẻ tài khoản đang đăng nhập
 

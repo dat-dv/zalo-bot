@@ -30,7 +30,7 @@ Danh sách bắt buộc nằm trong `apps/api/src/config/env.validator.ts`:
 
 - Không được trống: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DASHBOARD_ACCESS_TOKEN_SECRET`, `DASHBOARD_REFRESH_TOKEN_SECRET`. (`ZALO_BOT_TOKEN` không còn cần vì Zalo Bot chính thức đã bị bỏ, bot chỉ chạy qua ZCA.)
 - `APP_URL` là URL HTTP(S) đầy đủ; `DATABASE_URL` là URL `postgresql://...`; `DATA_ENCRYPTION_KEY` đúng 64 ký tự hex (tạo bằng `openssl rand -hex 32`).
-- Chỉ kiểm tra khi có khai báo (bỏ trống thì dùng mặc định): `BE_PORT`, `NGINX_PORT` là số nguyên dương; `WEB_ORIGIN` là URL HTTP(S); `CORS_ALLOW_ALL` là `true`/`false`; `DEFAULT_TIMEZONE` là IANA timezone; `DASHBOARD_LOGIN_CODE` phải gồm 8 ký tự trong bảng chữ của mã đăng nhập (xem [Phiên dashboard](dashboard-session.md)).
+- Chỉ kiểm tra khi có khai báo (bỏ trống thì dùng mặc định): `BE_PORT`, `NGINX_PORT` là số nguyên dương; `WEB_ORIGIN` là URL HTTP(S); `CORS_ALLOW_ALL` là `true`/`false`; `DEFAULT_TIMEZONE` là IANA timezone; `DASHBOARD_LOGIN_CODE` phải chỉ gồm chữ số và có ít nhất 6 chữ số, bỏ qua dấu `-` và khoảng trắng (xem [Phiên dashboard](dashboard-session.md)).
 
 **Kiểm tra lúc khởi động (fail-fast)**: `main.ts` gọi `validateEnvironment()` ngay sau `loadEnvironment()`, trước khi tạo app NestJS. Nếu có biến sai hoặc thiếu, API in khung báo lỗi (tên biến, lý do, cách lấy; không in giá trị) rồi thoát với mã `1`.
 

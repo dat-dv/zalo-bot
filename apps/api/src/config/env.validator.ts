@@ -1,11 +1,9 @@
 import { config as loadDotenv } from 'dotenv';
-import {
-  DASHBOARD_ACCESS_CODE_ALPHABET,
-  DASHBOARD_ACCESS_CODE_LENGTH,
-  isDashboardAccessCode,
-  normalizeDashboardAccessCode,
-} from '@zalobot/contracts';
+import { isDashboardAccessCode, normalizeDashboardAccessCode } from '@zalobot/contracts';
 import { fromProjectRoot } from './project-root';
+
+/** The fixed code never expires, so it needs more guesses than the rate limit allows in practice. */
+const DASHBOARD_LOGIN_CODE_MIN_LENGTH = 6;
 
 export interface EnvValidationResult {
   isValid: boolean;
@@ -80,13 +78,17 @@ export function validateEnvironment(): EnvValidationResult {
       );
   }
 
-  const loginCode = readEnv('DASHBOARD_LOGIN_CODE');
-  if (loginCode && !isDashboardAccessCode(normalizeDashboardAccessCode(loginCode))) {
+  const rawLoginCode = readEnv('DASHBOARD_LOGIN_CODE');
+  const loginCode = normalizeDashboardAccessCode(rawLoginCode);
+  if (
+    rawLoginCode &&
+    (!isDashboardAccessCode(loginCode) || loginCode.length < DASHBOARD_LOGIN_CODE_MIN_LENGTH)
+  ) {
     addError(
       errors,
       'DASHBOARD_LOGIN_CODE',
-      `Phải gồm ${DASHBOARD_ACCESS_CODE_LENGTH} ký tự trong bảng ${DASHBOARD_ACCESS_CODE_ALPHABET} (dấu gạch ngang tuỳ ý).`,
-      'Khai báo mã dạng ABCD-2345 hoặc bỏ trống để tắt đăng nhập bằng mã cố định.',
+      `Phải gồm ít nhất ${DASHBOARD_LOGIN_CODE_MIN_LENGTH} chữ số (khoảng trắng, dấu gạch ngang tuỳ ý).`,
+      'Khai báo mã dạng 1234-5678 hoặc bỏ trống để tắt đăng nhập bằng mã cố định.',
     );
   }
 

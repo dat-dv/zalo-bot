@@ -38,7 +38,7 @@ Runtime configuration is an explicit deployment contract. Secrets never appear i
 `validateEnvironment()` declares the required contract:
 
 - Required: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `DASHBOARD_ACCESS_TOKEN_SECRET`, `DASHBOARD_REFRESH_TOKEN_SECRET` non-empty; `APP_URL` HTTP(S) URL; `DATABASE_URL` `postgres://`/`postgresql://` URL; `DATA_ENCRYPTION_KEY` 64 hex chars (the 64-zero `configuration.ts` fallback is never reachable at boot).
-- Validated only when set (otherwise the `configuration.ts` default applies): `BE_PORT`, `NGINX_PORT` positive integers; `WEB_ORIGIN` HTTP(S) URL; `CORS_ALLOW_ALL` `true`/`false`; `DEFAULT_TIMEZONE` IANA zone; `DASHBOARD_LOGIN_CODE` 8 chars of `DASHBOARD_ACCESS_CODE_ALPHABET` after normalizing (see `dashboard-session.md`).
+- Validated only when set (otherwise the `configuration.ts` default applies): `BE_PORT`, `NGINX_PORT` positive integers; `WEB_ORIGIN` HTTP(S) URL; `CORS_ALLOW_ALL` `true`/`false`; `DEFAULT_TIMEZONE` IANA zone; `DASHBOARD_LOGIN_CODE` digits only and at least 6 digits after dropping spaces/dashes (see `dashboard-session.md`).
 
 Enforcement: `main.ts` calls `validateEnvironment()` right after `loadEnvironment()` and before `NestFactory.create`; on any error it prints `printEnvValidationBanner(errors)` (key, reason, guide; never values) and exits with code 1.
 

@@ -3,8 +3,7 @@
 import { type FormEvent, useState } from 'react';
 import {
   APP_ROUTES,
-  isDashboardAccessCode,
-  normalizeDashboardAccessCode,
+  DASHBOARD_ACCESS_CODE_MAX_LENGTH,
   type TranslationKey,
 } from '@zalobot/contracts';
 import {
@@ -16,8 +15,7 @@ import { setAccessToken } from '@/modules/auth/client/auth-storage';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { Button } from '@/shared/ui/button';
 
-const ERROR_MESSAGE_KEYS: Record<AccessCodeErrorKind | 'invalidFormat', TranslationKey> = {
-  invalidFormat: 'auth.accessCode.invalidFormat',
+const ERROR_MESSAGE_KEYS: Record<AccessCodeErrorKind, TranslationKey> = {
   rejected: 'auth.accessCode.rejected',
   tooManyAttempts: 'auth.accessCode.tooManyAttempts',
   failed: 'auth.accessCode.failed',
@@ -30,19 +28,15 @@ const ERROR_MESSAGE_KEYS: Record<AccessCodeErrorKind | 'invalidFormat', Translat
 export function AccessCodeForm() {
   const { t } = useLocale();
   const [code, setCode] = useState('');
-  const [error, setError] = useState<AccessCodeErrorKind | 'invalidFormat' | null>(null);
+  const [error, setError] = useState<AccessCodeErrorKind | null>(null);
   const signIn = useAccessCodeSignInMutation();
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const normalized = normalizeDashboardAccessCode(code);
-    if (!isDashboardAccessCode(normalized)) {
-      setError('invalidFormat');
-      return;
-    }
+    if (!code) return;
     setError(null);
     signIn.mutate(
-      { code: normalized },
+      { code },
       {
         onSuccess: ({ accessToken }) => {
           setAccessToken(accessToken);
@@ -73,20 +67,21 @@ export function AccessCodeForm() {
           id="dashboard-access-code"
           name="code"
           value={code}
-          onChange={(event) => setCode(event.target.value)}
+          // Digits only, any length: a pasted `1234-5678` keeps just its digits. The API judges the code.
+          onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
           placeholder={t('auth.accessCode.placeholder')}
+          inputMode="numeric"
           autoComplete="one-time-code"
-          autoCapitalize="characters"
           autoCorrect="off"
           spellCheck={false}
-          maxLength={16}
+          maxLength={DASHBOARD_ACCESS_CODE_MAX_LENGTH}
           aria-invalid={error !== null}
           aria-describedby={error ? 'dashboard-access-code-error' : undefined}
-          className="min-h-[42px] min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 font-mono text-base tracking-widest text-slate-900 uppercase placeholder:font-sans placeholder:tracking-normal placeholder:normal-case focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+          className="min-h-[42px] min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 font-mono text-base tracking-widest text-slate-900 placeholder:font-sans placeholder:tracking-normal focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
         />
         <Button
           type="submit"
-          disabled={signIn.isPending}
+          disabled={signIn.isPending || !code}
           className="inline-flex min-h-[42px] shrink-0 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-60 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
         >
           {signIn.isPending ? t('auth.accessCode.submitting') : t('auth.accessCode.submit')}

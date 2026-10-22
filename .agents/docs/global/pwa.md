@@ -68,7 +68,7 @@ Vì HTML luôn lấy từ mạng trước và nginx đặt `no-cache`, chỉ c�
 
 ## Đăng nhập trong app đã cài
 
-App đã cài trên iOS không dùng chung đăng nhập với Safari. Người dùng nhắn `dashboard` cho bot và nhập **mã 8 ký tự** trong tin trả lời. Xem [`dashboard-session.md`](dashboard-session.md).
+App đã cài trên iOS không dùng chung đăng nhập với Safari. Người dùng nhắn `dashboard` cho bot và nhập **mã số** (8 chữ số) trong tin trả lời. Xem [`dashboard-session.md`](dashboard-session.md).
 
 ## Kiểm tra trên máy dev
 

@@ -44,10 +44,10 @@
 
 ## Sign-in code (installed app / PWA)
 
-- Why: on iOS the installed app has its own storage, so the one-time link opened from Zalo signs in Safari, never the app. The bot reply carries an 8-character code (Crockford base32, shown `XXXX-XXXX`) issued from the same `dashboard_exchange_tokens` row as the link; using either spends both (20-minute TTL).
-- `SessionStateScreen` always renders `AccessCodeForm` below its actions. The form normalizes with `normalizeDashboardAccessCode`, validates with `isDashboardAccessCode` (contracts) before calling the API, then `setAccessToken(accessToken)` and does a full load of `APP_ROUTES.dashboard`. The API also sets the `reports_refresh` cookie.
+- Why: on iOS the installed app has its own storage, so the one-time link opened from Zalo signs in Safari, never the app. The bot reply carries an 8-digit code (shown `1234-5678`) issued from the same `dashboard_exchange_tokens` row as the link; using either spends both (20-minute TTL).
+- `SessionStateScreen` always renders `AccessCodeForm` below its actions. The input keeps digits only (`inputMode="numeric"`, non-digits stripped on change, so a pasted `1234-5678` becomes `12345678`) and does no length or format check: the API judges the code. Submit is disabled while empty. On success it calls `setAccessToken(accessToken)` and does a full load of `APP_ROUTES.dashboard`. The API also sets the `reports_refresh` cookie.
 - `httpClient` never runs refresh-and-retry for a 401 from `API_ROUTES.accessCode` (a wrong code is not an expired session).
-- API side: `POST /api/access/code`, rate limited per client IP and overall (see `global/dashboard-session.md`). The same form also accepts the fixed `DASHBOARD_LOGIN_CODE` (signs in as the `dashboard-owner` admin); the web side needs no special handling since the format is identical.
+- API side: `POST /api/access/code`, rate limited per client IP and overall (see `global/dashboard-session.md`). The same form also accepts the fixed `DASHBOARD_LOGIN_CODE` (signs in as the `dashboard-owner` admin); the web side needs no special handling since both are digit codes.
 
 ## Invariants
 

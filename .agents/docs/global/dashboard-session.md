@@ -37,9 +37,9 @@ Người dùng Zalo không có mật khẩu dashboard. Thay vào đó bot cấp 
 
 ## Đăng nhập bằng mã (cho ứng dụng đã cài)
 
-- **Vì sao cần**: trên iOS, app đã cài lên màn hình chính (PWA) có bộ nhớ và cookie riêng, tách khỏi Safari. Bấm link từ Zalo chỉ đăng nhập Safari hoặc trình duyệt trong Zalo, không bao giờ vào được app. Vì vậy tin trả lời của bot kèm thêm một **mã 8 ký tự** dạng `K7P2-QX9M` ngay dưới link.
+- **Vì sao cần**: trên iOS, app đã cài lên màn hình chính (PWA) có bộ nhớ và cookie riêng, tách khỏi Safari. Bấm link từ Zalo chỉ đăng nhập Safari hoặc trình duyệt trong Zalo, không bao giờ vào được app. Vì vậy tin trả lời của bot kèm thêm một **mã 8 chữ số** dạng `1234-5678` ngay dưới link.
 - **Mã và link là một**: mã sinh cùng bản ghi `dashboard_exchange_tokens` (cột `code_hash`, chỉ lưu hash) và dùng chung trạng thái "đã dùng". Dùng link hoặc mã thì cả hai đều hết hiệu lực; hạn vẫn 20 phút.
-- **Bảng chữ của mã**: số và chữ hoa, bỏ `I L O U` để không nhầm với `1` và `0`. Khi nhập, hệ thống không phân biệt hoa/thường và bỏ qua dấu `-`, khoảng trắng.
+- **Định dạng mã**: chỉ gồm chữ số, để gõ nhanh bằng bàn phím số trên điện thoại. Khi nhập, hệ thống bỏ qua dấu `-` và khoảng trắng. API chỉ kiểm tra "toàn chữ số, tối đa 32 ký tự", không ép độ dài cố định, nên mã cố định (bên dưới) có thể dài ngắn tuỳ ý.
 - **API**: `POST /api/access/code` với body `{ code }`.
   - Thành công: trả access token dạng JSON và đặt cookie `reports_refresh` như khi dùng link.
   - Mã sai, hết hạn hoặc đã dùng: `401`.
@@ -51,10 +51,10 @@ Người dùng Zalo không có mật khẩu dashboard. Thay vào đó bot cấp 
 ## Mã đăng nhập cố định (`DASHBOARD_LOGIN_CODE`)
 
 - **Vì sao cần**: sau khi bỏ Zalo Bot chính thức, lệnh `/dashboard` chỉ chạy qua ZCA. Nếu phiên ZCA hết hạn thì bot không nhắn được, mà muốn quét lại QR ZCA lại phải vào dashboard — vòng lặp không lối ra. Cài mới (chưa có admin) cũng gặp tình huống này. Mã cố định trong env là cửa vào dự phòng của chủ hệ thống.
-- **Cấu hình**: `DASHBOARD_LOGIN_CODE=HRYJ-ZP2T` (8 ký tự, cùng bảng chữ với mã 1 lần; không phân biệt hoa thường, bỏ qua dấu `-`). Khai sai định dạng thì API không khởi động; để trống là tắt tính năng.
+- **Cấu hình**: `DASHBOARD_LOGIN_CODE=1234-5678-90` (chỉ chữ số, **tối thiểu 6 chữ số**; bỏ qua dấu `-` và khoảng trắng). Có chữ cái hoặc ít hơn 6 số thì API không khởi động; để trống là tắt tính năng. Giới hạn 6 số chỉ kiểm tra ở backend lúc khởi động, frontend không biết.
 - **Đăng nhập thành ai**: một admin riêng có `users.id = 'dashboard-owner'`, tên "Chủ hệ thống". Mỗi lần dùng mã, tài khoản này được tạo nếu chưa có, hoặc được trả lại quyền admin nếu lỡ bị hạ quyền/khoá — nên người giữ env luôn vào được. Đổi tên trên dashboard thì tên mới được giữ.
 - **Cùng ô nhập, cùng giới hạn**: nhập vào form mã đăng nhập như mã 1 lần (`POST /api/access/code`). Giới hạn thử sai được áp dụng **trước** mọi kiểm tra và dùng chung với mã 1 lần (10 lần/IP, 200 lần toàn hệ thống mỗi 15 phút). So khớp bằng hash SHA-256 và `timingSafeEqual` để không lộ thông tin qua thời gian phản hồi.
-- **Mức an toàn**: 32⁸ ≈ 1,1 nghìn tỷ tổ hợp; với trần 200 lần/15 phút, đoán trúng gần như không thể. Rủi ro thật là **lộ mã** vì mã không hết hạn: mỗi lần dùng đều ghi log `warn` kèm IP (không ghi mã); nghi lộ thì đổi env và restart.
+- **Mức an toàn**: trần 200 lần/15 phút cho phép khoảng 19.200 lần đoán mỗi ngày. Mã 1 lần có 10⁸ tổ hợp và chỉ sống 20 phút nên gần như không thể đoán trúng. Mã cố định thì không hết hạn: mã 6 số (10⁶ tổ hợp) có thể bị dò ra sau vài tuần nếu bị tấn công liên tục, nên **nên dùng 10–12 chữ số**. Rủi ro còn lại là **lộ mã**: mỗi lần dùng đều ghi log `warn` kèm IP (không ghi mã); nghi lộ thì đổi env và restart.
 - **Hệ quả**: giao dịch tạo trên dashboard bằng tài khoản này hiển thị người tạo "Chủ hệ thống". Khi đã có `dashboard-owner`, cơ chế "người nhắn bot đầu tiên thành admin" không còn chạy — cấp quyền cho người khác ở trang `/zca`.
 
 ## Phía trình duyệt

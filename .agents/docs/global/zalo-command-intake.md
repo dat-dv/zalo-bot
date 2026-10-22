@@ -60,7 +60,7 @@ Bot chỉ còn **một kênh** là tài khoản Zalo cá nhân của bot qua ZCA
 | `/debts`, `/debt`, `/congo` | Các khoản nợ đang mở |
 | `/tasks`, `/task`, `/viec` | Danh sách việc cần làm chưa xong; `/task <tiêu đề>` tạo việc **ngay, không qua xác nhận** |
 | `/reminders`, `/reminder`, `/nhacnho`, `/nhac` | Lời nhắc sắp tới |
-| `/dashboard`, `dashboard`, `mở dashboard`, `xem dashboard` | Link đăng nhập dashboard một lần kèm mã 8 ký tự, hạn 20 phút |
+| `/dashboard`, `dashboard`, `mở dashboard`, `xem dashboard` | Link đăng nhập dashboard một lần kèm mã 8 chữ số, hạn 20 phút |
 | `/users` | Admin — danh sách người dùng |
 | `/ban <id>` | Admin — tạo thẻ xác nhận khoá người dùng (không khoá được admin) |
 | `/drive`, `/storage`, `/kho`, `/folder`, `/album` | Link thư mục Drive / album Photos |

@@ -55,7 +55,7 @@ Match = exact command or command followed by a space, unless noted. Admin = hand
 | `/debts`, `/debt`, `/congo` | `DEBTS` | Active debts. |
 | `/tasks`, `/task`, `/viec` | `TASKS` | List open tasks (DB); `/task <title>` creates a task immediately (no confirmation). |
 | `/reminders`, `/reminder`, `/nhacnho`, `/nhac` | `REMINDERS` | Upcoming reminders. |
-| `/dashboard`, `dashboard…`, `mở dashboard…`, `xem dashboard…` | `DASHBOARD` | One-time `/api/access?token=` link + 8-char code (20 min). |
+| `/dashboard`, `dashboard…`, `mở dashboard…`, `xem dashboard…` | `DASHBOARD` | One-time `/api/access?token=` link + 8-digit code (20 min). |
 | `/users` | `USERS` | Admin. User list with role and Google status. |
 | `/ban…` (prefix) | `BAN` | Admin. Queues `BAN_USER` confirmation; admins cannot be banned. |
 | `/drive`, `/storage`, `/kho`, `/folder`, `/album` (prefix) | `GET_STORAGE_LINKS` | Drive folder / Photos album links. |

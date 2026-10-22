@@ -9,22 +9,22 @@ function createService(loginCode?: string): ReportsTokenService {
   return new ReportsTokenService(config as never, {} as never);
 }
 
-void test('matchesStaticLoginCode accepts the configured code in any case or dash layout', () => {
-  const service = createService('HRYJ-ZP2T');
-  assert.equal(service.matchesStaticLoginCode('HRYJ-ZP2T'), true);
-  assert.equal(service.matchesStaticLoginCode('hryjzp2t'), true);
-  assert.equal(service.matchesStaticLoginCode(' hryj zp2t '), true);
+void test('matchesStaticLoginCode accepts the configured code in any dash or space layout', () => {
+  const service = createService('8930-91');
+  assert.equal(service.matchesStaticLoginCode('893091'), true);
+  assert.equal(service.matchesStaticLoginCode('893-091'), true);
+  assert.equal(service.matchesStaticLoginCode(' 893 091 '), true);
 });
 
 void test('matchesStaticLoginCode rejects other codes and malformed input', () => {
-  const service = createService('HRYJ-ZP2T');
-  assert.equal(service.matchesStaticLoginCode('HRYJ-ZP2V'), false);
+  const service = createService('893091');
+  assert.equal(service.matchesStaticLoginCode('893092'), false);
   assert.equal(service.matchesStaticLoginCode(''), false);
-  assert.equal(service.matchesStaticLoginCode('HRYJ-ZP2'), false);
+  assert.equal(service.matchesStaticLoginCode('89309'), false);
 });
 
 void test('matchesStaticLoginCode is off when DASHBOARD_LOGIN_CODE is empty or malformed', () => {
-  assert.equal(createService(undefined).matchesStaticLoginCode('HRYJ-ZP2T'), false);
-  assert.equal(createService('').matchesStaticLoginCode('HRYJ-ZP2T'), false);
-  assert.equal(createService('ILOU-1234').matchesStaticLoginCode('ILOU-1234'), false);
+  assert.equal(createService(undefined).matchesStaticLoginCode('893091'), false);
+  assert.equal(createService('').matchesStaticLoginCode('893091'), false);
+  assert.equal(createService('ABCD-1234').matchesStaticLoginCode('ABCD-1234'), false);
 });
