@@ -296,6 +296,19 @@ export class TasksService {
     return (result.affected ?? 0) > 0;
   }
 
+  /** Gives a claimed time back (it could not be queued or sent), so the next scan retries it. */
+  public async releaseTaskReminderTime(timeId: string): Promise<void> {
+    if (!this.timeRepo) return;
+    await this.timeRepo.update({ id: timeId }, { sentAt: null });
+  }
+
+  /** One reminder time with its task (deleted tasks included, so callers can skip them). */
+  public async getTaskReminderTime(timeId: string): Promise<DueTaskReminder | null> {
+    if (!this.timeRepo) return null;
+    const row = await this.timeRepo.findOne({ where: { id: timeId }, relations: { task: true } });
+    return row?.task ? { ...row, task: row.task } : null;
+  }
+
   /** Recomputes `remind_at` (next time not sent) and `reminded_at` (last sent) of a task. */
   public async refreshReminderSummary(row: TaskEntity): Promise<void> {
     const times = await this.loadTimes([row.id]);

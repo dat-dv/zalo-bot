@@ -15,6 +15,8 @@ metadata:
       - apps/api/src/database/migrations/1724890000000-DropTaskGoogleCopy.ts
       - apps/api/src/database/migrations/1724910000000-AddReminderToTasks.ts
       - apps/api/src/tasks/task-reminder-scheduler.service.ts
+      - apps/api/src/tasks/task-reminder.processor.ts
+      - apps/api/src/tasks/task-reminder.queue.ts
       - apps/api/src/database/entities/task-reminder-time.entity.ts
       - apps/api/src/database/migrations/1724940000000-CreateReminderTimes.ts
       - apps/api/src/reminders/reminder-times.ts
@@ -74,11 +76,12 @@ Rules (`TasksService` create/update; times via `planReminderTimes` in `reminders
 - Edits that touch no reminder field (title, notes, completing…) leave times and target alone (no lookups).
 - Re-opening a completed task marks the times that passed while it was done as handled (`sent_at = now`), so they are not all sent at once; future times stay.
 
-Scheduler `TaskReminderSchedulerService` (cron every 30 s, in `TasksModule`, which imports `forwardRef` `RemindersModule` (for `ReminderTargetService`) + `UsersModule` + `ZcaModule`):
+Scheduler: BullMQ queue `task-reminders` (`task-reminder.queue.ts`), worker `TaskReminderProcessor` (concurrency 1), logic in `TaskReminderSchedulerService`; all in `TasksModule`, which registers the queue and imports `forwardRef` `RemindersModule` (for `ReminderTargetService`) + `UsersModule` + `ZcaModule`. Queue mechanics (scan every 30 s, retries, Redis requirement): global/backend-runtime-services.md.
 
-1. Skip the tick while ZCA is logged out (`ZcaMessengerService.isConnected()`): times wait and go out after the next login.
-2. `getDueTaskReminders(now)`: `task_reminder_times` rows with `sent_at IS NULL`, `remind_at <= now`, joined to tasks with `deleted_at IS NULL`, `status = 'needsAction'`, `remind_chat_id IS NOT NULL`; oldest first, 50 per tick.
-3. Per time: `markTaskReminderSent(timeId)` (conditional update on `sent_at IS NULL`; only the first caller wins, so overlapping ticks never send twice), `refreshReminderSummary(task)`, then `ReminderTargetService.deliver(target, formatTaskReminderMessage(task, locale), locale)` (locale = creator's preferred locale): skips groups the admin stopped listening to (stays marked), tags or privately messages the people per mode. A failed send is logged and not retried.
+1. Job `scan` (`scanDueReminders`): skipped while ZCA is logged out (`ZcaMessengerService.isConnected()`): times wait and go out after the next login.
+2. `getDueTaskReminders(now)`: `task_reminder_times` rows with `sent_at IS NULL`, `remind_at <= now`, joined to tasks with `deleted_at IS NULL`, `status = 'needsAction'`, `remind_chat_id IS NOT NULL`; oldest first, 50 per scan.
+3. Per time: `markTaskReminderSent(timeId)` (conditional update on `sent_at IS NULL`; only the first caller wins, so overlapping scans never send twice), queue job `deliver` `{ timeId, remindAt }` with `jobId = task-time-<timeId>`, then `refreshReminderSummary(task)`. If queueing fails, `releaseTaskReminderTime(timeId)` (`sent_at = NULL`) so the next scan retries it.
+4. Job `deliver` (`deliverReminder`): re-reads the time and task (`getTaskReminderTime`); a task done, deleted or without reminder chat since the claim ⇒ `skipped` (not sent). ZCA logged out since the scan ⇒ release the time + refresh the summary (`released`), so the first scan after login re-queues it instead of burning retries. Else `ReminderTargetService.deliver(target, formatTaskReminderMessage(task, locale), locale)` (locale = creator's preferred locale): skips groups the admin stopped listening to (stays marked), tags or privately messages the people per mode. `failed` ⇒ BullMQ retries (5 attempts, backoff from 30 s); after the last one the time stays marked sent.
 - Message (`task.mapper.ts`, i18n `task.reminder.*`; `{ header, body }` so the tag line goes between): header, `📌 title`, `⏳ due dd/MM` (if any), `📝 notes` (≤200 chars, if any), hint to tell the bot `xong <title>`.
 
 ## Backend: `apps/api/src/tasks/`
@@ -94,7 +97,7 @@ Scheduler `TaskReminderSchedulerService` (cron every 30 s, in `TasksModule`, whi
 - `findPotentialDuplicateTasks(titles)`: against up to 200 open tasks, `arePotentialDuplicateTaskTitles` (`task-title.util.ts`).
 - `toItems(rows)`: `ITaskListItem` with creator name, source chat name/type and `remindChatName` (via `loadRecordOriginLookups` from `google/google-copy.util.ts`, called without `googleAuth`; the reminder chat is looked up as a thread, else as a user name).
 - Reminder chats and members are listed by `ReminderTargetService` (`/api/reminder-targets/…`), not by `TasksService`.
-- `getDueTaskReminders`, `markTaskReminderSent`, `refreshReminderSummary`: used by the scheduler above. `toItems` loads the times of the rows (`remindTimes`, earliest first; `remindAt` = next not sent, else the latest).
+- `getDueTaskReminders`, `markTaskReminderSent`, `releaseTaskReminderTime`, `getTaskReminderTime`, `refreshReminderSummary`: used by the scheduler above. `toItems` loads the times of the rows (`remindTimes`, earliest first; `remindAt` = next not sent, else the latest).
 - `task.types.ts`: `CreateTaskOptions` (`title`, `notes?`, `due?`, `remindAt?`, `remindUsers?`, `remindMode?`), the bot `CREATE_TASK` pending-action payload used by the confirmation utils.
 
 ### HTTP (`TasksController`, Bearer dashboard token, any signed-in user)

@@ -13,7 +13,13 @@ metadata:
       - apps/api/src/google/channel-storage.util.ts
       - apps/api/src/google/google-resources.controller.ts
       - apps/api/src/reminders/reminder-scheduler.service.ts
+      - apps/api/src/reminders/reminder.processor.ts
       - apps/api/src/reminders/reminders.service.ts
+      - apps/api/src/tasks/task-reminder.processor.ts
+      - apps/api/src/queue/queue.module.ts
+      - apps/api/src/queue/queue.constants.ts
+      - apps/api/src/queue/reminder-job.ts
+      - apps/api/src/queue/reminder-queue.ts
       - apps/api/src/audit/audit.service.ts
       - apps/api/src/database/audit-log.subscriber.ts
 ---
@@ -64,12 +70,19 @@ Cross-cutting NestJS services in `apps/api/src` that are not feature CRUD.
 
 All five routes are **admin-only** (dashboard user must pass `UsersService.isAdmin`; 401 without a valid token, 403 for non-admins or when `UsersService` is absent). Rationale: there is no per-channel membership check, and `folder-link`/`open` call `ensureFolderPath`, so an open route would let anyone share or create another chat's Drive partition. `drive/share`, `drive/folder-link`, `photos/album-link` need the Bearer access token. `drive/open` and `photos/open` are opened as `<a href target=_blank>` and cannot send a header, so they also accept the dashboard refresh cookie `reports_refresh` (`getDashboardUserIdFromBrowser`). The only callers are the ZCA admin page; the chat command `@bot share` calls the Drive service directly, not HTTP.
 
-## Reminder scheduler (`reminders/reminder-scheduler.service.ts`)
+## Background jobs (BullMQ, `queue/`)
 
-- `@Cron(CronExpression.EVERY_30_SECONDS)` (`ScheduleModule.forRoot()` in `AppModule`).
-- `RemindersService.getDueReminders`: `remindAt <= now` and `isTriggered = false` (all users).
-- For each: format time in the user's preferred locale (Asia/Ho_Chi_Minh), send `reminder.header.text` + title + time to `reminder.userId` via `ZcaMessengerService.sendMessage`, then `markTriggered`: `daily` -> +24 h, `weekly` -> +7 d (stay `pending`); else `isTriggered = true`, `status = completed`, `completedAt = now`.
-- Errors are logged; the loop is not retried within the tick.
+All scheduled work runs on BullMQ (`bullmq` 5 + `@nestjs/bullmq` 10); `@nestjs/schedule` / `@Cron` is not used anywhere.
+
+- `QueueModule` (`queue/queue.module.ts`, imported by `AppModule`): `BullModule.forRootAsync`, connection `{ url: redis.url || REDIS_URL || redis://localhost:6379, maxRetriesPerRequest: null }`, key prefix `zalobot`. Workers and queues open their own ioredis connections (not `RedisService`).
+- **Redis is required for reminders.** `RedisService` tolerates a missing Redis, BullMQ does not: without Redis no scan runs. Reminder times stay in Postgres, so they go out (late) once Redis is back. Bootstrap never waits for Redis (scheduler upsert is fire-and-forget); queue/worker connection errors are logged at most once a minute (`throttledErrorLogger`).
+- Queues: `task-reminders` (`tasks/`, see modules/tasks) and `reminders` (`reminders/`, see modules/reminders). Each has a `@Processor(<queue>, { concurrency: 1 })` (`TaskReminderProcessor`, `ReminderProcessor`) and two jobs (`REMINDER_JOBS`):
+  - `scan`: repeating Job Scheduler `upsertJobScheduler('scan', { every: 30_000 })`, registered in `onApplicationBootstrap`; idempotent, one schedule across restarts and instances.
+  - `deliver` `{ timeId, remindAt }`: queued by a scan for each claimed time. `REMINDER_DELIVERY_JOB_OPTIONS`: `attempts: 5`, exponential backoff from 30 s (~30 s, 1 m, 2 m, 4 m), `removeOnComplete`, failed jobs kept 7 days.
+- `processReminderJob` (`queue/reminder-job.ts`) routes by job name: delivery result `failed` throws -> BullMQ retries; `sent` / `skipped` / `released` complete the job. A final failure (no attempt left) is logged as an error; that time stays marked sent (lost).
+- Postgres stays the source of truth: scans re-read due rows each run, so no reminder state lives only in Redis and no migration is needed when switching.
+- Delivery is at-least-once: a send Zalo accepted but reported failed is sent again on retry.
+- Shutdown: `@nestjs/bullmq` closes workers and queues on `onApplicationShutdown` (`enableShutdownHooks()` in `main.ts`).
 
 ## Audit (`audit/`, `database/audit-log.subscriber.ts`)
 

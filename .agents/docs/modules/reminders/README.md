@@ -15,6 +15,7 @@ metadata:
       - apps/api/src/reminders/reminders.controller.ts
       - apps/api/src/reminders/reminders.service.ts
       - apps/api/src/reminders/reminder-scheduler.service.ts
+      - apps/api/src/reminders/reminder.processor.ts
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
       - apps/api/src/reminders/reminder-target.ts
       - apps/api/src/reminders/reminder-times.ts
@@ -89,7 +90,7 @@ Một lời nhắc (giống việc cần làm) có thể nhắc **nhiều lần*
   - `reminders-query.ts`: query key `['reminders']`, các hook `useRemindersQuery`, `useCreateReminderMutation`, `useUpdateReminderMutation`, `useDeleteReminderMutation`. Sau khi thêm/sửa/xoá thành công sẽ làm mới cache `reminders` và `dashboard`.
   - `model/reminder-create-form.ts`: hàm thuần (có unit test) đặt giá trị mặc định và kiểm tra form thêm lời nhắc.
 - **Màn hình nằm ở module dashboard**: `RemindersScreen`, `RemindersTable` và `CreateReminderDialog` trong `apps/web/src/modules/dashboard/presentation/components/`. Trang `/reminders` (`apps/web/app/(private)/reminders/page.tsx`) import từ `@/modules/dashboard/view/reminders-screen`. Khi cần sửa giao diện, hãy mở thư mục dashboard, không phải thư mục reminders.
-- Backend: `apps/api/src/reminders` gồm `RemindersController`, `RemindersService` và `ReminderSchedulerService`.
+- Backend: `apps/api/src/reminders` gồm `RemindersController`, `RemindersService`, `ReminderSchedulerService` và worker BullMQ `ReminderProcessor` (queue `reminders`).
 
 ## 4. Màn hình Nhắc nhở
 
@@ -119,9 +120,11 @@ Mọi endpoint đều lọc theo người dùng đang đăng nhập dashboard. C
 
 ## 6. Bộ hẹn giờ gửi nhắc (`ReminderSchedulerService`)
 
-- Cron chạy **mỗi 30 giây**, lấy các lời nhắc đã tới giờ (`remindAt <= now`) và chưa kích hoạt.
-- **ZCA đang đăng xuất thì bỏ qua cả lượt.** Trước đây lời nhắc vẫn bị đánh dấu đã gửi dù tin không đi, nên mất luôn; giờ nó chờ tới lần đăng nhập sau.
-- Với mỗi lời nhắc: định dạng giờ theo múi `Asia/Ho_Chi_Minh` và ngôn ngữ ưa thích của người dùng, gửi tới **đích nhắc** qua `ReminderTargetService.deliver` (kênh đã chọn, hoặc chat riêng người tạo với lời nhắc cũ), rồi đánh dấu đã kích hoạt.
+Lời nhắc chạy trên hàng đợi BullMQ `reminders` (cơ chế chung xem [Dịch vụ nền của Backend](../../global/backend-runtime-services.md)), chia hai bước:
+
+- **Quét** (job `scan`, **mỗi 30 giây**): lấy các lần nhắc đã tới giờ (`remindAt <= now`) của lời nhắc chưa kích hoạt, giành quyền gửi từng lần (đánh dấu đã gửi, hoặc dời sang lần lặp kế tiếp), rồi đưa mỗi lần vào hàng đợi gửi. Không đưa được vào hàng đợi thì trả lần nhắc về như cũ để lượt sau thử lại.
+- **ZCA đang đăng xuất thì bỏ qua cả lượt quét**, lời nhắc chờ tới lần đăng nhập sau. Nếu ZCA đăng xuất đúng lúc đang chờ gửi thì lần nhắc cũng được trả về để gửi sau khi đăng nhập lại.
+- **Gửi** (job `deliver`): đọc lại lời nhắc (đã bị xoá thì thôi), định dạng giờ của lần nhắc theo múi `Asia/Ho_Chi_Minh` và ngôn ngữ ưa thích của người dùng, gửi tới **đích nhắc** qua `ReminderTargetService.deliver` (kênh đã chọn, hoặc chat riêng người tạo với lời nhắc cũ). Gửi lỗi thì BullMQ tự thử lại tối đa 5 lần trước khi bỏ.
 - Lặp `daily` thì dời sang ngày hôm sau, `weekly` dời 7 ngày và vẫn ở trạng thái chờ. Không lặp thì chuyển sang `completed`.
 - **Giới hạn đã biết**: chọn loại `call` chỉ được lưu và hiển thị; bộ hẹn giờ luôn gửi tin nhắn chữ, chưa có luồng gọi điện. Làm cuộc gọi thật là việc riêng (cần tìm API gọi của ZCA).
 
@@ -136,4 +139,4 @@ Mọi endpoint đều lọc theo người dùng đang đăng nhập dashboard. C
 
 ## 8. Kiểm thử
 
-Chạy `npm run typecheck`, `npm run lint`, `npm run test --workspace @zalobot/api` và `npm run build` tại thư mục gốc. Thử tay: nhắn bot "nhắc tôi 5 phút nữa uống nước", xác nhận mã, chờ tối đa 30 giây sau giờ hẹn để nhận tin.
+Chạy `npm run typecheck`, `npm run lint`, `npm run test --workspace @zalobot/api` và `npm run build` tại thư mục gốc. Thử tay: nhắn bot "nhắc tôi 5 phút nữa uống nước", xác nhận mã, chờ tối đa 30 giây sau giờ hẹn để nhận tin (cần Redis đang chạy, vì bộ hẹn giờ dùng BullMQ).

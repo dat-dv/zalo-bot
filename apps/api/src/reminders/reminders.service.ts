@@ -153,6 +153,25 @@ export class RemindersService {
   }
 
   /**
+   * Gives a claimed time back (its delivery could not be queued or sent) so the next scan
+   * retries it: `firedAt` restores the occurrence a repeating reminder had moved past.
+   */
+  public async releaseReminderTime(timeId: string, firedAt: Date): Promise<void> {
+    if (!this.timeRepo) return;
+    await this.timeRepo.update({ id: timeId }, { sentAt: null, remindAt: firedAt });
+  }
+
+  /** One reminder time with its reminder, or null once the reminder was deleted. */
+  public async getReminderTime(timeId: string): Promise<DueReminderTime | null> {
+    if (!this.timeRepo) return null;
+    const row = await this.timeRepo.findOne({
+      where: { id: timeId },
+      relations: { reminder: true },
+    });
+    return row?.reminder ? { ...row, reminder: row.reminder } : null;
+  }
+
+  /**
    * Recomputes the parent from its times: `remind_at` is the next time not sent; with none
    * left the reminder is completed.
    */

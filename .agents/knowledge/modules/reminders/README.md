@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Scheduled reminders delivered as a Zalo message, by default to the owner's private chat, or to a chosen group with chosen people (see [Reminder targets](#reminder-targets)). Reminders are created from chat (LLM tool `SET_REMINDER`, confirmation-gated) or from the dashboard, listed/edited there, and fired by a backend cron. A reminder belongs to its creator (`user_id`): `/reminders` lists only the user's own.
+Scheduled reminders delivered as a Zalo message, by default to the owner's private chat, or to a chosen group with chosen people (see [Reminder targets](#reminder-targets)). Reminders are created from chat (LLM tool `SET_REMINDER`, confirmation-gated) or from the dashboard, listed/edited there, and fired by a BullMQ background job. A reminder belongs to its creator (`user_id`): `/reminders` lists only the user's own.
 
 ## Reminder times
 
@@ -74,9 +74,11 @@ Contracts: `IReminderListItem` (+ `chatId?`, `chatName?`, `remindUsers?`, `remin
 
 ## Scheduler (`ReminderSchedulerService`)
 
-- `@Cron(CronExpression.EVERY_30_SECONDS)`: `getDueReminders(now)` = `reminder_times` rows with `sent_at IS NULL`, `remind_at <= now`, of reminders with `is_triggered = false`; oldest first, 50 per tick.
-- The tick is skipped while ZCA is logged out (`ZcaMessengerService.isConnected()`), so reminders wait for the next login instead of being marked sent without going out (before, they were lost).
-- For each due time: `claimReminderTime` (conditional update matching `id`, `sent_at IS NULL` and the `remind_at` as read: one-off ⇒ `sent_at = now`; `daily`/`weekly` ⇒ `remind_at` moves to the next occurrence after now via `nextRepeatAt`, so a missed day is not sent twice); only the claimer sends. Format that time in `Asia/Ho_Chi_Minh` with the user's `preferredLocale`, send `reminder.header.text` + title + time via `ReminderTargetService.deliver(reminderTarget(row), …)` (target = `chat_id` or the owner's private chat; people tagged or messaged privately per mode), then `refreshReminderSummary`. Rows created by `dashboard-owner` before reminder targets point at `dashboard-owner` and are skipped (they never reached anyone before either).
+- BullMQ queue `reminders` (`reminder.queue.ts`), worker `ReminderProcessor` (concurrency 1), logic in `ReminderSchedulerService`; queue mechanics (scan every 30 s, retries, Redis requirement): global/backend-runtime-services.md.
+- Job `scan` (`scanDueReminders`): `getDueReminders(now)` = `reminder_times` rows with `sent_at IS NULL`, `remind_at <= now`, of reminders with `is_triggered = false`; oldest first, 50 per scan.
+- The scan is skipped while ZCA is logged out (`ZcaMessengerService.isConnected()`), so reminders wait for the next login instead of being marked sent without going out.
+- For each due time: `claimReminderTime` (conditional update matching `id`, `sent_at IS NULL` and the `remind_at` as read: one-off ⇒ `sent_at = now`; `daily`/`weekly` ⇒ `remind_at` moves to the next occurrence after now via `nextRepeatAt`, so a missed day is not sent twice); only the claimer queues job `deliver` `{ timeId, remindAt: <occurrence that fired> }` with `jobId = reminder-time-<timeId>-<remindAt ms>` (a repeating reminder reuses its time row, so the occurrence is part of the id), then `refreshReminderSummary`. If queueing fails, `releaseReminderTime(timeId, firedAt)` (`sent_at = NULL`, `remind_at = firedAt`) so the next scan retries it.
+- Job `deliver` (`deliverReminder`): re-reads the time (`getReminderTime`); reminder deleted ⇒ `skipped`. ZCA logged out since the scan ⇒ release the time + `refreshReminderSummary` (`released`) so the first scan after login re-queues it. Else format the fired occurrence in `Asia/Ho_Chi_Minh` with the user's `preferredLocale`, send `reminder.header.text` + title + time via `ReminderTargetService.deliver(reminderTarget(row), …)` (target = `chat_id` or the owner's private chat; people tagged or messaged privately per mode). `failed` ⇒ BullMQ retries (5 attempts, backoff from 30 s). Rows created by `dashboard-owner` before reminder targets point at `dashboard-owner` and are skipped (they never reached anyone before either).
 - `refreshReminderSummary`: `reminders.remind_at` = the next time not sent; with none left (one-off reminders only) ⇒ `isTriggered=true`, `status='completed'`, `completedAt`. Repeating reminders never run out of times.
 - Known gap: `notifyType = 'call'` is stored and displayed, but the scheduler always sends a text message (no call path; `reminder.header.call` is unused).
 

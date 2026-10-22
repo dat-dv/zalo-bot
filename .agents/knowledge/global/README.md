@@ -22,7 +22,7 @@ This directory contains system-wide business policies, cross-cutting architectur
 - [Finance Domain](finance-domain.md): Backend finance rules — single shared finance store (no per-user scoping), places, debts, payments, allocations, categories, analytics, and LLM tools.
 - [Financial Report Contracts](financial-report-contracts.md): Report/analytics response contracts consumed by the dashboard.
 - [LLM Providers](llm-providers.md): `LlmService`, provider selection via `LLM_PROVIDER`, and Zalo tool definitions.
-- [Backend Runtime Services](backend-runtime-services.md): Health check, Redis, OCR, media storage, reminder scheduler, audit, Google resource links.
+- [Backend Runtime Services](backend-runtime-services.md): Health check, Redis, OCR, media storage, background jobs (BullMQ reminder queues), audit, Google resource links.
 - [Internationalization](i18n.md): Supported locales, user preference persistence, and cross-channel formatting rules.
 
 ## Consumer Project Adoption

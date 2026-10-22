@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ReminderEntity } from '../database/entities/reminder.entity';
@@ -6,6 +7,8 @@ import { UserEntity } from '../database/entities/user.entity';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 import { RemindersService } from './reminders.service';
 import { ReminderSchedulerService } from './reminder-scheduler.service';
+import { ReminderProcessor } from './reminder.processor';
+import { REMINDERS_QUEUE } from './reminder.queue';
 import { RemindersController } from './reminders.controller';
 import { ReminderTargetService } from './reminder-target.service';
 import { ReminderTargetsController } from './reminder-targets.controller';
@@ -21,12 +24,13 @@ import { ZcaModule } from '../zca/zca.module';
       UserEntity,
       ZcaThreadConfigEntity,
     ]),
+    BullModule.registerQueue({ name: REMINDERS_QUEUE }),
     DashboardAuthModule,
     forwardRef(() => UsersModule),
     forwardRef(() => ZcaModule),
   ],
   controllers: [RemindersController, ReminderTargetsController],
-  providers: [RemindersService, ReminderSchedulerService, ReminderTargetService],
+  providers: [RemindersService, ReminderSchedulerService, ReminderProcessor, ReminderTargetService],
   exports: [RemindersService, ReminderTargetService],
 })
 export class RemindersModule {}

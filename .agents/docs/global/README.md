@@ -52,7 +52,7 @@ This directory contains human-facing operational guides for system-wide architec
 - [Nghiệp vụ thu chi backend](finance-domain.md): Nơi chốn, công nợ, thanh toán nợ, phân bổ giao dịch, danh mục, analytics và tool LLM.
 - [Hợp đồng báo cáo tài chính](financial-report-contracts.md): Dữ liệu báo cáo/analytics mà dashboard sử dụng.
 - [Nhà cung cấp LLM](llm-providers.md): `LlmService`, chọn provider qua `LLM_PROVIDER` và danh sách tool Zalo.
-- [Dịch vụ runtime backend](backend-runtime-services.md): Health check, Redis, OCR, lưu media Drive/Photos, scheduler nhắc việc, audit.
+- [Dịch vụ runtime backend](backend-runtime-services.md): Health check, Redis, OCR, lưu media Drive/Photos, job nền BullMQ (nhắc việc, lời nhắc), audit.
 - [Đa Ngôn Ngữ](i18n.md): Chuẩn locale dùng chung, cách lưu ngôn ngữ người dùng và cookie dashboard (Ánh xạ: [`i18n.md`](../../knowledge/global/i18n.md)).
 
 ## Checklist áp dụng Base Agents cho dự án mới

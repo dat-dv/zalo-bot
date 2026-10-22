@@ -10,6 +10,7 @@ metadata:
       - apps/api/src/database/migrations/1724890000000-DropTaskGoogleCopy.ts
       - apps/api/src/database/migrations/1724910000000-AddReminderToTasks.ts
       - apps/api/src/tasks/task-reminder-scheduler.service.ts
+      - apps/api/src/tasks/task-reminder.processor.ts
       - apps/api/src/database/migrations/1724940000000-CreateReminderTimes.ts
       - apps/web/src/modules/dashboard/presentation/components/reminder-times-field.tsx
       - apps/api/src/database/entities/task.entity.ts
@@ -84,13 +85,20 @@ Phần đích nhắc dùng chung với lời nhắc cá nhân, giải thích đ�
 
 ### Bot gửi nhắc thế nào
 
-`TaskReminderSchedulerService` chạy mỗi 30 giây:
+Nhắc việc chạy trên hàng đợi BullMQ `task-reminders` (cơ chế chung xem [Dịch vụ nền của Backend](../../global/backend-runtime-services.md)), chia hai bước:
+
+**Bước quét** (job `scan`, 30 giây một lần):
 
 1. **ZCA đang đăng xuất thì bỏ qua cả lượt**: nhắc chờ tới khi đăng nhập lại mới gửi, không bị mất.
 2. Lấy tối đa 50 **lần nhắc** đã tới giờ, chưa gửi, của việc còn cần làm.
-3. Với từng lần nhắc, **đánh dấu đã gửi trước rồi mới gửi**. Lệnh đánh dấu chỉ thành công cho người gọi đầu tiên, nên hai lượt chạy chồng nhau không bao giờ gửi trùng.
-4. Gửi qua `ReminderTargetService.deliver` (dùng chung): kênh là nhóm đã bị bỏ listen ⇒ không gửi, ghi log cảnh báo; có người được nhắc thì tag họ, hoặc nhắn riêng từng người rồi tag bù trong nhóm những ai không nhắn riêng được. Chat riêng thì luôn gửi, giống lời nhắc cá nhân.
-5. Gửi lỗi (ví dụ ZCA mất kết nối giữa chừng) ⇒ chỉ ghi log, không gửi lại.
+3. Với từng lần nhắc, **đánh dấu đã gửi trước** rồi mới đưa vào hàng đợi gửi. Lệnh đánh dấu chỉ thành công cho người gọi đầu tiên, nên hai lượt quét chồng nhau không bao giờ gửi trùng. Nếu không đưa được vào hàng đợi (Redis rớt), lần nhắc được trả lại trạng thái chưa gửi để lượt sau thử lại.
+
+**Bước gửi** (job `deliver`, mỗi lần nhắc một job):
+
+4. Đọc lại việc: nếu việc đã xong hoặc đã xoá trong lúc chờ thì không gửi nữa.
+5. Nếu ZCA vừa đăng xuất thì trả lần nhắc về trạng thái chưa gửi, đợi lượt quét đầu tiên sau khi đăng nhập lại gửi tiếp, tránh tiêu hết lượt thử lại.
+6. Gửi qua `ReminderTargetService.deliver` (dùng chung): kênh là nhóm đã bị bỏ listen ⇒ không gửi, ghi log cảnh báo; có người được nhắc thì tag họ, hoặc nhắn riêng từng người rồi tag bù trong nhóm những ai không nhắn riêng được. Chat riêng thì luôn gửi, giống lời nhắc cá nhân.
+7. Gửi lỗi ⇒ BullMQ tự thử lại tối đa 5 lần (cách nhau khoảng 30 giây, 1, 2, 4 phút). Hết lượt mới ghi log lỗi và bỏ lần nhắc đó.
 
 Nội dung tin theo ngôn ngữ của người tạo việc:
 
@@ -107,7 +115,7 @@ Nhắn bot "xong Nộp báo cáo" để đánh dấu hoàn thành.
 ## 3. Ai sở hữu code nào
 
 - Backend `apps/api/src/tasks/`: `TasksService` là nơi duy nhất đọc/ghi task; `TasksController` phục vụ `/api/tasks` (danh sách, chi tiết, tạo, sửa, xoá mềm). Module không còn phụ thuộc Google.
-- Nhắc việc: `TaskReminderSchedulerService` (cron) và các hàm `getDueTaskReminders`, `markTaskReminderSent`, `refreshReminderSummary` trong `TasksService`; logic thuần của danh sách giờ nhắc (giữ/xoá/thêm, lần kế tiếp) ở `apps/api/src/reminders/reminder-times.ts`, dùng chung với lời nhắc. Kiểm tra và gửi tới đích nhắc nằm ở `ReminderTargetService` của module reminders, nên `TasksModule` import `RemindersModule`, `UsersModule` (lấy ngôn ngữ) và `ZcaModule` qua `forwardRef`. Hằng `DASHBOARD_OWNER_USER_ID` được tách ra `apps/api/src/users/dashboard-owner.ts` để module tasks dùng mà không phải import `UsersService` (kéo theo ZCA).
+- Nhắc việc: queue `task-reminders` (`task-reminder.queue.ts`), worker `TaskReminderProcessor`, logic ở `TaskReminderSchedulerService`, cùng các hàm `getDueTaskReminders`, `markTaskReminderSent`, `releaseTaskReminderTime`, `getTaskReminderTime`, `refreshReminderSummary` trong `TasksService`; logic thuần của danh sách giờ nhắc (giữ/xoá/thêm, lần kế tiếp) ở `apps/api/src/reminders/reminder-times.ts`, dùng chung với lời nhắc. Kiểm tra và gửi tới đích nhắc nằm ở `ReminderTargetService` của module reminders, nên `TasksModule` import `RemindersModule`, `UsersModule` (lấy ngôn ngữ) và `ZcaModule` qua `forwardRef`. Hằng `DASHBOARD_OWNER_USER_ID` được tách ra `apps/api/src/users/dashboard-owner.ts` để module tasks dùng mà không phải import `UsersService` (kéo theo ZCA).
 - Bảng `tasks`: migration `CreateTasks` tạo bảng, migration `AddReminderToTasks` thêm `remind_at`, `remind_chat_id`, `reminded_at` và index `(status, remind_at)`, migration `CreateReminderTimes` tạo `task_reminder_times` và chuyển mỗi giờ nhắc cũ thành một dòng (giữ dấu đã gửi), migration `DropTaskGoogleCopy` xoá các cột của bản sao Google (`google_task_id`, `google_account_email`, `sync_status`...) và đổi các dòng có nguồn `google` thành `dashboard`. Dùng migration mới thay vì sửa migration cũ để DB nào đã chạy bản cũ cũng về đúng cấu trúc.
 - `GoogleTasksService` đã bị xoá. Đăng nhập Google **không còn xin quyền Google Tasks**; token đã cấp trước vẫn dùng bình thường.
 - Tên người tạo và tên nhóm Zalo lấy qua `loadRecordOriginLookups` trong `apps/api/src/google/google-copy.util.ts` (dùng chung với lịch, gọi không kèm Google).
