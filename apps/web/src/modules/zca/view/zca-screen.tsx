@@ -412,34 +412,46 @@ export function ZcaScreen() {
             cho từng người.
           </p>
         </div>
-        <div className="flex items-center gap-2 max-[640px]:w-full max-[640px]:flex-wrap">
+        {/* Phones: one row that never wraps — label truncates, buttons stay 40px. */}
+        <div className="flex items-center gap-2 max-[640px]:w-full max-[640px]:flex-nowrap">
           {threadsFetchedAtLabel && (
             <span
-              className="text-xs text-slate-500 dark:text-slate-400"
+              className="text-xs text-slate-500 max-[640px]:min-w-0 max-[640px]:flex-1 max-[640px]:truncate max-[640px]:text-[11px] dark:text-slate-400"
               title={t('zca.directory.fetchedAtHint')}
             >
               {threadsFetchedAtLabel}
             </span>
           )}
           <button
-            className={`inline-flex items-center gap-1.5 rounded-[4px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${TAP_CONTROL}`}
+            aria-label={t('zca.refreshDirectory')}
+            className={`inline-flex items-center gap-1.5 rounded-[4px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 max-[640px]:ml-auto max-[640px]:w-10 max-[640px]:shrink-0 max-[640px]:justify-center max-[640px]:px-0 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${TAP_CONTROL}`}
             disabled={isRefreshing}
             onClick={() => void handleRefreshAll()}
             title="Làm mới trạng thái và cập nhật lại danh bạ, nhóm từ Zalo"
             type="button"
           >
             <RefreshIcon className={isRefreshing ? 'animate-spin' : ''} />
-            {isRefreshing ? 'Đang tải lại...' : 'Làm mới'}
+            {/* Icon-only on phones; aria-label names the action. */}
+            <span className="max-[640px]:sr-only">
+              {isRefreshing ? 'Đang tải lại...' : 'Làm mới'}
+            </span>
           </button>
           {status?.loggedIn ? (
             <button
-              className={`inline-flex items-center gap-1.5 rounded-[4px] border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-semibold text-rose-700 shadow-sm hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900 ${TAP_CONTROL}`}
+              className={`inline-flex items-center gap-1.5 rounded-[4px] border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-semibold text-rose-700 shadow-sm hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900 max-[640px]:shrink-0 max-[640px]:whitespace-nowrap max-[640px]:px-3 ${TAP_CONTROL}`}
               disabled={isLoggingOut}
               onClick={() => void handleLogout()}
               type="button"
             >
               <LogoutIcon />
-              {isLoggingOut ? 'Đang đăng xuất...' : t('zca.logout')}
+              {isLoggingOut ? (
+                'Đang đăng xuất...'
+              ) : (
+                <>
+                  <span className="max-[640px]:hidden">{t('zca.logout')}</span>
+                  <span className="hidden max-[640px]:inline">{t('common.logout')}</span>
+                </>
+              )}
             </button>
           ) : (
             <button
@@ -458,7 +470,7 @@ export function ZcaScreen() {
       {/* Overview Cards */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* Card 1: Trạng thái kết nối */}
-        <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-[3px] border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
             Trạng thái kết nối
           </p>
@@ -492,7 +504,7 @@ export function ZcaScreen() {
         </div>
 
         {/* Card 2: Danh sách lắng nghe (Whitelist) */}
-        <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-[3px] border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Đang lắng nghe</p>
           <div className="mt-2 flex items-baseline gap-1.5">
             <span className="text-lg font-bold text-slate-900 dark:text-slate-100">
@@ -509,7 +521,7 @@ export function ZcaScreen() {
 
         {/* Card 3: Quyền tương tác */}
         <button
-          className="rounded-lg border border-amber-200 bg-amber-50/50 p-3.5 text-left shadow-sm transition hover:border-amber-300 dark:border-amber-900/40 dark:bg-amber-950/20"
+          className="rounded-[3px] border border-amber-200 bg-amber-50/50 p-3.5 text-left shadow-sm transition hover:border-amber-300 dark:border-amber-900/40 dark:bg-amber-950/20"
           onClick={() => setFilter('pending')}
           title="Xem những người đang chờ cấp quyền"
           type="button"
@@ -527,7 +539,7 @@ export function ZcaScreen() {
         </button>
 
         {/* Card 4: Tổng số phát hiện */}
-        <div className="rounded-lg border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-[3px] border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
             Tổng danh bạ & người dùng
           </p>
@@ -548,7 +560,7 @@ export function ZcaScreen() {
       {/* Notice Banner */}
       {notice && (
         <div
-          className={`flex items-center justify-between rounded-lg border p-3 text-sm font-medium max-[640px]:py-1 max-[640px]:pr-1 ${
+          className={`flex items-center justify-between rounded-[3px] border p-3 text-sm font-medium max-[640px]:py-1 max-[640px]:pr-1 ${
             notice.type === 'success'
               ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300'
               : 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300'
@@ -570,7 +582,7 @@ export function ZcaScreen() {
       )}
 
       {/* Main Section: Danh sách cuộc trò chuyện & người dùng */}
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm max-[640px]:p-3 dark:border-slate-800 dark:bg-slate-900">
+      <div className="rounded-[3px] border border-slate-200 bg-white p-4 shadow-sm max-[640px]:p-3 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-3">
           {/* Header & Quick Action Buttons */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
@@ -588,7 +600,7 @@ export function ZcaScreen() {
               className={`flex flex-wrap items-center gap-2 max-[640px]:w-full ${MOBILE_TOOLBAR_ROW}`}
             >
               <button
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${TAP_CONTROL}`}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-[3px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${TAP_CONTROL}`}
                 disabled={syncUsersMutation.isPending}
                 onClick={() => void handleSyncUsers()}
                 title="Đồng bộ tên, avatar và SĐT từ danh bạ Zalo cá nhân (ZCA) sang người dùng"
@@ -599,14 +611,14 @@ export function ZcaScreen() {
               </button>
               <button
                 // Compact screens get this action in the MobileActionBar instead.
-                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 max-[960px]:hidden dark:bg-indigo-500 dark:hover:bg-indigo-600"
+                className="inline-flex items-center gap-1.5 rounded-[3px] bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 max-[960px]:hidden dark:bg-indigo-500 dark:hover:bg-indigo-600"
                 onClick={() => setUserDialog({ mode: 'create' })}
                 type="button"
               >
                 {ADD_USER_LABEL}
               </button>
               <a
-                className={`${TAP_CONTROL} inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400`}
+                className={`${TAP_CONTROL} inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[3px] border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400`}
                 href={driveRootData?.webViewLink || getThreadDriveOpenUrl()}
                 rel="noopener noreferrer"
                 target="_blank"
@@ -882,7 +894,7 @@ export function ZcaScreen() {
         onDismiss={() => setIsQrModalOpen(false)}
         ariaLabel="Đăng nhập Zalo cá nhân (ZCA)"
         backdropClassName="bg-slate-900/60 backdrop-blur-sm"
-        panelClassName="max-w-sm rounded-lg border border-slate-200 bg-white px-5 dark:border-slate-800 dark:bg-slate-900"
+        panelClassName="max-w-sm rounded-[3px] border border-slate-200 bg-white px-5 dark:border-slate-800 dark:bg-slate-900"
       >
         <div
           className={`${MODAL_STICKY_HEADER} flex items-center justify-between border-b border-slate-100 bg-white pt-5 pb-3 dark:border-slate-800 dark:bg-slate-900`}
@@ -907,7 +919,7 @@ export function ZcaScreen() {
           </p>
 
           {/* QR Image Container */}
-          <div className="flex size-56 items-center justify-center rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-950">
+          <div className="flex size-56 items-center justify-center rounded-[3px] border-2 border-dashed border-slate-300 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-950">
             <img
               alt="Mã QR đăng nhập Zalo"
               className="size-full object-contain"

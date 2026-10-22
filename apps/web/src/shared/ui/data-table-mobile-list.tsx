@@ -19,6 +19,9 @@ type DataTableMobileListProps<T extends DataTableRow> = {
   onInspectId: (rowId: string) => void;
 };
 
+// Rows that rise in with a 20ms stagger on mount; beyond these the list just appears.
+const STAGGERED_ROWS = 10;
+
 const isBlank = (node: ReactNode) =>
   node === null || node === undefined || node === false || node === '';
 
@@ -100,10 +103,13 @@ export function DataTableMobileList<T extends DataTableRow>({
             return (
               <li
                 key={getRowKey(row, index)}
-                className="border-b border-slate-100 dark:border-slate-800"
+                // The first rows rise in one after another when they mount; later rows just appear.
+                className={`border-b border-slate-100 dark:border-slate-800 ${index < STAGGERED_ROWS ? 'animate-row-in' : ''}`}
+                style={index < STAGGERED_ROWS ? { animationDelay: `${index * 20}ms` } : undefined}
               >
                 <button
                   type="button"
+                  data-press="none"
                   className="flex min-h-[52px] w-full cursor-pointer flex-col justify-center gap-0.5 border-0 !bg-transparent px-3 py-2.5 text-left transition-colors hover:!bg-slate-50 active:!bg-slate-100 dark:hover:!bg-slate-800/60 dark:active:!bg-slate-800"
                   onClick={() => setSelectedKey(getRowKey(row, index))}
                 >

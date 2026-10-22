@@ -213,7 +213,7 @@ export function CalendarGrid({
                 </span>
                 {cell.events.length > 0 && (
                   <span
-                    className="rounded-full bg-slate-200 px-1.5 py-px text-[10px] font-semibold text-slate-600 max-[640px]:hidden dark:bg-slate-800 dark:text-slate-300"
+                    className="rounded-[2px] bg-slate-200 px-1.5 py-px text-[10px] font-semibold text-slate-600 max-[640px]:hidden dark:bg-slate-800 dark:text-slate-300"
                     title={t('table.rowsCount', { count: cell.events.length })}
                   >
                     {cell.events.length}
@@ -263,7 +263,7 @@ export function CalendarGrid({
             <h3 className="m-0 text-[13px] font-semibold text-slate-900 capitalize dark:text-slate-100">
               {t('calendar.selectedDayEvents', { date: formatFullDate(selectedDate) })}
             </h3>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+            <span className="rounded-[2px] bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-400">
               {t('table.rowsCount', { count: selectedDayEvents.length })}
             </span>
           </div>

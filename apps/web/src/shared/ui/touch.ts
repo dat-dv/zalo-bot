@@ -21,4 +21,4 @@ export const MOBILE_TAB_BAR_HEIGHT_PX = 56;
  * above the bottom tab bar and the home indicator.
  */
 export const TOAST_POSITION =
-  'fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 max-[960px]:left-4 max-[960px]:bottom-[calc(4.25rem+env(safe-area-inset-bottom))]';
+  'fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 max-[960px]:left-4 max-[960px]:bottom-[calc(4.25rem+env(safe-area-inset-bottom))] max-[960px]:animate-toast-in';

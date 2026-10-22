@@ -140,3 +140,7 @@ Khi gộp nhiều Người liên quan, liên hệ chính giữ dữ liệu hồ 
 ## Kiểm thử
 
 `npm run typecheck`, `npm run lint`, `npm run build` (scope `--workspace @zalobot/web`).
+
+## Bo góc
+
+- Nút, ô nhập, thẻ/panel và khung dialog trong module này dùng `rounded-[3px]` (tối đa `rounded`, 4px), không dùng `rounded-lg/xl/2xl`. Lý do: giao diện dashboard theo phong cách gọn, sắc cạnh như công cụ quản trị; bo lớn làm các ô trông như app tiêu dùng và lệch với phần còn lại. `rounded-full` chỉ dành cho avatar, chấm trạng thái, công tắc, vòng quay tải và thanh tiến độ. Xem [web-ui-direction](../../global/web-ui-direction.md).

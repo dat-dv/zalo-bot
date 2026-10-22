@@ -15,7 +15,7 @@
   - `getEventDateKeys(event)`: local `YYYY-MM-DD` keys for every covered day. Date-only (all-day) ends and timed ends at exactly 00:00 are exclusive.
   - `toDateKey(date)`, `addDays(date, n)` (local midnight), `getWeekDays(anchor)` (Mon–Sun week, same layout as the grid), `formatEventTime(value, localeTag)` (`HH:mm` 24h; empty for all-day/invalid), type `CalendarEventDraft`.
 - `presentation/components/calendar-grid.tsx` (re-exported by `view/calendar-grid.tsx`): `CalendarGrid`.
-- `presentation/components/calendar-agenda.tsx` (re-exported by `view/calendar-agenda.tsx`): `CalendarAgenda` (phone view).
+- `presentation/components/calendar-agenda.tsx` (re-exported by `view/calendar-agenda.tsx`): `CalendarAgenda` (phone view). Each day section is keyed by date and uses `animate-row-in`, so a newly picked day eases in; event rows are `data-press="none"` (background press state, no shrink). Month-grid count badge and event chip use `rounded-[2px]` (no pills).
 - `presentation/components/calendar-event-fields.tsx`: `CalendarEventFields`, the edit inputs shared by the grid day panel and the agenda sheet (`autoFocusTitle` prop; inputs 40px full width at phone).
 
 ## `CalendarGrid` (controlled component)

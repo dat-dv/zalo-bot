@@ -49,14 +49,15 @@ Thành phần `DataTable` tích hợp sẵn nút Cài đặt cột (`TableColumn
   - Trong code dùng hook `useIsPhone()` / `useIsCompact()`. Không tự đặt thêm mốc khác.
 - **Thanh tab dưới đáy** (trong `AppNavigation`, ≤ 960px):
   - 5 ô: Tổng quan, Thu chi, Công nợ, Lịch, **Thêm**. Nhãn tab "Công nợ" là bản rút gọn của "Vay & cho vay" cho vừa 1/5 bề ngang.
-  - "Thêm" mở drawer menu cũ, nơi có đủ mọi trang, Đăng xuất, giao diện và ngôn ngữ. Ô này sáng lên khi drawer đang mở hoặc khi trang hiện tại không thuộc 4 tab kia.
+  - "Thêm" mở **sheet Thêm**: trượt từ dưới lên, mọi trang xếp thành lưới 3 cột (icon + nhãn), cuối sheet là đổi giao diện, ngôn ngữ và Đăng xuất. Ô "Thêm" sáng lên khi sheet đang mở hoặc khi trang hiện tại không thuộc 4 tab kia.
+  - Có một vạch chỉ báo 2px **trượt ngang** sang tab được chọn; icon nảy nhẹ khi bấm.
   - Chọn 4 tab này vì đó là những trang mở nhiều nhất trên điện thoại. Muốn đổi thì sửa `TAB_BAR_PAGES`.
 - **Safe-area (tai thỏ, thanh home)**:
   - Viewport đặt `viewportFit: 'cover'`.
   - Layout chừa `env(safe-area-inset-*)` ở trên, trái và phải. Ở dưới chừa thêm chiều cao thanh tab (56px).
   - Topbar dính ngay dưới vùng status bar. Có một dải màu nền che vùng status bar để nội dung cuộn qua không bị lộ.
-  - Drawer cũng chừa safe-area và tự cuộn bên trong.
-- **Drawer đóng thì `inert`**: link trong drawer không còn nhận Tab hay bị screen reader đọc khi đang ẩn. Sidebar desktop không bị ảnh hưởng.
+  - Sheet Thêm dùng chung khung `Modal`, nên có sẵn safe-area, khoá cuộn nền và vuốt xuống để đóng.
+- **Vì sao bỏ drawer trái**: drawer cũ rộng khoảng nửa màn hình và phải cuộn bên trong, anh test trên iPhone thấy không hợp mobile. Lưới 3 cột chứa đủ 11 trang mà không cần cuộn trên iPhone 12 trở lên. Topbar cũng bỏ nút ☰: chỉ còn một lối vào menu là tab "Thêm", giống app iOS/Android. Desktop vẫn dùng sidebar.
 - **CSS cho thao tác chạm** (`styles.css`):
   - Tắt vệt xám khi chạm (`-webkit-tap-highlight-color`).
   - Đặt `touch-action: manipulation` cho nút, link và input, để bỏ độ trễ chờ double-tap. Zoom bằng hai ngón vẫn dùng được.
@@ -112,28 +113,28 @@ Thành phần `DataTable` tích hợp sẵn nút Cài đặt cột (`TableColumn
 ## Vùng chạm trên điện thoại và bo góc
 
 - Ở bề ngang điện thoại, mọi thứ người dùng chạm đều cao **≥ 40px**:
-  - Topbar và drawer (≤ 960px).
+  - Topbar, thanh tab và sheet Thêm (≤ 960px).
   - Dòng danh sách, nút trong bảng trượt và input khi sửa.
   - Chip lọc, ô tìm kiếm và nút "Tải thêm" của Thu chi.
   - Nút kỳ và mũi tên của `PeriodFilterToolbar`.
   - Nút lọc cột.
 - Desktop giữ control nhỏ 22–30px để giữ mật độ dữ liệu cao.
 - Toolbar trên điện thoại dùng **một hàng chip cuộn ngang** thay vì mỗi chip một dòng. Trên điện thoại, `PeriodFilterToolbar` đổi nhóm nút Tuần/Tháng/Quý/Năm thành một ô chọn native (cao 40px), để chu kỳ và cụm ‹ nhãn kỳ › nằm trên cùng một hàng. Trước đó thanh này chiếm khoảng 88px, đẩy dữ liệu xuống thấp. Desktop vẫn giữ nhóm nút.
-- **Giữ nguyên bo góc nhỏ** (`rounded-[2px]`, `rounded-[3px]`, `rounded`). Không đưa vào chip bo tròn, nút nổi bo tròn, hay "chuẩn hoá" bo góc khi làm mobile.
+- **Bo góc nhỏ** (`rounded-[2px]`, `rounded-[3px]`, `rounded`): nút, link dạng nút, ô nhập, thẻ/panel và khung dialog tối đa `rounded` (4px); dashboard không dùng `rounded-lg/xl/2xl` (trang public `/about`, `/privacy`, `/terms` không áp dụng). Badge đếm/chip dùng `rounded-[2px]` chứ không bo tròn kiểu viên thuốc. `rounded-full` chỉ dành cho avatar, chấm trạng thái, công tắc bật/tắt, vòng quay tải và thanh tiến độ. Lý do: dashboard là công cụ quản trị, cạnh sắc giúp lưới bảng và form thẳng hàng, nhìn nhất quán giữa các trang. Không dùng nút nổi bo tròn.
 
 Nút phải có focus rõ, độ tương phản đủ và lỗi phải kèm cách thử lại.
 
 Tiêu đề không gian làm việc (`WorkspaceHeader`) được render **một lần duy nhất** trong common private layout (`apps/web/app/(private)/layout.tsx`) bằng `<WorkspaceHeader />` không truyền props — component tự động resolve title và subtitle từ `usePathname()` thông qua `ROUTE_HEADER_MAP`. Component phân biệt hai trạng thái auth: **Đã xác thực** (`hasToken && !isLoggedOut`, trong đó `isLoggedOut` lấy từ query `?status=logged_out` sau khi đăng xuất): hiển thị title/subtitle theo route, nút `Ẩn/Hiện số tiền` (`useMoneyVisibility`), nút Làm mới (`queryClient.invalidateQueries()`), và nút Đăng xuất; **Chưa xác thực / Đã đăng xuất**: hiển thị title/subtitle theo route và link "Mở Zalo Bot" (key `auth.openzaloBot`; thử mở app Zalo qua `zalo://`, không có app thì mở `https://chat.zalo.me`, xem `modules/auth/README.md`). **Các file screen trong từng module tuyệt đối không được tự render `<WorkspaceHeader>`** — layout đã cung cấp sẵn cho mọi trang.
 
 Tiêu đề theo route, trạng thái đăng nhập, Làm mới, Đăng xuất và link Zalo Bot lấy từ hook dùng chung `useWorkspaceHeader()` (cùng file), để desktop và mobile không lặp logic.
-- Ở ≤ 960px, `WorkspaceHeader` bị ẩn và **topbar mobile** trong `AppNavigation` thay thế: `[☰] [Tên trang] [icon ẩn/hiện số tiền] [icon làm mới]`, mỗi nút 40px.
+- Ở ≤ 960px, `WorkspaceHeader` bị ẩn và **topbar mobile** trong `AppNavigation` thay thế: `[Tên trang] [icon ẩn/hiện số tiền] [icon làm mới]`, mỗi nút 40px.
 - Khi chưa đăng nhập, hai icon được thay bằng nút "Mở Zalo Bot".
-- Phụ đề không hiện trên mobile. **Đăng xuất chuyển vào chân drawer**, ngay trên nút đổi giao diện.
+- Phụ đề không hiện trên mobile. **Đăng xuất nằm ở chân sheet Thêm**.
 - Lý do: trước đây trên điện thoại có hai thanh header chồng nhau, ba nút chữ ép tiêu đề bị cắt, và mất khoảng 140px trước khi tới nội dung. Mặt nạ che số tiền (key `common.maskedAmount` = `'••••••'`) áp dụng đồng bộ cho các khối KPI, bảng dữ liệu và tooltip biểu đồ. Mặc định số tiền bị ẩn (tránh lộ khi mở dashboard nơi công cộng); lựa chọn của người dùng chỉ nằm trong store Zustand `useMoneyVisibilityStore` trong bộ nhớ (`apps/web/src/shared/store/money-visibility-store.ts`, cố ý không dùng `persist` và không lưu `localStorage`) nên chuyển trang trong app vẫn giữ, còn tải lại trang (F5) thì số tiền ẩn lại; thanh tỉ lệ nhỏ dưới số tiền trong bảng Giao dịch, Chi tiêu và trong biểu đồ Cơ cấu công nợ chỉ hiện khi đang bấm hiện số tiền (độ dài thanh để lộ khoản lớn/nhỏ), còn thanh % đã trả của công nợ vẫn giữ vì chỉ thể hiện tiến độ; các ô input khi đang sửa trực tiếp trên dòng (inline edit) vẫn giữ số thực để phục vụ thao tác.
 
 Thanh điều hướng dùng chung (`apps/web/src/shared/ui/app-navigation.tsx`) theo kiểu sidebar quản trị trên desktop: phân thành 5 nhóm nghiệp vụ (Tổng quan, Tài chính, Kế hoạch, Dữ liệu, Hệ thống — key `nav.section.*`), có ô chọn ngôn ngữ, có dấu nhận diện sản phẩm, icon đi cùng chữ và tự động nhận diện trạng thái trang đang mở theo `usePathname()`. Desktop dùng app shell giới hạn theo viewport: chỉ vùng main content được cuộn, còn sidebar luôn đứng yên bên cạnh. Khi thêm mục mới, luôn giữ nhãn chữ hiển thị qua hệ thống i18n, SVG chỉ là phần hỗ trợ quét nhanh, và đặt `aria-current="page"` cho mục active.
 
-Trên màn hình hẹp (<= 960px), shell trở lại cơ chế cuộn trang bình thường và giao diện tự động chuyển đổi thành Mobile Topbar sticky trên cùng (hamburger, tên trang, icon số tiền và làm mới). Khi bấm hamburger, Drawer Menu điều hướng trượt mượt mà từ bên trái kèm Backdrop làm mờ nền; tự động đóng khi chọn link, bấm backdrop hoặc bấm Escape. Trong drawer, link điều hướng, Đăng xuất, đổi giao diện và chọn ngôn ngữ đều cao 40px. Logo sản phẩm chỉ còn trong drawer.
+Trên màn hình hẹp (<= 960px), shell trở lại cơ chế cuộn trang bình thường: topbar sticky trên cùng (tên trang, icon số tiền, làm mới) và thanh tab dưới đáy. Mọi trang còn lại mở qua tab "Thêm" (sheet lưới 3 cột). Logo sản phẩm chỉ còn trên sidebar desktop.
 
 Dark mode được kích hoạt bằng `html[data-theme='dark']`; mọi utility dark của Tailwind phải dùng đúng data attribute này thông qua `@custom-variant dark`. Toàn bộ các bề mặt giao diện — navigation desktop/mobile, workspace header, period toolbar, data panel, form edit, dialog, biểu đồ và trang public/legal — bắt buộc dùng utility classes với tiền tố `dark:` phù hợp (`dark:bg-*`, `dark:border-*`, `dark:text-*`, `dark:hover:*`, `dark:focus:*`). Giữ trạng thái mục đang chọn dễ nhận biết và focus bàn phím màu xanh nhạt, đủ tương phản.
 
@@ -165,20 +166,27 @@ Trạng thái Skeleton Loading có nhiệm vụ giữ vững khung xương khôn
 - **App đã cài**: tắt hiệu ứng nảy (rubber-band) để không lộ nền phía sau.
 - **Máy bật "Giảm chuyển động"**: mọi chuyển động gần như tắt hẳn.
 - **Sheet/dialog**:
-  - Trên điện thoại, sheet trượt từ dưới lên khi mở và trượt xuống khi đóng. Màn lớn thì mờ dần và thu nhỏ nhẹ. Thời gian khoảng 200ms.
-  - `Modal` giữ DOM thêm 200ms sau khi `open = false` để kịp chạy hiệu ứng đóng.
+  - **Chuyển động**: chạy bằng Web Animations API (`motion.ts`), không dùng CSS `@starting-style` nữa, vì Safari dưới 17.5 bỏ qua `@starting-style` và anh thấy sheet chưa có cảm giác trượt.
+  - Trên điện thoại, sheet trượt lên trong **380ms** với đường cong kiểu iOS `cubic-bezier(0.32, 0.72, 0, 1)`: nhanh lúc đầu, chậm êm lúc cuối. Khi đóng, sheet trượt xuống trong 260ms từ đúng vị trí đang có (kể cả lúc đang vuốt dở). Màn lớn thì mờ dần và thu nhỏ nhẹ.
+  - `Modal` giữ DOM thêm 260ms sau khi `open = false` để kịp chạy hiệu ứng đóng.
   - Nếu nơi gọi tự gỡ `Modal` (kiểu `{x && <Modal open />}`) thì không có hiệu ứng đóng, chỉ có hiệu ứng mở.
 - **Vuốt để đóng** (`use-swipe-dismiss.ts`):
   - Sheet: kéo dải trên cùng (thanh kéo + tiêu đề, 64px) xuống. Kéo quá 1/4 chiều cao, hoặc vuốt nhanh, thì sheet đóng; không thì bật về chỗ cũ.
   - Chỉ vuốt được khi dialog cho phép đóng: lúc đang gửi request thì không vuốt được. Form dài mở toàn màn hình cũng không vuốt.
-  - Drawer: vuốt sang trái để đóng.
+  - Khi kéo vượt 1/4 chiều cao, máy Android rung nhẹ một nhịp (iOS không cho web rung).
   - Dùng touch events chứ không dùng pointer events, vì iOS huỷ pointer ngay khi trang bắt đầu cuộn.
 - **Kéo xuống để làm mới** (`pull-to-refresh.tsx`):
   - Chỉ bật trong app đã cài, trên màn hẹp. Trình duyệt thường đã có sẵn tính năng này.
   - Kéo ở đỉnh trang thì hiện nhãn "Kéo để làm mới", qua 64px thì đổi thành "Thả để làm mới".
   - Thả ra thì tải lại mọi dữ liệu, giống nút ↻ trên topbar, và quay tới khi tải xong.
-  - Không chạy khi đang mở dialog hoặc drawer.
+  - Không chạy khi đang mở dialog hoặc sheet. Vòng ↻ xoay theo độ kéo, qua ngưỡng thì rung nhẹ (Android), thả ra thì bật nảy về.
 - **Thanh tab**: tab vừa bấm sáng lên ngay, không chờ trang mới tải xong. Nếu mạng chậm thì có một vạch xanh nhấp nháy trên tab. Các tab được `next/link` tải trước sẵn.
+- **Bộ chuyển động chung** (`src/shared/ui/motion.ts` + `@theme` trong `styles.css`): một đường cong, một bộ thời lượng cho mọi chỗ.
+  - Chuyển trang: nội dung mờ dần vào (chỉ dùng opacity; nếu dùng transform thì thanh hành động và toast `fixed` sẽ bị giật).
+  - Danh sách: 10 dòng đầu hiện lần lượt, mỗi dòng trễ 20ms.
+  - Toast trượt lên. Thanh hành động dưới đáy trượt lên. Thanh cập nhật phiên bản trượt xuống.
+  - Dải tổng thu/chi mở biểu đồ bằng cách co giãn chiều cao, mũi tên xoay. Chọn ngày khác trong Lịch thì danh sách của ngày đó hiện mượt.
+  - Nút thu nhỏ còn 97% khi nhấn. Dòng danh sách đánh dấu `data-press="none"` thì chỉ đổi nền, để không bị co cả dòng.
 
 ## Modal trên mobile & bàn phím ảo
 
@@ -186,7 +194,7 @@ Trạng thái Skeleton Loading có nhiệm vụ giữ vững khung xương khôn
 
 **Quy tắc bắt buộc**:
 
-- Mọi modal/dialog phải dùng `Modal` trong `apps/web/src/shared/ui/modal.tsx`. Không tự viết overlay `fixed inset-0` nữa (ngoại lệ duy nhất là lớp nền của drawer menu mobile).
+- Mọi modal/dialog phải dùng `Modal` trong `apps/web/src/shared/ui/modal.tsx`. Không tự viết overlay `fixed inset-0` nữa (không còn ngoại lệ: menu Thêm trên mobile cũng là một `Modal`).
 - `Modal` dựng trên thẻ `<dialog>` native + `showModal()`. Trình duyệt lo phần lớp hiển thị (top layer), làm trang nền "trơ" (Tab không lọt ra ngoài, screen reader không đọc nền) và gửi Escape cho dialog trên cùng qua sự kiện `cancel`. Cần Safari 15.4 trở lên, không dùng polyfill. Style mặc định của `<dialog>` (margin, max-width/height, border, padding, màu) đã được reset; nền mờ là một `div` bên trong, còn `::backdrop` để trong suốt.
 - **Desktop (≥ 640px)**: panel căn giữa như cũ. **Mobile (< 640px)**: dạng *bottom-sheet*, tức panel rộng hết màn hình, dính mép dưới và chỉ bo góc trên, giống bảng "Chia sẻ" của iOS. Kiểu này giúp nút hành động nằm ngay trên bàn phím và dễ bấm bằng ngón cái.
   - Sheet có một **thanh kéo** nhỏ 36×4px ở trên cùng, để người dùng nhận ra đây là lớp nổi trên trang. Hiện thanh này chỉ để nhìn, chưa kéo được.
@@ -194,10 +202,14 @@ Trạng thái Skeleton Loading có nhiệm vụ giữ vững khung xương khôn
   - Nút đóng (✕) gắn thêm `MODAL_CLOSE_TAP`, các nút ở footer gắn `MODAL_FOOTER_TAP`, để thành vùng chạm 40px trên điện thoại mà desktop không đổi.
 - Overlay lấy chiều cao theo phần màn hình còn nhìn thấy (CSS var `--app-vvh`, do hook `useVisualViewportVars` cập nhật từ `window.visualViewport`). Panel tự cuộn bên trong. Header gắn `MODAL_STICKY_HEADER`, hàng nút gắn `MODAL_STICKY_FOOTER`, cả hai phải có nền đặc để nội dung cuộn bên dưới không bị lộ.
 - `onDismiss` dùng cho phím Escape và cho click ra nền nếu bật `dismissOnBackdrop`. Khi đang gửi request (mutation pending) thì truyền `undefined` để người dùng không đóng nhầm. React giữ trạng thái `open`, nên sự kiện `cancel` luôn bị chặn rồi chuyển cho `onDismiss`. Nếu trình duyệt vẫn ép đóng (Chrome làm vậy khi bấm Escape liên tục), `Modal` sẽ gọi `onDismiss` hoặc mở lại để khớp với `open`.
-- Khi mở modal, focus đặt vào panel (gắn `autofocus`) chứ không vào input, để bàn phím không tự bật lên. Khi đóng, focus trả về nút đã mở modal. `Modal` tự làm việc này, vì khi prop `open` chuyển sang false thì React đã gỡ `<dialog>` khỏi DOM trước lúc cleanup, nên trình duyệt không tự trả focus được. Trang nền bị khoá cuộn qua `useBodyScrollLock`. Hook này đếm tham chiếu và dùng chung với drawer menu, nên mở chồng nhiều lớp không bị mở khoá sớm.
+- Khi mở modal, focus đặt vào panel (gắn `autofocus`) chứ không vào input, để bàn phím không tự bật lên. Khi đóng, focus trả về nút đã mở modal. `Modal` tự làm việc này, vì khi prop `open` chuyển sang false thì React đã gỡ `<dialog>` khỏi DOM trước lúc cleanup, nên trình duyệt không tự trả focus được. Trang nền bị khoá cuộn qua `useBodyScrollLock`. Hook này đếm tham chiếu, nên mở chồng nhiều lớp không bị mở khoá sớm; pull-to-refresh cũng đọc trạng thái này để không chạy khi đang mở dialog.
 - Lớp hiển thị: dialog nằm ở top layer, cao hơn mọi z-index; dialog mở sau tự nằm trên dialog mở trước, nên không còn prop `layer`. Hệ quả: thứ gì portal ra `document.body` sẽ bị dialog che. Thành phần nổi (menu, popover) dùng trong modal phải portal vào `element.closest('dialog') ?? document.body`, như `CategoryAutocomplete`. Toast của các màn hình nằm ngoài dialog, nên sẽ bị che nếu hiện lúc modal đang mở.
 
-**Vì sao không tăng cỡ chữ input lên 16px**: dashboard cố ý dùng control nhỏ gọn (11–13px) để hiển thị được nhiều dữ liệu. Thay vào đó, `IosViewportFix` (gắn trong `AppProviders`) chỉ thêm `maximum-scale=1` trên iPhone/iPad. Từ iOS 10, Safari vẫn cho người dùng zoom bằng hai ngón nhưng không tự zoom khi focus input nữa. Android không có hiện tượng auto-zoom này nên vẫn giữ `maximumScale: 5`, và nhờ `interactiveWidget: 'resizes-content'` trong viewport, Android Chrome tự co layout khi bàn phím mở.
+**Ô nhập 16px trên màn cảm ứng**: trên màn cảm ứng (`@media (hover: none) and (pointer: coarse)`), ô nhập, select và textarea luôn dùng chữ 16px.
+- **Vì sao**: iOS tự zoom vào ô nhập có chữ dưới 16px. Trước đây app giữ chữ nhỏ và chặn zoom bằng `IosViewportFix` (thêm `maximum-scale=1` trên iPhone). Khi test trên iPhone thật trong app đã cài (22/10/2026), chạm ô nhập vẫn bị zoom, nên đổi sang cách chắc chắn là chữ 16px.
+- **Desktop** vẫn giữ chữ 11–13px.
+- `IosViewportFix` vẫn giữ làm lớp phòng hờ.
+- **Android**: không tự zoom kiểu này, viewport vẫn giữ `maximumScale: 5` và `interactiveWidget: 'resizes-content'`.
 
 **Đơn vị chiều cao**: dùng `h-dvh` / `min-h-dvh` thay cho `h-screen` / `100vh`, vì trên iOS `100vh` không co lại theo thanh địa chỉ hay bàn phím. Toast `fixed bottom` cộng thêm `env(safe-area-inset-bottom)` để không bị thanh home của iPhone che.
 

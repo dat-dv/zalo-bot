@@ -65,3 +65,7 @@ Dashboard không có màn hình đăng nhập. Người dùng mở dashboard b�
 - Chỉ module này được biết khoá lưu token; nơi khác phải import hàm từ `auth-storage.ts`.
 - Access token có dạng `payload.signature` (có dấu `.`), exchange token thì không. `captureDashboardToken` dựa vào khác biệt này; nếu đổi định dạng token phải cập nhật hàm này.
 - Khi gặp 401 liên tục: kiểm tra cookie `reports_refresh` (domain/HTTPS), endpoint `/api/refresh`, rồi mới xem tới UI.
+
+## Bo góc
+
+- Nút, ô nhập, thẻ/panel và khung dialog trong module này dùng `rounded-[3px]` (tối đa `rounded`, 4px), không dùng `rounded-lg/xl/2xl`. Lý do: giao diện dashboard theo phong cách gọn, sắc cạnh như công cụ quản trị; bo lớn làm các ô trông như app tiêu dùng và lệch với phần còn lại. `rounded-full` chỉ dành cho avatar, chấm trạng thái, công tắc, vòng quay tải và thanh tiến độ. Xem [web-ui-direction](../../global/web-ui-direction.md).

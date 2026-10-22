@@ -183,6 +183,7 @@ const messages = {
     'nav.settings': 'Cài đặt',
     'nav.zca': 'Zalo & Người dùng',
     'zca.logout': 'Đăng xuất ZCA',
+    'zca.refreshDirectory': 'Làm mới danh bạ Zalo',
     'zca.logoutConfirm':
       'Bạn có chắc chắn muốn ngắt kết nối và đăng xuất tài khoản Zalo cá nhân (ZCA) này không?',
     'zca.logoutSuccess': 'Đã đăng xuất tài khoản ZCA thành công.',
@@ -199,6 +200,7 @@ const messages = {
     'nav.openMenu': 'Mở menu điều hướng',
     'nav.closeMenu': 'Đóng menu điều hướng',
     'nav.more': 'Thêm',
+    'nav.moreTitle': 'Tất cả mục',
     'pullToRefresh.pull': 'Kéo để làm mới',
     'pullToRefresh.release': 'Thả để làm mới',
     'pullToRefresh.refreshing': 'Đang làm mới…',
@@ -1085,6 +1087,7 @@ const messages = {
     'nav.settings': 'Settings',
     'nav.zca': 'Zalo & Users',
     'zca.logout': 'Logout ZCA',
+    'zca.refreshDirectory': 'Refresh Zalo directory',
     'zca.logoutConfirm':
       'Are you sure you want to disconnect and logout this ZCA personal account?',
     'zca.logoutSuccess': 'ZCA account logged out successfully.',
@@ -1101,6 +1104,7 @@ const messages = {
     'nav.openMenu': 'Open navigation menu',
     'nav.closeMenu': 'Close navigation menu',
     'nav.more': 'More',
+    'nav.moreTitle': 'All sections',
     'pullToRefresh.pull': 'Pull to refresh',
     'pullToRefresh.release': 'Release to refresh',
     'pullToRefresh.refreshing': 'Refreshing…',

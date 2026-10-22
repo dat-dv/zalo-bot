@@ -38,7 +38,7 @@ export function StorageLinkBanner({
   const tone = TONE[kind];
   return (
     <div
-      className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 ${tone.box}`}
+      className={`flex flex-wrap items-center justify-between gap-2 rounded-[3px] border p-3 ${tone.box}`}
     >
       <div className="flex min-w-0 items-center gap-2.5">
         <span aria-hidden="true" className="text-lg">

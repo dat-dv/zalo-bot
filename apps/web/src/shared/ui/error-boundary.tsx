@@ -48,7 +48,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
 
       return (
         <main className="flex min-h-screen w-full items-center justify-center bg-slate-950 p-4 text-slate-100">
-          <section className="w-full max-w-md rounded-lg border border-rose-900/50 bg-slate-900/90 p-6 shadow-xl backdrop-blur-sm">
+          <section className="w-full max-w-md rounded-[3px] border border-rose-900/50 bg-slate-900/90 p-6 shadow-xl backdrop-blur-sm">
             <div className="flex flex-col items-center text-center">
               <div className="mb-4 flex size-14 items-center justify-center rounded-full border border-rose-800 bg-rose-950/40 text-2xl text-rose-400">
                 ⚠️

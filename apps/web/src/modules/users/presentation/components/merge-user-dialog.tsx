@@ -90,7 +90,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
       labelledBy={titleId}
       describedBy={descId}
       backdropClassName="bg-black/50 backdrop-blur-sm"
-      panelClassName="max-w-lg rounded-2xl border border-slate-200 bg-white px-6 dark:border-slate-800 dark:bg-slate-900"
+      panelClassName="max-w-lg rounded-[3px] border border-slate-200 bg-white px-6 dark:border-slate-800 dark:bg-slate-900"
     >
       <div
         className={`${MODAL_STICKY_HEADER} flex items-center justify-between bg-white pt-6 pb-3 dark:bg-slate-900`}
@@ -103,7 +103,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
           onClick={onClose}
           disabled={mergeMutation.isPending}
           aria-label={t('users.merge.close')}
-          className={`rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 dark:hover:bg-slate-800 ${MODAL_CLOSE_TAP}`}
+          className={`rounded-[3px] p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 dark:hover:bg-slate-800 ${MODAL_CLOSE_TAP}`}
         >
           ✕
         </button>
@@ -118,7 +118,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
           <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
             {t('users.merge.sourceLabel')}
           </span>
-          <div className="mt-1.5 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200">
+          <div className="mt-1.5 rounded-[3px] border border-slate-200 bg-slate-100 px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-200">
             {userLabel(source)}{' '}
             <span className="font-mono text-xs text-slate-500">{source.id}</span>
           </div>
@@ -143,7 +143,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
                 setSubmitError('');
               }}
               disabled={mergeMutation.isPending}
-              className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm max-sm:h-10 text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="mt-1.5 w-full rounded-[3px] border border-slate-300 bg-white px-3 py-2 text-sm max-sm:h-10 text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="">{t('users.merge.targetPlaceholder')}</option>
               {targets.map((u) => (
@@ -176,7 +176,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
           {targetUserId && preview.isError && (
             <p
               role="alert"
-              className="mt-2 rounded-lg bg-red-50 p-3 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400"
+              className="mt-2 rounded-[3px] bg-red-50 p-3 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400"
             >
               {t('users.merge.previewError')}
             </p>
@@ -186,7 +186,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
               {totalRows === 0 ? (
                 <p className="text-sm text-slate-500">{t('users.merge.previewEmpty')}</p>
               ) : (
-                <dl className="divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm dark:divide-slate-800 dark:border-slate-800">
+                <dl className="divide-y divide-slate-100 rounded-[3px] border border-slate-200 text-sm dark:divide-slate-800 dark:border-slate-800">
                   {USER_MERGE_TABLES.filter((table) => summary.counts[table] > 0).map((table) => (
                     <div key={table} className="flex items-center justify-between px-3 py-1.5">
                       <dt className="text-slate-600 dark:text-slate-300">
@@ -210,7 +210,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
               {summary.sourceIsBotAccount && (
                 <p
                   role="alert"
-                  className="rounded-lg bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                  className="rounded-[3px] bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
                 >
                   {t('users.merge.botAccountWarning')}
                 </p>
@@ -238,7 +238,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
         {submitError && (
           <p
             role="alert"
-            className="rounded-lg bg-red-50 p-3 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400"
+            className="rounded-[3px] bg-red-50 p-3 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400"
           >
             {submitError}
           </p>
@@ -251,7 +251,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
             type="button"
             onClick={onClose}
             disabled={mergeMutation.isPending}
-            className={`rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800 ${MODAL_FOOTER_TAP}`}
+            className={`rounded-[3px] px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800 ${MODAL_FOOTER_TAP}`}
           >
             {t('users.merge.cancel')}
           </button>
@@ -259,7 +259,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
             type="button"
             onClick={() => void handleMerge()}
             disabled={!canMerge}
-            className={`rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 active:scale-95 disabled:opacity-50 ${MODAL_FOOTER_TAP}`}
+            className={`rounded-[3px] bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 active:scale-95 disabled:opacity-50 ${MODAL_FOOTER_TAP}`}
           >
             {mergeMutation.isPending ? t('users.merge.merging') : t('users.merge.confirm')}
           </button>

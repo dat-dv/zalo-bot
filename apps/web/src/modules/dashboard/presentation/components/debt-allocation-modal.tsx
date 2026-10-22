@@ -194,7 +194,7 @@ export function DebtAllocationModal({
       onDismiss={allocateMutation.isPending ? undefined : onClose}
       labelledBy={titleId}
       backdropClassName="bg-slate-950/60 backdrop-blur-xs"
-      panelClassName="max-w-2xl rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+      panelClassName="max-w-2xl rounded-[3px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
       phoneLayout="fullscreen"
     >
       {/* Header */}

@@ -88,7 +88,7 @@ export function PwaUpdateBar() {
   return (
     <div
       role="status"
-      className="hidden min-h-10 items-center gap-2 rounded border border-sky-200 bg-sky-50 py-1 pr-1 pl-3 text-xs text-sky-900 max-[960px]:flex dark:border-sky-900 dark:bg-sky-950/60 dark:text-sky-100"
+      className="hidden min-h-10 items-center gap-2 rounded border border-sky-200 bg-sky-50 py-1 pr-1 pl-3 text-xs text-sky-900 max-[960px]:flex max-[960px]:animate-bar-down dark:border-sky-900 dark:bg-sky-950/60 dark:text-sky-100"
     >
       <span className="min-w-0 flex-1 truncate font-medium">{t('pwa.update.title')}</span>
       <Button

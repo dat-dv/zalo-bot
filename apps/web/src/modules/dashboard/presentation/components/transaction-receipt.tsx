@@ -69,7 +69,7 @@ function ReceiptDialog({ item, onClose }: ReceiptDialogProps) {
       onDismiss={onClose}
       dismissOnBackdrop
       labelledBy={titleId}
-      panelClassName="max-w-3xl rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+      panelClassName="max-w-3xl rounded-[3px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
     >
       <header
         className={`${MODAL_STICKY_HEADER} flex items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950 max-sm:py-1.5 max-sm:pr-1.5`}

@@ -88,3 +88,7 @@
 - Profile fields (`mergeContactProfileFields`, pure, spec `contact-profile.spec.ts`): birthday/address/workplace/relationship fill only when the lead's is empty; source notes appended as `— Gộp từ <name>:\n<notes>`; extra phones/accounts = union of lead + sources (deduped by digits), and every source primary phone/account that is not the lead's primary is added to the extras. The merge does not cap the lists at 10, so nothing is lost; a later profile edit must trim them to 10.
 - Reassigns sources' debts (`contactId`, `counterparty`, `counterpartyAlias`) and transactions (`contactId`) to the lead, deletes sources, then if `consolidateDebts` groups the lead's top-level debts by direction + currency and calls `combineDebts` for groups of ≥2.
 - NOT a single DB transaction: the steps are sequential saves; a failure midway (e.g. during debt consolidation) leaves earlier steps committed. Each `combineDebts` call is itself transactional.
+
+## Corner radius
+
+- Buttons, inputs, cards/panels and dialog panels in this module use `rounded-[3px]` (max `rounded`, 4px); no `rounded-lg/xl/2xl`. `rounded-full` only for avatars, status dots, switches, spinners and progress fills. See [web-ui-direction](../../global/web-ui-direction.md).

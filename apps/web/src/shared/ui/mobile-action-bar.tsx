@@ -15,7 +15,7 @@ export function MobileActionBar({ children }: { children: ReactNode }) {
     <>
       {/* In-flow spacer so the last rows can scroll out from under the fixed bar. */}
       <div aria-hidden="true" className="hidden h-14 shrink-0 max-[960px]:block" />
-      <div className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-30 hidden gap-2 border-t border-slate-200 bg-white/95 py-2 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95 max-[960px]:flex">
+      <div className="fixed inset-x-0 bottom-[calc(56px+env(safe-area-inset-bottom))] z-30 hidden gap-2 border-t border-slate-200 bg-white/95 py-2 pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95 max-[960px]:flex max-[960px]:animate-bar-up">
         {children}
       </div>
     </>

@@ -22,7 +22,7 @@ interface UserFormDialogProps {
 }
 
 const inputClass =
-  'mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 max-sm:h-10';
+  'mt-1.5 w-full rounded-[3px] border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 max-sm:h-10';
 const labelClass = 'block text-xs font-semibold uppercase tracking-wider text-slate-500';
 
 function apiErrorMessage(err: unknown, fallback: string): string {
@@ -91,7 +91,7 @@ export function UserFormDialog({ user, initialId, initialName, onClose }: UserFo
       onDismiss={isPending ? undefined : onClose}
       labelledBy={titleId}
       backdropClassName="bg-black/50 backdrop-blur-sm"
-      panelClassName="max-w-md rounded-2xl border border-slate-200 bg-white px-6 dark:border-slate-800 dark:bg-slate-900"
+      panelClassName="max-w-md rounded-[3px] border border-slate-200 bg-white px-6 dark:border-slate-800 dark:bg-slate-900"
     >
       <div
         className={`${MODAL_STICKY_HEADER} flex items-center justify-between bg-white pt-6 pb-3 dark:bg-slate-900`}
@@ -101,7 +101,7 @@ export function UserFormDialog({ user, initialId, initialName, onClose }: UserFo
         </h3>
         <button
           aria-label="Đóng"
-          className={`rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 ${MODAL_CLOSE_TAP}`}
+          className={`rounded-[3px] p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 ${MODAL_CLOSE_TAP}`}
           onClick={onClose}
           type="button"
         >
@@ -111,7 +111,7 @@ export function UserFormDialog({ user, initialId, initialName, onClose }: UserFo
 
       <form className="mt-4 flex flex-col gap-4" onSubmit={(e) => void handleSubmit(e)}>
         {error && (
-          <div className="rounded-lg bg-red-50 p-3 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400">
+          <div className="rounded-[3px] bg-red-50 p-3 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400">
             {error}
           </div>
         )}
@@ -198,14 +198,14 @@ export function UserFormDialog({ user, initialId, initialName, onClose }: UserFo
           className={`${MODAL_STICKY_FOOTER} mt-2 flex items-center justify-end gap-2 bg-white pt-2 pb-6 dark:bg-slate-900`}
         >
           <button
-            className={`rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${MODAL_FOOTER_TAP}`}
+            className={`rounded-[3px] px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${MODAL_FOOTER_TAP}`}
             onClick={onClose}
             type="button"
           >
             Hủy
           </button>
           <button
-            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 active:scale-95 disabled:opacity-50 ${MODAL_FOOTER_TAP}`}
+            className={`rounded-[3px] bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 active:scale-95 disabled:opacity-50 ${MODAL_FOOTER_TAP}`}
             disabled={isPending}
             type="submit"
           >

@@ -1,11 +1,12 @@
 'use client';
 
 import { type RefObject, useEffect, useRef } from 'react';
-import { shouldDismissSwipe, swipeOffset } from './swipe-dismiss';
+import { EASE_IOS, haptic } from '@/shared/ui/motion';
+import { SWIPE_DISMISS_RATIO, shouldDismissSwipe, swipeOffset } from './swipe-dismiss';
 
 // Finger travel before the gesture locks to an axis (smaller moves stay taps).
 const LOCK_DISTANCE_PX = 8;
-const SETTLE_MS = 220;
+const SETTLE_MS = 260;
 
 interface SwipeDismissOptions {
   /** The element that follows the finger and slides away. */
@@ -49,6 +50,7 @@ export function useSwipeDismiss({
     let last = { position: 0, time: 0 };
     let velocity = 0;
     let settleTimer = 0;
+    let pastThreshold = false;
 
     const along = (touch: Touch) => (axis === 'y' ? touch.clientY : touch.clientX);
     const across = (touch: Touch) => (axis === 'y' ? touch.clientX : touch.clientY);
@@ -71,6 +73,7 @@ export function useSwipeDismiss({
       engaged = false;
       offset = 0;
       velocity = 0;
+      pastThreshold = false;
       last = { position: along(touch), time: event.timeStamp };
     };
 
@@ -97,6 +100,10 @@ export function useSwipeDismiss({
       if (elapsed > 0) velocity = ((along(touch) - last.position) * direction) / elapsed;
       last = { position: along(touch), time: event.timeStamp };
       surface.style.transform = translate(`${offset * direction}px`);
+      const size = axis === 'y' ? surface.offsetHeight : surface.offsetWidth;
+      const crossed = offset >= size * SWIPE_DISMISS_RATIO;
+      if (crossed && !pastThreshold) haptic(); // tick once when release would now dismiss
+      pastThreshold = crossed;
     };
 
     const handleEnd = () => {
@@ -105,7 +112,7 @@ export function useSwipeDismiss({
       if (!engaged) return;
       engaged = false;
       const size = axis === 'y' ? surface.offsetHeight : surface.offsetWidth;
-      surface.style.transition = `transform ${SETTLE_MS}ms ease-out`;
+      surface.style.transition = `transform ${SETTLE_MS}ms ${EASE_IOS}`;
       if (shouldDismissSwipe({ offset, size, velocity })) {
         surface.style.transform = translate(`${100 * direction}%`);
         onDismissRef.current();

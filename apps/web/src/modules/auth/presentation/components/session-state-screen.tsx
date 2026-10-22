@@ -70,7 +70,7 @@ export function SessionStateScreen({ reason = 'expired', onRetry }: SessionState
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
       <section
-        className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+        className="w-full max-w-md rounded-[3px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900"
         role="alert"
         aria-live="polite"
       >

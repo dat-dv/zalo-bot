@@ -205,7 +205,8 @@ export function CalendarAgenda({
         </ul>
       ) : (
         agendaDays.map((day) => (
-          <section key={day.key} aria-label={formatDayHeading(day.date)}>
+          // Re-keyed per day, so picking another day eases its list in.
+          <section key={day.key} aria-label={formatDayHeading(day.date)} className="animate-row-in">
             <h3
               className={`m-0 border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-semibold tracking-wide capitalize dark:border-slate-800 dark:bg-slate-950/60 ${
                 day.key === todayKey
@@ -230,7 +231,8 @@ export function CalendarAgenda({
                     >
                       <button
                         type="button"
-                        className="flex min-h-[52px] w-full cursor-pointer items-center gap-3 border-0 !bg-transparent px-3 py-2 text-left transition-colors hover:!bg-slate-50 dark:hover:!bg-slate-800/60"
+                        data-press="none"
+                        className="flex min-h-[52px] w-full cursor-pointer items-center gap-3 border-0 !bg-transparent px-3 py-2 text-left transition-colors hover:!bg-slate-50 active:!bg-slate-100 dark:hover:!bg-slate-800/60 dark:active:!bg-slate-800"
                         onClick={() => setOpenEventId(event.id)}
                       >
                         <span className="w-[4.5rem] shrink-0 text-[11.5px] font-semibold text-blue-700 tabular-nums dark:text-blue-300">

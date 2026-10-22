@@ -143,3 +143,7 @@ Toàn bộ chạy trong **một transaction**: lỗi ở bất kỳ bước nào
 - Chạy `npm run test --workspace @zalobot/api`. Test gộp tài khoản ở `apps/api/src/users/user-merge.service.spec.ts`: chọn token Google, chặn tự gộp/ID không tồn tại, xem trước, chuyển người tạo + liên kết mà không đụng dữ liệu tài chính, gỡ liên kết nguồn khi user đích đã có, giữ quyền admin, **từ chối khi ID nguồn là tài khoản ZCA của chính bot** ("merge is refused when the source is the bot own ZCA account"), và rollback khi lỗi.
 - `users-sync.spec.ts` kiểm tra đồng bộ ZCA (không chép tên nhóm vào user) và việc admin không lấy từ biến môi trường; `users-drive-folder.spec.ts` kiểm tra lưu thư mục Drive không tạo user mới.
 - Chạy `npm run typecheck` và `npm run lint`.
+
+## Bo góc
+
+- Nút, ô nhập, thẻ/panel và khung dialog trong module này dùng `rounded-[3px]` (tối đa `rounded`, 4px), không dùng `rounded-lg/xl/2xl`. Lý do: giao diện dashboard theo phong cách gọn, sắc cạnh như công cụ quản trị; bo lớn làm các ô trông như app tiêu dùng và lệch với phần còn lại. `rounded-full` chỉ dành cho avatar, chấm trạng thái, công tắc, vòng quay tải và thanh tiến độ. Xem [web-ui-direction](../../global/web-ui-direction.md).

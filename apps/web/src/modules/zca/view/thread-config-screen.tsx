@@ -10,7 +10,7 @@ import { ThreadConfigHeader } from '../presentation/components/thread-config/thr
 import { readChatTableReturnHref } from './use-chat-table-url-state';
 
 const PANEL =
-  'flex flex-col items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-12 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400';
+  'flex flex-col items-center gap-3 rounded-[3px] border border-slate-200 bg-white px-4 py-12 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400';
 
 /** Bot configuration of one Zalo chat, opened from "Cấu hình" in the /zca table. */
 export function ThreadConfigScreen() {
@@ -40,10 +40,10 @@ export function ThreadConfigScreen() {
   if (configQuery.isLoading || threadsQuery.isLoading) {
     return (
       <div aria-busy="true" className="flex flex-col gap-4">
-        <div className="h-24 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+        <div className="h-24 animate-pulse rounded-[3px] bg-slate-100 dark:bg-slate-800" />
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="h-80 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
-          <div className="h-80 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+          <div className="h-80 animate-pulse rounded-[3px] bg-slate-100 dark:bg-slate-800" />
+          <div className="h-80 animate-pulse rounded-[3px] bg-slate-100 dark:bg-slate-800" />
         </div>
       </div>
     );

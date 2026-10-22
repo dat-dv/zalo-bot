@@ -296,3 +296,8 @@ Trí nhớ hội thoại không dùng biến môi trường: bật theo từng k
 - Test web: `apps/web/src/modules/zca/model/chat-rows.spec.ts`, `api/zca-drive-link.spec.ts`, `api/zca-sync-media.spec.ts`.
 - Thử tay trong nhóm test: user chưa cấp quyền gõ `ăn trưa 45k` hoặc `@drive` → bot im lặng; gửi ảnh → vẫn được sao lưu. User đã cấp quyền gõ `ăn trưa 45k` → hiện thẻ xác nhận; `@bot /drive` → trả link và **không** sinh user mới trong bảng người dùng.
 - Chạy `npm run typecheck` và `npm run lint` để kiểm tra an toàn kiểu dữ liệu.
+
+## Bo góc
+
+- Nút, ô nhập, thẻ/panel và khung dialog trong module này dùng `rounded-[3px]` (tối đa `rounded`, 4px), không dùng `rounded-lg/xl/2xl`. Lý do: giao diện dashboard theo phong cách gọn, sắc cạnh như công cụ quản trị; bo lớn làm các ô trông như app tiêu dùng và lệch với phần còn lại. `rounded-full` chỉ dành cho avatar, chấm trạng thái, công tắc, vòng quay tải và thanh tiến độ. Xem [web-ui-direction](../../global/web-ui-direction.md).
+- Header trang ZCA trên điện thoại (<= 640px): chữ "Cập nhật lúc …", nút Làm mới và nút Đăng xuất nằm trên **một hàng không rớt dòng**. Chữ cập nhật nhỏ (11px) và tự cắt khi dài; nút Làm mới chỉ còn icon 40×40 (đọc màn hình vẫn nghe "Làm mới danh bạ Zalo" qua `zca.refreshDirectory`); nút Đăng xuất dùng nhãn ngắn "Đăng xuất", cao 40px. Lý do: trước đây hàng này rớt thành 2–3 dòng trên iPhone, đẩy nội dung xuống và nút bị lệch. Khi chưa đăng nhập chỉ còn nút Làm mới (nút quét QR nằm ở thanh hành động dưới đáy). Desktop giữ nguyên.

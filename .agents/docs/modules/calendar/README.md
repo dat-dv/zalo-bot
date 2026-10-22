@@ -32,6 +32,7 @@ Người dùng đã kết nối Google xem và chỉnh sửa sự kiện Google 
   - `getCalendarGridRange`: tính khoảng thời gian bao trùm toàn bộ ô đang hiển thị của lưới (tuần bắt đầu từ Thứ 2, gồm cả ngày đệm của tháng trước/sau).
   - `getEventDateKeys`: trải sự kiện nhiều ngày lên từng ngày nó bao phủ. Ngày kết thúc của sự kiện cả ngày và mốc kết thúc đúng 00:00 được hiểu là **không bao gồm** (tránh hiện thừa một ngày).
   - `getWeekDays`, `addDays`, `toDateKey`, `formatEventTime`: tính tuần Thứ 2 → Chủ nhật quanh một ngày, cộng ngày theo nửa đêm giờ địa phương, khoá `YYYY-MM-DD` và giờ `HH:mm` — dùng chung cho lưới và agenda để hai chế độ xem luôn khớp nhau.
+  - Agenda: chọn ngày khác thì danh sách của ngày đó hiện mượt (mờ dần + trượt lên nhẹ). Nhấn vào dòng sự kiện chỉ đổi nền, không co cả dòng. Badge đếm và chip sự kiện trong lưới tháng dùng góc 2px thay cho dạng viên thuốc (pill).
 - **`CalendarGrid`**: component "điều khiển từ ngoài" — không tự giữ dữ liệu hay trạng thái sửa, mọi thứ đi qua props.
   - Lưới 7 cột Thứ 2 → Chủ nhật, ngày đệm làm mờ, tô sáng hôm nay, viền ngày đang chọn, badge số sự kiện mỗi ngày.
   - Mọi sự kiện trong ngày đều hiện thành thẻ (giờ bắt đầu + tiêu đề). Tiêu đề chỉ một dòng và bị cắt bằng `truncate`; xem đầy đủ qua tooltip hoặc panel chi tiết.

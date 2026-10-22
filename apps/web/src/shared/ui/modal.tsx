@@ -11,6 +11,16 @@ import {
 import { useBodyScrollLock } from '@/shared/hooks/use-body-scroll-lock';
 import { useIsPhone } from '@/shared/hooks/use-media-query';
 import { useSwipeDismiss } from '@/shared/hooks/use-swipe-dismiss';
+import { PHONE_MEDIA_QUERY } from '@/shared/ui/breakpoints';
+import {
+  MOTION_MS,
+  cardEnter,
+  cardExit,
+  fadeIn,
+  fadeOut,
+  sheetEnter,
+  sheetExit,
+} from '@/shared/ui/motion';
 import { useVisualViewportVars } from '@/shared/hooks/use-visual-viewport';
 
 /** Keep dialog headers visible while the panel body scrolls. Pair with a solid background. */
@@ -26,7 +36,7 @@ export const MODAL_FOOTER_TAP = 'max-sm:h-10 max-sm:min-h-10 max-sm:flex-1';
 // Wait for the on-screen keyboard animation before revealing the focused field.
 const KEYBOARD_SETTLE_MS = 300;
 // Keep the dialog mounted this long after `open` turns false so it can slide/fade out.
-const EXIT_MS = 200;
+const EXIT_MS = MOTION_MS.sheetOut;
 // A sheet is dragged by its top strip (grab bar + header); lower touches scroll the content.
 const SHEET_DRAG_ZONE_PX = 64;
 
@@ -74,6 +84,7 @@ export function Modal({
   const isFullscreen = phoneLayout === 'fullscreen';
   const dialogRef = useRef<HTMLDialogElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
   const dismissRef = useRef(onDismiss);
   useEffect(() => {
     dismissRef.current = onDismiss;
@@ -85,6 +96,10 @@ export function Modal({
   const closing = rendered && !open;
   useEffect(() => {
     if (!closing) return;
+    // Phones: the sheet drops from where it is (mid-swipe included); larger screens fade.
+    if (window.matchMedia(PHONE_MEDIA_QUERY).matches) sheetExit(panelRef.current);
+    else cardExit(panelRef.current);
+    fadeOut(backdropRef.current, MOTION_MS.sheetOut);
     const timer = window.setTimeout(() => setRendered(false), EXIT_MS);
     return () => window.clearTimeout(timer);
   }, [closing]);
@@ -114,6 +129,10 @@ export function Modal({
     panel.setAttribute('autofocus', '');
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (!dialog.open) dialog.showModal();
+    // Web Animations rather than CSS @starting-style: it also runs on iOS < 17.5.
+    if (window.matchMedia(PHONE_MEDIA_QUERY).matches) sheetEnter(panel);
+    else cardEnter(panel);
+    fadeIn(backdropRef.current, MOTION_MS.sheetIn);
     return () => {
       if (dialog.open) dialog.close();
       // When `open` flips to false on a mounted Modal, React detaches the <dialog> before
@@ -168,12 +187,6 @@ export function Modal({
 
   if (!rendered) return null;
 
-  // Enter: `starting:` (@starting-style) values; exit: the `closing` values below. Phones slide
-  // the sheet up from the bottom edge, larger screens fade and scale the card slightly.
-  const motion = closing
-    ? 'opacity-0 scale-[.98] max-sm:translate-y-full max-sm:opacity-100 max-sm:scale-100'
-    : 'starting:opacity-0 starting:scale-[.98] max-sm:starting:translate-y-full max-sm:starting:opacity-100 max-sm:starting:scale-100';
-
   return (
     <dialog
       ref={dialogRef}
@@ -189,13 +202,14 @@ export function Modal({
     >
       <div
         aria-hidden="true"
-        className={`absolute inset-0 transition-opacity duration-200 starting:opacity-0 ${closing ? 'opacity-0' : ''} ${backdropClassName}`}
+        ref={backdropRef}
+        className={`absolute inset-0 ${backdropClassName}`}
         onClick={dismissOnBackdrop && open ? () => dismissRef.current?.() : undefined}
       />
       <div
         ref={panelRef}
         tabIndex={-1}
-        className={`relative flex max-h-full w-full flex-col overflow-y-auto overscroll-contain shadow-2xl outline-none transition duration-200 ease-out ${motion} ${panelClassName} max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-[env(safe-area-inset-bottom)] ${isFullscreen ? 'max-sm:h-full max-sm:rounded-none max-sm:border-t-0 max-sm:pt-[env(safe-area-inset-top)]' : ''}`}
+        className={`relative flex max-h-full w-full flex-col overflow-y-auto overscroll-contain shadow-2xl outline-none ${panelClassName} max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 max-sm:pb-[env(safe-area-inset-bottom)] ${isFullscreen ? 'max-sm:h-full max-sm:rounded-none max-sm:border-t-0 max-sm:pt-[env(safe-area-inset-top)]' : ''}`}
       >
         {/* Grab bar: marks the sheet's drag strip (swipe down to dismiss when dismissible). */}
         {!isFullscreen && (

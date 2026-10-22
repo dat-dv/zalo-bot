@@ -122,3 +122,7 @@
 
 - Home's Transactions panel and the "Balance" KPI still use the dashboard payload (current month; panel ≤20 rows) by design.
 - Trend buckets on Transactions only cover loaded rows when a period has more than one page.
+
+## Corner radius
+
+- Buttons, inputs, cards/panels and dialog panels in this module use `rounded-[3px]` (max `rounded`, 4px); no `rounded-lg/xl/2xl`. `rounded-full` only for avatars, status dots, switches, spinners and progress fills. See [web-ui-direction](../../global/web-ui-direction.md).

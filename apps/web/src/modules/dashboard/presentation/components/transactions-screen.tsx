@@ -357,7 +357,7 @@ export function TransactionsScreen() {
                     className="inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] gap-1 rounded-[3px] border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/60"
                   >
                     {t('table.columnFilter.clearAll')}
-                    <span className="rounded-full bg-sky-600 px-1.5 text-[10px] leading-4 font-semibold text-white dark:bg-sky-500">
+                    <span className="rounded-[2px] bg-sky-600 px-1.5 text-[10px] leading-4 font-semibold text-white dark:bg-sky-500">
                       {activeColumnFilterCount}
                     </span>
                   </button>

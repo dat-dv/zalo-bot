@@ -2,15 +2,15 @@
 
 import Link, { useLinkStatus } from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { APP_ROUTES, type TranslationKey } from '@zalobot/contracts';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { useTheme } from '@/shared/store/theme-store';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useBodyScrollLock } from '@/shared/hooks/use-body-scroll-lock';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
-import { useSwipeDismiss } from '@/shared/hooks/use-swipe-dismiss';
 import { handleZaloLinkClick, ZALO_LINKS } from '@/shared/zalo/zalo-app-link';
+import { MODAL_STICKY_HEADER, Modal } from './modal';
+import { bounce } from './motion';
 import { useWorkspaceHeader } from './workspace-header';
 
 const TOPBAR_ICON_BUTTON =
@@ -151,21 +151,21 @@ const TAB_BAR_ITEM =
 const TAB_BAR_ITEM_ACTIVE = `${TAB_BAR_ITEM} font-semibold !text-slate-900 dark:!text-slate-100`;
 const TAB_BAR_ITEM_IDLE = `${TAB_BAR_ITEM} font-medium !text-slate-500 dark:!text-slate-400`;
 
+const MENU_TILE =
+  'flex h-[72px] flex-col items-center justify-center gap-1.5 rounded-[3px] border px-1 text-center text-[12px] leading-tight no-underline';
+const MENU_TILE_ACTIVE = `${MENU_TILE} border-slate-900 bg-slate-900 font-semibold text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900`;
+const MENU_TILE_IDLE = `${MENU_TILE} border-slate-200 bg-slate-50 font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200`;
+const MENU_FOOTER_BUTTON =
+  'inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[3px] border border-slate-200 !bg-transparent px-3 text-xs font-medium !text-slate-700 dark:border-slate-700 dark:!text-slate-200';
+
 export function AppNavigation({ active, footer }: { active?: NavigationPage; footer?: ReactNode }) {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const { locale, setLocale, t } = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const isCompact = useIsCompact();
-  const drawerRef = useRef<HTMLElement>(null);
-  // Swipe left to close the open drawer on compact screens.
-  useSwipeDismiss({
-    surfaceRef: drawerRef,
-    axis: 'x',
-    direction: -1,
-    enabled: isCompact && isOpen,
-    onDismiss: () => setIsOpen(false),
-  });
+  // The "More" sheet exists only on compact screens; desktop keeps the sidebar.
+  const isMenuOpen = isOpen && isCompact;
   const nextThemeLabel = theme === 'light' ? t('nav.dark') : t('nav.light');
   const { isMoneyVisible, toggleMoneyVisibility } = useMoneyVisibility();
   const { title, isAuthenticated, handleRefresh, handleLogout } = useWorkspaceHeader();
@@ -179,21 +179,6 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
     setPendingTab(null);
   }, [pathname]);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
-      }
-    };
-    if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-    }
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen]);
-  useBodyScrollLock(isOpen);
-
   const isItemActive = (item: NavItem): boolean => {
     if (active) return active === item.page;
     if (item.href === APP_ROUTES.home) {
@@ -201,7 +186,46 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
     }
     return pathname.startsWith(item.href);
   };
-  const isMoreActive = isOpen || !tabBarItems.some(isItemActive);
+
+  // Index of the highlighted tab; the last slot is "More".
+  const moreIndex = tabBarItems.length;
+  const routeTabIndex = tabBarItems.findIndex(isItemActive);
+  const pendingTabIndex = pendingTab
+    ? tabBarItems.findIndex((item) => item.page === pendingTab)
+    : -1;
+  const highlightedTab = isMenuOpen
+    ? moreIndex
+    : pendingTabIndex >= 0
+      ? pendingTabIndex
+      : routeTabIndex >= 0
+        ? routeTabIndex
+        : moreIndex;
+
+  // Sliding indicator: one bar that moves to the highlighted tab instead of each tab
+  // drawing its own, like native tab bars.
+  const tabRefs = useRef<(HTMLElement | null)[]>([]);
+  const indicatorRef = useRef<HTMLSpanElement>(null);
+  const indicatorPlaced = useRef(false);
+  useLayoutEffect(() => {
+    const indicator = indicatorRef.current;
+    if (!isCompact || !indicator) return;
+    const place = () => {
+      const tab = tabRefs.current[highlightedTab];
+      if (!tab) return;
+      // First placement (and resizes) jump; later tab changes slide.
+      indicator.style.transitionDuration = indicatorPlaced.current ? '' : '0ms';
+      indicator.style.width = `${Math.max(0, tab.offsetWidth - 24)}px`;
+      indicator.style.transform = `translateX(${tab.offsetLeft + 12}px)`;
+      indicatorPlaced.current = true;
+    };
+    place();
+    const handleResize = () => {
+      indicatorPlaced.current = false;
+      place();
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [highlightedTab, isCompact]);
 
   return (
     <>
@@ -210,18 +234,9 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
         aria-hidden="true"
         className="fixed inset-x-0 top-0 z-40 hidden h-[env(safe-area-inset-top)] bg-[#f8fafc] dark:bg-[#090d16] max-[960px]:block"
       />
-      {/* Mobile topbar doubles as the page header: WorkspaceHeader is hidden at this width. */}
-      <header className="sticky top-0 z-40 max-[960px]:top-[env(safe-area-inset-top)] hidden min-h-[52px] items-center gap-2 rounded border border-slate-200 bg-white px-1.5 py-1.5 dark:border-slate-700 dark:bg-slate-900 max-[960px]:flex">
-        <button
-          aria-controls="app-navigation-drawer"
-          aria-expanded={isOpen}
-          aria-label={isOpen ? t('nav.closeMenu') : t('nav.openMenu')}
-          className={TOPBAR_ICON_BUTTON}
-          onClick={() => setIsOpen((prev) => !prev)}
-          type="button"
-        >
-          {isOpen ? <CloseIcon /> : <HamburgerIcon />}
-        </button>
+      {/* Mobile topbar doubles as the page header: WorkspaceHeader is hidden at this width.
+          No menu button: the "More" tab opens the menu, like native tab-bar apps. */}
+      <header className="sticky top-0 z-40 max-[960px]:top-[env(safe-area-inset-top)] hidden min-h-[52px] items-center gap-2 rounded border border-slate-200 bg-white py-1.5 pr-1.5 pl-3 dark:border-slate-700 dark:bg-slate-900 max-[960px]:flex">
         <h1
           className="m-0 min-w-0 flex-1 truncate text-[15px] font-bold text-slate-900 dark:text-slate-100"
           title={title}
@@ -263,47 +278,26 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
         )}
       </header>
 
-      {isOpen && (
-        <div
-          aria-hidden="true"
-          className="fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-[3px]"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-
+      {/* Desktop sidebar. */}
       <aside
-        ref={drawerRef}
-        id="app-navigation-drawer"
-        className={`flex h-full w-[210px] flex-col justify-between rounded border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900 max-[960px]:fixed max-[960px]:inset-y-0 max-[960px]:left-0 max-[960px]:z-[60] max-[960px]:h-dvh max-[960px]:max-w-[85vw] max-[960px]:w-[280px] max-[960px]:rounded-none max-[960px]:border-y-0 max-[960px]:border-l-0 max-[960px]:border-r-slate-700 max-[960px]:px-3 max-[960px]:pt-[calc(0.875rem+env(safe-area-inset-top))] max-[960px]:pb-[calc(0.875rem+env(safe-area-inset-bottom))] max-[960px]:pl-[max(0.75rem,env(safe-area-inset-left))] max-[960px]:overflow-y-auto max-[960px]:overscroll-contain max-[960px]:shadow-[4px_0_24px_rgba(0,0,0,0.15)] max-[960px]:transition-transform max-[960px]:duration-[250ms] max-[960px]:ease-out ${isOpen ? 'max-[960px]:translate-x-0' : 'max-[960px]:-translate-x-full'}`}
+        className="flex h-full w-[210px] flex-col justify-between rounded border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900 max-[960px]:hidden"
         aria-label={t('nav.personalSpace')}
-        // Off-canvas drawer: keep its links out of the tab order and the accessibility tree.
-        inert={isCompact && !isOpen}
       >
-        <div className="mb-3.5 block max-[960px]:flex max-[960px]:items-center max-[960px]:justify-between">
-          <div className="flex items-center gap-2 text-slate-900 dark:text-slate-100">
-            <span
-              className="inline-flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-slate-900 text-xs font-extrabold text-white"
-              aria-hidden="true"
-            >
-              T
-            </span>
-            <span>
-              <strong className="block text-[13px] leading-[1.1] font-bold tracking-[-.01em]">
-                zalobot
-              </strong>
-              <small className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                {t('nav.personalSpace')}
-              </small>
-            </span>
-          </div>
-          <button
-            aria-label={t('nav.closeMenu')}
-            className="!hidden size-[30px] max-[960px]:size-10 items-center justify-center rounded-[3px] border border-slate-200 !bg-transparent !p-0 !text-slate-500 hover:!bg-slate-100 hover:!text-slate-900 dark:border-slate-700 dark:!text-slate-400 dark:hover:!bg-slate-800 dark:hover:!text-slate-100 max-[960px]:!inline-flex"
-            onClick={() => setIsOpen(false)}
-            type="button"
+        <div className="mb-3.5 flex items-center gap-2 text-slate-900 dark:text-slate-100">
+          <span
+            className="inline-flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-slate-900 text-xs font-extrabold text-white"
+            aria-hidden="true"
           >
-            <CloseIcon />
-          </button>
+            T
+          </span>
+          <span>
+            <strong className="block text-[13px] leading-[1.1] font-bold tracking-[-.01em]">
+              zalobot
+            </strong>
+            <small className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              {t('nav.personalSpace')}
+            </small>
+          </span>
         </div>
 
         <nav className="grid gap-2.5" aria-label={t('nav.personalSpace')}>
@@ -318,13 +312,12 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
                   <Link
                     className={
                       activeState
-                        ? 'flex min-h-[30px] w-full items-center gap-2 rounded-[3px] bg-slate-900 px-2 text-left text-[12.5px] font-semibold text-white no-underline dark:bg-slate-100 dark:text-slate-900 max-[960px]:min-h-10'
-                        : 'flex min-h-[30px] w-full items-center gap-2 rounded-[3px] px-2 text-left text-[12.5px] font-medium text-slate-600 no-underline hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100 max-[960px]:min-h-10'
+                        ? 'flex min-h-[30px] w-full items-center gap-2 rounded-[3px] bg-slate-900 px-2 text-left text-[12.5px] font-semibold text-white no-underline dark:bg-slate-100 dark:text-slate-900'
+                        : 'flex min-h-[30px] w-full items-center gap-2 rounded-[3px] px-2 text-left text-[12.5px] font-medium text-slate-600 no-underline hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100'
                     }
                     aria-current={activeState ? 'page' : undefined}
                     href={item.href}
                     key={item.page}
-                    onClick={() => setIsOpen(false)}
                   >
                     <NavigationItemIcon icon={item.icon} />
                     <span>{t(item.labelKey)}</span>
@@ -336,20 +329,9 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
         </nav>
         <div className="mt-auto grid gap-1 border-t border-slate-200 pt-2 dark:border-slate-700">
           {footer}
-          {/* Logout lives in the drawer on phones and tablets; desktop keeps it in WorkspaceHeader. */}
-          {isAuthenticated && (
-            <button
-              className="hidden min-h-10 w-full items-center gap-2 rounded-[3px] !bg-transparent px-1.5 text-left text-xs font-medium text-slate-600 hover:!bg-slate-100 hover:!text-slate-900 dark:!text-slate-300 dark:hover:!bg-slate-800 dark:hover:!text-slate-100 max-[960px]:flex"
-              onClick={() => void handleLogout()}
-              type="button"
-            >
-              <LogoutIcon />
-              <span>{t('common.logout')}</span>
-            </button>
-          )}
           <button
             aria-label={nextThemeLabel}
-            className="flex min-h-7 max-[960px]:min-h-10 w-full items-center gap-2 rounded-[3px] !bg-transparent px-1.5 text-left text-xs font-medium text-slate-600 hover:!bg-slate-100 hover:!text-slate-900 dark:!text-slate-300 dark:hover:!bg-slate-800 dark:hover:!text-slate-100"
+            className="flex min-h-7 w-full items-center gap-2 rounded-[3px] !bg-transparent px-1.5 text-left text-xs font-medium text-slate-600 hover:!bg-slate-100 hover:!text-slate-900 dark:!text-slate-300 dark:hover:!bg-slate-800 dark:hover:!text-slate-100"
             onClick={toggleTheme}
             title={nextThemeLabel}
             type="button"
@@ -362,7 +344,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
               {t('common.language')}
             </span>
             <select
-              className="h-6 min-h-6 max-[960px]:h-10 rounded-[3px] border border-slate-300 bg-white px-1 text-[11px] text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+              className="h-6 min-h-6 rounded-[3px] border border-slate-300 bg-white px-1 text-[11px] text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
               aria-label={t('common.language')}
               onChange={(event) => setLocale(event.target.value as typeof locale)}
               value={locale}
@@ -374,20 +356,112 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
         </div>
       </aside>
 
+      {/* Compact "More" menu: a bottom sheet with every destination as a 3-column grid, so
+          nothing scrolls inside a side panel. Shares Modal motion and swipe-down to close. */}
+      <Modal
+        open={isMenuOpen}
+        onDismiss={() => setIsOpen(false)}
+        dismissOnBackdrop
+        ariaLabel={t('nav.moreTitle')}
+        panelClassName="max-w-md rounded-[4px] border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+      >
+        <header
+          className={`${MODAL_STICKY_HEADER} flex items-center justify-between gap-2 border-b border-slate-200 bg-white pt-3 pr-1.5 pb-1.5 pl-3 dark:border-slate-700 dark:bg-slate-900`}
+        >
+          <h2 className="m-0 text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {t('nav.moreTitle')}
+          </h2>
+          <button
+            aria-label={t('nav.closeMenu')}
+            className="inline-flex size-10 items-center justify-center rounded-[3px] !bg-transparent !p-0 !text-slate-500 hover:!bg-slate-100 dark:!text-slate-400 dark:hover:!bg-slate-800"
+            onClick={() => setIsOpen(false)}
+            type="button"
+          >
+            <CloseIcon />
+          </button>
+        </header>
+        <nav className="grid gap-3 px-3 pt-2 pb-3" aria-label={t('nav.personalSpace')}>
+          {navSections.map((section) => (
+            <div key={section.titleKey}>
+              <p className="m-0 mb-1.5 text-[10px] font-bold tracking-[.08em] text-slate-400 uppercase dark:text-slate-500">
+                {t(section.titleKey)}
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {section.items.map((item) => {
+                  const activeState = isItemActive(item);
+                  return (
+                    <Link
+                      aria-current={activeState ? 'page' : undefined}
+                      className={activeState ? MENU_TILE_ACTIVE : MENU_TILE_IDLE}
+                      href={item.href}
+                      key={item.page}
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <NavigationItemIcon icon={item.icon} size="tile" />
+                      <span className="line-clamp-2">{t(item.labelKey)}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </nav>
+        <footer className="grid gap-2 border-t border-slate-200 px-3 pt-3 pb-3 dark:border-slate-700">
+          <div className="flex gap-2">
+            <button
+              aria-label={nextThemeLabel}
+              className={MENU_FOOTER_BUTTON}
+              onClick={toggleTheme}
+              type="button"
+            >
+              <ThemeIcon theme={theme} />
+              <span className="truncate">{nextThemeLabel}</span>
+            </button>
+            <select
+              className="h-10 min-w-0 flex-1 rounded-[3px] border border-slate-200 bg-white px-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              aria-label={t('common.language')}
+              onChange={(event) => setLocale(event.target.value as typeof locale)}
+              value={locale}
+            >
+              <option value="vi">{t('web.language.vi')}</option>
+              <option value="en">{t('web.language.en')}</option>
+            </select>
+          </div>
+          {isAuthenticated && (
+            <button
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[3px] border border-rose-200 !bg-transparent text-xs font-semibold !text-rose-700 dark:border-rose-900 dark:!text-rose-300"
+              onClick={() => void handleLogout()}
+              type="button"
+            >
+              <LogoutIcon />
+              <span>{t('common.logout')}</span>
+            </button>
+          )}
+        </footer>
+      </Modal>
+
       <nav
         aria-label={t('nav.tabBar')}
         className="fixed inset-x-0 bottom-0 z-40 hidden h-[calc(56px+env(safe-area-inset-bottom))] items-stretch gap-1 border-t border-slate-200 bg-white px-[max(0.25rem,env(safe-area-inset-left))] pt-1 pb-[env(safe-area-inset-bottom)] dark:border-slate-700 dark:bg-slate-900 max-[960px]:flex"
       >
-        {tabBarItems.map((item) => {
-          const activeState = !isOpen && isItemActive(item);
-          const highlighted = pendingTab ? !isOpen && pendingTab === item.page : activeState;
+        <span
+          ref={indicatorRef}
+          aria-hidden="true"
+          className="absolute top-0 left-0 h-0.5 rounded-[1px] bg-slate-900 transition-[transform,width] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] dark:bg-slate-100"
+        />
+        {tabBarItems.map((item, index) => {
+          const activeState = !isMenuOpen && isItemActive(item);
           return (
             <Link
+              ref={(element) => {
+                tabRefs.current[index] = element;
+              }}
               aria-current={activeState ? 'page' : undefined}
-              className={`relative ${highlighted ? TAB_BAR_ITEM_ACTIVE : TAB_BAR_ITEM_IDLE}`}
+              className={`relative ${highlightedTab === index ? TAB_BAR_ITEM_ACTIVE : TAB_BAR_ITEM_IDLE}`}
               href={item.href}
               key={item.page}
-              onClick={() => {
+              onClick={(event) => {
+                bounce(event.currentTarget.querySelector('svg'));
                 if (!activeState) setPendingTab(item.page);
               }}
             >
@@ -398,10 +472,17 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           );
         })}
         <button
-          aria-controls="app-navigation-drawer"
-          aria-expanded={isOpen}
-          className={isMoreActive ? TAB_BAR_ITEM_ACTIVE : TAB_BAR_ITEM_IDLE}
-          onClick={() => setIsOpen((prev) => !prev)}
+          ref={(element) => {
+            tabRefs.current[moreIndex] = element;
+          }}
+          aria-haspopup="dialog"
+          aria-expanded={isMenuOpen}
+          className={highlightedTab === moreIndex ? TAB_BAR_ITEM_ACTIVE : TAB_BAR_ITEM_IDLE}
+          data-press="none"
+          onClick={(event) => {
+            bounce(event.currentTarget.querySelector('svg'));
+            setIsOpen((prev) => !prev);
+          }}
           type="button"
         >
           <MoreIcon />
@@ -441,11 +522,16 @@ function NavigationItemIcon({
   size = 'list',
 }: {
   icon: NavigationIcon;
-  size?: 'list' | 'tab';
+  size?: 'list' | 'tab' | 'tile';
 }) {
   const sharedProps = {
     'aria-hidden': true,
-    className: size === 'tab' ? 'size-5 shrink-0' : 'size-[15px] shrink-0',
+    className:
+      size === 'tile'
+        ? 'size-6 shrink-0'
+        : size === 'tab'
+          ? 'size-5 shrink-0'
+          : 'size-[15px] shrink-0',
     fill: 'none',
     stroke: 'currentColor',
     strokeLinecap: 'round' as const,
@@ -594,27 +680,6 @@ function LogoutIcon() {
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
       <polyline points="16 17 21 12 16 7" />
       <line x1="21" x2="9" y1="12" y2="12" />
-    </svg>
-  );
-}
-
-function HamburgerIcon() {
-  const sharedProps = {
-    'aria-hidden': true,
-    className: 'size-[15px] shrink-0',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    strokeWidth: 2,
-    viewBox: '0 0 24 24',
-  };
-
-  return (
-    <svg {...sharedProps}>
-      <line x1="3" x2="21" y1="6" y2="6" />
-      <line x1="3" x2="21" y1="12" y2="12" />
-      <line x1="3" x2="21" y1="18" y2="18" />
     </svg>
   );
 }

@@ -35,7 +35,7 @@ export function LinkedContactsDialog({ user, onClose }: LinkedContactsDialogProp
       labelledBy={titleId}
       describedBy={descId}
       backdropClassName="bg-black/50 backdrop-blur-sm"
-      panelClassName="max-w-lg rounded-2xl border border-slate-200 bg-white px-6 dark:border-slate-800 dark:bg-slate-900"
+      panelClassName="max-w-lg rounded-[3px] border border-slate-200 bg-white px-6 dark:border-slate-800 dark:bg-slate-900"
     >
       <div
         className={`${MODAL_STICKY_HEADER} flex items-center justify-between bg-white pt-6 pb-3 dark:bg-slate-900`}
@@ -47,7 +47,7 @@ export function LinkedContactsDialog({ user, onClose }: LinkedContactsDialogProp
           type="button"
           onClick={onClose}
           aria-label={t('users.linkedContacts.close')}
-          className={`rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 ${MODAL_CLOSE_TAP}`}
+          className={`rounded-[3px] p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 ${MODAL_CLOSE_TAP}`}
         >
           ✕
         </button>
@@ -64,7 +64,7 @@ export function LinkedContactsDialog({ user, onClose }: LinkedContactsDialogProp
             {[0, 1, 2].map((i) => (
               <div
                 key={i}
-                className="h-10 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800"
+                className="h-10 animate-pulse rounded-[3px] bg-slate-100 dark:bg-slate-800"
               />
             ))}
           </div>
@@ -72,7 +72,7 @@ export function LinkedContactsDialog({ user, onClose }: LinkedContactsDialogProp
         {query.isError && (
           <div
             role="alert"
-            className="flex items-center justify-between gap-3 rounded-lg bg-red-50 p-3 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400"
+            className="flex items-center justify-between gap-3 rounded-[3px] bg-red-50 p-3 text-xs text-red-600 dark:bg-red-950/40 dark:text-red-400"
           >
             <span>{t('users.linkedContacts.error')}</span>
             <button
@@ -88,7 +88,7 @@ export function LinkedContactsDialog({ user, onClose }: LinkedContactsDialogProp
           <p className="text-sm text-slate-500">{t('users.linkedContacts.empty')}</p>
         )}
         {items.length > 0 && (
-          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 text-sm dark:divide-slate-800 dark:border-slate-800">
+          <ul className="divide-y divide-slate-100 rounded-[3px] border border-slate-200 text-sm dark:divide-slate-800 dark:border-slate-800">
             {items.map((item) => (
               <li
                 key={item.contactId}
@@ -118,14 +118,14 @@ export function LinkedContactsDialog({ user, onClose }: LinkedContactsDialogProp
       >
         <Link
           href={APP_ROUTES.contacts}
-          className={`inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 max-sm:justify-center dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${MODAL_FOOTER_TAP}`}
+          className={`inline-flex items-center rounded-[3px] border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 max-sm:justify-center dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${MODAL_FOOTER_TAP}`}
         >
           {t('users.linkedContacts.openContacts')}
         </Link>
         <button
           type="button"
           onClick={onClose}
-          className={`rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 ${MODAL_FOOTER_TAP}`}
+          className={`rounded-[3px] bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 ${MODAL_FOOTER_TAP}`}
         >
           {t('users.linkedContacts.close')}
         </button>

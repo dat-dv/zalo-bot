@@ -85,3 +85,7 @@
 
 - `MergeUserDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard).
 - Phones (`MergeUserDialog`, `LinkedContactsDialog`): ✕ gets `MODAL_CLOSE_TAP`, footer buttons/link `MODAL_FOOTER_TAP` (sticky footer already), target select 40px, "irreversible" checkbox label and Retry 40px tall. Desktop unchanged.
+
+## Corner radius
+
+- Buttons, inputs, cards/panels and dialog panels in this module use `rounded-[3px]` (max `rounded`, 4px); no `rounded-lg/xl/2xl`. `rounded-full` only for avatars, status dots, switches, spinners and progress fills. See [web-ui-direction](../../global/web-ui-direction.md).

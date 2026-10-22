@@ -72,19 +72,21 @@ export function TrendSummaryStrip({
             </span>
             <span
               aria-hidden="true"
-              className="shrink-0 text-[11px] text-slate-500 dark:text-slate-400"
+              className={`shrink-0 text-[11px] text-slate-500 transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] dark:text-slate-400 ${isPhoneExpanded ? 'rotate-180' : ''}`}
             >
-              {isPhoneExpanded ? '▴' : '▾'}
+              ▾
             </span>
           </button>
         ) : (
           <div className="flex min-h-11 items-center px-2.5 py-1.5">{phoneTotals}</div>
         )}
-        {isPhoneChartShown && (
-          <div
-            id={phoneChartId}
-            className="flex flex-col gap-2 border-t border-slate-100 px-2.5 pt-1.5 pb-2 dark:border-slate-800"
-          >
+        {/* Always mounted so the height can ease open/closed (0fr ↔ 1fr grid rows). */}
+        <div
+          id={phoneChartId}
+          inert={!isPhoneChartShown}
+          className={`grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${isPhoneChartShown ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
+        >
+          <div className="flex min-h-0 flex-col gap-2 overflow-hidden border-t border-slate-100 px-2.5 pt-1.5 pb-2 dark:border-slate-800">
             {extraMetrics && (
               <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-2">
                 {extraMetrics}
@@ -92,7 +94,7 @@ export function TrendSummaryStrip({
             )}
             <MicroBarChart buckets={buckets} height={70} />
           </div>
-        )}
+        </div>
       </section>
 
       <section

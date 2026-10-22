@@ -55,7 +55,7 @@ export function DeleteTransactionModal({
       dismissOnBackdrop
       labelledBy={titleId}
       describedBy={descId}
-      panelClassName="max-w-lg rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+      panelClassName="max-w-lg rounded-[3px] border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
     >
       {/* Modal Header */}
       <header

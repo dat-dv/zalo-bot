@@ -51,3 +51,7 @@
 
 - Only this module touches the token key; HTTP client and header import its functions.
 - Access token value contains `.` (payload.signature); exchange tokens do not. `captureDashboardToken` relies on this distinction.
+
+## Corner radius
+
+- Buttons, inputs, cards/panels and dialog panels in this module use `rounded-[3px]` (max `rounded`, 4px); no `rounded-lg/xl/2xl`. `rounded-full` only for avatars, status dots, switches, spinners and progress fills. See [web-ui-direction](../../global/web-ui-direction.md).

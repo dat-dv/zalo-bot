@@ -182,3 +182,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - Khi một kỳ có hơn 100 giao dịch, biểu đồ cột của dải xu hướng chỉ phản ánh các dòng đã tải (tổng thu/chi vẫn chính xác).
 
 Khi dữ liệu dashboard sai hoặc rỗng, kiểm tra payload `GET /api/dashboard` trước khi sửa cột hiển thị. Các bảng dùng primitive trong `src/shared/ui`, không tạo primitive riêng trong module.
+
+## Bo góc
+
+- Nút, ô nhập, thẻ/panel và khung dialog trong module này dùng `rounded-[3px]` (tối đa `rounded`, 4px), không dùng `rounded-lg/xl/2xl`. Lý do: giao diện dashboard theo phong cách gọn, sắc cạnh như công cụ quản trị; bo lớn làm các ô trông như app tiêu dùng và lệch với phần còn lại. `rounded-full` chỉ dành cho avatar, chấm trạng thái, công tắc, vòng quay tải và thanh tiến độ. Xem [web-ui-direction](../../global/web-ui-direction.md).
