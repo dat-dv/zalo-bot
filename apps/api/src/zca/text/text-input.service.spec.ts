@@ -1299,7 +1299,7 @@ void test('TextInputService offers the history search tool only to threads with 
   await service.process({
     ...base,
     text: 'hôm trước mình nói gì',
-    shortTermMemory: { contextWindow: 10 },
+    shortTermMemory: { contextWindow: 10, days: 1 },
   });
   assert.ok(!getLastLlmToolNames().includes('SEARCH_CHAT_HISTORY'));
 
@@ -1313,13 +1313,17 @@ void test('TextInputService offers the history search tool only to threads with 
 
 void test('TextInputService adds the short-term memory to the prompt without the long-term memory', async () => {
   const shortTermMemoryService = new ShortTermMemoryService();
-  await shortTermMemoryService.record('c1', {
-    msgId: 'm1',
-    content: 'ăn trưa 45k',
-    ts: 1000,
-    dName: 'Nam',
-  });
-  await shortTermMemoryService.record('c1', { msgId: 'm2', content: 'ghi giúp cái đó', ts: 2000 });
+  const now = Date.now();
+  await shortTermMemoryService.record(
+    'c1',
+    { msgId: 'm1', content: 'ăn trưa 45k', ts: now - 60_000, dName: 'Nam' },
+    1,
+  );
+  await shortTermMemoryService.record(
+    'c1',
+    { msgId: 'm2', content: 'ghi giúp cái đó', ts: now },
+    1,
+  );
   const { service, getLastLlmInstruction } = createTextInputService({
     llmResponse: { text: 'ok' },
     shortTermMemoryService,
@@ -1333,7 +1337,7 @@ void test('TextInputService adds the short-term memory to the prompt without the
     ...base,
     text: 'ghi giúp cái đó',
     messageId: 'm2',
-    shortTermMemory: { contextWindow: 10 },
+    shortTermMemory: { contextWindow: 10, days: 1 },
   });
   assert.match(getLastLlmInstruction(), /NGỮ CẢNH GẦN ĐÂY/);
   assert.match(getLastLlmInstruction(), /Nam: ăn trưa 45k/);

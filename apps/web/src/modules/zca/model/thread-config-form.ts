@@ -13,6 +13,7 @@ export type ThreadKind = 'user' | 'group';
  */
 export interface ChatMemoryDraft {
   contextWindow: string;
+  shortTermDays: string;
   searchLimit: string;
 }
 
@@ -51,6 +52,7 @@ export function configToForm(config: ThreadBotConfig, threadType: ThreadKind): T
 export function memoryDraftFrom(chatMemory: ThreadBotConfig['chatMemory']): ChatMemoryDraft {
   return {
     contextWindow: String(chatMemory.contextWindow),
+    shortTermDays: String(chatMemory.shortTermDays),
     searchLimit: String(chatMemory.searchLimit),
   };
 }
@@ -63,6 +65,7 @@ export function resolveChatMemory(
   return normalizeChatMemoryConfig({
     ...form.chatMemory,
     contextWindow: draft.contextWindow.trim() || undefined,
+    shortTermDays: draft.shortTermDays.trim() || undefined,
     searchLimit: draft.searchLimit.trim() || undefined,
   });
 }

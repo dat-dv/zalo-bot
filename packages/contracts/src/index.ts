@@ -3427,6 +3427,8 @@ export interface ThreadChatMemoryConfig {
   shortTermEnabled: boolean;
   /** Latest messages kept by the short-term memory. */
   contextWindow: number;
+  /** Days a message stays in the short-term memory, counted from when it was sent. */
+  shortTermDays: number;
   /** Best-matching messages fetched per history search. */
   searchLimit: number;
 }
@@ -3435,12 +3437,15 @@ export const CHAT_MEMORY_DEFAULTS: ThreadChatMemoryConfig = {
   enabled: false,
   shortTermEnabled: false,
   contextWindow: 10,
+  shortTermDays: 1,
   searchLimit: 15,
 };
 
 export const CHAT_MEMORY_LIMITS = {
   CONTEXT_WINDOW_MIN: 1,
   CONTEXT_WINDOW_MAX: 30,
+  SHORT_TERM_DAYS_MIN: 1,
+  SHORT_TERM_DAYS_MAX: 7,
   SEARCH_LIMIT_MIN: 1,
   SEARCH_LIMIT_MAX: 50,
 } as const;
@@ -3476,6 +3481,12 @@ export function normalizeChatMemoryConfig(value: unknown): ThreadChatMemoryConfi
       typeof raw.shortTermEnabled === 'boolean' ? raw.shortTermEnabled : enabled && window > 0,
     contextWindow:
       window >= CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MIN ? window : CHAT_MEMORY_DEFAULTS.contextWindow,
+    shortTermDays: clampInteger(
+      raw.shortTermDays,
+      CHAT_MEMORY_LIMITS.SHORT_TERM_DAYS_MIN,
+      CHAT_MEMORY_LIMITS.SHORT_TERM_DAYS_MAX,
+      CHAT_MEMORY_DEFAULTS.shortTermDays,
+    ),
     searchLimit: clampInteger(
       raw.searchLimit,
       CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MIN,

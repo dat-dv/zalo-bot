@@ -41,7 +41,7 @@ LLM calls are stateless, so the bot keeps two independent memories per Zalo chat
 | Purpose | Follow-ups in a running chat ("còn cái kia?", "ghi giúp cái đó") | Questions about the past ("hôm trước Nam nói gửi file gì?") |
 | Used | Every bot turn (prompt block) | Only when the LLM calls `SEARCH_CHAT_HISTORY` |
 | Store | Redis `zca:short_memory:<threadId>`, `ShortTermMemoryService` | Postgres `zca_messages`, `ChatMemoryService` |
-| Lifetime | Expires 24 h after the last message | Unlimited |
+| Lifetime | Messages sent within the last `shortTermDays` (1–7, default 1) | Unlimited |
 | Switch | `chatMemory.shortTermEnabled` | `chatMemory.enabled` |
 
 Turning one off never turns the other off.
@@ -55,13 +55,14 @@ Configured per ZCA thread on the dashboard thread config page `/zca/thread?id=�
 | `enabled` | `false` | | Long-term memory: store messages in Postgres and offer the history search. Name kept from before the split so stored configs still read. |
 | `shortTermEnabled` | `false` | | Short-term memory: keep the latest messages in Redis and add them to the prompt. |
 | `contextWindow` | `10` | 1–30 | Messages of the short-term window. |
+| `shortTermDays` | `1` | 1–7 | Short-term memory only uses messages sent within this many days (counted per message). Missing in older configs → 1 (the former fixed 24 h). |
 | `searchLimit` | `15` | 1–50 | Ranked hits per search (each expanded with neighbours). |
 
 Both are off for every new thread until an admin enables them.
 
 - `normalizeChatMemoryConfig` (`@zalobot/contracts`, with `CHAT_MEMORY_DEFAULTS`, `CHAT_MEMORY_LIMITS`) fills defaults, rounds and clamps. Applied on default creation, `entityToConfig`, cached Redis/JSON configs, the `updateConfig` merge and the web form. `PUT /api/zca/thread-configs/:id` has no class-validator DTO, so this is the guard.
 - **Configs saved before `shortTermEnabled` existed** (one switch for both, window off via `contextWindow: 0`): `shortTermEnabled = enabled && contextWindow > 0`, and a `0` window becomes the default 10. Each thread keeps the behaviour it had.
-- UI: two `ConfigSectionCard`s (`short-term-memory-section.tsx`, `long-term-memory-section.tsx`), each with its own switch and number field, in the right column of the thread config form.
+- UI: two `ConfigSectionCard`s (`short-term-memory-section.tsx`, `long-term-memory-section.tsx`), each with its own switch, in the right column of the thread config form. Short-term: fields "Số tin gần đây" and "Nhớ trong (ngày)" side by side (one column on mobile), warning names the configured days. Long-term: a "Cách hoạt động" list (what is stored, how to ask, what the AI sees, scope and recall, limits) so admins know what they enable, then "Số kết quả mỗi lần tra".
 - Either memory needs `isListened` (only listened threads receive messages).
 - Turning long-term off stops storing and searching; rows already stored are **kept** and reused if it is turned on again. Turning it on stores from then; buffered Redis messages are imported at the next start.
 - Turning short-term off stops recording and injecting; the Redis list is left to expire.
@@ -71,8 +72,9 @@ Both are off for every new thread until an admin enables them.
 ## Short-term store (`ShortTermMemoryService`)
 
 - Redis list `zca:short_memory:<threadId>` of JSON entries `{ msgId, cliMsgId, senderUid, senderName, isBot, text, sentAt }`; `text` from `buildMemoryText` (same labels as long-term). Entries without an id or text are skipped.
-- `rpush` + `ltrim` to `SHORT_TERM_MEMORY_MAX_ENTRIES` (60 = 2 × max window, because a bot reply can be stored twice: send result and self-listen echo) + `expire` 24 h (`SHORT_TERM_MEMORY_TTL_SECONDS`) on every write.
-- `getRecent(threadId, limit, excludeMsgId)`: merges copies by `msgId` (bot flag wins), sorts by `sentAt`, returns the last `limit` as `MemoryLine[]`.
+- `rpush` + `ltrim` to `SHORT_TERM_MEMORY_MAX_ENTRIES` (60 = 2 × max window, because a bot reply can be stored twice: send result and self-listen echo) + `expire` `shortTermTtlSeconds(shortTermDays)` on every write (`record` / `recordBotReply` take the thread's days), so a chat quiet for that long loses its list.
+- `getRecent(threadId, { limit, maxAgeDays, excludeMsgId })`: drops entries whose `sentAt` is older than `maxAgeDays` (age counts per message: a chat that never goes quiet still forgets), merges copies by `msgId` (bot flag wins), sorts by `sentAt`, returns the last `limit` as `MemoryLine[]`.
+- A recall rewrite does not know the thread's days and sets the expiry to the 7-day maximum; reads still filter by age.
 - `markRecalled`: same matching rule as long-term (`msg_id`, or `cli_msg_id` with the same sender); rewrites the list without the entry.
 - Without Redis: in-process Map with the same cap and expiry (lost on restart). Never throws.
 - Not backfilled at startup and not read by the history search.
@@ -108,7 +110,7 @@ Owner's own phone messages (`isSelf`, not bot-sent) are stored only when zca-js 
   2. Neighbour query: per hit 3 messages before + hit + 3 after (same channel, not recalled).
   3. `selectMemoryLines`: dedupe, keep best-ranked hits first, cap `MAX_MEMORY_LINES = 80`, sort chronologically.
   4. No lines → "không tìm thấy … từ <from> đến <to>". Else lines `[yyyy-mm-dd HH:mm] <sender|Bot>: text` + question → `LlmService.generate(prompt, undefined, system)` through the shared provider chain (tool-free; answer only from snippets, cite date + speaker, say when unsure).
-- **Short-term window**: `TextInputService.buildRecentContextBlock` appends `ShortTermMemoryService.getRecent(chatId, input.shortTermMemory.contextWindow, AgentInput.messageId)` (the message being processed is excluded) to the tool-calling and chit-chat system prompts, under a header forbidding tool calls for its content (prevents re-recording old transactions). Skipped when `input.shortTermMemory` is absent. Independent of the long-term memory.
+- **Short-term window**: `TextInputService.buildRecentContextBlock` appends `ShortTermMemoryService.getRecent(chatId, { limit: contextWindow, maxAgeDays: days, excludeMsgId: AgentInput.messageId })` from `input.shortTermMemory = { contextWindow, days }` (the message being processed is excluded) to the tool-calling and chit-chat system prompts, under a header forbidding tool calls for its content (prevents re-recording old transactions). Skipped when `input.shortTermMemory` is absent. Independent of the long-term memory.
 
 ## Data disclosure
 

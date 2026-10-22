@@ -2197,7 +2197,7 @@ void test('ZcaBotFeatureService passes the thread memory settings to the text pi
   } as unknown as Message;
   await service.onMessage(message, { getOwnId: () => 'bot-id' } as unknown as API);
 
-  assert.deepEqual(seen.input?.shortTermMemory, { contextWindow: 4 });
+  assert.deepEqual(seen.input?.shortTermMemory, { contextWindow: 4, days: 1 });
   assert.deepEqual(seen.input?.longTermMemory, { searchLimit: 9 });
 });
 
@@ -2207,7 +2207,7 @@ void test('ZcaBotFeatureService keeps the short-term memory when the long-term m
   await configService.updateConfig(threadId, {
     isListened: true,
     directInteraction: { enabled: true, allowAiChat: true },
-    chatMemory: { enabled: false, shortTermEnabled: true, contextWindow: 6 },
+    chatMemory: { enabled: false, shortTermEnabled: true, contextWindow: 6, shortTermDays: 3 },
   });
   const calls: RecordedMemoryCall[] = [];
   const shortTermMemory = new ShortTermMemoryService();
@@ -2233,10 +2233,12 @@ void test('ZcaBotFeatureService keeps the short-term memory when the long-term m
   await service.onMessage(message, { getOwnId: () => 'bot-id' } as unknown as API);
 
   assert.equal(calls.length, 0, 'nothing is stored in Postgres');
-  assert.deepEqual(seen.input?.shortTermMemory, { contextWindow: 6 });
+  assert.deepEqual(seen.input?.shortTermMemory, { contextWindow: 6, days: 3 });
   assert.equal(seen.input?.longTermMemory, undefined);
   assert.deepEqual(
-    (await shortTermMemory.getRecent(threadId, 10)).map((line) => line.text),
+    (await shortTermMemory.getRecent(threadId, { limit: 10, maxAgeDays: 3 })).map(
+      (line) => line.text,
+    ),
     ['ăn trưa 45k'],
   );
 
@@ -2247,7 +2249,7 @@ void test('ZcaBotFeatureService keeps the short-term memory when the long-term m
     isGroup: false,
     data: { uidFrom: 'owner', content: { globalMsgId: 11, cliMsgId: 0 } },
   } as unknown as Undo);
-  assert.deepEqual(await shortTermMemory.getRecent(threadId, 10), []);
+  assert.deepEqual(await shortTermMemory.getRecent(threadId, { limit: 10, maxAgeDays: 3 }), []);
 });
 
 async function createMemberAccessScenario(

@@ -3,8 +3,15 @@ import { CHAT_MEMORY_LIMITS } from '@zalobot/contracts';
 import { RedisService } from '../../redis/redis.service';
 import { toMemoryRecord, type MemoryLine, type MemorySourceMessage } from './chat-memory.mapper';
 
-/** Short-term memory forgets a chat a day after its last message. */
-export const SHORT_TERM_MEMORY_TTL_SECONDS = 24 * 3600;
+const DAY_MS = 24 * 3600 * 1000;
+
+/** Redis expiry of a chat's list: it goes once the chat has been quiet for `days` days. */
+export function shortTermTtlSeconds(days: number): number {
+  return days * 24 * 3600;
+}
+
+/** Expiry after a recall rewrite, which does not know the chat's setting; reads still filter by age. */
+const REWRITE_TTL_SECONDS = shortTermTtlSeconds(CHAT_MEMORY_LIMITS.SHORT_TERM_DAYS_MAX);
 
 /**
  * Raw entries kept per chat. Twice the largest window, because a bot reply can be stored twice
@@ -78,8 +85,8 @@ function toEntry(
 /**
  * Short-term chat memory: the latest messages of a ZCA chat, added to the LLM prompt so follow-ups
  * make sense. Independent of the long-term memory (Postgres): it lives in Redis, keeps a few dozen
- * messages and expires a day after the chat goes quiet. Whether a chat uses it is its
- * `chatMemory.shortTermEnabled` thread config, checked by the callers. Never throws.
+ * messages and only hands out those sent within the chat's `shortTermDays`. Whether a chat uses it
+ * is its `chatMemory.shortTermEnabled` thread config, checked by the callers. Never throws.
  */
 @Injectable()
 export class ShortTermMemoryService {
@@ -88,26 +95,36 @@ export class ShortTermMemoryService {
 
   constructor(@Optional() @Inject(RedisService) private readonly redis?: ShortTermMemoryRedis) {}
 
-  public async record(channelId: string, data: MemorySourceMessage): Promise<void> {
+  /** `days`: the chat's `shortTermDays`, so its list expires once the chat has been quiet that long. */
+  public async record(channelId: string, data: MemorySourceMessage, days: number): Promise<void> {
     const entry = toEntry(channelId, data, false);
-    if (entry) await this.append(channelId, entry);
+    if (entry) await this.append(channelId, entry, days);
   }
 
-  public async recordBotReply(channelId: string, msgId: string, text: string): Promise<void> {
+  public async recordBotReply(
+    channelId: string,
+    msgId: string,
+    text: string,
+    days: number,
+  ): Promise<void> {
     const entry = toEntry(channelId, { msgId, content: text, ts: Date.now() }, true);
-    if (entry) await this.append(channelId, entry);
+    if (entry) await this.append(channelId, entry, days);
   }
 
-  /** The latest `limit` messages, oldest first, without `excludeMsgId`. */
+  /**
+   * The latest `limit` messages sent within the last `maxAgeDays` days, oldest first, without
+   * `excludeMsgId`. Age counts from each message, so a chat that never goes quiet still forgets.
+   */
   public async getRecent(
     channelId: string,
-    limit: number,
-    excludeMsgId?: string,
+    options: { limit: number; maxAgeDays: number; excludeMsgId?: string },
   ): Promise<MemoryLine[]> {
+    const { limit, maxAgeDays, excludeMsgId } = options;
     if (!channelId || limit <= 0) return [];
+    const oldest = Date.now() - maxAgeDays * DAY_MS;
     const byMsgId = new Map<string, ShortTermEntry>();
     for (const entry of await this.read(channelId)) {
-      if (entry.msgId === excludeMsgId) continue;
+      if (entry.msgId === excludeMsgId || entry.sentAt < oldest) continue;
       const seen = byMsgId.get(entry.msgId);
       // A self-listen echo of a bot reply arrives as a member message; keep the bot flag.
       byMsgId.set(entry.msgId, seen ? { ...seen, isBot: seen.isBot || entry.isBot } : entry);
@@ -146,16 +163,17 @@ export class ShortTermMemoryService {
     if (kept.length !== entries.length) await this.replace(channelId, kept);
   }
 
-  private async append(channelId: string, entry: ShortTermEntry): Promise<void> {
+  private async append(channelId: string, entry: ShortTermEntry, days: number): Promise<void> {
+    const ttlSeconds = shortTermTtlSeconds(days);
     if (this.redis?.isReady) {
       const key = shortTermKey(channelId);
       await this.redis.rpush(key, JSON.stringify(entry));
       await this.redis.ltrim(key, -SHORT_TERM_MEMORY_MAX_ENTRIES, -1);
-      await this.redis.expire(key, SHORT_TERM_MEMORY_TTL_SECONDS);
+      await this.redis.expire(key, ttlSeconds);
       return;
     }
     const entries = [...this.readLocal(channelId), entry].slice(-SHORT_TERM_MEMORY_MAX_ENTRIES);
-    this.writeLocal(channelId, entries);
+    this.writeLocal(channelId, entries, ttlSeconds);
   }
 
   private async read(channelId: string): Promise<ShortTermEntry[]> {
@@ -172,13 +190,13 @@ export class ShortTermMemoryService {
       await this.redis.del(key);
       if (entries.length === 0) return;
       await this.redis.rpush(key, ...entries.map((entry) => JSON.stringify(entry)));
-      await this.redis.expire(key, SHORT_TERM_MEMORY_TTL_SECONDS);
+      await this.redis.expire(key, REWRITE_TTL_SECONDS);
       return;
     }
     if (entries.length === 0) {
       this.localLists.delete(channelId);
     } else {
-      this.writeLocal(channelId, [...entries]);
+      this.writeLocal(channelId, [...entries], REWRITE_TTL_SECONDS);
     }
   }
 
@@ -192,10 +210,7 @@ export class ShortTermMemoryService {
     return list.entries;
   }
 
-  private writeLocal(channelId: string, entries: ShortTermEntry[]): void {
-    this.localLists.set(channelId, {
-      entries,
-      expiresAt: Date.now() + SHORT_TERM_MEMORY_TTL_SECONDS * 1000,
-    });
+  private writeLocal(channelId: string, entries: ShortTermEntry[], ttlSeconds: number): void {
+    this.localLists.set(channelId, { entries, expiresAt: Date.now() + ttlSeconds * 1000 });
   }
 }

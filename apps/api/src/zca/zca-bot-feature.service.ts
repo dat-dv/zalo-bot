@@ -54,7 +54,9 @@ function toAgentMemory(
 ): Pick<AgentInput, 'shortTermMemory' | 'longTermMemory'> {
   const memory = config.chatMemory;
   return {
-    shortTermMemory: memory?.shortTermEnabled ? { contextWindow: memory.contextWindow } : undefined,
+    shortTermMemory: memory?.shortTermEnabled
+      ? { contextWindow: memory.contextWindow, days: memory.shortTermDays }
+      : undefined,
     longTermMemory: memory?.enabled ? { searchLimit: memory.searchLimit } : undefined,
   };
 }
@@ -829,7 +831,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     const memory = toAgentMemory(config);
     const messageId = message.data?.msgId ? String(message.data.msgId) : undefined;
     if (memory.shortTermMemory) {
-      void this.shortTermMemoryService?.record(threadId, message.data);
+      void this.shortTermMemoryService?.record(threadId, message.data, memory.shortTermMemory.days);
     }
     if (memory.longTermMemory) {
       void this.chatMemoryService?.record(
