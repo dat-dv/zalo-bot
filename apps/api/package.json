@@ -1,6 +1,6 @@
 {
   "name": "@zalobot/api",
-  "version": "1.0.163",
+  "version": "1.0.164",
   "description": "Personal Assistant Zalo Bot with NestJS and Google Workspace",
   "author": "",
   "private": true,
@@ -18,7 +18,6 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main.js",
-    "auth": "tsx scripts/auth.ts",
     "zca:login": "tsx scripts/zca-login.ts",
     "users:cleanup-groups": "tsx scripts/cleanup-group-users.ts",
     "typeorm": "ts-node --project tsconfig.json -r tsconfig-paths/register ../../node_modules/typeorm/cli.js",

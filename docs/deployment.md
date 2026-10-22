@@ -54,7 +54,7 @@ QWEN_MODEL=qwen2.5:14b
 
 ## 3. Quy Trình Đăng Nhập Google Qua Zalo
  
-Không cần chạy lệnh terminal `npm run auth` hay sinh file token thủ công:
+Không cần chạy lệnh terminal hay sinh file token thủ công:
 
 1. Mở bot trên Zalo và gõ: `/login` (hoặc bấm nút **"🔗 Đăng nhập Google"**).
 2. Đăng nhập Gmail trên trình duyệt và bấm **Cho phép (Allow)** các quyền.
