@@ -611,10 +611,10 @@ const messages = {
     'transactions.deleteModal.subtitle': 'Vui lòng kiểm tra chi tiết và tác động số dư bên dưới.',
     'transactions.deleteModal.impactExpenseRefund': 'Cộng hoàn lại vào số dư ví: +{amount}',
     'transactions.deleteModal.impactExpenseExplain':
+      'Khoản chi này sẽ bị xóa khỏi sổ sách, số dư ví khả dụng sẽ tăng thêm tương ứng.',
     'debts.selectOne': 'Chọn',
     'debts.deselectOne': 'Bỏ chọn',
     'debts.paidPercent': 'Đã trả {percent}%',
-      'Khoản chi này sẽ bị xóa khỏi sổ sách, số dư ví khả dụng sẽ tăng thêm tương ứng.',
     'transactions.deleteModal.impactIncomeDeduct': 'Khấu trừ giảm khỏi số dư ví: -{amount}',
     'transactions.deleteModal.impactIncomeExplain':
       'Khoản thu này sẽ bị hủy khỏi sổ sách, số dư ví khả dụng sẽ giảm đi tương ứng.',
@@ -1451,10 +1451,10 @@ const messages = {
     'debts.combineModal.warning':
       'Selected debts will become child items under this consolidated debt. Historical payments are fully preserved.',
     'debts.combineModal.mismatchedDirection':
+      'Can only combine debts of the same direction (all receivables or all payables).',
     'places.combineModal.newNameHint': '{transactions} will be moved to this place.',
     'places.combineModal.setLead': 'Make {name} the main place',
     'places.combineModal.topBadge': 'Top',
-      'Can only combine debts of the same direction (all receivables or all payables).',
     'debts.combineModal.mismatchedCurrency': 'Can only combine debts with the same currency.',
     'debts.combineModal.confirm': 'Confirm Combine',
     'debts.combine.success': 'Successfully combined {count} debts',
@@ -1855,13 +1855,13 @@ const messages = {
     'zca.storageLinks.errors.urlInvalid': 'The link must be a valid https:// address.',
     'zca.storageLinks.errors.urlWrongHost': 'The link must be on {hosts}.',
     'zca.storageLinks.errors.emailInvalid': 'Invalid email.',
-  },
-} as const;
     'zca.chatList.type': 'Type',
     'zca.chatList.listen': 'Listening',
     'zca.chatList.features': 'Features',
     'zca.chatList.access': 'Interaction access',
     'zca.chatList.actions': 'Actions',
+  },
+} as const;
 
 export type TranslationKey = keyof (typeof messages)['vi'];
 const typedMessages: Record<SupportedLocale, Record<TranslationKey, string>> = messages;
