@@ -45,5 +45,7 @@
 - **Kênh (Thread / Channel)**: Một cuộc trò chuyện cá nhân (`user`) hoặc nhóm chat (`group`) trên Zalo, có ID nguyên bản (`channelId`) độc lập.
 - **Danh tính kênh Zalo**: Cùng một người có thể có nhiều ID: ID theo app của Zalo Bot chính thức (webhook, 20 ký tự hex) và UID Zalo cá nhân qua ZCA (dạng số). Hệ thống chỉ coi `users.id` là danh tính.
 - **Gộp tài khoản (User Merge)**: Thao tác của admin chuyển dấu vết của một ID trùng (người tạo giao dịch, liên kết người liên quan, lời nhắc, token Google) sang người dùng giữ lại, rồi xoá ID trùng. Dữ liệu tài chính là sổ chung nên không phải di chuyển. Chạy trong một transaction và không thể hoàn tác.
+- **Tài khoản lưu trữ dùng chung**: Tài khoản Google mà admin đăng nhập gần nhất qua `/login`; mọi media của các kênh được lưu vào đây. Việc tự làm mới token không làm đổi tài khoản này.
+- **Lịch sử nơi lưu trữ**: Danh sách mọi thư mục Drive gốc và album Photos mà một kênh từng dùng, kèm tài khoản Google và thời gian dùng. Đổi tài khoản thì link cũ vẫn còn trong danh sách.
 - **Phân vùng lưu trữ (Drive Partition)**: Thư mục Google Drive được tạo riêng biệt cho từng kênh theo quy chuẩn `zalobot/<channelId>/<category>` (`bill`, `image`, `video`, `file`, `audio`).
 

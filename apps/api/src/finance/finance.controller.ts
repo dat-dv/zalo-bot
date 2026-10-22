@@ -30,7 +30,7 @@ import { ReportsTokenService } from '../reports/reports-token.service';
 import { UsersService } from '../users/users.service';
 import { FinanceService } from './finance.service';
 import { ContactUserSyncService } from './contact-user-sync.service';
-import { parseReceiptSource } from './receipt-source';
+import { downloadDriveReceipt, parseReceiptSource } from './receipt-source';
 
 /** Receipt proxy limits: receipts are phone photos, far below this. */
 const RECEIPT_MAX_BYTES = 10 * 1024 * 1024;
@@ -96,9 +96,10 @@ export class FinanceController {
       if (source.kind === 'drive') {
         const drive = this.moduleRef?.get(GoogleDriveService, { strict: false });
         if (!drive) throw new Error('GoogleDriveService unavailable');
-        // Drive receipts live in the creator's Drive, so only their Google token can read them.
-        if (!tx.createdByUserId) throw new Error('Receipt has no creator to read Drive with');
-        ({ content, mimeType } = await drive.downloadFile(source.fileId, tx.createdByUserId));
+        ({ content, mimeType } = await downloadDriveReceipt(drive, source.fileId, {
+          creatorUserId: tx.createdByUserId,
+          timeoutMs: RECEIPT_FETCH_TIMEOUT_MS,
+        }));
       } else {
         const upstream = await fetch(source.url, {
           signal: AbortSignal.timeout(RECEIPT_FETCH_TIMEOUT_MS),

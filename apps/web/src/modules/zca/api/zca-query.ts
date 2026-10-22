@@ -14,11 +14,13 @@ import {
   updateZcaThreadConfig,
   getGoogleDriveFolderLink,
   syncThreadMedia,
+  getThreadStorageLinks,
   type ZcaStatus,
   type ZcaThread,
   type DriveFolderLinkResult,
 } from './zca-api';
 import type {
+  ChannelStorageLinksResponse,
   ThreadBotConfig,
   UpdateThreadBotConfigDto,
   SyncThreadMediaDto,
@@ -33,6 +35,7 @@ export const zcaQueryKeys = {
   config: (threadId: string) => ['zca', 'config', threadId] as const,
   driveLink: (channelId?: string, threadName?: string) =>
     ['zca', 'drive-link', channelId || 'root', threadName || ''] as const,
+  storageLinks: (threadId: string) => ['zca', 'storage-links', threadId] as const,
 };
 
 export function useZcaStatusQuery(options?: { refetchInterval?: number | false }) {
@@ -157,5 +160,15 @@ export function useSyncThreadMediaMutation() {
       void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.config(variables.threadId) });
       void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.configs() });
     },
+  });
+}
+
+/** Fetched only while the links dialog is open (`enabled`); refetched each time it opens. */
+export function useThreadStorageLinksQuery(threadId: string, enabled: boolean) {
+  return useQuery<ChannelStorageLinksResponse>({
+    queryKey: zcaQueryKeys.storageLinks(threadId),
+    queryFn: ({ signal }) => getThreadStorageLinks(threadId, signal),
+    enabled,
+    staleTime: 0,
   });
 }

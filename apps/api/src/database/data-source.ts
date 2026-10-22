@@ -15,6 +15,7 @@ import { UserCategoryEntity } from './entities/user-category.entity';
 import { FinancePlaceEntity } from './entities/finance-place.entity';
 import { ZcaThreadConfigEntity } from './entities/zca-thread-config.entity';
 import { ZcaMessageEntity } from './entities/zca-message.entity';
+import { ChannelStorageLinkEntity } from './entities/channel-storage-link.entity';
 import { AuditLogSubscriber } from './audit-log.subscriber';
 import { InitSchema1724650000000 } from './migrations/1724650000000-InitSchema';
 import { MigrateLegacyPlaceContacts1724660000000 } from './migrations/1724660000000-MigrateLegacyPlaceContacts';
@@ -34,6 +35,7 @@ import { RemoveFinanceUserScope1724790000000 } from './migrations/1724790000000-
 import { DropZcaPassiveTrackingColumns1724800000000 } from './migrations/1724800000000-DropZcaPassiveTrackingColumns';
 import { CreateZcaMessages1724810000000 } from './migrations/1724810000000-CreateZcaMessages';
 import { AddChatMemoryToZcaThreadConfigs1724820000000 } from './migrations/1724820000000-AddChatMemoryToZcaThreadConfigs';
+import { CreateChannelStorageLinks1724830000000 } from './migrations/1724830000000-CreateChannelStorageLinks';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -63,6 +65,7 @@ export const AppDataSource = new DataSource({
     FinancePlaceEntity,
     ZcaThreadConfigEntity,
     ZcaMessageEntity,
+    ChannelStorageLinkEntity,
   ],
   subscribers: [AuditLogSubscriber],
   migrations: [
@@ -84,6 +87,7 @@ export const AppDataSource = new DataSource({
     DropZcaPassiveTrackingColumns1724800000000,
     CreateZcaMessages1724810000000,
     AddChatMemoryToZcaThreadConfigs1724820000000,
+    CreateChannelStorageLinks1724830000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

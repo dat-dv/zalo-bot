@@ -20,6 +20,10 @@ export class UserTokenEntity {
   @Column({ type: 'bigint', nullable: true })
   expiryDate?: number;
 
+  /** The one token used as the shared Google account (Drive/Photos storage, shared fallback). */
+  @Column({ name: 'is_shared', type: 'boolean', default: false })
+  isShared: boolean;
+
   @UpdateDateColumn()
   updatedAt: Date;
 }

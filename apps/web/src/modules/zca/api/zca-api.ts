@@ -1,5 +1,6 @@
 import {
   API_ROUTES,
+  type ChannelStorageLinksResponse,
   type IApiResponse,
   type ThreadBotConfig,
   type UpdateThreadBotConfigDto,
@@ -262,6 +263,18 @@ export async function syncThreadMedia(
   const response = await httpClient.post<IApiResponse<SyncThreadMediaResponse>>(
     API_ROUTES.zcaSyncThreadMedia(threadId),
     data || {},
+    { signal },
+  );
+  return response.data.data;
+}
+
+/** Every Drive folder / Photos album the thread's media went to, across Google accounts. */
+export async function getThreadStorageLinks(
+  threadId: string,
+  signal?: AbortSignal,
+): Promise<ChannelStorageLinksResponse> {
+  const response = await httpClient.get<IApiResponse<ChannelStorageLinksResponse>>(
+    API_ROUTES.zcaThreadStorageLinks(threadId),
     { signal },
   );
   return response.data.data;

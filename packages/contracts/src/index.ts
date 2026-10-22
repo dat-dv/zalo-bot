@@ -45,6 +45,7 @@ export const API_ROUTES = {
   zcaThreadConfigs: '/api/zca/thread-configs',
   zcaThreadConfig: (threadId: string) => `/api/zca/thread-configs/${threadId}`,
   zcaSyncThreadMedia: (threadId: string) => `/api/zca/threads/${threadId}/sync-media`,
+  zcaThreadStorageLinks: (threadId: string) => `/api/zca/threads/${threadId}/storage-links`,
   driveFolderLink: '/api/drive/folder-link',
   driveOpen: '/api/drive/open',
   photosAlbumLink: '/api/photos/album-link',
@@ -817,6 +818,20 @@ const messages = {
       'Chúng tôi có thể cập nhật dịch vụ hoặc điều khoản khi cần thiết. Phiên bản mới sẽ được công bố trên trang này.',
     'public.terms.contactTitle': '6. Liên hệ',
     'public.terms.contactDescription': 'Liên hệ hỗ trợ: {email}.',
+    'zca.storageLinks.driveTitle': 'Thư mục Google Drive',
+    'zca.storageLinks.photosTitle': 'Album Google Photos',
+    'zca.storageLinks.description':
+      'Mỗi tài khoản Google từng dùng để lưu media của kênh {name} có một dòng. Đổi tài khoản thì link cũ vẫn giữ ở đây.',
+    'zca.storageLinks.current': 'Đang dùng',
+    'zca.storageLinks.unknownAccount': 'Tài khoản cũ (không rõ email)',
+    'zca.storageLinks.usedRange': 'Dùng từ {from} đến {to}',
+    'zca.storageLinks.loading': 'Đang tải danh sách link…',
+    'zca.storageLinks.error': 'Không tải được danh sách link. Vui lòng thử lại.',
+    'zca.storageLinks.retry': 'Thử lại',
+    'zca.storageLinks.empty': 'Kênh này chưa lưu media nào lên Google.',
+    'zca.storageLinks.close': 'Đóng',
+    'zca.storageLinks.openDrive': 'Xem các thư mục Google Drive của kênh',
+    'zca.storageLinks.openPhotos': 'Xem các album Google Photos của kênh',
   },
   en: {
     'users.merge.action': 'Merge into…',
@@ -1541,6 +1556,20 @@ const messages = {
       'We may update the service or these terms when necessary. The latest version will be published on this page.',
     'public.terms.contactTitle': '6. Contact',
     'public.terms.contactDescription': 'Support contact: {email}.',
+    'zca.storageLinks.driveTitle': 'Google Drive folders',
+    'zca.storageLinks.photosTitle': 'Google Photos albums',
+    'zca.storageLinks.description':
+      'One row per Google account that has stored media for {name}. Old links stay here after the account changes.',
+    'zca.storageLinks.current': 'In use',
+    'zca.storageLinks.unknownAccount': 'Previous account (email unknown)',
+    'zca.storageLinks.usedRange': 'Used from {from} to {to}',
+    'zca.storageLinks.loading': 'Loading links…',
+    'zca.storageLinks.error': 'Could not load the links. Please try again.',
+    'zca.storageLinks.retry': 'Retry',
+    'zca.storageLinks.empty': 'This chat has not stored any media on Google yet.',
+    'zca.storageLinks.close': 'Close',
+    'zca.storageLinks.openDrive': 'Show the Google Drive folders of this chat',
+    'zca.storageLinks.openPhotos': 'Show the Google Photos albums of this chat',
   },
 } as const;
 
@@ -2406,6 +2435,29 @@ export type UpdateThreadBotConfigDto = Partial<{
   confirmationRules: Partial<ThreadConfirmationConfig>;
   chatMemory: Partial<ThreadChatMemoryConfig>;
 }>;
+
+export type ChannelStorageLinkKind = 'drive' | 'photos';
+
+/** One Drive root folder or Photos album a channel's media has been stored in. */
+export interface ChannelStorageLink {
+  kind: ChannelStorageLinkKind;
+  url: string;
+  /** Drive folder path or Photos album title. */
+  label: string;
+  /** Null for links recorded before the Google account was tracked. */
+  googleEmail: string | null;
+  firstUsedAt: string;
+  lastUsedAt: string;
+  /** Where new media of the channel goes with the current shared Google account. */
+  isCurrent: boolean;
+}
+
+/** Newest first. */
+export interface ChannelStorageLinksResponse {
+  threadId: string;
+  drive: ChannelStorageLink[];
+  photos: ChannelStorageLink[];
+}
 
 export type SyncMediaTimeRange = 'all' | '1_month' | '2_months' | '3_months' | '6_months';
 

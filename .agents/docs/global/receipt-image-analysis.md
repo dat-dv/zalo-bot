@@ -41,4 +41,4 @@ Người dùng thường chụp bill thay vì gõ lại số tiền. Bot đọc 
 - Nếu ảnh mờ hoặc OCR không đọc được chữ, prompt ghi rõ là không nhận diện được nội dung; khi AI không gọi tool, bot nhắc người dùng nhắn tay. Dù AI có đoán, người dùng vẫn kiểm tra trên thẻ xác nhận trước khi ghi sổ.
 
 ## Xem lại ảnh hoá đơn trên dashboard
-- Link ảnh gốc (Drive hoặc CDN Zalo) không gửi ra web vì link Drive là riêng tư. Trang Thu chi gọi `GET /api/transactions/:id/receipt`; API tải ảnh bằng token Google của **người tạo** giao dịch (hoặc tải từ CDN Zalo) rồi trả về. Nếu người tạo đã ngắt kết nối Google, ảnh Drive sẽ không xem được.
+- Link ảnh gốc (Drive hoặc CDN Zalo) không gửi ra web vì link Drive là riêng tư. Trang Thu chi gọi `GET /api/transactions/:id/receipt`; API tải ảnh Drive lần lượt bằng token tài khoản Google dùng chung → token người tạo giao dịch → link công khai của file (hoặc tải từ CDN Zalo) rồi trả về. Nhờ link công khai, đổi tài khoản Google vẫn xem được ảnh cũ, trừ khi tài khoản cũ đã bị xoá hoặc Workspace chặn chia sẻ công khai (xem `modules/zca/channel-storage.md`).

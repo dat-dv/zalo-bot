@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
-import { getThreadPhotosAlbumTitle, ThreadConfigService } from './thread-config.service';
+import { getThreadStorageTarget, ThreadConfigService } from './thread-config.service';
 import type { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
 import { MediaStorageService } from '../receipt-storage/media-storage.service';
 import type { TextInputService } from '../zalo/text/text-input.service';
@@ -672,10 +672,12 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       }
       if (this.mediaStorageService) {
         try {
-          const uploadRes = await this.mediaStorageService.uploadBill(senderId, buffer, {
-            note: cleanedText,
-            channelId: threadId,
-          });
+          const uploadRes = await this.mediaStorageService.uploadBill(
+            senderId,
+            buffer,
+            await this.threadConfigService.getStorageTarget(threadId),
+            { note: cleanedText },
+          );
           if (uploadRes.drive?.webViewLink) {
             receiptUrl = uploadRes.drive.webViewLink;
           }
@@ -732,20 +734,15 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       );
 
       const buffer = await fetchImageBuffer(mediaUrl);
-      const photosAlbumTitle = getThreadPhotosAlbumTitle(config);
-
+      const target = getThreadStorageTarget(config);
+      const photosAlbumTitle = target.photosAlbumTitle;
       const uploadOptions = {
-        channelId: threadId,
         note: cleanedText || (isVideo ? 'Video lưu theo yêu cầu' : 'Ảnh lưu theo yêu cầu'),
-        photosAlbumTitle,
-        photosAlbumId: config.photosAlbumId || undefined,
-        folderPath: config.mediaBackup.customFolder || undefined,
-        suffix: config.mediaBackup.fileSuffix || undefined,
       };
 
       const dualResult = isVideo
-        ? await this.mediaStorageService.uploadVideo(senderId, buffer, uploadOptions)
-        : await this.mediaStorageService.uploadImage(senderId, buffer, uploadOptions);
+        ? await this.mediaStorageService.uploadVideo(senderId, buffer, target, uploadOptions)
+        : await this.mediaStorageService.uploadImage(senderId, buffer, target, uploadOptions);
 
       if (dualResult.photos?.albumId || dualResult.photos?.albumUrl) {
         void this.threadConfigService.savePhotosAlbumInfo(threadId, {
@@ -949,17 +946,13 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
             this.logger.log(
               `[ZcaBotFeature] Auto uploading ${mediaLabel} to Google Drive with suffix "${config.mediaBackup.fileSuffix || ''}" and folder "${config.mediaBackup.customFolder || ''}"...`,
             );
-            const photosAlbumTitle = getThreadPhotosAlbumTitle(config);
+            const target = getThreadStorageTarget(config);
+            const photosAlbumTitle = target.photosAlbumTitle;
 
             const buffer = await fetchImageBuffer(mediaUrl);
             const uploadOptions = {
-              folderPath: config.mediaBackup.customFolder || undefined,
-              suffix: config.mediaBackup.fileSuffix || undefined,
-              channelId: threadId,
               msgId: msgId || undefined,
               filename: originalFilename,
-              photosAlbumTitle,
-              photosAlbumId: config.photosAlbumId || undefined,
               note: `Tự động sao lưu từ ${displayName || senderId} trong nhóm ${config.threadName || threadId}`,
             };
 
@@ -968,18 +961,21 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
               dualResult = await this.mediaStorageService.uploadImage(
                 senderId,
                 buffer,
+                target,
                 uploadOptions,
               );
             } else if (isVideo) {
               dualResult = await this.mediaStorageService.uploadVideo(
                 senderId,
                 buffer,
+                target,
                 uploadOptions,
               );
             } else {
               dualResult = await this.mediaStorageService.uploadFile(
                 senderId,
                 buffer,
+                target,
                 uploadOptions,
               );
             }
@@ -1204,10 +1200,12 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
             message.type,
           );
           const buffer = await fetchImageBuffer(videoUrl);
-          const dualResult = await this.mediaStorageService.uploadVideo(senderId, buffer, {
-            note: text || '',
-            channelId: threadId,
-          });
+          const dualResult = await this.mediaStorageService.uploadVideo(
+            senderId,
+            buffer,
+            await this.threadConfigService.getStorageTarget(threadId),
+            { note: text || '' },
+          );
           const summary = this.mediaStorageService.formatUploadSummary(dualResult, 'video');
           await api.sendMessage(summary, threadId, message.type);
         } catch (err) {
@@ -1504,26 +1502,37 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         const buffer = await fetchImageBuffer(mediaUrl);
         const senderId = readTextField(msgData.uidFrom) || 'unknown';
         const displayName = readTextField(msgData.dName);
-        const photosAlbumTitle = getThreadPhotosAlbumTitle(config);
+        const target = getThreadStorageTarget(config);
+        const photosAlbumTitle = target.photosAlbumTitle;
 
         const uploadOptions = {
-          folderPath: config.mediaBackup?.customFolder || undefined,
-          suffix: config.mediaBackup?.fileSuffix || undefined,
-          channelId: threadId,
           msgId: msgId || undefined,
           filename: originalFilename,
-          photosAlbumTitle,
-          photosAlbumId: config.photosAlbumId || undefined,
           note: `Sao lưu lịch sử từ ${displayName || senderId} trong nhóm ${config.threadName || threadId}`,
         };
 
         let dualResult;
         if (isImage) {
-          dualResult = await this.mediaStorageService.uploadImage(senderId, buffer, uploadOptions);
+          dualResult = await this.mediaStorageService.uploadImage(
+            senderId,
+            buffer,
+            target,
+            uploadOptions,
+          );
         } else if (isVideo) {
-          dualResult = await this.mediaStorageService.uploadVideo(senderId, buffer, uploadOptions);
+          dualResult = await this.mediaStorageService.uploadVideo(
+            senderId,
+            buffer,
+            target,
+            uploadOptions,
+          );
         } else {
-          dualResult = await this.mediaStorageService.uploadFile(senderId, buffer, uploadOptions);
+          dualResult = await this.mediaStorageService.uploadFile(
+            senderId,
+            buffer,
+            target,
+            uploadOptions,
+          );
         }
 
         if (dualResult.drive?.fileId) {

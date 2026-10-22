@@ -69,3 +69,52 @@ export function resolveChannelPhotosAlbumTitle(
   const threadName = options.threadName?.trim();
   return threadName ? `[Zalo] ${threadName}` : `[Zalo] Nhóm ${channelId}`;
 }
+
+export type ChannelStorageCategory = 'bill' | 'image' | 'video' | 'file' | 'audio';
+
+/**
+ * Where one channel's media goes. Every channel upload takes this, so no upload path can fall
+ * back to the global default albums/folders (which mixed media of different channels).
+ */
+export interface ChannelStorageTarget {
+  channelId: string;
+  /** The Drive folder the channel's links point to. */
+  driveRoot: string;
+  /** Default roots are split per category (`<root>/<category>`); a custom folder is not. */
+  splitByCategory: boolean;
+  photosAlbumTitle: string;
+  fileSuffix?: string;
+}
+
+export function buildChannelStorageTarget(
+  channelId: string,
+  options: {
+    customFolder?: string | null;
+    photosAlbum?: string | null;
+    photosAlbumTitle?: string | null;
+    threadName?: string | null;
+    fileSuffix?: string | null;
+  } = {},
+): ChannelStorageTarget {
+  const customRoot = options.customFolder ? normalizeDrivePath(options.customFolder) : '';
+  const fileSuffix = options.fileSuffix?.trim();
+  return {
+    channelId,
+    driveRoot: resolveChannelDriveRoot(channelId, options.customFolder),
+    splitByCategory: !customRoot,
+    photosAlbumTitle: resolveChannelPhotosAlbumTitle(channelId, options),
+    ...(fileSuffix ? { fileSuffix } : {}),
+  };
+}
+
+/** Upload folder of a category; the Drive service appends the `YYYY-MM` sub-folder. */
+export function getChannelUploadFolder(
+  target: ChannelStorageTarget,
+  category: ChannelStorageCategory,
+): string {
+  return target.splitByCategory ? `${target.driveRoot}/${category}` : target.driveRoot;
+}
+
+export function buildDriveFolderUrl(folderId: string): string {
+  return `https://drive.google.com/drive/folders/${folderId}`;
+}

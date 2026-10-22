@@ -31,8 +31,10 @@ export const GOOGLE_SCOPES = [
 export class GoogleAuthService implements OnModuleInit {
   private readonly logger = new Logger(GoogleAuthService.name);
   private userClients: Map<string, OAuth2Client> = new Map();
+  /** Owner of the shared Google account: pinned by `user_tokens.is_shared`, set only by a login. */
   private sharedUserId?: string;
-  private sharedEmailCache?: string;
+  /** Keyed by client: a login builds a new client, so a new Google account never reuses an email. */
+  private readonly accountEmails = new WeakMap<OAuth2Client, string>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -47,7 +49,10 @@ export class GoogleAuthService implements OnModuleInit {
 
   private async preloadTokensFromDatabase(): Promise<void> {
     try {
-      const allTokens = await this.tokenRepo.find();
+      // Shared token last, so the `!sharedUserId` fallback never overrides it.
+      const allTokens = (await this.tokenRepo.find()).sort(
+        (a, b) => Number(a.isShared) - Number(b.isShared),
+      );
       for (const t of allTokens) {
         if (t.accessToken || t.refreshToken) {
           const accessToken = this.encryption.decrypt(t.accessToken);
@@ -70,7 +75,7 @@ export class GoogleAuthService implements OnModuleInit {
               void this.saveTokensForUser(t.userId, refreshed);
             });
             this.userClients.set(t.userId, client);
-            if (!this.sharedUserId) {
+            if (t.isShared || !this.sharedUserId) {
               this.sharedUserId = t.userId;
             }
           }
@@ -145,18 +150,24 @@ export class GoogleAuthService implements OnModuleInit {
   }
 
   public async getSharedAccountEmail(): Promise<string | null> {
-    if (this.sharedEmailCache) return this.sharedEmailCache;
-    const client = this.getSharedOAuth2Client();
+    return this.getAccountEmail();
+  }
+
+  /** Email of the Google account behind `getOAuth2Client(userId)` (the shared one by default). */
+  public async getAccountEmail(userId?: string | number): Promise<string | null> {
+    const client = this.getOAuth2Client(userId);
     if (!client) return null;
+    const cached = this.accountEmails.get(client);
+    if (cached) return cached;
     try {
       const oauth2 = google.oauth2({ version: 'v2', auth: client });
       const res = await oauth2.userinfo.get();
       if (res.data?.email) {
-        this.sharedEmailCache = res.data.email;
+        this.accountEmails.set(client, res.data.email);
         return res.data.email;
       }
     } catch (err) {
-      this.logger.debug(`Could not retrieve shared account email: ${(err as Error).message}`);
+      this.logger.debug(`Could not retrieve Google account email: ${(err as Error).message}`);
     }
     return null;
   }
@@ -223,7 +234,8 @@ export class GoogleAuthService implements OnModuleInit {
 
     try {
       const { tokens } = await client.getToken(code.trim());
-      await this.saveTokensForUser(userId, tokens);
+      // Only an explicit login (re)chooses the shared account — never a token refresh.
+      await this.saveTokensForUser(userId, tokens, { shared: true });
       return true;
     } catch (err) {
       const error = err as Error;
@@ -232,8 +244,18 @@ export class GoogleAuthService implements OnModuleInit {
     }
   }
 
-  public async saveTokensForUser(userId: string | number, tokens: Credentials): Promise<void> {
+  /**
+   * `shared`: this login becomes the shared Google account (Drive/Photos storage). Token
+   * refreshes omit it; before, every refresh re-pointed the shared account to whichever admin's
+   * token refreshed last, so media flipped between Google accounts.
+   */
+  public async saveTokensForUser(
+    userId: string | number,
+    tokens: Credentials,
+    options: { shared?: boolean } = {},
+  ): Promise<void> {
     const strId = userId.toString();
+    const shared = options.shared === true;
 
     try {
       // 1. Save to PostgreSQL
@@ -246,6 +268,7 @@ export class GoogleAuthService implements OnModuleInit {
           scope: tokens.scope || undefined,
           tokenType: tokens.token_type || undefined,
           expiryDate: tokens.expiry_date || undefined,
+          isShared: shared,
         });
       } else {
         if (tokens.access_token) dbToken.accessToken = this.encryption.encrypt(tokens.access_token);
@@ -254,11 +277,14 @@ export class GoogleAuthService implements OnModuleInit {
         if (tokens.scope) dbToken.scope = tokens.scope;
         if (tokens.token_type) dbToken.tokenType = tokens.token_type;
         if (tokens.expiry_date) dbToken.expiryDate = tokens.expiry_date;
+        if (shared) dbToken.isShared = true;
       }
       await this.tokenRepo.save(dbToken);
+      if (shared) await this.unmarkOtherSharedTokens(strId);
 
-      // 2. Update client in memory
-      let client = this.userClients.get(strId);
+      // 2. Update client in memory. A login may switch Google account: a fresh client drops
+      // everything cached for the previous account (email, Drive folder ids, Photos album ids).
+      let client = shared ? undefined : this.userClients.get(strId);
       if (!client) {
         const newClient = this.createOAuth2Instance();
         if (newClient) {
@@ -278,13 +304,23 @@ export class GoogleAuthService implements OnModuleInit {
           expiry_date: dbToken.expiryDate ? Number(dbToken.expiryDate) : undefined,
         });
       }
-      this.sharedUserId = strId;
-      this.sharedEmailCache = undefined;
+      if (shared || !this.sharedUserId) {
+        this.sharedUserId = strId;
+      }
       this.logger.log(`Saved OAuth tokens for user ${userId} to PostgreSQL.`);
     } catch (err) {
       const error = err as Error;
       this.logger.error(`Failed to save tokens for user ${userId}: ${error.message}`);
     }
+  }
+
+  private async unmarkOtherSharedTokens(sharedUserId: string): Promise<void> {
+    await this.tokenRepo
+      .createQueryBuilder()
+      .update(UserTokenEntity)
+      .set({ isShared: false })
+      .where('"userId" <> :sharedUserId AND "is_shared" = true', { sharedUserId })
+      .execute();
   }
 
   public async revokeUserTokens(userId: number | string): Promise<void> {
@@ -294,7 +330,6 @@ export class GoogleAuthService implements OnModuleInit {
       this.userClients.delete(strId);
       if (this.sharedUserId === strId) {
         this.sharedUserId = undefined;
-        this.sharedEmailCache = undefined;
       }
       this.logger.log(
         `Revoked and deleted Google OAuth tokens for user ${userId} from PostgreSQL.`,

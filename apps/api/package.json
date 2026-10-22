@@ -1,6 +1,6 @@
 {
   "name": "@zalobot/api",
-  "version": "1.0.114",
+  "version": "1.0.115",
   "description": "Personal Assistant Zalo Bot with NestJS and Google Workspace",
   "author": "",
   "private": true,

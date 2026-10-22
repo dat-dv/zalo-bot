@@ -7,6 +7,8 @@ import type { Request, Response } from 'express';
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import type { ReportsTokenService } from '../reports/reports-token.service';
 import type { UsersService } from '../users/users.service';
+import type { MediaStorageService } from '../receipt-storage/media-storage.service';
+import type { ChannelStorageLinkService } from './storage/channel-storage-link.service';
 
 const ADMIN_ID = 'admin-1';
 const tokens = {
@@ -145,4 +147,74 @@ void test('ZcaController.getQrImage serves the QR for a valid access key or admi
   assert.throws(() => controller.getQrImage(bearer(), res, 'wrong-key'), UnauthorizedException);
   assert.throws(() => controller.getQrImage(bearer('user-token'), res), ForbiddenException);
   assert.strictEqual(ended, 2);
+});
+
+void test('ZcaController.getThreadStorageLinks syncs the current storage then lists every link', async () => {
+  const target = {
+    channelId: 'g1',
+    driveRoot: 'zalobot/g1',
+    splitByCategory: true,
+    photosAlbumTitle: '[Zalo] Nhà',
+  };
+  const mockThreadConfigService = {
+    getStorageTarget: (threadId: string) => Promise.resolve({ ...target, channelId: threadId }),
+  } as unknown as ThreadConfigService;
+  const synced: string[] = [];
+  const mediaStorage = {
+    syncCurrentStorage: (t: { channelId: string }) => {
+      synced.push(t.channelId);
+      return Promise.resolve({ drive: { resourceId: 'root-new', url: 'u-new' } });
+    },
+  } as unknown as MediaStorageService;
+  const linkService = {
+    listForThread: () =>
+      Promise.resolve([
+        {
+          id: '1',
+          threadId: 'g1',
+          kind: 'drive',
+          googleEmail: 'old@gmail.com',
+          resourceId: 'root-old',
+          url: 'u-old',
+          label: 'zalobot/g1',
+          firstUsedAt: new Date('2026-01-01T00:00:00Z'),
+          lastUsedAt: new Date('2026-09-01T00:00:00Z'),
+        },
+        {
+          id: '2',
+          threadId: 'g1',
+          kind: 'drive',
+          googleEmail: 'new@gmail.com',
+          resourceId: 'root-new',
+          url: 'u-new',
+          label: 'zalobot/g1',
+          firstUsedAt: new Date('2026-10-01T00:00:00Z'),
+          lastUsedAt: new Date('2026-10-01T00:00:00Z'),
+        },
+      ]),
+  } as unknown as ChannelStorageLinkService;
+  const controller = new ZcaController(
+    {} as unknown as ZcaService,
+    mockThreadConfigService,
+    tokens,
+    users,
+    undefined,
+    mediaStorage,
+    linkService,
+  );
+
+  await assert.rejects(
+    () => controller.getThreadStorageLinks(bearer('user-token'), 'g1'),
+    ForbiddenException,
+  );
+
+  const res = await controller.getThreadStorageLinks(bearer('admin-token'), 'g1');
+  assert.deepEqual(synced, ['g1']);
+  assert.deepEqual(
+    res.data.drive.map((l) => [l.googleEmail, l.isCurrent]),
+    [
+      ['new@gmail.com', true],
+      ['old@gmail.com', false],
+    ],
+  );
 });

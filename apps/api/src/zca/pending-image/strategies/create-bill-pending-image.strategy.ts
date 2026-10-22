@@ -4,6 +4,11 @@ import { PendingImageActionService } from '../pending-image-action.service';
 import { LlmService } from '../../../llm/llm.service';
 import { OcrService } from '../../../ocr/ocr.service';
 import { MediaStorageService } from '../../../receipt-storage/media-storage.service';
+import {
+  buildChannelStorageTarget,
+  type ChannelStorageTarget,
+} from '../../../google/channel-storage.util';
+import { ThreadConfigService } from '../../thread-config.service';
 import { TextToolFactory } from '../../../zalo/text/text-tool.factory';
 import { TextToolType } from '../../../zalo/text/text-tool.enum';
 import { ZALO_TOOL_DEFINITIONS } from '../../../zalo/text/text-tool.definitions';
@@ -35,7 +40,14 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
     @Optional() private readonly toolFactory?: TextToolFactory,
     @Optional() private readonly ocrService?: OcrService,
     @Optional() private readonly mediaStorageService?: MediaStorageService,
+    @Optional() private readonly threadConfigService?: ThreadConfigService,
   ) {}
+
+  private async storageTarget(chatId: string | number): Promise<ChannelStorageTarget> {
+    return this.threadConfigService
+      ? this.threadConfigService.getStorageTarget(String(chatId))
+      : buildChannelStorageTarget(String(chatId));
+  }
 
   public canHandle(text: string): boolean {
     return this.option1Regex.test(text.trim());
@@ -84,10 +96,12 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
 
       if (this.mediaStorageService) {
         try {
-          const uploadResult = await this.mediaStorageService.uploadBill(context.senderId, buffer, {
-            note: userNote,
-            channelId: context.chatId,
-          });
+          const uploadResult = await this.mediaStorageService.uploadBill(
+            context.senderId,
+            buffer,
+            await this.storageTarget(context.chatId),
+            { note: userNote },
+          );
           if (uploadResult.drive?.webViewLink) {
             activeReceiptUrl = uploadResult.drive.webViewLink;
           }

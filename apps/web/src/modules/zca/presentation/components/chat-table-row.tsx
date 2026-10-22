@@ -1,18 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import type { ThreadBotConfig } from '@zalobot/contracts';
+import type { ChannelStorageLinkKind, ThreadBotConfig } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import {
-  getThreadDriveFolderLabel,
-  getThreadDriveLink,
-  getThreadPhotosAlbumLabel,
-  getThreadPhotosLink,
-  type ZcaThread,
-} from '../../api/zca-api';
+import type { ZcaThread } from '../../api/zca-api';
 import { hasInteractionAccess, type ChatRow } from '../../model/chat-rows';
 import { ChatRowMenu, type ChatRowMenuItem } from './chat-row-menu';
 import { CopyIcon, GoogleDriveIcon } from './zca-icons';
+import { ThreadStorageLinksDialog } from './thread-storage-links-dialog';
 
 interface ChatTableRowProps {
   row: ChatRow;
@@ -92,7 +87,16 @@ function RowAvatar({ row }: { row: ChatRow }) {
   );
 }
 
-function ConfigBadges({ row, config }: { row: ChatRow; config: ThreadBotConfig }) {
+function ConfigBadges({
+  row,
+  config,
+  onOpenStorageLinks,
+}: {
+  row: ChatRow;
+  config: ThreadBotConfig;
+  onOpenStorageLinks: (kind: ChannelStorageLinkKind) => void;
+}) {
+  const { t } = useLocale();
   const thread = row.thread;
   const isGroup = row.kind === 'group';
   const prefixes = config.directInteraction?.triggerPrefixes ?? [];
@@ -119,26 +123,24 @@ function ConfigBadges({ row, config }: { row: ChatRow; config: ThreadBotConfig }
         </span>
       )}
       {thread && config.mediaBackup.enabled && (
-        <a
+        <button
           className="inline-flex items-center gap-0.5 rounded bg-blue-50 px-1.5 py-0.5 text-[9px] font-medium text-blue-700 transition-colors hover:bg-blue-100 dark:bg-blue-950 dark:text-blue-300 dark:hover:bg-blue-900"
-          href={getThreadDriveLink(thread, config)}
-          rel="noopener noreferrer"
-          target="_blank"
-          title={`Mở thư mục Google Drive: ${getThreadDriveFolderLabel(thread, config)}`}
+          onClick={() => onOpenStorageLinks('drive')}
+          title={t('zca.storageLinks.openDrive')}
+          type="button"
         >
-          📁 Drive ↗
-        </a>
+          📁 Drive
+        </button>
       )}
       {thread && config.mediaBackup.enabled && (
-        <a
+        <button
           className="inline-flex items-center gap-0.5 rounded bg-indigo-50 px-1.5 py-0.5 text-[9px] font-medium text-indigo-700 transition-colors hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300 dark:hover:bg-indigo-900"
-          href={getThreadPhotosLink(thread, config)}
-          rel="noopener noreferrer"
-          target="_blank"
-          title={`Mở album Google Photos: ${getThreadPhotosAlbumLabel(thread, config)}`}
+          onClick={() => onOpenStorageLinks('photos')}
+          title={t('zca.storageLinks.openPhotos')}
+          type="button"
         >
-          📸 Photos ↗
-        </a>
+          📸 Photos
+        </button>
       )}
     </div>
   );
@@ -161,6 +163,11 @@ export function ChatTableRow({
 }: ChatTableRowProps) {
   const { t } = useLocale();
   const { thread } = row;
+  const [storageLinksKind, setStorageLinksKind] = useState<ChannelStorageLinkKind | null>(null);
+  const openStorageLinks = (kind: ChannelStorageLinkKind) => {
+    setStorageLinksKind(kind);
+    onDriveOpened();
+  };
   const linkedContactCount = row.user?.linkedContactCount ?? 0;
   const kindBadge = KIND_BADGE[row.kind];
   const isGranted = hasInteractionAccess(row.access);
@@ -306,7 +313,9 @@ export function ChatTableRow({
             >
               {row.isListened ? '● Đang lắng nghe' : '○ Bỏ qua'}
             </button>
-            {config && <ConfigBadges config={config} row={row} />}
+            {config && (
+              <ConfigBadges config={config} onOpenStorageLinks={openStorageLinks} row={row} />
+            )}
           </>
         ) : (
           <span className="text-slate-300 dark:text-slate-600" title="Không có cuộc trò chuyện ZCA">
@@ -361,17 +370,15 @@ export function ChatTableRow({
             </button>
           )}
           {thread && (
-            <a
+            <button
               className="inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 transition-colors hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400"
-              href={getThreadDriveLink(thread, config)}
-              onClick={onDriveOpened}
-              rel="noopener noreferrer"
-              target="_blank"
-              title={`Mở thư mục Google Drive (${getThreadDriveFolderLabel(thread, config)})`}
+              onClick={() => openStorageLinks('drive')}
+              title={t('zca.storageLinks.openDrive')}
+              type="button"
             >
               <GoogleDriveIcon className="size-3.5 shrink-0" />
               <span>Drive</span>
-            </a>
+            </button>
           )}
           {thread && (
             <button
@@ -385,6 +392,14 @@ export function ChatTableRow({
           )}
           <ChatRowMenu items={menuItems} label="Thao tác người dùng" />
         </div>
+        {thread && storageLinksKind && (
+          <ThreadStorageLinksDialog
+            kind={storageLinksKind}
+            onClose={() => setStorageLinksKind(null)}
+            threadId={thread.id}
+            threadName={thread.name}
+          />
+        )}
       </td>
     </tr>
   );

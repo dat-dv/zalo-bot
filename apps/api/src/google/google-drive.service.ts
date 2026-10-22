@@ -24,11 +24,13 @@ export interface UploadFileOptions {
 }
 
 export const GG_DRIVE_ROOT_FOLDER = 'zalobot';
+const PUBLIC_DOWNLOAD_URL = 'https://drive.google.com/uc';
 
 @Injectable()
 export class GoogleDriveService {
   private readonly logger = new Logger(GoogleDriveService.name);
-  private readonly folderCache: Map<string, string> = new Map();
+  /** Folder ids by path, per OAuth client: a new Google account (new client) never reuses ids. */
+  private readonly folderCache = new WeakMap<object, Map<string, string>>();
   public readonly rootFolderName = GG_DRIVE_ROOT_FOLDER;
 
   constructor(private readonly authService: GoogleAuthService) {}
@@ -114,8 +116,8 @@ export class GoogleDriveService {
 
     if (!cleanPath) return 'root';
 
-    const cacheKey = `${userId || 'shared'}:${cleanPath}`;
-    const cached = this.folderCache.get(cacheKey);
+    const cache = this.folderCacheFor(userId);
+    const cached = cache.get(cleanPath);
     if (cached) return cached;
 
     const segments = cleanPath.split('/').filter(Boolean);
@@ -125,8 +127,19 @@ export class GoogleDriveService {
       currentParent = await this.ensureFolder(segment, currentParent, userId);
     }
 
-    this.folderCache.set(cacheKey, currentParent);
+    cache.set(cleanPath, currentParent);
     return currentParent;
+  }
+
+  private folderCacheFor(userId?: number | string): Map<string, string> {
+    const client = this.authService.getOAuth2Client(userId);
+    if (!client) return new Map();
+    let cache = this.folderCache.get(client);
+    if (!cache) {
+      cache = new Map();
+      this.folderCache.set(client, cache);
+    }
+    return cache;
   }
 
   /**
@@ -417,6 +430,27 @@ export class GoogleDriveService {
     return {
       content: Buffer.from(data),
       mimeType: meta.data.mimeType || 'application/octet-stream',
+    };
+  }
+
+  /**
+   * Downloads a file through its public "anyone with the link" sharing, without a token. Used for
+   * files another Google account created, which the current `drive.file` token cannot read.
+   */
+  public async downloadPublicFile(
+    fileId: string,
+    timeoutMs: number,
+  ): Promise<{ content: Buffer; mimeType: string }> {
+    const url = new URL(PUBLIC_DOWNLOAD_URL);
+    url.searchParams.set('export', 'download');
+    url.searchParams.set('id', fileId);
+    const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
+    if (!res.ok) {
+      throw new BadRequestException(`Google Drive public download failed (${res.status}).`);
+    }
+    return {
+      content: Buffer.from(await res.arrayBuffer()),
+      mimeType: res.headers.get('content-type') || 'application/octet-stream',
     };
   }
 

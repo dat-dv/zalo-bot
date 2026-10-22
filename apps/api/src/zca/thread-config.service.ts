@@ -14,9 +14,11 @@ import {
 } from '@zalobot/contracts';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 import {
+  buildChannelStorageTarget,
   isSameDrivePath,
   resolveChannelDriveRoot,
   resolveChannelPhotosAlbumTitle,
+  type ChannelStorageTarget,
 } from '../google/channel-storage.util';
 import { RedisService } from '../redis/redis.service';
 
@@ -73,6 +75,17 @@ export function normalizeDirectInteraction(
 
 export function getThreadDriveRoot(config: ThreadBotConfig): string {
   return resolveChannelDriveRoot(config.threadId, config.mediaBackup?.customFolder);
+}
+
+/** Where the thread's media is stored: Drive root (+ category split), Photos album, file suffix. */
+export function getThreadStorageTarget(config: ThreadBotConfig): ChannelStorageTarget {
+  return buildChannelStorageTarget(config.threadId, {
+    customFolder: config.mediaBackup?.customFolder,
+    photosAlbum: config.mediaBackup?.photosAlbum,
+    photosAlbumTitle: config.photosAlbumTitle,
+    threadName: config.threadName,
+    fileSuffix: config.mediaBackup?.fileSuffix,
+  });
 }
 
 export function getThreadPhotosAlbumTitle(config: ThreadBotConfig): string {
@@ -392,6 +405,12 @@ export class ThreadConfigService implements OnModuleInit {
   }
 
   /** Read-only lookup of a thread's saved config; unlike `getConfig` it never creates a default one. */
+  /** Storage target of a thread; channels without a stored config use the default target. */
+  public async getStorageTarget(threadId: string): Promise<ChannelStorageTarget> {
+    const stored = await this.findStoredConfig(threadId);
+    return stored ? getThreadStorageTarget(stored) : buildChannelStorageTarget(String(threadId));
+  }
+
   public async findStoredConfig(threadId: string): Promise<ThreadBotConfig | undefined> {
     return this.loadStoredConfig(String(threadId).trim());
   }

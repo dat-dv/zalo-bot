@@ -4,22 +4,19 @@ import { useState, useEffect } from 'react';
 import {
   CHAT_MEMORY_LIMITS,
   normalizeChatMemoryConfig,
+  type ChannelStorageLinkKind,
   type ThreadBotConfig,
   type UpdateThreadBotConfigDto,
 } from '@zalobot/contracts';
 import {
   useUpdateZcaThreadConfigMutation,
   useZcaThreadConfigQuery,
-  useGoogleDriveFolderLinkQuery,
 } from '../api/zca-query';
 import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
-import {
-  getThreadDriveFolderLabel,
-  getThreadDriveLink,
-  getThreadPhotosAlbumLabel,
-  getThreadPhotosLink,
-} from '../api/zca-api';
+import { useLocale } from '@/shared/providers/locale-provider';
+import { getThreadDriveFolderLabel, getThreadPhotosAlbumLabel } from '../api/zca-api';
 import { TriggerPrefixInput } from '../presentation/components/trigger-prefix-input';
+import { ThreadStorageLinksDialog } from '../presentation/components/thread-storage-links-dialog';
 
 interface ThreadConfigModalProps {
   threadId: string;
@@ -37,10 +34,8 @@ export function ThreadConfigModal({
   onClose,
 }: ThreadConfigModalProps) {
   const { data: config, isLoading } = useZcaThreadConfigQuery(isOpen ? threadId : null);
-  const { data: driveLinkData } = useGoogleDriveFolderLinkQuery(
-    isOpen ? threadId : undefined,
-    isOpen ? threadName : undefined,
-  );
+  const { t } = useLocale();
+  const [storageLinksKind, setStorageLinksKind] = useState<ChannelStorageLinkKind | null>(null);
   const updateMutation = useUpdateZcaThreadConfigMutation();
 
   const [form, setForm] = useState<ThreadBotConfig | null>(null);
@@ -388,19 +383,15 @@ export function ThreadConfigModal({
                       </p>
                     </div>
                   </div>
-                  <a
+                  <button
                     className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 transition-colors"
-                    href={
-                      form.driveFolderUrl ||
-                      driveLinkData?.webViewLink ||
-                      getThreadDriveLink({ id: threadId, name: threadName }, form)
-                    }
-                    rel="noopener noreferrer"
-                    target="_blank"
+                    onClick={() => setStorageLinksKind('drive')}
+                    title={t('zca.storageLinks.openDrive')}
+                    type="button"
                   >
                     <span>Mở Google Drive</span>
                     <span>↗</span>
-                  </a>
+                  </button>
                 </div>
 
                 {/* Google Photos Album info banner */}
@@ -421,15 +412,15 @@ export function ThreadConfigModal({
                       </p>
                     </div>
                   </div>
-                  <a
+                  <button
                     className="inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 transition-colors"
-                    href={getThreadPhotosLink({ id: threadId, name: threadName }, form)}
-                    rel="noopener noreferrer"
-                    target="_blank"
+                    onClick={() => setStorageLinksKind('photos')}
+                    title={t('zca.storageLinks.openPhotos')}
+                    type="button"
                   >
                     <span>Mở Google Photos</span>
                     <span>↗</span>
-                  </a>
+                  </button>
                 </div>
 
                 <div>
@@ -805,6 +796,14 @@ export function ThreadConfigModal({
             </button>
           </div>
         </form>
+      )}
+      {storageLinksKind && (
+        <ThreadStorageLinksDialog
+          kind={storageLinksKind}
+          onClose={() => setStorageLinksKind(null)}
+          threadId={threadId}
+          threadName={threadName}
+        />
       )}
     </Modal>
   );

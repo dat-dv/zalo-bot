@@ -813,7 +813,12 @@ void test('ZcaBotFeatureService syncThreadMediaHistory scans group media and pre
 
   const uploadedFiles: { id: string; msgId?: string }[] = [];
   const mockMediaStorageService = {
-    uploadImage: (_sender: string, _buf: Buffer, options?: { msgId?: string }) => {
+    uploadImage: (
+      _sender: string,
+      _buf: Buffer,
+      _target: unknown,
+      options?: { msgId?: string },
+    ) => {
       uploadedFiles.push({ id: `img-${uploadedFiles.length + 1}`, msgId: options?.msgId });
       return Promise.resolve({
         drive: {
@@ -822,7 +827,12 @@ void test('ZcaBotFeatureService syncThreadMediaHistory scans group media and pre
         },
       });
     },
-    uploadVideo: (_sender: string, _buf: Buffer, options?: { msgId?: string }) => {
+    uploadVideo: (
+      _sender: string,
+      _buf: Buffer,
+      _target: unknown,
+      options?: { msgId?: string },
+    ) => {
       uploadedFiles.push({ id: `vid-${uploadedFiles.length + 1}`, msgId: options?.msgId });
       return Promise.resolve({
         drive: {
@@ -907,7 +917,12 @@ void test('ZcaBotFeatureService syncThreadMediaHistory filters messages by timeR
 
   const uploadedFiles: { id: string; msgId?: string }[] = [];
   const mockMediaStorageService = {
-    uploadImage: (_sender: string, _buf: Buffer, options?: { msgId?: string }) => {
+    uploadImage: (
+      _sender: string,
+      _buf: Buffer,
+      _target: unknown,
+      options?: { msgId?: string },
+    ) => {
       uploadedFiles.push({ id: `img-${uploadedFiles.length + 1}`, msgId: options?.msgId });
       return Promise.resolve({
         drive: {
@@ -1010,7 +1025,12 @@ void test('ZcaBotFeatureService syncThreadMediaHistory falls back to buffered me
 
   const uploadedFiles: { id: string; msgId?: string }[] = [];
   const mockMediaStorageService = {
-    uploadImage: (_sender: string, _buf: Buffer, options?: { msgId?: string }) => {
+    uploadImage: (
+      _sender: string,
+      _buf: Buffer,
+      _target: unknown,
+      options?: { msgId?: string },
+    ) => {
       uploadedFiles.push({ id: `img-buf-${uploadedFiles.length + 1}`, msgId: options?.msgId });
       return Promise.resolve({
         drive: {

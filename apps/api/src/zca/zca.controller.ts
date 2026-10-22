@@ -29,7 +29,14 @@ import { UsersService } from '../users/users.service';
 import { ZcaService, type AvailableThread } from './zca.service';
 import { ThreadConfigService } from './thread-config.service';
 import { ZcaBotFeatureService } from './zca-bot-feature.service';
+import { MediaStorageService } from '../receipt-storage/media-storage.service';
+import { ChannelStorageLinkService } from './storage/channel-storage-link.service';
+import {
+  toChannelStorageLinksResponse,
+  type CurrentChannelStorage,
+} from './storage/channel-storage-links.mapper';
 import type {
+  ChannelStorageLinksResponse,
   ThreadBotConfig,
   UpdateThreadBotConfigDto,
   SyncThreadMediaDto,
@@ -52,6 +59,10 @@ export class ZcaController {
     @Optional()
     @Inject(forwardRef(() => ZcaBotFeatureService))
     private readonly botFeatureService?: ZcaBotFeatureService,
+    @Optional()
+    @Inject(forwardRef(() => MediaStorageService))
+    private readonly mediaStorageService?: MediaStorageService,
+    @Optional() private readonly storageLinkService?: ChannelStorageLinkService,
   ) {}
 
   @Get('status')
@@ -287,6 +298,33 @@ export class ZcaController {
     }
     const result = await this.botFeatureService.syncThreadMediaHistory(threadId, body);
     return { data: result };
+  }
+
+  @Get('threads/:threadId/storage-links')
+  @ApiOperation({
+    summary:
+      'Các thư mục Google Drive và album Google Photos kênh từng dùng, qua mọi tài khoản Google',
+  })
+  public async getThreadStorageLinks(
+    @Req() req: Request,
+    @Param('threadId') threadId: string,
+  ): Promise<{ data: ChannelStorageLinksResponse }> {
+    this.admin(req);
+    if (!this.storageLinkService) {
+      throw new BadRequestException('ChannelStorageLinkService chưa được khởi tạo');
+    }
+    const target = await this.threadConfigService.getStorageTarget(threadId);
+    let current: CurrentChannelStorage = {};
+    try {
+      // Records the current account's folder/album first, so it is listed even before an upload.
+      current = (await this.mediaStorageService?.syncCurrentStorage(target)) ?? {};
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Could not resolve current storage of thread ${threadId}: ${err instanceof Error ? err.message : 'unknown error'}`,
+      );
+    }
+    const rows = await this.storageLinkService.listForThread(threadId);
+    return { data: toChannelStorageLinksResponse(threadId, rows, current) };
   }
 
   private admin(req: Request): string | number {

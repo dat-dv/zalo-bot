@@ -43,7 +43,7 @@ Chạy tự động một lần khi API khởi động, trong **một transactio
 ## 1b. Người tạo và ảnh hoá đơn
 
 - Mỗi giao dịch lưu **người tạo** (`created_by_user_id`, tên lúc tạo `created_by_name`), **nguồn** (`zalo` / `dashboard`) và **kênh Zalo** (`source_chat_id`). Trên dashboard hiện tên hiện tại của người tạo và "Nhóm <tên>" / "Chat riêng" / "Dashboard". Giao dịch cũ được migration điền người tạo từ `user_id` cũ; nếu không tra được tên thì hiện "—".
-- **Ảnh hoá đơn** xem qua `GET /api/transactions/:id/receipt` (mọi người dùng đã đăng nhập đều xem được): API tự tải ảnh từ Drive bằng token Google của người tạo, hoặc từ CDN Zalo, rồi trả về trình duyệt. Link Drive gốc là riêng tư nên web không dùng trực tiếp. Chỉ chấp nhận host Drive và CDN Zalo (chống SSRF), tối đa 10MB, chỉ trả về nội dung ảnh. Lỗi (token Google hết hạn, file bị xoá) → web hiện "Không tải được ảnh".
+- **Ảnh hoá đơn** xem qua `GET /api/transactions/:id/receipt` (mọi người dùng đã đăng nhập đều xem được): API tự tải ảnh từ Drive (lần lượt thử token tài khoản Google dùng chung → token người tạo → link công khai của file, nên đổi tài khoản Google vẫn xem được ảnh cũ), hoặc tải từ CDN Zalo, rồi trả về trình duyệt. Link Drive gốc là riêng tư nên web không dùng trực tiếp. Chỉ chấp nhận host Drive và CDN Zalo (chống SSRF), tối đa 10MB, chỉ trả về nội dung ảnh. Lỗi (token Google hết hạn, file bị xoá) → web hiện "Không tải được ảnh".
 - Lệnh xoá "giao dịch vừa tạo" qua chat ưu tiên giao dịch của chính người nhắn, không xoá nhầm của thành viên khác.
 
 ## 2. Các khái niệm chính

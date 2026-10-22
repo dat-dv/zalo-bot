@@ -13,6 +13,7 @@ import { PendingImageActionService } from '../zca/pending-image/pending-image-ac
 import { cleanBotMention } from './text/bot-mention.util';
 import { ImageBatchHandler } from '../zca/pending-image/image-batch-handler.service';
 import { MediaStorageService } from '../receipt-storage/media-storage.service';
+import { buildChannelStorageTarget } from '../google/channel-storage.util';
 import { fetchImageBuffer } from '../common/utils/image-fetcher.util';
 
 @Injectable()
@@ -181,10 +182,13 @@ export class InputProcessor implements OnModuleDestroy {
 
       const buffer = await fetchImageBuffer(input.videoUrl);
       const note = input.caption || input.text || '';
-      const dualResult = await this.mediaStorageService.uploadVideo(input.senderId, buffer, {
-        note,
-        channelId: targetChatId,
-      });
+      // Official-bot chats have no ZCA thread config: the default channel target applies.
+      const dualResult = await this.mediaStorageService.uploadVideo(
+        input.senderId,
+        buffer,
+        buildChannelStorageTarget(String(targetChatId)),
+        { note },
+      );
       const summary = this.mediaStorageService.formatUploadSummary(dualResult, 'video');
       await this.zaloService.sendMessage(targetChatId, summary);
     } catch (err) {

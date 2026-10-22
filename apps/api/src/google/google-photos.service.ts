@@ -25,11 +25,20 @@ interface GooglePhotosAlbum {
   isWriteable?: boolean;
 }
 
+interface CachedAlbum {
+  id: string;
+  url?: string;
+}
+
+const ALBUM_PAGE_SIZE = 50;
+// Upper bound on album pages scanned (2 500 albums) so a bad pageToken loop cannot spin forever.
+const MAX_ALBUM_PAGES = 50;
+
 @Injectable()
 export class GooglePhotosService {
   private readonly logger = new Logger(GooglePhotosService.name);
-  private readonly albumCache: Map<string, string> = new Map();
-  private readonly albumUrlCache: Map<string, string> = new Map();
+  /** Albums by title, per OAuth client: a new Google account (new client) never reuses ids. */
+  private readonly albumCache = new WeakMap<object, Map<string, CachedAlbum>>();
   private readonly baseUrl = 'https://photoslibrary.googleapis.com/v1';
 
   constructor(private readonly authService: GoogleAuthService) {}
@@ -83,37 +92,72 @@ export class GooglePhotosService {
     return uploadToken.trim();
   }
 
+  private albumCacheFor(userId?: number | string): Map<string, CachedAlbum> {
+    const client = this.authService.getOAuth2Client(userId);
+    if (!client) return new Map();
+    let cache = this.albumCache.get(client);
+    if (!cache) {
+      cache = new Map();
+      this.albumCache.set(client, cache);
+    }
+    return cache;
+  }
+
+  /**
+   * Finds an app-created album by exact title, scanning every page: reading only the first page
+   * made albums beyond it invisible, so a duplicate album with the same title was created.
+   */
+  private async findAppAlbum(
+    title: string,
+    accessToken: string,
+  ): Promise<GooglePhotosAlbum | undefined> {
+    const wanted = title.trim();
+    let pageToken: string | undefined;
+    for (let page = 0; page < MAX_ALBUM_PAGES; page++) {
+      const params = new URLSearchParams({
+        pageSize: String(ALBUM_PAGE_SIZE),
+        excludeNonAppCreatedData: 'true',
+      });
+      if (pageToken) params.set('pageToken', pageToken);
+      const listRes = await fetch(`${this.baseUrl}/albums?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!listRes.ok) {
+        throw new Error(`Google Photos albums.list failed (${listRes.status})`);
+      }
+      const listData = (await listRes.json()) as {
+        albums?: GooglePhotosAlbum[];
+        nextPageToken?: string;
+      };
+      const found = listData.albums?.find((a) => a.title?.trim() === wanted);
+      if (found?.id) return found;
+      if (!listData.nextPageToken) return undefined;
+      pageToken = listData.nextPageToken;
+    }
+    return undefined;
+  }
+
   /**
    * Lấy hoặc tạo mới Album theo tiêu đề
    */
   public async getOrCreateAlbum(title: string, userId?: number | string): Promise<string> {
-    const cacheKey = `${userId || 'shared'}:${title}`;
-    const cached = this.albumCache.get(cacheKey);
+    return (await this.getOrCreateAlbumInfo(title, userId)).id;
+  }
+
+  public async getOrCreateAlbumInfo(title: string, userId?: number | string): Promise<CachedAlbum> {
+    const cache = this.albumCacheFor(userId);
+    const cached = cache.get(title);
     if (cached) return cached;
 
     const accessToken = await this.getAccessToken(userId);
 
     // 1. Kiểm tra danh sách albums do app tạo
     try {
-      const listRes = await fetch(
-        `${this.baseUrl}/albums?pageSize=50&excludeNonAppCreatedData=true`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      );
-
-      if (listRes.ok) {
-        const listData = (await listRes.json()) as { albums?: GooglePhotosAlbum[] };
-        const found = listData.albums?.find((a) => a.title?.trim() === title.trim());
-        if (found?.id) {
-          this.albumCache.set(cacheKey, found.id);
-          if (found.productUrl) {
-            this.albumUrlCache.set(cacheKey, found.productUrl);
-          }
-          return found.id;
-        }
+      const found = await this.findAppAlbum(title, accessToken);
+      if (found) {
+        const info = { id: found.id, url: found.productUrl };
+        cache.set(title, info);
+        return info;
       }
     } catch (listErr) {
       this.logger.warn(`Could not list albums from Google Photos: ${(listErr as Error).message}`);
@@ -146,11 +190,9 @@ export class GooglePhotosService {
     }
 
     this.logger.log(`Created Google Photos album "${title}" (id: ${newAlbum.id}).`);
-    this.albumCache.set(cacheKey, newAlbum.id);
-    if (newAlbum.productUrl) {
-      this.albumUrlCache.set(cacheKey, newAlbum.productUrl);
-    }
-    return newAlbum.id;
+    const info = { id: newAlbum.id, url: newAlbum.productUrl };
+    cache.set(title, info);
+    return info;
   }
 
   /**
@@ -221,11 +263,12 @@ export class GooglePhotosService {
     try {
       const uploadToken = await this.uploadBytes(options.buffer, options.filename, userId);
       let albumId = options.albumId;
+      let albumUrl: string | undefined;
       if (!albumId) {
-        albumId = await this.getOrCreateAlbum(options.albumTitle, userId);
+        const album = await this.getOrCreateAlbumInfo(options.albumTitle, userId);
+        albumId = album.id;
+        albumUrl = album.url;
       }
-      const albumUrl =
-        this.albumUrlCache.get(`${userId || 'shared'}:${options.albumTitle}`) || undefined;
       let media;
       try {
         media = await this.createMediaItem(
@@ -241,7 +284,9 @@ export class GooglePhotosService {
           this.logger.warn(
             `Failed to add to albumId "${options.albumId}", falling back to getOrCreateAlbum("${options.albumTitle}"): ${(createErr as Error).message}`,
           );
-          albumId = await this.getOrCreateAlbum(options.albumTitle, userId);
+          const album = await this.getOrCreateAlbumInfo(options.albumTitle, userId);
+          albumId = album.id;
+          albumUrl = album.url;
           media = await this.createMediaItem(
             uploadToken,
             albumId,
@@ -374,25 +419,25 @@ export class GooglePhotosService {
    * Trả về null nếu chưa tồn tại hoặc chưa được uỷ quyền.
    */
   public async getAlbumLink(albumTitle: string, userId?: number | string): Promise<string | null> {
-    const cacheKey = `${userId || 'shared'}:${albumTitle}`;
-    const cachedUrl = this.albumUrlCache.get(cacheKey);
-    if (cachedUrl) return cachedUrl;
+    return (await this.findAlbumInfo(albumTitle, userId))?.url ?? null;
+  }
+
+  /** Existing app-created album (id + productUrl) by title; never creates one. */
+  public async findAlbumInfo(
+    albumTitle: string,
+    userId?: number | string,
+  ): Promise<CachedAlbum | null> {
+    const cache = this.albumCacheFor(userId);
+    const cached = cache.get(albumTitle);
+    if (cached?.url) return cached;
 
     try {
       const accessToken = await this.getAccessToken(userId);
-      const listRes = await fetch(
-        `${this.baseUrl}/albums?pageSize=50&excludeNonAppCreatedData=true`,
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      );
-      if (!listRes.ok) return null;
-      const listData = (await listRes.json()) as { albums?: GooglePhotosAlbum[] };
-      const album = listData.albums?.find((a) => a.title?.trim() === albumTitle.trim());
-      if (album?.productUrl) {
-        this.albumUrlCache.set(cacheKey, album.productUrl);
-        if (album.id) this.albumCache.set(cacheKey, album.id);
-        return album.productUrl;
-      }
-      return null;
+      const album = await this.findAppAlbum(albumTitle, accessToken);
+      if (!album?.productUrl) return null;
+      const info = { id: album.id, url: album.productUrl };
+      cache.set(albumTitle, info);
+      return info;
     } catch {
       return null;
     }

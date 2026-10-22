@@ -19,6 +19,7 @@ import { LlmModule } from '../llm/llm.module';
 import { OcrModule } from '../ocr/ocr.module';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 import { ChatMemoryModule } from './memory/chat-memory.module';
+import { ChannelStorageLinkModule } from './storage/channel-storage-link.module';
 
 // Confirmation & Guards
 import { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
@@ -45,6 +46,7 @@ const COMMON_IMPORTS = [
   OcrModule,
   DashboardAuthModule,
   ChatMemoryModule,
+  ChannelStorageLinkModule,
 ];
 
 const COMMON_PROVIDERS = [

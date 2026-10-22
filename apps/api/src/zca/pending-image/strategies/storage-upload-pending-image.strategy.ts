@@ -3,6 +3,11 @@ import { ZcaService } from '../../zca.service';
 import { sendChatText, type ChatMessenger } from '../../chat-messenger.util';
 import { PendingImageActionService } from '../pending-image-action.service';
 import { MediaStorageService } from '../../../receipt-storage/media-storage.service';
+import {
+  buildChannelStorageTarget,
+  type ChannelStorageTarget,
+} from '../../../google/channel-storage.util';
+import { ThreadConfigService } from '../../thread-config.service';
 import { fetchImageBuffer } from '../../../common/utils/image-fetcher.util';
 import { PendingImageContext, PendingImageStrategy } from '../pending-image.interface';
 import { isStorageUploadInstruction } from '../../zca-bot-feature.service';
@@ -20,7 +25,14 @@ export class StorageUploadPendingImageStrategy implements PendingImageStrategy {
     private readonly zcaService?: ChatMessenger,
     @Optional() private readonly pendingImageActionService?: PendingImageActionService,
     @Optional() private readonly mediaStorageService?: MediaStorageService,
+    @Optional() private readonly threadConfigService?: ThreadConfigService,
   ) {}
+
+  private async storageTarget(chatId: string | number): Promise<ChannelStorageTarget> {
+    return this.threadConfigService
+      ? this.threadConfigService.getStorageTarget(String(chatId))
+      : buildChannelStorageTarget(String(chatId));
+  }
 
   public canHandle(text: string): boolean {
     return isStorageUploadInstruction(text) || this.option2Regex.test(text.trim());
@@ -56,12 +68,15 @@ export class StorageUploadPendingImageStrategy implements PendingImageStrategy {
           : '⏳ Đang tải ảnh lên Google Drive & Google Photos dùng chung...',
       );
 
+      const target = await this.storageTarget(context.chatId);
       for (let i = 0; i < urls.length; i++) {
         const url = urls[i];
         const buffer = await fetchImageBuffer(url);
-        const dualResult = await this.mediaStorageService.uploadImage(context.senderId, buffer, {
-          channelId: context.chatId,
-        });
+        const dualResult = await this.mediaStorageService.uploadImage(
+          context.senderId,
+          buffer,
+          target,
+        );
         const summary = this.mediaStorageService.formatUploadSummary(dualResult, 'image');
         const prefix = total > 1 ? `[Ảnh ${i + 1}/${total}]\n` : '';
         await this.notify(context.chatId, `${prefix}${summary}`);

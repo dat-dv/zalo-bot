@@ -68,7 +68,7 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
 | Trí nhớ hội thoại | `chatMemory.enabled` | tắt | Lưu và tra lại tin của kênh ([chi tiết](chat-memory.md)) |
 | | `chatMemory.contextWindow` | `10` (0–30) | Số tin gần nhất đưa vào prompt |
 | | `chatMemory.searchLimit` | `15` (1–50) | Số kết quả mỗi lần tra |
-| Lưu trữ | `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | trống | Link đã lưu tới **thư mục gốc** Drive và album Photos của kênh (xem mục "Link Drive/Photos cố định theo kênh") |
+| Lưu trữ | `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | trống | Link cũ tới **thư mục gốc** Drive và album Photos của kênh. Dashboard giờ liệt kê từ bảng lịch sử `channel_storage_links` (xem [Lưu trữ media theo kênh](channel-storage.md)) |
 
 Lưu ý:
 - Bật lắng nghe một kênh đang tắt tương tác trực tiếp thì hệ thống tự bật `directInteraction.enabled` kèm `allowAiChat` (giữ nguyên danh sách tiền tố).
@@ -179,7 +179,7 @@ Logic ghép dòng là hàm thuần trong `model/chat-rows.ts`, có unit test ở
 
 - **`ZcaScreen` (`view/zca-screen.tsx`)**: header (làm mới, đăng nhập QR / đăng xuất), 4 thẻ tổng quan (kết nối, số đang lắng nghe, số chờ duyệt, tổng số dòng), thanh công cụ ("Đồng bộ thông tin" lấy tên/avatar/SĐT từ danh bạ ZCA; "+ Thêm người dùng"; link kho Drive gốc), ô nhập ID để bật lắng nghe thủ công, tìm kiếm (không dấu), sắp xếp, bộ lọc và phân trang.
 - **Modal đăng nhập QR**: tự nạp mã QR, polling trạng thái và tự đóng khi đăng nhập thành công.
-- **`ChatTableRow` (`presentation/components/chat-table-row.tsx`)**: một dòng của bảng. Bấm vào nhãn "Đang lắng nghe / Bỏ qua" để bật/tắt lắng nghe; nút Cấp quyền / Thu hồi (thu hồi Admin phải xác nhận); nút Sao lưu lịch sử (nhóm, mở `SyncMediaModal`), link Drive, link album Google Photos và nút Cấu hình. Link Drive/Photos dùng URL đã lưu trong cấu hình; chưa có thì trỏ tới `/api/drive/open` hoặc `/api/photos/open` để backend tạo và chuyển hướng.
+- **`ChatTableRow` (`presentation/components/chat-table-row.tsx`)**: một dòng của bảng. Bấm vào nhãn "Đang lắng nghe / Bỏ qua" để bật/tắt lắng nghe; nút Cấp quyền / Thu hồi (thu hồi Admin phải xác nhận); nút Sao lưu lịch sử (nhóm, mở `SyncMediaModal`), nút Drive và nút Cấu hình. Các nút `📁 Drive` / `📸 Photos` (cột Lắng nghe) và nút Drive (cột thao tác) mở hộp thoại `ThreadStorageLinksDialog`, liệt kê mọi thư mục Drive/album Photos kênh từng dùng qua các tài khoản Google (xem [Lưu trữ media theo kênh](channel-storage.md)).
 - **Menu "⋯" (`chat-row-menu.tsx`)**: Sửa thông tin & vai trò, Gộp tài khoản trùng, Xem người liên quan đã gắn, Xoá người dùng (không áp dụng cho Admin).
 - **Badge "🔗 N người liên quan"** cạnh tên người dùng: hiện khi tài khoản đang được gắn với ít nhất một Người liên quan trong danh bạ công nợ. Bấm vào để mở dialog liệt kê (xem tài liệu module users). Nhờ badge này, trang ZCA và trang Người liên quan nối được với nhau theo cả hai chiều.
 - **`UserFormDialog` (`user-form-dialog.tsx`)**: thêm mới hoặc sửa tên, SĐT, vai trò của người dùng.
@@ -221,7 +221,8 @@ Link Google dùng trên trang (thuộc `GoogleResourcesController`): `GET /api/d
 **Quy tắc hiện tại:**
 
 - Mỗi kênh chỉ có **một thư mục gốc**: `customFolder` nếu admin đã đặt, ngược lại là `zalobot/<channelId>`. File vẫn được xếp vào thư mục con theo loại/tháng bên dưới, nhưng link luôn trỏ vào thư mục gốc để người dùng thấy toàn bộ.
-- Mỗi kênh chỉ có **một album**: tên album tuỳ chỉnh (`photosAlbum`) → album đã lưu → `[Zalo] <tên nhóm>`. Upload và link dùng chung quy tắc này.
+- Mỗi kênh chỉ có **một album trên mỗi tài khoản Google**: tên album tuỳ chỉnh (`photosAlbum`) → album đã lưu → `[Zalo] <tên nhóm>`. Mọi đường upload (kể cả hoá đơn) và link đều dùng chung quy tắc này.
+- Đổi tài khoản Google thì link cũ vẫn được giữ trong bảng lịch sử `channel_storage_links`; bấm Drive/Photos trên bảng sẽ thấy toàn bộ. Chi tiết: [Lưu trữ media theo kênh](channel-storage.md).
 - Backend chặn tại một chỗ: `saveDriveFolderInfo` từ chối lưu thư mục không phải gốc, `savePhotosAlbumInfo` từ chối album khác album của kênh.
 - Khi admin đổi thư mục tuỳ chỉnh hoặc tên album trong **Cấu hình**, link cũ tự bị xoá; lần bấm mở tiếp theo backend tìm lại đúng thư mục/album rồi lưu.
 - Dữ liệu cũ đã lưu sai **không cần migration**: khi đọc cấu hình, link lệch gốc bị bỏ qua, web rơi về `/api/drive/open` / `/api/photos/open`, và endpoint này lưu lại link đúng.
