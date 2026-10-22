@@ -37,7 +37,7 @@ Push notification **không** làm, vì lời nhắc đã gửi qua Zalo.
 | `src/shared/pwa/*` | Đăng ký service worker, bắt sự kiện cài app, theo dõi online/offline. |
 | `src/shared/ui/pwa-status-stack.tsx` | Thông báo "Đang offline" và "Đã có phiên bản mới – Tải lại" ở giữa phía trên màn hình. |
 | `InstallAppRow` (Settings → Tuỳ chọn) | Nơi duy nhất mời cài app. |
-| `apps/web/nginx.conf` | Không cache `sw.js`, manifest và HTML. |
+| `apps/web/nginx.conf` | Không cache `sw.js`, manifest và HTML (`no-cache`). `/_next/static/*` cache 1 năm `immutable` vì tên file có hash. Các file trong `public/` như favicon, icon, og-image cache 1 ngày, vì tên không đổi giữa các lần deploy. |
 
 ## Service worker cache gì
 
@@ -78,7 +78,8 @@ Service worker chỉ chạy ở bản build production, không chạy trong `npm
 
 ## Xử lý sự cố
 
-- **Người dùng kẹt ở bản cũ**: kiểm tra header `Cache-Control` của `/sw.js` (phải là `no-cache`) và version trong URL đăng ký.
+- **Người dùng kẹt ở bản cũ**: kiểm tra header `Cache-Control` của `/sw.js` (phải là `no-cache`) và version trong URL đăng ký. Prod đi qua Cloudflare, và Cloudflare đang đổi header của `/sw.js` thành `max-age=14400` (đo ngày 22/10/2026). Nếu cần cập nhật ngay, tạo Cache Rule trên Cloudflare để bỏ qua cache cho `/sw.js`, hoặc bật "Respect existing headers". Việc này làm trên dashboard Cloudflare, không nằm trong repo.
+- **Đổi icon mà vẫn thấy icon cũ**: file trong `public/` được cache 1 ngày. Trước đây là 1 năm `immutable` nên không bao giờ tự đổi.
 - **Cần gỡ khẩn cấp**: phát hành một `sw.js` tự huỷ đăng ký (`self.registration.unregister()`) và xoá các cache `zalobot-*`.
 - **Kết nối Google trong app đã cài trên iOS không quay về app**: làm thao tác này trên trình duyệt.
 - PWA cần HTTPS (domain production) hoặc `localhost`.

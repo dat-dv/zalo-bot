@@ -69,7 +69,10 @@ The dashboard can be installed on the phone home screen and opened full screen l
 ## nginx (`apps/web/nginx.conf`)
 
 - `location /` (HTML): `Cache-Control: no-cache`.
-- `location = /sw.js` and `location = /manifest.webmanifest` (`application/manifest+json`): `no-cache`. Exact matches win over the 1-year `\.js$` rule; a cached worker could never update.
+- `location = /sw.js` and `location = /manifest.webmanifest` (`application/manifest+json`): `no-cache`. Exact matches win over the asset regex; a cached worker could never update.
+- `location ^~ /_next/static/`: `public, max-age=31536000, immutable` (content-hashed build output; `^~` keeps the regex below from matching first).
+- Other assets by extension (`css|js|json|svg|png|jpg|jpeg|gif|ico|webp`, i.e. `public/` files whose names never change: favicon, PWA icons, og-image): `public, max-age=86400`, so a replaced icon shows within a day.
+- Prod sits behind Cloudflare. Its Browser Cache TTL rewrites `/sw.js` to `max-age=14400` (seen 2026-10-22); browsers still revalidate the worker script on update checks, but a Cloudflare Cache Rule bypassing `/sw.js` (or "Respect existing headers") keeps the origin header. That is a Cloudflare dashboard setting, not repo config.
 - Local `docker/nginx/nginx.local.conf.template` proxies to `next dev`, where no worker is registered.
 
 ## Known limits
