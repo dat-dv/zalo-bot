@@ -947,6 +947,11 @@ const messages = {
     'reminderTarget.mode.direct': 'Nhắn riêng',
     'reminderTarget.directIntro': 'Bạn được nhắc trong {chat}.',
     'reminders.columns.target': 'Gửi tới',
+    'reminders.columns.completedAt': 'Xong lúc',
+    'reminders.tabs': 'Trạng thái lời nhắc',
+    'reminders.tab.upcoming': 'Sắp tới',
+    'reminders.tab.done': 'Đã xong',
+    'reminders.noDone': 'Chưa có lời nhắc nào đã xong',
     'reminders.notifyType.callPrivateOnly': 'Gọi điện chỉ dùng khi gửi vào chat riêng.',
     'task.reminder.header': '⏰ Nhắc việc cần làm',
     'task.reminder.due': 'Hạn',
@@ -2055,6 +2060,11 @@ const messages = {
     'reminderTarget.mode.direct': 'Private message',
     'reminderTarget.directIntro': 'You are reminded in {chat}.',
     'reminders.columns.target': 'Sent to',
+    'reminders.columns.completedAt': 'Done at',
+    'reminders.tabs': 'Reminder status',
+    'reminders.tab.upcoming': 'Upcoming',
+    'reminders.tab.done': 'Done',
+    'reminders.noDone': 'No finished reminders yet',
     'reminders.notifyType.callPrivateOnly': 'Calls only work for a private chat.',
     'task.reminder.header': '⏰ Task reminder',
     'task.reminder.due': 'Due',
@@ -2701,6 +2711,21 @@ export interface IReminderListItem {
   remindMode?: ReminderTargetMode;
   /** Every time of the reminder, earliest first; `remindAt` is the next one. */
   remindTimes?: IReminderTime[];
+  /** When the reminder finished (last time sent, or marked done); absent while upcoming. */
+  completedAt?: string;
+}
+
+/**
+ * Which reminders `GET /api/reminders?status=` lists: `upcoming` (default) still has a time
+ * to send; `done` has none left or was marked done, and is kept until deleted.
+ */
+export const REMINDER_LIST_STATUSES = ['upcoming', 'done'] as const;
+export type ReminderListStatus = (typeof REMINDER_LIST_STATUSES)[number];
+/** The `done` list returns the most recent ones only (no paging yet). */
+export const REMINDER_LIST_LIMITS = { DONE_MAX: 200 } as const;
+
+export function isReminderListStatus(value: unknown): value is ReminderListStatus {
+  return typeof value === 'string' && (REMINDER_LIST_STATUSES as readonly string[]).includes(value);
 }
 
 export interface IUpdateReminderRequest {

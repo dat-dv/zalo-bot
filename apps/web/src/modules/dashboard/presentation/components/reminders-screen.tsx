@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useMemo, useTransition } from 'react';
+import { useCallback, useState, useMemo, useTransition } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { type IReminderListItem, type IUpdateReminderRequest } from '@zalobot/contracts';
+import {
+  type IReminderListItem,
+  type IUpdateReminderRequest,
+  type ReminderListStatus,
+} from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataPanel } from '@/shared/ui/data-table';
 import { RemindersTable, type ReminderEditDraft } from './reminders-table';
@@ -21,15 +26,33 @@ import {
   snoozeReminderTimes,
 } from '@/modules/reminders/model/reminder-times';
 import {
+  reminderListStatusFrom,
+  writeReminderListStatus,
+} from '@/modules/reminders/model/reminder-list-status';
+import {
   remindersQueryKeys,
   useDeleteReminderMutation,
   useRemindersQuery,
   useUpdateReminderMutation,
 } from '@/modules/reminders/api/reminders-query';
 import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
-import { PHONE_TOOLBAR_INPUT, TOAST_POSITION } from '@/shared/ui/touch';
+import {
+  MOBILE_TOOLBAR_ROW,
+  PHONE_CHIP,
+  PHONE_TOOLBAR_INPUT,
+  TOAST_POSITION,
+} from '@/shared/ui/touch';
 import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
 import { CreateReminderDialog } from './create-reminder-dialog';
+
+const CHIP_PHONE = `max-[640px]:shrink-0 max-[640px]:whitespace-nowrap ${PHONE_CHIP}`;
+const STATUS_TABS: ReadonlyArray<{
+  status: ReminderListStatus;
+  label: 'reminders.tab.upcoming' | 'reminders.tab.done';
+}> = [
+  { status: 'upcoming', label: 'reminders.tab.upcoming' },
+  { status: 'done', label: 'reminders.tab.done' },
+];
 
 const emptyEditDraft = (): ReminderEditDraft => ({
   title: '',
@@ -41,7 +64,12 @@ const emptyEditDraft = (): ReminderEditDraft => ({
 
 export function RemindersScreen() {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { t } = useLocale();
+  // The tab lives in the URL, so a reload or a shared link opens the same list.
+  const status = reminderListStatusFrom(searchParams);
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -50,13 +78,13 @@ export function RemindersScreen() {
   const [, startTransition] = useTransition();
 
   const dashboard = useDashboardQuery();
-  const remindersQuery = useRemindersQuery();
+  const remindersQuery = useRemindersQuery(status);
   const updateMutation = useUpdateReminderMutation();
   const deleteMutation = useDeleteReminderMutation();
   const targetChannelsQuery = useReminderTargetChannelsQuery(editingId !== null);
 
   const refresh = () => {
-    void queryClient.invalidateQueries({ queryKey: remindersQueryKeys.list() });
+    void queryClient.invalidateQueries({ queryKey: remindersQueryKeys.all() });
     void queryClient.invalidateQueries({ queryKey: dashboardQueryKeys.detail() });
   };
 
@@ -64,8 +92,22 @@ export function RemindersScreen() {
     if (remindersQuery.data && remindersQuery.data.length > 0) {
       return remindersQuery.data;
     }
+    // The Home payload only has upcoming reminders, so the Done tab never falls back to it.
+    if (status === 'done') return remindersQuery.data ?? [];
     return dashboard.data?.reminders ?? [];
-  }, [remindersQuery.data, dashboard.data?.reminders]);
+  }, [remindersQuery.data, dashboard.data?.reminders, status]);
+
+  const setStatus = useCallback(
+    (next: ReminderListStatus) => {
+      setEditingId(null);
+      const query = writeReminderListStatus(
+        new URLSearchParams(searchParams.toString()),
+        next,
+      ).toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [router, pathname, searchParams],
+  );
 
   const filteredReminders = useMemo(() => {
     if (!search.trim()) return rawList;
@@ -212,7 +254,28 @@ export function RemindersScreen() {
             title={t('dashboard.reminders')}
             counter={t('table.rowsCount', { count: filteredReminders.length })}
             toolbar={
-              <div className="flex flex-wrap items-center gap-1.5 max-[640px]:w-full">
+              <div className="flex flex-wrap items-center gap-1.5 max-[640px]:w-full max-[640px]:flex-col max-[640px]:items-stretch">
+                <div
+                  className={`flex items-center gap-1 ${MOBILE_TOOLBAR_ROW}`}
+                  role="group"
+                  aria-label={t('reminders.tabs')}
+                >
+                  {STATUS_TABS.map((tab) => (
+                    <button
+                      key={tab.status}
+                      type="button"
+                      aria-pressed={status === tab.status}
+                      className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${CHIP_PHONE} ${
+                        status === tab.status
+                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                      onClick={() => setStatus(tab.status)}
+                    >
+                      {t(tab.label)}
+                    </button>
+                  ))}
+                </div>
                 <button
                   type="button"
                   // Compact screens get this action in the MobileActionBar instead.
@@ -237,16 +300,18 @@ export function RemindersScreen() {
               ariaLabel={t('dashboard.reminders')}
               reminders={filteredReminders}
               loading={isLoading}
-              emptyMessage={t('dashboard.noReminders')}
+              emptyMessage={t(status === 'done' ? 'reminders.noDone' : 'dashboard.noReminders')}
               editingId={editingId}
               editDraft={editDraft}
               onChangeEditDraft={setEditDraft}
               showTarget
+              showCompletedAt={status === 'done'}
               targetChannels={targetChannelsQuery.data}
               onStartEdit={handleStartEdit}
               onCancelEdit={handleCancelEdit}
               onSaveEdit={handleSaveEdit}
-              onSnooze={handleSnooze}
+              // A finished reminder has no next time to snooze; editing its times reopens it.
+              onSnooze={status === 'done' ? undefined : handleSnooze}
               onDelete={handleDelete}
               isPending={updateMutation.isPending}
             />

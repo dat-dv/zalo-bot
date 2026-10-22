@@ -8,18 +8,32 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
-import { REMINDER_TIME_LIMITS, type ReminderTargetMode } from '@zalobot/contracts';
+import {
+  REMINDER_LIST_STATUSES,
+  REMINDER_TIME_LIMITS,
+  type ReminderListStatus,
+  type ReminderTargetMode,
+  isReminderListStatus,
+} from '@zalobot/contracts';
 import { ReminderEntity } from '../database/entities/reminder.entity';
 import { isReminderTargetMode } from './reminder-target';
 import { toReminderTimeItems } from './reminder-times';
 import { ReminderTargetService } from './reminder-target.service';
 import { RemindersService, reminderTarget } from './reminders.service';
+
+/** `?status=` of the list; absent means `upcoming`, so callers that never send it keep working. */
+export function reminderListStatus(value: unknown): ReminderListStatus {
+  if (value === undefined || value === '') return 'upcoming';
+  if (isReminderListStatus(value)) return value;
+  throw new BadRequestException('status is invalid.');
+}
 
 @ApiTags('Reminders')
 @ApiBearerAuth('bearer-jwt')
@@ -32,11 +46,12 @@ export class RemindersController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'Lấy danh sách lời nhắc sắp tới của người dùng' })
-  async list(@Req() req: Request) {
+  @ApiOperation({ summary: 'Lấy danh sách lời nhắc sắp tới hoặc đã xong của người dùng' })
+  @ApiQuery({ name: 'status', required: false, enum: REMINDER_LIST_STATUSES })
+  async list(@Req() req: Request, @Query('status') status?: string) {
     return {
       data: await this.withChatNames(
-        await this.reminders.getUserUpcomingReminders(this.userId(req)),
+        await this.reminders.getUserReminders(this.userId(req), reminderListStatus(status)),
       ),
     };
   }

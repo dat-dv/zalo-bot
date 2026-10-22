@@ -46,6 +46,8 @@ export type RemindersTableProps = {
   showTarget?: boolean;
   /** Chats a reminder can be sent to, for the inline edit. */
   targetChannels?: readonly IReminderTargetChannel[];
+  /** Show when each reminder finished (the Done tab); phones show it instead of the schedule. */
+  showCompletedAt?: boolean;
 };
 
 export function RemindersTable({
@@ -65,6 +67,7 @@ export function RemindersTable({
   isPending = false,
   showTarget = false,
   targetChannels = [],
+  showCompletedAt = false,
 }: RemindersTableProps) {
   const { locale, t } = useLocale();
   // Compact screens edit inside the row sheet; focusing a field there would pop the keyboard.
@@ -186,7 +189,7 @@ export function RemindersTable({
         header: t('dashboard.columns.schedule'),
         align: 'right',
         minWidth: '150px',
-        mobileSlot: 'trailing',
+        mobileSlot: showCompletedAt ? 'secondary' : 'trailing',
         mobileCell: (item) => shortDateTime(item.remindAt),
         cell: (item) => {
           if (
@@ -272,6 +275,22 @@ export function RemindersTable({
         },
       },
     ];
+
+    if (showCompletedAt) {
+      list.push({
+        id: 'completedAt',
+        header: t('reminders.columns.completedAt'),
+        align: 'right',
+        minWidth: '130px',
+        mobileSlot: 'trailing',
+        mobileCell: (item) => shortDateTime(item.completedAt),
+        cell: (item) => (
+          <span className="text-[11.5px] text-slate-500 tabular-nums dark:text-slate-400">
+            {date(item.completedAt)}
+          </span>
+        ),
+      });
+    }
 
     if (showTarget) {
       list.push({
@@ -394,6 +413,7 @@ export function RemindersTable({
     onSaveEdit,
     onSnooze,
     onStartEdit,
+    showCompletedAt,
     showTarget,
     t,
     targetChannels,

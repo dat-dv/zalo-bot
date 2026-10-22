@@ -1,6 +1,11 @@
 import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { IReminderTargetUser, ReminderTargetMode } from '@zalobot/contracts';
+import {
+  type IReminderTargetUser,
+  REMINDER_LIST_LIMITS,
+  type ReminderListStatus,
+  type ReminderTargetMode,
+} from '@zalobot/contracts';
 import { In, IsNull, Repository } from 'typeorm';
 import { ReminderTimeEntity } from '../database/entities/reminder-time.entity';
 import { ReminderEntity } from '../database/entities/reminder.entity';
@@ -183,6 +188,25 @@ export class RemindersService {
     if (next && reminder.status === 'completed') summary.status = 'pending';
     Object.assign(reminder, summary);
     await this.reminderRepo.update({ id: reminder.id }, summary);
+  }
+
+  /** Reminders of the user for one tab of `/reminders`. */
+  public getUserReminders(
+    userId: number | string,
+    status: ReminderListStatus,
+  ): Promise<ReminderEntity[]> {
+    return status === 'done'
+      ? this.getUserDoneReminders(userId)
+      : this.getUserUpcomingReminders(userId);
+  }
+
+  /** Finished reminders (no time left, or marked done), latest first; kept until deleted. */
+  public async getUserDoneReminders(userId: number | string): Promise<ReminderEntity[]> {
+    return this.reminderRepo.find({
+      where: { userId: userId.toString(), isTriggered: true },
+      order: { completedAt: { direction: 'DESC', nulls: 'LAST' }, remindAt: 'DESC' },
+      take: REMINDER_LIST_LIMITS.DONE_MAX,
+    });
   }
 
   public async getUserUpcomingReminders(userId: number | string): Promise<ReminderEntity[]> {

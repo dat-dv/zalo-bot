@@ -51,11 +51,12 @@ Any dashboard user thereby sees the names of listened threads and their members 
 
 ## Web UI (`RemindersScreen`)
 
-- Data source: `useRemindersQuery`; when it returns an empty list, falls back to `dashboard.data.reminders` (`useDashboardQuery`).
-- `DataPanel` with row counter and client search by title.
+- Two tabs (chips, `aria-pressed`): **Upcoming** (default) and **Done**. The tab lives in the URL (`/reminders?status=done`; `upcoming` is left out) via `reminderListStatusFrom` / `writeReminderListStatus` (`apps/web/src/modules/reminders/model/reminder-list-status.ts`), so reload and shared links keep it; the page is wrapped in `<Suspense>` (static export + `useSearchParams`). Switching tab cancels an inline edit.
+- Data source: `useRemindersQuery(status)` (key `['reminders', status]`; mutations invalidate `['reminders']`, so both tabs refresh). Only the Upcoming tab falls back to `dashboard.data.reminders` when the list is empty (the Home payload has upcoming reminders only); Done shows `reminders.noDone`.
+- `DataPanel` with row counter and client search by title (within the open tab).
 - Create: `+ Add reminder` toolbar button (desktop, `max-[960px]:hidden`) / `MobileActionBar` (compact) opens `CreateReminderDialog` with title, reminder times (`ReminderTimesField`, one or more `datetime-local`, local time → ISO, sent as `remindTimes`), notify type, repeat type and the target (`ReminderTargetFields`; private chat preselected; `dashboard-owner` must pick). `Call` is disabled unless the target is the user's own private chat (`reminders.notifyType.callPrivateOnly`). Save is disabled while invalid or in the past; validity is re-checked against the clock on submit. API errors stay in the dialog; success closes it with a toast.
-- Columns: title, notify type (`text` / `call`), schedule (`remindAt`), repeat (`none` / `daily` / `weekly`), `target` (Sent to, `showTarget`, this page only: `ReminderTargetSummary`, `chatName` else "My private chat"), actions.
-- Inline edit (title, `remindAt` datetime, notify type, repeat type, target via compact `ReminderTargetFields`) with Save/Cancel; target fields are sent only when changed (`isTargetChanged`); API rejections show their message in a toast; Snooze = PATCH `remindAt` + 15 minutes; Delete asks `window.confirm`. Toasts on save/snooze/delete.
+- Columns: title, notify type (`text` / `call`), schedule (`remindAt`), Done tab only `completedAt` ("Done at", `showCompletedAt`; the phone row shows it as trailing value instead of the schedule), repeat (`none` / `daily` / `weekly`), `target` (Sent to, `showTarget`, this page only: `ReminderTargetSummary`, `chatName` else "My private chat"), actions.
+- Inline edit (title, `remindAt` datetime, notify type, repeat type, target via compact `ReminderTargetFields`) with Save/Cancel; target fields are sent only when changed (`isTargetChanged`); API rejections show their message in a toast; Snooze = PATCH `remindAt` + 15 minutes (Upcoming tab only: a finished reminder has no next time); editing a finished reminder's times to a future time moves it back to Upcoming (API rule below); Delete asks `window.confirm`. Toasts on save/snooze/delete.
 - Error state: alert strip with Retry (invalidates reminders + dashboard caches). Loading is passed to the table.
 
 ## Backend API (`RemindersController`, `@Controller('reminders')`)
@@ -64,13 +65,13 @@ All endpoints are scoped to the dashboard user (`getDashboardUserId`).
 
 | Method | Path | Behavior |
 | --- | --- | --- |
-| GET | `/api/reminders` | `getUserUpcomingReminders`: rows with `isTriggered = false`, ordered by `remindAt` ASC, plus `chatName` (`ReminderTargetService.chatNames`) and `remindTimes` (earliest first) |
+| GET | `/api/reminders?status=upcoming\|done` | `getUserReminders(userId, status)`. `upcoming` (default when absent, so the bot `/reminders`, the Home payload and old clients are unchanged): `getUserUpcomingReminders`, rows with `isTriggered = false`, `remindAt` ASC. `done`: `getUserDoneReminders`, rows with `isTriggered = true` (every time sent, or marked done), `completedAt` DESC NULLS LAST then `remindAt` DESC, at most `REMINDER_LIST_LIMITS.DONE_MAX` = 200 (no paging yet). Other value ⇒ 400 `status is invalid.` (`reminderListStatus`). Each row adds `chatName` (`ReminderTargetService.chatNames`) and `remindTimes` (earliest first) |
 | GET | `/api/reminders/:id` | One reminder of the user, 404 otherwise |
 | POST | `/api/reminders` | Requires `title` and `remindTimes` (≤10 ISO) or a single `remindAt`; optional `notifyType` (`text`/`call`), `repeatType` (`none`/`daily`/`weekly`), `chatId`, `remindUserIds`, `remindMode` |
 | PATCH | `/api/reminders/:id` | Updates `title`, `remindTimes` (or legacy `remindAt` = one time), `notifyType`, `repeatType`, target fields. New times put a finished reminder back to pending; a target change alone does not |
 | DELETE | `/api/reminders/:id` | Returns `{ deleted: true }`, 404 if not found |
 
-Contracts: `IReminderListItem` (+ `chatId?`, `chatName?`, `remindUsers?`, `remindMode?`), `ICreateReminderRequest`, `IUpdateReminderRequest` (+ `chatId?`, `remindUserIds?`, `remindMode?`) (`@zalobot/contracts`). The controller ignores `status`/`snoozeCount`/`snoozedUntil` from the request body. `notifyType: 'call'` with a target other than the owner's private chat ⇒ 400.
+Contracts: `IReminderListItem` (+ `chatId?`, `chatName?`, `remindUsers?`, `remindMode?`, `completedAt?`), `REMINDER_LIST_STATUSES` / `ReminderListStatus` / `isReminderListStatus`, `REMINDER_LIST_LIMITS`, `ICreateReminderRequest`, `IUpdateReminderRequest` (+ `chatId?`, `remindUserIds?`, `remindMode?`) (`@zalobot/contracts`). The controller ignores `status`/`snoozeCount`/`snoozedUntil` from the request body. `notifyType: 'call'` with a target other than the owner's private chat ⇒ 400.
 
 ## Scheduler (`ReminderSchedulerService`)
 

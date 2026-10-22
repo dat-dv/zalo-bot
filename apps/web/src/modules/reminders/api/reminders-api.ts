@@ -4,11 +4,16 @@ import {
   type ICreateReminderRequest,
   type IReminderListItem,
   type IUpdateReminderRequest,
+  type ReminderListStatus,
 } from '@zalobot/contracts';
 import { httpClient } from '@/shared/api/http-client';
 
-export async function getReminders(signal?: AbortSignal): Promise<IReminderListItem[]> {
+export async function getReminders(
+  status: ReminderListStatus,
+  signal?: AbortSignal,
+): Promise<IReminderListItem[]> {
   const response = await httpClient.get<IApiResponse<IReminderListItem[]>>(API_ROUTES.reminders, {
+    params: { status },
     signal,
   });
   return response.data.data;

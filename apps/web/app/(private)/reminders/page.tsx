@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { RemindersScreen } from '@/modules/dashboard/view/reminders-screen';
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function RemindersPage() {
-  return <RemindersScreen />;
+  return (
+    <Suspense>
+      <RemindersScreen />
+    </Suspense>
+  );
 }

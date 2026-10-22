@@ -7,6 +7,8 @@ metadata:
       - .agents/knowledge/modules/reminders/README.md
       - apps/web/src/modules/reminders/api/reminders-api.ts
       - apps/web/src/modules/reminders/api/reminders-query.ts
+      - apps/web/src/modules/reminders/model/reminder-list-status.ts
+      - apps/web/app/(private)/reminders/page.tsx
       - apps/web/src/modules/dashboard/presentation/components/reminders-screen.tsx
       - apps/web/src/modules/dashboard/presentation/components/reminders-table.tsx
       - apps/web/src/modules/dashboard/presentation/components/create-reminder-dialog.tsx
@@ -88,14 +90,18 @@ Một lời nhắc (giống việc cần làm) có thể nhắc **nhiều lần*
 
 - `apps/web/src/modules/reminders` có thư mục `api/` và `model/`:
   - `reminders-api.ts`: `getReminders`, `createReminder`, `updateReminder`, `deleteReminder`, gọi `API_ROUTES.reminders` (`/api/reminders`).
-  - `reminders-query.ts`: query key `['reminders']`, các hook `useRemindersQuery`, `useCreateReminderMutation`, `useUpdateReminderMutation`, `useDeleteReminderMutation`. Sau khi thêm/sửa/xoá thành công sẽ làm mới cache `reminders` và `dashboard`.
+  - `reminders-query.ts`: query key `['reminders', status]` theo từng tab (`all()` = `['reminders']` để làm mới cả hai tab), các hook `useRemindersQuery`, `useCreateReminderMutation`, `useUpdateReminderMutation`, `useDeleteReminderMutation`. Sau khi thêm/sửa/xoá thành công sẽ làm mới cache `reminders` và `dashboard`.
   - `model/reminder-create-form.ts`: hàm thuần (có unit test) đặt giá trị mặc định và kiểm tra form thêm lời nhắc.
+  - `model/reminder-list-status.ts`: hàm thuần (có unit test) đọc và ghi tab đang mở vào query string.
 - **Màn hình nằm ở module dashboard**: `RemindersScreen`, `RemindersTable` và `CreateReminderDialog` trong `apps/web/src/modules/dashboard/presentation/components/`. Trang `/reminders` (`apps/web/app/(private)/reminders/page.tsx`) import từ `@/modules/dashboard/view/reminders-screen`. Khi cần sửa giao diện, hãy mở thư mục dashboard, không phải thư mục reminders.
 - Backend: `apps/api/src/reminders` gồm `RemindersController`, `RemindersService`, `ReminderSchedulerService` và worker BullMQ `ReminderProcessor` (queue `reminders`).
 
 ## 4. Màn hình Nhắc nhở
 
-- Dữ liệu lấy từ `useRemindersQuery`. Nếu API trả danh sách rỗng, màn hình dùng tạm `reminders` trong dữ liệu dashboard.
+- Trang có hai tab **Sắp tới** (mặc định) và **Đã xong**. Tab đang mở nằm trên URL (`/reminders?status=done`), nên F5 hoặc gửi link cho người khác vẫn mở đúng tab. Đổi tab thì huỷ dòng đang sửa dở.
+- **Thế nào là "đã xong"**: lời nhắc không lặp đã gửi hết các lần nhắc, hoặc người dùng đã bấm "✅ Đã xong". Lời nhắc lặp (hằng ngày/tuần) tự dời sang lần sau nên không bao giờ xong, vì vậy luôn nằm ở tab Sắp tới. Lời nhắc đã xong **không bị xoá**, giữ lại để xem lại cho tới khi người dùng tự xoá.
+- Dữ liệu lấy từ `useRemindersQuery(status)`. Ở tab Sắp tới, nếu API trả danh sách rỗng, màn hình dùng tạm `reminders` trong dữ liệu dashboard. Tab Đã xong **không** dùng tạm như vậy, vì dữ liệu dashboard chỉ có lời nhắc sắp tới; rỗng thì hiện "Chưa có lời nhắc nào đã xong".
+- Tab Đã xong có thêm cột **Xong lúc** (trên điện thoại hiện ở góc phải thay cho giờ nhắc) và không có nút Nhắc lại. Vẫn sửa được: đổi giờ nhắc sang tương lai thì lời nhắc tự quay về tab Sắp tới (API xử lý sẵn). Chỉ đổi tiêu đề thì nó vẫn ở tab Đã xong.
 - Bảng có ô tìm kiếm theo tiêu đề và các cột: tiêu đề, loại thông báo (`text` tin nhắn / `call` cuộc gọi), thời điểm nhắc, lặp lại (`none` / `daily` / `weekly`), **Gửi tới** (kênh · người được nhắc · "Nhắn riêng"; chỉ trên trang `/reminders`), thao tác.
 - **Thêm lời nhắc**: nút `+ Thêm lời nhắc` trên toolbar (desktop) hoặc ở thanh hành động dưới cùng (điện thoại) mở hộp thoại gồm tiêu đề, **các giờ nhắc** (mỗi giờ một ô, nút **+ Thêm giờ nhắc**), **đích nhắc** (Gửi nhắc vào → Nhắc ai → Cách nhắc), loại thông báo, kiểu lặp.
   - "Gọi điện" chỉ chọn được khi gửi vào **chat riêng của chính mình**: một cuộc gọi chỉ tới được một người, gọi "vào nhóm" không có nghĩa.
@@ -111,13 +117,13 @@ Một lời nhắc (giống việc cần làm) có thể nhắc **nhiều lần*
 
 | Phương thức | Đường dẫn | Ý nghĩa |
 | --- | --- | --- |
-| GET | `/api/reminders` | Lời nhắc chưa kích hoạt (`isTriggered = false`) của người dùng, sắp theo giờ nhắc tăng dần, kèm tên kênh nhận nhắc (`chatName`) |
+| GET | `/api/reminders?status=upcoming\|done` | `upcoming` (mặc định khi không gửi): lời nhắc chưa xong (`isTriggered = false`), sắp theo giờ nhắc tăng dần. `done`: lời nhắc đã xong (`isTriggered = true`), mới xong nhất ở trên, tối đa 200 dòng (chưa phân trang). Giá trị khác ⇒ 400. Mỗi dòng kèm tên kênh nhận nhắc (`chatName`), các giờ nhắc và `completedAt` |
 | GET | `/api/reminders/:id` | Một lời nhắc, 404 nếu không thuộc người dùng |
 | POST | `/api/reminders` | Bắt buộc `title`, `remindAt` hợp lệ; tuỳ chọn `notifyType`, `repeatType`, `chatId`, `remindUserIds`, `remindMode` |
 | PATCH | `/api/reminders/:id` | Sửa tiêu đề, danh sách giờ nhắc (`remindTimes`), loại thông báo, kiểu lặp, đích nhắc. Thêm giờ mới thì lời nhắc đã xong quay lại trạng thái chờ; chỉ đổi đích thì không |
 | DELETE | `/api/reminders/:id` | Xoá, trả `{ deleted: true }` |
 
-Mọi endpoint đều lọc theo người dùng đang đăng nhập dashboard. Controller bỏ qua `status` gửi lên trong body. Chọn "Gọi điện" mà đích không phải chat riêng của chính mình ⇒ 400.
+Mặc định là `upcoming` để bot (lệnh `/reminders`), trang Tổng quan và client cũ không gửi `status` vẫn nhận đúng danh sách như trước. Mọi endpoint đều lọc theo người dùng đang đăng nhập dashboard. Controller bỏ qua `status` gửi lên trong body. Chọn "Gọi điện" mà đích không phải chat riêng của chính mình ⇒ 400.
 
 ## 6. Bộ hẹn giờ gửi nhắc (`ReminderSchedulerService`)
 

@@ -185,3 +185,50 @@ void test('a legacy official-bot user must pick a chat for a dashboard reminder'
   });
   assert.equal(saved.chatId, 'g1');
 });
+
+void test('the done list holds only finished reminders of the user, kept after they finish', async () => {
+  const { service } = setup();
+  const upcoming = await service.createReminder({
+    userId: '111',
+    title: 'Họp',
+    remindTimes: [inHours(1)],
+  });
+  const done = await service.createReminder({
+    userId: '111',
+    title: 'Uống thuốc',
+    remindTimes: [inHours(2)],
+  });
+  const otherUser = await service.createReminder({
+    userId: '222',
+    title: 'Đi chợ',
+    remindTimes: [inHours(3)],
+  });
+  await service.markCompleted(done.id, '111');
+  await service.markCompleted(otherUser.id, '222');
+
+  const ids = async (status: 'upcoming' | 'done') =>
+    (await service.getUserReminders('111', status)).map((row) => row.id);
+  assert.deepEqual(await ids('done'), [done.id]);
+  assert.deepEqual(await ids('upcoming'), [upcoming.id]);
+});
+
+void test('the done list is latest first and capped', async () => {
+  let options: unknown;
+  const repo = {
+    find: (value: unknown) => {
+      options = value;
+      return Promise.resolve([]);
+    },
+  };
+  const service = new RemindersService(
+    repo as unknown as Repository<ReminderEntity>,
+    createTargetService().service,
+    memoryRepo([], 't') as unknown as Repository<ReminderTimeEntity>,
+  );
+  await service.getUserReminders(111, 'done');
+  assert.deepEqual(options, {
+    where: { userId: '111', isTriggered: true },
+    order: { completedAt: { direction: 'DESC', nulls: 'LAST' }, remindAt: 'DESC' },
+    take: 200,
+  });
+});
