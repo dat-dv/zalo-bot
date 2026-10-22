@@ -61,6 +61,12 @@ Dashboard không có màn hình đăng nhập. Người dùng mở dashboard b�
 - `httpClient` không tự refresh rồi gọi lại khi `/api/access/code` trả 401, vì mã sai không phải là phiên hết hạn.
 - Cùng ô nhập này cũng nhận **mã cố định** `DASHBOARD_LOGIN_CODE` trong env (đăng nhập thành admin "Chủ hệ thống", dùng khi ZCA hết phiên hoặc cài mới). Định dạng giống hệt mã 1 lần nên phía web không cần xử lý riêng; chi tiết ở [Phiên dashboard](../../global/dashboard-session.md).
 
+## Thẻ tài khoản đang đăng nhập
+
+- `SessionUserCard` cho biết phiên dashboard thuộc tài khoản Zalo nào (tên, ID bấm để copy, nhãn Admin/Người dùng). Dữ liệu lấy từ `GET /api/me` qua `useSessionUserQuery`.
+- `AppNavigation` dùng cùng dữ liệu này để chỉ hiện "Zalo & Người dùng" và "Google Drive" cho admin.
+- Lý do và quy tắc chi tiết: xem [dashboard-session](../../global/dashboard-session.md).
+
 ## Lưu ý khi phát triển
 
 - Chỉ module này được biết khoá lưu token; nơi khác phải import hàm từ `auth-storage.ts`.
