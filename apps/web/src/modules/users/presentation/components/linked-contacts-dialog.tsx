@@ -125,7 +125,7 @@ export function LinkedContactsDialog({ user, onClose }: LinkedContactsDialogProp
         <button
           type="button"
           onClick={onClose}
-          className={`rounded-[3px] bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 ${MODAL_FOOTER_TAP}`}
+          className={`rounded-[3px] bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500 ${MODAL_FOOTER_TAP}`}
         >
           {t('users.linkedContacts.close')}
         </button>

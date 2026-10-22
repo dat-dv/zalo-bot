@@ -146,6 +146,15 @@ Trên màn hình hẹp (<= 960px), shell trở lại cơ chế cuộn trang bìn
 
 Dark mode được kích hoạt bằng `html[data-theme='dark']`; mọi utility dark của Tailwind phải dùng đúng data attribute này thông qua `@custom-variant dark`. Toàn bộ các bề mặt giao diện — navigation desktop/mobile, workspace header, period toolbar, data panel, form edit, dialog, biểu đồ và trang public/legal — bắt buộc dùng utility classes với tiền tố `dark:` phù hợp (`dark:bg-*`, `dark:border-*`, `dark:text-*`, `dark:hover:*`, `dark:focus:*`). Giữ trạng thái mục đang chọn dễ nhận biết và focus bàn phím màu xanh nhạt, đủ tương phản.
 
+**Màu nút ở dark mode** (light mode vẫn dùng nút đen `bg-slate-900 text-white`):
+
+- Không dùng kiểu "đảo màu" `dark:bg-slate-100 dark:text-slate-900`. Nền dark rất tối (`#090d16`, panel `slate-900`) nên nút gần trắng thành một khối chói, nhất là trong dialog và bottom sheet.
+- **Nút hành động chính** (Lưu, Tạo, + Thêm, thanh hành động mobile, nút chính nhỏ trong bảng, link "Mở Zalo Bot"): `dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`, cùng màu nhấn xanh mà lịch và viền focus đang dùng.
+- **Trạng thái đang chọn** (link sidebar đang mở, ô menu đang mở trong sheet "Thêm", nút ngôn ngữ đang chọn, toggle phân đoạn): nền trung tính `dark:border-slate-600 dark:bg-slate-700 dark:text-white`, nhẹ hơn nút hành động để điều hướng không tranh với thao tác chính.
+- **Toast**: `dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100`, toast tối tách khỏi nền bằng viền 1px.
+- **Nút outline nguy hiểm** (Đăng xuất trong sheet "Thêm"): thêm nền đỏ rất nhạt `dark:bg-rose-950/40` và viền `dark:border-rose-800`. Chỉ có viền `rose-900` trên nền `slate-900` thì nút bị chìm.
+- Nút phụ (Huỷ) giữ `dark:border-slate-700 dark:bg-slate-800`. Riêng vạch chỉ báo 2px của tab bar được phép giữ màu sáng vì nó chỉ là một đường kẻ mảnh.
+
 ---
 
 ## Quy chuẩn Skeleton Loading mô phỏng chính xác giao diện thực tế (Full Fidelity)

@@ -61,7 +61,7 @@ export function PwaStatusStack() {
           <span className="flex-1 font-medium">{t('pwa.update.title')}</span>
           <Button
             onClick={() => applyUpdate(waitingWorker)}
-            className="min-h-[36px] shrink-0 rounded bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+            className="min-h-[36px] shrink-0 rounded bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
           >
             {t('pwa.update.reload')}
           </Button>

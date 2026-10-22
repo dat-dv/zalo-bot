@@ -39,7 +39,7 @@ interface CalendarEventSheetProps {
 }
 
 const FOOTER_BUTTON = `inline-flex min-h-8 cursor-pointer items-center justify-center rounded-[3px] border px-3 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-50 ${MODAL_FOOTER_TAP}`;
-const PRIMARY = `${FOOTER_BUTTON} border-slate-900 bg-slate-900 font-semibold text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`;
+const PRIMARY = `${FOOTER_BUTTON} border-slate-900 bg-slate-900 font-semibold text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`;
 const SECONDARY = `${FOOTER_BUTTON} border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700`;
 const DANGER = `${FOOTER_BUTTON} border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-950/70`;
 

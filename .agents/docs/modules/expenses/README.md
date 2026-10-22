@@ -48,3 +48,7 @@ Nghĩa là người dùng xem và sửa khoản chi trong trang Thu chi (`Transa
 - Giới hạn 200 dòng: các kỳ cũ hơn 200 khoản chi gần nhất sẽ hiện rỗng.
 
 Nếu muốn dùng lại màn hình này, cần bổ sung trường vào API và quyết định lại route trước khi gắn.
+
+## Màu nút ở dark mode
+
+- Ở dark mode, nút hành động chính dùng tông xanh sky (`dark:bg-sky-600 dark:text-white`), không dùng kiểu đảo màu `dark:bg-slate-100` vì nó thành khối trắng chói trên nền tối. Trong module này áp dụng cho nút chính (lưu) trong dòng của `ExpensesScreen`; toast dùng tông toast tối. Light mode giữ nút đen như cũ. Xem [web-ui-direction](../../global/web-ui-direction.md).

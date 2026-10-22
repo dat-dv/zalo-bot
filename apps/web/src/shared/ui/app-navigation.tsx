@@ -174,13 +174,13 @@ const TAB_BAR_ITEM_IDLE = `${TAB_BAR_ITEM} font-medium !text-slate-500 dark:!tex
 
 const MENU_TILE =
   'flex h-[72px] flex-col items-center justify-center gap-1.5 rounded-[3px] border px-1 text-center text-[12px] leading-tight no-underline';
-const MENU_TILE_ACTIVE = `${MENU_TILE} border-slate-900 bg-slate-900 font-semibold text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900`;
+const MENU_TILE_ACTIVE = `${MENU_TILE} border-slate-900 bg-slate-900 font-semibold text-white dark:border-slate-600 dark:bg-slate-700 dark:text-white`;
 const MENU_TILE_IDLE = `${MENU_TILE} border-slate-200 bg-slate-50 font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200`;
 const MENU_FOOTER_BUTTON =
   'inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[3px] border border-slate-200 !bg-transparent px-3 text-xs font-medium !text-slate-700 dark:border-slate-700 dark:!text-slate-200';
 const MENU_LOCALE =
   'inline-flex min-w-0 flex-1 items-center justify-center rounded-[2px] border-0 !px-1 !py-0 text-xs';
-const MENU_LOCALE_ACTIVE = `${MENU_LOCALE} !bg-slate-900 font-semibold !text-white dark:!bg-slate-100 dark:!text-slate-900`;
+const MENU_LOCALE_ACTIVE = `${MENU_LOCALE} !bg-slate-900 font-semibold !text-white dark:!bg-slate-700 dark:!text-white`;
 const MENU_LOCALE_IDLE = `${MENU_LOCALE} !bg-transparent font-medium !text-slate-700 dark:!text-slate-200`;
 const LOCALE_LABEL_KEYS = {
   vi: 'web.language.vi',
@@ -315,7 +315,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           </>
         ) : (
           <a
-            className="inline-flex h-10 shrink-0 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white no-underline transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            className="inline-flex h-10 shrink-0 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white no-underline transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
             href={ZALO_LINKS.WEB}
             target="_blank"
             rel="noopener noreferrer"
@@ -360,7 +360,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
                   <Link
                     className={
                       activeState
-                        ? 'flex min-h-[30px] w-full items-center gap-2 rounded-[3px] bg-slate-900 px-2 text-left text-[12.5px] font-semibold text-white no-underline dark:bg-slate-100 dark:text-slate-900'
+                        ? 'flex min-h-[30px] w-full items-center gap-2 rounded-[3px] bg-slate-900 px-2 text-left text-[12.5px] font-semibold text-white no-underline dark:bg-slate-700 dark:text-white'
                         : 'flex min-h-[30px] w-full items-center gap-2 rounded-[3px] px-2 text-left text-[12.5px] font-medium text-slate-600 no-underline hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100'
                     }
                     aria-current={activeState ? 'page' : undefined}
@@ -493,7 +493,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           </div>
           {isAuthenticated && (
             <button
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[3px] border border-rose-200 !bg-transparent text-xs font-semibold !text-rose-700 dark:border-rose-900 dark:!text-rose-300"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[3px] border border-rose-200 !bg-transparent text-xs font-semibold !text-rose-700 dark:border-rose-800 dark:!bg-rose-950/40 dark:!text-rose-300"
               onClick={requestLogout}
               type="button"
             >

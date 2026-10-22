@@ -195,7 +195,7 @@ export function SettingsScreen() {
             <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
                 onClick={() => void handleSaveEdit(item.id)}
                 title={t('expenses.actions.save')}
               >
@@ -240,7 +240,7 @@ export function SettingsScreen() {
     <>
       {toastMessage && (
         <div
-          className={`${TOAST_POSITION} rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100`}
           role="status"
           aria-live="polite"
         >
@@ -331,7 +331,7 @@ export function SettingsScreen() {
                 />
                 <button
                   type="button"
-                  className={`inline-flex h-[22px] min-h-[22px] cursor-pointer items-center justify-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 ${TAP_CONTROL}`}
+                  className={`inline-flex h-[22px] min-h-[22px] cursor-pointer items-center justify-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500 ${TAP_CONTROL}`}
                   onClick={() => void handleCreateCategory('expense')}
                   title={t('expenses.actions.save')}
                 >
@@ -403,7 +403,7 @@ export function SettingsScreen() {
                 />
                 <button
                   type="button"
-                  className={`inline-flex h-[22px] min-h-[22px] cursor-pointer items-center justify-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 ${TAP_CONTROL}`}
+                  className={`inline-flex h-[22px] min-h-[22px] cursor-pointer items-center justify-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500 ${TAP_CONTROL}`}
                   onClick={() => void handleCreateCategory('income')}
                   title={t('expenses.actions.save')}
                 >

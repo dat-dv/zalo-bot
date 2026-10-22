@@ -386,7 +386,7 @@ export function AnalyticsScreen() {
               aria-pressed={cashflowViewMode === 'chart'}
               className={`rounded-[3px] px-2 py-0.5 text-[11px] font-medium transition-colors ${PHONE_TOGGLE} ${
                 cashflowViewMode === 'chart'
-                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                  ? 'bg-slate-900 text-white dark:bg-slate-700 dark:text-white'
                   : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
               }`}
             >
@@ -397,7 +397,7 @@ export function AnalyticsScreen() {
               aria-pressed={cashflowViewMode === 'table'}
               className={`rounded-[3px] px-2 py-0.5 text-[11px] font-medium transition-colors ${PHONE_TOGGLE} ${
                 cashflowViewMode === 'table'
-                  ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
+                  ? 'bg-slate-900 text-white dark:bg-slate-700 dark:text-white'
                   : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
               }`}
             >

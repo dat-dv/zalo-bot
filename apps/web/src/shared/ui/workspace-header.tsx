@@ -263,7 +263,7 @@ export function WorkspaceHeader({
           </>
         ) : (
           <a
-            className="inline-flex min-h-[30px] items-center justify-center gap-1.5 rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white no-underline transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            className="inline-flex min-h-[30px] items-center justify-center gap-1.5 rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white no-underline transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
             href={ZALO_LINKS.WEB}
             target="_blank"
             rel="noopener noreferrer"

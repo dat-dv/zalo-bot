@@ -111,7 +111,7 @@ export function ContactProfileScreen() {
       {toast && (
         <div
           aria-live="polite"
-          className={`${TOAST_POSITION} rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100`}
           role="status"
         >
           {toast}

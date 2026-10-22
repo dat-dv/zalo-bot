@@ -148,3 +148,7 @@ Toàn bộ chạy trong **một transaction**: lỗi ở bất kỳ bước nào
 ## Bo góc
 
 - Nút, ô nhập, thẻ/panel và khung dialog trong module này dùng `rounded-[3px]` (tối đa `rounded`, 4px), không dùng `rounded-lg/xl/2xl`. Lý do: giao diện dashboard theo phong cách gọn, sắc cạnh như công cụ quản trị; bo lớn làm các ô trông như app tiêu dùng và lệch với phần còn lại. `rounded-full` chỉ dành cho avatar, chấm trạng thái, công tắc, vòng quay tải và thanh tiến độ. Xem [web-ui-direction](../../global/web-ui-direction.md).
+
+## Màu nút ở dark mode
+
+- Ở dark mode, nút hành động chính dùng tông xanh sky (`dark:bg-sky-600 dark:text-white`), không dùng kiểu đảo màu `dark:bg-slate-100` vì nó thành khối trắng chói trên nền tối. Trong module này áp dụng cho nút chính của `LinkedContactsDialog`. Light mode giữ nút đen như cũ. Xem [web-ui-direction](../../global/web-ui-direction.md).
