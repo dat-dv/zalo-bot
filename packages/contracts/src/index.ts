@@ -197,6 +197,9 @@ const messages = {
     'nav.menu': 'Menu điều hướng',
     'nav.openMenu': 'Mở menu điều hướng',
     'nav.closeMenu': 'Đóng menu điều hướng',
+    'nav.more': 'Thêm',
+    'nav.tab.debts': 'Công nợ',
+    'nav.tabBar': 'Điều hướng nhanh',
     'web.language.vi': 'Tiếng Việt',
     'web.language.en': 'English',
     'reminder.header.text': '⏰ *TING TING! LỜI NHẮC CỦA BẠN ĐÃ ĐẾN GIỜ!*',
@@ -907,6 +910,13 @@ const messages = {
     'zca.directory.fetchedAt': 'Cập nhật lúc {time}',
     'zca.directory.fetchedAtHint':
       'Danh bạ và nhóm Zalo được lưu tạm tối đa 7 ngày. Bấm Làm mới để lấy bản mới nhất từ Zalo.',
+    'zca.threadConfig.delete': '🗑️ Xoá cấu hình kênh',
+    'zca.threadConfig.deleteConfirm':
+      'Xoá hẳn cấu hình của "{name}"? Zalo không còn trả về cuộc trò chuyện này. Trí nhớ hội thoại và lịch sử link Drive/Photos vẫn được giữ. Không thể hoàn tác.',
+    'zca.threadConfig.deleteSuccess': 'Đã xoá cấu hình của "{name}".',
+    'zca.threadConfig.deleteError': 'Không thể xoá cấu hình kênh. Vui lòng thử lại.',
+    'zca.threadConfig.deleteInDirectory':
+      'Cuộc trò chuyện vẫn còn trong danh bạ Zalo nên không xoá được. Hãy tắt lắng nghe, hoặc bấm Làm mới nếu danh bạ đã cũ.',
     'zca.storageLinks.driveTitle': 'Thư mục Google Drive',
     'zca.storageLinks.photosTitle': 'Album Google Photos',
     'zca.storageLinks.description':
@@ -1036,6 +1046,9 @@ const messages = {
     'nav.menu': 'Navigation menu',
     'nav.openMenu': 'Open navigation menu',
     'nav.closeMenu': 'Close navigation menu',
+    'nav.more': 'More',
+    'nav.tab.debts': 'Debts',
+    'nav.tabBar': 'Quick navigation',
     'web.language.vi': 'Tiếng Việt',
     'web.language.en': 'English',
     'reminder.header.text': '⏰ *REMINDER: IT IS TIME!*',
@@ -1748,6 +1761,13 @@ const messages = {
     'zca.directory.fetchedAt': 'Updated {time}',
     'zca.directory.fetchedAtHint':
       'Zalo contacts and groups are cached for up to 7 days. Press Refresh to fetch the latest from Zalo.',
+    'zca.threadConfig.delete': '🗑️ Delete chat config',
+    'zca.threadConfig.deleteConfirm':
+      'Permanently delete the config of "{name}"? Zalo no longer returns this chat. Chat memory and the Drive/Photos link history are kept. This cannot be undone.',
+    'zca.threadConfig.deleteSuccess': 'Deleted the config of "{name}".',
+    'zca.threadConfig.deleteError': 'Could not delete the chat config. Please try again.',
+    'zca.threadConfig.deleteInDirectory':
+      'This chat is still in the Zalo directory, so it cannot be deleted. Stop listening to it instead, or press Refresh if the directory is out of date.',
     'zca.storageLinks.driveTitle': 'Google Drive folders',
     'zca.storageLinks.photosTitle': 'Google Photos albums',
     'zca.storageLinks.description':

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import {
   GrantAccessStatus,
   localeTag,
@@ -19,6 +20,7 @@ import {
   useToggleZcaListenedThreadMutation,
   useZcaThreadConfigsQuery,
   useGoogleDriveFolderLinkQuery,
+  useDeleteZcaThreadConfigMutation,
   zcaQueryKeys,
 } from '../api/zca-query';
 import { getThreadDriveOpenUrl, getZcaQrImageUrl, type ZcaThread } from '../api/zca-api';
@@ -113,6 +115,7 @@ export function ZcaScreen() {
   const setGrantAccessMutation = useSetGrantAccessMutation();
   const syncUsersMutation = useSyncUsersWithZcaMutation();
   const deleteUserMutation = useDeleteUserMutation();
+  const deleteThreadConfigMutation = useDeleteZcaThreadConfigMutation();
 
   const isLoggingOut = logoutMutation.isPending;
 
@@ -277,6 +280,21 @@ export function ZcaScreen() {
       await deleteUserMutation.mutateAsync(row.id);
     } catch {
       showNotice('error', 'Không thể xoá người dùng. Vui lòng thử lại.');
+    }
+  };
+
+  const handleDeleteThread = async (row: ChatRow) => {
+    const name = row.name || row.id;
+    if (!window.confirm(t('zca.threadConfig.deleteConfirm', { name }))) return;
+    try {
+      await deleteThreadConfigMutation.mutateAsync(row.id);
+      showNotice('success', t('zca.threadConfig.deleteSuccess', { name }));
+    } catch (error: unknown) {
+      const stillInZalo = axios.isAxiosError(error) && error.response?.status === 409;
+      showNotice(
+        'error',
+        t(stillInZalo ? 'zca.threadConfig.deleteInDirectory' : 'zca.threadConfig.deleteError'),
+      );
     }
   };
 
@@ -703,6 +721,7 @@ export function ZcaScreen() {
                       isCopied={copiedId === row.id}
                       key={`${row.kind}:${row.id}`}
                       onCopyId={copyToClipboard}
+                      onDeleteThread={(r) => void handleDeleteThread(r)}
                       onDeleteUser={(r) => void handleDeleteUser(r)}
                       onDriveOpened={handleDriveOpened}
                       onEditUser={handleEditUser}

@@ -50,6 +50,8 @@ export interface ZcaThread {
   zaloName?: string;
   phoneNumber?: string;
   totalMembers?: number;
+  /** A listened id Zalo no longer returns (placeholder row); only these can be deleted. */
+  missingFromZalo?: boolean;
 }
 
 /** Thread list plus when the server last fetched it from Zalo (it is cached for up to a week). */
@@ -300,6 +302,11 @@ export async function updateThreadStorageLink(
 }
 
 /** Removes the link from the history only; the Drive folder / Photos album stays on Google. */
+/** Deletes a chat's config for good; the API refuses (409) chats still in the Zalo directory. */
+export async function deleteZcaThreadConfig(threadId: string): Promise<void> {
+  await httpClient.delete<IApiResponse<{ deleted: true }>>(API_ROUTES.zcaThreadConfig(threadId));
+}
+
 export async function deleteThreadStorageLink(
   threadId: string,
   linkId: string,

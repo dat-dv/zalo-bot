@@ -93,3 +93,17 @@ void test('pending_first sort puts users awaiting approval on top', () => {
   assert.equal(rows[1]?.id, '200');
   assert.equal(rows.at(-1)?.id, 'g-1');
 });
+
+void test('placeholder threads Zalo no longer returns keep the missingFromZalo flag on their row', () => {
+  const placeholder: ZcaThread = {
+    id: '5854445174804412080',
+    name: 'Cuộc trò chuyện 5854445174804412080',
+    type: 'group',
+    isListened: true,
+    missingFromZalo: true,
+  };
+  const rows = buildChatRows([...threads, placeholder], users);
+
+  assert.equal(rows.find((r) => r.id === placeholder.id)?.thread?.missingFromZalo, true);
+  assert.equal(rows.find((r) => r.id === 'g-1')?.thread?.missingFromZalo, undefined);
+});

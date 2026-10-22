@@ -179,7 +179,7 @@ Bảng này phục vụ việc lướt nhanh hàng trăm dòng, nên giữ cùng
 - **Mỗi ô một dòng.** Riêng ô tên có 2 dòng: dòng 1 là tên và `(gợi nhớ)`, dòng 2 là thông tin phụ nối bằng `·` (số thành viên, tên Zalo, SĐT, `@username`, link "N người liên quan"). Chữ dài thì cắt bớt, không xuống dòng.
 - **Cột "Tính năng"** tách khỏi cột Lắng nghe, chỉ ghi các tính năng đang bật: `@Bot` (nhóm) hoặc `Chat riêng` (1-1), `Nhớ`, `Sao lưu media`. Trước đây chúng là chip màu nằm dưới nút lắng nghe nên mỗi dòng cao 2–3 dòng.
 - **Cột Quyền tương tác**: trạng thái và nút Cấp quyền/Thu hồi nằm cùng một dòng.
-- **Cột Thao tác**: chỉ một nút chính **Cấu hình** (là link sang trang cấu hình của kênh, Cmd/Ctrl+click để mở tab mới) và menu **⋯**. Mở Google Drive, mở Google Photos, và Sao lưu media lịch sử (chỉ nhóm) nằm trong menu, cùng các thao tác người dùng (sửa, gộp, xem người liên quan, xoá).
+- **Cột Thao tác**: chỉ một nút chính **Cấu hình** (là link sang trang cấu hình của kênh, Cmd/Ctrl+click để mở tab mới) và menu **⋯**. Mở Google Drive, mở Google Photos, Sao lưu media lịch sử (chỉ nhóm) và **Xoá cấu hình kênh** (chỉ ở dòng "Cuộc trò chuyện <id>" mà Zalo không còn trả về, xem [Cache danh bạ Zalo](directory-cache.md)) nằm trong menu, cùng các thao tác người dùng (sửa, gộp, xem người liên quan, xoá).
 - Nút trong bảng là nút vuông `h-[22px] rounded-[2px]` có viền; avatar cũng vuông (`rounded-[3px]`).
 
 ### Cách duyệt người mới
@@ -231,6 +231,7 @@ Bảng này phục vụ việc lướt nhanh hàng trăm dòng, nên giữ cùng
 | GET | `/api/zca/thread-configs` | Tất cả cấu hình |
 | GET | `/api/zca/thread-configs/:threadId` | Cấu hình một thread (chưa có thì tạo mặc định và lưu) |
 | PUT | `/api/zca/thread-configs/:threadId` | Cập nhật cấu hình (`UpdateThreadBotConfigDto`) |
+| DELETE | `/api/zca/thread-configs/:threadId` | Xoá hẳn cấu hình của cuộc trò chuyện mà Zalo không còn trả về (xem [Cache danh bạ Zalo](directory-cache.md)) |
 | POST | `/api/zca/threads/:threadId/sync-media` | Sao lưu media lịch sử của nhóm |
 
 Link Google dùng trên trang (thuộc `GoogleResourcesController`): `GET /api/drive/folder-link`, `GET /api/drive/open`, `POST /api/drive/share`, `GET /api/photos/album-link`, `GET /api/photos/open`.

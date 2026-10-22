@@ -10,6 +10,7 @@ metadata:
       - apps/web/src/modules/zca/view/zca-screen.tsx
       - apps/api/src/zca/thread-config.service.ts
       - apps/api/src/zca/zca.controller.ts
+      - apps/web/src/modules/zca/presentation/components/chat-table-row.tsx
 ---
 
 # Cache danh bạ Zalo (nhóm, bạn bè, tên gợi nhớ)
@@ -67,7 +68,8 @@ Tài liệu canonical tương ứng: [`directory-cache.md`](../../../knowledge/m
   - **Giữ lại** trí nhớ hội thoại, lịch sử link Drive/Photos và file trên Google.
 - Kênh **vẫn còn** trong danh bạ Zalo thì API từ chối (409). Xoá kênh đó thì dòng sẽ hiện lại ngay với cấu hình mặc định, nên muốn bot ngừng xử lý nhóm đang hoạt động thì dùng "Bỏ qua" (tắt lắng nghe). Nếu danh bạ đang cũ, bấm **Làm mới** trước.
 - Sau khi xoá, nếu kênh đó lại có tin nhắn, bot tự tạo cấu hình mặc định (không lắng nghe). Dòng vẫn không hiện lại.
-- Nút "Xoá" trong menu ⋯ trên `/zca` sẽ làm ở bước sau. Trong lúc chờ, admin gọi API trực tiếp được.
+- Trên `/zca`: mở menu **⋯** của dòng "Cuộc trò chuyện <id>" → **🗑️ Xoá cấu hình kênh** → xác nhận. Nút chỉ hiện ở những dòng Zalo không còn trả về; dòng nhóm/bạn bè bình thường không có nút này.
+- Nếu bị báo "vẫn còn trong danh bạ Zalo", tức bản lưu danh bạ đang có kênh đó: tắt lắng nghe, hoặc bấm **Làm mới** rồi thử lại.
 
 ## 4. Vận hành & xử lý sự cố
 

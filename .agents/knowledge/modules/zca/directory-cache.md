@@ -13,6 +13,7 @@ metadata:
       - apps/web/src/modules/zca/api/zca-api.ts
       - apps/web/src/modules/zca/api/zca-query.ts
       - apps/web/src/modules/zca/view/zca-screen.tsx
+      - apps/web/src/modules/zca/presentation/components/chat-table-row.tsx
 ---
 
 # ZCA Directory Cache (groups, friends, aliases)
@@ -76,7 +77,7 @@ Human guide: [Cache danh bạ Zalo](../../../docs/modules/zca/directory-cache.md
 - Kept: `zca_messages` (chat memory), `channel_storage_links`, files on Google.
 - A later message from that chat makes `getConfig` create a default config (`isListened: false`); the row stays hidden.
 - Edge: `loadConfigs` imports the legacy `.zca-thread-configs.json` only when the DB table is empty, so deleting every config could re-import it on restart.
-- Web button (⋯ menu, only on `missingFromZalo` rows) is not built yet; see `.agents/artifacts/zca-thread-config-delete/`.
+- Web: ⋯ menu item `zca.threadConfig.delete` only on rows whose `thread.missingFromZalo` is true (`chat-table-row.tsx`). `ZcaScreen.handleDeleteThread` asks `window.confirm` (`zca.threadConfig.deleteConfirm`), calls `useDeleteZcaThreadConfigMutation` (invalidates threads, configs, listened, status; drops the cached config), then shows `deleteSuccess`, or `deleteInDirectory` on 409, or `deleteError`.
 
 ## Web
 

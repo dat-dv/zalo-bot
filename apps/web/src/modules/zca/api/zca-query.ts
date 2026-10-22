@@ -17,6 +17,7 @@ import {
   getThreadStorageLinks,
   updateThreadStorageLink,
   deleteThreadStorageLink,
+  deleteZcaThreadConfig,
   type ZcaStatus,
   type ZcaThread,
   type ZcaThreadsResult,
@@ -181,6 +182,20 @@ export function useSyncThreadMediaMutation() {
     onSuccess: (_, variables) => {
       void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.config(variables.threadId) });
       void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.configs() });
+    },
+  });
+}
+
+export function useDeleteZcaThreadConfigMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (threadId: string) => deleteZcaThreadConfig(threadId),
+    onSuccess: (_, threadId) => {
+      queryClient.removeQueries({ queryKey: zcaQueryKeys.config(threadId) });
+      void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.threads() });
+      void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.configs() });
+      void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.listened() });
+      void queryClient.invalidateQueries({ queryKey: zcaQueryKeys.status() });
     },
   });
 }

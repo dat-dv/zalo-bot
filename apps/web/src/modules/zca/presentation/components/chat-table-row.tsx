@@ -24,6 +24,7 @@ interface ChatTableRowProps {
   onMergeUser: (row: ChatRow) => void;
   onViewLinkedContacts: (row: ChatRow) => void;
   onDeleteUser: (row: ChatRow) => void;
+  onDeleteThread: (row: ChatRow) => void;
 }
 
 interface InlineItem {
@@ -144,6 +145,7 @@ export function ChatTableRow({
   onMergeUser,
   onViewLinkedContacts,
   onDeleteUser,
+  onDeleteThread,
 }: ChatTableRowProps) {
   const { t } = useLocale();
   const openProfile = useOpenContactProfile();
@@ -215,6 +217,17 @@ export function ChatTableRow({
                 key: 'sync',
                 label: '⏳ Sao lưu media lịch sử',
                 onSelect: () => onSyncMedia(thread),
+              },
+            ]
+          : []),
+        // Only placeholder rows: a chat still in Zalo would reappear with a default config.
+        ...(thread.missingFromZalo
+          ? [
+              {
+                key: 'delete-thread',
+                label: t('zca.threadConfig.delete'),
+                tone: 'danger' as const,
+                onSelect: () => onDeleteThread(row),
               },
             ]
           : []),
