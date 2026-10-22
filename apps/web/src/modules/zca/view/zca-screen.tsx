@@ -695,7 +695,10 @@ export function ZcaScreen() {
               )}
             </div>
 
-            <div className={`flex gap-1.5 ${MOBILE_TOOLBAR_ROW}`}>
+            {/* Without min-w-0 the nowrap chips widen the whole page on compact screens. */}
+            <div
+              className={`flex min-w-0 max-w-full gap-1.5 max-[960px]:overflow-x-auto ${MOBILE_TOOLBAR_ROW}`}
+            >
               {isCompact && (
                 <select
                   className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 hidden h-10 shrink-0 max-[640px]:block"

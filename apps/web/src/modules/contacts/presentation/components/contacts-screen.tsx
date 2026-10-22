@@ -488,6 +488,7 @@ export function ContactsScreen() {
       mobileCell: (item) => {
         if (item.linkedUser) {
           const { firstName, username } = item.linkedUser;
+          if (!username) return firstName || `#${item.linkedUser.id.slice(0, 8)}`;
           return firstName ? `${firstName} (@${username})` : `@${username}`;
         }
         return item.linkedUserId ? `#${item.linkedUserId.slice(0, 8)}` : null;
@@ -520,12 +521,14 @@ export function ContactsScreen() {
           return (
             <span
               className="block max-w-[200px] truncate whitespace-nowrap"
-              title={firstName ? `${firstName} (@${username})` : `@${username}`}
+              title={
+                username ? (firstName ? `${firstName} (@${username})` : `@${username}`) : firstName
+              }
             >
               {firstName && (
                 <span className="text-slate-700 dark:text-slate-300">{firstName} </span>
               )}
-              <span className="text-slate-500 dark:text-slate-400">@{username}</span>
+              {username && <span className="text-slate-500 dark:text-slate-400">@{username}</span>}
             </span>
           );
         }

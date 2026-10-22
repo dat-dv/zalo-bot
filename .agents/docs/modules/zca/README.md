@@ -220,6 +220,9 @@ Bảng này phục vụ việc lướt nhanh hàng trăm dòng, nên giữ cùng
 
 Bảng 7 cột phải cuộn ngang trên màn 375px và các nút 22px quá nhỏ để chạm, nên ở chế độ compact trang đổi cách hiển thị:
 
+- **Tiêu đề trên topbar** là "Zalo & Người dùng" (`nav.zca`, khai báo trong `ROUTE_HEADER_MAP`). Tiêu đề lớn của trang bị ẩn ở màn hẹp, nên nếu thiếu dòng khai báo này thì topbar chỉ hiện "zalobot".
+- **Hàng chip sắp xếp/lọc** tự cuộn ngang trong khung của nó (`min-w-0 max-w-full`). Lỗi từng gặp trên prod: thiếu hai class này thì các chip không xuống dòng kéo cả trang rộng ~980px, thanh tab và thanh hành động bị tràn theo.
+
 - **Danh sách phẳng thay cho bảng** (`ChatListRow`, `presentation/components/chat-list-row.tsx`). Mỗi dòng cao tối thiểu 52px: dòng 1 là tên (gợi nhớ) và bên phải là trạng thái lắng nghe (`● Đang nghe` xanh / `○ Bỏ qua`); dòng 2 là loại · ID rút gọn (`…` + 6 ký tự cuối) · trạng thái quyền (với người) hoặc số thành viên (với nhóm).
 - **Chạm dòng mở bottom-sheet** có đủ chi tiết: loại, ID (nút sao chép 40px), nút bật/tắt lắng nghe, tính năng, trạng thái quyền + nút Cấp quyền/Thu hồi, rồi **mọi mục của menu ⋯** thành các hàng bấm cao 40px (mục xoá màu đỏ), chân sheet có nút **Cấu hình**. Menu ⋯ dạng popover không dùng trên màn cảm ứng vì nó tự đóng khi cuộn và nút quá nhỏ.
 - **Dùng chung logic**: `useChatRowModel` (`chat-row-parts.tsx`) tính nhãn loại, dòng nhận diện, tính năng và danh sách thao tác cho cả dòng bảng (máy tính) lẫn dòng danh sách (điện thoại), nên hai giao diện luôn có cùng thao tác và gọi cùng handler của `ZcaScreen`. Thêm thao tác mới thì thêm ở đây.

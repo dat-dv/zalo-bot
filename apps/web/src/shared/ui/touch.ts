@@ -11,7 +11,7 @@ export const TAP_INPUT = 'max-[640px]:h-10 max-[640px]:min-h-10 max-[640px]:w-fu
 
 /** Toolbar that keeps one sideways-scrolling row of chips on phones instead of stacking. */
 export const MOBILE_TOOLBAR_ROW =
-  'max-[640px]:flex-nowrap max-[640px]:overflow-x-auto max-[640px]:overscroll-x-contain';
+  'max-[640px]:min-w-0 max-[640px]:max-w-full max-[640px]:flex-nowrap max-[640px]:overflow-x-auto max-[640px]:overscroll-x-contain';
 
 /** Bottom tab bar height (without the safe-area inset). Keep in sync with the classes below. */
 export const MOBILE_TAB_BAR_HEIGHT_PX = 56;
