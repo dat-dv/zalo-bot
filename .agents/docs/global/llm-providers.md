@@ -74,7 +74,7 @@ Model nhỏ hay trả tham số bị lồng (`{"amount": {"amount": 15000}}`). `
 | `SET_REMINDER` | Đặt lời nhắc |
 | `GET_REPORT` | Báo cáo chi tiêu (day/month/year) |
 | `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT` | Google Calendar |
-| `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK` | Google Tasks |
+| `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK` | Việc cần làm (DB zalobot) |
 | `LOGIN_GOOGLE` | Link kết nối tài khoản Google |
 | `CREATE_PLACE` | Tạo nơi chốn |
 | `GET_STORAGE_LINKS` | Link thư mục Drive / album Photos |

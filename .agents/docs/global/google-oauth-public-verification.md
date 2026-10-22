@@ -41,7 +41,7 @@ Nguyên tắc: mỗi scope phải gắn với một tính năng thật đang ch�
 2. Trong Google Cloud Console, khai báo homepage, privacy policy, terms trỏ về ba trang trên của domain production.
 3. Xác minh ownership domain trong Google Search Console.
 4. Khai báo Authorized redirect URI đúng tuyệt đối `APP_URL + /api/oauth2callback`. Nginx chuyển `/api/*` sang NestJS, nơi `GoogleAuthController` xử lý callback.
-5. Bật Google Calendar API, Google Tasks API, Google Drive API và Google Photos Library API; kiểm tra Data Access chỉ hiển thị các scope đang sử dụng.
+5. Bật Google Calendar API, Google Drive API và Google Photos Library API (không còn dùng Google Tasks API); kiểm tra Data Access chỉ hiển thị các scope đang sử dụng.
 6. Trong Verification Center, giải thích từng scope theo bảng trên và đính kèm video: người dùng mở Zalo, gõ `/login`, cấp quyền, tạo/đọc Calendar hoặc Tasks, lưu ảnh lên Drive/Photos, và nêu cách gửi yêu cầu xóa dữ liệu.
 7. Người dùng đã kết nối trước khi có scope Drive/Photos phải gõ `/login` để kết nối lại; các tính năng lưu trữ kiểm tra `hasStorageScopes()` và sẽ nhắc kết nối lại nếu thiếu.
 

@@ -41,7 +41,7 @@ Backend **không bao giờ** nhận `userId` từ client. Người gọi đượ
 - **Lời nhắc**: `GET/POST /api/reminders`, `GET/PATCH/DELETE /api/reminders/:id`.
 - **Người dùng (admin)**: `GET/POST /api/users`, `GET/PATCH/DELETE /api/users/:id`, `POST /api/users/sync-zca` (đồng bộ tên, avatar, SĐT từ danh bạ ZCA), `PATCH /api/users/:id/grant-access`, `GET /api/users/:id/merge-preview?targetUserId=`, `POST /api/users/:id/merge`, `GET /api/users/:id/linked-contacts` (Người liên quan đang gắn với user).
 - **Lịch**: `/api/calendar/events[/:id]`, `POST /api/calendar/events/:id/resync` — lịch chung lưu trong DB, Google chỉ giữ bản sao (xem `modules/calendar/README.md`).
-- **Việc cần làm**: `/api/tasks[/:id]`, `POST /api/tasks/:id/resync` — danh sách việc chung lưu trong DB, Google Tasks chỉ giữ bản sao (xem `modules/tasks/README.md`).
+- **Việc cần làm**: `/api/tasks[/:id]` — danh sách việc chung chỉ lưu trong DB, không đồng bộ Google (xem `modules/tasks/README.md`).
 
 ## Quy tắc nghiệp vụ quan trọng
 

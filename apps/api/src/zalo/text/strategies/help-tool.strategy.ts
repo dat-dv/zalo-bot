@@ -30,7 +30,7 @@ export class HelpToolStrategy implements TextToolStrategy {
       `• Tạo lịch hẹn: "mai 14h họp dự án tại phòng 3", "hẹn ăn tối thứ 6 lúc 19h tại Landmark 81"\n` +
       `• Tra cứu lịch: "lịch hôm nay", "ngày mai có lịch gì không?", "xem lịch tuần này"\n` +
       `• Xóa lịch hẹn: "xóa lịch họp dự án chiều nay", "hủy lịch ăn tối thứ 6"\n\n` +
-      `📝 4. Việc cần làm (Google Tasks):\n` +
+      `📝 4. Việc cần làm:\n` +
       `• Thêm việc mới: "thêm việc nộp báo cáo trước 17h", "cần mua sữa chua", "/task gửi hợp đồng"\n` +
       `• Tra cứu việc: "danh sách việc cần làm", "còn việc gì chưa xong?", "/tasks"\n` +
       `• Đánh dấu xong: "đã xong việc nộp báo cáo", "hoàn thành task mua sữa"\n\n` +
@@ -44,7 +44,7 @@ export class HelpToolStrategy implements TextToolStrategy {
       `⚡ LỆNH NHANH (FAST-PATH SHORTCUTS):\n` +
       `• /today - Lịch hẹn & việc cần làm hôm nay\n` +
       `• /week - Kế hoạch lịch trình & công việc 7 ngày tới\n` +
-      `• /tasks - Danh sách việc cần làm (Google Tasks)\n` +
+      `• /tasks - Danh sách việc cần làm\n` +
       `• /finance (hoặc /thuchi) - Báo cáo thu chi hôm nay\n` +
       `• /debts (hoặc /congo) - Danh sách các khoản nợ & cho vay\n` +
       `• /reminders - Danh sách lời nhắc hẹn giờ sắp tới\n` +

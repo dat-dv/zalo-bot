@@ -30,7 +30,7 @@ export class StartToolStrategy implements TextToolStrategy {
       `👋 Chào ${context.displayName || 'bạn'}${roleBadge}!\n` +
       `━━━━━━━━━━━━━━━━━━━━\n` +
       `Tôi là Trợ lý AI cá nhân toàn năng trên Zalo của bạn:\n` +
-      `📅 Google Calendar & 📝 Google Tasks\n` +
+      `📅 Google Calendar & 📝 Việc cần làm\n` +
       `💰 Quản lý Thu–Chi & 🧾 Hóa đơn\n` +
       `💳 Sổ nợ & Cho vay & ⏰ Nhắc việc hẹn giờ\n` +
       `📊 Web Dashboard trực quan\n\n` +

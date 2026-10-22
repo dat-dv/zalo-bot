@@ -61,7 +61,7 @@ export class GoogleAuthController {
         try {
           await this.zaloService.sendMessage(
             userId,
-            '🎉 KẾT NỐI GOOGLE THÀNH CÔNG!\n\nTài khoản Google Calendar & Google Tasks của bạn đã được liên kết hoàn tất. Bây giờ bạn có thể bắt đầu sử dụng trợ lý rồi nhé! 🚀',
+            '🎉 KẾT NỐI GOOGLE THÀNH CÔNG!\n\nTài khoản Google (Calendar, Drive, Photos) của bạn đã được liên kết hoàn tất. Bây giờ bạn có thể bắt đầu sử dụng trợ lý rồi nhé! 🚀',
           );
         } catch (sendErr) {
           this.logger.warn(

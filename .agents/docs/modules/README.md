@@ -20,7 +20,7 @@ This directory contains developer & operating guides organized by feature module
 - [Khoản chi](expenses/README.md): Hiển thị lịch sử các giao dịch chi.
 - [Lời nhắc](reminders/README.md): Quản lý lời nhắc hẹn giờ và cập nhật trạng thái.
 - [Cài đặt](settings/README.md): Quản lý danh mục thu chi và cấu hình hệ thống cá nhân.
-- [Công việc](tasks/README.md): Đồng bộ và thao tác danh sách Google Tasks trên web.
+- [Công việc](tasks/README.md): Danh sách việc cần làm dùng chung, chỉ lưu trong zalobot.
 - [Người dùng](users/README.md): Quản lý danh sách người dùng, vai trò Admin/User và phân quyền truy cập bot.
 - [Tài khoản ZCA](zca/README.md): Kết nối tài khoản Zalo cá nhân, cấu hình tương tác kênh và sao lưu Google Drive.
 

@@ -41,7 +41,7 @@ This directory contains human-facing operational guides for system-wide architec
 - [Xử lý cục bộ trước AI](local-first-ai-usage.md): Quy tắc tiết kiệm token và giảm dữ liệu gửi tới AI.
 - [Phiên Dashboard và các trang web](dashboard-session.md): One-time exchange token, mã đăng nhập cho app đã cài, thời hạn phiên, phân quyền danh bạ và kiểm tra UI.
 - [Ứng dụng cài được (PWA)](pwa.md): Manifest, service worker và quy tắc cache, cập nhật phiên bản, trang offline, nơi mời cài app và header cache của nginx.
-- [Google Tasks](google-tasks.md): Tool `CREATE_TASK`, cảnh báo task có khả năng trùng và lệnh `/task`/`/tasks`.
+- [Việc cần làm qua chat](google-tasks.md): Tool `CREATE_TASK`, cảnh báo task có khả năng trùng và lệnh `/task`/`/tasks`.
 - [Công khai web và xác minh Google OAuth](google-oauth-public-verification.md): Scope tối thiểu, trang pháp lý public và checklist nộp Google.
 - [Bố cục phản hồi Zalo](zalo-response-layout.md): Response gọn, mã xác nhận 3 số, thả cảm xúc và thu hồi tin nhắn.
 - [Nhận lệnh Zalo](zalo-command-intake.md): Webhook + ZCA, guard, cooldown và bảng lệnh fast-path.

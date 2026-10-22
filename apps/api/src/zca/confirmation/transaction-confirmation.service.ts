@@ -16,7 +16,7 @@ import {
   CreateReminderDto,
   toValidReminderDate,
 } from '../../reminders/reminders.service';
-import { CreateTaskOptions } from '../../google/google-tasks.service';
+import { CreateTaskOptions } from '../../tasks/task.types';
 import { TasksService } from '../../tasks/tasks.service';
 import { CreateEventOptions } from '../../google/google-calendar.service';
 import { CalendarService } from '../../calendar/calendar.service';
@@ -783,7 +783,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   }
 
   /**
-   * Tạo yêu cầu xác nhận việc cần làm (lưu trong zalobot, sao chép lên Google Tasks).
+   * Tạo yêu cầu xác nhận việc cần làm (lưu trong danh sách việc chung của zalobot).
    */
   public async createPendingTask(params: {
     userId: string;
@@ -1304,7 +1304,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             throw new Error('TasksService chưa được cấu hình.');
           }
           const payload = pending.payload as unknown as CreateTaskOptions;
-          // Saved in the shared task list; copied to Google when an account is connected.
+          // Saved in the shared task list (zalobot only, no Google copy).
           const task = await this.tasksService.createTask(
             {
               title: payload.title,
@@ -1327,8 +1327,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             throw new Error('TasksService chưa được cấu hình.');
           }
           const payload = pending.payload as unknown as CompleteTaskDto;
-          // Row id, or a Google task id for actions queued before tasks moved to the DB.
-          await this.tasksService.completeTask(payload.taskId, pending.userId);
+          await this.tasksService.completeTask(payload.taskId);
           if (!silent) {
             await this.zaloService.sendMessage(
               chatId,

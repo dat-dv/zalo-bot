@@ -1,6 +1,6 @@
 import { CreateFinanceTransactionDto, CreateDebtDto } from '../../finance/finance.service';
 import { CreateReminderDto } from '../../reminders/reminders.service';
-import { CreateTaskOptions } from '../../google/google-tasks.service';
+import { CreateTaskOptions } from '../../tasks/task.types';
 import { CreateEventOptions } from '../../google/google-calendar.service';
 import {
   BanUserDto,

@@ -5,8 +5,9 @@ import type { ZcaThreadConfigEntity } from '../database/entities/zca-thread-conf
 import type { GoogleAuthService } from './google-auth.service';
 
 /**
- * Helpers shared by records that live in the DB and keep a copy in a Google account
- * (calendar events, tasks): reaching that account again, and describing who made the record.
+ * Helpers for records that live in the DB and keep a copy in a Google account (calendar
+ * events): reaching that account again, and describing who made the record (also used by
+ * tasks, which have no Google copy).
  */
 
 type GoogleAccounts = Pick<GoogleAuthService, 'isAuthorized' | 'getAccountEmail'>;
@@ -80,7 +81,8 @@ export interface RecordOrigin {
 export async function loadRecordOriginLookups(
   rows: readonly RecordOrigin[],
   deps: {
-    googleAuth: GoogleAccounts;
+    /** Omit for records without a Google copy (tasks): `connectedEmails` is then empty. */
+    googleAuth?: GoogleAccounts;
     userRepo?: Repository<UserEntity>;
     threadConfigRepo?: Repository<ZcaThreadConfigEntity>;
   },
@@ -105,7 +107,9 @@ export async function loadRecordOriginLookups(
           select: { threadId: true, threadName: true, threadType: true },
         })
       : Promise.resolve<ZcaThreadConfigEntity[]>([]),
-    connectedGoogleEmails(deps.googleAuth, viewerId),
+    deps.googleAuth
+      ? connectedGoogleEmails(deps.googleAuth, viewerId)
+      : Promise.resolve(new Set<string>()),
   ]);
   return {
     userNames: new Map(

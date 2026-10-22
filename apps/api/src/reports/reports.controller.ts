@@ -169,7 +169,7 @@ export class ReportsController {
     const endAt = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
     const googleConnected = this.googleAuth.isAuthorized(userId);
     const calendarPromise = this.getCalendarEvents(String(userId), now);
-    const tasksPromise = this.getTasks(String(userId));
+    const tasksPromise = this.getTasks();
     const [summary, ledgerBalance, debts, reminders, activity, calendar, tasks] = await Promise.all(
       [
         this.finance.getSummary(startAt, endAt),
@@ -364,10 +364,11 @@ export class ReportsController {
     }
   }
 
-  private async getTasks(userId: string): Promise<ITaskListItem[]> {
+  /** The shared task list (DB only); never depends on Google being connected. */
+  private async getTasks(): Promise<ITaskListItem[]> {
     try {
-      const rows = await this.tasks.listTasks({ limit: 50, importForUserId: userId });
-      return await this.tasks.toItems(rows, userId);
+      const rows = await this.tasks.listTasks({ limit: 50 });
+      return await this.tasks.toItems(rows);
     } catch {
       return [];
     }

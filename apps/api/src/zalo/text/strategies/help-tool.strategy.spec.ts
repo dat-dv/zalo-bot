@@ -34,7 +34,8 @@ void test('HelpToolStrategy includes /zalo-login command in help text', async ()
   assert.match(helpText, /CÁC TÍNH NĂNG AI THÔNG MINH \(TOOLCALLS HỮU ÍCH\)/);
   assert.match(helpText, /Thu - Chi/);
   assert.match(helpText, /Google Calendar/);
-  assert.match(helpText, /Google Tasks/);
+  assert.match(helpText, /Việc cần làm/);
+  assert.doesNotMatch(helpText, /Google Tasks/);
   assert.match(helpText, /Reminders/);
   assert.match(helpText, /\/drive/);
   assert.match(helpText, /\/share/);

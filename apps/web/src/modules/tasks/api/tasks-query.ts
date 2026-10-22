@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ITaskListItem, IUpdateTaskRequest } from '@zalobot/contracts';
-import { deleteTask, getTasks, resyncTask, updateTask } from './tasks-api';
+import { deleteTask, getTasks, updateTask } from './tasks-api';
 
 export const tasksQueryKeys = { list: () => ['tasks'] as const };
 
@@ -31,14 +31,6 @@ export function useDeleteTaskMutation() {
   const invalidate = useInvalidateTasks();
   return useMutation<boolean, Error, string>({
     mutationFn: (id) => deleteTask(id),
-    onSuccess: invalidate,
-  });
-}
-
-export function useResyncTaskMutation() {
-  const invalidate = useInvalidateTasks();
-  return useMutation<ITaskListItem, Error, string>({
-    mutationFn: (id) => resyncTask(id),
     onSuccess: invalidate,
   });
 }

@@ -40,7 +40,6 @@ export default function PrivacyPage() {
         <ul>
           <li>{t('public.privacy.profileScope')}</li>
           <li>{t('public.privacy.calendarScope')}</li>
-          <li>{t('public.privacy.tasksScope')}</li>
         </ul>
 
         <h2>{t('public.privacy.useTitle')}</h2>

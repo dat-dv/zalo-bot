@@ -37,10 +37,7 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
       // Check for duplicate tasks
       let duplicateWarning = '';
       try {
-        const dupes = await this.tasksService.findPotentialDuplicateTasks(
-          [title],
-          context.senderId,
-        );
+        const dupes = await this.tasksService.findPotentialDuplicateTasks([title]);
         if (dupes.length > 0 && dupes[0].matches.length > 0) {
           const matchedTitles = dupes[0].matches.map((m) => `"${m.title}"`).join(', ');
           duplicateWarning = `⚠️ Lưu ý: Bạn đã có việc tương tự trong danh sách: ${matchedTitles}.`;
