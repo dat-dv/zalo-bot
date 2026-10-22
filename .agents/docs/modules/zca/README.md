@@ -14,6 +14,7 @@ metadata:
       - apps/api/src/zca/pending-image/pending-image-dispatcher.service.ts
       - apps/api/src/database/entities/zca-thread-config.entity.ts
       - .agents/docs/modules/zca/chat-memory.md
+      - .agents/docs/modules/zca/member-access.md
       - .agents/docs/modules/zca/directory-cache.md
       - apps/api/src/zca/zca-directory-cache.ts
       - apps/api/src/zca/text/text-tool.definitions.ts
@@ -70,6 +71,7 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
 | | `requiredHearts` | nhóm `5`, cá nhân `1` | Số tim cần để duyệt |
 | | `timeoutMinutes` | `5` | Thời hạn thẻ chờ |
 | Trí nhớ hội thoại | `chatMemory.enabled` | tắt | Lưu và tra lại tin của kênh ([chi tiết](chat-memory.md)) |
+| Ai được gọi bot (chỉ nhóm) | `memberAccess.mode` / `memberIds` | `granted-users` / trống | Cấp quyền gọi bot trong riêng nhóm này, cộng thêm vào quyền toàn cục: không ai thêm, mọi thành viên, hoặc thành viên được chọn ([chi tiết](member-access.md)) |
 | | `chatMemory.contextWindow` | `10` (0–30) | Số tin gần nhất đưa vào prompt |
 | | `chatMemory.searchLimit` | `15` (1–50) | Số kết quả mỗi lần tra |
 | Lưu trữ | `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | trống | Link cũ tới **thư mục gốc** Drive và album Photos của kênh. Dashboard giờ liệt kê từ bảng lịch sử `channel_storage_links` (xem [Lưu trữ media theo kênh](channel-storage.md)) |
@@ -95,7 +97,7 @@ Sau đó tin nhắn rơi vào một trong các luồng:
 
 **Lệnh chờ duyệt có tag bot**: người dùng trong nhóm hay gõ kèm tag, ví dụ `@Đen edit 125 …` hoặc `@bot yes 123`. Trước khi khớp lệnh, hệ thống gỡ tag **của bot**. Cách gỡ ưu tiên dựa trên dữ liệu mention Zalo gửi kèm (uid bot, vị trí, độ dài), vì tên hiển thị của bot trong nhóm ("Đen") có thể khác `botName` cấu hình; sau đó mới gỡ các bí danh `@bot`. Tag người khác được giữ nguyên để tin thường không bị hiểu nhầm thành lệnh. Trước đây tag đứng đầu làm lệnh `edit` không khớp, nên bot coi cả câu là yêu cầu mới và tạo thêm một thẻ chờ (ví dụ sự kiện có tiêu đề "Edit 125 …").
 | **L3 – Media thụ động** | Ảnh/video/file/voice, thread bật `mediaBackup` và bật loại tương ứng | Không kiểm tra — kho Drive là của cả nhóm | Sao lưu lên Drive và album Photos của nhóm, chống trùng bằng Redis `zca:synced_media:<threadId>`; không OCR, không gọi AI |
-| **L1 – Gọi trực tiếp** | **Nhóm**: có `@bot`/tên bot, mention bot, hoặc tin bắt đầu bằng một tiền tố của kênh (không phân biệt hoa thường). **Chat riêng 1-1**: mọi tin có chữ. Ảnh/video không kèm chữ không bao giờ tính là gọi bot | Đầy đủ: bootstrap admin, `GrantAccessGuard` (báo từ chối, ghi nhận user chờ duyệt), cooldown có thông báo; tài khoản bot được miễn | Dùng toàn bộ tool, trò chuyện tự do theo `allowAiChat` |
+| **L1 – Gọi trực tiếp** | **Nhóm**: có `@bot`/tên bot, mention bot, hoặc tin bắt đầu bằng một tiền tố của kênh (không phân biệt hoa thường). **Chat riêng 1-1**: mọi tin có chữ. Ảnh/video không kèm chữ không bao giờ tính là gọi bot | Kiểm tra **một lần** ngay sau khi biết tin có gọi bot: tài khoản bot được miễn → bootstrap admin → `GrantAccessGuard` kèm quyền theo kênh từ `ThreadAccessService` (báo từ chối, ghi nhận user chờ duyệt) → cooldown có thông báo ([Quyền tương tác theo kênh](member-access.md)) | Dùng toàn bộ tool, trò chuyện tự do theo `allowAiChat` |
 | **Không gọi bot** | Mọi trường hợp còn lại: tin nhóm không mention/tiền tố, media không kèm chữ | Không kiểm tra | **Bỏ qua hoàn toàn**: không gọi AI, không trả lời |
 
 **Vì sao bot chỉ làm khi được gọi?** Trước đây có luồng "L2 – văn bản thụ động": nhóm bật thu chi hoặc lịch thì **mọi** tin chữ của người đã được cấp quyền đều được gửi cho AI để dò xem có khoản chi hay lịch hẹn không. Hệ quả:
@@ -203,13 +205,14 @@ Bảng này phục vụ việc lướt nhanh hàng trăm dòng, nên giữ cùng
 - **Trang cấu hình kênh** `/zca/thread?id=<mã kênh>` (`app/(private)/zca/thread/page.tsx` → `view/thread-config-screen.tsx`). Trang này thay cho modal Cấu hình cũ: modal rộng 672px phải chứa 5 nhóm cấu hình xếp một cột với chữ 10–11px nên quá chật. Web build dạng static export nên không có route động `/zca/[id]`; mã kênh nằm ở `?id=`, đọc bằng `useSearchParams` trong `<Suspense>`. Mục menu "Zalo & Người dùng" vẫn sáng khi ở trang này.
   - **Tên và loại kênh** lấy từ danh sách thread (đọc từ cache Redis, không gọi Zalo). Nếu Zalo không còn trả về kênh đó thì lấy từ cấu hình đã lưu. Nếu vẫn không biết là nhóm hay chat riêng thì trang báo "Không tìm thấy" và không cho lưu, vì API lưu bắt buộc có loại kênh.
   - **Các trạng thái**: thiếu `id` hoặc không tìm thấy kênh thì hiện thông báo kèm link quay lại; đang tải thì hiện khung xương; lỗi tải thì có nút "Thử lại".
-  - **Bố cục**: header có link quay lại bảng (giữ bộ lọc cũ), chữ cái đại diện, tên (dài thì cắt `…`), nhãn Nhóm/Cá nhân và ID. Màn rộng chia 2 cột: trái là Lắng nghe, Tương tác trực tiếp, Quy tắc xác nhận; phải là Lưu trữ tài nguyên và Trí nhớ hội thoại. Màn dưới 1024px còn 1 cột. Thanh "Lưu cấu hình" dính ở đáy màn hình. Lưu xong vẫn ở lại trang và hiện "Đã lưu" (lỗi thì báo "Lưu thất bại").
+  - **Bố cục**: header có link quay lại bảng (giữ bộ lọc cũ), chữ cái đại diện, tên (dài thì cắt `…`), nhãn Nhóm/Cá nhân và ID. Màn rộng chia 2 cột: trái là Lắng nghe, Tương tác trực tiếp, Ai được gọi bot (chỉ nhóm), Quy tắc xác nhận; phải là Lưu trữ tài nguyên và Trí nhớ hội thoại. Màn dưới 1024px còn 1 cột. Thanh "Lưu cấu hình" dính ở đáy màn hình. Lưu xong vẫn ở lại trang và hiện "Đã lưu" (lỗi thì báo "Lưu thất bại").
   - **Nội dung các mục** (không đổi so với modal cũ):
     - Lắng nghe kênh.
     - Tương tác trực tiếp: bật/tắt, ghi chú quy tắc gọi bot (nhóm cần @mention/tiền tố, chat riêng thì không), cho phép trò chuyện AI, xử lý tin của chính bot, ô nhập nhiều tiền tố dạng chip (`presentation/components/trigger-prefix-input.tsx`).
     - Sao lưu media: banner thư mục Drive và album Photos (mở hộp thoại lịch sử link), chọn loại (ảnh, video, file, âm thanh), thông báo trong nhóm, thư mục Drive tuỳ chỉnh, tên album Photos, hậu tố file.
     - Quy tắc xác nhận: thả tim, số tim tối thiểu (1–50), thời gian chờ (1–60 phút).
     - Trí nhớ hội thoại: bật/tắt, số tin ngữ cảnh, số kết quả mỗi lần tra. Ô số giữ nguyên chữ đang gõ và chỉ chuẩn hoá khi rời ô hoặc khi lưu.
+    - Ai được gọi bot trong nhóm (chỉ nhóm, mục mới): chọn 1 trong 3 chế độ; chế độ "Thành viên được chọn" có danh sách thành viên lấy từ Zalo với ô tìm, bộ lọc và công tắc từng người. Xem [Quyền tương tác theo kênh](member-access.md).
   - **Cách code tổ chức** (`presentation/components/thread-config/`, mỗi file dưới khoảng 100 dòng): `ConfigSectionCard` (khung một mục có nút bật mục), `ConfigToggleRow` và `ConfigSwitch` (một component nút gạt dùng chung, có `role="switch"` và viền focus khi dùng bàn phím; thay cho 8 khối markup lặp lại trước đây), `ConfigField` (nhãn gắn với ô nhập). Logic chuyển dữ liệu form ↔ API là hàm thuần ở `model/thread-config-form.ts`, có test; ví dụ cấu hình cũ chưa có quy tắc xác nhận thì mặc định 5 tim cho nhóm, 1 tim cho chat riêng.
   - **Không tràn ngang**: khung trang cuộn dọc nên chỉ cần một phần tử rộng quá là hiện thanh cuộn ngang, nhất là khi tên hoặc ID nhóm dài trên mobile. Vì vậy tên ở header bị cắt bằng `…` (rê chuột để xem đủ); ID và nhãn thư mục/album ngắt dòng ở bất kỳ ký tự nào (`break-all`); banner Drive/Photos dùng `flex-wrap`; mỗi hàng bật/tắt cho khối chữ `min-w-0` và nút gạt `shrink-0`. Khi thêm mục mới, giữ đúng mẫu này.
   - Chưa có cảnh báo "thay đổi chưa lưu" khi rời trang (modal cũ cũng không có).
@@ -249,6 +252,7 @@ Bảng 7 cột phải cuộn ngang trên màn 375px và các nút 22px quá nh�
 | PUT | `/api/zca/thread-configs/:threadId` | Cập nhật cấu hình (`UpdateThreadBotConfigDto`) |
 | DELETE | `/api/zca/thread-configs/:threadId` | Xoá hẳn cấu hình của cuộc trò chuyện mà Zalo không còn trả về (xem [Cache danh bạ Zalo](directory-cache.md)) |
 | POST | `/api/zca/threads/:threadId/sync-media` | Sao lưu media lịch sử của nhóm |
+| GET | `/api/zca/threads/:threadId/members` | Thành viên của nhóm cho mục "Ai được gọi bot" (cache Redis 10 phút, `?refresh=true` gọi Zalo lấy bản mới), xem [Quyền tương tác theo kênh](member-access.md) |
 
 Link Google dùng trên trang (thuộc `GoogleResourcesController`): `GET /api/drive/folder-link`, `GET /api/drive/open`, `POST /api/drive/share`, `GET /api/photos/album-link`, `GET /api/photos/open`.
 

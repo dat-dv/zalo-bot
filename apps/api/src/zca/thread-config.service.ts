@@ -6,7 +6,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import {
   CHAT_MEMORY_DEFAULTS,
+  MEMBER_ACCESS_DEFAULTS,
   normalizeChatMemoryConfig,
+  normalizeMemberAccessConfig,
   normalizeTriggerPrefixes,
   type ThreadBotConfig,
   type ThreadDirectInteractionConfig,
@@ -129,6 +131,7 @@ function normalizeCachedConfig(
     ...config,
     directInteraction: normalizeDirectInteraction(config.directInteraction),
     chatMemory: normalizeChatMemoryConfig(config.chatMemory),
+    memberAccess: normalizeMemberAccessConfig(config.memberAccess),
   });
 }
 
@@ -170,6 +173,7 @@ export function createDefaultThreadConfig(
       timeoutMinutes: 5,
     },
     chatMemory: { ...CHAT_MEMORY_DEFAULTS },
+    memberAccess: { ...MEMBER_ACCESS_DEFAULTS, memberIds: [] },
     updatedAt: Date.now(),
   };
 }
@@ -205,6 +209,7 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
       timeoutMinutes: entity.confirmationRules?.timeoutMinutes ?? 5,
     },
     chatMemory: normalizeChatMemoryConfig(entity.chatMemory),
+    memberAccess: normalizeMemberAccessConfig(entity.memberAccess),
     updatedAt: entity.updatedAt ? new Date(entity.updatedAt).getTime() : Date.now(),
   });
 }
@@ -614,6 +619,13 @@ export class ThreadConfigService implements OnModuleInit {
       });
     }
 
+    if (update.memberAccess) {
+      config.memberAccess = normalizeMemberAccessConfig({
+        ...config.memberAccess,
+        ...update.memberAccess,
+      });
+    }
+
     // The dashboard echoes stored links back, so re-check them against the (maybe changed)
     // customFolder / photosAlbum before persisting.
     Object.assign(config, withoutStaleStorageLinks(config));
@@ -700,6 +712,7 @@ export class ThreadConfigService implements OnModuleInit {
           mediaBackup: config.mediaBackup,
           confirmationRules: config.confirmationRules,
           chatMemory: config.chatMemory,
+          memberAccess: config.memberAccess,
           driveFolderId: config.driveFolderId,
           driveFolderUrl: config.driveFolderUrl,
           driveFolderPath: config.driveFolderPath,

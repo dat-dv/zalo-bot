@@ -62,6 +62,7 @@ Các quy tắc đi kèm:
 - **Lưu dự phòng số điện thoại**: mỗi khi số của user được cập nhật (admin sửa, thêm user, hoặc "Đồng bộ thông tin" từ ZCA), hệ thống điền số đó vào các Người liên quan đã gắn với user mà còn trống số. Số đã có trong danh bạ không bị ghi đè. Lưu ý: "Đồng bộ thông tin" vẫn ghi đè `users.phoneNumber` nếu Zalo trả về một số khác, vì hiện chưa có tính năng khoá số nhập tay.
 - ID nhóm không bao giờ là user. `syncUsersWithZca` chỉ lấy thread `type = 'user'` và chỉ điền avatar, SĐT, tên (khi tên đang trống hoặc chung chung).
 - Tin nhắn nhóm không gọi bot (không @mention, không tiền tố) bị bỏ qua trước khi kiểm tra quyền, nên không ghi nhận user chờ duyệt (xem tài liệu module ZCA, mục "Luồng xử lý tin nhắn").
+- Quyền theo kênh (`memberAccess` của nhóm ZCA) tách khỏi `grantAccess`: người chỉ được nhóm cấp quyền vẫn được lưu là user "Chờ duyệt", gọi được bot trong đúng nhóm đó và không tự có quyền toàn cục (xem `modules/zca/member-access.md`).
 
 **Dọn dữ liệu đã lỡ sinh ra** — script `apps/api/scripts/cleanup-group-users.ts`:
 

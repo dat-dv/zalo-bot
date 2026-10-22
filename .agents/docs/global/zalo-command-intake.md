@@ -19,9 +19,9 @@ Bot chỉ còn **một kênh** là tài khoản Zalo cá nhân của bot qua ZCA
 
 - Admin đăng nhập bằng QR trên trang `/zca` của dashboard (hoặc lệnh `/zlogin`). Bot khi đó tham gia nhóm như người thật.
 - Mỗi cuộc trò chuyện có cấu hình riêng trong bảng `zca_thread_configs`. Mặc định tương tác trực tiếp **tắt** (`enabled: false`) và **không có tiền tố** (`triggerPrefixes: []`). Trong nhóm, tin nhắn luôn phải @mention bot hoặc bắt đầu bằng một tiền tố mới tới được AI; chat riêng 1-1 thì tin chữ nào cũng được xử lý; ảnh không kèm chữ chỉ được lưu.
-- Thứ tự kiểm tra:
+- Thứ tự kiểm tra (một lần cho mỗi tin có gọi bot):
   1. `InitialAdminBootstrapGuard`: nếu hệ thống chưa có admin hay người được cấp quyền nào, người nhắn đầu tiên trở thành admin.
-  2. `GrantAccessGuard`: chỉ admin và người đã được cấp quyền mới dùng được bot.
+  2. `GrantAccessGuard` kèm quyền theo kênh từ `ThreadAccessService`: admin, người được cấp quyền toàn cục, và trong nhóm thì thêm mọi thành viên hoặc thành viên được chọn (xem `modules/zca/member-access.md`).
   3. Chống spam `UsersService.checkCooldown`: mỗi người phải cách nhau 2 giây (admin được miễn; đếm trong bộ nhớ tiến trình).
   4. Chuyển cho `TextInputService`. Thả cảm xúc được chuyển cho `TransactionConfirmationService.handleReaction`.
 - Tin bot gửi đi qua `ZcaMessengerService` (chỉ dùng ZCA): câu trả lời dài hơn 1900 ký tự được chia thành nhiều tin cách nhau 300 ms, hiệu ứng "đang soạn tin" dùng `sendTypingEvent` của ZCA. Khi ZCA chưa đăng nhập thì bot không gửi được tin nào — lúc đó vào dashboard bằng `DASHBOARD_LOGIN_CODE` để quét lại QR (xem [Phiên dashboard](dashboard-session.md)).

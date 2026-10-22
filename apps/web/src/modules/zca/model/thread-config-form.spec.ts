@@ -16,6 +16,7 @@ function makeConfig(overrides: Partial<ThreadBotConfig> = {}): ThreadBotConfig {
     mediaBackup: { enabled: false, uploadImages: true, uploadVideos: false },
     confirmationRules: { allowReactions: true, requiredHearts: 3, timeoutMinutes: 10 },
     chatMemory: { enabled: true, contextWindow: 8, searchLimit: 12 },
+    memberAccess: { mode: 'selected-members', memberIds: ['u1'] },
     ...overrides,
   };
 }
@@ -67,4 +68,20 @@ test('formToPayload sends identity, every section and the resolved chat memory',
   assert.equal(payload.driveFolderUrl, 'https://drive.google.com/x');
   assert.deepEqual(payload.confirmationRules, form.confirmationRules);
   assert.deepEqual(payload.chatMemory, { enabled: true, contextWindow: 8, searchLimit: 12 });
+});
+
+test('configToForm and formToPayload keep a clean member access config', () => {
+  // Rows cached before member access existed reach the web without it.
+  const legacy = Object.assign(makeConfig(), { memberAccess: undefined });
+  assert.deepEqual(configToForm(legacy, 'group').memberAccess, {
+    mode: 'granted-users',
+    memberIds: [],
+  });
+
+  const form = configToForm(
+    makeConfig({ memberAccess: { mode: 'selected-members', memberIds: ['u1', 'u1', ' u2 '] } }),
+    'group',
+  );
+  const payload = formToPayload(form, memoryDraftFrom(form.chatMemory), 'Nhóm', 'group');
+  assert.deepEqual(payload.memberAccess, { mode: 'selected-members', memberIds: ['u1', 'u2'] });
 });

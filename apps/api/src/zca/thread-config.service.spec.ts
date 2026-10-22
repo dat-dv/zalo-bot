@@ -540,3 +540,22 @@ void test('deleteConfig returns false and creates nothing for an unknown thread'
   assert.equal(await service.deleteConfig('missing-thread'), false);
   assert.equal(rows.size, 0);
 });
+
+void test('ThreadConfigService defaults and normalizes member access', async () => {
+  assert.deepEqual(createDefaultThreadConfig('g-1', { threadType: 'group' }).memberAccess, {
+    mode: 'granted-users',
+    memberIds: [],
+  });
+
+  const service = new ThreadConfigService();
+  const updated = await service.updateConfig('member-access-test', {
+    threadType: 'group',
+    memberAccess: { mode: 'selected-members', memberIds: [' 111 ', '111', '', '222'] },
+  });
+  assert.deepEqual(updated.memberAccess, { mode: 'selected-members', memberIds: ['111', '222'] });
+
+  const switched = await service.updateConfig('member-access-test', {
+    memberAccess: { mode: 'all-members' },
+  });
+  assert.deepEqual(switched.memberAccess, { mode: 'all-members', memberIds: ['111', '222'] });
+});

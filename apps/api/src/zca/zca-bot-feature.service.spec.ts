@@ -16,6 +16,7 @@ import type { TextInputService } from './text/text-input.service';
 import type { ZcaService } from './zca.service';
 import type { AgentInput } from '../types/agent-input.type';
 import type { UsersService } from '../users/users.service';
+import { GrantAccessGuard } from './guards/grant-access.guard';
 
 function createUsersServiceMock(options: { granted: string[] }): UsersService & {
   registered: string[];
@@ -2195,4 +2196,99 @@ void test('ZcaBotFeatureService passes the thread memory settings to the text pi
     contextWindow: 4,
     searchLimit: 9,
   });
+});
+
+async function createMemberAccessScenario(
+  threadId: string,
+  memberAccess: { mode: 'granted-users' | 'all-members' | 'selected-members'; memberIds: string[] },
+) {
+  const configService = new ThreadConfigService();
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    directInteraction: { enabled: true, allowAiChat: true },
+    memberAccess,
+  });
+
+  const processed: AgentInput[] = [];
+  const mockTextInputService = {
+    process: (input: AgentInput) => {
+      processed.push(input);
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService;
+  const rejections: string[] = [];
+  const messenger = {
+    sendMessage: (_chatId: string, text: string) => {
+      rejections.push(text);
+      return Promise.resolve(true);
+    },
+  } as unknown as ZcaService;
+
+  const usersService = createUsersServiceMock({ granted: ['global-1'] });
+  const service = new ZcaBotFeatureService(configService);
+  service.setTextInputService(mockTextInputService);
+  service.setUsersService(usersService);
+  service.setGrantAccessGuard(new GrantAccessGuard(usersService, messenger));
+
+  const send = (uidFrom: string, content: string) =>
+    service.onMessage(
+      {
+        threadId,
+        isSelf: false,
+        type: ThreadType.Group,
+        data: { content, uidFrom, dName: 'Member', msgType: 'chat' },
+      } as unknown as Message,
+      {
+        sendMessage: () => Promise.resolve({ message: { msgId: 1 }, attachment: [] }),
+      } as unknown as API,
+    );
+
+  return { processed, rejections, usersService, send };
+}
+
+void test('ZcaBotFeatureService lets a selected group member call the bot without global access', async () => {
+  const scenario = await createMemberAccessScenario('group-selected-members', {
+    mode: 'selected-members',
+    memberIds: ['member-1'],
+  });
+
+  await scenario.send('member-1', '@bot ăn trưa 45k');
+  await scenario.send('stranger-1', '@bot ăn trưa 45k');
+  await scenario.send('global-1', '@bot ăn trưa 45k');
+
+  assert.deepEqual(
+    scenario.processed.map((input) => input.senderId),
+    ['member-1', 'global-1'],
+    'selected member and globally granted user pass; the stranger is blocked',
+  );
+  assert.equal(scenario.rejections.length, 1);
+  assert.match(scenario.rejections[0], /stranger-1/);
+  assert.deepEqual(scenario.usersService.registered, ['member-1', 'stranger-1', 'global-1']);
+});
+
+void test('ZcaBotFeatureService lets every member call the bot when the group allows all members', async () => {
+  const scenario = await createMemberAccessScenario('group-all-members', {
+    mode: 'all-members',
+    memberIds: [],
+  });
+
+  await scenario.send('stranger-1', '@bot mai 9h họp');
+
+  assert.equal(scenario.processed.length, 1);
+  assert.equal(scenario.rejections.length, 0);
+});
+
+void test('ZcaBotFeatureService keeps the global rule for groups in granted-users mode', async () => {
+  const scenario = await createMemberAccessScenario('group-granted-users', {
+    mode: 'granted-users',
+    memberIds: ['member-1'],
+  });
+
+  await scenario.send('member-1', '@bot mai 9h họp');
+  await scenario.send('member-1', 'chuyện thường trong nhóm');
+
+  assert.equal(scenario.processed.length, 0);
+  assert.equal(scenario.rejections.length, 1, 'only the mention is answered with a rejection');
+  assert.deepEqual(scenario.usersService.registered, ['member-1']);
 });

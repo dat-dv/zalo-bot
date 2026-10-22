@@ -4,6 +4,7 @@ import type {
   ThreadMediaBackupConfig,
   ThreadConfirmationConfig,
   ThreadChatMemoryConfig,
+  ThreadMemberAccessConfig,
 } from '@zalobot/contracts';
 
 @Entity('zca_thread_configs')
@@ -50,6 +51,13 @@ export class ZcaThreadConfigEntity {
     default: () => '\'{"enabled": false, "contextWindow": 10, "searchLimit": 15}\'',
   })
   chatMemory: ThreadChatMemoryConfig;
+
+  @Column({
+    name: 'member_access',
+    type: 'jsonb',
+    default: () => '\'{"mode": "granted-users", "memberIds": []}\'',
+  })
+  memberAccess: ThreadMemberAccessConfig;
 
   @Column({ name: 'drive_folder_id', type: 'varchar', nullable: true })
   driveFolderId?: string;

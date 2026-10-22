@@ -34,6 +34,7 @@ import { ShareDriveToolStrategy } from './text/strategies/share-drive-tool.strat
 import { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
 import { InitialAdminBootstrapGuard } from './guards/initial-admin-bootstrap.guard';
 import { GrantAccessGuard } from './guards/grant-access.guard';
+import { ThreadAccessService } from './access/thread-access.service';
 
 // Pending Image & Batching
 import { PendingImageActionService } from './pending-image/pending-image-action.service';
@@ -73,6 +74,7 @@ const COMMON_PROVIDERS = [
   TransactionConfirmationService,
   InitialAdminBootstrapGuard,
   GrantAccessGuard,
+  ThreadAccessService,
   PendingImageActionService,
   PendingImageActionDispatcher,
   ImageBatchHandler,
@@ -94,6 +96,7 @@ const COMMON_EXPORTS = [
   TransactionConfirmationService,
   InitialAdminBootstrapGuard,
   GrantAccessGuard,
+  ThreadAccessService,
   PendingImageActionService,
   PendingImageActionDispatcher,
   ImageBatchHandler,

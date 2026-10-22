@@ -74,6 +74,16 @@ import {
   type ZcaDirectorySnapshot,
 } from './zca-directory-cache';
 import type { ZcaModuleOptions, ZcaPlugin } from './zca.interfaces';
+import type { IZcaGroupMember, IZcaGroupMembersResponse } from '@zalobot/contracts';
+import {
+  buildGroupMembers,
+  parseGroupMembersCache,
+  readGroupInfo,
+  readMemberProfiles,
+  ZCA_GROUP_MEMBERS_BATCH_SIZE,
+  ZCA_GROUP_MEMBERS_TTL_SECONDS,
+  zcaGroupMembersRedisKey,
+} from './zca-group-members';
 import { createSharpImageMetadataGetter } from './zca-metadata.util';
 import { createFetchPolyfill } from './utils';
 import { GroupEventDispatcher } from './group-event-dispatcher.service';
@@ -1147,6 +1157,50 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   /** When the directory behind `getAvailableThreads` was last fetched from Zalo, if ever. */
   public getDirectoryFetchedAt(): string | null {
     return this.currentDirectorySnapshot()?.fetchedAt ?? null;
+  }
+
+  /**
+   * Members of a ZCA group for the thread config page, cached in Redis for 10 minutes.
+   * Returns null when ZCA is not logged in or Zalo does not return the group.
+   */
+  public async getGroupMembers(
+    groupId: string,
+    forceRefresh = false,
+  ): Promise<IZcaGroupMembersResponse | null> {
+    const api = this.api;
+    if (!api) return null;
+    const id = String(groupId).trim();
+    const cacheKey = zcaGroupMembersRedisKey(id);
+    if (!forceRefresh && this.redisService) {
+      const cached = parseGroupMembersCache(await this.redisService.get(cacheKey));
+      if (cached) return cached;
+    }
+
+    const info = readGroupInfo(await api.getGroupInfo(id), id);
+    if (!info) return null;
+
+    const profiles = new Map<string, IZcaGroupMember>();
+    for (let i = 0; i < info.memberIds.length; i += ZCA_GROUP_MEMBERS_BATCH_SIZE) {
+      const batch = info.memberIds.slice(i, i + ZCA_GROUP_MEMBERS_BATCH_SIZE);
+      try {
+        for (const [memberId, member] of readMemberProfiles(await api.getGroupMembersInfo(batch))) {
+          profiles.set(memberId, member);
+        }
+      } catch (err) {
+        // A failed batch still lists its members by uid, so the admin can pick them.
+        this.logger.warn(`Failed to fetch group member profiles: ${formatErrorMessage(err)}`);
+      }
+    }
+
+    const result: IZcaGroupMembersResponse = {
+      members: buildGroupMembers(info.memberIds, profiles),
+      totalMembers: info.totalMembers,
+      fetchedAt: Date.now(),
+    };
+    if (this.redisService) {
+      await this.redisService.set(cacheKey, JSON.stringify(result), ZCA_GROUP_MEMBERS_TTL_SECONDS);
+    }
+    return result;
   }
 
   private currentDirectorySnapshot(): ZcaDirectorySnapshot | null {

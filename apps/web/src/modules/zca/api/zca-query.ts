@@ -15,6 +15,7 @@ import {
   getGoogleDriveFolderLink,
   syncThreadMedia,
   getThreadStorageLinks,
+  getZcaThreadMembers,
   updateThreadStorageLink,
   deleteThreadStorageLink,
   deleteZcaThreadConfig,
@@ -25,6 +26,7 @@ import {
 } from './zca-api';
 import type {
   ChannelStorageLinksResponse,
+  IZcaGroupMembersResponse,
   UpdateChannelStorageLinkDto,
   ThreadBotConfig,
   UpdateThreadBotConfigDto,
@@ -41,6 +43,7 @@ export const zcaQueryKeys = {
   driveLink: (channelId?: string, threadName?: string) =>
     ['zca', 'drive-link', channelId || 'root', threadName || ''] as const,
   storageLinks: (threadId: string) => ['zca', 'storage-links', threadId] as const,
+  members: (threadId: string) => ['zca', 'members', threadId] as const,
 };
 
 export function useZcaStatusQuery(options?: { refetchInterval?: number | false }) {
@@ -84,6 +87,28 @@ export function useRefreshZcaThreadsMutation() {
     mutationFn: () => getZcaThreads({ refresh: true }),
     onSuccess: (freshResult) => {
       queryClient.setQueryData(zcaQueryKeys.threads(), freshResult);
+    },
+  });
+}
+
+// The API caches group members for 10 minutes; the refresh button forces a Zalo call.
+const ZCA_MEMBERS_STALE_TIME_MS = 5 * 60_000;
+
+export function useZcaThreadMembersQuery(threadId: string, options?: { enabled?: boolean }) {
+  return useQuery<IZcaGroupMembersResponse>({
+    queryKey: zcaQueryKeys.members(threadId),
+    queryFn: ({ signal }) => getZcaThreadMembers(threadId, undefined, signal),
+    staleTime: ZCA_MEMBERS_STALE_TIME_MS,
+    enabled: Boolean(threadId) && (options?.enabled ?? true),
+  });
+}
+
+export function useRefreshZcaThreadMembersMutation(threadId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => getZcaThreadMembers(threadId, { refresh: true }),
+    onSuccess: (fresh) => {
+      queryClient.setQueryData(zcaQueryKeys.members(threadId), fresh);
     },
   });
 }

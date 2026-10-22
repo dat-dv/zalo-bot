@@ -43,6 +43,7 @@ import { AddCodeHashToDashboardExchangeTokens1724860000000 } from './migrations/
 import { CreateCalendarEvents1724870000000 } from './migrations/1724870000000-CreateCalendarEvents';
 import { CreateTasks1724880000000 } from './migrations/1724880000000-CreateTasks';
 import { DropTaskGoogleCopy1724890000000 } from './migrations/1724890000000-DropTaskGoogleCopy';
+import { AddMemberAccessToZcaThreadConfigs1724900000000 } from './migrations/1724900000000-AddMemberAccessToZcaThreadConfigs';
 
 @Module({
   imports: [
@@ -103,6 +104,7 @@ import { DropTaskGoogleCopy1724890000000 } from './migrations/1724890000000-Drop
             CreateCalendarEvents1724870000000,
             CreateTasks1724880000000,
             DropTaskGoogleCopy1724890000000,
+            AddMemberAccessToZcaThreadConfigs1724900000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',
