@@ -38,7 +38,7 @@ metadata:
 - API resolves `.env.local`, `.env`, and `data/` from the monorepo root whether it runs from `apps/api` or the repo root.
 - Never expose Zalo, LLM (`GEMINI_*`, `OPENAI_*`, `QWEN_*`), Google, encryption, dashboard-token, or database secrets to the web package.
 - Nest is the only API, OAuth, token, database, and bot runtime. Bot input arrives only via the ZCA WebSocket client; there is no webhook and no long polling (the official Zalo Bot webhook was removed). Only one API instance should hold the ZCA session, since a second ZCA login on the same account kicks the first.
-- Global prefix `/api`, excluding `health`, `health/deploy`, `deploy/*`. Swagger at `/api/docs`.
+- Global prefix `/api`, excluding `health`. Swagger at `/api/docs`.
 - Contract changes go into `@zalobot/contracts` before an API or web consumer is added.
 
 ## Dashboard Session
@@ -61,7 +61,7 @@ metadata:
 - `docker-compose.local.yml` (`npm run docker:local`): postgres, redis, and an Nginx gateway (`NGINX_PORT`, default 3000) proxying to API/web dev servers on the host.
 - Root `.dockerignore` excludes `node_modules`, build outputs, `.git`, and `.env*`. Both Dockerfiles use BuildKit npm cache mounts.
 - Stage `manifests` (both Dockerfiles): copies all workspace `package.json` + `package-lock.json` and zeroes every `version` (root, workspaces, lockfile). Rationale: `.githooks/pre-commit` auto-bumps the version on every commit; downstream stages `COPY --from=manifests` (content-checksummed), so `npm ci` stays cached unless dependencies actually change.
-- API (`apps/api/Dockerfile`): `manifests` → `prod-deps` (`npm ci --omit=dev -w @zalobot/api -w @zalobot/contracts`) → `builder` (`npm ci -w @zalobot/api -w @zalobot/contracts`, builds contracts + api) → `runner`. Runner holds only runtime deps from `prod-deps` (no web or dev deps) plus `dist`; it copies the real (non-zeroed) manifests and `CHANGELOG.md` because `health/deploy-notify.service.ts` reads the version at runtime.
+- API (`apps/api/Dockerfile`): `manifests` → `prod-deps` (`npm ci --omit=dev -w @zalobot/api -w @zalobot/contracts`) → `builder` (`npm ci -w @zalobot/api -w @zalobot/contracts`, builds contracts + api) → `runner`. Runner holds only runtime deps from `prod-deps` (no web or dev deps) plus `dist`; it copies the real (non-zeroed) workspace manifests; nothing reads the version or `CHANGELOG.md` at runtime (deploy notifications were removed).
 - Web (`apps/web/Dockerfile`): `manifests` → `builder` (`npm ci -w @zalobot/web -w @zalobot/contracts`, `next build`) → Nginx `runner` serving `out`.
 
 ## Database Migrations

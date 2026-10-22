@@ -9,8 +9,6 @@ metadata:
       - apps/api/src/config/project-root.ts
       - apps/api/src/main.ts
       - apps/api/src/app.module.ts
-      - apps/api/src/health/deploy-notify.service.ts
-      - apps/api/src/health/deploy-notify.guard.ts
       - apps/web/next.config.ts
       - apps/web/src/shared/api/http-client.ts
       - apps/web/src/shared/ui/workspace-header.tsx
@@ -54,12 +52,11 @@ Defaults in parentheses.
 
 - Network: `BE_PORT` (3005), `WEB_ORIGIN` (`APP_URL`), `CORS_ALLOW_ALL` (false), `DEFAULT_TIMEZONE` (`Asia/Ho_Chi_Minh`).
 - Database/cache: `DATABASE_SSL` (false), `TYPEORM_SYNCHRONIZE` (false), `REDIS_URL`. Only effective outside `docker-compose.yml` (dev), which hardcodes them.
-- Deploy notify: `DEPLOY_NOTIFY_TOKEN` (`deploy.notifyToken`). Unset → deploy-notify routes return 403 (see `backend-runtime-services.md`).
 - Bot: `BOT_NAME` (`Bot`, config `zalo.botName`).
 - Dashboard: `DASHBOARD_LOGIN_CODE` (unset = off; config `reports.dashboardLoginCode`).
 - ZCA: `DATA_DIR` (`./data`, resolved from cwd; `docker-compose.yml` hardcodes `/app/data`), `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN` (false), `ZCA_CHECK_UPDATE` (false), `ZCA_LOGGING` (false), `ZCA_ENABLE_WELCOME` (false), `ZCA_WELCOME_IMAGE_PATH`. Bootstrap auto-login has no flag (see `modules/zca/README.md`).
 - LLM: `LLM_PROVIDER` (`gemini`; also `openai`, `qwen`/`ollama`, `router`/`9router` — provider names, not env aliases), `LLM_FALLBACK_PROVIDERS` (comma-separated chain after `LLM_PROVIDER`, default empty), `LLM_TIMEOUT_MS` (`30000`), `ROUTER_BASE_URL`, `ROUTER_MODEL`, `ROUTER_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL` (`gemini-3.5-flash-lite`), `OPENAI_API_KEY`, `OPENAI_MODEL` (`gpt-4o-mini`), `OPENAI_BASE_URL` (`https://api.openai.com/v1`), `QWEN_BASE_URL` (`http://localhost:11434`), `QWEN_MODEL` (`qwen2.5:14b`), `QWEN_API_KEY`.
-- Read directly from `process.env` (not via `configuration.ts`): `NOTIFY_ON_STARTUP`, `APP_VERSION`, commit/branch vars (`COMMIT_SHA`, `GIT_COMMIT`, `COOLIFY_COMMIT_SHA`, `BRANCH`, `GIT_BRANCH`, `COOLIFY_BRANCH`) in `health/deploy-notify.service.ts`; `ZCA_IMEI`/`ZCA_COOKIE`/`ZCA_USER_AGENT`/`ZCA_LANGUAGE`/`DATA_DIR` fallbacks in `zca/`.
+- Read directly from `process.env` (not via `configuration.ts`): `ZCA_IMEI`/`ZCA_COOKIE`/`ZCA_USER_AGENT`/`ZCA_LANGUAGE`/`DATA_DIR` fallbacks in `zca/`.
 - Compose-only: `POSTGRES_PASSWORD` (required), `POSTGRES_PORT` (5432), `REDIS_PORT` (6379), `NGINX_PORT` (3000 in `docker-compose.local.yml`, 3009 in `docker-compose.yml`), `FE_PORT` (5173, Next dev and local gateway).
 
 ## Web Values

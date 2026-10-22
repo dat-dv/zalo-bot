@@ -50,7 +50,7 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix('api', {
-    exclude: ['health', 'health/deploy', 'deploy', 'deploy/notify', 'deploy/ping'],
+    exclude: ['health'],
   });
   app.enableShutdownHooks();
 

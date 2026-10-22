@@ -59,9 +59,8 @@ ENV TZ=Asia/Ho_Chi_Minh
 ENV BE_PORT=${BE_PORT}
 EXPOSE ${BE_PORT}
 
-# Real manifests (not the zeroed ones): deploy notifications read the version at runtime.
+# Workspace manifests so Node resolves the @zalobot/* packages at runtime.
 COPY package.json package-lock.json ./
-COPY CHANGELOG.md* ./
 COPY apps/api/package.json apps/api/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
 

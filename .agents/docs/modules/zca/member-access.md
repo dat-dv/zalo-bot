@@ -40,7 +40,7 @@ Quyền theo kênh **cộng thêm**, không thay thế quyền toàn cục. Mộ
 | **Mọi thành viên nhóm** (`all-members`) | Ai trong nhóm cũng gọi được bot |
 | **Thành viên được chọn** (`selected-members`) | Chỉ những người được bật trong danh sách thành viên |
 
-Chat riêng và webhook Zalo Bot chính thức **không** có cấu hình này: vẫn chỉ dựa vào quyền toàn cục.
+Chat riêng **không** có cấu hình này: vẫn chỉ dựa vào quyền toàn cục.
 
 Người được kênh cấp quyền vẫn được lưu vào bảng `users` (trạng thái "Chờ duyệt" trên `/zca`), để tên người tạo giao dịch/lời nhắc hiển thị đúng, nhưng **không** tự có quyền toàn cục.
 
