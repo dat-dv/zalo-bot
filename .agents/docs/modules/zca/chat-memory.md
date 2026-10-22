@@ -51,8 +51,8 @@ Bot có **hai loại trí nhớ độc lập**, mỗi loại có card và công 
 | Dùng để | Hiểu câu nối tiếp khi đang chat ("còn cái kia?", "ghi giúp cái đó") | Hỏi lại chuyện cũ ("hôm trước Nam nói gửi file gì?") |
 | Chạy khi | Mọi lượt bot trả lời | Khi LLM gọi tool `SEARCH_CHAT_HISTORY` |
 | Lưu ở | Redis `zca:short_memory:<threadId>` | Postgres `zca_messages` |
-| Giữ bao lâu | Tự quên sau 24 giờ không có tin mới | Vô hạn |
-| Trường cấu hình | `shortTermEnabled`, `contextWindow` (1–30, mặc định 10) | `enabled`, `searchLimit` (1–50, mặc định 15) |
+| Giữ bao lâu | Chỉ dùng tin gửi trong N ngày gần đây (`shortTermDays`, 1–7, mặc định 1) | Vô hạn |
+| Trường cấu hình | `shortTermEnabled`, `contextWindow` (1–30, mặc định 10), `shortTermDays` (1–7, mặc định 1) | `enabled`, `searchLimit` (1–50, mặc định 15) |
 
 Vì sao tách: hai loại phục vụ hai nhu cầu và có mức rủi ro riêng tư khác nhau. Có nhóm chỉ cần bot hiểu câu nối tiếp mà không muốn bị lưu lâu dài; có nhóm cần tra lại chuyện cũ. Trước đây trí nhớ ngắn hạn đọc từ bảng `zca_messages`, nên tắt lưu là mất luôn ngữ cảnh. Nay nó có kho Redis riêng.
 
@@ -63,6 +63,8 @@ Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm 
 - **Bật dài hạn**: bot bắt đầu lưu từ lúc đó. Tin trong buffer Redis (≤200 tin, 7 ngày) được nạp vào ở lần khởi động API sau.
 - **Tắt dài hạn**: có hiệu lực ngay, không cần restart. Bot ngừng lưu và ngừng tra. **Tin đã lưu vẫn giữ trong DB** và dùng tiếp khi bật lại.
 - **Trí nhớ ngắn hạn**: giữ tối đa 60 bản ghi thô (gấp đôi cửa sổ lớn nhất, vì tin bot có thể được ghi hai lần: lúc gửi và lúc Zalo gửi lại bản echo), khi đọc thì gộp bản trùng. Khi Redis không chạy thì dùng bộ nhớ trong tiến trình, mất khi restart. Không nạp lại lúc khởi động.
+- **Số ngày nhớ của trí nhớ ngắn hạn** tính theo giờ gửi của **từng tin**, không tính theo tin cuối của kênh. Trước đây chỉ có hạn 24 giờ cố định, gia hạn sau mỗi tin mới, nên nhóm nào ngày nào cũng có tin thì bot không bao giờ quên và ngữ cảnh lẫn chuyện cũ. Nay bot bỏ qua tin cũ hơn N ngày lúc đọc; kênh im lặng quá N ngày thì Redis tự xoá dữ liệu. Cấu hình cũ chưa có trường này nhận 1 ngày, đúng hành vi cũ. Sau khi thu hồi tin, list được ghi lại với hạn 7 ngày (lúc đó không biết cấu hình kênh), nhưng khi đọc vẫn lọc theo N ngày.
+- **Card trí nhớ dài hạn** có khối "Cách hoạt động" giải thích cho admin: lưu gì, hỏi thế nào, AI thấy gì, phạm vi và thu hồi, hạn chế. Đọc xong admin biết mình đang bật gì trước khi bật.
 - Tin bị thu hồi trên Zalo bị xoá khỏi **cả hai** trí nhớ, kể cả khi kênh đang tắt chúng.
 - Giá trị nhập ngoài giới hạn được tự kẹp lại (vd 99 → 30), ở cả dashboard lẫn API (`normalizeChatMemoryConfig` trong `@zalobot/contracts`).
 
@@ -94,7 +96,7 @@ Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm 
 | Triệu chứng | Nguyên nhân thường gặp |
 | --- | --- |
 | Bot không tra lại chuyện cũ mà chỉ trò chuyện | Kênh chưa bật card "🧠 Trí nhớ dài hạn" trong Cấu hình kênh (tool tra cứu không được đưa cho LLM) |
-| Bot không hiểu câu nối tiếp ("ghi giúp cái đó") | Kênh chưa bật card "💬 Trí nhớ ngắn hạn", hoặc tin trước đó đã quá 24 giờ |
+| Bot không hiểu câu nối tiếp ("ghi giúp cái đó") | Kênh chưa bật card "💬 Trí nhớ ngắn hạn", hoặc tin trước đó đã cũ hơn số ngày ở ô "Nhớ trong (ngày)" |
 | Migration lỗi `permission denied to create extension "unaccent"` | User DB không có quyền tạo extension; nhờ admin DB chạy `CREATE EXTENSION unaccent;` rồi khởi động lại |
 | Bảng trống dù đang chat | Kênh chưa được listen hoặc chưa bật trí nhớ, hoặc log có `[ChatMemory] Could not store …` (xem lỗi DB) |
 | "Không tìm thấy…" dù đã từng nói | Từ khóa LLM sinh ra không khớp, hoặc khoảng ngày sai; hỏi lại cụ thể hơn. Tin trước khi bật tính năng chỉ có từ buffer Redis 7 ngày |

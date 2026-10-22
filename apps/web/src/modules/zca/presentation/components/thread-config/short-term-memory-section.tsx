@@ -34,20 +34,31 @@ export function ShortTermMemorySection({
       title="Trí nhớ ngắn hạn"
     >
       <p className="text-xs text-amber-700 dark:text-amber-400">
-        Các tin gần nhất của mọi người trong kênh được gửi cho AI ở mỗi lượt bot trả lời. Bot tự
-        quên sau 24 giờ không có tin mới.
+        Các tin gần nhất của mọi người trong kênh được gửi cho AI ở mỗi lượt bot trả lời. Bot chỉ
+        dùng tin gửi trong {memory.shortTermDays} ngày gần đây, tin cũ hơn tự bị quên.
       </p>
-      <ConfigField
-        className="sm:max-w-[50%]"
-        hint="Số tin gần nhất đưa vào prompt ở mỗi lượt"
-        label="Số tin gần đây"
-        max={CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MAX}
-        min={CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MIN}
-        onBlur={onDraftCommit}
-        onChange={(e) => onDraftChange({ ...draft, contextWindow: e.target.value })}
-        type="number"
-        value={draft.contextWindow}
-      />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <ConfigField
+          hint="Số tin gần nhất đưa vào prompt ở mỗi lượt"
+          label="Số tin gần đây"
+          max={CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MAX}
+          min={CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MIN}
+          onBlur={onDraftCommit}
+          onChange={(e) => onDraftChange({ ...draft, contextWindow: e.target.value })}
+          type="number"
+          value={draft.contextWindow}
+        />
+        <ConfigField
+          hint={`Tin gửi trước đó bị bỏ qua; ${CHAT_MEMORY_LIMITS.SHORT_TERM_DAYS_MIN}–${CHAT_MEMORY_LIMITS.SHORT_TERM_DAYS_MAX} ngày`}
+          label="Nhớ trong (ngày)"
+          max={CHAT_MEMORY_LIMITS.SHORT_TERM_DAYS_MAX}
+          min={CHAT_MEMORY_LIMITS.SHORT_TERM_DAYS_MIN}
+          onBlur={onDraftCommit}
+          onChange={(e) => onDraftChange({ ...draft, shortTermDays: e.target.value })}
+          type="number"
+          value={draft.shortTermDays}
+        />
+      </div>
     </ConfigSectionCard>
   );
 }

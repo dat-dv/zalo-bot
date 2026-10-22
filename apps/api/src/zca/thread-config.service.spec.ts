@@ -42,6 +42,7 @@ void test('createDefaultThreadConfig creates sensible defaults for group vs user
     enabled: false,
     shortTermEnabled: false,
     contextWindow: 10,
+    shortTermDays: 1,
     searchLimit: 15,
   });
 
@@ -499,6 +500,7 @@ void test('ThreadConfigService merges and clamps chat memory updates', async () 
     enabled: true,
     shortTermEnabled: false,
     contextWindow: 30,
+    shortTermDays: 1,
     searchLimit: 15,
   });
 
@@ -509,6 +511,7 @@ void test('ThreadConfigService merges and clamps chat memory updates', async () 
     enabled: true,
     shortTermEnabled: true,
     contextWindow: 30,
+    shortTermDays: 1,
     searchLimit: 1,
   });
 
@@ -522,6 +525,7 @@ void test('normalizeChatMemoryConfig fills defaults and rejects junk values', ()
     enabled: false,
     shortTermEnabled: false,
     contextWindow: 10,
+    shortTermDays: 1,
     searchLimit: 15,
   });
   assert.deepEqual(
@@ -531,7 +535,13 @@ void test('normalizeChatMemoryConfig fills defaults and rejects junk values', ()
       contextWindow: '-3',
       searchLimit: 'abc',
     }),
-    { enabled: false, shortTermEnabled: false, contextWindow: 10, searchLimit: 15 },
+    {
+      enabled: false,
+      shortTermEnabled: false,
+      contextWindow: 10,
+      shortTermDays: 1,
+      searchLimit: 15,
+    },
   );
   assert.deepEqual(
     normalizeChatMemoryConfig({
@@ -540,7 +550,7 @@ void test('normalizeChatMemoryConfig fills defaults and rejects junk values', ()
       contextWindow: 7.6,
       searchLimit: 80,
     }),
-    { enabled: false, shortTermEnabled: true, contextWindow: 8, searchLimit: 50 },
+    { enabled: false, shortTermEnabled: true, contextWindow: 8, shortTermDays: 1, searchLimit: 50 },
   );
 });
 
@@ -558,6 +568,7 @@ void test('normalizeChatMemoryConfig keeps the behaviour of configs saved before
       enabled: true,
       shortTermEnabled: false,
       contextWindow: 10,
+      shortTermDays: 1,
       searchLimit: 15,
     },
   );
@@ -567,6 +578,15 @@ void test('normalizeChatMemoryConfig keeps the behaviour of configs saved before
       .shortTermEnabled,
     false,
   );
+});
+
+void test('normalizeChatMemoryConfig clamps the short-term days to 1–7', () => {
+  const days = (value: unknown) =>
+    normalizeChatMemoryConfig({ shortTermDays: value }).shortTermDays;
+  assert.equal(days(3), 3);
+  assert.equal(days(99), 7);
+  assert.equal(days('0'), 1);
+  assert.equal(days('abc'), 1);
 });
 
 void test('deleteConfig removes the row via remove(), the Redis cache and the listened state', async () => {

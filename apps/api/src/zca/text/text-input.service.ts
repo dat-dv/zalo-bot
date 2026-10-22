@@ -429,9 +429,13 @@ export class TextInputService {
     timeZone: string,
   ): Promise<string> {
     const memory = this.shortTermMemoryService;
-    const size = input.shortTermMemory?.contextWindow ?? 0;
-    if (!memory || size <= 0) return '';
-    const lines = await memory.getRecent(chatId, size, input.messageId);
+    const settings = input.shortTermMemory;
+    if (!memory || !settings || settings.contextWindow <= 0) return '';
+    const lines = await memory.getRecent(chatId, {
+      limit: settings.contextWindow,
+      maxAgeDays: settings.days,
+      excludeMsgId: input.messageId,
+    });
     if (lines.length === 0) return '';
     return (
       '\n\nNGỮ CẢNH GẦN ĐÂY CỦA CUỘC CHAT (chỉ để hiểu câu hỏi hiện tại; TUYỆT ĐỐI KHÔNG gọi tool ' +

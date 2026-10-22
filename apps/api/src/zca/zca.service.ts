@@ -652,7 +652,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     const memory = (await this.threadConfigService?.findStoredConfig(threadId))?.chatMemory;
     await Promise.all([
       memory?.shortTermEnabled
-        ? this.shortTermMemoryService?.recordBotReply(threadId, msgId, text)
+        ? this.shortTermMemoryService?.recordBotReply(threadId, msgId, text, memory.shortTermDays)
         : undefined,
       memory?.enabled
         ? this.chatMemoryService?.recordBotReply(

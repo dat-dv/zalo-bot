@@ -2,10 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   SHORT_TERM_MEMORY_MAX_ENTRIES,
-  SHORT_TERM_MEMORY_TTL_SECONDS,
   ShortTermMemoryService,
+  shortTermTtlSeconds,
   type ShortTermMemoryRedis,
 } from './short-term-memory.service';
+
+const NOW = Date.now();
+const HOUR_MS = 3600 * 1000;
+/** Messages are timestamped relative to now, because reads drop those older than the chat's days. */
+const minutesAgo = (minutes: number) => NOW - minutes * 60 * 1000;
 
 /** In-memory Redis list fake that records the TTL it was given. */
 function createRedisFake(): { redis: ShortTermMemoryRedis; ttls: Map<string, number> } {
@@ -44,65 +49,86 @@ for (const [label, makeService] of [
 ] as const) {
   void test(`ShortTermMemoryService (${label}) returns the latest messages oldest first`, async () => {
     const service = makeService();
-    await service.record('t1', message('m1', 'ăn trưa 45k', 1000));
-    await service.record('t1', message('m2', 'còn cà phê nữa', 2000));
-    await service.record('t1', message('m3', 'ghi giúp cái đó', 3000));
-    await service.record('t2', message('x1', 'kênh khác', 1500));
+    await service.record('t1', message('m1', 'ăn trưa 45k', minutesAgo(30)), 1);
+    await service.record('t1', message('m2', 'còn cà phê nữa', minutesAgo(20)), 1);
+    await service.record('t1', message('m3', 'ghi giúp cái đó', minutesAgo(10)), 1);
+    await service.record('t2', message('x1', 'kênh khác', minutesAgo(25)), 1);
 
-    const lines = await service.getRecent('t1', 2, 'm3');
+    const lines = await service.getRecent('t1', { limit: 2, maxAgeDays: 1, excludeMsgId: 'm3' });
     assert.deepEqual(
       lines.map((line) => line.text),
       ['ăn trưa 45k', 'còn cà phê nữa'],
     );
     assert.equal(lines[0].senderName, 'Nam');
-    assert.deepEqual(await service.getRecent('t1', 0), []);
+    assert.deepEqual(await service.getRecent('t1', { limit: 0, maxAgeDays: 1 }), []);
   });
 
   void test(`ShortTermMemoryService (${label}) forgets recalled messages`, async () => {
     const service = makeService();
-    await service.record('t1', message('m1', 'giữ lại', 1000));
-    await service.record('t1', message('m2', 'thu hồi theo id', 2000));
-    await service.record('t1', message('m3', 'thu hồi theo client id', 3000, { cliMsgId: 'c3' }));
+    await service.record('t1', message('m1', 'giữ lại', minutesAgo(30)), 1);
+    await service.record('t1', message('m2', 'thu hồi theo id', minutesAgo(20)), 1);
+    await service.record(
+      't1',
+      message('m3', 'thu hồi theo client id', minutesAgo(10), { cliMsgId: 'c3' }),
+      1,
+    );
 
     await service.markRecalled('t1', 'm2');
     // Same client id from another sender is a different message.
     await service.markRecalled('t1', 'other', { cliMsgId: 'c3', senderUid: 'u2' });
-    assert.equal((await service.getRecent('t1', 10)).length, 2);
+    assert.equal((await service.getRecent('t1', { limit: 10, maxAgeDays: 1 })).length, 2);
 
     await service.markRecalled('t1', 'other', { cliMsgId: 'c3', senderUid: 'u1' });
     assert.deepEqual(
-      (await service.getRecent('t1', 10)).map((line) => line.text),
+      (await service.getRecent('t1', { limit: 10, maxAgeDays: 1 })).map((line) => line.text),
       ['giữ lại'],
     );
   });
 
   void test(`ShortTermMemoryService (${label}) merges a bot reply with its self-listen echo`, async () => {
     const service = makeService();
-    await service.record('t1', message('b1', 'Đã ghi 45k', 1000));
-    await service.recordBotReply('t1', 'b1', 'Đã ghi 45k');
+    await service.record('t1', message('b1', 'Đã ghi 45k', minutesAgo(30)), 1);
+    await service.recordBotReply('t1', 'b1', 'Đã ghi 45k', 1);
 
-    const lines = await service.getRecent('t1', 10);
+    const lines = await service.getRecent('t1', { limit: 10, maxAgeDays: 1 });
     assert.equal(lines.length, 1);
     assert.equal(lines[0].isBot, true);
   });
 }
 
-void test('ShortTermMemoryService caps the Redis list and sets the 24 hour expiry', async () => {
+void test("ShortTermMemoryService caps the Redis list and expires it after the chat's days", async () => {
   const { redis, ttls } = createRedisFake();
   const service = new ShortTermMemoryService(redis);
   for (let i = 0; i < SHORT_TERM_MEMORY_MAX_ENTRIES + 5; i += 1) {
-    await service.record('t1', message(`m${i}`, `tin ${i}`, 1000 + i));
+    await service.record('t1', message(`m${i}`, `tin ${i}`, minutesAgo(100 - i)), 3);
   }
 
-  const lines = await service.getRecent('t1', SHORT_TERM_MEMORY_MAX_ENTRIES + 5);
+  const lines = await service.getRecent('t1', {
+    limit: SHORT_TERM_MEMORY_MAX_ENTRIES + 5,
+    maxAgeDays: 1,
+  });
   assert.equal(lines.length, SHORT_TERM_MEMORY_MAX_ENTRIES);
   assert.equal(lines[0].text, 'tin 5');
-  assert.equal(ttls.get('zca:short_memory:t1'), SHORT_TERM_MEMORY_TTL_SECONDS);
+  assert.equal(ttls.get('zca:short_memory:t1'), shortTermTtlSeconds(3));
 });
 
 void test('ShortTermMemoryService skips messages without an id or text', async () => {
   const service = new ShortTermMemoryService();
-  await service.record('t1', { content: 'không có id', ts: 1000 });
-  await service.record('t1', message('m1', '   ', 1000));
-  assert.deepEqual(await service.getRecent('t1', 10), []);
+  await service.record('t1', { content: 'không có id', ts: NOW }, 1);
+  await service.record('t1', message('m1', '   ', minutesAgo(30)), 1);
+  assert.deepEqual(await service.getRecent('t1', { limit: 10, maxAgeDays: 1 }), []);
+});
+
+void test("ShortTermMemoryService only hands out messages sent within the chat's days", async () => {
+  // The chat never goes quiet, so the list never expires; age still counts per message.
+  const service = new ShortTermMemoryService(createRedisFake().redis);
+  await service.record('t1', message('old', 'tuần trước', NOW - 5 * 24 * HOUR_MS), 7);
+  await service.record('t1', message('mid', 'hôm kia', NOW - 40 * HOUR_MS), 7);
+  await service.record('t1', message('new', 'vừa nói', minutesAgo(5)), 7);
+
+  const texts = async (maxAgeDays: number) =>
+    (await service.getRecent('t1', { limit: 10, maxAgeDays })).map((line) => line.text);
+  assert.deepEqual(await texts(1), ['vừa nói']);
+  assert.deepEqual(await texts(2), ['hôm kia', 'vừa nói']);
+  assert.deepEqual(await texts(7), ['tuần trước', 'hôm kia', 'vừa nói']);
 });
