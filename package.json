@@ -1,6 +1,6 @@
 {
   "name": "zalobot-monorepo",
-  "version": "1.0.143",
+  "version": "1.0.144",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -25,10 +25,6 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "start:api": "npm run start:prod --workspace @zalobot/api",
-    "zalo:webhook:status": "npm run zalo:webhook:status --workspace @zalobot/api",
-    "zalo:webhook:set": "npm run zalo:webhook:set --workspace @zalobot/api",
-    "zalo:webhook:test": "npm run zalo:webhook:test --workspace @zalobot/api",
-    "zalo:webhook:delete": "npm run zalo:webhook:delete --workspace @zalobot/api",
     "migration:run": "npm run migration:run --workspace @zalobot/api",
     "migration:revert": "npm run migration:revert --workspace @zalobot/api",
     "tunnel": "bash scripts/tunnel.sh",

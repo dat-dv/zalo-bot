@@ -9,8 +9,8 @@ metadata:
       - apps/api/src/users/users.controller.ts
       - apps/api/src/reminders/reminders.controller.ts
       - apps/api/src/google/google-resources.controller.ts
-      - apps/api/src/zalo/text/text-tool.enum.ts
-      - apps/api/src/zalo/text/text-tool.definitions.ts
+      - apps/api/src/zca/text/text-tool.enum.ts
+      - apps/api/src/zca/text/text-tool.definitions.ts
       - packages/contracts/src/index.ts
 ---
 
@@ -54,7 +54,7 @@ REST surface of `apps/api` (global prefix `/api`). The API is organized by top-l
 
 ## Bot Tool Catalog (LLM function calling)
 
-`TextToolType` (`apps/api/src/zalo/text/text-tool.enum.ts`) holds fast-path commands (`START`, `HELP`, `TODAY`, `WEEK`, `FINANCE`, `DEBTS`, `TASKS`, `REMINDERS`, `DASHBOARD`, `USERS`, `BAN`, `ZALO_LOGIN`, `ZALO_LOGOUT`, `SHARE_DRIVE`, ...) and LLM tools. `ZALO_TOOL_DEFINITIONS` exposes: `MANAGE_DEBT`, `RECORD_TRANSACTION` (one transaction per call; `type`, `amount` required; optional `category`, `note`, `occurredAt`, `placeName`, `paymentMethod`, `receiptUrl`), `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`.
+`TextToolType` (`apps/api/src/zca/text/text-tool.enum.ts`) holds fast-path commands (`START`, `HELP`, `TODAY`, `WEEK`, `FINANCE`, `DEBTS`, `TASKS`, `REMINDERS`, `DASHBOARD`, `USERS`, `BAN`, `ZALO_LOGIN`, `ZALO_LOGOUT`, `SHARE_DRIVE`, ...) and LLM tools. `ZALO_TOOL_DEFINITIONS` exposes: `MANAGE_DEBT`, `RECORD_TRANSACTION` (one transaction per call; `type`, `amount` required; optional `category`, `note`, `occurredAt`, `placeName`, `paymentMethod`, `receiptUrl`), `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`.
 
 - A `placeName` with no existing caller place creates a companion pending `CREATE_PLACE` action instead of a debt contact.
 - ZCA group messages reach these tools only when they @mention the bot or start with a thread prefix; un-mentioned group text never calls the LLM (see zca module).

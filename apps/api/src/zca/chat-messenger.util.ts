@@ -1,6 +1,6 @@
 /**
  * Sending text to a Zalo chat through whichever messenger a service received: `ZcaService`
- * (`sendMessageToChat(chatId, text)`) or `ZaloService` and test doubles (`sendMessage(chatId,
+ * (`sendMessageToChat(chatId, text)`) or `ZcaMessengerService` and test doubles (`sendMessage(chatId,
  * text)`). Note `ZcaService.sendMessage` takes `(text, threadId)`, which is why the ZCA path always
  * goes through `sendMessageToChat`.
  */

@@ -5,12 +5,10 @@ metadata:
     type: documentation
     depends_on:
       - apps/api/src/main.ts
-      - apps/api/src/zalo/zalo.controller.ts
-      - apps/api/src/zalo/zalo-message-parser.service.ts
-      - apps/api/src/zalo/input-processor.service.ts
+      - apps/api/src/zca/zca-messenger.service.ts
       - apps/api/src/users/users.service.ts
-      - apps/api/src/zalo/text/text-input.service.ts
-      - apps/api/src/zalo/text/text-tool.factory.ts
+      - apps/api/src/zca/text/text-input.service.ts
+      - apps/api/src/zca/text/text-tool.factory.ts
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
       - apps/api/src/zca/zca-bot-feature.service.ts
 ---
@@ -19,13 +17,14 @@ metadata:
 
 Human guide: [Zalo Command Intake](../../docs/global/zalo-command-intake.md).
 
-## Channels
+## Channel
 
-1. **Zalo Bot Platform webhook** — `ZaloController`, `POST /webhook` with aliases `/zalo/webhook`, `/api/webhook`, `/api/zalo/webhook` (excluded from the `/api` prefix in `main.ts`; `GET` on the same paths echoes `challenge`/`hub.challenge` or a status object).
-   - If `zalo.secretToken` (`ZALO_WEBHOOK_SECRET_TOKEN`) is set, header `X-Bot-Api-Secret-Token` must match; mismatch returns `200 { ok: false }` and drops the event.
-   - Raw body is parsed by `ZaloMessageParser.parse` (via `normalizeZaloWebhookPayload`) into `AgentInput` with type `event` (follow/unfollow), `video`, `image`, `voice`, `sticker`, `text`, or `unsupported`. Processing is fire-and-forget; the controller replies `{ ok: true }` immediately.
-   - `InputProcessor.process`: ignore no-sender and bot messages -> `InitialAdminBootstrapGuard` (first user becomes admin) -> `GrantAccessGuard` (admin or granted users only) -> cooldown `UsersService.checkCooldown` (2 s per user, in-memory, admins exempt) -> dispatch by type. Text -> `TextInputService`; image -> caption to text flow or `ImageBatchHandler`; video -> `MediaStorageService.uploadVideo`; voice -> "under development" reply (no transcription); follow -> `START`.
-2. **Personal Zalo account (ZCA, `zca-js`)** — `ZcaService` / `ZcaBotFeatureService`. QR login via `/zlogin` (admin). Per-thread config `zca_thread_configs`; direct-interaction defaults `enabled: false`, `triggerPrefixes: []`. Group messages reach the AI only with an @mention or a thread prefix; 1-1 text always does; media without text is only backed up. Uses `GrantAccessGuard` but not the cooldown. Messages go to `TextInputService`; reactions go to `TransactionConfirmationService.handleReaction`.
+The bot has one channel: the bot's **personal Zalo account (ZCA, `zca-js`)** — `ZcaService` / `ZcaBotFeatureService`. The official Zalo Bot Platform webhook (`/webhook`, `ZALO_BOT_TOKEN`) was removed (duplicate of ZCA); the chat pipeline lives in `apps/api/src/zca/`.
+
+- QR login on the dashboard `/zca` page or `/zlogin` (admin). Per-thread config `zca_thread_configs`; direct-interaction defaults `enabled: false`, `triggerPrefixes: []`.
+- Group messages reach the AI only with an @mention or a thread prefix; 1-1 text always does; media without text is only backed up.
+- Order: `InitialAdminBootstrapGuard` (first user becomes admin, only while no admin/granted user exists) -> `GrantAccessGuard` (admin or granted users only) -> cooldown `UsersService.checkCooldown` (2 s per user, in-memory, admins exempt) -> `TextInputService`. Reactions go to `TransactionConfirmationService.handleReaction`.
+- Outgoing text goes through `ZcaMessengerService` (ZCA only; replies over 1900 chars are split, 300 ms apart; typing indicator = ZCA `sendTypingEvent`). With ZCA logged out, sends fail softly and the dashboard is reached with `DASHBOARD_LOGIN_CODE` (see [Dashboard Session](dashboard-session.md)).
 
 ## TextInputService order
 
@@ -56,7 +55,7 @@ Match = exact command or command followed by a space, unless noted. Admin = hand
 | `/debts`, `/debt`, `/congo` | `DEBTS` | Active debts. |
 | `/tasks`, `/task`, `/viec` | `TASKS` | List pending Google Tasks; `/task <title>` creates a task immediately (no confirmation). |
 | `/reminders`, `/reminder`, `/nhacnho`, `/nhac` | `REMINDERS` | Upcoming reminders. |
-| `/dashboard`, `dashboard…`, `mở dashboard…`, `xem dashboard…` | `DASHBOARD` | One-time `/api/access?token=` link (20 min). |
+| `/dashboard`, `dashboard…`, `mở dashboard…`, `xem dashboard…` | `DASHBOARD` | One-time `/api/access?token=` link + 8-char code (20 min). |
 | `/users` | `USERS` | Admin. User list with role and Google status. |
 | `/ban…` (prefix) | `BAN` | Admin. Queues `BAN_USER` confirmation; admins cannot be banned. |
 | `/drive`, `/storage`, `/kho`, `/folder`, `/album` (prefix) | `GET_STORAGE_LINKS` | Drive folder / Photos album links. |

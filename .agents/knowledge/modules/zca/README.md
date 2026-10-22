@@ -61,8 +61,6 @@ Pending fast-path input is mention-stripped first (`stripBotMentions`): cut the 
 | L1 direct | Group: `@bot`/bot-name regex, mention entity, or text starting with a `triggerPrefixes` entry (case-insensitive). 1-1 chat: any non-empty text. Media without text never triggers | `InitialAdminBootstrapGuard` + `GrantAccessGuard` (replies with denial, `registerPendingUser`) + cooldown with reply; bot account bypasses | Full tool set; free chat per `allowAiChat` |
 | Not addressed | Everything else (group text without mention/prefix, any media without text) | None | Ignored: no LLM call, no access check, no reply. Rationale: the bot only works when a user explicitly asks; it also avoids one LLM request per group message |
 
-The official Zalo Bot webhook (`apps/api/src/zalo/input-processor.service.ts`) is a separate path and is not gated by mention.
-
 Image/video handling inside L1:
 - Quote-reply to an image/video with a trigger: storage instruction (`isStorageUploadInstruction`, e.g. "@bot lưu ảnh này lên drive") → Drive/Photos upload; otherwise **mandatory OCR context** → `TextInputService.process` (type `image`) for any intent (expense, calendar, task, reminder).
   - URL resolution (`extractQuotedImageUrl`): real Zalo photo quotes (`cliMsgType: 32`) carry the URL in the nested JSON string `quote.attach.params.hd`. Order: `params.hd` → `params.rawUrl` → `params.oriUrl` → `attach.href` → `hdUrl` → `thumb` → `url`; only `http(s)://` or `data:image/`. Unresolvable photo quote → `warn` log, falls through to plain text flow.
@@ -152,7 +150,7 @@ The former Users page (`/users`) was removed; user management lives here. Nav la
 - **Row model** (`apps/web/src/modules/zca/model/chat-rows.ts`, pure, tested in `chat-rows.spec.ts`): `buildChatRows(threads, users)` →
   - `group`: ZCA group thread; access column `n/a` (groups are never users, even if a stray `users` row shares the id).
   - `personal`: ZCA user thread joined to `users` by id; access `admin|granted|pending` (`pending` = `grantAccess` DENIED), or `none` when no `users` row.
-  - `user-only`: `users` row without a ZCA thread (webhook 20-hex ids, non-friend group members). Shown even when ZCA is logged out.
+  - `user-only`: `users` row without a ZCA thread (legacy 20-hex ids from the removed official-bot webhook, `dashboard-owner`, non-friend group members). Shown even when ZCA is logged out.
   - Name/avatar prefer ZCA thread data, fall back to `users`.
 - **Screen (`apps/web/src/modules/zca/view/zca-screen.tsx`)**:
   - Header: "Cập nhật lúc …" (directory `fetchedAt`), refresh, QR login / logout. QR modal polls status and auto-closes on login.

@@ -13,7 +13,7 @@ import { ConfigService } from '@nestjs/config';
 import { getThreadStorageTarget, ThreadConfigService } from './thread-config.service';
 import type { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
 import { MediaStorageService } from '../receipt-storage/media-storage.service';
-import type { TextInputService } from '../zalo/text/text-input.service';
+import type { TextInputService } from './text/text-input.service';
 import type { ZcaService } from './zca.service';
 import type { ZcaPlugin } from './zca.interfaces';
 import {
@@ -42,7 +42,7 @@ import type { UsersService } from '../users/users.service';
 import type { PendingImageActionDispatcher } from './pending-image/pending-image-dispatcher.service';
 import type { ImageBatchHandler } from './pending-image/image-batch-handler.service';
 import type { OcrService } from '../ocr/ocr.service';
-import { cleanBotMention } from '../zalo/text/bot-mention.util';
+import { cleanBotMention } from './text/bot-mention.util';
 import { ChatMemoryService } from './memory/chat-memory.service';
 
 /** Per-thread chat-memory settings for the text pipeline; `undefined` when the thread has it off. */
@@ -495,7 +495,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       }
       if (!this.textInputService) {
         try {
-          const { TextInputService } = await import('../zalo/text/text-input.service');
+          const { TextInputService } = await import('./text/text-input.service');
           this.textInputService = this.moduleRef.get(TextInputService, { strict: false });
         } catch (err) {
           this.logger.debug(`Could not resolve TextInputService via ModuleRef: ${String(err)}`);

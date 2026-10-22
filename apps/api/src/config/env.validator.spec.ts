@@ -7,7 +7,6 @@ const VALID_ENV: Record<string, string> = {
   GOOGLE_CLIENT_SECRET: 'client-secret',
   DASHBOARD_ACCESS_TOKEN_SECRET: 'access-secret',
   DASHBOARD_REFRESH_TOKEN_SECRET: 'refresh-secret',
-  ZALO_BOT_TOKEN: 'bot-token',
   BE_PORT: '3005',
   APP_URL: 'https://bot.example.com',
   WEB_ORIGIN: 'https://bot.example.com',
@@ -17,7 +16,7 @@ const VALID_ENV: Record<string, string> = {
   DEFAULT_TIMEZONE: 'Asia/Ho_Chi_Minh',
 };
 
-const TOUCHED_KEYS = [...Object.keys(VALID_ENV), 'NGINX_PORT', 'ZALO_WEBHOOK_URL'];
+const TOUCHED_KEYS = [...Object.keys(VALID_ENV), 'NGINX_PORT', 'DASHBOARD_LOGIN_CODE'];
 let snapshot: Record<string, string | undefined> = {};
 
 beforeEach(() => {
@@ -68,7 +67,6 @@ void test('validateEnvironment validates optional ports, URLs and timezone only 
   process.env.BE_PORT = 'abc';
   process.env.NGINX_PORT = '0';
   process.env.WEB_ORIGIN = 'not-a-url';
-  process.env.ZALO_WEBHOOK_URL = 'ftp://bot.example.com/webhook';
   process.env.DEFAULT_TIMEZONE = 'Mars/Olympus';
   const result = validateEnvironment();
   assert.deepEqual(result.errors.map((error) => error.key).sort(), [
@@ -76,6 +74,18 @@ void test('validateEnvironment validates optional ports, URLs and timezone only 
     'DEFAULT_TIMEZONE',
     'NGINX_PORT',
     'WEB_ORIGIN',
-    'ZALO_WEBHOOK_URL',
   ]);
+});
+
+void test('validateEnvironment accepts a well-formed DASHBOARD_LOGIN_CODE', () => {
+  process.env.DASHBOARD_LOGIN_CODE = 'hryj-zp2t';
+  assert.deepEqual(validateEnvironment(), { isValid: true, errors: [] });
+});
+
+void test('validateEnvironment rejects a malformed DASHBOARD_LOGIN_CODE', () => {
+  process.env.DASHBOARD_LOGIN_CODE = 'ILOU-1234';
+  assert.deepEqual(
+    validateEnvironment().errors.map((error) => error.key),
+    ['DASHBOARD_LOGIN_CODE'],
+  );
 });

@@ -1,4 +1,10 @@
 import { config as loadDotenv } from 'dotenv';
+import {
+  DASHBOARD_ACCESS_CODE_ALPHABET,
+  DASHBOARD_ACCESS_CODE_LENGTH,
+  isDashboardAccessCode,
+  normalizeDashboardAccessCode,
+} from '@zalobot/contracts';
 import { fromProjectRoot } from './project-root';
 
 export interface EnvValidationResult {
@@ -74,12 +80,13 @@ export function validateEnvironment(): EnvValidationResult {
       );
   }
 
-  if (!readEnv('ZALO_BOT_TOKEN')) {
+  const loginCode = readEnv('DASHBOARD_LOGIN_CODE');
+  if (loginCode && !isDashboardAccessCode(normalizeDashboardAccessCode(loginCode))) {
     addError(
       errors,
-      'ZALO_BOT_TOKEN',
-      'Biến môi trường bắt buộc đang trống.',
-      'Khai báo token Zalo Bot trong file .env hoặc môi trường triển khai.',
+      'DASHBOARD_LOGIN_CODE',
+      `Phải gồm ${DASHBOARD_ACCESS_CODE_LENGTH} ký tự trong bảng ${DASHBOARD_ACCESS_CODE_ALPHABET} (dấu gạch ngang tuỳ ý).`,
+      'Khai báo mã dạng ABCD-2345 hoặc bỏ trống để tắt đăng nhập bằng mã cố định.',
     );
   }
 
@@ -105,7 +112,7 @@ export function validateEnvironment(): EnvValidationResult {
     );
   }
 
-  for (const key of ['WEB_ORIGIN', 'ZALO_WEBHOOK_URL']) {
+  for (const key of ['WEB_ORIGIN']) {
     const value = readEnv(key);
     if (value && !isHttpUrl(value)) {
       addError(

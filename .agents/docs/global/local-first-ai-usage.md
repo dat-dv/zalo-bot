@@ -25,7 +25,7 @@ Mục tiêu của quy tắc này là tiết kiệm token, giảm dữ liệu g�
 ## Áp dụng thực tế
 
 - **Ảnh hóa đơn**: `OcrService` chuẩn hóa ảnh bằng Sharp (xoay, grayscale, tăng tương phản) rồi chạy Tesseract.js với ngôn ngữ `vie+eng` ngay trên server. `LlmService` chỉ nhận đoạn text OCR kèm ghi chú người dùng, không nhận bytes ảnh hay base64.
-- **Tin nhắn thoại**: không được chuyển thành văn bản. Qua webhook Zalo Bot chính thức, bot chỉ trả lời rằng tính năng giọng nói đang phát triển; qua ZCA, file âm thanh chỉ được sao lưu lên Drive khi kênh bật `mediaBackup.uploadAudios`. Hệ thống không có dịch vụ speech-to-text.
+- **Tin nhắn thoại**: không được chuyển thành văn bản; file âm thanh chỉ được sao lưu lên Drive khi kênh bật `mediaBackup.uploadAudios`. Hệ thống không có dịch vụ speech-to-text.
 - Chuyển đổi file, đọc metadata, checksum, parse dữ liệu và trích xuất text không được gọi AI mặc định.
 - Kết quả OCR hoặc AI không được tự ghi dữ liệu: tool call của AI chỉ tạo thao tác chờ duyệt, người dùng vẫn phải xác nhận.
 - Khi cần AI chạy nội bộ hoàn toàn, đặt `LLM_PROVIDER=qwen` để gọi model qua endpoint tương thích Ollama (`QWEN_BASE_URL`).

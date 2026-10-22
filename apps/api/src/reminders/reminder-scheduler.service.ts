@@ -2,7 +2,7 @@ import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { RemindersService } from './reminders.service';
 import { UsersService } from '../users/users.service';
-import { ZaloService } from '../zalo/zalo.service';
+import { ZcaMessengerService } from '../zca/zca-messenger.service';
 import { localeTag, translate } from '@zalobot/contracts';
 
 @Injectable()
@@ -12,8 +12,8 @@ export class ReminderSchedulerService {
   constructor(
     private readonly remindersService: RemindersService,
     private readonly usersService: UsersService,
-    @Inject(forwardRef(() => ZaloService))
-    private readonly zaloService: ZaloService,
+    @Inject(forwardRef(() => ZcaMessengerService))
+    private readonly zcaMessenger: ZcaMessengerService,
   ) {}
 
   @Cron(CronExpression.EVERY_30_SECONDS)
@@ -46,7 +46,7 @@ export class ReminderSchedulerService {
 ⏰ Thời điểm: ${timeStr}
 ━━━━━━━━━━━━━━━━━━━━`;
 
-        await this.zaloService.sendMessage(userId, reminderMessage);
+        await this.zcaMessenger.sendMessage(userId, reminderMessage);
         await this.remindersService.markTriggered(reminder.id);
         this.logger.log(
           `Triggered reminder "${reminder.title}" for user ${userId}: ${reminderMessage}`,

@@ -5,8 +5,8 @@ metadata:
     type: documentation
     depends_on:
       - .agents/knowledge/global/google-tasks.md
-      - apps/api/src/zalo/text/strategies/create-task-tool.strategy.ts
-      - apps/api/src/zalo/text/strategies/tasks-quick-tool.strategy.ts
+      - apps/api/src/zca/text/strategies/create-task-tool.strategy.ts
+      - apps/api/src/zca/text/strategies/tasks-quick-tool.strategy.ts
       - apps/api/src/google/google-tasks.service.ts
 ---
 

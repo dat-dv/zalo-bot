@@ -19,11 +19,11 @@ Dự án sử dụng **TypeScript** ở chế độ strict với kiến trúc ch
 
 | Loại Thành Phần                | Quy Tắc Đặt Tên                    | Ví Dụ                                             |
 | ------------------------------ | ---------------------------------- | ------------------------------------------------- |
-| **Module**                   | `*.module.ts`                      | `google.module.ts`, `zalo.module.ts`        |
+| **Module**                   | `*.module.ts`                      | `google.module.ts`, `zca.module.ts`         |
 | **Service**                  | `*.service.ts`                     | `google-calendar.service.ts`, `users.service.ts` |
-| **Zalo Controller / Service**| `*.controller.ts` / `*.service.ts` | `zalo.controller.ts`, `zalo.service.ts`     |
+| **ZCA Controller / Service** | `*.controller.ts` / `*.service.ts` | `zca.controller.ts`, `zca-messenger.service.ts` |
 | **Guard**                    | `*.guard.ts`                       | `auth.guard.ts`                             |
-| **Interface / Type**         | `*.interface.ts` hoặc `*.types.ts` | `zalo-webhook.dto.ts`                       |
+| **Interface / Type**         | `*.interface.ts` hoặc `*.types.ts` | `zca.interfaces.ts`, `text-tool.interface.ts` |
 
 ---
 
@@ -78,10 +78,10 @@ Hệ thống cấu hình **Husky (`.husky/pre-commit`)** và **lint-staged**:
 
 ### Các tiền tố (`type`) thông dụng:
 
-- `feat`: Tính năng mới (ví dụ: `feat(zalo): add new slash command`)
+- `feat`: Tính năng mới (ví dụ: `feat(zca): add new slash command`)
 - `fix`: Sửa lỗi (ví dụ: `fix(calendar): fix timezone offset calculation`)
 - `docs`: Cập nhật tài liệu (ví dụ: `docs: add deployment guide`)
-- `refactor`: Tái cấu trúc mã nguồn mà không đổi logic (ví dụ: `refactor(zalo): optimize webhook payload handling`)
+- `refactor`: Tái cấu trúc mã nguồn mà không đổi logic (ví dụ: `refactor(zca): optimize message parsing`)
 - `chore`: Cập nhật cấu hình build, dependencies (ví dụ: `chore: update googleapis version`)
 - `test`: Thêm hoặc sửa test
 

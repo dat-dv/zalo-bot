@@ -57,7 +57,7 @@ export function chooseGoogleToken(
 }
 
 /**
- * Merges a duplicate user identity (e.g. the legacy Zalo webhook app-scoped ID) into the
+ * Merges a duplicate user identity (e.g. a legacy app-scoped ID from the removed official Zalo Bot webhook) into the
  * canonical user (e.g. the ZCA UID). Finance data is shared and has no owner, so only the
  * person's own traces move: authorship, contact links, reminders and the Google token.
  * Everything happens atomically in one transaction.

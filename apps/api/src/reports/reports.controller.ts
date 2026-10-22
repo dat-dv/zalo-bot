@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpException,
   HttpStatus,
+  Logger,
   Post,
   Query,
   Req,
@@ -58,6 +59,8 @@ function toOptionalIsoDate(value: unknown): string | undefined {
 @ApiTags('Reports & Dashboard')
 @Controller()
 export class ReportsController {
+  private readonly logger = new Logger(ReportsController.name);
+
   constructor(
     private readonly config: ConfigService,
     private readonly finance: FinanceService,
@@ -113,16 +116,27 @@ export class ReportsController {
 
   @Post('access/code')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đổi mã đăng nhập (gửi kèm link) lấy Dashboard Session Token' })
+  @ApiOperation({
+    summary:
+      'Đổi mã đăng nhập (mã 1 lần từ /dashboard hoặc DASHBOARD_LOGIN_CODE) lấy Dashboard Session Token',
+  })
   public async accessWithCode(
     @Body() body: DashboardAccessCodeDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<IApiResponse<IDashboardAccessTokenResponse>> {
-    if (!(await this.accessCodeLimiter.tryAttempt(this.getClientIp(req)))) {
+    const clientIp = this.getClientIp(req);
+    if (!(await this.accessCodeLimiter.tryAttempt(clientIp))) {
       throw new HttpException('Too many sign-in code attempts', HttpStatus.TOO_MANY_REQUESTS);
     }
-    const userId = await this.tokens.consumeExchangeCode(body.code);
+    let userId: string | number;
+    if (this.tokens.matchesStaticLoginCode(body.code)) {
+      // The fixed code never expires, so every use is logged for spotting a leak.
+      userId = (await this.users.ensureDashboardOwner()).id;
+      this.logger.warn(`Dashboard sign-in with DASHBOARD_LOGIN_CODE from ${clientIp}`);
+    } else {
+      userId = await this.tokens.consumeExchangeCode(body.code);
+    }
     const access = this.tokens.issueAccessToken(userId);
     this.setRefreshCookie(res, this.tokens.issueRefreshToken(userId).token);
     return { data: { accessToken: access.token, expiresAt: access.expiresAt } };

@@ -14,9 +14,9 @@ metadata:
       - apps/api/src/llm/providers/router.provider.ts
       - apps/api/src/llm/utils/llm-timeout.util.ts
       - apps/api/src/config/configuration.ts
-      - apps/api/src/zalo/text/text-tool.definitions.ts
-      - apps/api/src/zalo/text/text-input.service.ts
-      - apps/api/src/zalo/text/strategies/search-chat-history-tool.strategy.ts
+      - apps/api/src/zca/text/text-tool.definitions.ts
+      - apps/api/src/zca/text/text-input.service.ts
+      - apps/api/src/zca/text/strategies/search-chat-history-tool.strategy.ts
 ---
 
 # LLM Providers

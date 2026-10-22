@@ -9,14 +9,14 @@ void test('DeployNotifyService gracefully handles when no admin exists in the sy
     getAdminUsers: () => Promise.resolve([]),
   };
   let messageSent = false;
-  const zaloService = {
+  const zcaMessenger = {
     sendMessage: () => {
       messageSent = true;
       return Promise.resolve(true);
     },
   };
 
-  const service = new DeployNotifyService(usersService as never, zaloService as never);
+  const service = new DeployNotifyService(usersService as never, zcaMessenger as never);
 
   const result = await service.notifyDeploy({
     version: '1.0.0',
@@ -58,14 +58,14 @@ void test('DeployNotifyService sends message to all admins upon successful deplo
   const usersService = {
     getAdminUsers: () => Promise.resolve([admin1, admin2]),
   };
-  const zaloService = {
+  const zcaMessenger = {
     sendMessage: (chatId: string, text: string) => {
       sentMessages.push({ chatId, text });
       return Promise.resolve(true);
     },
   };
 
-  const service = new DeployNotifyService(usersService as never, zaloService as never);
+  const service = new DeployNotifyService(usersService as never, zcaMessenger as never);
 
   const result = await service.notifyDeploy({
     version: 'v2.1.0',
@@ -126,7 +126,7 @@ void test('DeployNotifyService triggers startup deploy notification automaticall
   const usersService = {
     getAdminUsers: () => Promise.resolve([admin]),
   };
-  const zaloService = {
+  const zcaMessenger = {
     sendMessage: (chatId: string, text: string) => {
       sentMessages.push({ chatId, text });
       return Promise.resolve(true);
@@ -136,7 +136,7 @@ void test('DeployNotifyService triggers startup deploy notification automaticall
   const oldAppVersion = process.env.APP_VERSION;
   try {
     process.env.APP_VERSION = 'v1.2.3';
-    const service = new DeployNotifyService(usersService as never, zaloService as never);
+    const service = new DeployNotifyService(usersService as never, zcaMessenger as never);
     const result = await service.triggerStartupNotify();
 
     assert.ok(result);

@@ -9,7 +9,7 @@ import { PendingImageContext } from './pending-image.interface';
 import { ZcaService } from '../zca.service';
 import { PendingImageActionService, PendingImageAction } from './pending-image-action.service';
 import { LlmService } from '../../llm/llm.service';
-import { TextToolFactory } from '../../zalo/text/text-tool.factory';
+import { TextToolFactory } from '../text/text-tool.factory';
 import { MediaStorageService } from '../../receipt-storage/media-storage.service';
 import { OcrService } from '../../ocr/ocr.service';
 

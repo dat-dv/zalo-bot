@@ -143,7 +143,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   >();
   public timeoutMs = 5 * 60 * 1000; // 5 phút (300 giây)
 
-  private readonly zaloService: {
+  private readonly zcaMessenger: {
     sendMessage(chatId: string | number, text: string): Promise<unknown>;
     sendMessageWithResult?(
       chatId: string | number,
@@ -164,8 +164,8 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     @Optional() private readonly redisService?: RedisService,
     @Optional() private readonly threadConfigService?: ThreadConfigService,
   ) {
-    // ZcaService in the app; ZaloService or a test double elsewhere.
-    this.zaloService = {
+    // ZcaService in the app; ZcaMessengerService or a test double elsewhere.
+    this.zcaMessenger = {
       sendMessage: (chatId, text) => sendChatText(rawMessenger, chatId, text),
       sendMessageWithResult: (chatId, text) => sendChatTextWithResult(rawMessenger, chatId, text),
       undoMessage: (chatId, msgId, cliMsgId) =>
@@ -316,7 +316,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
   /**
    * Số tim cần để duyệt theo `confirmationRules` của kênh đã lưu (nhóm mặc định 5).
-   * Chỉ đọc config sẵn có: chat chưa có config (vd. webhook chính thức) dùng 1 tim.
+   * Chỉ đọc config sẵn có: chat chưa có config dùng 1 tim.
    */
   private async resolveRequiredHearts(chatId: string): Promise<number> {
     if (!this.threadConfigService) return 1;
@@ -413,8 +413,8 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       `\n👉 Soạn: edit ${code} <nội dung sửa> (để điều chỉnh)` +
       `\n⏱️ Tự động hết hạn sau 5 phút.`;
 
-    if (this.zaloService.sendMessageWithResult) {
-      const sendResult = await this.zaloService.sendMessageWithResult(params.chatId, msg);
+    if (this.zcaMessenger.sendMessageWithResult) {
+      const sendResult = await this.zcaMessenger.sendMessageWithResult(params.chatId, msg);
       if (sendResult?.msgId) {
         pending.messageId = sendResult.msgId;
         if (sendResult.cliMsgId) {
@@ -423,7 +423,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         await this.setMessageId(code, sendResult.msgId, sendResult.cliMsgId);
       }
     } else {
-      await this.zaloService.sendMessage(params.chatId, msg);
+      await this.zcaMessenger.sendMessage(params.chatId, msg);
     }
     return pending;
   }
@@ -556,10 +556,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       }
     }
 
-    if (toRecall.length > 0 && this.zaloService.undoMessage) {
+    if (toRecall.length > 0 && this.zcaMessenger.undoMessage) {
       await Promise.allSettled(
         toRecall.map((item) =>
-          this.zaloService.undoMessage(item.chatId || chatId, item.msgId, item.cliMsgId),
+          this.zcaMessenger.undoMessage(item.chatId || chatId, item.msgId, item.cliMsgId),
         ),
       );
     }
@@ -668,13 +668,13 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       }
 
       const heartNotice = `❤️ Đã nhận ${pending.heartUsers.length}/${req} lượt thả tim để duyệt yêu cầu [${pending.code}]!`;
-      if (this.zaloService.sendMessageWithResult) {
-        const sendRes = await this.zaloService.sendMessageWithResult(params.chatId, heartNotice);
+      if (this.zcaMessenger.sendMessageWithResult) {
+        const sendRes = await this.zcaMessenger.sendMessageWithResult(params.chatId, heartNotice);
         if (sendRes?.msgId) {
           await this.addTempMessage(params.chatId, sendRes.msgId, sendRes.cliMsgId);
         }
       } else {
-        await this.zaloService.sendMessage(params.chatId, heartNotice);
+        await this.zcaMessenger.sendMessage(params.chatId, heartNotice);
       }
       return {
         handled: true,
@@ -928,7 +928,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       '';
     const noteSuffix = note ? ` "${note}"` : '';
 
-    await this.zaloService.sendMessage(
+    await this.zcaMessenger.sendMessage(
       pending.chatId,
       `⏰ ${title}${noteSuffix} (mã: ${code}) đã hết hạn 5 phút và chưa được xác nhận.`,
     );
@@ -1024,14 +1024,14 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     if (code) {
       pending = await this.getPendingByCode(code);
       if (!pending) {
-        await this.zaloService.sendMessage(
+        await this.zcaMessenger.sendMessage(
           chatId,
           `⚠️ Không tìm thấy yêu cầu chờ xác nhận với mã "${code}". Vui lòng kiểm tra lại.`,
         );
         return true;
       }
       if (pending.userId !== userId && pending.chatId !== chatId) {
-        await this.zaloService.sendMessage(
+        await this.zcaMessenger.sendMessage(
           chatId,
           `⚠️ Bạn không có quyền chỉnh sửa yêu cầu mã "${code}".`,
         );
@@ -1054,7 +1054,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
     if (Date.now() > pending.expiresAt) {
       await this.deletePending(pending.code, pending.userId);
-      await this.zaloService.sendMessage(
+      await this.zcaMessenger.sendMessage(
         chatId,
         `⏰ Yêu cầu mã "${pending.code}" đã hết hạn xác nhận (quá 5 phút) và chưa được thực hiện.`,
       );
@@ -1063,7 +1063,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
     const trimmedInstruction = instruction?.trim() || '';
     if (!trimmedInstruction) {
-      await this.zaloService.sendMessage(
+      await this.zcaMessenger.sendMessage(
         chatId,
         `✏️ Vui lòng cung cấp nội dung bạn muốn chỉnh sửa cho yêu cầu (mã: ${pending.code}).\nVí dụ: edit ${pending.code} đổi số tiền thành 60k`,
       );
@@ -1071,7 +1071,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     }
 
     if (!onEdit) {
-      await this.zaloService.sendMessage(
+      await this.zcaMessenger.sendMessage(
         chatId,
         `⚠️ Hệ thống hiện chưa hỗ trợ tự động điều chỉnh cho yêu cầu mã "${pending.code}". Bạn có thể soạn: yes ${pending.code} (để xác nhận) hoặc: cancel ${pending.code} (để hủy bỏ và tạo lại).`,
       );
@@ -1084,7 +1084,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       await this.deletePending(pending.code, pending.userId);
     } catch (err) {
       this.logger.error(`Lỗi khi xử lý edit pending action: ${(err as Error).message}`);
-      await this.zaloService.sendMessage(
+      await this.zcaMessenger.sendMessage(
         chatId,
         `⚠️ Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu: ${(err as Error).message}`,
       );
@@ -1095,7 +1095,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   public async processConfirmAll(userId: string, chatId: string): Promise<boolean> {
     const list = await this.getPendingListForUser(userId);
     if (list.length === 0) {
-      await this.zaloService.sendMessage(chatId, 'ℹ️ Không có yêu cầu nào đang chờ xác nhận.');
+      await this.zcaMessenger.sendMessage(chatId, 'ℹ️ Không có yêu cầu nào đang chờ xác nhận.');
       return true;
     }
 
@@ -1107,7 +1107,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
     await this.recallTempMessages(chatId);
 
-    await this.zaloService.sendMessage(
+    await this.zcaMessenger.sendMessage(
       chatId,
       `🎉 Đã xác nhận thành công tất cả (${successCount}/${list.length}) yêu cầu!`,
     );
@@ -1117,7 +1117,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   public async processCancelAll(userId: string, chatId: string): Promise<boolean> {
     const list = await this.getPendingListForUser(userId);
     if (list.length === 0) {
-      await this.zaloService.sendMessage(
+      await this.zcaMessenger.sendMessage(
         chatId,
         'ℹ️ Không có yêu cầu nào đang chờ xác nhận để hủy.',
       );
@@ -1131,7 +1131,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
     await this.recallTempMessages(chatId);
 
-    await this.zaloService.sendMessage(
+    await this.zcaMessenger.sendMessage(
       chatId,
       `🚫 Đã hủy tất cả (${list.length}) yêu cầu chờ xác nhận của bạn.`,
     );
@@ -1155,7 +1155,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       pending = await this.getPendingByCode(code);
       if (!pending) {
         if (!silent) {
-          await this.zaloService.sendMessage(
+          await this.zcaMessenger.sendMessage(
             chatId,
             `⚠️ Không tìm thấy yêu cầu chờ xác nhận với mã "${code}". Vui lòng kiểm tra lại.`,
           );
@@ -1164,7 +1164,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       }
       if (pending.userId !== userId && pending.chatId !== chatId) {
         if (!silent) {
-          await this.zaloService.sendMessage(
+          await this.zcaMessenger.sendMessage(
             chatId,
             `⚠️ Bạn không có quyền xác nhận yêu cầu mã "${code}".`,
           );
@@ -1182,7 +1182,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     if (Date.now() > pending.expiresAt) {
       await this.deletePending(pending.code, pending.userId);
       await this.recallTempMessages(chatId, pending.code);
-      await this.zaloService.sendMessage(
+      await this.zcaMessenger.sendMessage(
         chatId,
         `⏰ Yêu cầu mã "${pending.code}" đã hết hạn xác nhận (quá 5 phút) và chưa được thực hiện.`,
       );
@@ -1225,7 +1225,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           }
 
           if (!silent) {
-            await this.zaloService.sendMessage(chatId, summary);
+            await this.zcaMessenger.sendMessage(chatId, summary);
           }
           break;
         }
@@ -1236,14 +1236,14 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           const success = await this.financeService.deleteTransaction(payload.transactionId);
           if (success) {
             if (!silent) {
-              await this.zaloService.sendMessage(
+              await this.zcaMessenger.sendMessage(
                 chatId,
                 summarizeDeletedTransaction(pending.code, payload),
               );
             }
           } else {
             if (!silent) {
-              await this.zaloService.sendMessage(
+              await this.zcaMessenger.sendMessage(
                 chatId,
                 `⚠️ Không tìm thấy giao dịch hoặc bạn không có quyền xóa giao dịch này.`,
               );
@@ -1271,7 +1271,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
                   : String(debt.dueAt)
                 : payload.dueAt,
             });
-            await this.zaloService.sendMessage(chatId, summary);
+            await this.zcaMessenger.sendMessage(chatId, summary);
           }
           break;
         }
@@ -1287,7 +1287,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               title: reminder?.title ?? payload.title,
               remindAt: reminder?.remindAt ?? payload.remindAt,
             });
-            await this.zaloService.sendMessage(chatId, summary);
+            await this.zcaMessenger.sendMessage(chatId, summary);
           }
           break;
         }
@@ -1302,7 +1302,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               ...payload,
               title: task?.title ?? payload.title,
             });
-            await this.zaloService.sendMessage(chatId, summary);
+            await this.zcaMessenger.sendMessage(chatId, summary);
           }
           break;
         }
@@ -1313,7 +1313,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           const payload = pending.payload as unknown as CompleteTaskDto;
           await this.googleTasksService.completeTask(payload.taskId, '@default', pending.userId);
           if (!silent) {
-            await this.zaloService.sendMessage(
+            await this.zcaMessenger.sendMessage(
               chatId,
               summarizeCompletedTask(pending.code, payload),
             );
@@ -1339,7 +1339,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             { userId: pending.userId, chatId: pending.chatId, source: 'zalo' },
           );
           if (!silent) {
-            await this.zaloService.sendMessage(
+            await this.zcaMessenger.sendMessage(
               chatId,
               summarizeCalendarEvent(pending.code, payload),
             );
@@ -1353,7 +1353,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           const payload = pending.payload as unknown as DeleteCalendarEventDto;
           await this.calendarService.deleteEvent(payload.eventId, pending.userId);
           if (!silent) {
-            await this.zaloService.sendMessage(
+            await this.zcaMessenger.sendMessage(
               chatId,
               summarizeDeletedCalendarEvent(pending.code, payload),
             );
@@ -1369,7 +1369,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             await this.googleAuthService.revokeUserTokens(payload.targetUserId);
           }
           if (!silent) {
-            await this.zaloService.sendMessage(chatId, summarizeBannedUser(pending.code, payload));
+            await this.zcaMessenger.sendMessage(chatId, summarizeBannedUser(pending.code, payload));
           }
           break;
         }
@@ -1379,13 +1379,13 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           if (!silent) {
             const reply = summarizePlace(pending.code, place?.name || payload.name);
             const remainingList = await this.getPendingListForUser(userId);
-            if (this.zaloService.sendMessageWithResult) {
-              const sendRes = await this.zaloService.sendMessageWithResult(chatId, reply);
+            if (this.zcaMessenger.sendMessageWithResult) {
+              const sendRes = await this.zcaMessenger.sendMessageWithResult(chatId, reply);
               if (remainingList.length > 0 && sendRes?.msgId) {
                 await this.addTempMessage(chatId, sendRes.msgId, sendRes.cliMsgId);
               }
             } else {
-              await this.zaloService.sendMessage(chatId, reply);
+              await this.zcaMessenger.sendMessage(chatId, reply);
             }
           }
           break;
@@ -1394,7 +1394,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           const payload = pending.payload as unknown as CreateFinanceTransactionDto;
           await this.financeService.createTransaction(payload);
           if (!silent) {
-            await this.zaloService.sendMessage(chatId, summarizeGeneric(pending.code));
+            await this.zcaMessenger.sendMessage(chatId, summarizeGeneric(pending.code));
           }
           break;
         }
@@ -1404,13 +1404,13 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         const remainingList = await this.getPendingListForUser(userId);
         if (remainingList.length > 0) {
           const notice = `💡 Bạn còn ${remainingList.length} yêu cầu chờ xác nhận. Soạn "yes all" để duyệt tất cả hoặc "yes <mã>".`;
-          if (this.zaloService.sendMessageWithResult) {
-            const res = await this.zaloService.sendMessageWithResult(chatId, notice);
+          if (this.zcaMessenger.sendMessageWithResult) {
+            const res = await this.zcaMessenger.sendMessageWithResult(chatId, notice);
             if (res?.msgId) {
               await this.addTempMessage(chatId, res.msgId, res.cliMsgId);
             }
           } else {
-            await this.zaloService.sendMessage(chatId, notice);
+            await this.zcaMessenger.sendMessage(chatId, notice);
           }
         }
       }
@@ -1418,7 +1418,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       return true;
     } catch (err) {
       this.logger.error(`Failed to execute confirmed action: ${(err as Error).message}`);
-      await this.zaloService.sendMessage(
+      await this.zcaMessenger.sendMessage(
         chatId,
         `⚠️ Có lỗi xảy ra khi thực hiện thao tác: ${(err as Error).message}`,
       );
@@ -1432,14 +1432,14 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     if (code) {
       pending = await this.getPendingByCode(code);
       if (!pending) {
-        await this.zaloService.sendMessage(
+        await this.zcaMessenger.sendMessage(
           chatId,
           `⚠️ Không tìm thấy yêu cầu chờ xác nhận với mã "${code}".`,
         );
         return true;
       }
       if (pending.userId !== userId && pending.chatId !== chatId) {
-        await this.zaloService.sendMessage(
+        await this.zcaMessenger.sendMessage(
           chatId,
           `⚠️ Bạn không có quyền hủy yêu cầu mã "${code}".`,
         );
@@ -1485,7 +1485,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       '';
     const noteSuffix = note ? ` "${note}"` : '';
 
-    await this.zaloService.sendMessage(
+    await this.zcaMessenger.sendMessage(
       chatId,
       `❌ Đã hủy ${actionDesc.toLowerCase()}${noteSuffix} (mã: ${pending.code}). Yêu cầu chưa được lưu.`,
     );
@@ -1494,13 +1494,13 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       const remainingList = await this.getPendingListForUser(userId);
       if (remainingList.length > 0) {
         const notice = `💡 Bạn còn ${remainingList.length} yêu cầu chờ xác nhận. Soạn "cancel all" để hủy tất cả hoặc "cancel <mã>".`;
-        if (this.zaloService.sendMessageWithResult) {
-          const res = await this.zaloService.sendMessageWithResult(chatId, notice);
+        if (this.zcaMessenger.sendMessageWithResult) {
+          const res = await this.zcaMessenger.sendMessageWithResult(chatId, notice);
           if (res?.msgId) {
             await this.addTempMessage(chatId, res.msgId, res.cliMsgId);
           }
         } else {
-          await this.zaloService.sendMessage(chatId, notice);
+          await this.zcaMessenger.sendMessage(chatId, notice);
         }
       }
     }

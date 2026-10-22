@@ -7,7 +7,7 @@
 ## 📋 BẢNG CHECKLIST 4 BƯỚC TRIỂN KHAI
 
 ```
-[ ] Bước 1: Tạo Bot zalo & Lấy zalo Admin ID (30 giây)
+[ ] Bước 1: Chuẩn bị tài khoản Zalo làm bot & mã đăng nhập dashboard (30 giây)
 [ ] Bước 2: Lấy Google Client ID & Client Secret (1 phút)
 [ ] Bước 3: Deploy lên Coolify (1 phút)
 [ ] Bước 4: Thêm Redirect URL vào Google Cloud (30 giây)
@@ -17,9 +17,10 @@
 
 ## 🛠️ CHI TIẾT TỪNG BƯỚC THỰC HIỆN
 
-### Bước 1: Lấy Token Bot & ID zalo Cá Nhân (30 giây)
+### Bước 1: Chuẩn Bị Tài Khoản Zalo & Mã Đăng Nhập Dashboard (30 giây)
 
-1. Thiết lập bot Zalo và lấy token / user ID.
+1. Chuẩn bị một tài khoản Zalo cá nhân để làm bot (bot chạy qua ZCA, không cần token Zalo Bot Platform).
+2. Chọn một mã `DASHBOARD_LOGIN_CODE`: 8 ký tự từ `0-9` và `A-Z` trừ `I L O U`, dấu gạch tuỳ ý (ví dụ `HRYJ-ZP2T`). Giữ bí mật mã này — nó không hết hạn.
 
 ---
 
@@ -41,7 +42,7 @@
 3. **Tab Environment Variables**: Dán các dòng này vào:
 
    ```env
-   ZALO_BOT_TOKEN=...
+   DASHBOARD_LOGIN_CODE=XXXX-XXXX
    GOOGLE_CLIENT_ID=242273656915-...apps.googleusercontent.com
    GOOGLE_CLIENT_SECRET=GOCSPX-...
    ```
@@ -70,9 +71,11 @@
 
 ## 🎉 HOÀN TẤT & HƯỚNG DẪN SỬ DỤNG
 
-### 1. Kích hoạt tài khoản Admin:
+### 1. Kết nối Zalo & kích hoạt tài khoản Admin:
 
-- Mở bot Zalo lên, gõ: `/login`.
+- Mở dashboard, nhập `DASHBOARD_LOGIN_CODE` vào form mã đăng nhập ➔ vào với quyền admin "Chủ hệ thống".
+- Mở trang `/zca` ➔ quét mã QR bằng app Zalo của tài khoản làm bot ➔ bật listen cho các chat/nhóm bot cần nghe.
+- Nhắn bot trên Zalo, gõ: `/login`.
 - Đăng nhập Gmail ➔ Bấm **Nâng cao** ➔ **Tiếp tục** ➔ **Cho phép**.
 - Trình duyệt sẽ tự hiện trang **"✅ Kết nối thành công!"** và Bot Zalo tự gửi tin nhắn xác nhận kích hoạt!
 

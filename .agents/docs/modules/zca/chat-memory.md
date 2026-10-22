@@ -6,7 +6,7 @@ metadata:
     depends_on:
       - .agents/knowledge/modules/zca/chat-memory.md
       - apps/api/src/zca/memory/chat-memory.service.ts
-      - apps/api/src/zalo/text/strategies/search-chat-history-tool.strategy.ts
+      - apps/api/src/zca/text/strategies/search-chat-history-tool.strategy.ts
       - apps/api/src/database/migrations/1724810000000-CreateZcaMessages.ts
       - apps/api/src/database/migrations/1724820000000-AddChatMemoryToZcaThreadConfigs.ts
       - apps/web/src/modules/zca/view/thread-config-screen.tsx
@@ -84,7 +84,7 @@ Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm 
 
 | Triệu chứng | Nguyên nhân thường gặp |
 | --- | --- |
-| Bot không tra lại chuyện cũ mà chỉ trò chuyện | Kênh chưa bật card "🧠 Trí nhớ hội thoại" trong Cấu hình kênh (tool tra cứu không được đưa cho LLM), hoặc là chat qua Zalo Bot chính thức (webhook, không hỗ trợ) |
+| Bot không tra lại chuyện cũ mà chỉ trò chuyện | Kênh chưa bật card "🧠 Trí nhớ hội thoại" trong Cấu hình kênh (tool tra cứu không được đưa cho LLM) |
 | Migration lỗi `permission denied to create extension "unaccent"` | User DB không có quyền tạo extension; nhờ admin DB chạy `CREATE EXTENSION unaccent;` rồi khởi động lại |
 | Bảng trống dù đang chat | Kênh chưa được listen hoặc chưa bật trí nhớ, hoặc log có `[ChatMemory] Could not store …` (xem lỗi DB) |
 | "Không tìm thấy…" dù đã từng nói | Từ khóa LLM sinh ra không khớp, hoặc khoảng ngày sai; hỏi lại cụ thể hơn. Tin trước khi bật tính năng chỉ có từ buffer Redis 7 ngày |

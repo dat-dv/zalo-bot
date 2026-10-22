@@ -10,7 +10,7 @@ Tài liệu này hướng dẫn toàn bộ quy trình thiết lập môi trườ
 - **NPM**: Phiên bản 10.x trở lên.
 - **Docker & Docker Compose** (nếu chạy dạng container).
 - **Tài khoản Google Cloud** đã kích hoạt Calendar API & Tasks API.
-- **Zalo Bot Token** tạo từ Zalo Bot Platform (`bot-api.zaloplatforms.com`).
+- **Một tài khoản Zalo cá nhân** để làm bot (đăng nhập bằng mã QR qua ZCA trên trang `/zca` của dashboard; không cần Zalo Bot Token).
 
 ---
 
@@ -29,20 +29,26 @@ APP_URL=https://zalobot.example.com
 WEB_ORIGIN=https://zalobot.example.com
 NEXT_PUBLIC_API_URL=https://zalobot.example.com
 
-ZALO_BOT_TOKEN=replace-with-zalo-bot-token
-ZALO_WEBHOOK_URL=https://zalobot.example.com/webhook
-ZALO_WEBHOOK_SECRET_TOKEN=optional-secret-token
-
 DATA_ENCRYPTION_KEY=64-hex-characters
 GOOGLE_CLIENT_ID=replace-with-google-client-id
 GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
 DASHBOARD_ACCESS_TOKEN_SECRET=64-random-characters
 DASHBOARD_REFRESH_TOKEN_SECRET=another-64-random-characters
+# Tuỳ chọn: mã đăng nhập dashboard cố định (8 ký tự 0-9, A-Z trừ I L O U; dấu gạch tuỳ ý)
+DASHBOARD_LOGIN_CODE=HRYJ-ZP2T
 
 LLM_PROVIDER=qwen
 QWEN_BASE_URL=http://localhost:11434
 QWEN_MODEL=qwen2.5:14b
 ```
+
+`DASHBOARD_LOGIN_CODE` là đường vào dashboard trên bản cài mới hoặc khi phiên ZCA hết hạn: nhập mã vào form mã đăng nhập để vào với quyền admin "Chủ hệ thống" (`users.id = 'dashboard-owner'`). Mã không hết hạn — đừng commit mã thật, đổi mã bằng cách sửa env rồi restart; giá trị sai định dạng làm API dừng khi khởi động. Để trống = tắt.
+
+### Kết nối Zalo (ZCA) sau khi deploy
+
+1. Đăng nhập dashboard bằng `DASHBOARD_LOGIN_CODE`.
+2. Mở trang `/zca` ➔ quét mã QR bằng app Zalo của tài khoản làm bot.
+3. Bật listen cho các thread (chat riêng/nhóm) mà bot cần nghe. Từ đây có thể dùng lệnh `/dashboard` trong chat để lấy link đăng nhập một lần.
 
 ---
 
@@ -168,6 +174,8 @@ pm2 monit
 | Bot báo `Yêu cầu kết nối tài khoản Google`                 | Chưa đăng nhập Google OAuth.                          | Bấm nút **"🔗 Đăng nhập Google"** hoặc gõ `/login` để cấp quyền. |
 | Người lạ nhắn tin báo `Truy cập bị từ chối`                | Chưa được Admin mời qua link `/invite`.               | Admin gõ `/invite` lấy link gửi cho bạn, hoặc gõ `/allow <id>`.          |
 | Lỗi `Google OAuth credentials chưa được cấu hình`          | Thiếu `GOOGLE_CLIENT_ID` hoặc `GOOGLE_CLIENT_SECRET`. | Kiểm tra lại các biến môi trường trên Coolify hoặc file `.env`.          |
+| Bot không trả lời tin nhắn nào                             | Phiên ZCA hết hạn hoặc thread chưa bật listen.        | Vào dashboard bằng `DASHBOARD_LOGIN_CODE`, quét lại QR và bật listen trên trang `/zca`. |
+| API dừng ngay khi khởi động, báo lỗi `DASHBOARD_LOGIN_CODE` | Mã sai định dạng.                                     | Dùng đúng 8 ký tự từ `0-9`, `A-Z` trừ `I L O U` (ví dụ `HRYJ-ZP2T`) hoặc để trống. |
 
 ## 9. Khởi tạo PostgreSQL trống
 

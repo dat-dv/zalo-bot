@@ -35,7 +35,8 @@ export const KIND_LABEL: Record<ChatRow['kind'], { label: string; title?: string
   personal: { label: 'Cá nhân' },
   'user-only': {
     label: 'Người dùng',
-    title: 'Có trong hệ thống nhưng không có trong danh bạ ZCA (ID webhook hoặc chưa kết bạn)',
+    title:
+      'Có trong hệ thống nhưng không có trong danh bạ ZCA (ID cũ từ Zalo Bot chính thức, dashboard-owner hoặc chưa kết bạn)',
   },
 };
 

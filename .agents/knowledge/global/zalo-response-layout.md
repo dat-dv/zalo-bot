@@ -4,7 +4,7 @@ metadata:
     id: global-zalo-response-layout-knowledge
     type: documentation
     depends_on:
-      - apps/api/src/zalo/zalo.service.ts
+      - apps/api/src/zca/zca-messenger.service.ts
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
       - apps/api/src/zca/confirmation/dto-descriptor.util.ts
       - apps/api/src/zca/confirmation/compact-summary.util.ts
@@ -20,7 +20,7 @@ Human guide: [Zalo Response Layout](../../docs/global/zalo-response-layout.md).
 
 - All bot replies are plain text. There are no buttons, inline keyboards, or callback payloads; every follow-up action is a typed command or a reaction.
 - Layout: one short heading line (emoji prefix), then `• Label: value` lines; keep each item compact for mobile. Exception: success messages after confirmation use the compact 1–2 line format below.
-- `ZaloService.sendMessageWithResult`: with a Bot Platform token, text is split into 1900-character chunks (300 ms apart) and sent to the Bot API; on API failure it falls back to ZCA if logged in. Without a token it sends through ZCA. Returns `{ success, msgId?, cliMsgId? }` used for later recall.
+- `ZcaMessengerService.sendMessageWithResult` (`apps/api/src/zca/zca-messenger.service.ts`): sends through ZCA only; text is split into 1900-character chunks (300 ms apart). ZCA logged out or a send error -> `{ success: false }` (never throws). Returns `{ success, msgId?, cliMsgId? }` of the last chunk, used for later recall. `withChatAction` keeps a ZCA typing indicator (`sendTypingEvent`, every 4 s) while a tool runs.
 
 ## Confirmation cards
 

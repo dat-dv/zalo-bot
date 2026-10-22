@@ -64,7 +64,7 @@ export class ImageBatchHandler implements OnModuleDestroy {
 
   /**
    * Xử lý gom ảnh và kích hoạt timer debounce.
-   * Nếu có nhiều ảnh gửi liên tiếp (Zalo bắn webhook riêng lẻ), gộp vào batch và chỉ gửi 1 thông báo.
+   * Nếu có nhiều ảnh gửi liên tiếp (ZCA nhận từng ảnh thành tin riêng lẻ), gộp vào batch và chỉ gửi 1 thông báo.
    */
   public async handle(input: AgentInput, targetChatId: string): Promise<void> {
     if (!this.pendingImageActionService) {

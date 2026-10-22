@@ -32,7 +32,7 @@ metadata:
       - apps/web/src/shared/ui/data-table.tsx
       - apps/api/src/reports/reports.controller.ts
       - apps/api/src/finance/finance.service.ts
-      - apps/api/src/zalo/text/strategies/dashboard-tool.strategy.ts
+      - apps/api/src/zca/text/strategies/dashboard-tool.strategy.ts
       - apps/web/src/modules/dashboard/presentation/components/transaction-receipt.tsx
 ---
 

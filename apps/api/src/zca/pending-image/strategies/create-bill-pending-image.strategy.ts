@@ -9,9 +9,9 @@ import {
   type ChannelStorageTarget,
 } from '../../../google/channel-storage.util';
 import { ThreadConfigService } from '../../thread-config.service';
-import { TextToolFactory } from '../../../zalo/text/text-tool.factory';
-import { TextToolType } from '../../../zalo/text/text-tool.enum';
-import { ZALO_TOOL_DEFINITIONS } from '../../../zalo/text/text-tool.definitions';
+import { TextToolFactory } from '../../text/text-tool.factory';
+import { TextToolType } from '../../text/text-tool.enum';
+import { ZALO_TOOL_DEFINITIONS } from '../../text/text-tool.definitions';
 import { fetchImageBuffer } from '../../../common/utils/image-fetcher.util';
 import { getVietnamDateTimeContext } from '../../../common/utils/datetime.util';
 import { PendingImageContext, PendingImageStrategy } from '../pending-image.interface';

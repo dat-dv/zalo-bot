@@ -12,7 +12,6 @@ import { ConfigService } from '@nestjs/config';
 import { randomBytes, timingSafeEqual } from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
-import type { ZaloService } from '../zalo/zalo.service';
 import { ThreadConfigService, hasLegacyGroupPrefix } from './thread-config.service';
 import { ZcaBotFeatureService } from './zca-bot-feature.service';
 import { RedisService } from '../redis/redis.service';
@@ -422,13 +421,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     await this.loadListenedThreads();
   }
 
-  /**
-   * ZcaModule bootstraps strictly after ZaloModule is fully initialized,
-   * ensuring that any direct dependencies on ZaloService are ready.
-   */
   public async onApplicationBootstrap(): Promise<void> {
-    this.logger.log('ZcaService bootstrapped after ZaloModule.');
-
     // Log in automatically whenever there is something to log in with: IMEI + cookie from
     // env/module options, or a session saved by a previous QR login (file -> Redis).
     const hasConfiguredCredentials = Boolean(
@@ -461,13 +454,6 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   public async onModuleDestroy(): Promise<void> {
     this.stopListener();
     await this.destroyPlugins();
-  }
-
-  /**
-   * Returns the official ZaloService instance that ZCA depends on.
-   */
-  public getZaloService(): ZaloService | undefined {
-    return undefined;
   }
 
   /**

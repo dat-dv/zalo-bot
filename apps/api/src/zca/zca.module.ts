@@ -8,7 +8,7 @@ import { WelcomeGroupEventStrategy } from './strategies/welcome-group-event.stra
 import { GroupEventDispatcher } from './group-event-dispatcher.service';
 import { ThreadConfigService } from './thread-config.service';
 import { ZcaBotFeatureService } from './zca-bot-feature.service';
-import { ZaloModule } from '../zalo/zalo.module';
+import { AuditModule } from '../audit/audit.module';
 import { ReceiptStorageModule } from '../receipt-storage/receipt-storage.module';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 import { UsersModule } from '../users/users.module';
@@ -21,6 +21,13 @@ import { OcrModule } from '../ocr/ocr.module';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 import { ChatMemoryModule } from './memory/chat-memory.module';
 import { ChannelStorageLinkModule } from './storage/channel-storage-link.module';
+
+// Chat pipeline: messenger, text input and tool strategies
+import { ZcaMessengerService } from './zca-messenger.service';
+import { TextInputService } from './text/text-input.service';
+import { TextToolFactory } from './text/text-tool.factory';
+import { TEXT_TOOL_STRATEGY_PROVIDERS } from './text/text-tool.providers';
+import { ShareDriveToolStrategy } from './text/strategies/share-drive-tool.strategy';
 
 // Confirmation & Guards
 import { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
@@ -37,7 +44,7 @@ import { CreateBillPendingImageStrategy } from './pending-image/strategies/creat
 
 const COMMON_IMPORTS = [
   TypeOrmModule.forFeature([ZcaThreadConfigEntity]),
-  forwardRef(() => ZaloModule),
+  AuditModule,
   forwardRef(() => ReceiptStorageModule),
   forwardRef(() => UsersModule),
   FinanceModule,
@@ -52,6 +59,10 @@ const COMMON_IMPORTS = [
 ];
 
 const COMMON_PROVIDERS = [
+  ZcaMessengerService,
+  TextInputService,
+  TextToolFactory,
+  ...TEXT_TOOL_STRATEGY_PROVIDERS,
   WelcomeGroupEventStrategy,
   GroupEventDispatcher,
   ThreadConfigService,
@@ -69,6 +80,10 @@ const COMMON_PROVIDERS = [
 ];
 
 const COMMON_EXPORTS = [
+  ZcaMessengerService,
+  TextInputService,
+  TextToolFactory,
+  ShareDriveToolStrategy,
   WelcomeGroupEventStrategy,
   GroupEventDispatcher,
   ThreadConfigService,

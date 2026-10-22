@@ -20,7 +20,7 @@ Người dùng thường chụp bill thay vì gõ lại số tiền. Bot đọc 
 
 ## Luồng xử lý
 
-1. Người dùng gửi một hoặc nhiều ảnh (qua Zalo Bot chính thức hoặc ZCA). Bot gom ảnh trong 1 giây rồi lưu một "ảnh chờ xử lý" vào bộ nhớ và Redis, hạn 5 phút.
+1. Người dùng gửi một hoặc nhiều ảnh (qua ZCA). Bot gom ảnh trong 1 giây rồi lưu một "ảnh chờ xử lý" vào bộ nhớ và Redis, hạn 5 phút.
 2. Bot hỏi người dùng muốn làm gì:
    - `1` hoặc `1 <ghi chú>` (ví dụ `1 Ăn trưa Highlands`): tạo bill / ghi chi tiêu.
    - `2`: chỉ lưu ảnh lên Google Drive & Google Photos.

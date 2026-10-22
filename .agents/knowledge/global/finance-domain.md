@@ -13,9 +13,9 @@ metadata:
       - apps/api/src/database/entities/debt.entity.ts
       - apps/api/src/database/entities/debt-payment.entity.ts
       - apps/api/src/database/entities/debt-payment-allocation.entity.ts
-      - apps/api/src/zalo/text/text-tool.definitions.ts
-      - apps/api/src/zalo/text/text-input.service.ts
-      - apps/api/src/zalo/text/strategies/record-transaction-tool.strategy.ts
+      - apps/api/src/zca/text/text-tool.definitions.ts
+      - apps/api/src/zca/text/text-input.service.ts
+      - apps/api/src/zca/text/strategies/record-transaction-tool.strategy.ts
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
       - packages/contracts/src/index.ts
       - apps/api/src/finance/receipt-source.ts

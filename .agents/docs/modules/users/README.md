@@ -80,7 +80,7 @@ npm run users:cleanup-groups --workspace @zalobot/api
 
 Cùng một người có thể nhắn bot qua 2 kênh, và Zalo cấp **2 ID khác nhau**:
 
-- Kênh **Zalo Bot chính thức (webhook)** cũ: ID theo app, 20 ký tự hex (vd `573462d8909179cf2080`).
+- Kênh **Zalo Bot chính thức (webhook)** cũ, nay đã bỏ (ID cũ vẫn còn trong bảng `users`): ID theo app, 20 ký tự hex (vd `573462d8909179cf2080`).
 - Kênh **ZCA** (tài khoản Zalo cá nhân qua `zca-js`): UID Zalo, dạng số (vd `2285509137317769272`).
 
 `GrantAccessGuard` của ZCA tự lưu mọi ID lạ thành user "Chờ phê duyệt". Vì vậy sau khi chuyển sang ZCA, danh sách người dùng có 2 dòng cho cùng một người, và dấu vết cũ (người tạo giao dịch, liên kết người liên quan, lời nhắc, Google…) vẫn nằm ở ID cũ. Bản thân dữ liệu tài chính là kho chung nên không bị tách theo ID.

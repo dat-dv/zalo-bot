@@ -7,8 +7,7 @@ metadata:
       - apps/api/src/ocr/ocr.service.ts
       - apps/api/src/llm/llm.service.ts
       - apps/api/src/zca/pending-image/strategies/create-bill-pending-image.strategy.ts
-      - apps/api/src/zalo/input-processor.service.ts
-      - apps/api/src/zalo/text/strategies/search-chat-history-tool.strategy.ts
+      - apps/api/src/zca/text/strategies/search-chat-history-tool.strategy.ts
 ---
 
 # Local-First AI Usage
@@ -16,7 +15,7 @@ metadata:
 Media and deterministic extraction are local-first to conserve AI tokens and reduce external disclosure. OCR, parsing, conversion, metadata, and validation must use an installed local capability before AI is considered.
 
 - Receipt images: `OcrService` (Sharp pre-processing + Tesseract.js `vie+eng`) extracts text locally; `LlmService` receives only that text plus prompt context, never image bytes or base64.
-- Voice messages are not transcribed: the official-bot webhook path replies that voice handling is under development, and ZCA only backs up `chat.voice` audio to Drive when the thread's `mediaBackup.uploadAudios` is enabled. There is no speech-to-text runtime.
+- Voice messages are not transcribed: ZCA only backs up `chat.voice` audio to Drive when the thread's `mediaBackup.uploadAudios` is enabled. There is no speech-to-text runtime.
 
 AI (`LlmService`, provider per `LLM_PROVIDER`) may receive only minimal extracted text for semantic classification, categorization, summarization, or ambiguity resolution. It never bypasses confirmation, authorization, validation, or audit controls: tool calls only create pending actions.
 

@@ -10,14 +10,14 @@ metadata:
       - apps/api/src/users/users.controller.ts
       - apps/api/src/reminders/reminders.controller.ts
       - apps/api/src/google/google-resources.controller.ts
-      - apps/api/src/zalo/text/text-tool.definitions.ts
+      - apps/api/src/zca/text/text-tool.definitions.ts
 ---
 
 # REST CRUD Backend
 
 Tài liệu canonical tương ứng: [`backend-crud-api.md`](../../knowledge/global/backend-crud-api.md).
 
-API (`apps/api`) không chia theo `src/modules/<feature>` mà theo từng vùng nghiệp vụ (`finance`, `reports`, `users`, `reminders`, `google`, `zca`). Mọi endpoint đều có tiền tố `/api` (trừ webhook và health). Web chỉ gọi API qua hằng số `API_ROUTES` trong `packages/contracts/src/index.ts`.
+API (`apps/api`) không chia theo `src/modules/<feature>` mà theo từng vùng nghiệp vụ (`finance`, `reports`, `users`, `reminders`, `google`, `zca`). Mọi endpoint đều có tiền tố `/api` (trừ `health` và `deploy`). Web chỉ gọi API qua hằng số `API_ROUTES` trong `packages/contracts/src/index.ts`.
 
 ## Vì sao phải khóa theo token
 
@@ -52,7 +52,7 @@ Backend **không bao giờ** nhận `userId` từ client. Người gọi đượ
 
 ## Công cụ LLM của bot
 
-Khi người dùng nhắn tự nhiên, `LlmService` chọn một tool trong `ZALO_TOOL_DEFINITIONS` (`apps/api/src/zalo/text/text-tool.definitions.ts`): `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`.
+Khi người dùng nhắn tự nhiên, `LlmService` chọn một tool trong `ZALO_TOOL_DEFINITIONS` (`apps/api/src/zca/text/text-tool.definitions.ts`): `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`.
 
 - `RECORD_TRANSACTION` ghi **một** giao dịch mỗi lần gọi (bắt buộc `type`, `amount`; tùy chọn `category`, `note`, `occurredAt`, `placeName`, `paymentMethod`, `receiptUrl`). Không có tool ghi hàng loạt.
 - Nếu `placeName` chưa có trong danh sách nơi chốn của người dùng, bot tạo thêm một thao tác chờ duyệt `CREATE_PLACE` đi kèm (Companion Action) chứ không tạo người liên quan công nợ.

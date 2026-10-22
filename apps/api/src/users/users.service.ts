@@ -12,6 +12,10 @@ import {
 import { RedisService } from '../redis/redis.service';
 import { ZcaService, type AvailableThread } from '../zca/zca.service';
 
+/** `users.id` of the admin that `DASHBOARD_LOGIN_CODE` signs in as (not a Zalo ID). */
+export const DASHBOARD_OWNER_USER_ID = 'dashboard-owner';
+const DASHBOARD_OWNER_NAME = 'Chủ hệ thống';
+
 @Injectable()
 export class UsersService implements OnModuleInit {
   private readonly logger = new Logger(UsersService.name);
@@ -120,7 +124,24 @@ export class UsersService implements OnModuleInit {
     userId: string | number,
     firstName?: string,
   ): Promise<UserEntity> {
-    const strId = userId.toString();
+    const user = await this.saveAsAdmin(userId.toString(), firstName);
+    this.logger.log(`🎉 User ${user.id} (${firstName || 'User'}) bootstrapped as FIRST admin!`);
+    return user;
+  }
+
+  /**
+   * The account behind `DASHBOARD_LOGIN_CODE`. It is (re)made an admin on every sign-in, so the
+   * env holder always gets back in — even with no other admin or with ZCA logged out.
+   */
+  public async ensureDashboardOwner(): Promise<UserEntity> {
+    const existing = await this.userRepo.findOne({ where: { id: DASHBOARD_OWNER_USER_ID } });
+    return this.saveAsAdmin(
+      DASHBOARD_OWNER_USER_ID,
+      existing?.firstName ? undefined : DASHBOARD_OWNER_NAME,
+    );
+  }
+
+  private async saveAsAdmin(strId: string, firstName?: string): Promise<UserEntity> {
     let user = await this.userRepo.findOne({ where: { id: strId } });
     if (!user) {
       user = this.userRepo.create({
@@ -140,8 +161,6 @@ export class UsersService implements OnModuleInit {
     this.adminUserIdsCache.add(strId);
     this.allowedUserIdsCache.add(strId);
     void this.redisService?.setWhitelist(strId, true);
-
-    this.logger.log(`🎉 User ${strId} (${firstName || 'User'}) bootstrapped as FIRST admin!`);
     return user;
   }
 

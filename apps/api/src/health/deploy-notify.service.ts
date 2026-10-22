@@ -6,7 +6,7 @@ import * as path from 'path';
 import { execSync } from 'child_process';
 import { fromApiRoot, fromProjectRoot } from '../config/project-root';
 import { UsersService } from '../users/users.service';
-import { ZaloService } from '../zalo/zalo.service';
+import { ZcaMessengerService } from '../zca/zca-messenger.service';
 import { DeployNotifyDto } from './dto/deploy-notify.dto';
 
 @Injectable()
@@ -15,7 +15,7 @@ export class DeployNotifyService implements OnApplicationBootstrap {
 
   constructor(
     private readonly usersService: UsersService,
-    private readonly zaloService: ZaloService,
+    private readonly zcaMessenger: ZcaMessengerService,
     private readonly configService?: ConfigService,
   ) {}
 
@@ -239,7 +239,7 @@ export class DeployNotifyService implements OnApplicationBootstrap {
       const recipientLabel = admin.username ? `@${admin.username}` : admin.firstName || admin.id;
       recipients.push(recipientLabel);
       try {
-        const ok = await this.zaloService.sendMessage(admin.id, text);
+        const ok = await this.zcaMessenger.sendMessage(admin.id, text);
         if (!ok) {
           this.logger.warn(
             `Could not send deploy message to admin ${admin.id} (${recipientLabel})`,

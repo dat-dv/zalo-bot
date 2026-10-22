@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # ==============================================================================
-# Script: Cloudflare Tunnel & Auto Set Zalo Webhook
+# Script: Cloudflare Tunnel cho Dashboard & API (cập nhật APP_URL trong .env)
 # ==============================================================================
 
 set -e
@@ -65,9 +65,8 @@ load_env "$PROJECT_ROOT/.env"
 GATEWAY_PORT="${NGINX_PORT:-3000}"
 BE_PORT="${BE_PORT:-3005}"
 FE_PORT="${FE_PORT:-5173}"
-BOT_TOKEN="${ZALO_BOT_TOKEN:-}"
-SECRET_TOKEN="${ZALO_WEBHOOK_SECRET_TOKEN:-}"
-WEBHOOK_PATH="${WEBHOOK_PATH:-/webhook}"
+# Đường dẫn dùng để thử kết nối (Swagger của API, đi qua /api ở cả hai chế độ).
+PROBE_PATH="/api/docs"
 
 if [ -n "$PORT_ARG" ]; then
   PORT="$PORT_ARG"
@@ -83,7 +82,7 @@ else
 fi
 
 echo "================================================================="
-echo "🤖 KHỞI ĐỘNG CLOUDFLARE TUNNEL CHO ZALO BOT"
+echo "🤖 KHỞI ĐỘNG CLOUDFLARE TUNNEL CHO DASHBOARD & API"
 echo "================================================================="
 echo "👉 Target Local : http://127.0.0.1:$PORT"
 if [ "$PORT" = "$GATEWAY_PORT" ]; then
@@ -91,14 +90,7 @@ if [ "$PORT" = "$GATEWAY_PORT" ]; then
 else
   echo "👉 Kiến trúc    : Trực tiếp Backend API ($PORT)"
 fi
-echo "👉 Webhook Path : $WEBHOOK_PATH"
 [ "$BACKGROUND_MODE" = "true" ] && echo "👉 Chế độ       : Chạy ngầm (Background Daemon)" || echo "👉 Chế độ       : Giữ Terminal (Foreground Session)"
-
-if [ -z "$BOT_TOKEN" ]; then
-  echo ""
-  echo "❌ Lỗi: Không tìm thấy ZALO_BOT_TOKEN trong file .env"
-  exit 1
-fi
 
 # Kiểm tra local server
 LOCAL_ALIVE=false
@@ -123,11 +115,11 @@ if [ "$LOCAL_ALIVE" = "false" ]; then
 else
   echo "✅ Đã kết nối thử tới local server (Target: http://${TARGET_HOST}:${PORT})"
   if [ "$PORT" = "$GATEWAY_PORT" ]; then
-    BE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://127.0.0.1:${PORT}${WEBHOOK_PATH}" 2>/dev/null || echo "000")
-    if [ "$BE_STATUS" = "200" ]; then
-      echo "✅ Đã kết nối tới Backend API qua Nginx (Path: ${WEBHOOK_PATH} -> HTTP 200 OK)"
+    BE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 2 "http://127.0.0.1:${PORT}${PROBE_PATH}" 2>/dev/null || echo "000")
+    if [ "$BE_STATUS" -ge 200 ] && [ "$BE_STATUS" -lt 400 ]; then
+      echo "✅ Đã kết nối tới Backend API qua Nginx (Path: ${PROBE_PATH} -> HTTP ${BE_STATUS})"
     else
-      echo "⚠️  CẢNH BÁO: Backend API chưa phản hồi tại port ${BE_PORT} (Gateway trả về HTTP ${BE_STATUS} cho ${WEBHOOK_PATH})!"
+      echo "⚠️  CẢNH BÁO: Backend API chưa phản hồi tại port ${BE_PORT} (Gateway trả về HTTP ${BE_STATUS} cho ${PROBE_PATH})!"
       echo "👉 Hãy đảm bảo NestJS Backend đã khởi động thành công ('npm run dev')!"
     fi
   fi
@@ -201,11 +193,10 @@ for i in {1..15}; do
   sleep 1
 done
 
-FULL_WEBHOOK_URL="${TUNNEL_URL}${WEBHOOK_PATH}"
+PROBE_URL="${TUNNEL_URL}${PROBE_PATH}"
 echo "✅ Đã tạo Tunnel thành công: ${TUNNEL_URL}"
-echo "🌐 URL Webhook hoàn chỉnh : ${FULL_WEBHOOK_URL}"
 
-# Cập nhật .env theo tunnel. WEB_ORIGIN, ZALO_WEBHOOK_URL, NEXT_PUBLIC_API_URL mặc định suy ra từ APP_URL,
+# Cập nhật .env theo tunnel. WEB_ORIGIN, NEXT_PUBLIC_API_URL mặc định suy ra từ APP_URL,
 # nên chỉ ghi đè khi chúng đang được khai báo riêng.
 ENV_FILE="$PROJECT_ROOT/.env"
 if [ -f "$ENV_FILE" ]; then
@@ -227,12 +218,10 @@ if [ -f "$ENV_FILE" ]; then
     update_env_var "APP_URL" "$TUNNEL_URL" upsert
     update_env_var "WEB_ORIGIN" "$TUNNEL_URL"
     update_env_var "NEXT_PUBLIC_API_URL" "$TUNNEL_URL"
-    update_env_var "ZALO_WEBHOOK_URL" "$FULL_WEBHOOK_URL"
     echo "📝 Đã tự động cập nhật APP_URL trong .env -> $TUNNEL_URL"
   else
-    # Tunnel trỏ thẳng vào Backend: APP_URL (dashboard) giữ nguyên, chỉ webhook đổi.
-    update_env_var "ZALO_WEBHOOK_URL" "$FULL_WEBHOOK_URL" upsert
-    echo "📝 Đã tự động cập nhật ZALO_WEBHOOK_URL trong .env -> $FULL_WEBHOOK_URL"
+    # Tunnel trỏ thẳng vào Backend: APP_URL (dashboard) giữ nguyên.
+    echo "📝 Tunnel trỏ thẳng vào Backend nên .env giữ nguyên."
   fi
 fi
 
@@ -241,60 +230,22 @@ echo ""
 echo "⏳ Đang kiểm tra kết nối từ Internet tới tunnel..."
 TUNNEL_READY=false
 for i in {1..10}; do
-  HTTP_STATUS=$(curl --doh-url https://cloudflare-dns.com/dns-query -s -o /dev/null -w "%{http_code}" --connect-timeout 3 -m 5 "${FULL_WEBHOOK_URL}" 2>/dev/null || curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 -m 5 "${FULL_WEBHOOK_URL}" 2>/dev/null || true)
+  HTTP_STATUS=$(curl --doh-url https://cloudflare-dns.com/dns-query -s -o /dev/null -w "%{http_code}" --connect-timeout 3 -m 5 "${PROBE_URL}" 2>/dev/null || curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 -m 5 "${PROBE_URL}" 2>/dev/null || true)
   HTTP_STATUS="${HTTP_STATUS:-000}"
-  if [ "$HTTP_STATUS" = "200" ]; then
+  if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 400 ]; then
     TUNNEL_READY=true
-    echo "✅ Tunnel đã thông mạng Internet và trả về HTTP 200 OK!"
+    echo "✅ Tunnel đã thông mạng Internet (HTTP ${HTTP_STATUS})!"
     break
   fi
   echo "   [Thử $i/10] Đang chờ định tuyến (Mã phản hồi: ${HTTP_STATUS}). Thử lại sau 1s..."
   sleep 1
 done
 
-# Gọi Zalo setWebhook
-echo ""
-echo "📡 Đang gửi request setWebhook lên Zalo Bot API..."
-
-if [ -n "$SECRET_TOKEN" ]; then
-  PAYLOAD=$(cat <<EOF
-{
-  "url": "${FULL_WEBHOOK_URL}",
-  "secret_token": "${SECRET_TOKEN}"
-}
-EOF
-)
-else
-  PAYLOAD=$(cat <<EOF
-{
-  "url": "${FULL_WEBHOOK_URL}"
-}
-EOF
-)
-fi
-
-SET_RESULT=$(curl -s -X POST "https://bot-api.zaloplatforms.com/bot${BOT_TOKEN}/setWebhook" \
-  -H "Content-Type: application/json" \
-  -d "$PAYLOAD" || true)
-
-echo "👉 Phản hồi setWebhook từ Zalo API:"
-echo "$SET_RESULT"
-
-# Kiểm tra với testWebhook
-echo ""
-echo "🧪 Đang kiểm tra xác thực từ máy chủ Zalo (testWebhook)..."
-sleep 1
-TEST_RESULT=$(curl -s "https://bot-api.zaloplatforms.com/bot${BOT_TOKEN}/testWebhook" || true)
-echo "👉 Phản hồi testWebhook từ Zalo:"
-echo "$TEST_RESULT"
-
 echo ""
 echo "================================================================="
-echo "🎉 HOÀN TẤT CẤU HÌNH WEBHOOK THÀNH CÔNG!"
+echo "🎉 TUNNEL ĐÃ SẴN SÀNG!"
 echo "🌐 Tunnel URL : $TUNNEL_URL"
 echo "📚 Swagger API: $TUNNEL_URL/api/docs"
-echo "📍 Webhook URL: $FULL_WEBHOOK_URL"
-echo "🔒 Secret     : ${SECRET_TOKEN:-<trống>}"
 echo "================================================================="
 
 if [ "$BACKGROUND_MODE" = "true" ]; then

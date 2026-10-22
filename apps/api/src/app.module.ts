@@ -6,7 +6,6 @@ import { RedisModule } from './redis/redis.module';
 import { DatabaseModule } from './database/database.module';
 import { UsersModule } from './users/users.module';
 import { GoogleModule } from './google/google.module';
-import { ZaloModule } from './zalo/zalo.module';
 import { ZcaModule } from './zca/zca.module';
 import { RemindersModule } from './reminders/reminders.module';
 import { FinanceModule } from './finance/finance.module';
@@ -41,7 +40,6 @@ import { HealthModule } from './health/health.module';
     FinanceModule,
     AuditModule,
     ReportsModule,
-    ZaloModule,
     ZcaModule,
   ],
 })

@@ -23,11 +23,9 @@ async function bootstrap() {
     process.exit(1);
   }
 
-  // Initialize NestJS Application với rawBody option để có thể debug webhook payload gốc
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
-    rawBody: true,
   });
 
   // Security & Performance Middlewares
@@ -44,8 +42,7 @@ async function bootstrap() {
     new ValidationPipe({
       // 1. Tự động loại bỏ các field thừa không được khai báo trong DTO (Chống Mass Assignment Attack)
       whitelist: true,
-      // 2. KHÔNG ném lỗi 400 khi có field lạ — cần thiết cho Zalo webhook có thể gửi field không tài liệu hoá
-      //    (ví dụ: attachments, medias, urls khi gửi nhiều ảnh)
+      // 2. KHÔNG ném lỗi 400 khi có field lạ: field thừa chỉ bị loại bỏ (whitelist) để client cũ vẫn chạy
       forbidNonWhitelisted: false,
       // 3. Tự động ép kiểu dữ liệu payload về đúng kiểu khai báo trong DTO (VD: string '123' -> number 123)
       transform: true,
@@ -53,26 +50,14 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix('api', {
-    exclude: [
-      'webhook',
-      'zalo/webhook',
-      'api/webhook',
-      'api/zalo/webhook',
-      'health',
-      'health/deploy',
-      'deploy',
-      'deploy/notify',
-      'deploy/ping',
-    ],
+    exclude: ['health', 'health/deploy', 'deploy', 'deploy/notify', 'deploy/ping'],
   });
   app.enableShutdownHooks();
 
   // 3. Configure Swagger OpenAPI Documentation
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Zalo Bot Assistant API')
-    .setDescription(
-      'Hệ thống API RESTful và Webhook cho trợ lý ảo Zalo kết hợp Google Workspace và AI.',
-    )
+    .setDescription('Hệ thống API RESTful cho trợ lý ảo Zalo (ZCA) kết hợp Google Workspace và AI.')
     .setVersion('1.0.0')
     .addBearerAuth(
       {
@@ -115,12 +100,9 @@ async function bootstrap() {
 
   await app.listen(port);
 
-  const webhookUrl = configService.get<string>('zalo.webhookUrl') || `${appUrl}/webhook`;
-
   logger.log(`🚀 Web Server is listening on port ${port}`);
   logger.log(`📚 Swagger OpenAPI Docs: ${appUrl}/api/docs`);
   logger.log(`🌐 Public OAuth Callback URL: ${appUrl}/api/oauth2callback`);
-  logger.log(`🤖 Zalo Webhook endpoint: ${webhookUrl}`);
 }
 
 // Global Process Resilience Guards

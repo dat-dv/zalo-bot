@@ -5,31 +5,26 @@ metadata:
     type: documentation
     depends_on:
       - .agents/knowledge/global/zalo-command-intake.md
-      - apps/api/src/zalo/text/text-tool.factory.ts
-      - apps/api/src/zalo/input-processor.service.ts
+      - apps/api/src/zca/text/text-tool.factory.ts
+      - apps/api/src/zca/zca-bot-feature.service.ts
 ---
 
 # Nhận lệnh Zalo
 
 Hướng dẫn này ánh xạ trực tiếp với tri thức canonical [`zalo-command-intake.md`](../../knowledge/global/zalo-command-intake.md).
 
-## 1. Hai kênh nhận tin
+## 1. Kênh nhận tin: tài khoản Zalo cá nhân (ZCA, `zca-js`)
 
-### 1.1 Webhook Zalo Bot Platform
-- Endpoint: `POST /webhook`, kèm các alias `/zalo/webhook`, `/api/webhook`, `/api/zalo/webhook` (do `ZaloController` xử lý; các đường dẫn này nằm ngoài tiền tố `/api` chung). `GET` cùng đường dẫn dùng để Zalo kiểm tra webhook.
-- Nếu cấu hình `ZALO_WEBHOOK_SECRET_TOKEN`, header `X-Bot-Api-Secret-Token` phải khớp; sai thì bot trả `{ ok: false }` và bỏ qua sự kiện.
-- `ZaloMessageParser` chuẩn hoá payload thành `AgentInput` (text, ảnh, video, voice, sticker, sự kiện follow/unfollow...). Controller trả `{ ok: true }` ngay, phần xử lý chạy nền để Zalo không phải chờ.
-- `InputProcessor` kiểm tra theo thứ tự:
-  1. Bỏ qua tin không có người gửi hoặc do chính bot gửi.
-  2. `InitialAdminBootstrapGuard`: nếu hệ thống chưa có ai, người nhắn đầu tiên trở thành admin.
-  3. `GrantAccessGuard`: chỉ admin và người đã được cấp quyền mới dùng được bot.
-  4. Chống spam `UsersService.checkCooldown`: mỗi người phải cách nhau 2 giây (admin được miễn; đếm trong bộ nhớ tiến trình).
-  5. Phân loại: chữ → `TextInputService`; ảnh → luồng ảnh/hoá đơn; video → lưu lên Google; tin thoại → chỉ trả lời "đang phát triển" (chưa có tính năng chuyển giọng nói).
+Bot chỉ còn **một kênh** là tài khoản Zalo cá nhân của bot qua ZCA. Webhook Zalo Bot Platform chính thức (`/webhook`, `ZALO_BOT_TOKEN`) đã bị bỏ vì trùng tính năng với ZCA: ZCA vào được nhóm như người thật, thu hồi được tin nhắn, đọc được thả cảm xúc, còn bot chính thức thì không. Toàn bộ luồng xử lý chat nằm trong `apps/api/src/zca/`.
 
-### 1.2 Tài khoản Zalo cá nhân (ZCA, `zca-js`)
-- Admin đăng nhập bằng QR qua lệnh `/zlogin`. Bot khi đó tham gia nhóm như người thật.
+- Admin đăng nhập bằng QR trên trang `/zca` của dashboard (hoặc lệnh `/zlogin`). Bot khi đó tham gia nhóm như người thật.
 - Mỗi cuộc trò chuyện có cấu hình riêng trong bảng `zca_thread_configs`. Mặc định tương tác trực tiếp **tắt** (`enabled: false`) và **không có tiền tố** (`triggerPrefixes: []`). Trong nhóm, tin nhắn luôn phải @mention bot hoặc bắt đầu bằng một tiền tố mới tới được AI; chat riêng 1-1 thì tin chữ nào cũng được xử lý; ảnh không kèm chữ chỉ được lưu.
-- Kênh ZCA dùng `GrantAccessGuard` nhưng không áp dụng cooldown. Thả cảm xúc được chuyển cho `TransactionConfirmationService.handleReaction`.
+- Thứ tự kiểm tra:
+  1. `InitialAdminBootstrapGuard`: nếu hệ thống chưa có admin hay người được cấp quyền nào, người nhắn đầu tiên trở thành admin.
+  2. `GrantAccessGuard`: chỉ admin và người đã được cấp quyền mới dùng được bot.
+  3. Chống spam `UsersService.checkCooldown`: mỗi người phải cách nhau 2 giây (admin được miễn; đếm trong bộ nhớ tiến trình).
+  4. Chuyển cho `TextInputService`. Thả cảm xúc được chuyển cho `TransactionConfirmationService.handleReaction`.
+- Tin bot gửi đi qua `ZcaMessengerService` (chỉ dùng ZCA): câu trả lời dài hơn 1900 ký tự được chia thành nhiều tin cách nhau 300 ms, hiệu ứng "đang soạn tin" dùng `sendTypingEvent` của ZCA. Khi ZCA chưa đăng nhập thì bot không gửi được tin nào — lúc đó vào dashboard bằng `DASHBOARD_LOGIN_CODE` để quét lại QR (xem [Phiên dashboard](dashboard-session.md)).
 
 ## 2. Thứ tự xử lý trong `TextInputService`
 
@@ -65,7 +60,7 @@ Hướng dẫn này ánh xạ trực tiếp với tri thức canonical [`zalo-co
 | `/debts`, `/debt`, `/congo` | Các khoản nợ đang mở |
 | `/tasks`, `/task`, `/viec` | Danh sách Google Tasks; `/task <tiêu đề>` tạo việc **ngay, không qua xác nhận** |
 | `/reminders`, `/reminder`, `/nhacnho`, `/nhac` | Lời nhắc sắp tới |
-| `/dashboard`, `dashboard`, `mở dashboard`, `xem dashboard` | Link đăng nhập dashboard một lần, hạn 20 phút |
+| `/dashboard`, `dashboard`, `mở dashboard`, `xem dashboard` | Link đăng nhập dashboard một lần kèm mã 8 ký tự, hạn 20 phút |
 | `/users` | Admin — danh sách người dùng |
 | `/ban <id>` | Admin — tạo thẻ xác nhận khoá người dùng (không khoá được admin) |
 | `/drive`, `/storage`, `/kho`, `/folder`, `/album` | Link thư mục Drive / album Photos |

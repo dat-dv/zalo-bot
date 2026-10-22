@@ -39,7 +39,7 @@ Contracts: `IReminderListItem`, `IUpdateReminderRequest` (`@zalobot/contracts`).
 ## Scheduler (`ReminderSchedulerService`)
 
 - `@Cron(CronExpression.EVERY_30_SECONDS)`: `getDueReminders()` = `remindAt <= now` and `isTriggered = false`.
-- For each due reminder: format time in `Asia/Ho_Chi_Minh` with the user's `preferredLocale`, send `reminder.header.text` + title + time via `ZaloService.sendMessage(userId, text)`, then `markTriggered`.
+- For each due reminder: format time in `Asia/Ho_Chi_Minh` with the user's `preferredLocale`, send `reminder.header.text` + title + time via `ZcaMessengerService.sendMessage(userId, text)`, then `markTriggered`.
 - `markTriggered`: `daily` → `remindAt + 24h`, `weekly` → `remindAt + 7d` (stays pending); `none` → `isTriggered=true`, `status='completed'`, `completedAt`.
 - Known gap: `notifyType = 'call'` is stored and displayed, but the scheduler always sends a text message (no call path; `reminder.header.call` is unused).
 

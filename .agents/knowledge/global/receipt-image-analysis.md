@@ -19,7 +19,7 @@ metadata:
 
 ## Intake
 
-- Images from the official-bot webhook (`InputProcessor`) and ZCA go to `ImageBatchHandlerService`, which debounces per sender (1 s) and stores a pending image action (`receiptUrl`, `receiptUrls`) in memory and Redis with a 5-minute TTL (`PendingImageActionService`).
+- Images from ZCA go to `ImageBatchHandlerService`, which debounces per sender (1 s) and stores a pending image action (`receiptUrl`, `receiptUrls`) in memory and Redis with a 5-minute TTL (`PendingImageActionService`).
 - The bot then asks: `1` (or `1 <note>`, `tạo bill`) → create bill; `2` (or `lưu drive/ảnh/photo`) → store to Google Drive & Google Photos; `hủy`/`cancel`/`bỏ qua`/`không` → discard. Other messages continue as normal chat.
 
 ## Option 1 — Create Bill (`CreateBillPendingImageStrategy`)

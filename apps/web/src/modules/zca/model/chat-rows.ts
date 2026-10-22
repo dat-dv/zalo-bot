@@ -5,7 +5,7 @@ import type { ZcaThread } from '../api/zca-api';
  * One row of the unified "Zalo & Users" table.
  * - `group`: a ZCA group thread (listening only, groups are never users).
  * - `personal`: a ZCA 1-1 thread; `user` is set when the same id exists in `users`.
- * - `user-only`: a `users` row with no ZCA thread (webhook ids, non-friend group members).
+ * - `user-only`: a `users` row with no ZCA thread (legacy official-bot ids, `dashboard-owner`, non-friend group members).
  */
 export type ChatRowKind = 'group' | 'personal' | 'user-only';
 

@@ -8,11 +8,13 @@ metadata:
       - apps/api/src/reports/reports.controller.ts
       - apps/api/src/reports/dashboard-access-code.ts
       - apps/api/src/reports/access-code-rate-limiter.ts
+      - apps/api/src/users/users.service.ts
+      - apps/api/src/config/env.validator.ts
       - apps/api/src/reports/dto/dashboard-access-code.dto.ts
       - apps/api/src/database/entities/dashboard-exchange-token.entity.ts
       - apps/web/src/modules/auth/presentation/components/access-code-form.tsx
-      - apps/api/src/zalo/text/strategies/dashboard-tool.strategy.ts
-      - apps/api/src/zalo/text/text-tool.factory.ts
+      - apps/api/src/zca/text/strategies/dashboard-tool.strategy.ts
+      - apps/api/src/zca/text/text-tool.factory.ts
       - apps/web/src/modules/auth/client/auth-storage.ts
       - apps/web/src/shared/api/http-client.ts
       - apps/web/app/(private)
@@ -23,7 +25,7 @@ metadata:
 ## Bot Entry Link
 
 - Fast-path `DASHBOARD` matches `/dashboard`, `dashboard`, `mở dashboard`, `xem dashboard` (and these followed by more text); it never goes through the LLM.
-- `DashboardToolStrategy` calls `ReportsTokenService.issueExchangeToken`: 32 random bytes (base64url); only the SHA-256 hex hash is stored in `dashboard_exchange_tokens` with a 20-minute expiry. The bot replies with `<appUrl>/api/access?token=<token>`. Base URL resolution: a tunnel `ZALO_WEBHOOK_URL` (trycloudflare/ngrok/loca.lt) or `APP_URL` read from the project-root `.env`, then a tunnel `zalo.webhookUrl` from config, then config `appUrl`.
+- `DashboardToolStrategy` calls `ReportsTokenService.issueExchangeToken`: 32 random bytes (base64url); only the SHA-256 hex hash is stored in `dashboard_exchange_tokens` with a 20-minute expiry. The bot replies with `<appUrl>/api/access?token=<token>`. Base URL resolution: `APP_URL` read from the project-root `.env` (picks up a tunnel started after boot), then config `appUrl`.
 - The same row also stores `code_hash`: SHA-256 of an 8-character sign-in code (Crockford base32 `0-9A-Z` without `I L O U`, `DASHBOARD_ACCESS_CODE_ALPHABET` in contracts). The reply shows it as `XXXX-XXXX` on its own line under the link. `issueExchangeToken` returns `{ token, code }` and retries up to 3 times on a `code_hash` collision.
 - If token creation fails, the bot replies with an error message instead of a link.
 
@@ -34,6 +36,16 @@ metadata:
 - Redirect target: `${webOrigin}/dashboard#dashboard_token=<accessToken>`. `webOrigin` is `WEB_ORIGIN`, replaced by the request's `x-forwarded-host`/`host` (with forwarded proto) when that host is not localhost/`127.0.0.1`/`0.0.0.0`/`host.docker.internal`.
 - `POST /api/access/code` (`API_ROUTES.accessCode`, body `{ code }`, `DashboardAccessCodeDto`) is the sign-in path for the installed app (PWA): on iOS it has its own storage, so the link opened from Zalo never signs it in. The code is normalized (uppercase, spaces/dashes dropped) and validated before hashing; consumption uses the same atomic `UPDATE` as the link and shares `consumed_at`, so using either the link or the code spends both. Success: access + refresh issued like `/api/access`, refresh cookie set, `200 { data: { accessToken, expiresAt } }`. Wrong/expired/used code: JSON `401`.
 - Code attempts are rate limited by `AccessCodeRateLimiter`: 10 per client per 15 minutes and 200 across all clients per 15 minutes, else `429`. Client key: `cf-connecting-ip`, then `x-real-ip`, then `req.ip` (Express has no `trust proxy`). Counters live in Redis (`RedisService.incrWithTtl`, key `dashboard:access-code:attempts:<scope>`) and fall back to in-process counters when Redis is down. The overall cap exists because client IP headers can be forged.
+
+## Fixed Sign-In Code (`DASHBOARD_LOGIN_CODE`)
+
+- Why: with the official Zalo Bot removed, the only other way in is `/dashboard` over ZCA, which needs ZCA logged in — but re-scanning the ZCA QR needs the dashboard. A fixed env code breaks that loop and also covers a fresh install (no admin yet).
+- Optional env `DASHBOARD_LOGIN_CODE` (config `reports.dashboardLoginCode`), same format as one-time codes (8 chars of `DASHBOARD_ACCESS_CODE_ALPHABET`; case, spaces, dashes ignored). A set but malformed value fails env validation at boot. Empty = feature off.
+- `POST /api/access/code` runs the rate limiter first (shared with one-time codes), then `ReportsTokenService.matchesStaticLoginCode` (SHA-256 of both normalized codes, `timingSafeEqual`). Match -> `UsersService.ensureDashboardOwner()` -> session for `users.id = 'dashboard-owner'` (`DASHBOARD_OWNER_USER_ID`); no match -> one-time code flow.
+- `ensureDashboardOwner` creates the owner (`firstName` "Chủ hệ thống") or re-promotes it to `ADMIN` + `GRANTED` on every use, so a ban/demotion on the dashboard cannot lock the env holder out; a renamed owner keeps its name.
+- The code never expires and is not consumed. Every use logs `warn` "Dashboard sign-in with DASHBOARD_LOGIN_CODE from <ip>" (never the code). Rotate = change env + restart.
+- Records created on the dashboard by the owner show "Chủ hệ thống" as creator. Once the owner exists, `InitialAdminBootstrapGuard` no longer promotes the first Zalo chatter; grant access from `/zca`.
+
 - `POST /api/refresh` rotates the refresh cookie and returns `{ data: { accessToken, expiresAt } }`. `POST /api/logout` clears the cookie (`204`).
 
 ## Web Side

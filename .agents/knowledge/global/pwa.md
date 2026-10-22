@@ -40,7 +40,7 @@ The dashboard can be installed on the phone home screen and opened full screen l
 
 - Hand-written plain JS, no build step or library. Registered as `/sw.js?v=<NEXT_PUBLIC_APP_VERSION>`; `NEXT_PUBLIC_APP_VERSION` is `apps/web/package.json` `version`, injected by `next.config.ts` (`env`), bumped on every commit. A new version installs a new worker; caches are named `zalobot-{shell|pages|assets}-<version>` and old `zalobot-*` caches are deleted on `activate`.
 - Install precaches `/offline.html`, the manifest and icons.
-- Not intercepted (always network): non-GET, other origins, `/api/`, `/webhook`, `/zalo/`, `/oauth2callback`. Finance data is never cached; the sign-in link and OAuth redirects reach the server untouched.
+- Not intercepted (always network): non-GET, other origins, `/api/`, `/oauth2callback`. Finance data is never cached; the sign-in link and OAuth redirects reach the server untouched.
 - Navigations: network first; a successful response is stored per URL; offline falls back to that URL's copy (also ignoring the query string), then `/offline.html`.
 - `/_next/static/*`: cache first (hashed, immutable). Same-origin images/icons/fonts: stale-while-revalidate.
 - The worker never calls `skipWaiting` on its own; it waits for a `{ type: 'SKIP_WAITING' }` message from the page.

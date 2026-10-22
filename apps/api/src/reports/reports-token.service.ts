@@ -65,6 +65,18 @@ export class ReportsTokenService {
     return this.consumeExchange('token_hash', this.hashExchangeToken(token));
   }
 
+  /**
+   * True when `code` is the fixed `DASHBOARD_LOGIN_CODE`. Compares fixed-length hashes in constant
+   * time; the caller must apply the sign-in rate limit first.
+   */
+  public matchesStaticLoginCode(code: string): boolean {
+    const configured = this.config.get<string>('reports.dashboardLoginCode');
+    const expected = configured ? hashDashboardAccessCode(configured) : null;
+    const actual = hashDashboardAccessCode(code);
+    if (!expected || !actual) return false;
+    return timingSafeEqual(Buffer.from(actual, 'hex'), Buffer.from(expected, 'hex'));
+  }
+
   /** Same one-time rules as the link: using either the code or the link spends both. */
   public async consumeExchangeCode(code: string): Promise<string | number> {
     const codeHash = hashDashboardAccessCode(code);

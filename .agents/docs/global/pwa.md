@@ -44,7 +44,7 @@ Push notification **không** làm, vì lời nhắc đã gửi qua Zalo.
 - **Trang (HTML)**: luôn lấy từ mạng trước và lưu bản mới nhất. Mất mạng thì mở bản đã lưu của trang đó; chưa có thì hiện `offline.html`.
 - **`/_next/static/*`**: file đã có hash, không bao giờ đổi, nên lấy từ cache trước.
 - **Ảnh, icon, font**: trả bản trong cache ngay, đồng thời tải bản mới ở nền.
-- **Không bao giờ đụng tới**: `/api/*`, `/webhook`, `/zalo/`, `/oauth2callback`, request khác `GET` và request sang domain khác.
+- **Không bao giờ đụng tới**: `/api/*`, `/oauth2callback`, request khác `GET` và request sang domain khác.
   - Lý do: dữ liệu tài chính phải luôn lấy từ server, và link đăng nhập `/api/access` cùng luồng OAuth phải tới server nguyên vẹn.
 
 ## Cập nhật phiên bản hoạt động thế nào

@@ -12,10 +12,7 @@ export interface AppConfig {
     url?: string;
   };
   zalo: {
-    botToken: string;
     botName: string;
-    webhookUrl: string;
-    secretToken?: string;
   };
   zca: {
     dataDir?: string;
@@ -38,6 +35,8 @@ export interface AppConfig {
   reports: {
     dashboardAccessTokenSecret: string;
     dashboardRefreshTokenSecret: string;
+    /** Fixed sign-in code (`DASHBOARD_LOGIN_CODE`); signs in as the `dashboard-owner` admin. */
+    dashboardLoginCode?: string;
   };
   security: { encryptionKey: string };
   deploy: { notifyToken?: string };
@@ -111,10 +110,7 @@ export default (): AppConfig => {
     },
     redis: { url: readOptionalEnv('REDIS_URL') },
     zalo: {
-      botToken: readEnv('ZALO_BOT_TOKEN'),
       botName: readEnv('BOT_NAME', 'Bot'),
-      webhookUrl: readEnv('ZALO_WEBHOOK_URL', `${appUrl}/webhook`),
-      secretToken: readOptionalEnv('ZALO_WEBHOOK_SECRET_TOKEN'),
     },
     zca: {
       dataDir: readEnv('DATA_DIR', './data'),
@@ -137,6 +133,7 @@ export default (): AppConfig => {
     reports: {
       dashboardAccessTokenSecret: readEnv('DASHBOARD_ACCESS_TOKEN_SECRET'),
       dashboardRefreshTokenSecret: readEnv('DASHBOARD_REFRESH_TOKEN_SECRET'),
+      dashboardLoginCode: readOptionalEnv('DASHBOARD_LOGIN_CODE'),
     },
     security: { encryptionKey: readEnv('DATA_ENCRYPTION_KEY', '0'.repeat(64)) },
     deploy: { notifyToken: readOptionalEnv('DEPLOY_NOTIFY_TOKEN') },

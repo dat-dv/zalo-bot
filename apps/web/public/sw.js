@@ -26,7 +26,7 @@ const SHELL_URLS = [
   '/icon-maskable-512.png',
   '/favicon.svg',
 ];
-const BACKEND_PREFIXES = ['/api/', '/webhook', '/zalo/', '/oauth2callback'];
+const BACKEND_PREFIXES = ['/api/', '/oauth2callback'];
 const STATIC_ASSET = /\.(?:png|jpe?g|gif|svg|ico|webp|avif|woff2?)$/i;
 
 self.addEventListener('install', (event) => {

@@ -1,6 +1,6 @@
 {
   "name": "@zalobot/api",
-  "version": "1.0.143",
+  "version": "1.0.144",
   "description": "Personal Assistant Zalo Bot with NestJS and Google Workspace",
   "author": "",
   "private": true,
@@ -21,10 +21,6 @@
     "auth": "tsx scripts/auth.ts",
     "zca:login": "tsx scripts/zca-login.ts",
     "users:cleanup-groups": "tsx scripts/cleanup-group-users.ts",
-    "zalo:webhook:status": "tsx scripts/zalo-webhook.ts status",
-    "zalo:webhook:set": "tsx scripts/zalo-webhook.ts set",
-    "zalo:webhook:test": "tsx scripts/zalo-webhook.ts test",
-    "zalo:webhook:delete": "tsx scripts/zalo-webhook.ts delete",
     "typeorm": "ts-node --project tsconfig.json -r tsconfig-paths/register ../../node_modules/typeorm/cli.js",
     "migration:run": "npm run typeorm -- -d src/database/data-source.ts migration:run",
     "migration:revert": "npm run typeorm -- -d src/database/data-source.ts migration:revert",

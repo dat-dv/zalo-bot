@@ -1,40 +1,58 @@
-# 💬 Giao Diện Zalo Bot & Hệ Thống Đa Người Dùng (Multi-User, Webhook & ZCA Personal Account)
+# 💬 Giao Diện Zalo Bot & Hệ Thống Đa Người Dùng (ZCA Personal Account)
 
-Tài liệu này giải thích chi tiết kiến trúc tầng giao tiếp Zalo Bot (`ZaloModule` & `ZcaModule`), quy trình nhận và xử lý sự kiện qua Webhook & ZCA Personal Account, hệ thống xác nhận tương tác đa chiều (thả biểu cảm ❤️/😡, mã 3 số, tự động thu hồi tin nhắn), tích hợp Google Drive theo từng kênh, và trí tuệ nhân tạo (LLM Function Calling).
+Tài liệu này giải thích tầng giao tiếp Zalo của bot (`ZcaModule`): cách chạy bot qua tài khoản Zalo cá nhân (ZCA), cách đăng nhập dashboard, hệ thống xác nhận tương tác đa chiều (thả biểu cảm ❤️/😡, mã 3 số, tự động thu hồi tin nhắn), tích hợp Google Drive theo từng kênh, và trí tuệ nhân tạo (LLM Function Calling).
 
----
-
-## 1. Kiến Trúc Hai Kênh Tiếp Nhận (Dual-Channel Architecture)
-
-Hệ thống hỗ trợ đồng thời 2 kênh giao tiếp:
-1. **Zalo Bot Platform API (`ZaloModule`)**: Nhận sự kiện qua Webhook HTTP POST (`https://bot-api.zaloplatforms.com/bot<token>`).
-2. **ZCA Personal Account (`ZcaModule` - `zca-js`)**: Hoạt động như tài khoản cá nhân thông qua WebSocket, lắng nghe tin nhắn trực tiếp và nhóm chat, quét mã QR đăng nhập và hỗ trợ thả biểu cảm (Reactions), thu hồi tin nhắn (`undo`).
-
-### Các thành phần chính:
-- **Module**: `apps/api/src/zalo/zalo.module.ts` & `apps/api/src/zca/zca.module.ts`
-- **Controller**: `apps/api/src/zalo/zalo.controller.ts` (Webhook GET/POST) & `apps/api/src/zca/zca.controller.ts` (ZCA Status, QR, Threads)
-- **Message Parser**: `apps/api/src/zalo/zalo-message-parser.service.ts`
-- **Input Processor**: `apps/api/src/zalo/input-processor.service.ts` (Whitelist, Anti-spam cooldown 2s, Auto-upsert user)
-- **ZCA Service**: `apps/api/src/zca/zca.service.ts` (Khởi tạo ZCA client, bắt WebSocket echo, tự động map `msgId <-> cliMsgId` vào Redis `zca:msg:cli:*`, điều phối `undo` thu hồi tin nhắn và fallback `deleteMessage(onlyMe: true)`)
-- **ZCA Bot Feature Service**: `apps/api/src/zca/zca-bot-feature.service.ts` (Lắng nghe tin nhắn ZCA, phát hiện trigger prefix `@bot`, trích xuất `cMsgID` từ reaction ❤️/😡)
-- **Confirmation Service**: `apps/api/src/zalo/transaction-confirmation.service.ts` (Quản lý vòng đời xác nhận 3 số, timeout 5 phút, lưu trữ tin nhắn tạm thời `pending:tx:temp:*` và `pending:tx:chat-temp:*` vào Redis, thu hồi sạch sẽ toàn bộ thẻ & tin nhắn trung gian để chỉ để lại thông điệp cuối cùng)
-- **Outbound Service**: `apps/api/src/zalo/zalo.service.ts` (Gửi tin nhắn, thu hồi tin nhắn `undoMessage`, xóa tin nhắn `deleteMessage`)
+> Kênh Zalo Bot Platform cũ (webhook `/webhook`, `ZALO_BOT_TOKEN`) đã bị gỡ bỏ. Bot hiện chỉ nói chuyện với Zalo qua ZCA.
 
 ---
 
-## 2. Luồng Xử Lý Sự Kiện Webhook & ZCA
+## 1. Kênh Giao Tiếp Duy Nhất: ZCA (Tài Khoản Zalo Cá Nhân)
+
+Bot hoạt động như một tài khoản Zalo cá nhân thông qua thư viện `zca-js` (WebSocket): lắng nghe tin nhắn trực tiếp và nhóm chat, hỗ trợ thả biểu cảm (Reactions) và thu hồi tin nhắn (`undo`). ZCA tự kết nối ra ngoài nên bot không cần URL public để nhận tin nhắn.
+
+### 1.1 Chạy bot lần đầu
+
+1. Khởi động API + Web (`npm run dev`, Docker hoặc Coolify) với `DASHBOARD_LOGIN_CODE` đã đặt trong `.env`.
+2. Đăng nhập dashboard bằng mã đó (xem mục 1.2) — trên bản cài mới chưa ai chat được với bot nên đây là đường vào đầu tiên.
+3. Mở trang **`/zca`** (Zalo & Users) ➔ đăng nhập ZCA ➔ quét mã QR bằng app Zalo của tài khoản sẽ làm bot. Phiên đăng nhập được lưu trong Redis (`zca:session`).
+4. Trong danh sách kênh (thread) của trang `/zca`, bật **listen** cho các chat riêng/nhóm mà bot cần nghe; mở `/zca/thread?id=<threadId>` để cấu hình từng kênh (bắt buộc `@bot`, sao lưu media, trí nhớ hội thoại...).
+5. Khi phiên ZCA còn sống, admin cũng có thể khởi tạo lại đăng nhập QR ngay trong chat bằng `/zalo-login`.
+
+### 1.2 Đăng nhập Dashboard
+
+- **Lệnh chat `/dashboard`**: bot gửi link đăng nhập một lần kèm mã 8 ký tự, hiệu lực 20 phút (cần phiên ZCA đang chạy).
+- **Mã cố định `DASHBOARD_LOGIN_CODE`** (tuỳ chọn): ví dụ `HRYJ-ZP2T` — 8 ký tự từ `0-9` và `A-Z` trừ `I L O U`, bỏ qua dấu gạch và hoa/thường; giá trị sai định dạng làm API dừng ngay khi khởi động. Nhập mã vào form mã đăng nhập của dashboard (`POST /api/access/code`) sẽ đăng nhập thành admin dành riêng `users.id = 'dashboard-owner'` (tên "Chủ hệ thống"), được tạo mới/nâng lại quyền admin mỗi lần dùng.
+  - Mã **không hết hạn**: đừng commit mã thật; đổi mã = sửa env và restart. Mỗi lần dùng đều ghi log cảnh báo kèm IP.
+  - Giới hạn thử sai giống mã một lần: 10 lần/IP và 200 lần toàn hệ thống mỗi 15 phút (Redis, fallback trong tiến trình) ➔ HTTP 429.
+  - Đây là đường vào dashboard khi cài mới hoặc khi phiên ZCA hết hạn (không dùng được `/dashboard`).
+- **Admin đầu tiên qua chat**: người đầu tiên chat với bot chỉ tự thành admin khi hệ thống chưa có admin/người dùng được cấp quyền nào; khi `dashboard-owner` đã tồn tại thì cơ chế này không kích hoạt.
+- **ID cũ từ webhook**: các bản ghi `users` có ID 20 ký tự hex (từ kênh Zalo Bot Platform cũ) vẫn được giữ; admin có thể gộp chúng vào UID ZCA tương ứng bằng tính năng Gộp tài khoản.
+
+### 1.3 Các thành phần chính (`apps/api/src/zca/`)
+- **Module**: `zca.module.ts` (`ZaloModule` cũ đã gộp vào đây)
+- **Controller**: `zca.controller.ts` (ZCA Status, QR, Threads, Configs)
+- **ZCA Service**: `zca.service.ts` (Khởi tạo ZCA client, bắt WebSocket echo, tự động map `msgId <-> cliMsgId` vào Redis `zca:msg:cli:*`, điều phối `undo` thu hồi tin nhắn và fallback `deleteMessage(onlyMe: true)`)
+- **ZCA Bot Feature Service**: `zca-bot-feature.service.ts` (Lắng nghe tin nhắn ZCA, phát hiện trigger prefix `@bot`, chống spam cooldown, trích xuất `cMsgID` từ reaction ❤️/😡)
+- **Guards**: `guards/` (Whitelist `grantAccess`, bootstrap admin đầu tiên)
+- **Text Pipeline**: `text/` (`TextInputService`, `TextToolFactory` và các tool strategy)
+- **Confirmation Service**: `confirmation/transaction-confirmation.service.ts` (Quản lý vòng đời xác nhận 3 số, timeout 5 phút, lưu trữ tin nhắn tạm thời `pending:tx:temp:*` và `pending:tx:chat-temp:*` vào Redis, thu hồi sạch sẽ toàn bộ thẻ & tin nhắn trung gian để chỉ để lại thông điệp cuối cùng)
+- **Outbound Service**: `zca-messenger.service.ts` — `ZcaMessengerService` (trước là `ZaloService`): gửi tin nhắn qua ZCA, tự tách câu trả lời dài hơn 1900 ký tự, hiện trạng thái "đang soạn tin" bằng `sendTypingEvent`, thu hồi `undoMessage`, xóa `deleteMessage`
+
+---
+
+## 2. Luồng Xử Lý Sự Kiện ZCA
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor User as Người dùng Zalo
-    participant ZCA as ZCA WebSocket / Webhook
+    participant ZCA as ZCA WebSocket
     participant ZcaFeature as ZcaBotFeatureService
     participant Confirmation as TransactionConfirmationService
     participant Redis as Redis Cache
     participant TextService as TextInputService
     participant LLM as LlmService (Gemini/OpenAI/Qwen)
-    participant Outbound as ZaloService (sendMessage/undo)
+    participant Outbound as ZcaMessengerService (sendMessage/undo)
 
     User->>ZCA: Nhắn tin / Thả reaction
     alt Sự kiện Reaction (❤️ hoặc 😡)
@@ -215,37 +233,28 @@ Ngoài việc gõ lệnh tắt, người dùng có thể trò chuyện tự nhi�
 
 ## 7. Bảo Mật & Phòng Chống Gian Lận
 
-1. **Xác thực Secret Token**: Webhook endpoint kiểm tra header `X-Bot-Api-Secret-Token` (cấu hình qua `ZALO_WEBHOOK_SECRET_TOKEN`) để chống giả mạo request từ bên ngoài.
+1. **Chỉ nghe kênh được bật**: Bot chỉ xử lý tin nhắn từ các thread ZCA mà admin đã bật listen trên trang `/zca`.
 2. **Whitelist Protection**: Những người dùng chưa được admin cấp quyền (`grantAccess`) hoặc chưa kích hoạt mã mời sẽ bị từ chối truy cập.
 3. **Chống Spam (Cooldown 2s)**: Người dùng thông thường gửi tin nhắn liên tục dưới 2 giây sẽ nhận thông báo chờ, bảo vệ tài nguyên hệ thống và hạn mức API.
-4. **Cô Lập Dữ Liệu Tuyệt Đối (Multi-Tenant Isolation)**: Mỗi người dùng có một không gian dữ liệu riêng trong PostgreSQL, token Google được mã hóa bằng AES-256 (`DATA_ENCRYPTION_KEY`).
+4. **Mã đăng nhập dashboard**: `DASHBOARD_LOGIN_CODE` và mã một lần đều bị giới hạn thử sai (10 lần/IP, 200 lần toàn hệ thống mỗi 15 phút); mỗi lần dùng mã cố định đều được ghi log kèm IP.
+5. **Cô Lập Dữ Liệu Tuyệt Đối (Multi-Tenant Isolation)**: Mỗi người dùng có một không gian dữ liệu riêng trong PostgreSQL, token Google được mã hóa bằng AES-256 (`DATA_ENCRYPTION_KEY`).
 
 ---
 
-## 8. Quản Trị Webhook & Tự Động Hóa Tunnel
+## 8. Cloudflare Tunnel Khi Phát Triển Local
 
-Dự án cung cấp bộ công cụ tự động hóa toàn diện qua các npm scripts:
+Bot nhận tin nhắn qua ZCA nên không cần tunnel để chat. Tunnel chỉ dùng khi muốn mở dashboard hoặc Google OAuth callback từ bên ngoài máy local:
 
 ```bash
-# Khởi động Cloudflare Tunnel và tự động đăng ký Webhook với Zalo Bot Platform:
-npm run tunnel
+# Khởi động Cloudflare Tunnel và tự cập nhật APP_URL trong .env (chế độ gateway):
+npm run tunnel        # hoặc: npm run zalo:tunnel
 
 # Chạy tunnel ở chế độ nền (daemon):
 npm run tunnel:bg
 
 # Dừng tunnel:
 npm run tunnel:stop
-
-# Kiểm tra trạng thái cấu hình Webhook hiện tại trên máy chủ Zalo:
-npm run zalo:webhook:status
-
-# Đăng ký Webhook URL thủ công:
-npm run zalo:webhook:set
-
-# Kiểm tra kết nối từ Zalo tới Webhook endpoint:
-npm run zalo:webhook:test
-
-# Xóa cấu hình Webhook trên Zalo:
-npm run zalo:webhook:delete
 ```
+
+Script coi tunnel đã thông khi gọi được `/api/docs` qua URL public.
 

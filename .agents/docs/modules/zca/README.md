@@ -16,7 +16,7 @@ metadata:
       - .agents/docs/modules/zca/chat-memory.md
       - .agents/docs/modules/zca/directory-cache.md
       - apps/api/src/zca/zca-directory-cache.ts
-      - apps/api/src/zalo/text/text-tool.definitions.ts
+      - apps/api/src/zca/text/text-tool.definitions.ts
       - apps/api/src/google/google-resources.controller.ts
       - apps/api/src/dashboard-auth/dashboard-user.ts
       - apps/web/src/modules/zca/view/zca-screen.tsx
@@ -102,7 +102,7 @@ Sau đó tin nhắn rơi vào một trong các luồng:
 - Tốn request: mỗi tin "ok", "haha", "chờ xíu" cũng là một lần gọi Gemini, dù gần như không bao giờ ra tool nào. Nhóm sôi nổi có thể chạm giới hạn rate limit, khiến cả lệnh `@bot` thật cũng lỗi.
 - Ghi nhầm: người dùng kể chuyện ("chủ nhật rồi mua đồ bơi 300k") mà không định ghi sổ, bot vẫn tạo thẻ xác nhận.
 
-Giờ nguyên tắc là **người dùng chủ động gọi thì bot mới làm việc**. Ngoại lệ duy nhất là chat riêng 1-1 với tài khoản bot (nhắn riêng cho bot đã là gọi bot) và Zalo Bot chính thức qua webhook (`apps/api/src/zalo/input-processor.service.ts`), vốn là kênh riêng nên không chặn theo mention.
+Giờ nguyên tắc là **người dùng chủ động gọi thì bot mới làm việc**. Ngoại lệ duy nhất là chat riêng 1-1 với tài khoản bot (nhắn riêng cho bot đã là gọi bot).
 
 **Ảnh và video ở L1**:
 - **Trả lời trích dẫn (quote) một ảnh/video kèm `@bot`**: nếu câu lệnh là yêu cầu lưu (ví dụ "@bot lưu ảnh này lên drive") thì tải lên Drive/Photos; nếu không thì **bắt buộc OCR ảnh** để làm ngữ cảnh rồi mới chuyển cho AI. Ví dụ quote ảnh thực đơn quán rồi gõ "@bot tạo lịch hẹn chiều nay" → AI đọc được tên quán, địa chỉ trong ảnh để điền vào sự kiện.
@@ -169,7 +169,7 @@ Bật lắng nghe **không** tự cấp quyền, và ngược lại. Ví dụ: b
 
 - **Nhóm**: chỉ có cột Lắng nghe. Quyền được cấp cho từng người, không cấp cho nhóm.
 - **Cá nhân**: bạn bè ZCA. Nếu người này chưa có trong `users`, cột quyền hiện "Chưa cấp". Bấm **Cấp quyền** thì backend tự tạo bản ghi `users`.
-- **Người dùng**: có trong `users` nhưng không có trong danh bạ ZCA, ví dụ ID của Zalo Bot chính thức (hex 20 ký tự) hoặc thành viên nhóm chưa kết bạn. Các dòng này vẫn hiện khi chưa đăng nhập ZCA, nên admin luôn duyệt được người mới.
+- **Người dùng**: có trong `users` nhưng không có trong danh bạ ZCA, ví dụ ID cũ từ Zalo Bot chính thức đã bỏ (hex 20 ký tự), tài khoản `dashboard-owner` (đăng nhập bằng `DASHBOARD_LOGIN_CODE`) hoặc thành viên nhóm chưa kết bạn. Các dòng này vẫn hiện khi chưa đăng nhập ZCA, nên admin luôn duyệt được người mới.
 
 Logic ghép dòng là hàm thuần trong `model/chat-rows.ts`, có unit test ở `chat-rows.spec.ts`. "Chờ duyệt" tương ứng `grantAccess = 0` trong DB.
 

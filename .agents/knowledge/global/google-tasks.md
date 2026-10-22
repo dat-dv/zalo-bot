@@ -4,10 +4,10 @@ metadata:
     id: global-google-tasks-knowledge
     type: documentation
     depends_on:
-      - apps/api/src/zalo/text/text-tool.definitions.ts
-      - apps/api/src/zalo/text/strategies/create-task-tool.strategy.ts
-      - apps/api/src/zalo/text/strategies/tasks-quick-tool.strategy.ts
-      - apps/api/src/zalo/text/text-tool.factory.ts
+      - apps/api/src/zca/text/text-tool.definitions.ts
+      - apps/api/src/zca/text/strategies/create-task-tool.strategy.ts
+      - apps/api/src/zca/text/strategies/tasks-quick-tool.strategy.ts
+      - apps/api/src/zca/text/text-tool.factory.ts
       - apps/api/src/google/google-tasks.service.ts
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
 ---

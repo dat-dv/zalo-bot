@@ -17,7 +17,7 @@ Hướng dẫn này ánh xạ trực tiếp với tri thức canonical [`zalo-re
 
 - Mọi phản hồi của bot là **văn bản thuần**. Zalo không có nút bấm hay bàn phím inline như các nền tảng khác, nên mọi thao tác tiếp theo đều là **gõ lệnh** (`yes 629`, `/today`...) hoặc **thả cảm xúc**.
 - Bố cục: một dòng tiêu đề ngắn có emoji, sau đó các dòng `• Nhãn: giá trị`. Giữ gọn để đọc tốt trên điện thoại. Riêng tin **đã xác nhận thành công** dùng dạng gọn 1–2 dòng (mục 2.1).
-- Gửi tin qua `ZaloService`: nếu có token Bot Platform, tin dài được cắt thành đoạn 1900 ký tự (cách nhau 300 ms); nếu Bot API lỗi mà ZCA đang đăng nhập thì gửi lại qua ZCA. Không có token thì gửi thẳng qua ZCA. Kết quả trả về `msgId`/`cliMsgId` để có thể thu hồi về sau.
+- Gửi tin qua `ZcaMessengerService` (chỉ dùng ZCA): tin dài được cắt thành đoạn 1900 ký tự, gửi cách nhau 300 ms. ZCA chưa đăng nhập hoặc gửi lỗi thì trả `success: false`, không ném lỗi. Kết quả trả về `msgId`/`cliMsgId` của đoạn cuối để có thể thu hồi về sau. Trong lúc bot đang xử lý, `withChatAction` gửi hiệu ứng "đang soạn tin" của ZCA mỗi 4 giây.
 
 ## 2. Thẻ xác nhận 3 số
 
@@ -43,7 +43,7 @@ Mọi thao tác nhạy cảm (ghi/xoá thu chi, ghi nợ, tạo nơi chốn, l�
 Cách duyệt:
 - **Gõ lệnh:** `yes <mã>`, `cancel <mã>`, `edit <mã> <nội dung>`, `yes all`, `cancel all` (chấp nhận cả `xác nhận`, `hủy`, `bỏ qua`, `sửa`...). Không ghi mã thì `yes` lấy thẻ cũ nhất, `cancel`/`edit` lấy thẻ mới nhất của người gửi.
 - **Thả cảm xúc (ZCA):** ❤️ cộng một lượt tim, đủ số tim yêu cầu thì duyệt; 😡 huỷ ngay.
-- **Số tim cần duyệt** lấy từ cấu hình kênh `confirmationRules.requiredHearts` (nhóm mặc định 5, cá nhân 1) tại thời điểm tạo thẻ; thẻ ghi rõ "Thả tim (❤️) N lần". Chat chưa có cấu hình lưu sẵn (ví dụ bot webhook chính thức) chỉ cần 1 tim, và việc tra cứu không tự tạo cấu hình mới. Mục đích: trong nhóm, một người không thể tự duyệt thao tác nhạy cảm bằng một tim.
+- **Số tim cần duyệt** lấy từ cấu hình kênh `confirmationRules.requiredHearts` (nhóm mặc định 5, cá nhân 1) tại thời điểm tạo thẻ; thẻ ghi rõ "Thả tim (❤️) N lần". Chat chưa có cấu hình lưu sẵn chỉ cần 1 tim, và việc tra cứu không tự tạo cấu hình mới. Mục đích: trong nhóm, một người không thể tự duyệt thao tác nhạy cảm bằng một tim.
 - Người gửi được duyệt/huỷ/sửa khi là chủ thẻ hoặc đang nhắn trong đúng cuộc trò chuyện chứa thẻ.
 
 ### 2.1. Tin xác nhận thành công (dạng gọn)

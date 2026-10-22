@@ -9,9 +9,7 @@ Tài liệu này mô tả chi tiết kiến trúc tổng thể, luồng dữ li�
 Dự án được tổ chức dưới dạng **npm workspaces monorepo**. Backend là **Modular Monolith NestJS** tại `apps/api`, giao diện quản trị Next.js Static Export tại `apps/web`, và các hợp đồng dùng chung tại `packages/contracts`. Backend hỗ trợ **Kiến trúc Đa Người Dùng (Multi-Tenant Isolation)** với **PostgreSQL (TypeORM)** và **Redis**:
 
 1. **Người dùng Zalo**: Gửi yêu cầu qua ngôn ngữ tự nhiên tiếng Việt, các lệnh tắt (Slash Commands), hoặc thả biểu cảm (Reactions ❤️/😡) trên nhóm và tin nhắn cá nhân.
-2. **Kênh tiếp nhận kép (Dual-Channel Ingress)**:
-   - **Zalo Webhook (`ZaloController`)**: Tiếp nhận sự kiện từ Zalo Bot Platform API.
-   - **ZCA Service (`ZcaModule`)**: Kết nối tài khoản cá nhân Zalo (`zca-js`), quét mã QR đăng nhập, lắng nghe tin nhắn & reactions, tự động thu hồi tin nhắn (`undo`).
+2. **Kênh tiếp nhận duy nhất: ZCA (`ZcaModule`)**: Kết nối tài khoản cá nhân Zalo của bot (`zca-js`), đăng nhập bằng mã QR trên trang `/zca` của dashboard, lắng nghe tin nhắn & reactions của các thread được bật listen, tự động thu hồi tin nhắn (`undo`). Kênh webhook Zalo Bot Platform cũ đã bị gỡ bỏ.
 3. **Tầng Xác nhận & Thu hồi tin nhắn (`TransactionConfirmationService`)**:
    - Quản lý vòng đời xác nhận 3 chữ số, hạn giờ 5 phút, thả tim/phẫn nộ.
    - Tự động thu hồi thẻ xác nhận cũ (`undoMessage`), dọn dẹp Redis, và gửi 1 tin nhắn kết quả DTO hợp nhất.
@@ -19,15 +17,11 @@ Dự án được tổ chức dưới dạng **npm workspaces monorepo**. Backen
 
 ```mermaid
 graph TD
-    User([Người dùng Zalo]) <-->|Webhook Event / Bot Message| ZL[Zalo Webhook Controller]
-    User <-->|WebSocket Message & Reaction| ZCA[ZCA Service: zca-js]
+    User([Người dùng Zalo]) <-->|WebSocket Message & Reaction| ZCA[ZCA Service: zca-js]
 
-    ZL --> Parser[ZaloMessageParser]
-    Parser --> Processor[InputProcessor]
     ZCA --> ZcaFeature[ZcaBotFeatureService]
 
-    Processor -->|Auth & Cooldown| Guard{Được phép?}
-    ZcaFeature -->|Thread Config & Prefix| Guard
+    ZcaFeature -->|Thread Config, Prefix, Auth & Cooldown| Guard{Được phép?}
 
     Guard -- No --> Reject[Từ chối / Chờ cooldown]
     Guard -- Yes --> TextService[TextInputService]
@@ -35,7 +29,7 @@ graph TD
 
     TextService -->|Fast Path / LLM| Factory[TextToolFactory & Strategies]
     Factory --> ConfirmService
-    ConfirmService --> Outbound[ZaloService: Send & Undo Message]
+    ConfirmService --> Outbound[ZcaMessengerService: Send & Undo Message]
     Outbound --> User
 
     Factory <--> Google[Google Workspace: Calendar, Tasks, Drive]
@@ -82,23 +76,19 @@ apps/api/src/
 │   ├── users.service.ts            # TypeORM Repositories, Whitelist, Cooldown
 │   └── users.module.ts
 │
-├── zalo/                           # TẦNG GIAO TIẾP ZALO BOT PLATFORM
-│   ├── zalo.controller.ts          # Webhook endpoint nhận GET verify & POST events
-│   ├── zalo-message-parser.service.ts # Chuẩn hóa payload sự kiện Zalo
-│   ├── input-processor.service.ts  # Whitelist, Cooldown 2s, Event Dispatcher
-│   ├── transaction-confirmation.service.ts # Quản lý xác nhận 3 số, timeout, thu hồi tin nhắn
+├── zca/                            # TẦNG GIAO TIẾP ZALO (ZCA - zca-js, kênh duy nhất)
+│   ├── zca.controller.ts           # REST API: Status, QR login, Threads, Configs
+│   ├── zca.service.ts              # Quản lý WebSocket zca-js, QR terminal & web, undo
+│   ├── zca-bot-feature.service.ts  # Lắng nghe tin nhắn, phát hiện @bot, cooldown, xử lý tim/phẫn nộ
+│   ├── zca-messenger.service.ts    # Outbound (ZcaMessengerService): sendMessage, tách tin >1900 ký tự, typing, undoMessage
+│   ├── thread-config.service.ts    # Cấu hình per-thread (tắt/bật bot, mention, media backup)
+│   ├── guards/                     # Whitelist & bootstrap admin đầu tiên
+│   ├── confirmation/
+│   │   └── transaction-confirmation.service.ts # Quản lý xác nhận 3 số, timeout, thu hồi tin nhắn
 │   ├── text/
 │   │   ├── text-input.service.ts   # Fast-path Router & LLM Tool Calling
 │   │   ├── text-tool.factory.ts    # Factory quản lý các Strategy theo TextToolType
 │   │   └── strategies/             # 30+ Strategy độc lập (start, help, debt, task, share...)
-│   ├── zalo.service.ts             # Outbound: sendMessage & undoMessage (thu hồi)
-│   └── zalo.module.ts
-│
-├── zca/                            # TẦNG GIAO TIẾP ZALO CÁ NHÂN (ZCA - zca-js)
-│   ├── zca.controller.ts           # REST API: Status, QR login, Threads, Configs
-│   ├── zca.service.ts              # Quản lý WebSocket zca-js, QR terminal & web, undo
-│   ├── zca-bot-feature.service.ts  # Lắng nghe tin nhắn, phát hiện @bot, xử lý tim/phẫn nộ
-│   ├── thread-config.service.ts    # Cấu hình per-thread (tắt/bật bot, mention, media backup)
 │   └── zca.module.ts
 │
 ├── llm/                            # TẦNG TRÍ TUỆ NHÂN TẠO (MULTI-PROVIDER)
@@ -133,7 +123,7 @@ Mọi yêu cầu tương tác Google Workspace đều nhận kèm `userId`. `Goo
 
 Mọi hành động nhạy cảm đều trải qua xác nhận 2 bước với mã 3 số hoặc thả tim. Khi xác nhận hoàn tất hoặc hủy bỏ/hết hạn, bot tự động thu hồi thẻ xác nhận cũ để giữ hộp thoại luôn sạch sẽ, để lại thông báo rõ ràng cho người dùng.
 
-### 4. Dual-Mode Fallback & Safe Error Boundary
+### 4. ZCA-Only Channel & Safe Error Boundary
 
-- Zalo Bot hỗ trợ song song Webhook chính thức và ZCA tài khoản cá nhân.
+- Bot giao tiếp với Zalo chỉ qua ZCA (tài khoản cá nhân); khi phiên ZCA hết hạn, admin vẫn vào được dashboard bằng `DASHBOARD_LOGIN_CODE` để quét QR lại.
 - Nếu việc thu hồi tin nhắn Zalo gặp trục trặc mạng, hệ thống bắt lỗi an toàn và ghi log cảnh báo, không bao giờ làm gián đoạn hay mất mát dữ liệu nghiệp vụ của người dùng.

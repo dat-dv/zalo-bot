@@ -59,6 +59,7 @@ Dashboard không có màn hình đăng nhập. Người dùng mở dashboard b�
   - `401`: mã sai, đã hết hạn hoặc đã dùng.
   - `429`: thử quá nhiều lần, phải đợi 15 phút.
 - `httpClient` không tự refresh rồi gọi lại khi `/api/access/code` trả 401, vì mã sai không phải là phiên hết hạn.
+- Cùng ô nhập này cũng nhận **mã cố định** `DASHBOARD_LOGIN_CODE` trong env (đăng nhập thành admin "Chủ hệ thống", dùng khi ZCA hết phiên hoặc cài mới). Định dạng giống hệt mã 1 lần nên phía web không cần xử lý riêng; chi tiết ở [Phiên dashboard](../../global/dashboard-session.md).
 
 ## Lưu ý khi phát triển
 

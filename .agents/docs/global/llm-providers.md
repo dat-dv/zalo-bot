@@ -7,7 +7,7 @@ metadata:
       - .agents/knowledge/global/llm-providers.md
       - apps/api/src/llm/llm.service.ts
       - apps/api/src/llm/providers/router.provider.ts
-      - apps/api/src/zalo/text/text-tool.definitions.ts
+      - apps/api/src/zca/text/text-tool.definitions.ts
 ---
 
 # Nhà cung cấp LLM

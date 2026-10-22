@@ -47,7 +47,7 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 
 ## Storage target (`ChannelStorageTarget`, `google/channel-storage.util.ts`)
 
-- Built by `buildChannelStorageTarget(channelId, { customFolder, photosAlbum, photosAlbumTitle, threadName, fileSuffix })`; for ZCA threads `getThreadStorageTarget(config)` / `ThreadConfigService.getStorageTarget(threadId)` (default target when no stored config). Official-bot chats use the default target.
+- Built by `buildChannelStorageTarget(channelId, { customFolder, photosAlbum, photosAlbumTitle, threadName, fileSuffix })`; for ZCA threads `getThreadStorageTarget(config)` / `ThreadConfigService.getStorageTarget(threadId)` (default target when no stored config).
 - `driveRoot`: `customFolder` (normalized) else `zalobot/<sanitized channelId>`. `splitByCategory`: true for the default root.
 - Upload folder (`getChannelUploadFolder`): `<root>/<bill|image|video|file>` or the custom folder itself; the Drive service appends `/<YYYY-MM>`. Audio uses `file`.
 - `photosAlbumTitle`: `photosAlbum` override → stored `photosAlbumTitle` → `[Zalo] <threadName>` → `[Zalo] Nhóm <channelId>`. **One album per channel per account**: bills, images and videos all go to it. The global defaults (`ZaloBot - Hóa đơn/Hình ảnh/Video`) remain only in `GooglePhotosService` wrappers when no title is passed.

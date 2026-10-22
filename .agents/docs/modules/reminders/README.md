@@ -55,7 +55,7 @@ Mọi endpoint đều lọc theo người dùng đang đăng nhập dashboard. C
 ## 5. Bộ hẹn giờ gửi nhắc (`ReminderSchedulerService`)
 
 - Cron chạy **mỗi 30 giây**, lấy các lời nhắc đã tới giờ (`remindAt <= now`) và chưa kích hoạt.
-- Với mỗi lời nhắc: định dạng giờ theo múi `Asia/Ho_Chi_Minh` và ngôn ngữ ưa thích của người dùng, gửi tin qua `ZaloService.sendMessage`, rồi đánh dấu đã kích hoạt.
+- Với mỗi lời nhắc: định dạng giờ theo múi `Asia/Ho_Chi_Minh` và ngôn ngữ ưa thích của người dùng, gửi tin qua `ZcaMessengerService.sendMessage`, rồi đánh dấu đã kích hoạt.
 - Lặp `daily` thì dời sang ngày hôm sau, `weekly` dời 7 ngày và vẫn ở trạng thái chờ. Không lặp thì chuyển sang `completed`.
 - **Giới hạn đã biết**: chọn loại `call` chỉ được lưu và hiển thị; bộ hẹn giờ luôn gửi tin nhắn chữ, chưa có luồng gọi điện.
 

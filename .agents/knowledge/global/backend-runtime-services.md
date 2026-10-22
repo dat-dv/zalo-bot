@@ -33,7 +33,7 @@ Cross-cutting NestJS services in `apps/api/src` that are not feature CRUD.
 
 - Routes excluded from the `/api` global prefix (`main.ts`): `GET /health` -> `{ status: 'ok', timestamp }` (load balancer / Coolify probe).
 - Deploy notify routes (all call `DeployNotifyService.notifyDeploy`): `GET|POST /health/deploy`, `GET|POST /deploy/notify`, `GET /deploy/ping`. Input `DeployNotifyDto` (query, merged with body on POST): `message`, `version`, `commit`, `branch`, `environment`, `deployedBy`, all optional. Controllers use `@BypassTransform()`. `GET /health` (Docker healthcheck) is public; every deploy route is protected by `DeployNotifyGuard`: token from header `X-Deploy-Token`, `Authorization: Bearer`, or query `?token=` (CI/Coolify hooks often allow only a URL), compared to `DEPLOY_NOTIFY_TOKEN` via SHA-256 + `timingSafeEqual`. Unset `DEPLOY_NOTIFY_TOKEN` → 403 (feature disabled, fail-closed); missing/wrong token → 401. Rationale: the route messages every admin on Zalo with caller-supplied text.
-- `notifyDeploy` sends a Vietnamese deploy message to every admin (`UsersService.getAdminUsers`) via `ZaloService.sendMessage`; includes time (Asia/Ho_Chi_Minh), environment (dto or `NODE_ENV`, default `production`), optional fields, and up to 5 bullet lines from the latest `## ` section of `CHANGELOG.md` (project root, API root, or cwd). No admins -> `notified: false`. Response `IDeployNotifyResponse`.
+- `notifyDeploy` sends a Vietnamese deploy message to every admin (`UsersService.getAdminUsers`) via `ZcaMessengerService.sendMessage`; includes time (Asia/Ho_Chi_Minh), environment (dto or `NODE_ENV`, default `production`), optional fields, and up to 5 bullet lines from the latest `## ` section of `CHANGELOG.md` (project root, API root, or cwd). No admins -> `notified: false`. Response `IDeployNotifyResponse`.
 - Startup notify (`onApplicationBootstrap`): `NOTIFY_ON_STARTUP=false|0` disables; in `NODE_ENV=development` it runs only with `NOTIFY_ON_STARTUP=true|1`; otherwise fires 1.5 s after bootstrap.
 - Version: `APP_VERSION` -> `npm_package_version` -> API `package.json` -> root `package.json` -> `v1.0.0` (prefixed `v`).
 - Commit: `GIT_COMMIT` -> `COOLIFY_COMMIT_SHA` -> `COMMIT_SHA` -> `git rev-parse --short HEAD`. Branch: `GIT_BRANCH` -> `COOLIFY_BRANCH` -> `BRANCH` -> git.
@@ -57,7 +57,7 @@ Cross-cutting NestJS services in `apps/api/src` that are not feature CRUD.
 - `uploadBill` / `uploadImage` / `uploadVideo`: Drive and Photos in parallel (`Promise.allSettled`); default albums `ZaloBot - Hóa đơn`, `ZaloBot - Hình ảnh`, `ZaloBot - Video`, overridable by `photosAlbumTitle` / `photosAlbumId`. `uploadFile`: Drive only (`file`). Result `DualUploadResult { drive?, photos?, driveError?, photosError? }`; one side failing does not fail the other.
 - `formatUploadSummary` builds the Zalo reply; permission errors hint the admin to run `/login`.
 - Google client: the user's own OAuth client if linked, otherwise the shared (admin) client (`GoogleAuthService.getOAuth2Client`).
-- Callers: `InputProcessor` (webhook video), `ZcaBotFeatureService` (media backup, bill images), pending-image strategies.
+- Callers: `ZcaBotFeatureService` (media backup, bill images), pending-image strategies.
 
 ## Google resource links (`google/google-resources.controller.ts`, `/api` prefix)
 
@@ -75,7 +75,7 @@ All five routes are **admin-only** (dashboard user must pass `UsersService.isAdm
 
 - `@Cron(CronExpression.EVERY_30_SECONDS)` (`ScheduleModule.forRoot()` in `AppModule`).
 - `RemindersService.getDueReminders`: `remindAt <= now` and `isTriggered = false` (all users).
-- For each: format time in the user's preferred locale (Asia/Ho_Chi_Minh), send `reminder.header.text` + title + time to `reminder.userId` via `ZaloService.sendMessage`, then `markTriggered`: `daily` -> +24 h, `weekly` -> +7 d (stay `pending`); else `isTriggered = true`, `status = completed`, `completedAt = now`.
+- For each: format time in the user's preferred locale (Asia/Ho_Chi_Minh), send `reminder.header.text` + title + time to `reminder.userId` via `ZcaMessengerService.sendMessage`, then `markTriggered`: `daily` -> +24 h, `weekly` -> +7 d (stay `pending`); else `isTriggered = true`, `status = completed`, `completedAt = now`.
 - Errors are logged; the loop is not retried within the tick.
 
 ## Audit (`audit/`, `database/audit-log.subscriber.ts`)

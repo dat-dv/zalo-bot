@@ -19,7 +19,7 @@ Tài liệu này hướng dẫn cấu trúc monorepo và quy trình vận hành,
 
 ## Cấu trúc
 
-- `apps/api`: NestJS backend — nhận tin nhắn Zalo qua webhook, kết nối Zalo cá nhân (ZCA), Google OAuth/Workspace, gọi LLM (`LlmService`), REST API cho dashboard. Code chia theo vùng nghiệp vụ: `finance`, `zalo`, `zca`, `google`, `llm`, `ocr`, `receipt-storage`, `reminders`, `reports`, `users`, `redis`, `health`, `audit`, `common`, `config`, `database`.
+- `apps/api`: NestJS backend — nhận và gửi tin Zalo qua tài khoản Zalo cá nhân (ZCA), Google OAuth/Workspace, gọi LLM (`LlmService`), REST API cho dashboard. Code chia theo vùng nghiệp vụ: `finance`, `zca` (gồm cả luồng xử lý chat `zca/text/**` và `ZcaMessengerService`), `google`, `llm`, `ocr`, `receipt-storage`, `reminders`, `reports`, `users`, `redis`, `health`, `audit`, `common`, `config`, `database`.
 - `apps/web`: Next.js App Router, xuất static (`output: 'export'`) khi build production; không dùng Route Handler hay Server Action. Dữ liệu từ server do TanStack Query quản lý; state thuần giao diện dùng chung (theme, ẩn/hiện số tiền) nằm trong store Zustand ở `apps/web/src/shared/store/`. Module trong `apps/web/src/modules/`: `auth`, `calendar`, `contacts`, `dashboard`, `debts`, `expenses`, `reminders`, `settings`, `tasks`, `users`, `zca`.
 - `packages/contracts`: hằng số route (`API_ROUTES`, `APP_ROUTES`), kiểu DTO, catalog i18n dùng chung.
 - PostgreSQL lưu dữ liệu bền vững; Redis lưu cache, phiên ZCA, thao tác chờ duyệt.
@@ -46,12 +46,9 @@ Chỉ biến `NEXT_PUBLIC_*` được phép vào bundle trình duyệt. Token Za
 
 ## Bot nhận tin nhắn như thế nào
 
-Bot không dùng long polling. Tin nhắn đến theo hai đường:
+Bot không dùng long polling và không còn webhook. Tin nhắn chỉ đến qua **ZCA**: tài khoản Zalo cá nhân kết nối WebSocket qua `zca-js` để tham gia nhóm chat. Webhook Zalo Bot chính thức đã bị bỏ vì trùng tính năng với ZCA.
 
-- **Webhook Zalo Bot chính thức**: Zalo gọi `/webhook` (chấp nhận cả `/zalo/webhook`, `/api/webhook`, `/api/zalo/webhook`). Các đường này không có tiền tố `/api` bắt buộc để khớp URL đã đăng ký với Zalo.
-- **ZCA**: tài khoản Zalo cá nhân kết nối WebSocket qua `zca-js` để tham gia nhóm chat.
-
-Vì vậy chạy nhiều instance API cùng lúc không tranh nhau nhận update; chỉ instance nào được đăng ký làm webhook URL mới nhận tin nhắn.
+Chỉ nên có một instance API giữ phiên ZCA: đăng nhập ZCA lần thứ hai bằng cùng tài khoản sẽ đá phiên trước ra.
 
 ## Dashboard mở từ bot
 
@@ -74,7 +71,7 @@ Chi tiết: [Phiên Dashboard](dashboard-session.md).
 
 - `postgres` (16-alpine) và `redis` (7-alpine, bật AOF) với volume riêng.
 - `api`: cổng `BE_PORT` (mặc định 3005), mount `./data:/app/data`, healthcheck `GET /health`.
-- `web`: Nginx phục vụ static export tại `NGINX_PORT` (mặc định 3009), đồng thời reverse proxy `/api/`, `/webhook`, `/zalo/`, `/oauth2callback` sang `http://api:${BE_PORT}`. Nhờ vậy Cloudflare Tunnel chỉ cần trỏ vào một cổng web.
+- `web`: Nginx phục vụ static export tại `NGINX_PORT` (mặc định 3009), đồng thời reverse proxy `/api/`, `/oauth2callback` sang `http://api:${BE_PORT}`. Nhờ vậy Cloudflare Tunnel chỉ cần trỏ vào một cổng web.
 
 Tối ưu build:
 

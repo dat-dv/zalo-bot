@@ -45,7 +45,7 @@
 - Why: on iOS the installed app has its own storage, so the one-time link opened from Zalo signs in Safari, never the app. The bot reply carries an 8-character code (Crockford base32, shown `XXXX-XXXX`) issued from the same `dashboard_exchange_tokens` row as the link; using either spends both (20-minute TTL).
 - `SessionStateScreen` always renders `AccessCodeForm` below its actions. The form normalizes with `normalizeDashboardAccessCode`, validates with `isDashboardAccessCode` (contracts) before calling the API, then `setAccessToken(accessToken)` and does a full load of `APP_ROUTES.dashboard`. The API also sets the `reports_refresh` cookie.
 - `httpClient` never runs refresh-and-retry for a 401 from `API_ROUTES.accessCode` (a wrong code is not an expired session).
-- API side: `POST /api/access/code`, rate limited per client IP and overall (see `global/dashboard-session.md`).
+- API side: `POST /api/access/code`, rate limited per client IP and overall (see `global/dashboard-session.md`). The same form also accepts the fixed `DASHBOARD_LOGIN_CODE` (signs in as the `dashboard-owner` admin); the web side needs no special handling since the format is identical.
 
 ## Invariants
 

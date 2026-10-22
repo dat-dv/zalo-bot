@@ -12,9 +12,9 @@ import { ThreadConfigService } from './thread-config.service';
 import { ThreadType, type API, type Message, type Reaction, type Undo } from './shapes';
 import type { ChatMemoryService } from './memory/chat-memory.service';
 import type { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
-import type { TextInputService } from '../zalo/text/text-input.service';
+import type { TextInputService } from './text/text-input.service';
 import type { ZcaService } from './zca.service';
-import type { AgentInput } from '../zalo/types/agent-input.type';
+import type { AgentInput } from '../types/agent-input.type';
 import type { UsersService } from '../users/users.service';
 
 function createUsersServiceMock(options: { granted: string[] }): UsersService & {

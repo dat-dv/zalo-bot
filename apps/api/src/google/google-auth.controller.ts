@@ -3,7 +3,7 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
 import { GoogleAuthService } from './google-auth.service';
 import { renderSuccessHtml, renderErrorHtml } from './templates/oauth-html.template';
-import { ZaloService } from '../zalo/zalo.service';
+import { ZcaMessengerService } from '../zca/zca-messenger.service';
 import { BypassTransform } from '../common/decorators/bypass-transform.decorator';
 
 @ApiTags('Google Auth & System Health')
@@ -14,8 +14,8 @@ export class GoogleAuthController {
   constructor(
     private readonly googleAuthService: GoogleAuthService,
     @Optional()
-    @Inject(forwardRef(() => ZaloService))
-    private readonly zaloService?: ZaloService,
+    @Inject(forwardRef(() => ZcaMessengerService))
+    private readonly zcaMessenger?: ZcaMessengerService,
   ) {}
 
   @Get(['', 'health'])
@@ -57,9 +57,9 @@ export class GoogleAuthController {
       this.logger.log(`Google OAuth callback completed successfully for user ${userId}`);
 
       // Gửi thông báo xác nhận thành công tới tài khoản Zalo của người dùng
-      if (this.zaloService && userId) {
+      if (this.zcaMessenger && userId) {
         try {
-          await this.zaloService.sendMessage(
+          await this.zcaMessenger.sendMessage(
             userId,
             '🎉 KẾT NỐI GOOGLE THÀNH CÔNG!\n\nTài khoản Google Calendar & Google Tasks của bạn đã được liên kết hoàn tất. Bây giờ bạn có thể bắt đầu sử dụng trợ lý rồi nhé! 🚀',
           );
