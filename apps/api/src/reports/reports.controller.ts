@@ -28,6 +28,7 @@ import type {
   ICalendarEventItem,
   ITaskListItem,
   IDashboardAccessTokenResponse,
+  IDashboardSessionUser,
 } from '@zalobot/contracts';
 import { ReportsTokenService } from './reports-token.service';
 import { AccessCodeRateLimiter } from './access-code-rate-limiter';
@@ -170,6 +171,14 @@ export class ReportsController {
     </main>
   </body>
 </html>`);
+  }
+
+  @Get('me')
+  @ApiBearerAuth('bearer-jwt')
+  @ApiOperation({ summary: 'Tài khoản của phiên dashboard hiện tại (tên Zalo, ID, quyền admin)' })
+  public async me(@Req() req: Request): Promise<IApiResponse<IDashboardSessionUser>> {
+    const userId = this.getAccessUserId(req);
+    return { data: await this.users.getSessionProfile(userId) };
   }
 
   @Get('dashboard')

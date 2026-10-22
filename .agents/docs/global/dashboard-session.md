@@ -14,6 +14,8 @@ metadata:
       - apps/api/src/zca/text/strategies/dashboard-tool.strategy.ts
       - apps/web/src/modules/auth/client/auth-storage.ts
       - apps/web/src/shared/api/http-client.ts
+      - apps/web/src/modules/auth/presentation/components/session-user-card.tsx
+      - apps/web/src/shared/ui/nav-visibility.ts
 ---
 
 # Phiên Dashboard và các trang web
@@ -71,7 +73,23 @@ Người dùng Zalo không có mật khẩu dashboard. Thay vào đó bot cấp 
 - `/calendar`, `/tasks`, `/reminders`: Lịch Google, việc cần làm, lời nhắc.
 - `/contacts`: Người liên quan; `/places`: Nơi chốn.
 - `/zca`: Zalo & Người dùng (đăng nhập ZCA, cuộc trò chuyện, quản lý user cho admin).
+- `/google-storage`: Google Drive (tài khoản Google lưu trữ media, chỉ admin).
 - `/settings`: Cài đặt, danh mục thu chi.
+
+## Biết mình đang đăng nhập bằng tài khoản nào
+
+- Vì sao: một người có thể có nhiều ID Zalo, và link đăng nhập có thể là của ID không phải admin. Trước đây dashboard không cho biết phiên đang là ai, nên gặp thông báo "chỉ admin" thì không biết lý do.
+- API `GET /api/me` trả về ID, tên Zalo, ảnh đại diện, có phải admin không và có phải chủ hệ thống (đăng nhập bằng mã cố định) không.
+  - Tên lấy theo thứ tự: tên trong danh bạ ZCA (đọc cache, không gọi Zalo) → `firstName` trong bảng users → "Chưa rõ tên".
+- Thẻ tài khoản hiện ảnh đại diện, tên, nhãn **Admin**/**Người dùng** và ID (bấm để copy).
+  - Máy tính: ở cuối thanh bên, trên nút giao diện sáng/tối.
+  - Điện thoại: ở đầu sheet "Thêm".
+- Phiên `dashboard-owner` hiện "Chủ hệ thống (mã đăng nhập)", nếu chưa đổi tên.
+
+## Mục menu chỉ dành cho admin
+
+- "Zalo & Người dùng" và "Google Drive" chỉ hiện khi đã xác nhận phiên là admin. Trong lúc đang tải, hoặc khi API `/api/me` lỗi, hai mục này bị ẩn. Vì vậy admin F5 sẽ thấy chúng hiện ra trễ một nhịp; chuyển trang trong app thì không bị.
+- Đây chỉ là ẩn trên giao diện. Quyền vẫn do API kiểm tra (`requireDashboardAdmin`); người không phải admin gõ thẳng URL vẫn gặp màn hình chặn.
 
 Trang Người liên quan gọi `GET /api/contacts`; API tự lấy user từ access token (tối đa 200 người), không nhận `userId` từ client.
 

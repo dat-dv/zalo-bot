@@ -18,6 +18,10 @@ metadata:
       - apps/web/src/modules/auth/client/auth-storage.ts
       - apps/web/src/shared/api/http-client.ts
       - apps/web/app/(private)
+      - apps/web/src/modules/auth/api/session-user-query.ts
+      - apps/web/src/modules/auth/presentation/components/session-user-card.tsx
+      - apps/web/src/shared/ui/app-navigation.tsx
+      - apps/web/src/shared/ui/nav-visibility.ts
 ---
 
 # Dashboard Session and Pages
@@ -53,5 +57,20 @@ metadata:
 - `captureDashboardToken` reads `dashboard_token` or `token` from the URL hash or query. A query token without `.` is treated as an exchange token and redirected to `/api/access`; otherwise the access token is stored in `localStorage` key `zalobot.dashboard.access-token` and removed from the URL.
 - `SessionStateScreen` renders `AccessCodeForm` (see `modules/auth`), which posts the code and stores the returned access token.
 - `httpClient` sends `Authorization: Bearer <token>`; on the first `401` (except from `/api/refresh` and `/api/access/code`) it calls `POST /api/refresh` once (shared in-flight promise), retries, and clears the stored token if refresh fails.
-- Private pages (`apps/web/app/(private)/`): `/` and `/dashboard` (overview), `/transactions` (`/expenses`, `/income` redirect to `?type=expense|income`), `/debts`, `/analytics`, `/calendar`, `/tasks`, `/reminders`, `/contacts`, `/places`, `/zca` (Zalo & Users), `/settings`. All share the dashboard session and the `DataTable` primitive.
+- Private pages (`apps/web/app/(private)/`): `/` and `/dashboard` (overview), `/transactions` (`/expenses`, `/income` redirect to `?type=expense|income`), `/debts`, `/analytics`, `/calendar`, `/tasks`, `/reminders`, `/contacts`, `/places`, `/zca` (Zalo & Users), `/google-storage` (Google Drive), `/settings`. All share the dashboard session and the `DataTable` primitive.
+
+## Session Identity (`GET API_ROUTES.sessionMe` = `/api/me`)
+
+- Why: an admin hitting an "admins only" page could not tell which Zalo account the session belonged to (e.g. signed in via the link of a non-admin or duplicate id). `/api/dashboard` returns only the raw id and also loads finance/calendar/tasks, so a light endpoint serves the navigation.
+- `ReportsController.me` (Bearer access token) → `IDashboardSessionUser { id, name, avatarUrl, isAdmin, isDashboardOwner }` from `UsersService.getSessionProfile(id)`:
+  - Name: ZCA directory entry of type `user` (`getAvailableThreads(false)`: Redis cache, never a Zalo fetch) `alias || name || displayName` → `users.firstName` → `null`.
+  - `dashboard-owner`: `isDashboardOwner: true`, `name: null` unless renamed from the default "Chủ hệ thống" (the web shows the translated `session.owner`).
+  - Avatar: `users.avatarUrl` → directory avatar → `null`. `isAdmin` = `UsersService.isAdmin`.
+- Web: `useSessionUserQuery({ enabled: isAuthenticated })` (key `['session','me']`, `staleTime` 5 min; sign-in/out `queryClient.clear()` resets it). `SessionUserCard`: avatar or initial, name (or "Unknown name"), Admin/User badge, id as a copy button ("Copied" for 2 s). Loading → skeleton; error or signed out → nothing (never blocks the menu). Placement: desktop sidebar footer above the theme toggle; compact screens at the top of the "More" sheet (40px tap targets). Strings `session.*`.
+
+## Admin-Only Navigation
+
+- `NavItem.adminOnly`: `zca` (Zalo & Users) and `googleStorage` (Google Drive), whose APIs use `requireDashboardAdmin`.
+- `visibleNavSections(sections, isAdmin)` (`shared/ui/nav-visibility.ts`) shows them only when `isAdmin === true`; while loading or on error they are hidden (an admin's hard reload shows them one fetch late; in-app navigation uses the cached session). Empty sections are dropped. Applies to the sidebar and the "More" sheet; the tab bar has no admin items.
+- Cosmetic only: the API still enforces admin rights; a non-admin opening the URL directly gets the page's forbidden state.
 - `GET /api/contacts` derives the user from the access token and returns at most 200 of that user's `debt_contacts`.

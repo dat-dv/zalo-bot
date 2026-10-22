@@ -14,9 +14,12 @@ import { useTheme } from '@/shared/store/theme-store';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { handleZaloLinkClick, ZALO_LINKS } from '@/shared/zalo/zalo-app-link';
+import { useSessionUserQuery } from '@/modules/auth/api/session-user-query';
+import { SessionUserCard } from '@/modules/auth/presentation/components/session-user-card';
 import { LogoutConfirmDialog } from './logout-confirm-dialog';
 import { MODAL_STICKY_HEADER, Modal } from './modal';
 import { bounce } from './motion';
+import { visibleNavSections } from './nav-visibility';
 import { useWorkspaceHeader } from './workspace-header';
 
 const TOPBAR_ICON_BUTTON =
@@ -55,6 +58,8 @@ interface NavItem {
   href: string;
   labelKey: TranslationKey;
   icon: NavigationIcon;
+  /** Shown only to admins; the page's API rejects everyone else. */
+  adminOnly?: boolean;
 }
 
 interface NavSection {
@@ -128,12 +133,14 @@ const navSections: readonly NavSection[] = [
         href: APP_ROUTES.zca,
         labelKey: 'nav.zca',
         icon: 'zca',
+        adminOnly: true,
       },
       {
         page: 'googleStorage',
         href: APP_ROUTES.googleStorage,
         labelKey: 'nav.googleStorage',
         icon: 'googleStorage',
+        adminOnly: true,
       },
       {
         page: 'settings',
@@ -201,6 +208,15 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
     confirmLogout,
   } = useWorkspaceHeader();
   const moneyLabel = isMoneyVisible ? t('common.hideMoney') : t('common.showMoney');
+  const sessionUser = useSessionUserQuery({ enabled: isAuthenticated });
+  const sections = visibleNavSections<NavItem, NavSection>(navSections, sessionUser.data?.isAdmin);
+  const sessionCard = isAuthenticated ? (
+    <SessionUserCard
+      isLoading={sessionUser.isLoading}
+      user={sessionUser.data}
+      variant={isCompact ? 'sheet' : 'sidebar'}
+    />
+  ) : null;
 
   // Tab tapped but its route not shown yet: highlight it at once so the tap feels instant.
   const [pendingTab, setPendingTab] = useState<NavigationPage | null>(null);
@@ -333,7 +349,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
         </div>
 
         <nav className="grid gap-2.5" aria-label={t('nav.personalSpace')}>
-          {navSections.map((section) => (
+          {sections.map((section) => (
             <div key={section.titleKey} className="grid gap-0.5">
               <p className="mx-1.5 mb-1.5 text-[10px] font-bold tracking-[.08em] text-slate-400 uppercase dark:text-slate-500">
                 {t(section.titleKey)}
@@ -360,6 +376,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           ))}
         </nav>
         <div className="mt-auto grid gap-1 border-t border-slate-200 pt-2 dark:border-slate-700">
+          {sessionCard}
           {footer}
           <button
             aria-label={nextThemeLabel}
@@ -412,8 +429,13 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
             <CloseIcon />
           </button>
         </header>
+        {sessionCard && (
+          <div className="border-b border-slate-200 px-3 py-2 dark:border-slate-700">
+            {sessionCard}
+          </div>
+        )}
         <nav className="grid gap-3 px-3 pt-2 pb-3" aria-label={t('nav.personalSpace')}>
-          {navSections.map((section) => (
+          {sections.map((section) => (
             <div key={section.titleKey}>
               <p className="m-0 mb-1.5 text-[10px] font-bold tracking-[.08em] text-slate-400 uppercase dark:text-slate-500">
                 {t(section.titleKey)}

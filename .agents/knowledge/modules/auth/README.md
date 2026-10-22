@@ -13,6 +13,8 @@
 - `api/access-code-api.ts`: `signInWithAccessCode` (`POST API_ROUTES.accessCode`), `getAccessCodeErrorKind` (401 -> `rejected`, 429 -> `tooManyAttempts`, else `failed`).
 - `api/access-code-query.ts`: `useAccessCodeSignInMutation`.
 - `presentation/components/access-code-form.tsx`: `AccessCodeForm`.
+- `api/session-user-api.ts`: `getSessionUser` (`GET API_ROUTES.sessionMe`). `api/session-user-query.ts`: `useSessionUserQuery({ enabled })`, `sessionQueryKeys.me()`.
+- `presentation/components/session-user-card.tsx`: `SessionUserCard` (`variant: 'sidebar' | 'sheet'`), rendered by `AppNavigation`. Contract and admin-only menu rules: [dashboard-session](../../global/dashboard-session.md#session-identity-get-api_routessessionme--apime).
 
 ## Token storage and capture
 
