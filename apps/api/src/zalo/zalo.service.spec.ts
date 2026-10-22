@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { ConsoleLogger, Logger, type LoggerService } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ZaloService } from './zalo.service';
 
@@ -297,6 +298,45 @@ void test('ZaloService sendMessage automatically splits messages exceeding 2000 
     assert.equal(sentBodies[0].text, p1);
     assert.equal(sentBodies[1].text, p2);
   } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+void test('ZaloService sendMessage never writes the bot token to the logs', async () => {
+  const botToken = 'secret_bot_token_789';
+  const mockConfigService = {
+    get: (key: string) => (key === 'zalo.botToken' ? botToken : undefined),
+  };
+
+  const logged: string[] = [];
+  const capture = (message: unknown): void => {
+    logged.push(typeof message === 'string' ? message : JSON.stringify(message));
+  };
+  const capturingLogger: LoggerService = {
+    log: capture,
+    error: capture,
+    warn: capture,
+    debug: capture,
+    verbose: capture,
+  };
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = () =>
+    Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ ok: true, result: { message_id: 'm1' } }),
+    } as Response);
+  Logger.overrideLogger(capturingLogger);
+
+  try {
+    const service = new ZaloService(mockConfigService as unknown as ConfigService);
+    const result = await service.sendMessage('user_123', 'Xin chào');
+
+    assert.equal(result, true);
+    assert.ok(logged.some((line) => line.includes('user_123')));
+    assert.ok(logged.every((line) => !line.includes(botToken)));
+  } finally {
+    Logger.overrideLogger(new ConsoleLogger());
     globalThis.fetch = originalFetch;
   }
 });

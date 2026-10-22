@@ -86,11 +86,8 @@ export class ZaloService implements OnModuleInit {
   ): Promise<{ success: boolean; msgId?: string; cliMsgId?: string }> {
     const entrypoint = ZALO_API_URLS.BOT_SEND_MESSAGE(this.token || '');
 
-    this.logger.log({
-      entrypoint,
-      targetChatId,
-      text,
-    });
+    // The entrypoint embeds the bot token, so it must never reach the logs.
+    this.logger.log(`Sending Zalo message to ${targetChatId}: ${JSON.stringify(text)}`);
     try {
       const response = await fetch(entrypoint, {
         method: 'POST',

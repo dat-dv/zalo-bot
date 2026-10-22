@@ -69,7 +69,7 @@ async function setWebhook() {
 
   console.log(`🚀 Đang đăng ký Webhook URL: ${webhookUrl}`);
   if (secretToken) {
-    console.log(`🔒 Kèm secret_token: ${secretToken}`);
+    console.log(`🔒 Kèm secret_token (đã ẩn, ${secretToken.length} ký tự)`);
   }
 
   const payload: { url: string; secret_token?: string } = {
