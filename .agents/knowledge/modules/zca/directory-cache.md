@@ -8,6 +8,7 @@ metadata:
       - apps/api/src/zca/zca.constants.ts
       - apps/api/src/zca/zca.service.ts
       - apps/api/src/zca/zca.controller.ts
+      - apps/api/src/zca/thread-config.service.ts
       - apps/api/src/users/users.service.ts
       - apps/web/src/modules/zca/api/zca-api.ts
       - apps/web/src/modules/zca/api/zca-query.ts
@@ -44,7 +45,7 @@ Human guide: [Cache danh bạ Zalo](../../../docs/modules/zca/directory-cache.md
 
 - Automatic fetches (cold or stale) are throttled by `ZCA_DIRECTORY_AUTO_RETRY_MS` (5 min) so a failing Zalo is not hammered; buttons bypass it (only the 30s cooldown applies).
 - Concurrent fetches share one promise (`pendingDirectoryFetch`).
-- `isListened` and the whitelist fallback (listened ids Zalo did not return, shown as `Cuộc trò chuyện <id>`) are computed on read, never stored.
+- `isListened` and the whitelist fallback (listened ids Zalo did not return, shown as `Cuộc trò chuyện <id>` with `missingFromZalo: true`) are computed on read, never stored.
 - `getDirectoryFetchedAt()` exposes `fetchedAt`; `GET /api/zca/threads` returns `{ threads, fetchedAt }`.
 
 ## Partial failures (`mergeZcaDirectory`)
@@ -64,6 +65,18 @@ Human guide: [Cache danh bạ Zalo](../../../docs/modules/zca/directory-cache.md
 
 - `/zca` header "Làm mới" → `GET /api/zca/threads?refresh=true` (`useRefreshZcaThreadsMutation`).
 - `/zca` "Đồng bộ thông tin" → `POST /api/users/sync-zca` → `getAvailableThreads(true)`; the screen then invalidates `zcaQueryKeys.threads()`.
+
+## Deleting a placeholder chat
+
+- Why: a listened id Zalo stopped returning (bot left the group, stale id) stays on `/zca` as `Cuộc trò chuyện <id>` forever; admins need to remove it.
+- `DELETE /api/zca/thread-configs/:threadId` (admin only):
+  - `ZcaService.isInDirectory(id)` true (id in the cached directory, no Zalo call) → 409. A chat still in Zalo would reappear with a default config; stop listening instead. Stale cache → press Refresh first.
+  - `ThreadConfigService.deleteConfig(id)`: no stored config → 404. Otherwise `repository.remove(entity)` (not `delete`, so `AuditLogSubscriber.afterRemove` logs the row), drop from memory, `DEL zca:thread_config:<id>`, re-sync `zca:listened_threads`.
+  - `ZcaService.forgetThread(id)` drops the id from the in-memory listened set and `knownThreadTypes`; it must not call `setListenedThreadIds`, which would re-create the config.
+- Kept: `zca_messages` (chat memory), `channel_storage_links`, files on Google.
+- A later message from that chat makes `getConfig` create a default config (`isListened: false`); the row stays hidden.
+- Edge: `loadConfigs` imports the legacy `.zca-thread-configs.json` only when the DB table is empty, so deleting every config could re-import it on restart.
+- Web button (⋯ menu, only on `missingFromZalo` rows) is not built yet; see `.agents/artifacts/zca-thread-config-delete/`.
 
 ## Web
 

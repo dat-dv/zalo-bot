@@ -14,6 +14,7 @@ import {
   HttpStatus,
   NotFoundException,
   BadRequestException,
+  ConflictException,
   Logger,
   Optional,
   Inject,
@@ -286,6 +287,29 @@ export class ZcaController {
       await this.zcaService.setListenedThreadIds(Array.from(currentListened));
     }
     return { data: { config } };
+  }
+
+  @Delete('thread-configs/:threadId')
+  @ApiOperation({
+    summary:
+      'Xoá hẳn cấu hình của 1 cuộc trò chuyện không còn trong danh bạ Zalo (giữ trí nhớ hội thoại và lịch sử link Drive/Photos)',
+  })
+  public async deleteThreadConfig(
+    @Req() req: Request,
+    @Param('threadId') threadId: string,
+  ): Promise<{ data: { deleted: true } }> {
+    this.admin(req);
+    // A chat still in the Zalo directory would come straight back with a default config,
+    // so it is refused: stop listening to it instead.
+    if (this.zcaService.isInDirectory(threadId)) {
+      throw new ConflictException(
+        'Cuộc trò chuyện vẫn còn trong danh bạ Zalo. Hãy tắt lắng nghe thay vì xoá.',
+      );
+    }
+    const deleted = await this.threadConfigService.deleteConfig(threadId);
+    if (!deleted) throw new NotFoundException('Không tìm thấy cấu hình của cuộc trò chuyện.');
+    this.zcaService.forgetThread(threadId);
+    return { data: { deleted: true } };
   }
 
   @Post('threads/:threadId/sync-media')

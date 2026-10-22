@@ -8,6 +8,8 @@ metadata:
       - apps/api/src/zca/zca-directory-cache.ts
       - apps/api/src/zca/zca.service.ts
       - apps/web/src/modules/zca/view/zca-screen.tsx
+      - apps/api/src/zca/thread-config.service.ts
+      - apps/api/src/zca/zca.controller.ts
 ---
 
 # Cache danh bạ Zalo (nhóm, bạn bè, tên gợi nhớ)
@@ -56,6 +58,16 @@ Tài liệu canonical tương ứng: [`directory-cache.md`](../../../knowledge/m
 - Cạnh nút **Làm mới** ở đầu trang `/zca` có dòng "Cập nhật lúc …" cho biết danh bạ được lấy từ Zalo lúc nào. Rê chuột vào sẽ thấy giải thích về thời hạn 7 ngày.
 - Khi thấy tên hoặc nhóm chưa đúng (vừa đổi tên, vừa kết bạn), bấm **Làm mới** để lấy bản mới nhất.
 - Sau khi bấm **Đồng bộ thông tin**, bảng cũng tự tải lại danh sách nhóm/bạn bè.
+
+### 3.1. Xoá dòng "Cuộc trò chuyện <id>"
+
+- Dòng dạng "Cuộc trò chuyện <id>" là kênh **vẫn bật lắng nghe nhưng Zalo không còn trả về** trong danh bạ, thường do bot đã rời nhóm hoặc ID đã cũ. Trước đây không có cách nào gỡ dòng này.
+- API `DELETE /api/zca/thread-configs/:threadId` (chỉ admin) xoá hẳn cấu hình của kênh: dòng trong bảng `zca_thread_configs`, cache Redis và trạng thái lắng nghe.
+  - Nhật ký kiểm toán có lưu bản ghi đã xoá.
+  - **Giữ lại** trí nhớ hội thoại, lịch sử link Drive/Photos và file trên Google.
+- Kênh **vẫn còn** trong danh bạ Zalo thì API từ chối (409). Xoá kênh đó thì dòng sẽ hiện lại ngay với cấu hình mặc định, nên muốn bot ngừng xử lý nhóm đang hoạt động thì dùng "Bỏ qua" (tắt lắng nghe). Nếu danh bạ đang cũ, bấm **Làm mới** trước.
+- Sau khi xoá, nếu kênh đó lại có tin nhắn, bot tự tạo cấu hình mặc định (không lắng nghe). Dòng vẫn không hiện lại.
+- Nút "Xoá" trong menu ⋯ trên `/zca` sẽ làm ở bước sau. Trong lúc chờ, admin gọi API trực tiếp được.
 
 ## 4. Vận hành & xử lý sự cố
 

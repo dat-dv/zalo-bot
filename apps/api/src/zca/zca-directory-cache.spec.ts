@@ -250,3 +250,24 @@ void test('a forced refresh whose friends call fails keeps the cached friends', 
   const stored = parseZcaDirectorySnapshot(redis.store.get(zcaDirectoryRedisKey(OWN_ID)) ?? null);
   assert.equal(stored?.complete, false);
 });
+
+void test('listened ids Zalo did not return are flagged missingFromZalo and are not in the directory', async () => {
+  const { service, redis } = createService();
+  redis.store.set(zcaDirectoryRedisKey(OWN_ID), snapshotAt(new Date()));
+  Reflect.set(service, 'listenedThreadIds', new Set(['g-cached', 'orphan-1']));
+
+  const threads = await service.getAvailableThreads();
+
+  assert.equal(threads.find((t) => t.id === 'g-cached')?.missingFromZalo, undefined);
+  assert.equal(threads.find((t) => t.id === 'orphan-1')?.missingFromZalo, true);
+  assert.equal(service.isInDirectory('g-cached'), true);
+  assert.equal(service.isInDirectory('u-cached'), true);
+  assert.equal(service.isInDirectory('orphan-1'), false);
+
+  service.forgetThread('orphan-1');
+  const afterForget = await service.getAvailableThreads();
+  assert.equal(
+    afterForget.some((t) => t.id === 'orphan-1'),
+    false,
+  );
+});

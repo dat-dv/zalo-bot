@@ -245,10 +245,12 @@ function createStoreMocks(seed: Partial<ZcaThreadConfigEntity>[] = []): {
   redis: RedisService;
   rows: Map<string, Partial<ZcaThreadConfigEntity>>;
   redisValues: Map<string, string>;
+  removed: Partial<ZcaThreadConfigEntity>[];
 } {
   const rows = new Map<string, Partial<ZcaThreadConfigEntity>>();
   for (const row of seed) if (row.threadId) rows.set(row.threadId, row);
   const redisValues = new Map<string, string>();
+  const removed: Partial<ZcaThreadConfigEntity>[] = [];
 
   const repo = {
     find: () => Promise.resolve(Array.from(rows.values())),
@@ -256,6 +258,11 @@ function createStoreMocks(seed: Partial<ZcaThreadConfigEntity>[] = []): {
     upsert: (entity: Partial<ZcaThreadConfigEntity>) => {
       if (entity.threadId) rows.set(entity.threadId, { ...rows.get(entity.threadId), ...entity });
       return Promise.resolve({ identifiers: [], generatedMaps: [], raw: [] });
+    },
+    remove: (entity: Partial<ZcaThreadConfigEntity>) => {
+      if (entity.threadId) rows.delete(entity.threadId);
+      removed.push(entity);
+      return Promise.resolve(entity);
     },
   } as unknown as Repository<ZcaThreadConfigEntity>;
 
@@ -266,11 +273,12 @@ function createStoreMocks(seed: Partial<ZcaThreadConfigEntity>[] = []): {
       redisValues.set(key, val);
       return Promise.resolve(true);
     },
+    del: (key: string) => Promise.resolve(redisValues.delete(key)),
     sadd: (_key: string, ...members: string[]) => Promise.resolve(members.length),
     srem: (_key: string, ...members: string[]) => Promise.resolve(members.length),
   } as unknown as RedisService;
 
-  return { repo, redis, rows, redisValues };
+  return { repo, redis, rows, redisValues, removed };
 }
 
 function cachedThreadType(redisValues: Map<string, string>, threadId: string): unknown {
@@ -506,4 +514,29 @@ void test('normalizeChatMemoryConfig fills defaults and rejects junk values', ()
       searchLimit: 50,
     },
   );
+});
+
+void test('deleteConfig removes the row via remove(), the Redis cache and the listened state', async () => {
+  const { repo, redis, rows, redisValues, removed } = createStoreMocks([
+    { threadId: NUMERIC_GROUP_ID, threadType: 'group', isListened: true },
+  ]);
+  const service = new ThreadConfigService(repo, redis);
+  await service.loadConfigs();
+  assert.deepEqual(service.getListenedThreadIds(), [NUMERIC_GROUP_ID]);
+
+  assert.equal(await service.deleteConfig(NUMERIC_GROUP_ID), true);
+
+  assert.equal(rows.has(NUMERIC_GROUP_ID), false);
+  assert.equal(removed.length, 1, 'remove() keeps the audit log subscriber in the loop');
+  assert.equal(redisValues.has(`zca:thread_config:${NUMERIC_GROUP_ID}`), false);
+  assert.equal(service.getConfigSync(NUMERIC_GROUP_ID), undefined);
+  assert.deepEqual(service.getListenedThreadIds(), []);
+});
+
+void test('deleteConfig returns false and creates nothing for an unknown thread', async () => {
+  const { repo, redis, rows } = createStoreMocks();
+  const service = new ThreadConfigService(repo, redis);
+
+  assert.equal(await service.deleteConfig('missing-thread'), false);
+  assert.equal(rows.size, 0);
 });

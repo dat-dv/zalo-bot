@@ -1,11 +1,13 @@
 import { test } from 'node:test';
 import * as assert from 'node:assert/strict';
+import { ConfigService } from '@nestjs/config';
 import { ZcaController } from './zca.controller';
-import type { ZcaService } from './zca.service';
-import type { ThreadConfigService } from './thread-config.service';
+import { ZcaService } from './zca.service';
+import { ThreadConfigService } from './thread-config.service';
 import type { Request, Response } from 'express';
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
   UnauthorizedException,
@@ -345,4 +347,64 @@ void test('ZcaController never deletes the link in use nor changes its URL', asy
 
   await controller.deleteThreadStorageLink(bearer('admin-token'), 'g1', 'old');
   assert.deepEqual(calls.removed, ['old']);
+});
+
+class DirectoryStubZcaService extends ZcaService {
+  public readonly forgotten: string[] = [];
+
+  constructor(private readonly directoryIds: string[]) {
+    super(new ConfigService({}));
+  }
+
+  public override isInDirectory(threadId: string): boolean {
+    return this.directoryIds.includes(threadId);
+  }
+
+  public override forgetThread(threadId: string): void {
+    this.forgotten.push(threadId);
+  }
+}
+
+void test('ZcaController.deleteThreadConfig deletes a config Zalo no longer returns', async () => {
+  const zcaService = new DirectoryStubZcaService([]);
+  const threadConfigService = new ThreadConfigService();
+  await threadConfigService.updateConfig('orphan-1', { isListened: true });
+  const controller = new ZcaController(zcaService, threadConfigService, tokens, users);
+
+  const result = await controller.deleteThreadConfig(bearer('admin-token'), 'orphan-1');
+
+  assert.deepEqual(result, { data: { deleted: true } });
+  assert.equal(threadConfigService.getConfigSync('orphan-1'), undefined);
+  assert.deepEqual(zcaService.forgotten, ['orphan-1']);
+});
+
+void test('ZcaController.deleteThreadConfig refuses chats still in the Zalo directory', async () => {
+  const zcaService = new DirectoryStubZcaService(['active-1']);
+  const threadConfigService = new ThreadConfigService();
+  await threadConfigService.updateConfig('active-1', { isListened: true });
+  const controller = new ZcaController(zcaService, threadConfigService, tokens, users);
+
+  await assert.rejects(
+    () => controller.deleteThreadConfig(bearer('admin-token'), 'active-1'),
+    ConflictException,
+  );
+  assert.ok(threadConfigService.getConfigSync('active-1'));
+  assert.deepEqual(zcaService.forgotten, []);
+});
+
+void test('ZcaController.deleteThreadConfig returns 404 for unknown threads and 403 for non-admins', async () => {
+  const zcaService = new DirectoryStubZcaService([]);
+  const threadConfigService = new ThreadConfigService();
+  await threadConfigService.updateConfig('orphan-2', { isListened: true });
+  const controller = new ZcaController(zcaService, threadConfigService, tokens, users);
+
+  await assert.rejects(
+    () => controller.deleteThreadConfig(bearer('admin-token'), 'missing'),
+    NotFoundException,
+  );
+  await assert.rejects(
+    () => controller.deleteThreadConfig(bearer('user-token'), 'orphan-2'),
+    ForbiddenException,
+  );
+  assert.ok(threadConfigService.getConfigSync('orphan-2'));
 });

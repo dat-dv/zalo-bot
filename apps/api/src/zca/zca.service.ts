@@ -125,6 +125,8 @@ export interface QrLoginStatusInfo {
 
 export interface AvailableThread extends ZcaDirectoryEntry {
   isListened: boolean;
+  /** True for a listened id that Zalo did not return (left group, stale id): a placeholder row. */
+  missingFromZalo?: boolean;
 }
 
 @Injectable()
@@ -1138,6 +1140,24 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     return this.toAvailableThreads(snapshot);
   }
 
+  /** Whether the cached Zalo directory (no Zalo call) contains this group or contact. */
+  public isInDirectory(threadId: string): boolean {
+    const id = String(threadId).trim();
+    const snapshot = this.currentDirectorySnapshot();
+    if (!snapshot) return false;
+    return snapshot.groups.some((t) => t.id === id) || snapshot.friends.some((t) => t.id === id);
+  }
+
+  /**
+   * Drops a thread whose config was deleted from the in-memory listened set and type map.
+   * Deliberately bypasses `setListenedThreadIds`, which would write (re-create) the config.
+   */
+  public forgetThread(threadId: string): void {
+    const id = String(threadId).trim();
+    this.listenedThreadIds.delete(id);
+    this.knownThreadTypes.delete(id);
+  }
+
   /** When the directory behind `getAvailableThreads` was last fetched from Zalo, if ever. */
   public getDirectoryFetchedAt(): string | null {
     return this.currentDirectorySnapshot()?.fetchedAt ?? null;
@@ -1270,6 +1290,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
           name: `Cuộc trò chuyện ${id}`,
           type: 'group',
           isListened: true,
+          missingFromZalo: true,
         });
       }
     }

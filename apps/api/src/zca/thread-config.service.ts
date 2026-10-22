@@ -658,6 +658,28 @@ export class ThreadConfigService implements OnModuleInit {
     });
   }
 
+  /**
+   * Removes a thread's config from DB, Redis, memory and the listened set. Chat memory and the
+   * Drive/Photos link history stay. Returns false when the thread has no stored config.
+   */
+  public async deleteConfig(threadId: string): Promise<boolean> {
+    const id = String(threadId).trim();
+    const stored = await this.loadStoredConfig(id);
+    if (!stored) return false;
+
+    // DB first: if it fails nothing else is touched and the caller sees the error.
+    if (this.threadConfigRepo) {
+      const entity = await this.threadConfigRepo.findOneBy({ threadId: id });
+      // `remove` (not `delete`) so AuditLogSubscriber records the deleted row.
+      if (entity) await this.threadConfigRepo.remove(entity);
+    }
+    this.configsMap.delete(id);
+    await this.redisService?.del(`${REDIS_KEY_THREAD_CONFIG_PREFIX}${id}`);
+    await this.syncListenedThreadsToRedis();
+    this.logger.log(`[ThreadConfigService] Deleted thread config ${id}.`);
+    return true;
+  }
+
   public async toggleListened(threadId: string): Promise<boolean> {
     const config = await this.getConfig(threadId);
     const newStatus = !config.isListened;
