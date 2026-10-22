@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ILlmProvider, LlmResponse, LlmToolDefinition } from '../types/llm.types';
 import { cleanToolArguments, normalizeSchemaTypes } from '../utils/tool-arguments.util';
+import { resolveLlmTimeoutMs } from '../utils/llm-timeout.util';
 
 export interface OpenAiCompatibleConfig {
   baseUrl: string;
@@ -47,7 +48,7 @@ export class OpenAiProvider implements ILlmProvider {
 
     if (!apiKey) {
       this.logger.warn('OpenAI API key is missing. Skipping LLM call.');
-      return { text: 'Chưa cấu hình API Key cho OpenAI.' };
+      return { text: 'Chưa cấu hình API Key cho OpenAI.', failed: true };
     }
 
     const messages: Array<{ role: string; content: string }> = [];
@@ -80,12 +81,13 @@ export class OpenAiProvider implements ILlmProvider {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(resolveLlmTimeoutMs(this.configService)),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
         this.logger.error(`OpenAI API error (${response.status}): ${errorText}`);
-        return { text: 'Có lỗi khi kết nối tới mô hình AI.' };
+        return { text: 'Có lỗi khi kết nối tới mô hình AI.', failed: true };
       }
 
       const data = (await response.json()) as {
@@ -132,7 +134,7 @@ export class OpenAiProvider implements ILlmProvider {
       };
     } catch (err) {
       this.logger.error(`Failed to call OpenAI API: ${(err as Error).message}`);
-      return { text: 'Không thể xử lý yêu cầu lúc này.' };
+      return { text: 'Không thể xử lý yêu cầu lúc này.', failed: true };
     }
   }
 }

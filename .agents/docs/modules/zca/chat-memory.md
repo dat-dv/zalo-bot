@@ -45,21 +45,16 @@ Trong `.env.local` (hoặc env của server):
 CHAT_MEMORY_ENABLED=true
 CHAT_MEMORY_CONTEXT_WINDOW=10
 CHAT_MEMORY_SEARCH_LIMIT=15
-# Tuỳ chọn: LLM riêng cho câu trả lời trí nhớ (OpenAI-compatible, vd 9router)
-MEMORY_LLM_BASE_URL=https://<router>/v1
-MEMORY_LLM_MODEL=chat-daily
-MEMORY_LLM_API_KEY=<key>
 ```
 
-- `MEMORY_LLM_BASE_URL` để trống thì dùng provider chính (`LLM_PROVIDER`).
-- Tool calling (chọn tool, sinh từ khóa) vẫn chạy trên provider chính; 9router chỉ viết câu trả lời.
+- Cả phần chọn tool, sinh từ khóa lẫn phần viết câu trả lời đều đi qua cùng chuỗi provider chung (`LLM_PROVIDER` rồi `LLM_FALLBACK_PROVIDERS`, hiện là 9router → Gemini). Trí nhớ không có cấu hình LLM riêng.
 - Migration `1724810000000-CreateZcaMessages` tự chạy khi khởi động (`migrationsRun: true`). Migration chạy `CREATE EXTENSION unaccent`; image `postgres:16-alpine` đã có sẵn, còn DB managed cần user có quyền tạo extension.
 - **Tắt khẩn cấp**: đặt `CHAT_MEMORY_ENABLED=false` rồi restart; bot ngừng ghi, đọc và chèn ngữ cảnh. Gỡ hẳn: `npm run migration:revert --workspace @zalobot/api` (xoá bảng).
 
 ## 4. Quyền riêng tư
 
 - Bot lưu tin của **mọi thành viên** kênh đang listen, kể cả người không dùng bot. Admin cần cân nhắc trước khi listen một nhóm.
-- Chỉ các đoạn khớp (≤80 dòng) và ~10 tin gần nhất được gửi ra LLM, không bao giờ gửi cả lịch sử. Muốn giữ hoàn toàn nội bộ, trỏ `MEMORY_LLM_*` về endpoint `qwen` local.
+- Chỉ các đoạn khớp (≤80 dòng) và ~10 tin gần nhất được gửi ra LLM, không bao giờ gửi cả lịch sử. Muốn giữ hoàn toàn nội bộ thì đặt chuỗi provider về `qwen` local (`LLM_PROVIDER=qwen`).
 - Log raw payload của ZCA đã hạ xuống mức `debug`.
 
 ## 5. Kiểm thử

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ILlmProvider, LlmResponse, LlmToolDefinition } from '../types/llm.types';
+import { resolveLlmTimeoutMs } from '../utils/llm-timeout.util';
 
 @Injectable()
 export class GeminiProvider implements ILlmProvider {
@@ -19,7 +20,7 @@ export class GeminiProvider implements ILlmProvider {
 
     if (!apiKey) {
       this.logger.warn('Gemini API key is missing. Skipping LLM call.');
-      return { text: 'Chưa cấu hình API Key cho Gemini.' };
+      return { text: 'Chưa cấu hình API Key cho Gemini.', failed: true };
     }
 
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -58,12 +59,13 @@ export class GeminiProvider implements ILlmProvider {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(resolveLlmTimeoutMs(this.configService)),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
         this.logger.error(`Gemini API error (${response.status}): ${errorText}`);
-        return { text: 'Có lỗi khi kết nối tới mô hình AI.' };
+        return { text: 'Có lỗi khi kết nối tới mô hình AI.', failed: true };
       }
 
       const data = (await response.json()) as {
@@ -105,7 +107,7 @@ export class GeminiProvider implements ILlmProvider {
       };
     } catch (err) {
       this.logger.error(`Failed to call Gemini API: ${(err as Error).message}`);
-      return { text: 'Không thể xử lý yêu cầu lúc này.' };
+      return { text: 'Không thể xử lý yêu cầu lúc này.', failed: true };
     }
   }
 }

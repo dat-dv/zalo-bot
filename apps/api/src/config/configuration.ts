@@ -44,6 +44,14 @@ export interface AppConfig {
   deploy: { notifyToken?: string };
   llm: {
     provider: string;
+    /** Tried in order after `provider` when it fails (`LLM_FALLBACK_PROVIDERS`). */
+    fallbackProviders: string[];
+    timeoutMs: number;
+    router: {
+      baseUrl: string;
+      model: string;
+      apiKey: string;
+    };
     gemini: {
       apiKey: string;
       model: string;
@@ -57,12 +65,6 @@ export interface AppConfig {
       baseUrl: string;
       model: string;
       apiKey?: string;
-    };
-    /** OpenAI-compatible endpoint for chat-memory answers; empty baseUrl = main provider. */
-    memory: {
-      baseUrl: string;
-      model: string;
-      apiKey: string;
     };
   };
   chatMemory: {
@@ -147,6 +149,16 @@ export default (): AppConfig => {
     deploy: { notifyToken: readOptionalEnv('DEPLOY_NOTIFY_TOKEN') },
     llm: {
       provider: readEnv('LLM_PROVIDER', 'gemini'),
+      fallbackProviders: readEnv('LLM_FALLBACK_PROVIDERS')
+        .split(',')
+        .map((name) => name.trim().toLowerCase())
+        .filter(Boolean),
+      timeoutMs: readNumberEnv('LLM_TIMEOUT_MS', 30000),
+      router: {
+        baseUrl: readEnv('ROUTER_BASE_URL'),
+        model: readEnv('ROUTER_MODEL'),
+        apiKey: readOptionalEnv('ROUTER_API_KEY') || '',
+      },
       gemini: {
         apiKey: readEnv('GEMINI_API_KEY'),
         model: readEnv('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
@@ -160,11 +172,6 @@ export default (): AppConfig => {
         baseUrl: readEnv('QWEN_BASE_URL', readEnv('OLLAMA_BASE_URL', 'http://localhost:11434')),
         model: readEnv('QWEN_MODEL', readEnv('OLLAMA_MODEL', 'qwen2.5:14b')),
         apiKey: readOptionalEnv('QWEN_API_KEY') || readOptionalEnv('OLLAMA_API_KEY') || '',
-      },
-      memory: {
-        baseUrl: readEnv('MEMORY_LLM_BASE_URL'),
-        model: readEnv('MEMORY_LLM_MODEL'),
-        apiKey: readOptionalEnv('MEMORY_LLM_API_KEY') || '',
       },
     },
     chatMemory: {

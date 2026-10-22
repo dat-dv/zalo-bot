@@ -21,7 +21,7 @@ function createHarness(options: { enabled: boolean; lines?: MemoryLine[]; answer
     withChatAction: <T>(_chatId: string, fn: () => Promise<T>) => fn(),
   } as unknown as ZaloService;
   const llmService = {
-    generateMemoryAnswer: (prompt: string) => {
+    generate: (prompt: string) => {
       prompts.push(prompt);
       return Promise.resolve({ text: options.answer ?? '' });
     },

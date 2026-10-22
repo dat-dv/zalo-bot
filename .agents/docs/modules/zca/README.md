@@ -243,7 +243,7 @@ Contracts liên quan trong `packages/contracts`: `ThreadBotConfig`, `UpdateThrea
 
 ## 4. Biến Môi Trường ZCA
 
-Trí nhớ hội thoại dùng thêm `CHAT_MEMORY_ENABLED`, `CHAT_MEMORY_CONTEXT_WINDOW`, `CHAT_MEMORY_SEARCH_LIMIT`, `MEMORY_LLM_BASE_URL`, `MEMORY_LLM_MODEL`, `MEMORY_LLM_API_KEY`; cách bật và lý do nằm ở [Trí nhớ hội thoại](chat-memory.md).
+Trí nhớ hội thoại dùng thêm `CHAT_MEMORY_ENABLED`, `CHAT_MEMORY_CONTEXT_WINDOW`, `CHAT_MEMORY_SEARCH_LIMIT`; cách bật và lý do nằm ở [Trí nhớ hội thoại](chat-memory.md).
 
 `DATA_DIR`/`ZCA_DATA_DIR` (nơi lưu file phiên), `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN`, `ZCA_CHECK_UPDATE`, `ZCA_LOGGING`, `ZCA_AUTO_LOGIN`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH` (đọc trong `apps/api/src/config/configuration.ts`).
 

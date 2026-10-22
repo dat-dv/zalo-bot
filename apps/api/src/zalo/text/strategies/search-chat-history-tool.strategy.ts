@@ -106,7 +106,7 @@ export class SearchChatHistoryToolStrategy implements TextToolStrategy {
       transcript;
 
     const response = await this.zaloService.withChatAction(chatId, () =>
-      this.llmService.generateMemoryAnswer(prompt, systemInstruction),
+      this.llmService.generate(prompt, undefined, systemInstruction),
     );
     const answer = response.text?.trim();
     await this.zaloService.sendMessage(

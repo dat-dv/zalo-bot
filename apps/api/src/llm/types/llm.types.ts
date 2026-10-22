@@ -20,9 +20,12 @@ export interface LlmToolCall {
 }
 
 export interface LlmResponse {
+  /** On failure: a user-facing Vietnamese error message (shown only when every provider failed). */
   text?: string;
   toolCall?: LlmToolCall;
   toolCalls?: LlmToolCall[];
+  /** Missing config, HTTP/network error or timeout; `LlmService` then tries the next provider. */
+  failed?: boolean;
 }
 
 export interface ILlmProvider {

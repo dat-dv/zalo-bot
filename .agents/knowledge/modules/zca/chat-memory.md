@@ -36,7 +36,6 @@ The bot answers questions about past conversations of the current Zalo chat ("n�
 | `CHAT_MEMORY_ENABLED` | `false` | Master switch. Off = nothing stored, read or injected; tool replies "not enabled". Instant rollback. |
 | `CHAT_MEMORY_CONTEXT_WINDOW` | `10` | Latest messages injected into the LLM prompt (`0` = off). |
 | `CHAT_MEMORY_SEARCH_LIMIT` | `15` | Ranked hits per search (each expanded with neighbours). |
-| `MEMORY_LLM_BASE_URL` / `_MODEL` / `_API_KEY` | empty | OpenAI-compatible endpoint for memory answers (e.g. 9router `chat-daily`). Empty base URL = main `LLM_PROVIDER`. |
 
 Scope: every **listened** ZCA thread when enabled. No per-thread toggle yet. Official Zalo Bot webhook chats are not stored.
 
@@ -67,12 +66,12 @@ Owner's own phone messages (`isSelf`, not bot-sent) are stored only when zca-js 
   1. Hit query: OR of `plainto_tsquery('simple', zalobot_unaccent(kw))` (≤12 keywords), `recalled_at IS NULL`, optional date range, ranked by `ts_rank` then recency, `LIMIT CHAT_MEMORY_SEARCH_LIMIT`.
   2. Neighbour query: per hit 3 messages before + hit + 3 after (same channel, not recalled).
   3. `selectMemoryLines`: dedupe, keep best-ranked hits first, cap `MAX_MEMORY_LINES = 80`, sort chronologically.
-  4. No lines → "không tìm thấy … từ <from> đến <to>". Else lines `[yyyy-mm-dd HH:mm] <sender|Bot>: text` + question → `LlmService.generateMemoryAnswer` (tool-free; answer only from snippets, cite date + speaker, say when unsure).
+  4. No lines → "không tìm thấy … từ <from> đến <to>". Else lines `[yyyy-mm-dd HH:mm] <sender|Bot>: text` + question → `LlmService.generate(prompt, undefined, system)` through the shared provider chain (tool-free; answer only from snippets, cite date + speaker, say when unsure).
 - **Short-term window**: `TextInputService.buildRecentContextBlock` appends the latest `CHAT_MEMORY_CONTEXT_WINDOW` messages (excluding `AgentInput.messageId`, the message being processed) to the tool-calling and chit-chat system prompts, under a header forbidding tool calls for its content (prevents re-recording old transactions). Empty for chats with no stored rows.
 
 ## Data disclosure
 
-Approved exception to local-first AI (see `global/local-first-ai-usage.md`): only the ≤80 matched lines and the short window leave the server, never the full history. Point `MEMORY_LLM_*` at the local `qwen` endpoint to keep memory answers on-prem. The raw ZCA payload log is DEBUG-level.
+Approved exception to local-first AI (see `global/local-first-ai-usage.md`): only the ≤80 matched lines and the short window leave the server, never the full history. Memory answers use the shared provider chain (`LLM_PROVIDER` + `LLM_FALLBACK_PROVIDERS`); there is no memory-specific LLM config. To keep them on-prem, run the whole chain on `qwen`. The raw ZCA payload log is DEBUG-level.
 
 ## Not in Step 1
 

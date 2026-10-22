@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ILlmProvider, LlmResponse, LlmToolDefinition } from '../types/llm.types';
 import { cleanToolArguments, normalizeSchemaTypes } from '../utils/tool-arguments.util';
+import { resolveLlmTimeoutMs } from '../utils/llm-timeout.util';
 
 @Injectable()
 export class QwenProvider implements ILlmProvider {
@@ -72,6 +73,7 @@ export class QwenProvider implements ILlmProvider {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(resolveLlmTimeoutMs(this.configService)),
       });
 
       if (!response.ok) {
@@ -80,9 +82,10 @@ export class QwenProvider implements ILlmProvider {
         if (response.status === 404) {
           return {
             text: `Model "${model}" chưa được tải. Hãy chạy "ollama pull ${model}" trên máy chủ.`,
+            failed: true,
           };
         }
-        return { text: 'Có lỗi khi kết nối tới mô hình Qwen.' };
+        return { text: 'Có lỗi khi kết nối tới mô hình Qwen.', failed: true };
       }
 
       const data = (await response.json()) as {
@@ -180,6 +183,7 @@ export class QwenProvider implements ILlmProvider {
       );
       return {
         text: 'Không thể kết nối tới mô hình Qwen 14B (Ollama). Vui lòng đảm bảo Ollama đang hoạt động.',
+        failed: true,
       };
     }
   }
