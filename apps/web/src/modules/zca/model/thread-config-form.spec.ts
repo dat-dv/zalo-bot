@@ -3,6 +3,7 @@ import test from 'node:test';
 import { CHAT_MEMORY_DEFAULTS, CHAT_MEMORY_LIMITS, type ThreadBotConfig } from '@zalobot/contracts';
 import {
   configToForm,
+  contextWindowAfterToggle,
   formToPayload,
   memoryDraftFrom,
   resolveChatMemory,
@@ -56,6 +57,12 @@ test('resolveChatMemory falls back to defaults for empty fields and clamps typed
     resolveChatMemory(form, { contextWindow: '999', searchLimit: '5' }).contextWindow,
     CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MAX,
   );
+});
+
+test('contextWindowAfterToggle turns the window off and restores the last size or the default', () => {
+  assert.equal(contextWindowAfterToggle(false, 8), 0);
+  assert.equal(contextWindowAfterToggle(true, 8), 8);
+  assert.equal(contextWindowAfterToggle(true, 0), CHAT_MEMORY_DEFAULTS.contextWindow);
 });
 
 test('formToPayload sends identity, every section and the resolved chat memory', () => {

@@ -45,11 +45,16 @@ Ngoài ra, khoảng 10 tin gần nhất của kênh được đưa vào prompt �
 
 Trí nhớ được bật **riêng cho từng nhóm/chat**, không còn biến môi trường nào. Trên dashboard, vào trang "Zalo & Users", bấm **Cấu hình** ở dòng của nhóm để mở trang cấu hình kênh rồi bật card **🧠 Trí nhớ hội thoại**:
 
-| Trường | Mặc định | Giới hạn | Ý nghĩa |
-| --- | --- | --- | --- |
-| Bật/tắt (`enabled`) | tắt | | Kênh có lưu và tra lại tin không |
-| Số tin ngữ cảnh gần đây (`contextWindow`) | 10 | 0–30 | Số tin gần nhất đưa vào prompt để hiểu câu nối tiếp; 0 = tắt riêng phần này |
-| Số kết quả mỗi lần tra (`searchLimit`) | 15 | 1–50 | Số tin khớp nhất lấy ra khi tra chuyện cũ |
+Công tắc chính của card bật/tắt việc **lưu tin**. Bên trong card có hai khối riêng, vì đây là hai cách dùng khác nhau của cùng một kho tin đã lưu:
+
+- **Hiểu câu nối tiếp**: chạy ở **mọi lượt**. Vài tin gần nhất được gắn vào prompt để bot hiểu "còn cái kia?", "ghi giúp cái đó". Khối này có công tắc phụ. Tắt thì lưu `contextWindow = 0`; bật lại thì lấy lại số tin cũ, chưa có thì dùng 10. Gõ 0 vào ô số rồi rời ô cũng tắt công tắc này.
+- **Tra lại chuyện cũ**: chỉ chạy khi LLM gọi tool `SEARCH_CHAT_HISTORY`, tức khi câu hỏi là về chuyện đã nói trước đây.
+
+| Trường | Khối | Mặc định | Giới hạn | Ý nghĩa |
+| --- | --- | --- | --- | --- |
+| Bật/tắt (`enabled`) | Công tắc chính | tắt | | Kênh có lưu tin không; tắt thì cả hai khối ngừng chạy |
+| Số tin gần đây (`contextWindow`) | Hiểu câu nối tiếp | 10 | 0–30 | Số tin gần nhất đưa vào prompt; 0 = công tắc phụ tắt |
+| Số kết quả mỗi lần tra (`searchLimit`) | Tra lại chuyện cũ | 15 | 1–50 | Số tin khớp nhất lấy ra khi tra chuyện cũ |
 
 Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm gia đình có thể muốn bot nhớ, nhóm công việc thì không. Kênh phải **đang listen** thì bot mới nhận được tin để lưu.
 

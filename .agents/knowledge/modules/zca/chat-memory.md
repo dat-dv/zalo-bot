@@ -20,6 +20,8 @@ metadata:
       - apps/api/src/llm/llm.service.ts
       - packages/contracts/src/index.ts
       - apps/web/src/modules/zca/view/thread-config-screen.tsx
+      - apps/web/src/modules/zca/presentation/components/thread-config/chat-memory-section.tsx
+      - apps/web/src/modules/zca/model/thread-config-form.ts
 ---
 
 # ZCA Chat Memory
@@ -43,6 +45,7 @@ Configured per ZCA thread on the dashboard thread config page `/zca/thread?id=�
 | `searchLimit` | `15` | 1–50 | Ranked hits per search (each expanded with neighbours). |
 
 - `normalizeChatMemoryConfig` (`@zalobot/contracts`, with `CHAT_MEMORY_DEFAULTS`, `CHAT_MEMORY_LIMITS`) fills defaults, rounds and clamps. Applied on default creation, `entityToConfig`, cached Redis/JSON configs, the `updateConfig` merge and the web form. `PUT /api/zca/thread-configs/:id` has no class-validator DTO, so this is the guard.
+- Card layout (`chat-memory-section.tsx`): the main switch = `enabled` (storing). Inside, two separate blocks because they are different uses of the stored messages: "Hiểu câu nối tiếp" (own switch = `contextWindow > 0`, field shown only when on; off saves `0`, on restores the size used before turning it off or the default, via `contextWindowAfterToggle` in `model/thread-config-form.ts`) and "Tra lại chuyện cũ" (`searchLimit`).
 - Memory needs `isListened` **and** `chatMemory.enabled` (only listened threads receive messages).
 - Turning memory off stops storing, searching and context injection; rows already stored are **kept** and reused if it is turned on again. Turning it on stores from then; buffered Redis messages are imported at the next start.
 - Dashboard chat table shows `Nhớ` in the Features column for threads with memory on.
