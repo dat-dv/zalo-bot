@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { TaskReminderTimeEntity } from '../database/entities/task-reminder-time.entity';
 import { TaskEntity } from '../database/entities/task.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
@@ -13,7 +14,12 @@ import { TasksService } from './tasks.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([TaskEntity, UserEntity, ZcaThreadConfigEntity]),
+    TypeOrmModule.forFeature([
+      TaskEntity,
+      TaskReminderTimeEntity,
+      UserEntity,
+      ZcaThreadConfigEntity,
+    ]),
     DashboardAuthModule,
     forwardRef(() => RemindersModule),
     forwardRef(() => UsersModule),

@@ -2,6 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   REMINDER_TARGET_LIMITS,
   REMINDER_TARGET_MODES,
+  REMINDER_TIME_LIMITS,
   type ReminderTargetMode,
   type TaskStatus,
 } from '@zalobot/contracts';
@@ -62,10 +63,17 @@ export class CreateTaskDto {
   @IsISO8601()
   due?: string;
 
-  @ApiPropertyOptional({ example: '2026-10-23T08:00:00.000Z', description: 'Reminder time' })
+  @ApiPropertyOptional({ example: '2026-10-23T08:00:00.000Z', description: 'One reminder time' })
   @IsOptional()
   @IsISO8601()
   remindAt?: string;
+
+  @ApiPropertyOptional({ type: [String], description: 'Reminder times (ISO); wins over remindAt' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(REMINDER_TIME_LIMITS.MAX_TIMES)
+  @IsISO8601({}, { each: true })
+  remindTimes?: string[];
 
   @ApiPropertyOptional({ description: 'Zalo chat for the reminder; defaults to your private chat' })
   @IsOptional()
@@ -112,11 +120,21 @@ export class UpdateTaskDto {
   @IsIn(TASK_STATUSES)
   status?: TaskStatus;
 
-  @ApiPropertyOptional({ description: 'ISO date-time; empty string clears the reminder' })
+  @ApiPropertyOptional({ description: 'One ISO time; empty string clears every reminder' })
   @IsOptional()
   @ValidateIf((_dto: UpdateTaskDto, value: unknown) => value !== '')
   @IsISO8601()
   remindAt?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Replaces the reminder times; [] clears them',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(REMINDER_TIME_LIMITS.MAX_TIMES)
+  @IsISO8601({}, { each: true })
+  remindTimes?: string[];
 
   @ApiPropertyOptional({ description: 'Zalo chat for the reminder' })
   @IsOptional()

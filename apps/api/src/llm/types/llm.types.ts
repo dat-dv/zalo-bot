@@ -2,6 +2,8 @@ export interface LlmToolProperty {
   type: string;
   description?: string;
   enum?: string[];
+  /** Element schema of an `ARRAY` property. */
+  items?: LlmToolProperty;
 }
 
 export interface LlmToolDefinition {

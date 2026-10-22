@@ -23,14 +23,18 @@ export class ReminderSchedulerService {
     try {
       // While ZCA is logged out the reminders wait, so they still go out after the next login.
       if (!this.zcaMessenger.isConnected()) return;
-      const dueReminders = await this.remindersService.getDueReminders();
-      if (dueReminders.length === 0) return;
+      const now = new Date();
+      const dueTimes = await this.remindersService.getDueReminders(now);
+      if (dueTimes.length === 0) return;
 
-      this.logger.log(`Found ${dueReminders.length} due reminder(s) to process.`);
+      this.logger.log(`Found ${dueTimes.length} due reminder time(s) to process.`);
 
-      for (const reminder of dueReminders) {
+      for (const time of dueTimes) {
+        const { reminder } = time;
         const userId = reminder.userId;
         if (!userId) continue;
+        // Claim first: whoever claims this time sends it, so it never goes out twice.
+        if (!(await this.remindersService.claimReminderTime(time, now))) continue;
 
         const locale = await this.usersService.getPreferredLocale(userId);
         const timeStr = new Intl.DateTimeFormat(localeTag(locale), {
@@ -41,7 +45,7 @@ export class ReminderSchedulerService {
           month: '2-digit',
           year: 'numeric',
           weekday: 'short',
-        }).format(new Date(reminder.remindAt));
+        }).format(new Date(time.remindAt));
 
         // Calls are not placed yet: a `call` reminder is sent as a message like the others.
         const header = translate(locale, 'reminder.header.text');
@@ -52,7 +56,7 @@ export class ReminderSchedulerService {
 
         const target = reminderTarget(reminder);
         const result = await this.targets.deliver(target, { header, body }, locale);
-        await this.remindersService.markTriggered(reminder.id);
+        await this.remindersService.refreshReminderSummary(reminder);
         this.logger.log(
           `Reminder "${reminder.title}" of user ${userId} to ${target.chatId}: ${result}`,
         );

@@ -6,6 +6,11 @@ import {
 } from '@zalobot/contracts';
 import type { TaskEntity } from '../database/entities/task.entity';
 import { type RecordOriginLookups, creatorDisplayName } from '../google/google-copy.util';
+import {
+  type StoredReminderTime,
+  nextPendingReminderAt,
+  toReminderTimeItems,
+} from '../reminders/reminder-times';
 
 /** Editable fields of a `tasks` row. */
 export interface TaskFields {
@@ -14,13 +19,19 @@ export interface TaskFields {
   dueAt: Date | null;
   status: TaskStatus;
   completedAt: Date | null;
-  remindAt: Date | null;
 }
 
 export const UNTITLED_TASK = 'Không có tiêu đề';
 
-export function toTaskItem(row: TaskEntity, lookups: RecordOriginLookups): ITaskListItem {
+export function toTaskItem(
+  row: TaskEntity,
+  lookups: RecordOriginLookups,
+  times: readonly StoredReminderTime[] = [],
+): ITaskListItem {
   const chat = row.sourceChatId ? lookups.chats.get(row.sourceChatId) : undefined;
+  const items = toReminderTimeItems(times);
+  // The next time not sent, else the latest one (so a fully sent reminder still shows).
+  const remindAt = nextPendingReminderAt(times)?.toISOString() ?? items[items.length - 1]?.remindAt;
   return {
     id: row.id,
     title: row.title,
@@ -35,7 +46,8 @@ export function toTaskItem(row: TaskEntity, lookups: RecordOriginLookups): ITask
     sourceChatName: chat?.name,
     sourceChatType: chat?.type,
     createdAt: row.createdAt?.toISOString(),
-    remindAt: row.remindAt?.toISOString(),
+    remindAt,
+    remindTimes: items.length > 0 ? items : undefined,
     remindChatId: row.remindChatId ?? undefined,
     remindChatName: row.remindChatId
       ? lookups.chats.get(row.remindChatId)?.name || lookups.userNames.get(row.remindChatId)

@@ -6,6 +6,16 @@
 
 Scheduled reminders delivered as a Zalo message, by default to the owner's private chat, or to a chosen group with chosen people (see [Reminder targets](#reminder-targets)). Reminders are created from chat (LLM tool `SET_REMINDER`, confirmation-gated) or from the dashboard, listed/edited there, and fired by a backend cron. A reminder belongs to its creator (`user_id`): `/reminders` lists only the user's own.
 
+## Reminder times
+
+A reminder (like a task, see [`tasks/README.md`](../tasks/README.md#task-reminders)) reminds at **one or more times**, max `REMINDER_TIME_LIMITS.MAX_TIMES` = 10: rows of `reminder_times` (`id`, `reminder_id` → cascade, `remind_at`, `sent_at`; `timestamp` without time zone like `reminders.remind_at`, so migrated values read back unchanged; index `(sent_at, remind_at)`). Migration `1724940000000-CreateReminderTimes` copied each existing reminder into one row (`sent_at` = `completed_at` for triggered ones). `reminders.remind_at` is the next time not sent (a summary, so lists, the Home payload and `/reminders` in chat keep sorting by it).
+
+- Shared pure logic `reminder-times.ts`: `planReminderTimes(current, requested, now, { allowPast })` (keep times already saved with their sent flag, remove the rest, add new; max 10), `nextPendingReminderAt`, `lastSentReminderAt`, `nextRepeatAt`, `toReminderTimeItems`, `requestedReminderTimes` (API `remindTimes` wins over the single legacy `remindAt`).
+- Personal reminders pass `allowPast: true`: the server never refused a past time (it goes out on the next tick); the dashboard form checks it. Task reminders do refuse new past times.
+- Repeat (`daily`/`weekly`) applies to **each** time: "uống thuốc 8h và 20h, hằng ngày" moves each time forward after it goes out.
+- Snooze moves the **next** time not sent: API `snoozeReminder` (+N minutes from now, unused by routes); the dashboard Snooze button PATCHes `remindTimes` with that time + 15 minutes (`snoozeReminderTimes`).
+- Editing `remindTimes` keeps saved times (and their sent flag); at least one time is required (400 otherwise).
+
 ## Reminder targets
 
 Shared by personal reminders and task reminders ([`tasks/README.md`](../tasks/README.md#task-reminders)) so the "where and who" is built once. A target is `{ chatId, users: [{ id, name }], mode }` (`apps/api/src/reminders/reminder-target.ts`).
@@ -14,7 +24,7 @@ Shared by personal reminders and task reminders ([`tasks/README.md`](../tasks/RE
 - A newly chosen chat must be the actor's own private chat, the chat the bot was asked in, or a listened thread (`zca_thread_configs.is_listened`) ⇒ else 400.
 - `users`: people of that **group** to remind, max `REMINDER_TARGET_LIMITS.MAX_USERS` = 10, stored with their tag name. Dashboard picks are validated against the group's member list (`ZcaService.getGroupMembers`, cached; ZCA logged out ⇒ 400); bot tags are taken from the message's real Zalo mentions, never guessed from names. A private chat has no people; moving to another chat drops them.
 - `mode` (`ReminderTargetMode`): `mention` (default) = one message in the group tagging the people; `direct` = a private message to each (`reminderTarget.directIntro`: "You are reminded in <chat>"), and whoever cannot be messaged privately (often: not a Zalo friend of the bot account) is tagged in one fallback group message. Without people the mode is always `mention`.
-- Changing the chat, the set of people or the mode re-arms a reminder that already went out.
+- Changing the chat, the set of people or the mode **never re-sends** a time that already went out; it only applies to times not sent yet.
 - Delivery skips (and logs) a group the admin stopped listening to and the `dashboard-owner` pseudo-chat.
 
 Code: `ReminderTargetService` (`reminder-target.service.ts`, exported by `RemindersModule`): `listChannels`, `listMembers`, `chatNames`, `isListenedThread`, `isUnlistenedGroup`, `resolve(input, current, actor, 'origin' | 'self')`, `deliver(target, { header, body }, locale)`. Pure helpers in `reminder-target.ts`: `buildReminderMessage` (tag line between header and body, `pos`/`len` in UTF-16 units as `zca-js` expects), `normalizeTargetUsers`, `parseTargetUsers` (Redis JSON), `isSameTarget`, `isReminderTargetMode`. `ZcaMessengerService.sendMessageWithMentions` sends one tagged message (not chunked; over the chunk length it goes out untagged).
@@ -43,7 +53,7 @@ Any dashboard user thereby sees the names of listened threads and their members 
 
 - Data source: `useRemindersQuery`; when it returns an empty list, falls back to `dashboard.data.reminders` (`useDashboardQuery`).
 - `DataPanel` with row counter and client search by title.
-- Create: `+ Add reminder` toolbar button (desktop, `max-[960px]:hidden`) / `MobileActionBar` (compact) opens `CreateReminderDialog` with title, `remindAt` (`datetime-local`, local time → ISO), notify type, repeat type and the target (`ReminderTargetFields`; private chat preselected; `dashboard-owner` must pick). `Call` is disabled unless the target is the user's own private chat (`reminders.notifyType.callPrivateOnly`). Save is disabled while invalid or in the past; validity is re-checked against the clock on submit. API errors stay in the dialog; success closes it with a toast.
+- Create: `+ Add reminder` toolbar button (desktop, `max-[960px]:hidden`) / `MobileActionBar` (compact) opens `CreateReminderDialog` with title, reminder times (`ReminderTimesField`, one or more `datetime-local`, local time → ISO, sent as `remindTimes`), notify type, repeat type and the target (`ReminderTargetFields`; private chat preselected; `dashboard-owner` must pick). `Call` is disabled unless the target is the user's own private chat (`reminders.notifyType.callPrivateOnly`). Save is disabled while invalid or in the past; validity is re-checked against the clock on submit. API errors stay in the dialog; success closes it with a toast.
 - Columns: title, notify type (`text` / `call`), schedule (`remindAt`), repeat (`none` / `daily` / `weekly`), `target` (Sent to, `showTarget`, this page only: `ReminderTargetSummary`, `chatName` else "My private chat"), actions.
 - Inline edit (title, `remindAt` datetime, notify type, repeat type, target via compact `ReminderTargetFields`) with Save/Cancel; target fields are sent only when changed (`isTargetChanged`); API rejections show their message in a toast; Snooze = PATCH `remindAt` + 15 minutes; Delete asks `window.confirm`. Toasts on save/snooze/delete.
 - Error state: alert strip with Retry (invalidates reminders + dashboard caches). Loading is passed to the table.
@@ -54,20 +64,20 @@ All endpoints are scoped to the dashboard user (`getDashboardUserId`).
 
 | Method | Path | Behavior |
 | --- | --- | --- |
-| GET | `/api/reminders` | `getUserUpcomingReminders`: rows with `isTriggered = false`, ordered by `remindAt` ASC, plus `chatName` (`ReminderTargetService.chatNames`) |
+| GET | `/api/reminders` | `getUserUpcomingReminders`: rows with `isTriggered = false`, ordered by `remindAt` ASC, plus `chatName` (`ReminderTargetService.chatNames`) and `remindTimes` (earliest first) |
 | GET | `/api/reminders/:id` | One reminder of the user, 404 otherwise |
-| POST | `/api/reminders` | Requires `title`, valid `remindAt`; optional `notifyType` (`text`/`call`), `repeatType` (`none`/`daily`/`weekly`), `chatId`, `remindUserIds`, `remindMode` |
-| PATCH | `/api/reminders/:id` | Updates `title`, `remindAt`, `notifyType`, `repeatType`, target fields. Changing `remindAt` or the target resets `isTriggered=false`, `status='pending'` |
+| POST | `/api/reminders` | Requires `title` and `remindTimes` (≤10 ISO) or a single `remindAt`; optional `notifyType` (`text`/`call`), `repeatType` (`none`/`daily`/`weekly`), `chatId`, `remindUserIds`, `remindMode` |
+| PATCH | `/api/reminders/:id` | Updates `title`, `remindTimes` (or legacy `remindAt` = one time), `notifyType`, `repeatType`, target fields. New times put a finished reminder back to pending; a target change alone does not |
 | DELETE | `/api/reminders/:id` | Returns `{ deleted: true }`, 404 if not found |
 
 Contracts: `IReminderListItem` (+ `chatId?`, `chatName?`, `remindUsers?`, `remindMode?`), `ICreateReminderRequest`, `IUpdateReminderRequest` (+ `chatId?`, `remindUserIds?`, `remindMode?`) (`@zalobot/contracts`). The controller ignores `status`/`snoozeCount`/`snoozedUntil` from the request body. `notifyType: 'call'` with a target other than the owner's private chat ⇒ 400.
 
 ## Scheduler (`ReminderSchedulerService`)
 
-- `@Cron(CronExpression.EVERY_30_SECONDS)`: `getDueReminders()` = `remindAt <= now` and `isTriggered = false`.
+- `@Cron(CronExpression.EVERY_30_SECONDS)`: `getDueReminders(now)` = `reminder_times` rows with `sent_at IS NULL`, `remind_at <= now`, of reminders with `is_triggered = false`; oldest first, 50 per tick.
 - The tick is skipped while ZCA is logged out (`ZcaMessengerService.isConnected()`), so reminders wait for the next login instead of being marked sent without going out (before, they were lost).
-- For each due reminder: format time in `Asia/Ho_Chi_Minh` with the user's `preferredLocale`, send `reminder.header.text` + title + time via `ReminderTargetService.deliver(reminderTarget(row), …)` (target = `chat_id` or the owner's private chat; people tagged or messaged privately per mode), then `markTriggered`. Rows created by `dashboard-owner` before reminder targets point at `dashboard-owner` and are skipped (they never reached anyone before either).
-- `markTriggered`: `daily` → `remindAt + 24h`, `weekly` → `remindAt + 7d` (stays pending); `none` → `isTriggered=true`, `status='completed'`, `completedAt`.
+- For each due time: `claimReminderTime` (conditional update matching `id`, `sent_at IS NULL` and the `remind_at` as read: one-off ⇒ `sent_at = now`; `daily`/`weekly` ⇒ `remind_at` moves to the next occurrence after now via `nextRepeatAt`, so a missed day is not sent twice); only the claimer sends. Format that time in `Asia/Ho_Chi_Minh` with the user's `preferredLocale`, send `reminder.header.text` + title + time via `ReminderTargetService.deliver(reminderTarget(row), …)` (target = `chat_id` or the owner's private chat; people tagged or messaged privately per mode), then `refreshReminderSummary`. Rows created by `dashboard-owner` before reminder targets point at `dashboard-owner` and are skipped (they never reached anyone before either).
+- `refreshReminderSummary`: `reminders.remind_at` = the next time not sent; with none left (one-off reminders only) ⇒ `isTriggered=true`, `status='completed'`, `completedAt`. Repeating reminders never run out of times.
 - Known gap: `notifyType = 'call'` is stored and displayed, but the scheduler always sends a text message (no call path; `reminder.header.call` is unused).
 
 ## Chat creation & confirmation

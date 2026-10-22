@@ -11,7 +11,9 @@ import {
   emptyTaskDraft,
   type TaskCreateDraft,
 } from '@/modules/tasks/model/task-create-form';
+import { hasReminderTime } from '@/modules/reminders/model/reminder-times';
 import { ReminderTargetFields } from './reminder-target-fields';
+import { ReminderTimesField } from './reminder-times-field';
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -102,22 +104,21 @@ export function CreateTaskDialog({ open, onClose, onCreated }: CreateTaskDialogP
         />
       </label>
 
-      <label className="grid gap-1">
+      <div className="grid gap-1">
         <span className={FORM_LABEL}>{t('tasks.columns.remindAt')}</span>
-        <input
-          type="datetime-local"
-          className={FORM_FIELD}
-          value={draft.remindAt}
-          onChange={(e) => update({ remindAt: e.target.value })}
-          aria-invalid={remindError === 'remindPastTime'}
+        <ReminderTimesField
+          value={draft.remindTimes}
+          onChange={(remindTimes) => update({ remindTimes })}
+          ariaLabel={t('tasks.columns.remindAt')}
+          invalid={remindError === 'remindPastTime'}
           disabled={createMutation.isPending}
         />
         {remindError === 'remindPastTime' && (
           <span className={FORM_ERROR_TEXT}>{t('tasks.remind.pastTime')}</span>
         )}
-      </label>
+      </div>
 
-      {draft.remindAt && (
+      {hasReminderTime(draft.remindTimes) && (
         <ReminderTargetFields
           value={draft.remindTarget}
           onChange={(remindTarget) => update({ remindTarget })}

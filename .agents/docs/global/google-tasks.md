@@ -25,6 +25,7 @@ Khi người dùng nhắn kiểu "thêm việc nộp báo cáo trước 17h", `L
 - `notes`: ghi chú chi tiết (tùy chọn).
 - `due`: hạn chót dạng ISO 8601 (tùy chọn).
 - `remindAt`: giờ bot nhắc việc này, dạng ISO (tùy chọn). Bot nhắc ngay trong cuộc trò chuyện đã nhắn, xem [nhắc việc](../modules/tasks/README.md#2-nhắc-việc).
+- `remindTimes` (tùy chọn): nhiều giờ nhắc, ví dụ "nhắc 8h và 14h mai". Một giờ thì vẫn dùng `remindAt`. `SET_REMINDER` cũng có `remindTimes` (ví dụ "nhắc uống thuốc 8h và 20h mỗi ngày").
 - `remindSelf`, `remindMode` (tùy chọn): "nhắc tôi" thì tag người nhắn; "nhắn riêng" thì nhắn riêng từng người thay vì tag trong nhóm.
 
 **Người được nhắc lấy từ tag thật**: ai được @tag trong tin ("3h chiều nhắc @Trí") thì được nhắc. AI không bao giờ tự đoán người theo tên, vì trong nhóm rất hay có người trùng tên và nhắc nhầm người còn tệ hơn không nhắc.

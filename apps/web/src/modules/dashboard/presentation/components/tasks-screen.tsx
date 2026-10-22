@@ -3,6 +3,7 @@
 import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  REMINDER_TIME_LIMITS,
   type ITaskListItem,
   type IUpdateTaskRequest,
   type TranslationKey,
@@ -11,8 +12,11 @@ import { useLocale } from '@/shared/providers/locale-provider';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { DataPanel } from '@/shared/ui/data-table';
 import { TasksTable, type TaskEditDraft } from './tasks-table';
-import { toLocalDateTimeInput } from '@/shared/lib/local-date-input';
-import { reminderInputToIso } from '@/modules/tasks/model/task-create-form';
+import {
+  buildReminderTimes,
+  isReminderTimesChanged,
+  reminderTimeDraftsFrom,
+} from '@/modules/reminders/model/reminder-times';
 import { reminderApiErrorMessage } from '@/modules/reminders/api/reminder-targets-api';
 import { useReminderTargetChannelsQuery } from '@/modules/reminders/api/reminder-targets-query';
 import {
@@ -45,12 +49,9 @@ const EMPTY_EDIT_DRAFT: TaskEditDraft = {
   notes: '',
   due: '',
   status: 'needsAction',
-  remindAt: '',
+  remindTimes: reminderTimeDraftsFrom(undefined),
   remindTarget: emptyReminderTargetDraft(),
 };
-
-/** A stored reminder time as the `datetime-local` value the inline edit starts from. */
-const reminderInput = (iso?: string) => (iso ? toLocalDateTimeInput(new Date(iso)) : '');
 
 export function TasksScreen() {
   const queryClient = useQueryClient();
@@ -145,7 +146,7 @@ export function TasksScreen() {
       notes: task.notes || '',
       due: task.dueAt ? task.dueAt.slice(0, 10) : '',
       status: task.status || 'needsAction',
-      remindAt: reminderInput(task.remindAt),
+      remindTimes: reminderTimeDraftsFrom(task.remindTimes),
       remindTarget: reminderTargetDraftFrom(task.remindUsers, task.remindMode),
     });
   };
@@ -156,27 +157,29 @@ export function TasksScreen() {
   };
 
   /**
-   * Reminder fields of the PATCH, sent only when edited: an untouched reminder that already
-   * went out (in the past) must not be re-validated as a new time.
+   * Reminder fields of the PATCH, sent only when edited. Unchanged saved times go back as
+   * they are, so a time that already went out never blocks saving or is sent again.
    */
   const reminderPatch = (
     task: ITaskListItem | undefined,
   ): { ok: true; patch: IUpdateTaskRequest } | { ok: false; error: TranslationKey } => {
-    const timeChanged = editDraft.remindAt !== reminderInput(task?.remindAt);
+    const times = buildReminderTimes(editDraft.remindTimes);
+    if (!times.ok) {
+      return {
+        ok: false,
+        error: times.error === 'pastTime' ? 'tasks.remind.pastTime' : 'reminderTimes.max',
+      };
+    }
+    const timesChanged = isReminderTimesChanged(times.iso, task?.remindTimes);
     const saved = { chatId: task?.remindChatId, users: task?.remindUsers, mode: task?.remindMode };
     // A new reminder always sends its target, so the chat default is checked here too.
     const targetChanged =
-      !!editDraft.remindAt &&
+      times.iso.length > 0 &&
       (!task?.remindChatId || isTargetChanged(editDraft.remindTarget, saved));
-    if (!timeChanged && !targetChanged) return { ok: true, patch: {} };
-    if (!editDraft.remindAt) return { ok: true, patch: { remindAt: '' } };
+    if (!timesChanged && !targetChanged) return { ok: true, patch: {} };
+    if (times.iso.length === 0) return { ok: true, patch: { remindTimes: [] } };
 
-    const patch: IUpdateTaskRequest = {};
-    if (timeChanged) {
-      const remindAt = reminderInputToIso(editDraft.remindAt);
-      if (!remindAt.ok) return { ok: false, error: 'tasks.remind.pastTime' };
-      patch.remindAt = remindAt.iso;
-    }
+    const patch: IUpdateTaskRequest = timesChanged ? { remindTimes: times.iso } : {};
     if (targetChanged) {
       const target = buildReminderTargetFields(
         editDraft.remindTarget,
@@ -196,7 +199,7 @@ export function TasksScreen() {
     if (!trimmedTitle) return;
     const reminder = reminderPatch(rawList.find((task) => task.id === id));
     if (!reminder.ok) {
-      showToast(t(reminder.error));
+      showToast(t(reminder.error, { max: REMINDER_TIME_LIMITS.MAX_TIMES }));
       return;
     }
 

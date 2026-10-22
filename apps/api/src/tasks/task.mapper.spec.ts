@@ -55,9 +55,36 @@ void test('toTaskItem names the reminder chat from threads, else from users', ()
   } satisfies Partial<TaskEntity>;
   const inGroup = toTaskItem({ ...base, remindChatId: 'g1' }, lookups);
   assert.equal(inGroup.remindChatName, 'Nhà mình');
-  assert.equal(inGroup.remindAt, '2026-10-23T01:00:00.000Z');
   const inPrivate = toTaskItem({ ...base, remindChatId: '111' }, lookups);
   assert.equal(inPrivate.remindChatName, 'Đạt');
+});
+
+void test('toTaskItem: remindAt is the next time not sent, else the latest time', () => {
+  const lookups: RecordOriginLookups = {
+    userNames: new Map(),
+    chats: new Map(),
+    connectedEmails: new Set(),
+  };
+  const row = {
+    id: 't1',
+    title: 'Họp',
+    status: 'needsAction',
+    source: 'dashboard',
+    remindChatId: '111',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } satisfies Partial<TaskEntity>;
+  const sent = { id: 'a', remindAt: new Date('2026-10-23T01:00:00.000Z'), sentAt: new Date() };
+  const later = { id: 'b', remindAt: new Date('2026-10-23T07:00:00.000Z') };
+  const item = toTaskItem(row, lookups, [later, sent]);
+  assert.equal(item.remindAt, '2026-10-23T07:00:00.000Z');
+  assert.deepEqual(
+    item.remindTimes?.map((t) => t.id),
+    ['a', 'b'],
+  );
+  const allSent = toTaskItem(row, lookups, [sent]);
+  assert.equal(allSent.remindAt, '2026-10-23T01:00:00.000Z');
+  assert.equal(toTaskItem(row, lookups).remindTimes, undefined);
 });
 
 void test('formatTaskReminderMessage shows title, due day and notes', () => {

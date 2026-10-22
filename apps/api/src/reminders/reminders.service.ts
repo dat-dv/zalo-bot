@@ -1,10 +1,18 @@
 import { BadRequestException, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { IReminderTargetUser, ReminderTargetMode } from '@zalobot/contracts';
-import { Repository, LessThanOrEqual } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
+import { ReminderTimeEntity } from '../database/entities/reminder-time.entity';
 import { ReminderEntity } from '../database/entities/reminder.entity';
-import { type ReminderTarget, isSameTarget } from './reminder-target';
+import type { ReminderTarget } from './reminder-target';
 import { ReminderTargetService } from './reminder-target.service';
+import {
+  type ReminderTimesPlan,
+  nextPendingReminderAt,
+  nextRepeatAt,
+  planReminderTimes,
+  reminderTimesErrorMessage,
+} from './reminder-times';
 
 /** Where a reminder goes; omitted fields keep the current target (or the default). */
 export interface ReminderTargetFields {
@@ -20,7 +28,9 @@ export interface ReminderTargetFields {
 export interface CreateReminderDto extends ReminderTargetFields {
   userId: number | string;
   title: string;
-  remindAt: Date;
+  /** One time (kept for older callers and pending actions); `remindTimes` wins. */
+  remindAt?: Date;
+  remindTimes?: Date[];
   notifyType?: 'text' | 'call';
   repeatType?: 'none' | 'daily' | 'weekly';
   status?: 'pending' | 'completed' | 'snoozed' | 'cancelled';
@@ -43,12 +53,24 @@ export function toValidReminderDate(value: unknown): Date {
 
 export interface UpdateReminderDto extends Omit<ReminderTargetFields, 'remindUsers'> {
   title?: string;
-  remindAt?: Date;
+  /** Replaces the times; times already saved keep whether they were sent. */
+  remindTimes?: Date[];
   notifyType?: 'text' | 'call';
   repeatType?: 'none' | 'daily' | 'weekly';
   status?: 'pending' | 'completed' | 'snoozed' | 'cancelled';
 }
 
+/** A reminder time that is due, with its reminder. */
+export type DueReminderTime = ReminderTimeEntity & { reminder: ReminderEntity };
+
+/** Due reminder times handled per scheduler tick. */
+const DUE_REMINDER_BATCH = 50;
+
+/**
+ * Personal reminders. A reminder can remind several times (`reminder_times`);
+ * `reminders.remind_at` is the next time not sent, and a reminder is done (`is_triggered`)
+ * once every time went out. A repeating reminder moves each time forward instead.
+ */
 @Injectable()
 export class RemindersService {
   private readonly logger = new Logger(RemindersService.name);
@@ -58,42 +80,90 @@ export class RemindersService {
     private readonly reminderRepo: Repository<ReminderEntity>,
     @Optional()
     private readonly targets?: ReminderTargetService,
+    @Optional()
+    @InjectRepository(ReminderTimeEntity)
+    private readonly timeRepo?: Repository<ReminderTimeEntity>,
   ) {}
 
   public async createReminder(dto: CreateReminderDto): Promise<ReminderEntity> {
     // Validate before saving so a bad value never leaves a saved row behind a reported error.
-    const remindAt = toValidReminderDate(dto.remindAt);
+    const requested = dto.remindTimes?.length
+      ? dto.remindTimes
+      : dto.remindAt
+        ? [dto.remindAt]
+        : [];
+    const times = this.planTimes([], requested.map(toValidReminderDate)).add;
+    if (times.length === 0) throw new BadRequestException('Lời nhắc cần ít nhất một giờ nhắc.');
     const userId = dto.userId.toString();
     const notifyType = dto.notifyType || 'text';
     const target = await this.resolveTarget(dto, null, userId, dto.originChatId);
     assertCallTarget(notifyType, target, userId);
-    const reminder = this.reminderRepo.create({
-      userId,
-      title: dto.title.trim(),
-      remindAt,
-      notifyType,
-      repeatType: dto.repeatType || 'none',
-      status: dto.status || 'pending',
-      snoozeCount: 0,
-      isTriggered: false,
-      ...targetColumns(target),
-    });
-
-    const saved = await this.reminderRepo.save(reminder);
+    const saved = await this.reminderRepo.save(
+      this.reminderRepo.create({
+        userId,
+        title: dto.title.trim(),
+        remindAt: times[0],
+        notifyType,
+        repeatType: dto.repeatType || 'none',
+        status: dto.status || 'pending',
+        snoozeCount: 0,
+        isTriggered: false,
+        ...targetColumns(target),
+      }),
+    );
+    await this.applyTimes(saved.id, { keep: [], remove: [], add: times });
     this.logger.log(
-      `Created reminder "${dto.title}" [${saved.notifyType.toUpperCase()}] for user ${dto.userId} at ${remindAt.toISOString()}`,
+      `Created reminder "${dto.title}" [${saved.notifyType.toUpperCase()}] for user ${dto.userId} at ${times.map((t) => t.toISOString()).join(', ')}`,
     );
     return saved;
   }
 
-  public async getDueReminders(): Promise<ReminderEntity[]> {
-    const now = new Date();
-    return this.reminderRepo.find({
-      where: {
-        remindAt: LessThanOrEqual(now),
-        isTriggered: false,
-      },
-    });
+  /** Times that are due, of reminders not done yet, oldest first. */
+  public async getDueReminders(now: Date = new Date()): Promise<DueReminderTime[]> {
+    if (!this.timeRepo) return [];
+    const rows = await this.timeRepo
+      .createQueryBuilder('time')
+      .innerJoinAndSelect('time.reminder', 'reminder')
+      .where('time.sent_at IS NULL')
+      .andWhere('time.remind_at <= :now', { now })
+      .andWhere('reminder.is_triggered = false')
+      .orderBy('time.remind_at', 'ASC')
+      .take(DUE_REMINDER_BATCH)
+      .getMany();
+    return rows.filter((row): row is DueReminderTime => !!row.reminder);
+  }
+
+  /**
+   * Claims a due time: a one-off reminder marks it sent, a repeating one moves it to its next
+   * occurrence. The update only matches the time as read, so overlapping scheduler ticks
+   * cannot both send it; returns whether this call claimed it.
+   */
+  public async claimReminderTime(time: DueReminderTime, now: Date = new Date()): Promise<boolean> {
+    if (!this.timeRepo) return false;
+    const { repeatType } = time.reminder;
+    const change =
+      repeatType === 'daily' || repeatType === 'weekly'
+        ? { remindAt: nextRepeatAt(time.remindAt, repeatType, now) }
+        : { sentAt: now };
+    const result = await this.timeRepo.update(
+      { id: time.id, sentAt: IsNull(), remindAt: time.remindAt },
+      change,
+    );
+    return (result.affected ?? 0) > 0;
+  }
+
+  /**
+   * Recomputes the parent from its times: `remind_at` is the next time not sent; with none
+   * left the reminder is completed.
+   */
+  public async refreshReminderSummary(reminder: ReminderEntity): Promise<void> {
+    const next = nextPendingReminderAt(await this.loadTimes([reminder.id]));
+    const summary: Partial<ReminderEntity> = next
+      ? { remindAt: next, isTriggered: false }
+      : { isTriggered: true, status: 'completed', completedAt: new Date() };
+    if (next && reminder.status === 'completed') summary.status = 'pending';
+    Object.assign(reminder, summary);
+    await this.reminderRepo.update({ id: reminder.id }, summary);
   }
 
   public async getUserUpcomingReminders(userId: number | string): Promise<ReminderEntity[]> {
@@ -112,6 +182,16 @@ export class RemindersService {
     return this.reminderRepo.findOne({ where: { id, userId: userId.toString() } });
   }
 
+  /** Times of the given reminders, earliest first. */
+  public async loadTimes(reminderIds: readonly string[]): Promise<ReminderTimeEntity[]> {
+    if (!this.timeRepo || reminderIds.length === 0) return [];
+    return this.timeRepo.find({
+      where: { reminderId: In([...reminderIds]) },
+      order: { remindAt: 'ASC' },
+    });
+  }
+
+  /** Changing the target only affects times not sent yet: sent times are never re-sent. */
   public async updateReminder(
     userId: number | string,
     id: string,
@@ -119,26 +199,22 @@ export class RemindersService {
   ): Promise<ReminderEntity | null> {
     const reminder = await this.getUserReminder(userId, id);
     if (!reminder) return null;
+    let plan: ReminderTimesPlan<ReminderTimeEntity> | null = null;
+    if (input.remindTimes !== undefined) {
+      plan = this.planTimes(await this.loadTimes([reminder.id]), input.remindTimes);
+      if (plan.keep.length + plan.add.length === 0) {
+        throw new BadRequestException('Lời nhắc cần ít nhất một giờ nhắc.');
+      }
+    }
     if (
       input.chatId !== undefined ||
       input.remindUserIds !== undefined ||
       input.remindMode !== undefined
     ) {
-      const current = reminderTarget(reminder);
-      const target = await this.resolveTarget(input, current, reminder.userId);
-      if (target && !isSameTarget(current, target)) {
-        Object.assign(reminder, targetColumns(target));
-        // A new target re-arms a reminder that already went out.
-        reminder.isTriggered = false;
-        reminder.status = 'pending';
-      }
+      const target = await this.resolveTarget(input, reminderTarget(reminder), reminder.userId);
+      Object.assign(reminder, targetColumns(target));
     }
     if (input.title !== undefined) reminder.title = input.title.trim();
-    if (input.remindAt !== undefined) {
-      reminder.remindAt = input.remindAt;
-      reminder.isTriggered = false;
-      reminder.status = 'pending';
-    }
     if (input.notifyType !== undefined) reminder.notifyType = input.notifyType;
     assertCallTarget(reminder.notifyType, reminderTarget(reminder), reminder.userId);
     if (input.repeatType !== undefined) reminder.repeatType = input.repeatType;
@@ -149,51 +225,27 @@ export class RemindersService {
         reminder.completedAt = new Date();
       }
     }
-    return this.reminderRepo.save(reminder);
-  }
-
-  public async markTriggered(reminderId: string): Promise<void> {
-    const reminder = await this.reminderRepo.findOne({ where: { id: reminderId } });
-    if (!reminder) return;
-
-    if (reminder.repeatType === 'daily') {
-      const nextDay = new Date(reminder.remindAt.getTime() + 24 * 60 * 60 * 1000);
-      reminder.remindAt = nextDay;
-      reminder.isTriggered = false;
-      reminder.status = 'pending';
-      await this.reminderRepo.save(reminder);
-      this.logger.log(
-        `Rescheduled daily reminder "${reminder.title}" for ${nextDay.toISOString()}`,
-      );
-    } else if (reminder.repeatType === 'weekly') {
-      const nextWeek = new Date(reminder.remindAt.getTime() + 7 * 24 * 60 * 60 * 1000);
-      reminder.remindAt = nextWeek;
-      reminder.isTriggered = false;
-      reminder.status = 'pending';
-      await this.reminderRepo.save(reminder);
-      this.logger.log(
-        `Rescheduled weekly reminder "${reminder.title}" for ${nextWeek.toISOString()}`,
-      );
-    } else {
-      reminder.isTriggered = true;
-      reminder.status = 'completed';
-      reminder.completedAt = new Date();
-      await this.reminderRepo.save(reminder);
+    const saved = await this.reminderRepo.save(reminder);
+    if (plan) {
+      await this.applyTimes(saved.id, plan);
+      await this.refreshReminderSummary(saved);
     }
+    return saved;
   }
 
+  /** Moves the next time not sent to `minutes` from now. */
   public async snoozeReminder(reminderId: string, minutes = 15): Promise<ReminderEntity | null> {
     const reminder = await this.reminderRepo.findOne({ where: { id: reminderId } });
     if (!reminder) return null;
-
+    const next = (await this.loadTimes([reminder.id])).find((time) => !time.sentAt);
     const newTime = new Date(Date.now() + minutes * 60 * 1000);
-    reminder.remindAt = newTime;
+    if (next) await this.timeRepo?.update({ id: next.id }, { remindAt: newTime });
+    else await this.applyTimes(reminder.id, { keep: [], remove: [], add: [newTime] });
     reminder.snoozedUntil = newTime;
     reminder.snoozeCount = (reminder.snoozeCount || 0) + 1;
     reminder.status = 'snoozed';
-    reminder.isTriggered = false;
     const saved = await this.reminderRepo.save(reminder);
-
+    await this.refreshReminderSummary(saved);
     this.logger.log(
       `Snoozed reminder "${reminder.title}" for ${minutes} minutes (until ${newTime.toISOString()})`,
     );
@@ -243,6 +295,27 @@ export class RemindersService {
     await this.reminderRepo.remove(reminder);
     this.logger.log(`Deleted reminder "${reminder.title}" (${reminderId})`);
     return true;
+  }
+
+  private planTimes(current: readonly ReminderTimeEntity[], requested: readonly Date[]) {
+    // Reminders never refused a past time: it goes out on the next tick (the form checks it).
+    const result = planReminderTimes(current, requested, new Date(), { allowPast: true });
+    if ('error' in result) throw new BadRequestException(reminderTimesErrorMessage(result.error));
+    return result.plan;
+  }
+
+  private async applyTimes(
+    reminderId: string,
+    plan: ReminderTimesPlan<ReminderTimeEntity>,
+  ): Promise<void> {
+    const repo = this.timeRepo;
+    if (!repo) return;
+    if (plan.remove.length > 0) await repo.delete(plan.remove.map((time) => time.id));
+    if (plan.add.length > 0) {
+      await repo.save(
+        plan.add.map((remindAt) => repo.create({ reminderId, remindAt, sentAt: null })),
+      );
+    }
   }
 
   /**

@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
 import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
+import { requestedReminderTimes } from '../reminders/reminder-times';
 import { CreateTaskDto, ListTasksQueryDto, UpdateTaskDto } from './dto/task.dto';
 import { TasksService } from './tasks.service';
 
@@ -42,7 +43,7 @@ export class TasksController {
         title: body.title,
         notes: body.notes,
         dueAt: body.due ? new Date(body.due) : null,
-        remindAt: body.remindAt ? new Date(body.remindAt) : null,
+        remindTimes: requestedReminderTimes(body.remindTimes, body.remindAt),
         remindChatId: body.remindChatId,
         remindUserIds: body.remindUserIds,
         remindMode: body.remindMode,
@@ -63,8 +64,8 @@ export class TasksController {
         notes: body.notes,
         dueAt: body.due === undefined ? undefined : body.due ? new Date(body.due) : null,
         status: body.status,
-        remindAt:
-          body.remindAt === undefined ? undefined : body.remindAt ? new Date(body.remindAt) : null,
+        // `remindAt: ''` (legacy single time) or `remindTimes: []` removes every reminder.
+        remindTimes: requestedReminderTimes(body.remindTimes, body.remindAt),
         remindChatId: body.remindChatId,
         remindUserIds: body.remindUserIds,
         remindMode: body.remindMode,

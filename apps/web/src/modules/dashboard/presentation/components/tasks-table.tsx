@@ -11,6 +11,8 @@ import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import type { ReminderTargetDraft } from '@/modules/reminders/model/reminder-target';
+import { hasReminderTime, type ReminderTimeDraft } from '@/modules/reminders/model/reminder-times';
+import { ReminderTimesField, ReminderTimesSummary } from './reminder-times-field';
 import { INLINE_EDIT_FIELD as EDIT_FIELD, ReminderTargetFields } from './reminder-target-fields';
 import { ReminderTargetSummary } from './reminder-target-summary';
 
@@ -19,8 +21,8 @@ export type TaskEditDraft = {
   notes: string;
   due: string;
   status: 'needsAction' | 'completed';
-  /** `datetime-local` value; empty clears the reminder. */
-  remindAt: string;
+  /** Reminder times; no filled row clears the reminder. */
+  remindTimes: ReminderTimeDraft[];
   /** Empty chat = keep the current one, or the user's private chat for a new reminder. */
   remindTarget: ReminderTargetDraft;
 };
@@ -295,20 +297,17 @@ export function TasksTable({
                 ) {
                   return (
                     <div className="grid min-w-[200px] gap-1">
-                      <input
-                        type="datetime-local"
-                        className={EDIT_FIELD}
-                        value={editDraft.remindAt}
-                        onChange={(e) =>
-                          onChangeEditDraft((prev) => ({ ...prev, remindAt: e.target.value }))
+                      <ReminderTimesField
+                        compact
+                        value={editDraft.remindTimes}
+                        onChange={(remindTimes) =>
+                          onChangeEditDraft((prev) => ({ ...prev, remindTimes }))
                         }
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') void onSaveEdit(item.id);
-                          if (e.key === 'Escape') onCancelEdit();
-                        }}
-                        aria-label={t('tasks.columns.remindAt')}
+                        onEnter={() => void onSaveEdit(item.id)}
+                        onEscape={onCancelEdit}
+                        ariaLabel={t('tasks.columns.remindAt')}
                       />
-                      {editDraft.remindAt && (
+                      {hasReminderTime(editDraft.remindTimes) && (
                         <ReminderTargetFields
                           compact
                           value={editDraft.remindTarget}
@@ -331,18 +330,16 @@ export function TasksTable({
                 }
                 return (
                   <span
-                    className={`flex flex-col items-end text-[11.5px] leading-tight select-none ${
-                      item.remindedAt
-                        ? 'text-slate-400 dark:text-slate-500'
-                        : 'text-slate-700 dark:text-slate-300'
-                    } ${onStartEdit ? 'cursor-pointer' : ''}`}
+                    className={`flex flex-col items-end text-[11.5px] leading-tight text-slate-700 select-none dark:text-slate-300 ${
+                      onStartEdit ? 'cursor-pointer' : ''
+                    }`}
                     onDoubleClick={() => onStartEdit?.(item)}
-                    title={item.remindedAt ? t('tasks.remind.sent') : undefined}
                   >
-                    <span>
-                      🔔 {date(item.remindAt)}
-                      {item.remindedAt && ` · ${t('tasks.remind.sent')}`}
-                    </span>
+                    <ReminderTimesSummary
+                      remindAt={item.remindAt}
+                      times={item.remindTimes}
+                      format={date}
+                    />
                     <ReminderTargetSummary
                       chatName={item.remindChatName}
                       users={item.remindUsers}

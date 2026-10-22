@@ -921,6 +921,11 @@ const messages = {
     'tasks.columns.remindAt': 'Nhắc lúc',
     'tasks.remind.pastTime': 'Thời điểm nhắc phải ở tương lai.',
     'tasks.remind.sent': 'Đã nhắc',
+    'reminderTimes.add': '+ Thêm giờ nhắc',
+    'reminderTimes.remove': 'Xoá giờ nhắc này',
+    'reminderTimes.max': 'Tối đa {max} lần nhắc.',
+    'reminderTimes.more': '+{count} lần',
+    'reminderTimes.sent': 'đã gửi',
     'reminderTarget.channel': 'Gửi nhắc vào',
     'reminderTarget.channelPlaceholder': 'Chọn kênh nhận nhắc...',
     'reminderTarget.channelRequired': 'Chọn kênh Zalo nhận nhắc.',
@@ -2021,6 +2026,11 @@ const messages = {
     'tasks.columns.remindAt': 'Remind at',
     'tasks.remind.pastTime': 'The reminder time must be in the future.',
     'tasks.remind.sent': 'Reminded',
+    'reminderTimes.add': '+ Add a time',
+    'reminderTimes.remove': 'Remove this time',
+    'reminderTimes.max': 'At most {max} reminder times.',
+    'reminderTimes.more': '+{count} more',
+    'reminderTimes.sent': 'sent',
     'reminderTarget.channel': 'Send reminder to',
     'reminderTarget.channelPlaceholder': 'Choose a chat...',
     'reminderTarget.channelRequired': 'Choose the Zalo chat that gets the reminder.',
@@ -2673,6 +2683,8 @@ export interface IReminderListItem {
   chatName?: string;
   remindUsers?: IReminderTargetUser[];
   remindMode?: ReminderTargetMode;
+  /** Every time of the reminder, earliest first; `remindAt` is the next one. */
+  remindTimes?: IReminderTime[];
 }
 
 export interface IUpdateReminderRequest {
@@ -2683,6 +2695,8 @@ export interface IUpdateReminderRequest {
   status?: 'pending' | 'completed' | 'snoozed' | 'cancelled';
   snoozeCount?: number;
   snoozedUntil?: string;
+  /** Replaces the times; times already on the reminder keep whether they were sent. */
+  remindTimes?: string[];
   chatId?: string;
   /** Members of the reminder group to remind; `[]` clears them. */
   remindUserIds?: string[];
@@ -2762,8 +2776,10 @@ export interface ITaskListItem {
   sourceChatName?: string;
   sourceChatType?: 'user' | 'group';
   createdAt?: string;
-  /** When the bot reminds about the task in `remindChatId`; only open tasks are reminded. */
+  /** The next reminder time not sent yet, else the latest one; only open tasks are reminded. */
   remindAt?: string;
+  /** Every reminder time of the task, earliest first. */
+  remindTimes?: IReminderTime[];
   remindChatId?: string;
   remindChatName?: string;
   remindUsers?: IReminderTargetUser[];
@@ -2779,8 +2795,10 @@ export interface IUpdateTaskRequest {
   /** ISO date-time; empty string clears it. */
   due?: string;
   status?: TaskStatus;
-  /** ISO date-time; empty string clears the reminder (and its chat and people). */
+  /** One ISO time (same as `remindTimes: [remindAt]`); empty string clears every reminder. */
   remindAt?: string;
+  /** Replaces the reminder times; times already on the task keep whether they were sent. */
+  remindTimes?: string[];
   remindChatId?: string;
   /** Members of the reminder group to remind; `[]` clears them. */
   remindUserIds?: string[];
@@ -2792,6 +2810,8 @@ export interface ICreateTaskRequest {
   notes?: string;
   due?: string;
   remindAt?: string;
+  /** Up to `REMINDER_TIME_LIMITS.MAX_TIMES` ISO times; wins over `remindAt`. */
+  remindTimes?: string[];
   /** Required with `remindAt` unless the dashboard user has a Zalo account (then their private chat). */
   remindChatId?: string;
   remindUserIds?: string[];
@@ -2805,6 +2825,16 @@ export interface ICreateTaskRequest {
 export type ReminderTargetMode = 'mention' | 'direct';
 export const REMINDER_TARGET_MODES: readonly ReminderTargetMode[] = ['mention', 'direct'];
 export const REMINDER_TARGET_LIMITS = { MAX_USERS: 10 } as const;
+
+/** A task or a reminder can remind several times; each time is sent once. */
+export const REMINDER_TIME_LIMITS = { MAX_TIMES: 10 } as const;
+
+export interface IReminderTime {
+  id: string;
+  remindAt: string;
+  /** Set once this time went out (or was skipped). */
+  sentAt?: string;
+}
 
 /** A Zalo user to remind, with the name shown in the `@name` tag. */
 export interface IReminderTargetUser {
@@ -2951,7 +2981,10 @@ export interface ICreateTransactionRequest {
 
 export interface ICreateReminderRequest {
   title: string;
-  remindAt: string;
+  /** One ISO time; give it or `remindTimes`. */
+  remindAt?: string;
+  /** Up to `REMINDER_TIME_LIMITS.MAX_TIMES` ISO times; wins over `remindAt`. */
+  remindTimes?: string[];
   notifyType?: ReminderNotifyType;
   repeatType?: ReminderRepeatType;
   /** Defaults to the creator's private chat; required for `dashboard-owner`. */

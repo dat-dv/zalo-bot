@@ -18,6 +18,8 @@ import { ZcaMessageEntity } from './entities/zca-message.entity';
 import { ChannelStorageLinkEntity } from './entities/channel-storage-link.entity';
 import { CalendarEventEntity } from './entities/calendar-event.entity';
 import { TaskEntity } from './entities/task.entity';
+import { TaskReminderTimeEntity } from './entities/task-reminder-time.entity';
+import { ReminderTimeEntity } from './entities/reminder-time.entity';
 import { AuditLogSubscriber } from './audit-log.subscriber';
 import { InitSchema1724650000000 } from './migrations/1724650000000-InitSchema';
 import { MigrateLegacyPlaceContacts1724660000000 } from './migrations/1724660000000-MigrateLegacyPlaceContacts';
@@ -47,6 +49,7 @@ import { DropTaskGoogleCopy1724890000000 } from './migrations/1724890000000-Drop
 import { AddMemberAccessToZcaThreadConfigs1724900000000 } from './migrations/1724900000000-AddMemberAccessToZcaThreadConfigs';
 import { AddReminderToTasks1724910000000 } from './migrations/1724910000000-AddReminderToTasks';
 import { AddReminderTargets1724930000000 } from './migrations/1724930000000-AddReminderTargets';
+import { CreateReminderTimes1724940000000 } from './migrations/1724940000000-CreateReminderTimes';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -79,6 +82,8 @@ export const AppDataSource = new DataSource({
     ChannelStorageLinkEntity,
     CalendarEventEntity,
     TaskEntity,
+    TaskReminderTimeEntity,
+    ReminderTimeEntity,
   ],
   subscribers: [AuditLogSubscriber],
   migrations: [
@@ -110,6 +115,7 @@ export const AppDataSource = new DataSource({
     AddMemberAccessToZcaThreadConfigs1724900000000,
     AddReminderToTasks1724910000000,
     AddReminderTargets1724930000000,
+    CreateReminderTimes1724940000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

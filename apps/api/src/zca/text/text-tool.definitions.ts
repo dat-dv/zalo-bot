@@ -133,7 +133,14 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
         },
         remindAt: {
           type: 'STRING',
-          description: 'Thời điểm nhắc nhở dạng ISO string (ví dụ: 2026-10-08T09:00:00.000Z)',
+          description:
+            'Thời điểm nhắc nhở dạng ISO string (ví dụ: 2026-10-08T09:00:00.000Z); nếu nhắc nhiều lần thì là lần đầu.',
+        },
+        remindTimes: {
+          type: 'ARRAY',
+          items: { type: 'STRING' },
+          description:
+            'Khi người dùng muốn nhắc nhiều lần ("8h và 20h", "sáng và chiều mai"): mọi thời điểm dạng ISO, tối đa 10.',
         },
         remindInGroup: {
           type: 'BOOLEAN',
@@ -272,6 +279,12 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           description:
             'Thời điểm bot nhắc việc này trong cuộc trò chuyện, dạng ISO (ví dụ: 2026-10-08T08:00:00.000Z). ' +
             'Chỉ điền khi người dùng muốn được nhắc.',
+        },
+        remindTimes: {
+          type: 'ARRAY',
+          items: { type: 'STRING' },
+          description:
+            'Khi muốn nhắc việc này nhiều lần ("nhắc 8h và 14h mai"): mọi thời điểm dạng ISO, tối đa 10.',
         },
         remindSelf: {
           type: 'BOOLEAN',

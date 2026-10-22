@@ -12,12 +12,15 @@ import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import type { ReminderTargetDraft } from '@/modules/reminders/model/reminder-target';
+import type { ReminderTimeDraft } from '@/modules/reminders/model/reminder-times';
 import { ReminderTargetFields } from './reminder-target-fields';
+import { ReminderTimesField, ReminderTimesSummary } from './reminder-times-field';
 import { ReminderTargetSummary } from './reminder-target-summary';
 
 export type ReminderEditDraft = {
   title: string;
-  remindAt: string;
+  /** Reminder times; at least one filled row. */
+  remindTimes: ReminderTimeDraft[];
   notifyType: ReminderNotifyType;
   repeatType: ReminderRepeatType;
   /** Empty chat = keep the current one. */
@@ -194,19 +197,18 @@ export function RemindersTable({
             onCancelEdit
           ) {
             return (
-              <input
-                type="datetime-local"
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
-                value={editDraft.remindAt}
-                onChange={(e) =>
-                  onChangeEditDraft((prev) => ({ ...prev, remindAt: e.target.value }))
-                }
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void onSaveEdit(item.id);
-                  if (e.key === 'Escape') onCancelEdit();
-                }}
-                aria-label={t('dashboard.columns.schedule')}
-              />
+              <div className="min-w-[200px]">
+                <ReminderTimesField
+                  compact
+                  value={editDraft.remindTimes}
+                  onChange={(remindTimes) =>
+                    onChangeEditDraft((prev) => ({ ...prev, remindTimes }))
+                  }
+                  onEnter={() => void onSaveEdit(item.id)}
+                  onEscape={onCancelEdit}
+                  ariaLabel={t('dashboard.columns.schedule')}
+                />
+              </div>
             );
           }
           return (
@@ -216,7 +218,16 @@ export function RemindersTable({
               }`}
               onDoubleClick={() => onStartEdit?.(item)}
             >
-              {date(item.remindAt)}
+              {/* The Home payload has no time list: it shows the next time only. */}
+              {item.remindTimes ? (
+                <ReminderTimesSummary
+                  remindAt={item.remindAt}
+                  times={item.remindTimes}
+                  format={date}
+                />
+              ) : (
+                date(item.remindAt)
+              )}
             </span>
           );
         },

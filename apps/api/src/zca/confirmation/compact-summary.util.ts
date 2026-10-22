@@ -159,10 +159,11 @@ export function summarizeReminder(
     'title' | 'notifyType' | 'repeatType' | 'remindUsers' | 'remindMode'
   > & {
     remindAt: string | Date;
+    remindTimes?: readonly (string | Date)[];
   },
   now: Date = new Date(),
 ): string {
-  const when = formatShortDateTimeVN(dto.remindAt, now);
+  const when = formatShortTimesVN(dto.remindTimes, dto.remindAt, now);
   const first = `⏰ [${code}] Nhắc "${clean(dto.title)}"${when ? ` lúc ${when}` : ''}`;
   const second = joinParts([
     withPrefix('🔁', dto.repeatType ? REPEAT_LABELS[dto.repeatType] : ''),
@@ -170,6 +171,19 @@ export function summarizeReminder(
     remindPeople(dto),
   ]);
   return joinLines([first, second]);
+}
+
+/** "08:00 23/10, 14:00 23/10" for several times, else the single `remindAt`. */
+function formatShortTimesVN(
+  times: readonly (string | Date)[] | undefined,
+  single: string | Date | undefined,
+  now: Date,
+): string {
+  const values = times?.length ? times : [single];
+  return values
+    .map((value) => formatShortDateTimeVN(value, now))
+    .filter(Boolean)
+    .join(', ');
 }
 
 /** "👤 @Trí, @Đạt (nhắn riêng)", or "" when nobody is tagged. */
@@ -187,7 +201,7 @@ export function summarizeTask(
   const first = `✅ [${code}] ${joinParts([
     `Thêm việc: ${clean(dto.title)}`,
     withPrefix('⏳ hạn', formatShortDateVN(dto.due, now)),
-    withPrefix('⏰ nhắc', formatShortDateTimeVN(dto.remindAt, now)),
+    withPrefix('⏰ nhắc', formatShortTimesVN(dto.remindTimes, dto.remindAt, now)),
     remindPeople(dto),
   ])}`;
   return joinLines([first, withPrefix('📝', clean(dto.notes))]);

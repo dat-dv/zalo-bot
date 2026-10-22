@@ -10,6 +10,8 @@ metadata:
       - apps/api/src/database/migrations/1724890000000-DropTaskGoogleCopy.ts
       - apps/api/src/database/migrations/1724910000000-AddReminderToTasks.ts
       - apps/api/src/tasks/task-reminder-scheduler.service.ts
+      - apps/api/src/database/migrations/1724940000000-CreateReminderTimes.ts
+      - apps/web/src/modules/dashboard/presentation/components/reminder-times-field.tsx
       - apps/api/src/database/entities/task.entity.ts
       - apps/web/src/modules/tasks/api/tasks-api.ts
       - apps/web/src/modules/tasks/api/tasks-query.ts
@@ -47,7 +49,7 @@ Lịch **vẫn giữ** bản sao Google Calendar.
 
 ## 2. Nhắc việc
 
-Mỗi việc có thể có **một** lần nhắc: đến giờ `remind_at`, nếu việc vẫn **cần làm**, bot gửi tin nhắc tới **đích nhắc** của việc: **kênh nhận nhắc** (`remind_chat_id`), **người được nhắc** (`remind_users`) và **cách nhắc** (`remind_mode`: tag trong nhóm hoặc nhắn riêng). Việc đã xong hoặc đã xoá thì không nhắc.
+Mỗi việc có thể có **một hoặc nhiều lần nhắc** (tối đa 10, ví dụ 8h và 14h, hoặc hôm trước và sáng hôm hạn chót). Đến mỗi giờ, nếu việc vẫn **cần làm**, bot gửi tin nhắc tới **đích nhắc** của việc (một đích chung cho mọi lần nhắc): **kênh nhận nhắc** (`remind_chat_id`), **người được nhắc** (`remind_users`) và **cách nhắc** (`remind_mode`: tag trong nhóm hoặc nhắn riêng). Việc đã xong hoặc đã xoá thì không nhắc.
 
 Phần đích nhắc dùng chung với lời nhắc cá nhân, giải thích đầy đủ ở [`reminders/README.md`](../reminders/README.md#2-đích-nhắc-dùng-chung-với-nhắc-việc). Mục này chỉ ghi phần riêng của task.
 
@@ -55,7 +57,9 @@ Phần đích nhắc dùng chung với lời nhắc cá nhân, giải thích đ�
 
 - Bảng `reminders` là **nhắc cá nhân** theo `user_id`, gửi chat riêng, có lặp/hoãn/gọi điện. Còn task là **danh sách việc chung**.
 - Để trên dòng task thì hoàn thành hoặc xoá việc là tự hết nhắc, không phải đồng bộ hai bảng; trang `/reminders` cũng không bị lẫn nhắc việc.
-- Lần này chỉ nhắc **một lần**, chưa có lặp, hoãn hay gọi điện.
+- Mỗi lần nhắc là một dòng trong bảng `task_reminder_times`, có dấu "đã gửi" riêng. Không dùng mảng trong một cột vì bộ hẹn giờ cần đánh dấu đúng **một** lần nhắc bằng câu update có điều kiện, để hai lượt chạy chồng nhau không gửi trùng.
+- Cột `remind_at` trên `tasks` vẫn giữ, nghĩa là **lần nhắc kế tiếp chưa gửi** (tự cập nhật sau mỗi lần sửa và mỗi lần gửi), để mọi chỗ chỉ đọc "lần tới" không phải sửa.
+- Task chưa có "lặp mỗi ngày tới khi xong", hoãn hay gọi điện.
 
 ### Nhắc gửi về đâu
 
@@ -71,19 +75,20 @@ Phần đích nhắc dùng chung với lời nhắc cá nhân, giải thích đ�
 
 ### Quy tắc khi sửa
 
-- Đổi giờ, đổi kênh, đổi người hoặc đổi cách nhắc ⇒ bot **nhắc lại** theo cấu hình mới (xoá `reminded_at`).
-- Xoá giờ nhắc ⇒ xoá luôn kênh, người được nhắc và dấu đã nhắc.
+- Sửa danh sách giờ nhắc: giờ nào **giữ nguyên** thì giữ cả dấu đã gửi (không gửi lại); giờ bị bỏ thì xoá; giờ mới phải ở tương lai.
+- **Đổi kênh, đổi người hoặc đổi cách nhắc không gửi lại** những lần đã gửi, chỉ áp cho các lần chưa gửi. Muốn nhắc thêm thì thêm giờ mới. Gửi lại hết sẽ dội nhiều tin cũ vào nhóm cùng lúc.
+- Xoá hết giờ nhắc ⇒ xoá luôn kênh và người được nhắc.
 - Sửa các trường khác (tiêu đề, ghi chú, hoàn thành...) **không** đụng tới nhắc. Một nhắc đã qua giờ không bị kiểm tra lại, nên vẫn sửa tiêu đề hay đánh dấu xong được bình thường.
 - Giờ nhắc mới phải ở tương lai; phút hiện tại vẫn được chấp nhận vì dashboard chọn giờ theo phút.
-- Mở lại việc đã xong không làm bot nhắc lại.
+- Mở lại việc đã xong: những giờ nhắc **đã qua trong lúc việc đang xong** bị bỏ qua (không gửi dồn), các giờ còn ở tương lai vẫn nhắc bình thường.
 
 ### Bot gửi nhắc thế nào
 
 `TaskReminderSchedulerService` chạy mỗi 30 giây:
 
 1. **ZCA đang đăng xuất thì bỏ qua cả lượt**: nhắc chờ tới khi đăng nhập lại mới gửi, không bị mất.
-2. Lấy tối đa 50 việc đến giờ, chưa nhắc, còn cần làm.
-3. Với từng việc, **đánh dấu đã nhắc trước rồi mới gửi**. Lệnh đánh dấu chỉ thành công cho người gọi đầu tiên, nên hai lượt chạy chồng nhau không bao giờ gửi trùng.
+2. Lấy tối đa 50 **lần nhắc** đã tới giờ, chưa gửi, của việc còn cần làm.
+3. Với từng lần nhắc, **đánh dấu đã gửi trước rồi mới gửi**. Lệnh đánh dấu chỉ thành công cho người gọi đầu tiên, nên hai lượt chạy chồng nhau không bao giờ gửi trùng.
 4. Gửi qua `ReminderTargetService.deliver` (dùng chung): kênh là nhóm đã bị bỏ listen ⇒ không gửi, ghi log cảnh báo; có người được nhắc thì tag họ, hoặc nhắn riêng từng người rồi tag bù trong nhóm những ai không nhắn riêng được. Chat riêng thì luôn gửi, giống lời nhắc cá nhân.
 5. Gửi lỗi (ví dụ ZCA mất kết nối giữa chừng) ⇒ chỉ ghi log, không gửi lại.
 
@@ -102,8 +107,8 @@ Nhắn bot "xong Nộp báo cáo" để đánh dấu hoàn thành.
 ## 3. Ai sở hữu code nào
 
 - Backend `apps/api/src/tasks/`: `TasksService` là nơi duy nhất đọc/ghi task; `TasksController` phục vụ `/api/tasks` (danh sách, chi tiết, tạo, sửa, xoá mềm). Module không còn phụ thuộc Google.
-- Nhắc việc: `TaskReminderSchedulerService` (cron) và các hàm `getDueTaskReminders`, `markTaskReminded` trong `TasksService`. Kiểm tra và gửi tới đích nhắc nằm ở `ReminderTargetService` của module reminders, nên `TasksModule` import `RemindersModule`, `UsersModule` (lấy ngôn ngữ) và `ZcaModule` qua `forwardRef`. Hằng `DASHBOARD_OWNER_USER_ID` được tách ra `apps/api/src/users/dashboard-owner.ts` để module tasks dùng mà không phải import `UsersService` (kéo theo ZCA).
-- Bảng `tasks`: migration `CreateTasks` tạo bảng, migration `AddReminderToTasks` thêm `remind_at`, `remind_chat_id`, `reminded_at` và index `(status, remind_at)`, migration `DropTaskGoogleCopy` xoá các cột của bản sao Google (`google_task_id`, `google_account_email`, `sync_status`...) và đổi các dòng có nguồn `google` thành `dashboard`. Dùng migration mới thay vì sửa migration cũ để DB nào đã chạy bản cũ cũng về đúng cấu trúc.
+- Nhắc việc: `TaskReminderSchedulerService` (cron) và các hàm `getDueTaskReminders`, `markTaskReminderSent`, `refreshReminderSummary` trong `TasksService`; logic thuần của danh sách giờ nhắc (giữ/xoá/thêm, lần kế tiếp) ở `apps/api/src/reminders/reminder-times.ts`, dùng chung với lời nhắc. Kiểm tra và gửi tới đích nhắc nằm ở `ReminderTargetService` của module reminders, nên `TasksModule` import `RemindersModule`, `UsersModule` (lấy ngôn ngữ) và `ZcaModule` qua `forwardRef`. Hằng `DASHBOARD_OWNER_USER_ID` được tách ra `apps/api/src/users/dashboard-owner.ts` để module tasks dùng mà không phải import `UsersService` (kéo theo ZCA).
+- Bảng `tasks`: migration `CreateTasks` tạo bảng, migration `AddReminderToTasks` thêm `remind_at`, `remind_chat_id`, `reminded_at` và index `(status, remind_at)`, migration `CreateReminderTimes` tạo `task_reminder_times` và chuyển mỗi giờ nhắc cũ thành một dòng (giữ dấu đã gửi), migration `DropTaskGoogleCopy` xoá các cột của bản sao Google (`google_task_id`, `google_account_email`, `sync_status`...) và đổi các dòng có nguồn `google` thành `dashboard`. Dùng migration mới thay vì sửa migration cũ để DB nào đã chạy bản cũ cũng về đúng cấu trúc.
 - `GoogleTasksService` đã bị xoá. Đăng nhập Google **không còn xin quyền Google Tasks**; token đã cấp trước vẫn dùng bình thường.
 - Tên người tạo và tên nhóm Zalo lấy qua `loadRecordOriginLookups` trong `apps/api/src/google/google-copy.util.ts` (dùng chung với lịch, gọi không kèm Google).
 - Web `apps/web/src/modules/tasks/api/`: `getTasks`, `createTask`, `updateTask`, `deleteTask` và các hook TanStack Query tương ứng. Mọi mutation làm mới cache `tasks` và `dashboard`.
@@ -112,15 +117,15 @@ Nhắn bot "xong Nộp báo cáo" để đánh dấu hoàn thành.
 
 ## 4. Màn hình Việc cần làm
 
-- **Thêm việc**: nút `+ Thêm việc` trên toolbar (desktop) hoặc ở thanh hành động dưới cùng (điện thoại) mở hộp thoại gồm tiêu đề (bắt buộc), ghi chú, hạn chót, **Nhắc lúc** (tuỳ chọn).
+- **Thêm việc**: nút `+ Thêm việc` trên toolbar (desktop) hoặc ở thanh hành động dưới cùng (điện thoại) mở hộp thoại gồm tiêu đề (bắt buộc), ghi chú, hạn chót, **Nhắc lúc** (tuỳ chọn, một hoặc nhiều giờ: mỗi giờ một ô, nút xoá từng giờ và nút **+ Thêm giờ nhắc**, tối đa 10).
   - Có giờ nhắc thì hiện thêm bộ ô **đích nhắc** dùng chung (`ReminderTargetFields`): **Gửi nhắc vào** (người dùng có Zalo được chọn sẵn "Chat riêng với tôi"; `dashboard-owner` phải tự chọn; chưa có kênh nào đang listen thì ô báo rõ) → **Nhắc ai** (chỉ khi là nhóm) → **Cách nhắc** (khi đã chọn người).
   - Giờ đã qua báo lỗi ngay dưới ô; lỗi từ API (kênh không hợp lệ...) hiện đúng thông điệp của API trong hộp thoại.
   - Hạn chót lưu theo cùng quy ước với khi sửa trực tiếp (cuối ngày, giờ UTC).
   - Nếu đang lọc "Đã xong", màn hình tự chuyển về "Cần làm" sau khi thêm để người dùng thấy ngay việc vừa tạo.
 - **Lọc theo kỳ** (mặc định Tháng), **thẻ tổng quan**: tổng, cần làm, đã xong, quá hạn.
 - **Lọc trạng thái** Tất cả / Cần làm (mặc định) / Đã xong; tìm theo tiêu đề và ghi chú.
-- **Cột bảng**: Trạng thái, Tiêu đề, Ghi chú, Hạn chót, **Nhắc lúc** (🔔 giờ, dòng dưới là kênh · người được nhắc · "Nhắn riêng"; mờ đi kèm "Đã nhắc" khi đã gửi), Cập nhật, **Người tạo** (tên hoặc nguồn, kèm nhóm Zalo), Thao tác.
-- Sửa trực tiếp như cũ; xoá trống ô ghi chú, hạn chót hoặc giờ nhắc rồi lưu thì trường đó được xoá. Ô Nhắc lúc khi sửa có thêm bộ ô đích nhắc (bản gọn). Màn hình chỉ gửi trường nhắc khi người dùng thật sự sửa nó, để nhắc cũ đã qua giờ không bị báo "phải ở tương lai". Lưu lỗi thì toast hiện lý do và giữ nguyên chế độ sửa. Xoá task dùng hộp xác nhận trong app (thay `window.confirm`).
+- **Cột bảng**: Trạng thái, Tiêu đề, Ghi chú, Hạn chót, **Nhắc lúc** (🔔 lần nhắc kế tiếp kèm "+N lần" còn lại, rê chuột xem đủ các giờ; dòng dưới là kênh · người được nhắc · "Nhắn riêng"; mờ đi kèm "Đã nhắc" khi mọi lần đã gửi), Cập nhật, **Người tạo** (tên hoặc nguồn, kèm nhóm Zalo), Thao tác.
+- Sửa trực tiếp như cũ; xoá trống ô ghi chú, hạn chót hoặc giờ nhắc rồi lưu thì trường đó được xoá. Ô Nhắc lúc khi sửa là danh sách giờ (lần đã gửi có chữ "đã gửi") cùng bộ ô đích nhắc (bản gọn). Màn hình chỉ gửi trường nhắc khi người dùng thật sự sửa nó, và giờ nào giữ nguyên thì gửi lại đúng giá trị cũ, để lần nhắc đã qua giờ không bị báo "phải ở tương lai". Lưu lỗi thì toast hiện lý do và giữ nguyên chế độ sửa. Xoá task dùng hộp xác nhận trong app (thay `window.confirm`).
 - Trang Tổng quan dùng bảng rút gọn (không có cột Người tạo).
 
 ## 5. Kiểm thử
@@ -128,4 +133,4 @@ Nhắn bot "xong Nộp báo cáo" để đánh dấu hoàn thành.
 1. `npm run typecheck`, `npm run lint`, `npm run test --workspace @zalobot/api` (có `tasks.service.spec.ts`, `task.mapper.spec.ts`, `task-reminder-scheduler.service.spec.ts`) và `npm run test --workspace @zalobot/web` (có `task-create-form.spec.ts`).
 2. `npm run build --workspace @zalobot/contracts` trước (web và API đọc kiểu từ `dist`), rồi `npm run build --workspace @zalobot/web`.
 3. Sau khi deploy (migration `CreateTasks` và `DropTaskGoogleCopy` tự chạy): tạo (bằng nút **+ Thêm việc**)/sửa/hoàn thành/xoá một task trên `/tasks`, khi chưa kết nối Google cũng phải làm được; gõ `/task mua sữa` trên Zalo rồi `/tasks`.
-4. Nhắc việc (migration `AddReminderToTasks` tự chạy): đặt nhắc 2 phút nữa vào một nhóm đang listen, chờ tin nhắc; đổi giờ thì phải nhắc lại; đánh dấu xong trước giờ thì không nhắc. Nhắn bot "thêm việc gọi khách, 10 phút nữa nhắc tôi" và kiểm tra thẻ xác nhận có dòng **Nhắc lúc**.
+4. Nhắc việc (migration `AddReminderToTasks`, `AddReminderTargets`, `CreateReminderTimes` tự chạy): đặt nhắc 2 phút nữa vào một nhóm đang listen, chờ tin nhắc; đặt 2 giờ nhắc thì nhận 2 tin; đổi kênh sau khi đã nhắc thì không nhận lại tin cũ; đánh dấu xong trước giờ thì không nhắc. Nhắn bot "thêm việc nộp báo cáo, nhắc 8h và 14h mai" và kiểm tra thẻ xác nhận liệt kê đủ 2 giờ. 

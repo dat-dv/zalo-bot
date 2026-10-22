@@ -15,6 +15,7 @@ import {
   type ReminderCreateDraft,
 } from '@/modules/reminders/model/reminder-create-form';
 import { ReminderTargetFields } from './reminder-target-fields';
+import { ReminderTimesField } from './reminder-times-field';
 
 interface CreateReminderDialogProps {
   open: boolean;
@@ -88,21 +89,19 @@ export function CreateReminderDialog({ open, onClose, onCreated }: CreateReminde
         />
       </label>
 
-      <label className="grid gap-1">
+      <div className="grid gap-1">
         <span className={FORM_LABEL}>
           {t('reminders.create.remindAt')} <span className="text-rose-500">*</span>
         </span>
-        <input
-          type="datetime-local"
-          className={FORM_FIELD}
-          value={draft.remindAt}
-          onChange={(e) => update({ remindAt: e.target.value })}
-          aria-invalid={isPastTime}
-          required
+        <ReminderTimesField
+          value={draft.remindTimes}
+          onChange={(remindTimes) => update({ remindTimes })}
+          ariaLabel={t('reminders.create.remindAt')}
+          invalid={isPastTime}
           disabled={createMutation.isPending}
         />
         {isPastTime && <span className={FORM_ERROR_TEXT}>{t('reminders.create.pastTime')}</span>}
-      </label>
+      </div>
 
       <ReminderTargetFields
         value={draft.target}

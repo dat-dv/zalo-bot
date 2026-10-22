@@ -11,6 +11,7 @@ import {
   selfChannelId,
   type ReminderTargetDraft,
 } from './reminder-target';
+import { buildReminderTimes, type ReminderTimeDraft } from './reminder-times';
 
 export const REMINDER_NOTIFY_TYPES: readonly ReminderNotifyType[] = ['text', 'call'];
 export const REMINDER_REPEAT_TYPES: readonly ReminderRepeatType[] = ['none', 'daily', 'weekly'];
@@ -19,8 +20,8 @@ const DEFAULT_LEAD_MS = 60 * 60 * 1000;
 
 export interface ReminderCreateDraft {
   title: string;
-  /** `datetime-local` value. */
-  remindAt: string;
+  /** Reminder times; at least one filled row. */
+  remindTimes: ReminderTimeDraft[];
   notifyType: ReminderNotifyType;
   repeatType: ReminderRepeatType;
   /** Where and who to remind; the chat defaults to the user's own private chat. */
@@ -28,7 +29,12 @@ export interface ReminderCreateDraft {
 }
 
 export type ReminderCreateError =
-  'titleRequired' | 'remindAtRequired' | 'pastTime' | 'channelRequired' | 'callPrivateOnly';
+  | 'titleRequired'
+  | 'remindAtRequired'
+  | 'pastTime'
+  | 'tooMany'
+  | 'channelRequired'
+  | 'callPrivateOnly';
 
 export type ReminderCreateResult =
   { ok: true; request: ICreateReminderRequest } | { ok: false; error: ReminderCreateError };
@@ -37,7 +43,7 @@ export type ReminderCreateResult =
 export function createReminderDraft(now: Date = new Date()): ReminderCreateDraft {
   return {
     title: '',
-    remindAt: toLocalDateTimeInput(new Date(now.getTime() + DEFAULT_LEAD_MS)),
+    remindTimes: [{ value: toLocalDateTimeInput(new Date(now.getTime() + DEFAULT_LEAD_MS)) }],
     notifyType: 'text',
     repeatType: 'none',
     target: emptyReminderTargetDraft(),
@@ -55,14 +61,13 @@ export function buildCreateReminderRequest(
 ): ReminderCreateResult {
   const title = draft.title.trim();
   if (!title) return { ok: false, error: 'titleRequired' };
-  if (!draft.remindAt) return { ok: false, error: 'remindAtRequired' };
-  const remindAt = new Date(draft.remindAt);
-  if (Number.isNaN(remindAt.getTime())) return { ok: false, error: 'remindAtRequired' };
-  // The input has minute precision: the current minute still counts as "now", not the past.
-  if (remindAt.getTime() < now.getTime() - 60 * 1000) return { ok: false, error: 'pastTime' };
+  // The inputs have minute precision: the current minute still counts as "now", not the past.
+  const times = buildReminderTimes(draft.remindTimes, now);
+  if (!times.ok) return { ok: false, error: times.error };
+  if (times.iso.length === 0) return { ok: false, error: 'remindAtRequired' };
   const request: ICreateReminderRequest = {
     title,
-    remindAt: remindAt.toISOString(),
+    remindTimes: times.iso,
     notifyType: draft.notifyType,
     repeatType: draft.repeatType,
   };

@@ -4,7 +4,11 @@ import { TextToolType } from '../text-tool.enum';
 import { ZcaMessengerService } from '../../zca-messenger.service';
 import { TasksService } from '../../../tasks/tasks.service';
 import { TransactionConfirmationService } from '../../confirmation/transaction-confirmation.service';
-import { reminderModeFromArgs, reminderUsersFromContext } from '../reminder-target-args.util';
+import {
+  reminderModeFromArgs,
+  reminderTimesFromArgs,
+  reminderUsersFromContext,
+} from '../reminder-target-args.util';
 
 @Injectable()
 export class CreateTaskToolStrategy implements TextToolStrategy {
@@ -48,14 +52,12 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
         // ignore duplicate check errors
       }
 
-      const remindAt =
-        typeof args.remindAt === 'string' && args.remindAt.trim()
-          ? args.remindAt.trim()
-          : undefined;
+      const remindTimes = reminderTimesFromArgs(context.toolArgs ?? {});
       // People only matter with a reminder; the task reminder goes to this chat.
-      const remindUsers = remindAt
-        ? reminderUsersFromContext(context, context.toolArgs?.remindSelf === true)
-        : [];
+      const remindUsers =
+        remindTimes.length > 0
+          ? reminderUsersFromContext(context, context.toolArgs?.remindSelf === true)
+          : [];
       await this.confirmationService.createPendingTask({
         userId: context.senderId,
         chatId: context.chatId,
@@ -64,7 +66,8 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
           title,
           due: args.due,
           notes: args.notes,
-          remindAt,
+          remindAt: remindTimes[0],
+          remindTimes: remindTimes.length > 0 ? remindTimes : undefined,
           remindUsers: remindUsers.length > 0 ? remindUsers : undefined,
           remindMode:
             remindUsers.length > 0 ? reminderModeFromArgs(context.toolArgs ?? {}) : undefined,

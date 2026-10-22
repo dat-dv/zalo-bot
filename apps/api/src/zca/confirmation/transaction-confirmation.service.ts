@@ -113,13 +113,26 @@ function toValidTaskDue(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/** Valid dates of a payload: the `remindTimes` list, else the single `remindAt`. */
+function toValidDates(remindTimes: unknown, remindAt: unknown): Date[] {
+  const values = Array.isArray(remindTimes) ? remindTimes : [remindAt];
+  return values
+    .map((value: unknown) =>
+      value instanceof Date ? value : toValidTaskDue(typeof value === 'string' ? value : null),
+    )
+    .filter((date): date is Date => !!date && !Number.isNaN(date.getTime()));
+}
+
 /**
- * A task reminder time from an LLM payload. Unparseable or past times (the card may have
- * waited minutes for approval) mean "no reminder" rather than failing the whole task.
+ * Task reminder times from an LLM payload. Unparseable or past times (the card may have
+ * waited minutes for approval) are dropped rather than failing the whole task.
  */
-export function toValidTaskRemindAt(value: unknown, now: Date = new Date()): Date | null {
-  const date = toValidTaskDue(value);
-  return date && date.getTime() > now.getTime() ? date : null;
+export function toValidRemindTimes(
+  remindTimes: unknown,
+  remindAt: unknown,
+  now: Date = new Date(),
+): Date[] {
+  return toValidDates(remindTimes, remindAt).filter((date) => date.getTime() > now.getTime());
 }
 
 const REMINDER_NOTIFY_TYPES = ['text', 'call'] as const;
@@ -143,10 +156,14 @@ export function parseReminderPayload(payload: Record<string, unknown>): CreateRe
     throw new Error('Thiếu nội dung lịch nhắc.');
   }
   const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : undefined);
+  // Past times are kept: they go out on the next tick, as a reminder always did.
+  const remindTimes = toValidDates(payload.remindTimes, payload.remindAt);
+  if (remindTimes.length === 0) remindTimes.push(toValidReminderDate(payload.remindAt));
   return {
     userId,
     title,
-    remindAt: toValidReminderDate(payload.remindAt),
+    remindAt: remindTimes[0],
+    remindTimes,
     notifyType: pickOption(payload.notifyType, REMINDER_NOTIFY_TYPES),
     repeatType: pickOption(payload.repeatType, REMINDER_REPEAT_TYPES),
     status: pickOption(payload.status, REMINDER_STATUSES),
@@ -1327,7 +1344,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
               notes: payload.notes,
               dueAt: toValidTaskDue(payload.due),
               // Reminds in the chat the task was asked in (the actor's chatId).
-              remindAt: toValidTaskRemindAt(payload.remindAt),
+              remindTimes: toValidRemindTimes(payload.remindTimes, payload.remindAt),
               remindUsers: parseTargetUsers(payload.remindUsers),
               remindMode: isReminderTargetMode(payload.remindMode) ? payload.remindMode : undefined,
             },

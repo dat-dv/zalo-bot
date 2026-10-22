@@ -46,7 +46,7 @@ test('rejects an empty title', () => {
 test('a reminder defaults to the user\'s own private chat', () => {
   assert.deepEqual(
     buildCreateTaskRequest(
-      { ...emptyTaskDraft(), title: 'Họp', remindAt: localInput(future) },
+      { ...emptyTaskDraft(), title: 'Họp', remindTimes: [{ value: localInput(future) }] },
       [SELF, GROUP],
       NOW,
     ),
@@ -56,7 +56,7 @@ test('a reminder defaults to the user\'s own private chat', () => {
         title: 'Họp',
         notes: undefined,
         due: undefined,
-        remindAt: new Date(localInput(future)).toISOString(),
+        remindTimes: [new Date(localInput(future)).toISOString()],
         remindChatId: '111',
       },
     },
@@ -68,7 +68,7 @@ test('a picked reminder chat wins over the default', () => {
     {
       ...emptyTaskDraft(),
       title: 'Họp',
-      remindAt: localInput(future),
+      remindTimes: [{ value: localInput(future) }],
       remindTarget: { chatId: '999', userIds: [], mode: 'mention' },
     },
     [SELF, GROUP],
@@ -80,7 +80,7 @@ test('a picked reminder chat wins over the default', () => {
 test('a reminder needs a chat when the user has no private chat (dashboard-owner)', () => {
   assert.deepEqual(
     buildCreateTaskRequest(
-      { ...emptyTaskDraft(), title: 'Họp', remindAt: localInput(future) },
+      { ...emptyTaskDraft(), title: 'Họp', remindTimes: [{ value: localInput(future) }] },
       [GROUP],
       NOW,
     ),
@@ -92,7 +92,7 @@ test('rejects a reminder time in the past', () => {
   const past = new Date(NOW.getTime() - 10 * 60 * 1000);
   assert.deepEqual(
     buildCreateTaskRequest(
-      { ...emptyTaskDraft(), title: 'Họp', remindAt: localInput(past) },
+      { ...emptyTaskDraft(), title: 'Họp', remindTimes: [{ value: localInput(past) }] },
       [SELF],
       NOW,
     ),
@@ -104,7 +104,7 @@ test('people and mode are sent for a group reminder only', () => {
   const draft = {
     ...emptyTaskDraft(),
     title: 'Họp',
-    remindAt: localInput(future),
+    remindTimes: [{ value: localInput(future) }],
     remindTarget: { chatId: '999', userIds: ['222'], mode: 'direct' as const },
   };
   const result = buildCreateTaskRequest(draft, [SELF, GROUP], NOW);
@@ -118,4 +118,30 @@ test('people and mode are sent for a group reminder only', () => {
     NOW,
   );
   assert.equal(own.ok && own.request.remindUserIds, undefined);
+});
+
+test('several reminder times are sent sorted', () => {
+  const later = new Date(future.getTime() + 60 * 60 * 1000);
+  const result = buildCreateTaskRequest(
+    {
+      ...emptyTaskDraft(),
+      title: 'Họp',
+      remindTimes: [{ value: localInput(later) }, { value: localInput(future) }],
+    },
+    [SELF],
+    NOW,
+  );
+  assert.deepEqual(result.ok && result.request.remindTimes, [
+    new Date(localInput(future)).toISOString(),
+    new Date(localInput(later)).toISOString(),
+  ]);
+});
+
+test('empty reminder rows mean no reminder', () => {
+  const result = buildCreateTaskRequest(
+    { ...emptyTaskDraft(), title: 'Họp', remindTimes: [{ value: '' }, { value: '' }] },
+    [],
+    NOW,
+  );
+  assert.equal(result.ok && result.request.remindTimes, undefined);
 });

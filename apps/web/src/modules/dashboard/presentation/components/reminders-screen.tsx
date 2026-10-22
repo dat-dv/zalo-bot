@@ -15,6 +15,12 @@ import {
   reminderTargetDraftFrom,
 } from '@/modules/reminders/model/reminder-target';
 import {
+  buildReminderTimes,
+  isReminderTimesChanged,
+  reminderTimeDraftsFrom,
+  snoozeReminderTimes,
+} from '@/modules/reminders/model/reminder-times';
+import {
   remindersQueryKeys,
   useDeleteReminderMutation,
   useRemindersQuery,
@@ -27,7 +33,7 @@ import { CreateReminderDialog } from './create-reminder-dialog';
 
 const emptyEditDraft = (): ReminderEditDraft => ({
   title: '',
-  remindAt: '',
+  remindTimes: reminderTimeDraftsFrom(undefined),
   notifyType: 'text',
   repeatType: 'none',
   target: emptyReminderTargetDraft(),
@@ -80,7 +86,10 @@ export function RemindersScreen() {
     setEditingId(item.id);
     setEditDraft({
       title: item.title,
-      remindAt: item.remindAt ? item.remindAt.slice(0, 16) : '',
+      // Saved times (shown in the browser's time zone); a list from the Home payload has none.
+      remindTimes: item.remindTimes
+        ? reminderTimeDraftsFrom(item.remindTimes)
+        : reminderTimeDraftsFrom([{ id: item.id, remindAt: item.remindAt }]),
       notifyType: item.notifyType || 'text',
       repeatType: item.repeatType || 'none',
       target: reminderTargetDraftFrom(item.remindUsers, item.remindMode),
@@ -112,9 +121,16 @@ export function RemindersScreen() {
   const handleSaveEdit = async (id: string) => {
     const trimmedTitle = editDraft.title.trim();
     if (!trimmedTitle) return;
-    const target = targetPatch(remindersQuery.data?.find((item) => item.id === id));
+    const item = remindersQuery.data?.find((reminder) => reminder.id === id);
+    const target = targetPatch(item);
     if (!target) {
       showToast(t('reminderTarget.channelRequired'));
+      return;
+    }
+    // Unchanged saved times go back as they are, so a time already sent never blocks saving.
+    const times = buildReminderTimes(editDraft.remindTimes);
+    if (!times.ok || times.iso.length === 0) {
+      showToast(t('reminders.create.pastTime'));
       return;
     }
 
@@ -123,7 +139,9 @@ export function RemindersScreen() {
         id,
         data: {
           title: trimmedTitle,
-          remindAt: editDraft.remindAt ? new Date(editDraft.remindAt).toISOString() : undefined,
+          ...(isReminderTimesChanged(times.iso, item?.remindTimes)
+            ? { remindTimes: times.iso }
+            : {}),
           notifyType: editDraft.notifyType,
           repeatType: editDraft.repeatType,
           ...target,
@@ -139,13 +157,11 @@ export function RemindersScreen() {
 
   const handleSnooze = async (item: IReminderListItem) => {
     try {
-      const nextTime = new Date(new Date(item.remindAt).getTime() + 15 * 60 * 1000).toISOString();
-      await updateMutation.mutateAsync({
-        id: item.id,
-        data: {
-          remindAt: nextTime,
-        },
-      });
+      // Only the next time not sent moves; the other times of the reminder stay.
+      const data: IUpdateReminderRequest = item.remindTimes?.length
+        ? { remindTimes: snoozeReminderTimes(item.remindTimes, 15) }
+        : { remindAt: new Date(Date.parse(item.remindAt) + 15 * 60 * 1000).toISOString() };
+      await updateMutation.mutateAsync({ id: item.id, data });
       showToast(t('reminders.snooze.success'));
     } catch {
       // Error handled by mutation

@@ -3,7 +3,7 @@ import test from 'node:test';
 import {
   TransactionConfirmationService,
   parseReminderPayload,
-  toValidTaskRemindAt,
+  toValidRemindTimes,
 } from './transaction-confirmation.service';
 import {
   FinanceService,
@@ -1558,13 +1558,35 @@ void test('createPendingAction applies the saved requiredHearts of the chat thre
   service.clearAll();
 });
 
-void test('toValidTaskRemindAt drops unparseable and past reminder times', () => {
+void test('toValidRemindTimes keeps future times of the list, else of the single remindAt', () => {
   const now = new Date('2026-10-22T03:00:00.000Z');
-  assert.equal(
-    toValidTaskRemindAt('2026-10-22T05:00:00.000Z', now)?.toISOString(),
-    '2026-10-22T05:00:00.000Z',
+  const iso = (dates: Date[]) => dates.map((date) => date.toISOString());
+  assert.deepEqual(
+    iso(
+      toValidRemindTimes(
+        ['2026-10-22T05:00:00.000Z', '2026-10-22T02:59:00.000Z', 'not-a-date'],
+        'ignored',
+        now,
+      ),
+    ),
+    ['2026-10-22T05:00:00.000Z'],
   );
-  assert.equal(toValidTaskRemindAt('2026-10-22T02:59:00.000Z', now), null);
-  assert.equal(toValidTaskRemindAt('not-a-date', now), null);
-  assert.equal(toValidTaskRemindAt(undefined, now), null);
+  assert.deepEqual(iso(toValidRemindTimes(undefined, '2026-10-22T05:00:00.000Z', now)), [
+    '2026-10-22T05:00:00.000Z',
+  ]);
+  assert.deepEqual(toValidRemindTimes(undefined, '2026-10-22T02:59:00.000Z', now), []);
+  assert.deepEqual(toValidRemindTimes(undefined, undefined, now), []);
+});
+
+void test('parseReminderPayload keeps several times, past ones included', () => {
+  const parsed = parseReminderPayload({
+    userId: 'u1',
+    title: 'Uống thuốc',
+    remindTimes: ['2999-01-01T01:00:00.000Z', '2000-01-01T13:00:00.000Z', 'bogus'],
+  });
+  assert.deepEqual(
+    parsed.remindTimes?.map((date) => date.toISOString()),
+    ['2999-01-01T01:00:00.000Z', '2000-01-01T13:00:00.000Z'],
+  );
+  assert.throws(() => parseReminderPayload({ userId: 'u1', title: 'x', remindTimes: ['bogus'] }));
 });

@@ -33,6 +33,15 @@ export type DtoDescriptor<T> = {
   [K in keyof T]-?: DtoFieldConfig<T, K>;
 };
 
+/** Các lần nhắc trên thẻ xác nhận (mỗi lần một dòng con), hoặc một lần `remindAt` cũ. */
+export function formatRemindTimesVN(
+  times: readonly (string | Date)[] | undefined,
+  single?: string | Date | null,
+): string {
+  if (!times?.length) return formatDateTimeVN(single);
+  return times.map((time) => formatDateTimeVN(time)).join('; ');
+}
+
 /** Người được nhắc trên thẻ xác nhận: "@Trí, @Đạt", hoặc không tag ai. */
 export function formatRemindUsers(users?: readonly IReminderTargetUser[]): string {
   return users?.length ? users.map((user) => `@${user.name}`).join(', ') : 'Không tag ai';
@@ -228,8 +237,9 @@ export const REMINDER_DESCRIPTOR: DtoDescriptor<CreateReminderDto> = {
   remindAt: {
     label: 'Thời gian nhắc',
     order: 2,
-    format: (v) => formatDateTimeVN(v),
+    format: (v, dto) => formatRemindTimesVN(dto.remindTimes, v),
   },
+  remindTimes: { label: 'Các lần nhắc', hidden: true },
   notifyType: {
     label: 'Hình thức thông báo',
     order: 3,
@@ -269,8 +279,9 @@ export const TASK_DESCRIPTOR: DtoDescriptor<CreateTaskOptions> = {
   remindAt: {
     label: 'Nhắc lúc',
     order: 3,
-    format: (v) => formatDateTimeVN(v),
+    format: (v, dto) => formatRemindTimesVN(dto.remindTimes, v),
   },
+  remindTimes: { label: 'Các lần nhắc', hidden: true },
   remindUsers: { label: 'Nhắc ai', order: 4, format: (v) => formatRemindUsers(v) },
   remindMode: { label: 'Cách nhắc', order: 5, format: (v) => formatRemindMode(v) },
   notes: {

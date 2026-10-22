@@ -9,7 +9,7 @@ const now = new Date(2026, 9, 22, 10, 30);
 test('a new draft defaults to one hour from now, by message, no repeat', () => {
   assert.deepEqual(createReminderDraft(now), {
     title: '',
-    remindAt: '2026-10-22T11:30',
+    remindTimes: [{ value: '2026-10-22T11:30' }],
     notifyType: 'text',
     repeatType: 'none',
     target: { chatId: '', userIds: [], mode: 'mention' },
@@ -20,7 +20,7 @@ test('builds the request with a trimmed title and an ISO time', () => {
   const result = buildCreateReminderRequest(
     {
       title: '  uống thuốc ',
-      remindAt: '2026-10-22T21:00',
+      remindTimes: [{ value: '2026-10-22T21:00' }],
       notifyType: 'call',
       repeatType: 'daily',
       target: emptyReminderTargetDraft(),
@@ -31,7 +31,7 @@ test('builds the request with a trimmed title and an ISO time', () => {
     ok: true,
     request: {
       title: 'uống thuốc',
-      remindAt: new Date(2026, 9, 22, 21, 0).toISOString(),
+      remindTimes: [new Date(2026, 9, 22, 21, 0).toISOString()],
       notifyType: 'call',
       repeatType: 'daily',
     },
@@ -44,16 +44,16 @@ test('rejects an empty title, a missing time and a time in the past', () => {
     ok: false,
     error: 'titleRequired',
   });
-  assert.deepEqual(buildCreateReminderRequest({ ...base, remindAt: '' }, now), {
+  assert.deepEqual(buildCreateReminderRequest({ ...base, remindTimes: [{ value: '' }] }, now), {
     ok: false,
     error: 'remindAtRequired',
   });
-  assert.deepEqual(buildCreateReminderRequest({ ...base, remindAt: '2026-10-22T10:00' }, now), {
+  assert.deepEqual(buildCreateReminderRequest({ ...base, remindTimes: [{ value: '2026-10-22T10:00' }] }, now), {
     ok: false,
     error: 'pastTime',
   });
   // The current minute is still accepted.
-  assert.equal(buildCreateReminderRequest({ ...base, remindAt: '2026-10-22T10:30' }, now).ok, true);
+  assert.equal(buildCreateReminderRequest({ ...base, remindTimes: [{ value: '2026-10-22T10:30' }] }, now).ok, true);
 });
 
 const SELF: IReminderTargetChannel = { id: '111', name: 'Dat', type: 'user', isSelf: true };
@@ -98,4 +98,19 @@ test('dashboard-owner must pick a chat; a call only goes to the private chat', (
     ),
     { ok: false, error: 'callPrivateOnly' },
   );
+});
+
+test('a reminder can have several times', () => {
+  const result = buildCreateReminderRequest(
+    {
+      ...createReminderDraft(now),
+      title: 'Uống thuốc',
+      remindTimes: [{ value: '2026-10-22T20:00' }, { value: '2026-10-22T12:00' }],
+    },
+    now,
+  );
+  assert.deepEqual(result.ok && result.request.remindTimes, [
+    new Date(2026, 9, 22, 12, 0).toISOString(),
+    new Date(2026, 9, 22, 20, 0).toISOString(),
+  ]);
 });

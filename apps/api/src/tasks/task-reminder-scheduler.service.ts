@@ -7,7 +7,7 @@ import { ZcaMessengerService } from '../zca/zca-messenger.service';
 import { formatTaskReminderMessage } from './task.mapper';
 import { TasksService } from './tasks.service';
 
-/** Sends each open task to its reminder target once its reminder time has come. */
+/** Sends an open task to its reminder target at each of its reminder times. */
 @Injectable()
 export class TaskReminderSchedulerService {
   private readonly logger = new Logger(TaskReminderSchedulerService.name);
@@ -43,11 +43,13 @@ export class TaskReminderSchedulerService {
     // While ZCA is logged out the reminders wait, so they still go out after the next login.
     if (!this.zcaMessenger.isConnected()) return;
     const due = await this.tasks.getDueTaskReminders(now);
-    for (const task of due) {
+    for (const time of due) {
+      const { task } = time;
       const chatId = task.remindChatId;
       if (!chatId) continue;
-      // Claim first: whoever marks it sends it, so it never goes out twice.
-      if (!(await this.tasks.markTaskReminded(task.id, now))) continue;
+      // Claim first: whoever marks this time sends it, so it never goes out twice.
+      if (!(await this.tasks.markTaskReminderSent(time.id, now))) continue;
+      await this.tasks.refreshReminderSummary(task);
       const locale = task.createdByUserId
         ? await this.users.getPreferredLocale(task.createdByUserId)
         : DEFAULT_LOCALE;

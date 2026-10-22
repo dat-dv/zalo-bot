@@ -7,6 +7,8 @@ export interface CreateTaskOptions {
   due?: string; // RFC 3339 timestamp (e.g. 2026-08-23T23:59:59.000Z)
   /** ISO time the bot reminds about the task, in the chat it was asked in. */
   remindAt?: string;
+  /** Several ISO reminder times; wins over `remindAt`. */
+  remindTimes?: string[];
   /** People tagged in the message (and the sender for "nhắc tôi"), reminded in the group. */
   remindUsers?: IReminderTargetUser[];
   remindMode?: ReminderTargetMode;

@@ -17,6 +17,10 @@ metadata:
       - apps/api/src/reminders/reminder-scheduler.service.ts
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
       - apps/api/src/reminders/reminder-target.ts
+      - apps/api/src/reminders/reminder-times.ts
+      - apps/api/src/database/migrations/1724940000000-CreateReminderTimes.ts
+      - apps/web/src/modules/reminders/model/reminder-times.ts
+      - apps/web/src/modules/dashboard/presentation/components/reminder-times-field.tsx
       - apps/api/src/reminders/reminder-target.service.ts
       - apps/api/src/reminders/reminder-targets.controller.ts
       - apps/api/src/database/migrations/1724930000000-AddReminderTargets.ts
@@ -58,7 +62,7 @@ Lời nhắc là một tin nhắn Zalo mà bot tự gửi khi tới giờ: mặc
 ### Gửi đi thế nào
 
 - Tin nhắc có dạng: tiêu đề, **dòng tag** (`@Trí @Đạt`), rồi nội dung. Vị trí tag được tính theo cách `zca-js` yêu cầu (đơn vị UTF-16 của JavaScript).
-- Đổi kênh, đổi người hoặc đổi cách nhắc ⇒ bot **nhắc lại** theo cấu hình mới.
+- Đổi kênh, đổi người hoặc đổi cách nhắc **không gửi lại** những lần đã gửi, chỉ áp cho các lần chưa gửi. Muốn nhắc thêm thì thêm giờ mới.
 - Nhóm đã bị admin bỏ listen ⇒ không gửi (ghi log). Nhắc nhở cũ do `dashboard-owner` tạo trỏ vào `dashboard-owner` cũng bị bỏ qua, vì trước giờ nó chưa bao giờ tới được ai.
 - Danh sách kênh và thành viên mở cho **mọi** người dùng dashboard (trước đây chỉ admin xem được thành viên nhóm). Đây là đánh đổi có chủ ý để ai cũng chọn được người được nhắc.
 
@@ -67,6 +71,16 @@ Lời nhắc là một tin nhắn Zalo mà bot tự gửi khi tới giờ: mặc
 - Backend: `reminder-target.ts` (hàm thuần: dựng tin có tag, chuẩn hoá người, so sánh đích), `ReminderTargetService` (danh sách kênh/thành viên, kiểm tra đích, gửi tin), `ReminderTargetsController` (`/api/reminder-targets/channels`, `/api/reminder-targets/channels/:chatId/members`). `ZcaMessengerService.sendMessageWithMentions` gửi một tin có tag.
 - Migration `AddReminderTargets` thêm vào `reminders`: `chat_id` (để trống = chat riêng người tạo, nên **nhắc nhở cũ chạy y như trước**), `remind_users`, `remind_mode`; thêm `remind_users`, `remind_mode` vào `tasks`.
 - Web: `reminders/api/reminder-targets-*.ts`, `reminders/model/reminder-target.ts` (hàm thuần, có unit test), và ở module dashboard: `ReminderTargetFields` (bộ ô chọn dùng cho cả hai form và hai bảng), `ReminderTargetSummary` (dòng tóm tắt dưới giờ nhắc).
+
+### Nhiều lần nhắc
+
+Một lời nhắc (giống việc cần làm) có thể nhắc **nhiều lần**, tối đa 10, ví dụ "uống thuốc 8h và 20h". Mỗi lần là một dòng trong bảng `reminder_times`, có dấu "đã gửi" riêng.
+
+- **Lặp ngày/tuần áp cho từng giờ**: lời nhắc lặp hằng ngày có 8h và 20h thì gửi xong lần 8h, dòng đó tự dời sang 8h hôm sau. Bot ngừng một hôm (ví dụ ZCA đăng xuất) thì không gửi dồn các ngày đã lỡ, chỉ nhảy tới lần kế tiếp.
+- Lời nhắc không lặp chuyển **đã xong** khi mọi lần đã gửi.
+- `reminders.remind_at` vẫn giữ, nghĩa là **lần nhắc kế tiếp**, để danh sách, trang Tổng quan và lệnh `/reminders` vẫn sắp xếp như cũ.
+- Lời nhắc chưa bao giờ bị server từ chối vì giờ đã qua (giờ đã qua thì bot gửi ngay ở lượt kế tiếp, form dashboard mới kiểm tra), nên vẫn giữ như vậy. Việc cần làm thì server từ chối giờ mới ở quá khứ.
+- Migration `CreateReminderTimes` chuyển mỗi lời nhắc cũ thành một dòng; cột giờ dùng cùng kiểu `timestamp` với `reminders.remind_at` để giá trị đọc ra y như trước.
 
 ## 3. Ai sở hữu code nào
 
@@ -81,13 +95,13 @@ Lời nhắc là một tin nhắn Zalo mà bot tự gửi khi tới giờ: mặc
 
 - Dữ liệu lấy từ `useRemindersQuery`. Nếu API trả danh sách rỗng, màn hình dùng tạm `reminders` trong dữ liệu dashboard.
 - Bảng có ô tìm kiếm theo tiêu đề và các cột: tiêu đề, loại thông báo (`text` tin nhắn / `call` cuộc gọi), thời điểm nhắc, lặp lại (`none` / `daily` / `weekly`), **Gửi tới** (kênh · người được nhắc · "Nhắn riêng"; chỉ trên trang `/reminders`), thao tác.
-- **Thêm lời nhắc**: nút `+ Thêm lời nhắc` trên toolbar (desktop) hoặc ở thanh hành động dưới cùng (điện thoại) mở hộp thoại gồm tiêu đề, thời điểm nhắc, **đích nhắc** (Gửi nhắc vào → Nhắc ai → Cách nhắc), loại thông báo, kiểu lặp.
+- **Thêm lời nhắc**: nút `+ Thêm lời nhắc` trên toolbar (desktop) hoặc ở thanh hành động dưới cùng (điện thoại) mở hộp thoại gồm tiêu đề, **các giờ nhắc** (mỗi giờ một ô, nút **+ Thêm giờ nhắc**), **đích nhắc** (Gửi nhắc vào → Nhắc ai → Cách nhắc), loại thông báo, kiểu lặp.
   - "Gọi điện" chỉ chọn được khi gửi vào **chat riêng của chính mình**: một cuộc gọi chỉ tới được một người, gọi "vào nhóm" không có nghĩa.
   - Mặc định nhắc **sau 1 giờ**, bằng tin nhắn, không lặp, để người dùng chỉ cần gõ tiêu đề là lưu được.
   - Không cho chọn thời điểm đã qua: bộ hẹn giờ sẽ bắn ngay lời nhắc quá giờ ở lượt chạy kế tiếp, nên đó gần như luôn là chọn nhầm. Phút hiện tại vẫn được chấp nhận vì ô nhập chỉ chính xác tới phút. Form kiểm tra lại lúc bấm Lưu phòng khi form để mở lâu.
   - Giờ nhập theo múi giờ của trình duyệt rồi đổi sang ISO trước khi gửi.
 - Sửa trực tiếp trên dòng (tiêu đề, thời điểm, loại thông báo, kiểu lặp, đích nhắc) rồi bấm Lưu hoặc Huỷ. Phần đích nhắc chỉ được gửi lên khi thật sự đổi; API từ chối thì toast hiện lý do.
-- Nút **Nhắc lại** (snooze) chỉ dời `remindAt` thêm 15 phút bằng PATCH.
+- Nút **Nhắc lại** (snooze) chỉ dời **lần nhắc kế tiếp** thêm 15 phút, các giờ khác giữ nguyên.
 - Xoá có hộp thoại xác nhận của trình duyệt. Mỗi thao tác thành công hiện toast.
 - Khi lỗi: hiện dải cảnh báo kèm nút Thử lại.
 
@@ -98,7 +112,7 @@ Lời nhắc là một tin nhắn Zalo mà bot tự gửi khi tới giờ: mặc
 | GET | `/api/reminders` | Lời nhắc chưa kích hoạt (`isTriggered = false`) của người dùng, sắp theo giờ nhắc tăng dần, kèm tên kênh nhận nhắc (`chatName`) |
 | GET | `/api/reminders/:id` | Một lời nhắc, 404 nếu không thuộc người dùng |
 | POST | `/api/reminders` | Bắt buộc `title`, `remindAt` hợp lệ; tuỳ chọn `notifyType`, `repeatType`, `chatId`, `remindUserIds`, `remindMode` |
-| PATCH | `/api/reminders/:id` | Sửa tiêu đề, giờ nhắc, loại thông báo, kiểu lặp, đích nhắc. Đổi giờ nhắc hoặc đổi đích thì lời nhắc quay lại trạng thái chờ |
+| PATCH | `/api/reminders/:id` | Sửa tiêu đề, danh sách giờ nhắc (`remindTimes`), loại thông báo, kiểu lặp, đích nhắc. Thêm giờ mới thì lời nhắc đã xong quay lại trạng thái chờ; chỉ đổi đích thì không |
 | DELETE | `/api/reminders/:id` | Xoá, trả `{ deleted: true }` |
 
 Mọi endpoint đều lọc theo người dùng đang đăng nhập dashboard. Controller bỏ qua `status` gửi lên trong body. Chọn "Gọi điện" mà đích không phải chat riêng của chính mình ⇒ 400.
