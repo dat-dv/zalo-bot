@@ -4,16 +4,15 @@
       <stop offset="0%" stop-color="#0f172a" />
       <stop offset="100%" stop-color="#090d16" />
     </linearGradient>
-    <linearGradient id="favAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="favAccent" gradientUnits="userSpaceOnUse" x1="136" y1="132" x2="376" y2="380">
       <stop offset="0%" stop-color="#38bdf8" />
       <stop offset="100%" stop-color="#2563eb" />
     </linearGradient>
   </defs>
   <rect width="32" height="32" rx="7" fill="url(#favBg)" />
   <rect x="0.5" y="0.5" width="31" height="31" rx="6.5" fill="none" stroke="#334155" stroke-width="1" />
-  <!-- T-mark -->
-  <path d="M 7 8 C 7 6.9 7.9 6 9 6 L 23 6 C 24.1 6 25 6.9 25 8 L 25 10.5 C 25 11.6 24.1 12.5 23 12.5 L 9 12.5 C 7.9 12.5 7 11.6 7 10.5 Z" fill="url(#favAccent)" />
-  <path d="M 13.5 11 L 18.5 11 L 18.5 23 C 18.5 24.1 17.6 25 16.5 25 L 15.5 25 C 14.4 25 13.5 24.1 13.5 23 Z" fill="url(#favAccent)" />
+  <!-- Z-mark: the icon.svg outline scaled into the 32px tile (gradient in the path's own units). -->
+  <path transform="translate(7 6.5) scale(0.075) translate(-136 -132)" d="M 160 132 H 352 A 24 24 0 0 1 376 156 V 200 L 260 300 H 352 A 24 24 0 0 1 376 324 V 356 A 24 24 0 0 1 352 380 H 160 A 24 24 0 0 1 136 356 V 312 L 252 212 H 160 A 24 24 0 0 1 136 188 V 156 A 24 24 0 0 1 160 132 Z" fill="url(#favAccent)" />
   <!-- Accent dot -->
   <circle cx="24.5" cy="6.5" r="2" fill="#38bdf8" />
 </svg>

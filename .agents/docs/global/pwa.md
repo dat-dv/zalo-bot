@@ -32,6 +32,7 @@ Push notification **không** làm, vì lời nhắc đã gửi qua Zalo.
 | Thành phần | Vai trò |
 | --- | --- |
 | `app/manifest.ts` | Sinh `/manifest.webmanifest`: tên, màu, icon (có bản maskable), lối tắt tới Thu chi, Vay & cho vay, Nhắc nhở. Dùng `APP_ROUTES`, không hardcode đường dẫn. |
+| `public/icon.svg`, `icon-maskable.svg`, `favicon.svg`, `og-image.svg` | **Nguồn của logo chữ Z** (vẽ tay bằng path, không dùng font). PNG/ICO xuất ra từ đây: `icon.svg` → `icon-192/512.png`; `icon-maskable.svg` (nền tràn viền, chữ thu 80% để Android cắt tròn không mất nét) → `icon-maskable-192/512.png` và `apple-touch-icon.png`; `favicon.svg` → `favicon.ico` (16 + 32); `og-image.svg` → `og-image.png`. Muốn đổi logo thì sửa SVG rồi xuất lại (sharp/ImageMagick), không sửa tay PNG. Trước 22/10/2026 logo là chữ T còn sót từ thời Telegram. |
 | `public/sw.js` | Service worker tự viết, không thư viện. |
 | `public/offline.html` | Trang hiện khi mất mạng mà trang cần mở chưa từng được lưu. |
 | `src/shared/pwa/*` | Đăng ký service worker, bắt sự kiện cài app, theo dõi online/offline. |

@@ -5,7 +5,7 @@
       <stop offset="50%" stop-color="#1e293b" />
       <stop offset="100%" stop-color="#090d16" />
     </linearGradient>
-    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="accentGrad" gradientUnits="userSpaceOnUse" x1="136" y1="132" x2="376" y2="380">
       <stop offset="0%" stop-color="#38bdf8" />
       <stop offset="50%" stop-color="#2563eb" />
       <stop offset="100%" stop-color="#4f46e5" />
@@ -26,20 +26,13 @@
   <!-- Background glow orb -->
   <circle cx="256" cy="180" r="140" fill="url(#glowGrad)" />
 
-  <!-- Logo Mark: Modern T & zalo / Assistant motif -->
+  <!-- Logo Mark: Z monogram + assistant node -->
   <g filter="url(#subtleGlow)">
-    <!-- Top Horizontal Bar of T -->
-    <path d="M 136 156 C 136 142.7 146.7 132 160 132 L 352 132 C 365.3 132 376 142.7 376 156 L 376 188 C 376 201.3 365.3 212 352 212 L 160 212 C 146.7 212 136 201.3 136 188 Z" fill="url(#accentGrad)" />
+    <!-- One outline: rounded outer corners, sharp joints where the diagonal meets the bars. -->
+    <path d="M 160 132 H 352 A 24 24 0 0 1 376 156 V 200 L 260 300 H 352 A 24 24 0 0 1 376 324 V 356 A 24 24 0 0 1 352 380 H 160 A 24 24 0 0 1 136 356 V 312 L 252 212 H 160 A 24 24 0 0 1 136 188 V 156 A 24 24 0 0 1 160 132 Z" fill="url(#accentGrad)" />
 
-    <!-- Vertical Stem of T with subtle taper -->
-    <path d="M 220 200 L 292 200 C 298.6 200 304 205.4 304 212 L 304 356 C 304 369.3 293.3 380 280 380 L 232 380 C 218.7 380 208 369.3 208 356 L 208 212 C 208 205.4 213.4 200 220 200 Z" fill="url(#accentGrad)" />
-
-    <!-- zalo Paper Plane / AI Node Accent floating top-right -->
+    <!-- Assistant node accent at the top-right corner -->
     <circle cx="376" cy="136" r="20" fill="#38bdf8" />
     <circle cx="376" cy="136" r="12" fill="#ffffff" />
-
-    <!-- Finance Wave / Chart indicator bottom accents -->
-    <circle cx="156" cy="380" r="10" fill="#10b981" />
-    <circle cx="356" cy="380" r="10" fill="#38bdf8" />
   </g>
 </svg>

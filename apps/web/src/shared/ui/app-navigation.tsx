@@ -312,7 +312,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
             className="inline-flex size-6 shrink-0 items-center justify-center rounded-[3px] bg-slate-900 text-xs font-extrabold text-white"
             aria-hidden="true"
           >
-            T
+            Z
           </span>
           <span>
             <strong className="block text-[13px] leading-[1.1] font-bold tracking-[-.01em]">

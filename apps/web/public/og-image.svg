@@ -67,8 +67,8 @@
     <g transform="translate(0, 60)">
       <!-- Logo Mark -->
       <rect width="72" height="72" rx="18" fill="url(#ogAccent)" />
-      <!-- Monogram T -->
-      <path d="M 20 22 L 52 22 L 52 30 L 39 30 L 39 52 L 33 52 L 33 30 L 20 30 Z" fill="#ffffff" />
+      <!-- Monogram Z -->
+      <path d="M 20 20 L 52 20 L 52 28 L 32 45 L 52 45 L 52 53 L 20 53 L 20 45 L 40 28 L 20 28 Z" fill="#ffffff" />
       <circle cx="53" cy="21" r="4.5" fill="#ffffff" />
 
       <!-- Typography -->

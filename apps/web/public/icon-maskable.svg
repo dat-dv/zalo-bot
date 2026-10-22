@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Source for icon-maskable-*.png and apple-touch-icon.png: full-bleed background (the OS
+       applies its own mask), mark scaled to 80% so it stays inside the maskable safe zone. -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#1e293b" />
+      <stop offset="100%" stop-color="#090d16" />
+    </linearGradient>
+    <linearGradient id="accentGrad" gradientUnits="userSpaceOnUse" x1="136" y1="132" x2="376" y2="380">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="50%" stop-color="#2563eb" />
+      <stop offset="100%" stop-color="#4f46e5" />
+    </linearGradient>
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#2563eb" stop-opacity="0" />
+    </linearGradient>
+    <filter id="subtleGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#2563eb" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bgGrad)" />
+
+  <g transform="translate(256 256) scale(0.8) translate(-256 -256)">
+    <circle cx="256" cy="180" r="140" fill="url(#glowGrad)" />
+    <g filter="url(#subtleGlow)">
+      <path d="M 160 132 H 352 A 24 24 0 0 1 376 156 V 200 L 260 300 H 352 A 24 24 0 0 1 376 324 V 356 A 24 24 0 0 1 352 380 H 160 A 24 24 0 0 1 136 356 V 312 L 252 212 H 160 A 24 24 0 0 1 136 188 V 156 A 24 24 0 0 1 160 132 Z" fill="url(#accentGrad)" />
+      <circle cx="376" cy="136" r="20" fill="#38bdf8" />
+      <circle cx="376" cy="136" r="12" fill="#ffffff" />
+    </g>
+  </g>
+</svg>
