@@ -3,6 +3,8 @@ import {
   Get,
   Post,
   Put,
+  Patch,
+  Delete,
   Param,
   Query,
   Body,
@@ -32,11 +34,14 @@ import { ZcaBotFeatureService } from './zca-bot-feature.service';
 import { MediaStorageService } from '../receipt-storage/media-storage.service';
 import { ChannelStorageLinkService } from './storage/channel-storage-link.service';
 import {
+  isCurrentStorageRow,
   toChannelStorageLinksResponse,
   type CurrentChannelStorage,
 } from './storage/channel-storage-links.mapper';
+import { validateChannelStorageLinkUpdate } from '@zalobot/contracts';
 import type {
   ChannelStorageLinksResponse,
+  UpdateChannelStorageLinkDto,
   ThreadBotConfig,
   UpdateThreadBotConfigDto,
   SyncThreadMediaDto,
@@ -310,21 +315,98 @@ export class ZcaController {
     @Param('threadId') threadId: string,
   ): Promise<{ data: ChannelStorageLinksResponse }> {
     this.admin(req);
+    const linkService = this.requireStorageLinkService();
+    const current = await this.resolveCurrentStorage(threadId);
+    return { data: await this.storageLinksResponse(linkService, threadId, current) };
+  }
+
+  @Patch('threads/:threadId/storage-links/:linkId')
+  @ApiOperation({
+    summary: 'Sửa tên hiển thị, đường link hoặc email tài khoản của một link Drive/Photos',
+  })
+  public async updateThreadStorageLink(
+    @Req() req: Request,
+    @Param('threadId') threadId: string,
+    @Param('linkId') linkId: string,
+    @Body() body?: UpdateChannelStorageLinkDto,
+  ): Promise<{ data: ChannelStorageLinksResponse }> {
+    this.admin(req);
+    const linkService = this.requireStorageLinkService();
+    const group = await linkService.findLinkGroup(threadId, linkId);
+    if (group.length === 0) throw new NotFoundException('Không tìm thấy link lưu trữ của kênh.');
+
+    const validation = validateChannelStorageLinkUpdate(group[0].kind, body ?? {});
+    // `ok` does not narrow without strictNullChecks (off in the API tsconfig); `in` does.
+    if ('errors' in validation) {
+      const fields = Object.entries(validation.errors).map(([field, code]) => `${field}: ${code}`);
+      throw new BadRequestException(`Dữ liệu link không hợp lệ (${fields.join(', ')}).`);
+    }
+
+    const current = await this.resolveCurrentStorage(threadId);
+    const changesUrl = validation.value.url !== undefined && validation.value.url !== group[0].url;
+    // Uploads rewrite the URL of the link in use, so an edit there would silently be lost.
+    if (changesUrl && group.some((row) => isCurrentStorageRow(row, current))) {
+      throw new BadRequestException('Không sửa được đường link đang dùng.');
+    }
+
+    await linkService.updateLinkGroup(group, validation.value);
+    return { data: await this.storageLinksResponse(linkService, threadId, current) };
+  }
+
+  @Delete('threads/:threadId/storage-links/:linkId')
+  @ApiOperation({
+    summary: 'Gỡ một link Drive/Photos khỏi lịch sử (không xoá dữ liệu trên Google)',
+  })
+  public async deleteThreadStorageLink(
+    @Req() req: Request,
+    @Param('threadId') threadId: string,
+    @Param('linkId') linkId: string,
+  ): Promise<{ data: ChannelStorageLinksResponse }> {
+    this.admin(req);
+    const linkService = this.requireStorageLinkService();
+    const group = await linkService.findLinkGroup(threadId, linkId);
+    if (group.length === 0) throw new NotFoundException('Không tìm thấy link lưu trữ của kênh.');
+
+    const current = await this.resolveCurrentStorage(threadId);
+    // The link in use is recorded again on the next upload or dialog open: deleting is pointless.
+    if (group.some((row) => isCurrentStorageRow(row, current))) {
+      throw new BadRequestException('Không xoá được link đang dùng.');
+    }
+
+    await linkService.removeLinkGroup(group);
+    return { data: await this.storageLinksResponse(linkService, threadId, current) };
+  }
+
+  private requireStorageLinkService(): ChannelStorageLinkService {
     if (!this.storageLinkService) {
       throw new BadRequestException('ChannelStorageLinkService chưa được khởi tạo');
     }
+    return this.storageLinkService;
+  }
+
+  /**
+   * Where new media of the thread goes with the current shared account (recorded on the way, so
+   * it is listed even before an upload). Empty when Google is not connected.
+   */
+  private async resolveCurrentStorage(threadId: string): Promise<CurrentChannelStorage> {
     const target = await this.threadConfigService.getStorageTarget(threadId);
-    let current: CurrentChannelStorage = {};
     try {
-      // Records the current account's folder/album first, so it is listed even before an upload.
-      current = (await this.mediaStorageService?.syncCurrentStorage(target)) ?? {};
+      return (await this.mediaStorageService?.syncCurrentStorage(target)) ?? {};
     } catch (err: unknown) {
       this.logger.warn(
         `Could not resolve current storage of thread ${threadId}: ${err instanceof Error ? err.message : 'unknown error'}`,
       );
+      return {};
     }
-    const rows = await this.storageLinkService.listForThread(threadId);
-    return { data: toChannelStorageLinksResponse(threadId, rows, current) };
+  }
+
+  private async storageLinksResponse(
+    linkService: ChannelStorageLinkService,
+    threadId: string,
+    current: CurrentChannelStorage,
+  ): Promise<ChannelStorageLinksResponse> {
+    const rows = await linkService.listForThread(threadId);
+    return toChannelStorageLinksResponse(threadId, rows, current);
   }
 
   private admin(req: Request): string | number {

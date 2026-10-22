@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { NormalizedChannelStorageLinkUpdate } from '@zalobot/contracts';
 import {
   ChannelStorageLinkEntity,
   type ChannelStorageLinkKind,
@@ -61,6 +62,37 @@ export class ChannelStorageLinkService {
       where: { threadId, kind: 'photos', googleEmail, label: title },
       order: { lastUsedAt: 'DESC' },
     });
+  }
+
+  /**
+   * Rows the dialog shows as the link `linkId`: same thread, kind and URL (a backfilled row and
+   * the row with the real id are merged by URL). Empty when the id is not in this thread.
+   */
+  public async findLinkGroup(
+    threadId: string,
+    linkId: string,
+  ): Promise<ChannelStorageLinkEntity[]> {
+    const row = await this.linkRepository.findOne({ where: { id: linkId, threadId } });
+    if (!row) return [];
+    return this.linkRepository.find({ where: { threadId, kind: row.kind, url: row.url } });
+  }
+
+  /** Entity saves (not raw SQL) so the audit log keeps the before/after of an admin edit. */
+  public async updateLinkGroup(
+    rows: ChannelStorageLinkEntity[],
+    update: NormalizedChannelStorageLinkUpdate,
+  ): Promise<void> {
+    for (const row of rows) {
+      if (update.displayName !== undefined) row.displayName = update.displayName;
+      if (update.url !== undefined) row.url = update.url;
+      if (update.googleEmail !== undefined) row.googleEmail = update.googleEmail;
+    }
+    await this.linkRepository.save(rows);
+  }
+
+  /** Removes history rows only; the Drive folder / Photos album on Google is untouched. */
+  public async removeLinkGroup(rows: ChannelStorageLinkEntity[]): Promise<void> {
+    await this.linkRepository.remove(rows);
   }
 
   public async listForThread(threadId: string): Promise<ChannelStorageLinkEntity[]> {

@@ -16,6 +16,17 @@ export interface CurrentChannelStorage {
   photos?: CurrentStorageResource;
 }
 
+/** Same rule as the dialog's "in use" badge: the row is where new media of the channel goes. */
+export function isCurrentStorageRow(
+  row: Pick<ChannelStorageLinkEntity, 'kind' | 'resourceId' | 'url'>,
+  current: CurrentChannelStorage,
+): boolean {
+  const resource = row.kind === 'drive' ? current.drive : current.photos;
+  return (
+    Boolean(resource) && (row.resourceId === resource?.resourceId || row.url === resource?.url)
+  );
+}
+
 const toIso = (value: Date | string): string =>
   value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 
@@ -26,17 +37,18 @@ const toIso = (value: Date | string): string =>
 function toLinks(
   rows: readonly ChannelStorageLinkEntity[],
   kind: ChannelStorageLinkKind,
-  current?: CurrentStorageResource,
+  current: CurrentChannelStorage,
 ): ChannelStorageLink[] {
   const byUrl = new Map<string, ChannelStorageLink>();
   for (const row of rows) {
     if (row.kind !== kind) continue;
-    const isCurrent =
-      Boolean(current) && (row.resourceId === current?.resourceId || row.url === current?.url);
+    const isCurrent = isCurrentStorageRow(row, current);
     const link: ChannelStorageLink = {
+      id: row.id,
       kind,
       url: row.url,
       label: row.label,
+      displayName: row.displayName || null,
       googleEmail: row.googleEmail ?? null,
       firstUsedAt: toIso(row.firstUsedAt),
       lastUsedAt: toIso(row.lastUsedAt),
@@ -50,6 +62,7 @@ function toLinks(
     byUrl.set(row.url, {
       ...existing,
       label: existing.label || link.label,
+      displayName: existing.displayName ?? link.displayName,
       googleEmail: existing.googleEmail ?? link.googleEmail,
       firstUsedAt:
         existing.firstUsedAt < link.firstUsedAt ? existing.firstUsedAt : link.firstUsedAt,
@@ -70,7 +83,7 @@ export function toChannelStorageLinksResponse(
 ): ChannelStorageLinksResponse {
   return {
     threadId,
-    drive: toLinks(rows, 'drive', current.drive),
-    photos: toLinks(rows, 'photos', current.photos),
+    drive: toLinks(rows, 'drive', current),
+    photos: toLinks(rows, 'photos', current),
   };
 }

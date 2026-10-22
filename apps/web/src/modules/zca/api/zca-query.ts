@@ -15,12 +15,15 @@ import {
   getGoogleDriveFolderLink,
   syncThreadMedia,
   getThreadStorageLinks,
+  updateThreadStorageLink,
+  deleteThreadStorageLink,
   type ZcaStatus,
   type ZcaThread,
   type DriveFolderLinkResult,
 } from './zca-api';
 import type {
   ChannelStorageLinksResponse,
+  UpdateChannelStorageLinkDto,
   ThreadBotConfig,
   UpdateThreadBotConfigDto,
   SyncThreadMediaDto,
@@ -170,5 +173,27 @@ export function useThreadStorageLinksQuery(threadId: string, enabled: boolean) {
     queryFn: ({ signal }) => getThreadStorageLinks(threadId, signal),
     enabled,
     staleTime: 0,
+  });
+}
+
+/** The API answers with the fresh list, so the dialog cache is replaced without a refetch. */
+export function useUpdateThreadStorageLinkMutation(threadId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ linkId, data }: { linkId: string; data: UpdateChannelStorageLinkDto }) =>
+      updateThreadStorageLink(threadId, linkId, data),
+    onSuccess: (links) => {
+      queryClient.setQueryData(zcaQueryKeys.storageLinks(threadId), links);
+    },
+  });
+}
+
+export function useDeleteThreadStorageLinkMutation(threadId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (linkId: string) => deleteThreadStorageLink(threadId, linkId),
+    onSuccess: (links) => {
+      queryClient.setQueryData(zcaQueryKeys.storageLinks(threadId), links);
+    },
   });
 }

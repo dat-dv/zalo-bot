@@ -46,6 +46,8 @@ export const API_ROUTES = {
   zcaThreadConfig: (threadId: string) => `/api/zca/thread-configs/${threadId}`,
   zcaSyncThreadMedia: (threadId: string) => `/api/zca/threads/${threadId}/sync-media`,
   zcaThreadStorageLinks: (threadId: string) => `/api/zca/threads/${threadId}/storage-links`,
+  zcaThreadStorageLink: (threadId: string, linkId: string) =>
+    `/api/zca/threads/${threadId}/storage-links/${linkId}`,
   driveFolderLink: '/api/drive/folder-link',
   driveOpen: '/api/drive/open',
   photosAlbumLink: '/api/photos/album-link',
@@ -832,6 +834,28 @@ const messages = {
     'zca.storageLinks.close': 'Đóng',
     'zca.storageLinks.openDrive': 'Xem các thư mục Google Drive của kênh',
     'zca.storageLinks.openPhotos': 'Xem các album Google Photos của kênh',
+    'zca.storageLinks.edit': 'Sửa',
+    'zca.storageLinks.delete': 'Xoá',
+    'zca.storageLinks.save': 'Lưu',
+    'zca.storageLinks.saving': 'Đang lưu…',
+    'zca.storageLinks.cancel': 'Huỷ',
+    'zca.storageLinks.displayNameLabel': 'Tên hiển thị',
+    'zca.storageLinks.displayNamePlaceholder': 'Để trống để dùng: {label}',
+    'zca.storageLinks.urlLabel': 'Đường link',
+    'zca.storageLinks.urlLockedHint': 'Link đang dùng do hệ thống quản lý nên không sửa được.',
+    'zca.storageLinks.emailLabel': 'Email tài khoản Google',
+    'zca.storageLinks.emailPlaceholder': 'Để trống nếu không rõ',
+    'zca.storageLinks.deleteConfirm':
+      'Gỡ "{name}" khỏi danh sách? Thư mục hoặc album trên Google vẫn giữ nguyên.',
+    'zca.storageLinks.deleteCurrentDisabled':
+      'Không xoá được link đang dùng: media mới của kênh đang lưu vào đây.',
+    'zca.storageLinks.saveError': 'Không lưu được thay đổi. Vui lòng thử lại.',
+    'zca.storageLinks.deleteError': 'Không xoá được link. Vui lòng thử lại.',
+    'zca.storageLinks.errors.displayNameTooLong': 'Tên hiển thị tối đa {max} ký tự.',
+    'zca.storageLinks.errors.urlRequired': 'Đường link không được để trống.',
+    'zca.storageLinks.errors.urlInvalid': 'Đường link phải là địa chỉ https:// hợp lệ.',
+    'zca.storageLinks.errors.urlWrongHost': 'Đường link phải thuộc {hosts}.',
+    'zca.storageLinks.errors.emailInvalid': 'Email không hợp lệ.',
   },
   en: {
     'users.merge.action': 'Merge into…',
@@ -1570,6 +1594,30 @@ const messages = {
     'zca.storageLinks.close': 'Close',
     'zca.storageLinks.openDrive': 'Show the Google Drive folders of this chat',
     'zca.storageLinks.openPhotos': 'Show the Google Photos albums of this chat',
+    'zca.storageLinks.edit': 'Edit',
+    'zca.storageLinks.delete': 'Delete',
+    'zca.storageLinks.save': 'Save',
+    'zca.storageLinks.saving': 'Saving…',
+    'zca.storageLinks.cancel': 'Cancel',
+    'zca.storageLinks.displayNameLabel': 'Display name',
+    'zca.storageLinks.displayNamePlaceholder': 'Leave empty to use: {label}',
+    'zca.storageLinks.urlLabel': 'Link',
+    'zca.storageLinks.urlLockedHint':
+      'The link in use is managed by the system and cannot be edited.',
+    'zca.storageLinks.emailLabel': 'Google account email',
+    'zca.storageLinks.emailPlaceholder': 'Leave empty if unknown',
+    'zca.storageLinks.deleteConfirm':
+      'Remove "{name}" from the list? The folder or album on Google is kept.',
+    'zca.storageLinks.deleteCurrentDisabled':
+      'The link in use cannot be deleted: new media of this chat is stored there.',
+    'zca.storageLinks.saveError': 'Could not save the changes. Please try again.',
+    'zca.storageLinks.deleteError': 'Could not delete the link. Please try again.',
+    'zca.storageLinks.errors.displayNameTooLong':
+      'The display name can have at most {max} characters.',
+    'zca.storageLinks.errors.urlRequired': 'The link cannot be empty.',
+    'zca.storageLinks.errors.urlInvalid': 'The link must be a valid https:// address.',
+    'zca.storageLinks.errors.urlWrongHost': 'The link must be on {hosts}.',
+    'zca.storageLinks.errors.emailInvalid': 'Invalid email.',
   },
 } as const;
 
@@ -2440,10 +2488,14 @@ export type ChannelStorageLinkKind = 'drive' | 'photos';
 
 /** One Drive root folder or Photos album a channel's media has been stored in. */
 export interface ChannelStorageLink {
+  /** Row to edit/delete; the change applies to every row of the thread with this kind + URL. */
+  id: string;
   kind: ChannelStorageLinkKind;
   url: string;
-  /** Drive folder path or Photos album title. */
+  /** Drive folder path or Photos album title (rewritten by uploads). */
   label: string;
+  /** Name an admin gave the link; shown instead of `label` when set. */
+  displayName: string | null;
   /** Null for links recorded before the Google account was tracked. */
   googleEmail: string | null;
   firstUsedAt: string;
@@ -2457,6 +2509,100 @@ export interface ChannelStorageLinksResponse {
   threadId: string;
   drive: ChannelStorageLink[];
   photos: ChannelStorageLink[];
+}
+
+/** Omitted field = unchanged; `null` / empty string clears `displayName` / `googleEmail`. */
+export interface UpdateChannelStorageLinkDto {
+  displayName?: string | null;
+  url?: string;
+  googleEmail?: string | null;
+}
+
+export interface NormalizedChannelStorageLinkUpdate {
+  displayName?: string | null;
+  url?: string;
+  googleEmail?: string | null;
+}
+
+export const CHANNEL_STORAGE_LINK_LIMITS = {
+  DISPLAY_NAME_MAX_LENGTH: 120,
+} as const;
+
+/** Hosts a link of each kind may point to (https only). */
+export const CHANNEL_STORAGE_LINK_HOSTS: Record<ChannelStorageLinkKind, readonly string[]> = {
+  drive: ['drive.google.com'],
+  photos: ['photos.google.com', 'photos.app.goo.gl'],
+};
+
+export type ChannelStorageLinkUpdateError =
+  'display_name_too_long' | 'url_required' | 'url_invalid' | 'url_wrong_host' | 'email_invalid';
+
+export type ChannelStorageLinkUpdateErrors = Partial<
+  Record<keyof UpdateChannelStorageLinkDto, ChannelStorageLinkUpdateError>
+>;
+
+const STORAGE_LINK_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateStorageLinkUrl(
+  kind: ChannelStorageLinkKind,
+  raw: unknown,
+): { url: string } | { error: ChannelStorageLinkUpdateError } {
+  const value = typeof raw === 'string' ? raw.trim() : '';
+  if (!value) return { error: 'url_required' };
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return { error: 'url_invalid' };
+  }
+  if (url.protocol !== 'https:') return { error: 'url_invalid' };
+  return CHANNEL_STORAGE_LINK_HOSTS[kind].includes(url.hostname.toLowerCase())
+    ? { url: url.toString() }
+    : { error: 'url_wrong_host' };
+}
+
+/**
+ * Validates and normalizes an edit of a channel storage link (shared by the API and the web
+ * form): trims, turns empty name/email into `null`, lower-cases the email, and only accepts an
+ * https URL on a host of the link's kind.
+ */
+export function validateChannelStorageLinkUpdate(
+  kind: ChannelStorageLinkKind,
+  dto: UpdateChannelStorageLinkDto,
+):
+  | { ok: true; value: NormalizedChannelStorageLinkUpdate }
+  | { ok: false; errors: ChannelStorageLinkUpdateErrors } {
+  const value: NormalizedChannelStorageLinkUpdate = {};
+  const errors: ChannelStorageLinkUpdateErrors = {};
+
+  if (dto.displayName !== undefined) {
+    const name = typeof dto.displayName === 'string' ? dto.displayName.trim() : '';
+    if (name.length > CHANNEL_STORAGE_LINK_LIMITS.DISPLAY_NAME_MAX_LENGTH) {
+      errors.displayName = 'display_name_too_long';
+    } else {
+      value.displayName = name || null;
+    }
+  }
+
+  if (dto.url !== undefined) {
+    const result = validateStorageLinkUrl(kind, dto.url);
+    if ('error' in result) {
+      errors.url = result.error;
+    } else {
+      value.url = result.url;
+    }
+  }
+
+  if (dto.googleEmail !== undefined) {
+    const email = typeof dto.googleEmail === 'string' ? dto.googleEmail.trim().toLowerCase() : '';
+    if (email && !STORAGE_LINK_EMAIL_PATTERN.test(email)) {
+      errors.googleEmail = 'email_invalid';
+    } else {
+      value.googleEmail = email || null;
+    }
+  }
+
+  return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, value };
 }
 
 export type SyncMediaTimeRange = 'all' | '1_month' | '2_months' | '3_months' | '6_months';

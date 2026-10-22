@@ -34,6 +34,10 @@ export class ChannelStorageLinkEntity {
   @Column({ type: 'varchar', default: '' })
   label: string;
 
+  /** Name an admin gave the link; uploads never rewrite it (unlike `label`). */
+  @Column({ name: 'display_name', type: 'varchar', nullable: true })
+  displayName?: string | null;
+
   @Column({ name: 'first_used_at', type: 'timestamptz' })
   firstUsedAt: Date;
 

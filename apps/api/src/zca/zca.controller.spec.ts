@@ -4,11 +4,17 @@ import { ZcaController } from './zca.controller';
 import type { ZcaService } from './zca.service';
 import type { ThreadConfigService } from './thread-config.service';
 import type { Request, Response } from 'express';
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import type { ReportsTokenService } from '../reports/reports-token.service';
 import type { UsersService } from '../users/users.service';
 import type { MediaStorageService } from '../receipt-storage/media-storage.service';
 import type { ChannelStorageLinkService } from './storage/channel-storage-link.service';
+import type { ChannelStorageLinkEntity } from '../database/entities/channel-storage-link.entity';
 
 const ADMIN_ID = 'admin-1';
 const tokens = {
@@ -217,4 +223,126 @@ void test('ZcaController.getThreadStorageLinks syncs the current storage then li
       ['old@gmail.com', false],
     ],
   );
+});
+
+function storageLinkController(options: {
+  rows: ChannelStorageLinkEntity[];
+  current: { drive?: { resourceId: string; url: string } };
+}) {
+  const calls: { updated?: unknown; removed?: string[] } = {};
+  const mockThreadConfigService = {
+    getStorageTarget: (threadId: string) =>
+      Promise.resolve({
+        channelId: threadId,
+        driveRoot: `zalobot/${threadId}`,
+        splitByCategory: true,
+        photosAlbumTitle: '[Zalo] Nhà',
+      }),
+  } as unknown as ThreadConfigService;
+  const mediaStorage = {
+    syncCurrentStorage: () => Promise.resolve(options.current),
+  } as unknown as MediaStorageService;
+  const linkService = {
+    findLinkGroup: (threadId: string, linkId: string) =>
+      Promise.resolve(options.rows.filter((r) => r.threadId === threadId && r.id === linkId)),
+    updateLinkGroup: (_rows: unknown, update: unknown) => {
+      calls.updated = update;
+      return Promise.resolve();
+    },
+    removeLinkGroup: (rows: { id: string }[]) => {
+      calls.removed = rows.map((r) => r.id);
+      return Promise.resolve();
+    },
+    listForThread: () => Promise.resolve([]),
+  } as unknown as ChannelStorageLinkService;
+  const controller = new ZcaController(
+    {} as unknown as ZcaService,
+    mockThreadConfigService,
+    tokens,
+    users,
+    undefined,
+    mediaStorage,
+    linkService,
+  );
+  return { controller, calls };
+}
+
+const storageRow = (id: string, resourceId: string): ChannelStorageLinkEntity => ({
+  id,
+  threadId: 'g1',
+  kind: 'drive',
+  resourceId,
+  url: `https://drive.google.com/drive/folders/${resourceId}`,
+  label: 'zalobot/g1',
+  googleEmail: null,
+  displayName: null,
+  firstUsedAt: new Date('2026-01-01T00:00:00Z'),
+  lastUsedAt: new Date('2026-01-01T00:00:00Z'),
+});
+const currentRoot = {
+  drive: { resourceId: 'root-new', url: 'https://drive.google.com/drive/folders/root-new' },
+};
+
+void test('ZcaController storage link edit/delete are admin-only and 404 for another thread', async () => {
+  const { controller } = storageLinkController({
+    rows: [storageRow('old', 'root-old')],
+    current: currentRoot,
+  });
+
+  await assert.rejects(
+    () => controller.deleteThreadStorageLink(bearer('user-token'), 'g1', 'old'),
+    ForbiddenException,
+  );
+  await assert.rejects(
+    () => controller.updateThreadStorageLink(bearer('admin-token'), 'g2', 'old', {}),
+    NotFoundException,
+  );
+});
+
+void test('ZcaController edits a link with the validated values and rejects bad input', async () => {
+  const { controller, calls } = storageLinkController({
+    rows: [storageRow('old', 'root-old')],
+    current: currentRoot,
+  });
+
+  await assert.rejects(
+    () =>
+      controller.updateThreadStorageLink(bearer('admin-token'), 'g1', 'old', {
+        url: 'https://evil.example/x',
+      }),
+    BadRequestException,
+  );
+
+  await controller.updateThreadStorageLink(bearer('admin-token'), 'g1', 'old', {
+    displayName: ' Kho cũ ',
+    googleEmail: 'Old@Gmail.com',
+  });
+  assert.deepEqual(calls.updated, { displayName: 'Kho cũ', googleEmail: 'old@gmail.com' });
+});
+
+void test('ZcaController never deletes the link in use nor changes its URL', async () => {
+  const { controller, calls } = storageLinkController({
+    rows: [storageRow('cur', 'root-new'), storageRow('old', 'root-old')],
+    current: currentRoot,
+  });
+
+  await assert.rejects(
+    () => controller.deleteThreadStorageLink(bearer('admin-token'), 'g1', 'cur'),
+    BadRequestException,
+  );
+  await assert.rejects(
+    () =>
+      controller.updateThreadStorageLink(bearer('admin-token'), 'g1', 'cur', {
+        url: 'https://drive.google.com/drive/folders/other',
+      }),
+    BadRequestException,
+  );
+  // Name and email of the link in use stay editable.
+  await controller.updateThreadStorageLink(bearer('admin-token'), 'g1', 'cur', {
+    displayName: 'Kho mới',
+  });
+  assert.deepEqual(calls.updated, { displayName: 'Kho mới' });
+
+  await controller.deleteThreadStorageLink(bearer('admin-token'), 'g1', 'old');
+  assert.deepEqual(calls.removed, ['old']);
 });

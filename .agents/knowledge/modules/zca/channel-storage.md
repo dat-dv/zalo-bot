@@ -10,6 +10,7 @@ metadata:
       - apps/api/src/database/entities/channel-storage-link.entity.ts
       - apps/api/src/database/entities/user-token.entity.ts
       - apps/api/src/database/migrations/1724830000000-CreateChannelStorageLinks.ts
+      - apps/api/src/database/migrations/1724840000000-AddDisplayNameToChannelStorageLinks.ts
       - apps/api/src/receipt-storage/media-storage.service.ts
       - apps/api/src/google/channel-storage.util.ts
       - apps/api/src/google/google-auth.service.ts
@@ -65,7 +66,8 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 | `thread_id`, `kind` (`drive` \| `photos`) | Channel and storage kind |
 | `google_email` | Account the resource belongs to; NULL for backfilled rows |
 | `resource_id` | Drive root folder id / album id (URL for legacy rows without id) |
-| `url`, `label` | Link and Drive path / album title |
+| `url`, `label` | Link and Drive path / album title (rewritten by every upload) |
+| `display_name` | Admin-chosen name shown instead of `label`; uploads never touch it (migration `1724840000000`) |
 | `first_used_at`, `last_used_at` | Usage range |
 
 - Unique `(thread_id, kind, resource_id)`. `record()` upserts: updates `url`, `label`, `last_used_at = GREATEST(...)`, adopts `google_email` only when NULL.
@@ -77,7 +79,12 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 
 - `GET /api/zca/threads/:threadId/storage-links` (`API_ROUTES.zcaThreadStorageLinks`, admin-only) → `ChannelStorageLinksResponse { threadId, drive: ChannelStorageLink[], photos: ChannelStorageLink[] }`.
   - First `syncCurrentStorage(target)`: when the shared account is connected with storage scopes, ensures the Drive root (may create folders) and finds (never creates) the album, records both, marks them `isCurrent`.
-  - `toChannelStorageLinksResponse` (pure, `storage/channel-storage-links.mapper.ts`): merges rows with the same URL (backfilled + real id), current first, then `lastUsedAt` desc.
+  - `toChannelStorageLinksResponse` (pure, `storage/channel-storage-links.mapper.ts`): merges rows with the same URL (backfilled + real id), current first, then `lastUsedAt` desc. Each link carries `id` (representative row) and `displayName`.
+- `PATCH /api/zca/threads/:threadId/storage-links/:linkId` (`API_ROUTES.zcaThreadStorageLink`, body `UpdateChannelStorageLinkDto { displayName?, url?, googleEmail? }`) and `DELETE` on the same path; admin-only; both return the fresh `ChannelStorageLinksResponse`.
+  - Scope: every row of the thread with the same `kind + url` as `linkId` (`ChannelStorageLinkService.findLinkGroup`, = one dialog item). Unknown id / other thread → 404.
+  - Validation `validateChannelStorageLinkUpdate(kind, dto)` (contracts, shared with the web form): trim; empty name/email → `null`; email lower-cased; name ≤ `CHANNEL_STORAGE_LINK_LIMITS.DISPLAY_NAME_MAX_LENGTH` (120); URL https on `CHANNEL_STORAGE_LINK_HOSTS[kind]` (Drive `drive.google.com`; Photos `photos.google.com`, `photos.app.goo.gl`). Errors → 400.
+  - Link in use (`isCurrentStorageRow`, same rule as the `isCurrent` badge, from `syncCurrentStorage`): DELETE → 400 (it is recorded again on the next upload/open); URL change → 400 (uploads rewrite it). Name and email stay editable.
+  - Writes go through `repository.save` / `remove` (not raw SQL), so `AuditLogSubscriber` logs before/after. DELETE removes history rows only; the Drive folder / Photos album on Google is untouched.
 
 ## Receipt proxy
 
@@ -86,4 +93,5 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 ## Web UI
 
 - `/zca` table, row "⋯" menu items open Drive / open Photos open `ThreadStorageLinksDialog` (shared `Modal`, bottom sheet on mobile). `ThreadConfigModal` "Mở Google Drive / Photos" buttons open the same dialog.
-- Dialog: query `useThreadStorageLinksQuery(threadId, enabled)` (key `zcaQueryKeys.storageLinks`, `staleTime: 0`, fetched on open). Rows: label (path/title), account email or "previous account", used range, `In use` badge on the current row; whole row is a link (new tab). A Drive link opens the channel root showing `bill`, `image`, `video` (+ `file`). States: skeleton, error + retry, empty, list. Strings `zca.storageLinks.*` (vi/en).
+- The dialog is rendered with `createPortal(…, document.body)`: it is opened from a table cell (`whitespace-nowrap text-right`), and a top-layer `<dialog>` still inherits those styles, which kept the description on one line and broke the layout. Any dialog opened from a table row must portal out of the cell.
+- Dialog: query `useThreadStorageLinksQuery(threadId, enabled)` (key `zcaQueryKeys.storageLinks`, `staleTime: 0`, fetched on open). Rows: title = `displayName` or label (link, new tab; label shown below when renamed), account email or "previous account", used range, `In use` badge on the current row, buttons Edit (inline form: display name, URL — disabled on the row in use, email; client-side validation with the shared validator, field errors, Save/Cancel) and Delete (`window.confirm`; disabled with a tooltip on the row in use). Mutations `useUpdateThreadStorageLinkMutation` / `useDeleteThreadStorageLinkMutation` replace the query cache with the returned list. A Drive link opens the channel root showing `bill`, `image`, `video` (+ `file`). States: skeleton, error + retry, empty, list. Strings `zca.storageLinks.*` (vi/en).

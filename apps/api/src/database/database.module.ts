@@ -35,6 +35,7 @@ import { DropZcaPassiveTrackingColumns1724800000000 } from './migrations/1724800
 import { CreateZcaMessages1724810000000 } from './migrations/1724810000000-CreateZcaMessages';
 import { AddChatMemoryToZcaThreadConfigs1724820000000 } from './migrations/1724820000000-AddChatMemoryToZcaThreadConfigs';
 import { CreateChannelStorageLinks1724830000000 } from './migrations/1724830000000-CreateChannelStorageLinks';
+import { AddDisplayNameToChannelStorageLinks1724840000000 } from './migrations/1724840000000-AddDisplayNameToChannelStorageLinks';
 
 @Module({
   imports: [
@@ -87,6 +88,7 @@ import { CreateChannelStorageLinks1724830000000 } from './migrations/17248300000
             CreateZcaMessages1724810000000,
             AddChatMemoryToZcaThreadConfigs1724820000000,
             CreateChannelStorageLinks1724830000000,
+            AddDisplayNameToChannelStorageLinks1724840000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

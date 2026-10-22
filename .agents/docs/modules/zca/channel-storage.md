@@ -49,6 +49,21 @@ Tài liệu canonical tương ứng: [`channel-storage.md`](../../../knowledge/m
   - Mỗi dòng ghi đường dẫn hoặc tên album, email tài khoản và khoảng thời gian dùng.
   - Bấm vào link Drive sẽ mở thẳng thư mục gốc của kênh, thấy ngay `bill`, `image`, `video`.
 - Modal "Cấu hình" của kênh cũng mở cùng hộp thoại này.
+- Hộp thoại được render thẳng vào `document.body` qua `createPortal`. Lý do: nó được mở từ một ô trong bảng có `whitespace-nowrap text-right`, và `<dialog>` dù nổi lên trên cùng màn hình vẫn kế thừa các style đó. Trước khi sửa, mô tả bị kéo thành một dòng dài và làm vỡ layout. **Quy tắc:** hộp thoại nào mở từ một dòng của bảng đều phải dùng portal để thoát khỏi ô đó.
+
+### 2.4a. Sửa và xoá link
+
+Mỗi dòng trong hộp thoại có hai nút **✏️ Sửa** và **🗑️ Xoá**.
+
+- **Sửa** (form ngay tại dòng):
+  - **Tên hiển thị**: đặt tên dễ nhớ (ví dụ "Kho nhà 2025"). Tên lưu ở cột riêng `display_name`, upload sau **không ghi đè**. Để trống thì quay về đường dẫn thư mục / tên album.
+  - **Đường link**: phải là `https`. Link Drive phải thuộc `drive.google.com`; link Photos thuộc `photos.google.com` hoặc `photos.app.goo.gl`. **Dòng đang dùng không sửa được link**, vì mỗi lần upload hệ thống sẽ ghi lại link đúng.
+  - **Email tài khoản**: hay dùng để điền cho các dòng "Tài khoản cũ". Để trống thì quay lại là không rõ.
+  - Web và API dùng chung một hàm kiểm tra (`validateChannelStorageLinkUpdate` trong contracts), nên lỗi hiện ngay dưới ô nhập mà không cần gọi server.
+- **Xoá**: chỉ gỡ dòng khỏi danh sách trên dashboard. **Thư mục hoặc album trên Google vẫn giữ nguyên**, vì app không có quyền xoá và cũng không nên xoá. Có hỏi xác nhận trước khi xoá. **Dòng đang dùng không xoá được**: mở hộp thoại hoặc upload lần sau là hệ thống ghi lại ngay, nên xoá cũng vô ích.
+- Một mục trong hộp thoại có thể gồm nhiều dòng trong DB có cùng link (dòng backfill + dòng có id thật). Sửa hoặc xoá sẽ áp dụng cho tất cả các dòng đó.
+- Mọi thao tác sửa/xoá đều được ghi vào **nhật ký kiểm toán** (dữ liệu trước/sau).
+- API: `PATCH` và `DELETE /api/zca/threads/:threadId/storage-links/:linkId` (chỉ admin), đều trả về danh sách mới để web cập nhật ngay.
 
 ### 2.5. Ảnh hoá đơn cũ
 
@@ -67,6 +82,6 @@ Tài liệu canonical tương ứng: [`channel-storage.md`](../../../knowledge/m
 ## 4. Vận hành và kiểm tra
 
 - **Đổi tài khoản Google**: admin gõ `/login` trên Zalo, chọn Gmail mới, rồi bấm Cho phép. Không cần khởi động lại API. Media mới sẽ vào Drive/Photos của tài khoản mới; mở dialog Drive/Photos sẽ thấy dòng mới ở trạng thái "Đang dùng", còn dòng cũ vẫn giữ.
-- **Migration** `1724830000000-CreateChannelStorageLinks` tự chạy khi API khởi động (`migrationsRun: true`). Rollback: `migration:revert` (chỉ xoá bảng mới và cột `is_shared`, không đụng dữ liệu tài chính).
-- Test liên quan: `media-storage.service.spec.ts`, `google-photos.service.spec.ts`, `google-auth.service.spec.ts`, `channel-storage-links.mapper.spec.ts`, `receipt-source.spec.ts`, `zca.controller.spec.ts`.
+- **Migration** `1724830000000-CreateChannelStorageLinks` và `1724840000000-AddDisplayNameToChannelStorageLinks` tự chạy khi API khởi động (`migrationsRun: true`). Rollback: `migration:revert`, mỗi lần gỡ một migration (lần đầu bỏ cột `display_name`, lần sau bỏ bảng `channel_storage_links` và cột `is_shared`); không đụng dữ liệu tài chính.
+- Test liên quan: `channel-storage-link-update.spec.ts` (kiểm tra dữ liệu + sửa/xoá theo nhóm), `media-storage.service.spec.ts`, `google-photos.service.spec.ts`, `google-auth.service.spec.ts`, `channel-storage-links.mapper.spec.ts`, `receipt-source.spec.ts`, `zca.controller.spec.ts`.
 - Không tự động kiểm chứng được upload thật lên Google và việc đổi tài khoản thật; cần thử trên môi trường thật.

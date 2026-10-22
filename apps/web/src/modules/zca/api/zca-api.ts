@@ -2,6 +2,7 @@ import {
   API_ROUTES,
   type ChannelStorageLinksResponse,
   type IApiResponse,
+  type UpdateChannelStorageLinkDto,
   type ThreadBotConfig,
   type UpdateThreadBotConfigDto,
   type SyncThreadMediaDto,
@@ -276,6 +277,29 @@ export async function getThreadStorageLinks(
   const response = await httpClient.get<IApiResponse<ChannelStorageLinksResponse>>(
     API_ROUTES.zcaThreadStorageLinks(threadId),
     { signal },
+  );
+  return response.data.data;
+}
+
+export async function updateThreadStorageLink(
+  threadId: string,
+  linkId: string,
+  data: UpdateChannelStorageLinkDto,
+): Promise<ChannelStorageLinksResponse> {
+  const response = await httpClient.patch<IApiResponse<ChannelStorageLinksResponse>>(
+    API_ROUTES.zcaThreadStorageLink(threadId, linkId),
+    data,
+  );
+  return response.data.data;
+}
+
+/** Removes the link from the history only; the Drive folder / Photos album stays on Google. */
+export async function deleteThreadStorageLink(
+  threadId: string,
+  linkId: string,
+): Promise<ChannelStorageLinksResponse> {
+  const response = await httpClient.delete<IApiResponse<ChannelStorageLinksResponse>>(
+    API_ROUTES.zcaThreadStorageLink(threadId, linkId),
   );
   return response.data.data;
 }

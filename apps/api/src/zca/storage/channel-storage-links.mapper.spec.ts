@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ChannelStorageLinkEntity } from '../../database/entities/channel-storage-link.entity';
-import { toChannelStorageLinksResponse } from './channel-storage-links.mapper';
+import { isCurrentStorageRow, toChannelStorageLinksResponse } from './channel-storage-links.mapper';
 
 function row(overrides: Partial<ChannelStorageLinkEntity>): ChannelStorageLinkEntity {
   return {
@@ -54,6 +54,7 @@ void test('toChannelStorageLinksResponse merges a backfilled row with the same U
     [
       // Backfilled from the thread config: URL used as id, account unknown.
       row({
+        id: 'legacy-row',
         resourceId: 'https://drive/x',
         url: 'https://drive/x',
         label: 'zalobot/g1',
@@ -61,9 +62,11 @@ void test('toChannelStorageLinksResponse merges a backfilled row with the same U
         lastUsedAt: new Date('2026-03-01T00:00:00Z'),
       }),
       row({
+        id: 'real-row',
         resourceId: 'folder-x',
         url: 'https://drive/x',
         googleEmail: 'a@gmail.com',
+        displayName: 'Kho nhà',
         firstUsedAt: new Date('2026-04-01T00:00:00Z'),
         lastUsedAt: new Date('2026-06-01T00:00:00Z'),
       }),
@@ -73,9 +76,11 @@ void test('toChannelStorageLinksResponse merges a backfilled row with the same U
 
   assert.equal(res.drive.length, 1);
   assert.deepEqual(res.drive[0], {
+    id: 'legacy-row',
     kind: 'drive',
     url: 'https://drive/x',
     label: 'zalobot/g1',
+    displayName: 'Kho nhà',
     googleEmail: 'a@gmail.com',
     firstUsedAt: '2026-01-01T00:00:00.000Z',
     lastUsedAt: '2026-06-01T00:00:00.000Z',
@@ -87,4 +92,16 @@ void test('toChannelStorageLinksResponse marks nothing current when Google is no
   const res = toChannelStorageLinksResponse('g1', [row({})]);
   assert.equal(res.drive[0].isCurrent, false);
   assert.deepEqual(res.photos, []);
+});
+
+void test('isCurrentStorageRow matches the current resource of the row kind only', () => {
+  const current = {
+    drive: { resourceId: 'root-1', url: 'https://drive/root-1' },
+    photos: { resourceId: 'album-1', url: 'https://photos/album-1' },
+  };
+  assert.equal(isCurrentStorageRow(row({ resourceId: 'root-1' }), current), true);
+  assert.equal(isCurrentStorageRow(row({ url: 'https://drive/root-1' }), current), true);
+  assert.equal(isCurrentStorageRow(row({ kind: 'photos', resourceId: 'root-1' }), current), false);
+  assert.equal(isCurrentStorageRow(row({ resourceId: 'old' }), current), false);
+  assert.equal(isCurrentStorageRow(row({ resourceId: 'root-1' }), {}), false);
 });
