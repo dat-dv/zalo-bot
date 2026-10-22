@@ -16,6 +16,11 @@ metadata:
       - apps/web/src/modules/dashboard/presentation/components/transaction-column-filters.ts
       - apps/web/src/modules/dashboard/presentation/components/column-filter-popover.tsx
       - apps/web/src/modules/dashboard/presentation/components/analytics-screen.tsx
+      - apps/web/src/modules/dashboard/presentation/components/tasks-screen.tsx
+      - apps/web/src/modules/dashboard/presentation/components/tasks-table.tsx
+      - apps/web/src/modules/dashboard/presentation/components/reminders-screen.tsx
+      - apps/web/src/modules/dashboard/presentation/components/reminders-table.tsx
+      - apps/web/src/modules/dashboard/presentation/components/calendar-table.tsx
       - apps/web/src/modules/dashboard/presentation/components/places-screen.tsx
       - apps/web/src/modules/dashboard/presentation/components/combine-places-dialog.tsx
       - apps/web/src/modules/dashboard/presentation/components/debt-allocation-modal.tsx
@@ -66,6 +71,8 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - Thanh liên kết nhanh: Thu chi, **Cân chỉnh số dư** (mở `AdjustBalanceModal`), Công nợ, Phân tích, Lịch, Việc cần làm, Nhắc nhở, Danh bạ.
 - Dải thông tin admin (chỉ admin thấy): số người dùng, số người đã kết nối Google.
 - Các bảng chỉ đọc, mỗi bảng có ô tìm kiếm riêng: Việc cần làm, Nhắc nhở, Lịch, Giao dịch, Công nợ đang mở (tiêu đề là link sang trang chi tiết) và Hoạt động gần đây (không có link).
+- **Trên màn hẹp (≤ 960px)**: trang Tổng quan chỉ là bản xem nhanh, không phải nơi làm việc. Vì vậy mỗi khối chỉ hiện **5 dòng đầu** theo thứ tự API trả về (giao dịch/hoạt động mới nhất, việc/nhắc nhở/sự kiện gần nhất; khối Công nợ giới hạn theo khoản nợ gốc, khoản con vẫn nằm trong khoản gốc), dạng danh sách hai dòng nếu bảng đó hỗ trợ, kèm dòng **Xem tất cả** cao 40px dẫn sang trang đầy đủ. Khối Hoạt động không có trang riêng nên không có link. Lý do: 6 khối × 20 dòng trên điện thoại là một trang dài vô tận, người dùng không tìm được khối mình cần.
+- **Trên điện thoại (≤ 640px)**: bỏ 6 ô tìm kiếm riêng của từng khối (và bỏ luôn từ khoá đã gõ trước khi xoay máy) vì muốn tìm thì vào trang đầy đủ. Thanh liên kết nhanh là một hàng chip 40px cuộn ngang thay vì nhiều hàng chồng nhau. Thẻ KPI vẫn 2 thẻ một hàng nhưng thấp hơn (52px) để thấy nhiều nội dung hơn.
 
 ## Trang Thu chi (`TransactionsScreen`)
 
@@ -93,7 +100,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - **Phân bổ nợ**: ô Ghi chú có nút mở rộng ▶/▼ và badge `🔗 N phân bổ` (bấm để mở `DebtAllocationModal`); khi đang sửa có thêm nút `🔗` ở cột thao tác. Dòng mở rộng liệt kê người liên quan, số tiền, ghi chú của từng phân bổ.
 - **Xoá giao dịch**: mở `DeleteTransactionModal` thay cho hộp xác nhận của trình duyệt. Modal tóm tắt giao dịch và nói rõ tác động lên số dư: xoá khoản **chi** → số dư tăng lại (`+số tiền`, màu xanh ngọc); xoá khoản **thu** → số dư giảm (`-số tiền`, màu hổ phách); nếu có phân bổ nợ → cảnh báo đỏ rằng số nợ còn lại của các khoản liên quan sẽ được khôi phục. Đóng bằng `Escape` hoặc bấm nền (trừ khi đang xử lý).
 - Lỗi tải danh sách giao dịch → màn hình "Phiên hết hạn" có nút thử lại.
-- **Trên điện thoại (≤ 640px)**: Thu chi là màn đầu tiên bật chế độ danh sách của `DataTable` (`TransactionsTable mobileList`). Mục tiêu là mở trang ra thấy giao dịch ngay, không phải cuộn ngang. Chi tiết chung xem [web-ui-direction](../../global/web-ui-direction.md).
+- **Trên điện thoại (≤ 640px)**: Thu chi là màn đầu tiên dùng chế độ danh sách của `DataTable`. Giờ `TransactionsTable` bật chế độ này mặc định, nên bảng giao dịch ở mọi màn đều thành danh sách trên màn hẹp. Mục tiêu là mở trang ra thấy giao dịch ngay, không phải cuộn ngang. Chi tiết chung xem [web-ui-direction](../../global/web-ui-direction.md).
   - Mỗi giao dịch là một dòng hai tầng: ghi chú và số tiền có dấu +/− ở trên; danh mục · ngày · người tạo · nơi chốn ở dưới. Không có STT/ID và không có thanh tỉ lệ số tiền.
   - Chạm vào dòng mở bảng trượt gồm mọi trường, khối chi tiết, ảnh hoá đơn, phân bổ nợ và dòng ID (mở hộp thoại ID cho AI Agent).
     - Bấm **Sửa** thì các trường thành ô nhập ngay trong bảng trượt.
@@ -101,7 +108,9 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
   - Các nút lọc theo cột chuyển lên một dải cuộn ngang phía trên danh sách.
   - Toolbar gom chip Tất cả / Thu / Chi / Xoá bộ lọc vào một hàng cuộn ngang. Ô tìm kiếm nằm hàng riêng. Mọi nút, ô nhập và "Tải thêm" cao 40px.
   - Trên màn hẹp (≤ 960px), nút **Cân chỉnh số dư** rời toolbar, xuống thanh hành động (`MobileActionBar`) ngay trên thanh tab, để ngón cái bấm được mà không phải cuộn lên đầu trang. Chế độ danh sách cũng áp dụng tới 960px.
-  - Bảng giao dịch ở trang Tổng quan chưa bật chế độ này (để sang giai đoạn B).
+  - Bảng giao dịch ở trang Tổng quan cũng dùng danh sách (xem nhanh 5 dòng, xem phần Tổng quan).
+  - **Phần đầu trang thấp hơn**: dải tổng hợp `TrendSummaryStrip` (dùng chung với trang Chi tiêu) trên điện thoại chỉ còn một dòng: tổng thu, tổng chi, chênh lệch. Chạm vào dòng đó để mở biểu đồ cột (và chỉ số phụ nếu có). Mặc định thu gọn, để danh sách giao dịch xuất hiện ngay màn hình đầu. Desktop giữ nguyên.
+  - Trong bảng trượt chi tiết, bảng phân bổ nợ lồng bên trong thành danh sách dọc (người liên quan + số tiền, ghi chú bên dưới) thay vì bảng phải cuộn ngang. Nút "Chỉnh sửa phân bổ" và nhãn `🔗 N phân bổ` cao 40px. Nút mũi tên mở rộng bị ẩn vì sheet luôn hiện chi tiết. Nút chỉ có biểu tượng `🔗` (khi đang sửa) có `aria-label` để trình đọc màn hình đọc được.
 
 ## Phân bổ giao dịch vào công nợ (`DebtAllocationModal`)
 
@@ -109,6 +118,13 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - Ứng viên: các khoản nợ trong sổ chung, chiều phù hợp (thu → phải thu, chi → phải trả), lọc theo người liên quan của giao dịch nếu có, mới nhất trước, bỏ qua khoản đã trả hết mà chưa được phân bổ từ giao dịch này.
 - Modal hiển thị tổng tiền / đã phân bổ / chưa phân bổ, ô nhập số tiền và ghi chú cho từng khoản nợ, nút "Phân bổ tối đa".
 - Khi lưu, backend **thay thế toàn bộ** tập phân bổ của giao dịch trong một transaction: hoàn lại phân bổ cũ, xoá các đợt trả nợ cũ sinh từ giao dịch này, rồi áp dụng phân bổ mới. Dòng có số tiền 0 bị bỏ qua — muốn gỡ một phân bổ thì đặt về 0 rồi lưu. Hook `useDeleteDebtAllocationMutation` có sẵn nhưng giao diện chưa dùng.
+- Trên điện thoại modal mở toàn màn hình (form dài, nhiều khoản nợ). Danh sách khoản nợ không còn là hộp cuộn riêng bên trong (cuộn lồng nhau rất khó dùng bằng ngón tay), ô nhập và nút "Phân bổ tối đa" cao 40px. Mọi chữ tiếng Việt viết cứng trước đây đã chuyển sang i18n nên hiển thị đúng khi chọn tiếng Anh.
+
+## Dialog trên điện thoại
+
+- Áp dụng cho Cân chỉnh số dư, Phân bổ nợ, Xoá giao dịch, Gộp nơi chốn, xem hoá đơn: nút ✕ và nút ở chân dialog cao 40px, chân dialog dính đáy và có nền đặc để luôn bấm được khi bàn phím mở.
+- Cân chỉnh số dư không còn tự focus vào ô nhập khi mở, vì focus tự động làm bàn phím bật lên che nửa màn hình trước khi người dùng kịp đọc số dư hiện tại. Chân dialog trải hết bề ngang sheet và có khoảng đệm dưới.
+- Gộp nơi chốn: danh sách nơi chốn không còn hộp cuộn lồng, mỗi dòng cao tối thiểu 44px; vài chữ viết cứng còn sót đã chuyển sang i18n.
 
 ## Cân chỉnh số dư (`AdjustBalanceModal`)
 
@@ -122,6 +138,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - **Kết quả trong kỳ**: Tổng thu, Tổng chi, Tiết kiệm ròng, Tỷ lệ tiết kiệm.
 - **Tình hình hiện tại** (không phụ thuộc bộ lọc): Số dư dòng tiền toàn thời gian, Phải thu, Phải trả, Tài sản ròng. Đây không phải số dư ngân hàng vì hệ thống không quản lý số dư đầu kỳ.
 - Khối Dòng tiền: nút chuyển Biểu đồ/Bảng; biểu đồ Recharts gồm cột thu/chi và đường số dư lũy kế, hoặc bảng số liệu theo kỳ.
+- Trên điện thoại: hai nút Biểu đồ/Bảng cao 40px, chia đôi hàng. Bảng số liệu là theo **kỳ** (không theo danh mục), nên ở dạng danh sách: dòng trên là tên kỳ + dòng tiền ròng (có dấu, có màu), dòng dưới là "Thu +x · Chi −y"; số dư lũy kế xem trong sheet chi tiết. Các thẻ chỉ số giữ 2 thẻ một hàng, thấp hơn.
 - Khối Phân bổ chi tiêu (biểu đồ donut, đủ mọi danh mục chi, chú thích cuộn được) và Cơ cấu công nợ (tỷ lệ phải thu/phải trả + top 3 người liên quan mỗi bên; khi ẩn số tiền thì các thanh tỷ lệ cũng ẩn để không lộ ai nợ nhiều/ít). Các biểu đồ nằm ở `shared/ui/charts/`.
 - Chỉ hiện màn hình "Phiên hết hạn" khi lỗi tải dashboard. Skeleton được viết trực tiếp trong màn hình (không có component `AnalyticsSkeleton`).
 
@@ -129,14 +146,19 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 
 - **Nơi chốn** là quán ăn, cửa hàng, địa điểm phát sinh giao dịch — khác với người liên quan trong danh bạ công nợ.
 - Bảng `id="places"`: chọn, Tên (sửa trực tiếp, `Enter`/`Escape`), Số giao dịch, Ngày tạo, Thao tác (Sửa, Xoá xác nhận 2 bước ngay trên dòng). Có ô tìm kiếm và form thêm nhanh. Trên màn hẹp (≤ 960px), nút "+ Tạo" chuyển xuống thanh hành động trên thanh tab và ẩn đi khi form đang mở. Trên điện thoại, ô nhập và nút của form cao 40px, rộng hết hàng.
+- Trên màn hẹp (≤ 960px) bảng thành danh sách: tên + số giao dịch ở dòng trên, ngày tạo ở dòng dưới. Chạm để mở sheet, bấm **Sửa**/**Xoá** ở chân sheet (desktop vẫn double-click).
+- **Chế độ chọn trên màn hẹp**: ở dạng danh sách, chạm vào dòng là mở sheet chi tiết, nên không thể vừa chạm để chọn. Vì vậy có chip **Chọn**/**Xong**: bật lên thì danh sách đổi thành các dòng có ô tích (cả dòng là vùng chạm 52px), chip "Chọn tất cả" chỉ hiện trong chế độ này. Chọn từ 2 nơi chốn thì thanh hành động dưới đáy đổi từ "+ Tạo" thành "Gộp (N)". Thoát chế độ chọn hoặc gộp xong sẽ xoá lựa chọn. Cách này đơn giản hơn đặt ô chọn vào sheet (phải mở từng sheet để chọn từng nơi).
+- Toolbar trên điện thoại: một hàng chip 40px cuộn ngang, rồi form thêm nhanh, rồi ô tìm kiếm full width.
 - **Gộp nơi chốn**: chọn từ 2 dòng → `CombinePlacesDialog` xếp hạng ứng viên theo số giao dịch nhiều nhất rồi tạo sớm nhất, người dùng chọn nơi chốn chính và tên cuối cùng; gọi `POST /api/places/combine`. Backend chuyển giao dịch sang nơi chốn chính và từ chối nếu tên mới trùng một nơi chốn khác.
 - Xoá nơi chốn không bao giờ xoá giao dịch; giao dịch chỉ mất liên kết nơi chốn.
 
 ## Lịch, Việc cần làm, Nhắc nhở
 
-- `CalendarScreen`: xem tài liệu module calendar.
+- `CalendarScreen`: xem tài liệu module calendar (trên điện thoại mặc định là dạng Lịch trình theo tuần).
 - `TasksScreen`: bộ lọc kỳ có Ngày / Tuần / Tháng / Quý / Năm / Tất cả, lọc trạng thái Tất cả / Cần làm / Đã xong, sửa trực tiếp, xoá có xác nhận.
 - `RemindersScreen`: tìm kiếm, sửa trực tiếp, xoá có xác nhận.
+- Trên điện thoại: các chip trạng thái của Việc cần làm nằm trên một hàng cuộn ngang cao 40px thay vì xếp chồng, ô tìm kiếm full width 40px. Hai màn này không có nút tạo mới nên cũng không có thanh hành động dưới đáy.
+- Ở màn hẹp (≤ 960px), ba bảng `TasksTable`, `RemindersTable`, `CalendarTable` hiển thị dạng danh sách hai dòng — ở mọi nơi bảng xuất hiện, kể cả trang Tổng quan. Việc cần làm: tiêu đề + hạn (`dd/MM`), dòng hai trạng thái · ghi chú. Nhắc nhở: nội dung + giờ nhắc (`dd/MM HH:mm`), dòng hai kênh (nhắn tin/gọi) · lặp lại. Lịch: tiêu đề + giờ bắt đầu, dòng hai địa điểm · mô tả. Lý do: trên cảm ứng không double-click được, nên chạm vào dòng để mở sheet chi tiết rồi bấm **Sửa** ở chân sheet; các ô trong sheet tự chuyển thành ô nhập. Ô tiêu đề không tự focus trên màn hẹp để bàn phím không bật lên khi vừa bấm Sửa. Desktop vẫn sửa bằng double-click như cũ.
 
 ## Hành vi giao diện dùng chung
 

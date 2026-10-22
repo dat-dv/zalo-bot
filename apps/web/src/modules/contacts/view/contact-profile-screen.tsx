@@ -9,6 +9,7 @@ import { apiErrorMessage } from '@/modules/users/api/api-error-message';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { MetricGrid, MetricGridSkeleton } from '@/shared/ui/metric-grid';
+import { TOAST_POSITION } from '@/shared/ui/touch';
 import { useContactProfileQuery, useSaveContactProfileMutation } from '../api/contacts-query';
 import {
   toBaseContactUpdate,
@@ -110,7 +111,7 @@ export function ContactProfileScreen() {
       {toast && (
         <div
           aria-live="polite"
-          className="fixed top-4 left-1/2 z-[1000] -translate-x-1/2 rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900"
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
           role="status"
         >
           {toast}

@@ -3,7 +3,13 @@
 import { useState, useEffect, useId, useMemo } from 'react';
 import type { IContactListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
+import {
+  Modal,
+  MODAL_CLOSE_TAP,
+  MODAL_FOOTER_TAP,
+  MODAL_STICKY_FOOTER,
+  MODAL_STICKY_HEADER,
+} from '@/shared/ui/modal';
 import { useCombineContactsMutation } from '../../api/contacts-query';
 import { useUsersQuery } from '@/modules/users/api/users-query';
 
@@ -140,6 +146,7 @@ export function CombineContactsDialog({
       describedBy={descId}
       backdropClassName="bg-slate-900/50 backdrop-blur-xs"
       panelClassName="max-w-[520px] rounded-md border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"
+      phoneLayout="fullscreen"
     >
       <header
         className={`${MODAL_STICKY_HEADER} flex items-start justify-between border-b border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900`}
@@ -157,7 +164,7 @@ export function CombineContactsDialog({
         </div>
         <button
           type="button"
-          className="flex size-7 cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          className={`flex size-7 cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 ${MODAL_CLOSE_TAP}`}
           onClick={onClose}
           disabled={combineMutation.isPending}
           aria-label={t('common.close')}
@@ -167,7 +174,8 @@ export function CombineContactsDialog({
       </header>
 
       <form onSubmit={handleSubmit}>
-        <div className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto px-5 py-4">
+        {/* Phones: the Modal panel is the only scroller. */}
+        <div className="flex max-h-[75vh] flex-col gap-4 overflow-y-auto px-5 py-4 max-sm:max-h-none max-sm:overflow-visible max-sm:px-4">
           {errorMessage && (
             <div
               className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300"
@@ -188,7 +196,7 @@ export function CombineContactsDialog({
               </span>
             </div>
 
-            <div className="flex max-h-48 flex-col gap-1.5 overflow-y-auto rounded border border-slate-200 bg-slate-50/50 p-2 dark:border-slate-800 dark:bg-slate-950/40">
+            <div className="flex max-h-48 flex-col gap-1.5 overflow-y-auto rounded border border-slate-200 bg-slate-50/50 p-2 max-sm:max-h-none max-sm:overflow-visible dark:border-slate-800 dark:bg-slate-950/40">
               {sortedCandidates.map((contact, index) => {
                 const isLead = contact.id === leadContactId;
                 const isTop = index === 0;
@@ -198,7 +206,7 @@ export function CombineContactsDialog({
                   <div
                     key={contact.id}
                     onClick={() => handleSelectLead(contact)}
-                    className={`flex cursor-pointer items-center justify-between rounded border p-2 text-xs transition-colors ${
+                    className={`flex cursor-pointer items-center justify-between rounded border p-2 text-xs transition-colors max-sm:min-h-12 ${
                       isLead
                         ? 'border-sky-500 bg-sky-50/80 shadow-xs dark:border-sky-500/80 dark:bg-sky-950/40'
                         : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700'
@@ -288,7 +296,7 @@ export function CombineContactsDialog({
             <input
               id="combine-name-input"
               type="text"
-              className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
+              className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs max-sm:h-10 text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder={t('contacts.placeholder.name')}
@@ -307,7 +315,7 @@ export function CombineContactsDialog({
             <input
               id="combine-alias-input"
               type="text"
-              className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
+              className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs max-sm:h-10 text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
               value={alias}
               onChange={(e) => setAlias(e.target.value)}
               placeholder={t('contacts.placeholder.alias')}
@@ -344,7 +352,7 @@ export function CombineContactsDialog({
               </label>
               <select
                 id="combine-user-select"
-                className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
+                className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs max-sm:h-10 text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
                 value={linkedUserId}
                 onChange={(e) => setLinkedUserId(e.target.value)}
                 disabled={combineMutation.isPending || usersQuery.isLoading}
@@ -362,7 +370,7 @@ export function CombineContactsDialog({
           )}
 
           {/* Consolidate debts checkbox */}
-          <div className="flex items-center gap-2 pt-1">
+          <div className="flex items-center gap-2 pt-1 max-sm:pt-0">
             <input
               id="combine-consolidate-debts"
               type="checkbox"
@@ -373,7 +381,7 @@ export function CombineContactsDialog({
             />
             <label
               htmlFor="combine-consolidate-debts"
-              className="cursor-pointer text-xs text-slate-700 dark:text-slate-300"
+              className="cursor-pointer text-xs text-slate-700 max-sm:flex max-sm:min-h-10 max-sm:flex-1 max-sm:items-center dark:text-slate-300"
             >
               {t('contacts.combineModal.consolidateDebts')}
             </label>
@@ -397,11 +405,11 @@ export function CombineContactsDialog({
         </div>
 
         <footer
-          className={`${MODAL_STICKY_FOOTER} flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3 dark:border-slate-800 dark:bg-slate-950`}
+          className={`${MODAL_STICKY_FOOTER} flex items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-5 py-3 max-sm:px-4 dark:border-slate-800 dark:bg-slate-950`}
         >
           <button
             type="button"
-            className="inline-flex min-h-8 items-center justify-center rounded border border-slate-300 bg-white px-3.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            className={`inline-flex min-h-8 items-center justify-center rounded border border-slate-300 bg-white px-3.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${MODAL_FOOTER_TAP}`}
             onClick={onClose}
             disabled={combineMutation.isPending}
           >
@@ -409,7 +417,7 @@ export function CombineContactsDialog({
           </button>
           <button
             type="submit"
-            className="inline-flex min-h-8 items-center justify-center rounded border border-slate-900 bg-slate-900 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            className={`inline-flex min-h-8 items-center justify-center rounded border border-slate-900 bg-slate-900 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 ${MODAL_FOOTER_TAP}`}
             disabled={combineMutation.isPending || !displayName.trim()}
           >
             {combineMutation.isPending

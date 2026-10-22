@@ -15,9 +15,33 @@ import { RemindersTable } from './reminders-table';
 import { CalendarTable } from './calendar-table';
 import { AdjustBalanceModal } from './adjust-balance-modal';
 import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
-import { TOAST_POSITION } from '@/shared/ui/touch';
+import { MOBILE_TOOLBAR_ROW, TOAST_POSITION } from '@/shared/ui/touch';
+import { useIsCompact, useIsPhone } from '@/shared/hooks/use-media-query';
 
 type DashboardData = NonNullable<ReturnType<typeof useDashboardQuery>['data']>;
+
+/** Compact screens show a short preview per widget; the full list lives on its own page. */
+const HOME_COMPACT_ROW_LIMIT = 5;
+
+const QUICK_LINK_PHONE =
+  'shrink-0 whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
+
+function limitRows<T>(rows: T[], isCompact: boolean): T[] {
+  return isCompact ? rows.slice(0, HOME_COMPACT_ROW_LIMIT) : rows;
+}
+
+function ViewAllLink({ href }: { href: string }) {
+  const { t } = useLocale();
+  return (
+    <Link
+      href={href}
+      className="flex min-h-10 items-center justify-center gap-1 border-t border-slate-200 text-[12.5px] font-medium text-sky-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:text-sky-400 dark:hover:bg-slate-800/60"
+    >
+      {t('dashboard.viewAll')}
+      <span aria-hidden="true">&rarr;</span>
+    </Link>
+  );
+}
 
 export function DashboardHomeScreen() {
   const queryClient = useQueryClient();
@@ -64,12 +88,12 @@ function Metric({
   };
 
   return (
-    <article className="flex min-h-[62px] flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60">
+    <article className="flex min-h-[62px] flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60 max-[640px]:min-h-[52px] max-[640px]:px-2.5 max-[640px]:py-1.5">
       <span className="block text-[11px] font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
         {label}
       </span>
       <strong
-        className={`mt-0.5 block text-base font-bold tabular-nums tracking-tight ${toneStyles[tone]}`}
+        className={`mt-0.5 block text-base font-bold tabular-nums tracking-tight max-[640px]:text-[14px] max-[640px]:break-words ${toneStyles[tone]}`}
       >
         {value}
       </strong>
@@ -88,6 +112,15 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
   const [activitySearch, setActivitySearch] = useState('');
   const [isAdjustBalanceOpen, setIsAdjustBalanceOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const isCompact = useIsCompact();
+  // Phones hide the per-panel search, so a query typed before rotating must stop filtering.
+  const isPhone = useIsPhone();
+  const taskQuery = isPhone ? '' : taskSearch;
+  const reminderQuery = isPhone ? '' : reminderSearch;
+  const calendarQuery = isPhone ? '' : calendarSearch;
+  const txQuery = isPhone ? '' : txSearch;
+  const debtQuery = isPhone ? '' : debtSearch;
+  const activityQuery = isPhone ? '' : activitySearch;
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -110,22 +143,22 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
   const attentionCount = rootDebts.length + data.reminders.length + pendingTasks.length;
 
   const filteredTasks = useMemo(() => {
-    if (!taskSearch.trim()) return pendingTasks;
-    const q = taskSearch.toLowerCase();
+    if (!taskQuery.trim()) return pendingTasks;
+    const q = taskQuery.toLowerCase();
     return pendingTasks.filter((item) => item.title.toLowerCase().includes(q));
-  }, [pendingTasks, taskSearch]);
+  }, [pendingTasks, taskQuery]);
 
   const filteredReminders = useMemo(() => {
-    if (!reminderSearch.trim()) return data.reminders;
-    const q = reminderSearch.toLowerCase();
+    if (!reminderQuery.trim()) return data.reminders;
+    const q = reminderQuery.toLowerCase();
     return data.reminders.filter((item) => item.title.toLowerCase().includes(q));
-  }, [data.reminders, reminderSearch]);
+  }, [data.reminders, reminderQuery]);
 
   const filteredCalendar = useMemo(() => {
-    if (!calendarSearch.trim()) return data.calendar;
-    const q = calendarSearch.toLowerCase();
+    if (!calendarQuery.trim()) return data.calendar;
+    const q = calendarQuery.toLowerCase();
     return data.calendar.filter((item) => item.title.toLowerCase().includes(q));
-  }, [data.calendar, calendarSearch]);
+  }, [data.calendar, calendarQuery]);
 
   const transactionsWithBalance = useMemo<TransactionTableItem[]>(() => {
     const list = data.transactions ?? [];
@@ -153,33 +186,33 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
   }, [data.transactions]);
 
   const filteredTransactions = useMemo(() => {
-    if (!txSearch.trim()) return transactionsWithBalance;
-    const q = txSearch.toLowerCase();
+    if (!txQuery.trim()) return transactionsWithBalance;
+    const q = txQuery.toLowerCase();
     return transactionsWithBalance.filter(
       (item) =>
         item.category.toLowerCase().includes(q) ||
         (item.note && item.note.toLowerCase().includes(q)) ||
         (item.placeName && item.placeName.toLowerCase().includes(q)),
     );
-  }, [transactionsWithBalance, txSearch]);
+  }, [transactionsWithBalance, txQuery]);
 
   const filteredDebts = useMemo(() => {
-    if (!debtSearch.trim()) return data.debts;
-    const q = debtSearch.toLowerCase();
+    if (!debtQuery.trim()) return data.debts;
+    const q = debtQuery.toLowerCase();
     return data.debts.filter(
       (item) =>
         item.counterparty.toLowerCase().includes(q) ||
         (item.note && item.note.toLowerCase().includes(q)),
     );
-  }, [data.debts, debtSearch]);
+  }, [data.debts, debtQuery]);
 
   const filteredActivity = useMemo(() => {
-    if (!activitySearch.trim()) return data.activity;
-    const q = activitySearch.toLowerCase();
+    if (!activityQuery.trim()) return data.activity;
+    const q = activityQuery.toLowerCase();
     return data.activity.filter(
       (item) => item.action.toLowerCase().includes(q) || item.tableName.toLowerCase().includes(q),
     );
-  }, [data.activity, activitySearch]);
+  }, [data.activity, activityQuery]);
 
   const activityColumns: DataTableColumn<DashboardData['activity'][number]>[] = [
     {
@@ -187,6 +220,8 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
       header: t('dashboard.columns.action'),
       minWidth: '180px',
       hideable: false,
+      mobileSlot: 'primary',
+      mobileCell: (item) => `${item.action} · ${item.tableName}`,
       cell: (item) => (
         <span className="font-semibold text-slate-900 dark:text-slate-100">
           {item.action} · {item.tableName}
@@ -198,6 +233,8 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
       header: t('dashboard.columns.date'),
       align: 'right',
       minWidth: '140px',
+      mobileSlot: 'trailing',
+      mobileCell: (item) => date(item.createdAt),
       cell: (item) => (
         <span className="text-[11.5px] text-slate-500 dark:text-slate-400">
           {date(item.createdAt)}
@@ -205,6 +242,20 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
       ),
     },
   ];
+
+  const panelSearch = (value: string, onChange: (next: string) => void) =>
+    isPhone ? undefined : (
+      <input
+        type="search"
+        className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
+        placeholder={t('table.searchPlaceholder')}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={t('table.searchPlaceholder')}
+      />
+    );
+
+  const rootDebtsShown = filteredDebts.filter((d) => !d.parentDebtId);
 
   return (
     <div className="flex flex-col gap-3">
@@ -245,56 +296,56 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
       </section>
 
       <section
-        className="flex flex-wrap gap-1.5 rounded border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900"
+        className={`flex flex-wrap gap-1.5 rounded border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900 ${MOBILE_TOOLBAR_ROW}`}
         aria-label={t('dashboard.quickStats')}
       >
         <Link
           href={APP_ROUTES.transactions}
-          className="inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
         >
           {t('nav.transactions')}
         </Link>
         <button
           type="button"
           onClick={() => setIsAdjustBalanceOpen(true)}
-          className="inline-flex h-6 min-h-6 cursor-pointer items-center gap-1 rounded-[3px] border border-indigo-300 bg-indigo-50 px-2 text-[11.5px] font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/60"
+          className={`inline-flex h-6 min-h-6 cursor-pointer items-center gap-1 rounded-[3px] border border-indigo-300 bg-indigo-50 px-2 text-[11.5px] font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/60 ${QUICK_LINK_PHONE}`}
         >
-          <span>⚖️</span>
+          <span aria-hidden="true">⚖️</span>
           {t('transactions.balanceAdjust.actionButton')}
         </button>
         <Link
           href={APP_ROUTES.debts}
-          className="inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
         >
           {t('nav.debts')}
         </Link>
         <Link
           href={APP_ROUTES.analytics}
-          className="inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
         >
           {t('nav.analytics')}
         </Link>
         <Link
           href={APP_ROUTES.calendar}
-          className="inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
         >
           {t('nav.calendar')}
         </Link>
         <Link
           href={APP_ROUTES.tasks}
-          className="inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
         >
           {t('nav.tasks')}
         </Link>
         <Link
           href={APP_ROUTES.reminders}
-          className="inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
         >
           {t('nav.reminders')}
         </Link>
         <Link
           href={APP_ROUTES.contacts}
-          className="inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700"
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
         >
           {t('nav.contacts')}
         </Link>
@@ -318,46 +369,30 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
           titleHref={APP_ROUTES.tasks}
           description={data.user.googleConnected ? undefined : t('dashboard.connectGoogleTip')}
           counter={t('table.rowsCount', { count: filteredTasks.length })}
-          toolbar={
-            <input
-              type="search"
-              className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
-              placeholder={t('table.searchPlaceholder')}
-              value={taskSearch}
-              onChange={(e) => setTaskSearch(e.target.value)}
-              aria-label={t('table.searchPlaceholder')}
-            />
-          }
+          toolbar={panelSearch(taskSearch, setTaskSearch)}
         >
           <TasksTable
             id="home-tasks"
             ariaLabel={t('dashboard.tasks')}
-            tasks={filteredTasks}
+            tasks={limitRows(filteredTasks, isCompact)}
             emptyMessage={t('dashboard.noTasks')}
           />
+          {isCompact && <ViewAllLink href={APP_ROUTES.tasks} />}
         </DataPanel>
 
         <DataPanel
           title={t('dashboard.reminders')}
           titleHref={APP_ROUTES.reminders}
           counter={t('table.rowsCount', { count: filteredReminders.length })}
-          toolbar={
-            <input
-              type="search"
-              className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
-              placeholder={t('table.searchPlaceholder')}
-              value={reminderSearch}
-              onChange={(e) => setReminderSearch(e.target.value)}
-              aria-label={t('table.searchPlaceholder')}
-            />
-          }
+          toolbar={panelSearch(reminderSearch, setReminderSearch)}
         >
           <RemindersTable
             id="home-reminders"
             ariaLabel={t('dashboard.reminders')}
-            reminders={filteredReminders}
+            reminders={limitRows(filteredReminders, isCompact)}
             emptyMessage={t('dashboard.noReminders')}
           />
+          {isCompact && <ViewAllLink href={APP_ROUTES.reminders} />}
         </DataPanel>
 
         <DataPanel
@@ -365,91 +400,57 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
           titleHref={APP_ROUTES.calendar}
           description={data.user.googleConnected ? undefined : t('dashboard.connectGoogleTip')}
           counter={t('table.rowsCount', { count: filteredCalendar.length })}
-          toolbar={
-            <input
-              type="search"
-              className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
-              placeholder={t('table.searchPlaceholder')}
-              value={calendarSearch}
-              onChange={(e) => setCalendarSearch(e.target.value)}
-              aria-label={t('table.searchPlaceholder')}
-            />
-          }
+          toolbar={panelSearch(calendarSearch, setCalendarSearch)}
         >
           <CalendarTable
             id="home-calendar"
             ariaLabel={t('dashboard.calendar')}
-            events={filteredCalendar}
+            events={limitRows(filteredCalendar, isCompact)}
             emptyMessage={t('dashboard.noCalendar')}
           />
+          {isCompact && <ViewAllLink href={APP_ROUTES.calendar} />}
         </DataPanel>
 
         <DataPanel
           title={t('dashboard.transactions')}
           titleHref={APP_ROUTES.transactions}
           counter={t('table.rowsCount', { count: filteredTransactions.length })}
-          toolbar={
-            <input
-              type="search"
-              className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
-              placeholder={t('table.searchPlaceholder')}
-              value={txSearch}
-              onChange={(e) => setTxSearch(e.target.value)}
-              aria-label={t('table.searchPlaceholder')}
-            />
-          }
+          toolbar={panelSearch(txSearch, setTxSearch)}
         >
           <TransactionsTable
             id="home-transactions"
             ariaLabel={t('dashboard.transactions')}
-            transactions={filteredTransactions}
+            transactions={limitRows(filteredTransactions, isCompact)}
             emptyMessage={t('dashboard.noTransactions')}
           />
+          {isCompact && <ViewAllLink href={APP_ROUTES.transactions} />}
         </DataPanel>
 
         <DataPanel
           title={t('dashboard.openDebts')}
           titleHref={APP_ROUTES.debts}
-          counter={t('table.rowsCount', {
-            count: filteredDebts.filter((d) => !d.parentDebtId).length,
-          })}
-          toolbar={
-            <input
-              type="search"
-              className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
-              placeholder={t('table.searchPlaceholder')}
-              value={debtSearch}
-              onChange={(e) => setDebtSearch(e.target.value)}
-              aria-label={t('table.searchPlaceholder')}
-            />
-          }
+          counter={t('table.rowsCount', { count: rootDebtsShown.length })}
+          toolbar={panelSearch(debtSearch, setDebtSearch)}
         >
           <DebtsTable
             id="home-debts"
             ariaLabel={t('dashboard.openDebts')}
-            debts={filteredDebts}
+            // DebtsTable renders root debts and nests children, so the preview limits roots.
+            debts={isCompact ? rootDebtsShown.slice(0, HOME_COMPACT_ROW_LIMIT) : filteredDebts}
             emptyMessage={t('dashboard.noDebts')}
           />
+          {isCompact && <ViewAllLink href={APP_ROUTES.debts} />}
         </DataPanel>
 
         <DataPanel
           title={t('dashboard.activity')}
           counter={t('table.rowsCount', { count: filteredActivity.length })}
-          toolbar={
-            <input
-              type="search"
-              className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
-              placeholder={t('table.searchPlaceholder')}
-              value={activitySearch}
-              onChange={(e) => setActivitySearch(e.target.value)}
-              aria-label={t('table.searchPlaceholder')}
-            />
-          }
+          toolbar={panelSearch(activitySearch, setActivitySearch)}
         >
           <DataTable
             id="home-activity"
             ariaLabel={t('dashboard.activity')}
-            rows={filteredActivity}
+            rows={limitRows(filteredActivity, isCompact)}
             emptyMessage={t('dashboard.noActivity')}
             columns={activityColumns}
             getRowKey={(item) => item.id}
@@ -493,6 +494,7 @@ function DashboardHomeSkeleton() {
       header: t('dashboard.columns.action'),
       minWidth: '180px',
       hideable: false,
+      mobileSlot: 'primary',
       cell: () => null,
     },
     {
@@ -500,6 +502,7 @@ function DashboardHomeSkeleton() {
       header: t('dashboard.columns.date'),
       align: 'right',
       minWidth: '140px',
+      mobileSlot: 'trailing',
       cell: () => null,
     },
   ];
@@ -513,7 +516,7 @@ function DashboardHomeSkeleton() {
       >
         {Array.from({ length: 6 }, (_, index) => (
           <div
-            className="flex min-h-[62px] flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60"
+            className="flex min-h-[62px] flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60 max-[640px]:min-h-[52px] max-[640px]:px-2.5 max-[640px]:py-1.5"
             key={index}
           >
             <span className="block h-2.5 w-16 animate-pulse rounded-[2px] bg-slate-200 dark:bg-slate-800" />
@@ -524,13 +527,13 @@ function DashboardHomeSkeleton() {
 
       {/* Quick links skeleton */}
       <section
-        className="flex flex-wrap gap-1.5 rounded border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900"
+        className={`flex flex-wrap gap-1.5 rounded border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900 ${MOBILE_TOOLBAR_ROW}`}
         aria-hidden="true"
       >
         {Array.from({ length: 7 }, (_, i) => (
           <div
             key={i}
-            className="h-6 w-20 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800"
+            className="h-6 w-20 shrink-0 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 max-[640px]:h-10"
           />
         ))}
       </section>
@@ -541,7 +544,7 @@ function DashboardHomeSkeleton() {
           title={t('dashboard.tasks')}
           titleHref={APP_ROUTES.tasks}
           toolbar={
-            <div className="h-6 w-44 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800" />
+            <div className="h-6 w-44 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 max-[640px]:hidden" />
           }
         >
           <TasksTable
@@ -557,7 +560,7 @@ function DashboardHomeSkeleton() {
           title={t('dashboard.reminders')}
           titleHref={APP_ROUTES.reminders}
           toolbar={
-            <div className="h-6 w-44 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800" />
+            <div className="h-6 w-44 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 max-[640px]:hidden" />
           }
         >
           <RemindersTable
@@ -573,7 +576,7 @@ function DashboardHomeSkeleton() {
           title={t('dashboard.calendar')}
           titleHref={APP_ROUTES.calendar}
           toolbar={
-            <div className="h-6 w-44 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800" />
+            <div className="h-6 w-44 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 max-[640px]:hidden" />
           }
         >
           <CalendarTable
@@ -589,7 +592,7 @@ function DashboardHomeSkeleton() {
           title={t('dashboard.transactions')}
           titleHref={APP_ROUTES.transactions}
           toolbar={
-            <div className="h-6 w-44 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800" />
+            <div className="h-6 w-44 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 max-[640px]:hidden" />
           }
         >
           <TransactionsTable
@@ -605,7 +608,7 @@ function DashboardHomeSkeleton() {
           title={t('dashboard.openDebts')}
           titleHref={APP_ROUTES.debts}
           toolbar={
-            <div className="h-6 w-44 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800" />
+            <div className="h-6 w-44 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 max-[640px]:hidden" />
           }
         >
           <DebtsTable
@@ -620,7 +623,7 @@ function DashboardHomeSkeleton() {
         <DataPanel
           title={t('dashboard.activity')}
           toolbar={
-            <div className="h-6 w-44 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800" />
+            <div className="h-6 w-44 animate-pulse rounded-[3px] border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800 max-[640px]:hidden" />
           }
         >
           <DataTable

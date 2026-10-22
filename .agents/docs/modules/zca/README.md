@@ -25,6 +25,8 @@ metadata:
       - apps/web/src/modules/zca/model/chat-rows.ts
       - apps/web/src/modules/zca/api/zca-api.ts
       - apps/web/src/modules/zca/presentation/components/chat-table-row.tsx
+      - apps/web/src/modules/zca/presentation/components/chat-list-row.tsx
+      - apps/web/src/modules/zca/presentation/components/chat-row-parts.tsx
 ---
 
 # Module ZCA (Zalo Client Account)
@@ -212,7 +214,18 @@ Bảng này phục vụ việc lướt nhanh hàng trăm dòng, nên giữ cùng
   - **Không tràn ngang**: khung trang cuộn dọc nên chỉ cần một phần tử rộng quá là hiện thanh cuộn ngang, nhất là khi tên hoặc ID nhóm dài trên mobile. Vì vậy tên ở header bị cắt bằng `…` (rê chuột để xem đủ); ID và nhãn thư mục/album ngắt dòng ở bất kỳ ký tự nào (`break-all`); banner Drive/Photos dùng `flex-wrap`; mỗi hàng bật/tắt cho khối chữ `min-w-0` và nút gạt `shrink-0`. Khi thêm mục mới, giữ đúng mẫu này.
   - Chưa có cảnh báo "thay đổi chưa lưu" khi rời trang (modal cũ cũng không có).
 
-- Modal QR đăng nhập, `SyncMediaModal`, `UserFormDialog`, `ThreadStorageLinksDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo).
+- Modal QR đăng nhập, `SyncMediaModal`, `UserFormDialog`, `ThreadStorageLinksDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo). Trên điện thoại: nút ✕ và nút ở chân cao 40px, ô nhập 40px; `SyncMediaModal` mở toàn màn hình vì nội dung dài (khoảng thời gian, loại tệp, link Drive/Photos, kết quả).
+
+### Trên điện thoại / tablet (≤ 960px)
+
+Bảng 7 cột phải cuộn ngang trên màn 375px và các nút 22px quá nhỏ để chạm, nên ở chế độ compact trang đổi cách hiển thị:
+
+- **Danh sách phẳng thay cho bảng** (`ChatListRow`, `presentation/components/chat-list-row.tsx`). Mỗi dòng cao tối thiểu 52px: dòng 1 là tên (gợi nhớ) và bên phải là trạng thái lắng nghe (`● Đang nghe` xanh / `○ Bỏ qua`); dòng 2 là loại · ID rút gọn (`…` + 6 ký tự cuối) · trạng thái quyền (với người) hoặc số thành viên (với nhóm).
+- **Chạm dòng mở bottom-sheet** có đủ chi tiết: loại, ID (nút sao chép 40px), nút bật/tắt lắng nghe, tính năng, trạng thái quyền + nút Cấp quyền/Thu hồi, rồi **mọi mục của menu ⋯** thành các hàng bấm cao 40px (mục xoá màu đỏ), chân sheet có nút **Cấu hình**. Menu ⋯ dạng popover không dùng trên màn cảm ứng vì nó tự đóng khi cuộn và nút quá nhỏ.
+- **Dùng chung logic**: `useChatRowModel` (`chat-row-parts.tsx`) tính nhãn loại, dòng nhận diện, tính năng và danh sách thao tác cho cả dòng bảng (máy tính) lẫn dòng danh sách (điện thoại), nên hai giao diện luôn có cùng thao tác và gọi cùng handler của `ZcaScreen`. Thêm thao tác mới thì thêm ở đây.
+- Tiêu đề trang (h1 + mô tả) bị ẩn vì thanh trên cùng đã hiện tên trang. Nút **Quét mã QR đăng nhập** (khi chưa đăng nhập) và **+ Thêm người dùng** chuyển xuống thanh hành động cố định phía dưới (`MobileActionBar`), bản trên thanh công cụ bị ẩn.
+- Điện thoại (≤ 640px): ô tìm kiếm rộng hết hàng cao 40px; ô sắp xếp và các tab lọc nằm trên **một hàng cuộn ngang** cao 40px; nút Đồng bộ/Kho Drive cuộn ngang trên một hàng; ô nhập ID thủ công và nút thêm rộng hết hàng; nút phân trang và ô số mục 40px; nút ✕ của thông báo 40px.
+- **Trang cấu hình kênh trên điện thoại**: nút gạt giữ nguyên hình dáng nhưng vùng chạm mở rộng thành 40×40px; ô tích loại media, ô nhập, nút banner Drive/Photos, ô tiền tố và nút xoá chip đều 40px. Thanh **Lưu cấu hình** dính đáy nhưng nằm **trên** thanh tab dưới (nếu không sẽ bị thanh tab che mất).
 
 ## 3. Các Endpoint API
 

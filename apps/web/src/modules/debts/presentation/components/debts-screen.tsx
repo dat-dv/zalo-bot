@@ -8,6 +8,8 @@ import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { DataPanel } from '@/shared/ui/data-table';
 import { DebtsTable, type DebtEditDraft, getDebtStatus } from './debts-table';
 import { CombineDebtsDialog } from './combine-debts-dialog';
+import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
+import { MOBILE_TOOLBAR_ROW, TAP_CONTROL, TAP_INPUT, TOAST_POSITION } from '@/shared/ui/touch';
 
 import { useContactsQuery } from '@/modules/contacts/api/contacts-query';
 import {
@@ -17,6 +19,9 @@ import {
   useDebtsQuery,
   useUpdateDebtMutation,
 } from '../../api/debts-query';
+
+/** Toolbar chip sizing at phone width (40px tall), matching the Transactions toolbar. */
+const PHONE_CHIP = 'max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
 
 type DirectionFilter = 'all' | 'receivable' | 'payable';
 type StatusFilter = 'all' | 'active' | 'settled';
@@ -278,7 +283,7 @@ export function DebtsScreen() {
       {toastMessage && (
         <div
           role="status"
-          className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50 max-sm:left-4 rounded bg-slate-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-slate-100 dark:text-slate-900"
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
         >
           {toastMessage}
         </div>
@@ -355,7 +360,7 @@ export function DebtsScreen() {
           <strong>{t('dashboard.error.title')}</strong>
           <button
             type="button"
-            className="cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
+            className={`cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600 ${TAP_CONTROL}`}
             onClick={refresh}
           >
             {t('common.retry')}
@@ -368,115 +373,120 @@ export function DebtsScreen() {
             counter={t('table.rowsCount', { count: filteredRootDebts.length })}
             toolbar={
               <div className="flex flex-wrap items-center gap-1.5 max-[640px]:w-full max-[640px]:flex-col max-[640px]:items-stretch">
-                {selectedIds.size >= 2 && (
-                  <button
-                    type="button"
-                    className="inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-                    onClick={() => setIsCombineOpen(true)}
-                  >
-                    {t('debts.actions.combine', { count: selectedIds.size })}
-                  </button>
-                )}
-                {filteredRootDebts.length > 0 && (
-                  <button
-                    type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                      selectedIds.size === filteredRootDebts.length
-                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-                    }`}
-                    onClick={handleToggleSelectAll}
-                  >
-                    {selectedIds.size === filteredRootDebts.length
-                      ? t('debts.deselectAll')
-                      : t('debts.selectAll')}
-                  </button>
-                )}
-                {isPartiallySelected && (
-                  <button
-                    type="button"
-                    className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-sky-500 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/50"
-                    onClick={() => setSelectedIds(new Set())}
-                    title={t('debts.deselectAll')}
-                  >
-                    {t('debts.selectedCount', { count: selectedIds.size })} ✕
-                  </button>
-                )}
+                {/* Phones: every chip shares one sideways-scrolling row; desktop layout is untouched. */}
+                <div
+                  className={`contents max-[640px]:flex max-[640px]:items-center max-[640px]:gap-1.5 ${MOBILE_TOOLBAR_ROW}`}
+                >
+                  {selectedIds.size >= 2 && (
+                    <button
+                      type="button"
+                      className="inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 max-[960px]:hidden text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                      onClick={() => setIsCombineOpen(true)}
+                    >
+                      {t('debts.actions.combine', { count: selectedIds.size })}
+                    </button>
+                  )}
+                  {filteredRootDebts.length > 0 && (
+                    <button
+                      type="button"
+                      className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap transition-colors ${PHONE_CHIP} max-[640px]:order-last ${
+                        selectedIds.size === filteredRootDebts.length
+                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                      onClick={handleToggleSelectAll}
+                    >
+                      {selectedIds.size === filteredRootDebts.length
+                        ? t('debts.deselectAll')
+                        : t('debts.selectAll')}
+                    </button>
+                  )}
+                  {isPartiallySelected && (
+                    <button
+                      type="button"
+                      className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-[3px] border border-sky-500 bg-sky-50 px-2 ${PHONE_CHIP} max-[640px]:order-last text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/50`}
+                      onClick={() => setSelectedIds(new Set())}
+                      title={t('debts.deselectAll')}
+                    >
+                      {t('debts.selectedCount', { count: selectedIds.size })} ✕
+                    </button>
+                  )}
 
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                      statusFilter === 'all'
-                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-                    }`}
-                    onClick={() => setStatusFilter('all')}
-                  >
-                    {t('debts.filter.allStatus')}
-                  </button>
-                  <button
-                    type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                      statusFilter === 'active'
-                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-                    }`}
-                    onClick={() => setStatusFilter('active')}
-                  >
-                    {t('debts.status.active')}
-                  </button>
-                  <button
-                    type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                      statusFilter === 'settled'
-                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-                    }`}
-                    onClick={() => setStatusFilter('settled')}
-                  >
-                    {t('debts.status.settled')}
-                  </button>
-                </div>
+                  <div className="flex items-center gap-1 max-[640px]:contents">
+                    <button
+                      type="button"
+                      className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap transition-colors ${PHONE_CHIP} ${
+                        statusFilter === 'all'
+                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                      onClick={() => setStatusFilter('all')}
+                    >
+                      {t('debts.filter.allStatus')}
+                    </button>
+                    <button
+                      type="button"
+                      className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap transition-colors ${PHONE_CHIP} ${
+                        statusFilter === 'active'
+                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                      onClick={() => setStatusFilter('active')}
+                    >
+                      {t('debts.status.active')}
+                    </button>
+                    <button
+                      type="button"
+                      className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap transition-colors ${PHONE_CHIP} ${
+                        statusFilter === 'settled'
+                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                      onClick={() => setStatusFilter('settled')}
+                    >
+                      {t('debts.status.settled')}
+                    </button>
+                  </div>
 
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                      directionFilter === 'all'
-                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-                    }`}
-                    onClick={() => setDirectionFilter('all')}
-                  >
-                    {t('debts.filter.allDirections')}
-                  </button>
-                  <button
-                    type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                      directionFilter === 'receivable'
-                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-                    }`}
-                    onClick={() => setDirectionFilter('receivable')}
-                  >
-                    {t('table.filter.receivable')}
-                  </button>
-                  <button
-                    type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                      directionFilter === 'payable'
-                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-                    }`}
-                    onClick={() => setDirectionFilter('payable')}
-                  >
-                    {t('table.filter.payable')}
-                  </button>
+                  <div className="flex items-center gap-1 max-[640px]:contents">
+                    <button
+                      type="button"
+                      className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap transition-colors ${PHONE_CHIP} ${
+                        directionFilter === 'all'
+                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                      onClick={() => setDirectionFilter('all')}
+                    >
+                      {t('debts.filter.allDirections')}
+                    </button>
+                    <button
+                      type="button"
+                      className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap transition-colors ${PHONE_CHIP} ${
+                        directionFilter === 'receivable'
+                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                      onClick={() => setDirectionFilter('receivable')}
+                    >
+                      {t('table.filter.receivable')}
+                    </button>
+                    <button
+                      type="button"
+                      className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap transition-colors ${PHONE_CHIP} ${
+                        directionFilter === 'payable'
+                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                      onClick={() => setDirectionFilter('payable')}
+                    >
+                      {t('table.filter.payable')}
+                    </button>
+                  </div>
                 </div>
                 <input
                   type="search"
-                  className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
+                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${TAP_INPUT}`}
                   placeholder={t('table.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -511,6 +521,18 @@ export function DebtsScreen() {
             />
           </DataPanel>
         </section>
+      )}
+
+      {selectedIds.size >= 2 && (
+        <MobileActionBar>
+          <button
+            type="button"
+            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+            onClick={() => setIsCombineOpen(true)}
+          >
+            {t('debts.actions.combine', { count: selectedIds.size })}
+          </button>
+        </MobileActionBar>
       )}
     </div>
   );

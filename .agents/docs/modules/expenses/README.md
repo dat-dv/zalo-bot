@@ -40,6 +40,7 @@ Nghĩa là người dùng xem và sửa khoản chi trong trang Thu chi (`Transa
 - Bảng `id="expenses"`: Danh mục, Ghi chú, Số tiền (có thanh tỷ lệ so với khoản lớn nhất trong kỳ), Phương thức thanh toán, Tiền tệ, Ngày phát sinh, Thao tác.
 - Sửa trực tiếp danh mục (gợi ý từ danh mục người dùng cấu hình, danh mục đã dùng và danh mục chi mặc định), ghi chú, số tiền (> 0), phương thức thanh toán, ngày phát sinh. Xoá hỏi xác nhận bằng `window.confirm`.
 - Số tiền tuân theo chế độ ẩn/hiện số tiền; khi ẩn thì thanh tỉ lệ dưới số tiền cũng ẩn để không lộ khoản lớn/nhỏ; ô nhập khi sửa vẫn hiện số thật.
+- **Trên màn hình hẹp (≤ 960px)** bảng chuyển thành danh sách: dòng 1 là ghi chú và số tiền (bị che khi ẩn số tiền, không có thanh tỉ lệ), dòng 2 là danh mục · ngày (dd/MM). Chạm dòng mở bottom-sheet đủ các cột; sửa bằng nút Sửa ở chân sheet vì điện thoại không nhấp đúp được. Trên điện thoại (≤ 640px) ô chọn danh mục và ô tìm kiếm rộng hết màn hình, cao 40px; toast nằm phía trên thanh tab. Giống trang Thu chi để người dùng không phải học hai kiểu thao tác.
 
 ## Lỗi/hạn chế đã biết
 

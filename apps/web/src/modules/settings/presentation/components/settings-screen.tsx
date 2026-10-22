@@ -6,6 +6,7 @@ import type { ICategoryItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { useReactScan } from '@/shared/providers/react-scan-provider';
+import { MOBILE_TOOLBAR_ROW, TAP_CONTROL, TAP_INPUT, TOAST_POSITION } from '@/shared/ui/touch';
 
 import {
   categoriesQueryKeys,
@@ -16,6 +17,9 @@ import {
 } from '../../api/categories-query';
 import { useDashboardQuery } from '@/modules/dashboard/api/dashboard-query';
 import { AdjustBalanceModal } from '@/modules/dashboard/presentation/components/adjust-balance-modal';
+
+/** Chip sizing at phone width (40px tall), matching the Transactions toolbar. */
+const PHONE_CHIP = 'max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
 
 export function SettingsScreen() {
   const queryClient = useQueryClient();
@@ -128,6 +132,8 @@ export function SettingsScreen() {
       header: t('settings.categories.name'),
       minWidth: '220px',
       hideable: false,
+      mobileSlot: 'primary',
+      mobileCell: (item) => item.name,
       cell: (item) => {
         if (editingId === item.id) {
           return (
@@ -161,6 +167,9 @@ export function SettingsScreen() {
       id: 'type',
       header: t('settings.categories.type'),
       minWidth: '100px',
+      mobileSlot: 'secondary',
+      mobileCell: (item) =>
+        item.type === 'income' ? t('table.filter.income') : t('table.filter.expense'),
       cell: (item) => (
         <span
           className={`inline-flex items-center rounded-[2px] border px-1.5 py-0.5 text-[10px] font-semibold select-none ${
@@ -230,7 +239,7 @@ export function SettingsScreen() {
     <>
       {toastMessage && (
         <div
-          className="fixed top-4 left-1/2 z-[1000] -translate-x-1/2 rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900"
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
           role="status"
           aria-live="polite"
         >
@@ -238,10 +247,10 @@ export function SettingsScreen() {
         </div>
       )}
 
-      <div className="mb-4 flex gap-2">
+      <div className={`mb-4 flex gap-2 ${MOBILE_TOOLBAR_ROW}`}>
         <button
           type="button"
-          className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+          className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap transition-colors ${PHONE_CHIP} ${
             activeTab === 'categories'
               ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
               : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
@@ -252,7 +261,7 @@ export function SettingsScreen() {
         </button>
         <button
           type="button"
-          className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+          className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap transition-colors ${PHONE_CHIP} ${
             activeTab === 'preferences'
               ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
               : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
@@ -271,7 +280,7 @@ export function SettingsScreen() {
           <strong>{t('dashboard.error.title')}</strong>
           <button
             type="button"
-            className="cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
+            className={`cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600 ${TAP_CONTROL}`}
             onClick={refresh}
           >
             {t('common.retry')}
@@ -284,10 +293,10 @@ export function SettingsScreen() {
             title={t('settings.categories.expenseTitle')}
             counter={t('settings.categories.count', { count: expenseCategories.length })}
             toolbar={
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 max-[640px]:w-full max-[640px]:flex-col max-[640px]:items-stretch">
                 <input
                   type="search"
-                  className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
+                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${TAP_INPUT}`}
                   placeholder={t('table.searchPlaceholder')}
                   value={expenseSearch}
                   onChange={(e) => setExpenseSearch(e.target.value)}
@@ -296,7 +305,7 @@ export function SettingsScreen() {
                 {!isAddingExpense && (
                   <button
                     type="button"
-                    className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-sky-500 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300"
+                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-sky-500 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300 max-[640px]:justify-center ${PHONE_CHIP}`}
                     onClick={() => setIsAddingExpense(true)}
                   >
                     {t('settings.categories.addExpense')}
@@ -306,10 +315,10 @@ export function SettingsScreen() {
             }
           >
             {isAddingExpense && (
-              <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60">
+              <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3 max-[640px]:px-3 dark:border-slate-800 dark:bg-slate-900/60">
                 <input
                   type="text"
-                  className="h-6 min-h-6 flex-1 rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
+                  className="h-6 min-h-6 min-w-0 flex-1 max-[640px]:h-10 rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
                   placeholder={t('settings.categories.namePlaceholder')}
                   value={newExpenseName}
                   onChange={(e) => setNewExpenseName(e.target.value)}
@@ -321,7 +330,7 @@ export function SettingsScreen() {
                 />
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                  className={`inline-flex h-[22px] min-h-[22px] cursor-pointer items-center justify-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 ${TAP_CONTROL}`}
                   onClick={() => void handleCreateCategory('expense')}
                   title={t('expenses.actions.save')}
                 >
@@ -329,7 +338,7 @@ export function SettingsScreen() {
                 </button>
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                  className={`inline-flex h-[22px] min-h-[22px] cursor-pointer items-center justify-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100 ${TAP_CONTROL}`}
                   onClick={() => {
                     setIsAddingExpense(false);
                     setNewExpenseName('');
@@ -356,10 +365,10 @@ export function SettingsScreen() {
             title={t('settings.categories.incomeTitle')}
             counter={t('settings.categories.count', { count: incomeCategories.length })}
             toolbar={
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 max-[640px]:w-full max-[640px]:flex-col max-[640px]:items-stretch">
                 <input
                   type="search"
-                  className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
+                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${TAP_INPUT}`}
                   placeholder={t('table.searchPlaceholder')}
                   value={incomeSearch}
                   onChange={(e) => setIncomeSearch(e.target.value)}
@@ -368,7 +377,7 @@ export function SettingsScreen() {
                 {!isAddingIncome && (
                   <button
                     type="button"
-                    className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-sky-500 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300"
+                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-sky-500 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300 max-[640px]:justify-center ${PHONE_CHIP}`}
                     onClick={() => setIsAddingIncome(true)}
                   >
                     {t('settings.categories.addIncome')}
@@ -378,10 +387,10 @@ export function SettingsScreen() {
             }
           >
             {isAddingIncome && (
-              <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/60">
+              <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-3 max-[640px]:px-3 dark:border-slate-800 dark:bg-slate-900/60">
                 <input
                   type="text"
-                  className="h-6 min-h-6 flex-1 rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
+                  className="h-6 min-h-6 min-w-0 flex-1 max-[640px]:h-10 rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
                   placeholder={t('settings.categories.namePlaceholder')}
                   value={newIncomeName}
                   onChange={(e) => setNewIncomeName(e.target.value)}
@@ -393,7 +402,7 @@ export function SettingsScreen() {
                 />
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                  className={`inline-flex h-[22px] min-h-[22px] cursor-pointer items-center justify-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 ${TAP_CONTROL}`}
                   onClick={() => void handleCreateCategory('income')}
                   title={t('expenses.actions.save')}
                 >
@@ -401,7 +410,7 @@ export function SettingsScreen() {
                 </button>
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                  className={`inline-flex h-[22px] min-h-[22px] cursor-pointer items-center justify-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100 ${TAP_CONTROL}`}
                   onClick={() => {
                     setIsAddingIncome(false);
                     setNewIncomeName('');
@@ -426,7 +435,7 @@ export function SettingsScreen() {
       ) : (
         <section className="grid gap-3">
           <DataPanel title={t('settings.tabs.preferences')} description={t('settings.subtitle')}>
-            <div className="flex flex-col gap-4 p-6">
+            <div className="flex flex-col gap-4 p-6 max-[640px]:px-3 max-[640px]:py-2">
               <article className="flex items-center justify-between border-b border-slate-200 py-3 dark:border-slate-800">
                 <div>
                   <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100">
@@ -465,7 +474,7 @@ export function SettingsScreen() {
                 <button
                   type="button"
                   onClick={() => setIsAdjustBalanceOpen(true)}
-                  className="inline-flex h-6 min-w-[76px] shrink-0 cursor-pointer items-center justify-center gap-1 rounded-[3px] border border-indigo-300 bg-indigo-50 px-2 text-[11px] font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/60"
+                  className="inline-flex h-6 min-w-[76px] shrink-0 cursor-pointer items-center justify-center gap-1 max-[640px]:h-10 max-[640px]:px-3 rounded-[3px] border border-indigo-300 bg-indigo-50 px-2 text-[11px] font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/60"
                 >
                   <span>⚖️</span>
                   {t('transactions.balanceAdjust.actionButton')}
@@ -485,7 +494,7 @@ export function SettingsScreen() {
                   role="switch"
                   aria-checked={isReactScanEnabled}
                   aria-label={t('settings.preferences.reactScanTitle')}
-                  className={`inline-flex h-6 min-w-[76px] shrink-0 items-center justify-center rounded-[3px] border px-2 text-[11px] font-semibold transition-colors ${
+                  className={`inline-flex h-6 min-w-[76px] shrink-0 items-center justify-center rounded-[3px] border px-2 text-[11px] font-semibold transition-colors max-[640px]:h-10 max-[640px]:px-3 ${
                     isReactScanEnabled
                       ? 'border-violet-500 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-400 dark:bg-violet-950/50 dark:text-violet-300'
                       : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'

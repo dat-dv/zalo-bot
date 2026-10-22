@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getCalendarGridRange, getEventDateKeys } from './calendar-date-utils';
+import {
+  addDays,
+  getCalendarGridRange,
+  getEventDateKeys,
+  getWeekDays,
+  toDateKey,
+} from './calendar-date-utils';
 
 void test('requests the complete visible grid instead of only future calendar events', () => {
   const range = getCalendarGridRange(new Date(2026, 7, 1));
@@ -31,4 +37,23 @@ void test('uses Google all-day event end dates as exclusive', () => {
     }),
     ['2026-08-31', '2026-09-01', '2026-09-02'],
   );
+});
+
+void test('builds the Monday-to-Sunday week around a date, across a month boundary', () => {
+  const week = getWeekDays(new Date(2026, 8, 2, 15, 30)).map(toDateKey);
+
+  assert.deepEqual(week, [
+    '2026-08-31',
+    '2026-09-01',
+    '2026-09-02',
+    '2026-09-03',
+    '2026-09-04',
+    '2026-09-05',
+    '2026-09-06',
+  ]);
+  assert.equal(toDateKey(getWeekDays(new Date(2026, 8, 6))[0]), '2026-08-31');
+});
+
+void test('moves by whole days at local midnight', () => {
+  assert.equal(toDateKey(addDays(new Date(2026, 9, 31, 23, 0), 7)), '2026-11-07');
 });

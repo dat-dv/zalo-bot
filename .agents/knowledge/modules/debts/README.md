@@ -33,6 +33,17 @@
 
 - `CombineDebtsDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard).
 
+## Compact / phone layout
+
+Desktop (> 960px) is unchanged. See [Mobile List Mode](../../global/web-ui-direction.md#mobile-list-mode-datatable-compact--960px).
+
+- **List mapping** (`DebtsTable`, also on Home): primary `counterparty` (+ ` · alias`, prefixed `✓ ` when selected), trailing `remainingAmount` (masked via `useMoneyFormatter`, colored like the cell: emerald receivable / amber payable / slate when 0), secondary direction · status · due date (+ `debts.paidPercent` when partially paid). On compact the direction column precedes status so the row reads in that order; the expand chevron is hidden because the sheet always shows sub-details.
+- **Detail sheet**: every column via `cell`; footer = Select toggle (see below), Repay, Edit. Edit switches the sheet cells to the inline inputs (40px), including `type="date"` due date; Save/✕ in the footer. Double-click editing stays desktop-only.
+- **Sub-details in the sheet** (`renderExpandedRow`, `useIsCompact`): child debts and payment history render as flat two-line lists (min 52px, `border-b`) instead of nested horizontal tables; each payment row has a 40×40px delete button (still `window.confirm`).
+- **Selection on compact**: list rows are one button, so the `select` checkbox column is dropped and the sheet footer gets a `debts.selectOne` / `debts.deselectOne` toggle (`aria-pressed`). Toolbar Select all / clear-selection chips still work. With >= 2 selected, Combine moves to `MobileActionBar`; the toolbar copy is `max-[960px]:hidden`.
+- **Toolbar (<= 640px)**: status + direction + selection chips share one sideways-scrolling 40px chip row (`MOBILE_TOOLBAR_ROW`; selection chips `order-last`; inner groups `display: contents`), then a full-width 40px search. Toast uses `TOAST_POSITION`; Retry is 40px.
+- **CombineDebtsDialog**: `phoneLayout="fullscreen"`; ✕ `MODAL_CLOSE_TAP`; footer buttons `MODAL_FOOTER_TAP`; inputs `TAP_INPUT`; the selected-debts table's `max-h-40` scroll box becomes `max-sm:max-h-none max-sm:overflow-visible` so only the panel scrolls.
+
 ## Backend rules (`FinanceService`)
 
 - `PATCH /api/debts/:id`: editing `remainingAmount` sets `status`/`settledAt` (`settled` at 0); `amount` (alternative) keeps the paid part and rejects values below it.

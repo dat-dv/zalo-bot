@@ -34,6 +34,8 @@ import {
   type ChatRowFilter,
   type ChatRowSort,
 } from '../model/chat-rows';
+import { ChatListRow } from '../presentation/components/chat-list-row';
+import type { ChatRowProps } from '../presentation/components/chat-row-parts';
 import { ChatTableRow } from '../presentation/components/chat-table-row';
 import { UserFormDialog } from '../presentation/components/user-form-dialog';
 import {
@@ -53,8 +55,17 @@ import {
 } from '@/modules/users/api/users-query';
 import { MergeUserDialog } from '@/modules/users/presentation/components/merge-user-dialog';
 import { LinkedContactsDialog } from '@/modules/users/presentation/components/linked-contacts-dialog';
+import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
+import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
+import {
+  Modal,
+  MODAL_CLOSE_TAP,
+  MODAL_FOOTER_TAP,
+  MODAL_STICKY_FOOTER,
+  MODAL_STICKY_HEADER,
+} from '@/shared/ui/modal';
+import { MOBILE_TOOLBAR_ROW, TAP_CONTROL } from '@/shared/ui/touch';
 
 const FILTER_TABS: { key: ChatRowFilter; label: string; activeClass?: string }[] = [
   { key: 'all', label: 'Tất cả' },
@@ -80,6 +91,13 @@ const SORT_OPTIONS: { value: ChatRowSort; label: string }[] = [
   { value: 'members_desc', label: 'Nhóm đông thành viên nhất' },
 ];
 
+const LOADING_ROWS_MESSAGE = 'Đang tải danh sách nhóm, bạn bè và người dùng...';
+const NO_ROWS_MESSAGE =
+  'Chưa có cuộc trò chuyện hay người dùng nào. Hãy đăng nhập Zalo hoặc thêm thủ công ở trên.';
+const NO_MATCH_MESSAGE = 'Không tìm thấy kết quả phù hợp với từ khóa hoặc bộ lọc.';
+const QR_LOGIN_LABEL = 'Quét mã QR đăng nhập';
+const ADD_USER_LABEL = '+ Thêm người dùng';
+
 function isChatRowSort(value: string): value is ChatRowSort {
   return SORT_OPTIONS.some((option) => option.value === value);
 }
@@ -90,6 +108,7 @@ type UserDialogState =
 
 export function ZcaScreen() {
   const { t, locale } = useLocale();
+  const isCompact = useIsCompact();
   const [pollInterval, setPollInterval] = useState<number | false>(false);
   const { data: status, refetch: refetchStatus } = useZcaStatusQuery({
     refetchInterval: pollInterval,
@@ -361,12 +380,30 @@ export function ZcaScreen() {
       })
     : null;
   const isTableLoading = isUsersLoading || (Boolean(status?.loggedIn) && isThreadsLoading);
+  const emptyRowsMessage = chatRows.length === 0 ? NO_ROWS_MESSAGE : NO_MATCH_MESSAGE;
+  const rowKey = (row: ChatRow) => `${row.kind}:${row.id}`;
+  const rowProps = (row: ChatRow): ChatRowProps => ({
+    row,
+    config: configMap.get(row.id),
+    isCopied: copiedId === row.id,
+    onCopyId: copyToClipboard,
+    onDeleteThread: (r) => void handleDeleteThread(r),
+    onDeleteUser: (r) => void handleDeleteUser(r),
+    onDriveOpened: handleDriveOpened,
+    onEditUser: handleEditUser,
+    onMergeUser: handleMergeUser,
+    onViewLinkedContacts: handleViewLinkedContacts,
+    onSyncMedia: setSyncThreadTarget,
+    onToggleAccess: (r) => void handleToggleAccess(r),
+    onToggleListen: (threadId) => void handleToggleThread(threadId),
+  });
 
   return (
     <div className="flex flex-col gap-4 p-1">
       {/* Page Title */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        {/* Compact screens: the topbar already shows the route title. */}
+        <div className="max-[960px]:hidden">
           <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Zalo & Người dùng
           </h1>
@@ -375,7 +412,7 @@ export function ZcaScreen() {
             cho từng người.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 max-[640px]:w-full max-[640px]:flex-wrap">
           {threadsFetchedAtLabel && (
             <span
               className="text-xs text-slate-500 dark:text-slate-400"
@@ -385,7 +422,7 @@ export function ZcaScreen() {
             </span>
           )}
           <button
-            className="inline-flex items-center gap-1.5 rounded-[4px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            className={`inline-flex items-center gap-1.5 rounded-[4px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${TAP_CONTROL}`}
             disabled={isRefreshing}
             onClick={() => void handleRefreshAll()}
             title="Làm mới trạng thái và cập nhật lại danh bạ, nhóm từ Zalo"
@@ -396,7 +433,7 @@ export function ZcaScreen() {
           </button>
           {status?.loggedIn ? (
             <button
-              className="inline-flex items-center gap-1.5 rounded-[4px] border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-semibold text-rose-700 shadow-sm hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900"
+              className={`inline-flex items-center gap-1.5 rounded-[4px] border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-semibold text-rose-700 shadow-sm hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900 ${TAP_CONTROL}`}
               disabled={isLoggingOut}
               onClick={() => void handleLogout()}
               type="button"
@@ -406,12 +443,13 @@ export function ZcaScreen() {
             </button>
           ) : (
             <button
-              className="inline-flex items-center gap-1.5 rounded-[4px] bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none"
+              // Compact screens get this action in the MobileActionBar instead.
+              className="inline-flex items-center gap-1.5 rounded-[4px] bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none max-[960px]:hidden"
               onClick={() => void handleOpenQrLogin(false)}
               type="button"
             >
               <QrIcon />
-              Quét mã QR đăng nhập
+              {QR_LOGIN_LABEL}
             </button>
           )}
         </div>
@@ -510,7 +548,7 @@ export function ZcaScreen() {
       {/* Notice Banner */}
       {notice && (
         <div
-          className={`flex items-center justify-between rounded-lg border p-3 text-sm font-medium ${
+          className={`flex items-center justify-between rounded-lg border p-3 text-sm font-medium max-[640px]:py-1 max-[640px]:pr-1 ${
             notice.type === 'success'
               ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300'
               : 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300'
@@ -522,7 +560,7 @@ export function ZcaScreen() {
           </span>
           <button
             aria-label="Đóng thông báo"
-            className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+            className="text-xs text-slate-400 hover:text-slate-600 max-[640px]:inline-flex max-[640px]:size-10 max-[640px]:shrink-0 max-[640px]:items-center max-[640px]:justify-center dark:hover:text-slate-200"
             onClick={() => setNotice(null)}
             type="button"
           >
@@ -532,7 +570,7 @@ export function ZcaScreen() {
       )}
 
       {/* Main Section: Danh sách cuộc trò chuyện & người dùng */}
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm max-[640px]:p-3 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-3">
           {/* Header & Quick Action Buttons */}
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
@@ -546,9 +584,11 @@ export function ZcaScreen() {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div
+              className={`flex flex-wrap items-center gap-2 max-[640px]:w-full ${MOBILE_TOOLBAR_ROW}`}
+            >
               <button
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${TAP_CONTROL}`}
                 disabled={syncUsersMutation.isPending}
                 onClick={() => void handleSyncUsers()}
                 title="Đồng bộ tên, avatar và SĐT từ danh bạ Zalo cá nhân (ZCA) sang người dùng"
@@ -558,14 +598,15 @@ export function ZcaScreen() {
                 {syncUsersMutation.isPending ? 'Đang đồng bộ...' : 'Đồng bộ thông tin'}
               </button>
               <button
-                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+                // Compact screens get this action in the MobileActionBar instead.
+                className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 max-[960px]:hidden dark:bg-indigo-500 dark:hover:bg-indigo-600"
                 onClick={() => setUserDialog({ mode: 'create' })}
                 type="button"
               >
-                + Thêm người dùng
+                {ADD_USER_LABEL}
               </button>
               <a
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400"
+                className={`${TAP_CONTROL} inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400`}
                 href={driveRootData?.webViewLink || getThreadDriveOpenUrl()}
                 rel="noopener noreferrer"
                 target="_blank"
@@ -583,9 +624,9 @@ export function ZcaScreen() {
             className="flex flex-wrap items-center gap-2 rounded-md bg-slate-50 p-2.5 dark:bg-slate-800/60"
             onSubmit={handleAddManualId}
           >
-            <div className="min-w-[220px] flex-1">
+            <div className="min-w-[220px] flex-1 max-[640px]:min-w-full">
               <input
-                className="w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                className="w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs max-[640px]:h-10 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
                 onChange={(e) => setManualId(e.target.value)}
                 placeholder="Nhập ID Nhóm hoặc ID Người dùng để bật lắng nghe (ví dụ: g-123456 hoặc 987654321)..."
                 type="text"
@@ -593,7 +634,7 @@ export function ZcaScreen() {
               />
             </div>
             <button
-              className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+              className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 max-[640px]:h-10 max-[640px]:w-full dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
               type="submit"
             >
               + Bật lắng nghe ID
@@ -601,21 +642,24 @@ export function ZcaScreen() {
             {manualError && <p className="w-full text-xs text-rose-500">{manualError}</p>}
           </form>
 
-          {/* Search, Sort & Filters */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <div className="flex flex-wrap items-center gap-2">
+          {/* Search, Sort & Filters. Phones: full-width search, then one sideways-scrolling row. */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1 max-[640px]:flex-col max-[640px]:items-stretch max-[640px]:gap-2">
+            <div className="flex flex-wrap items-center gap-2 max-[640px]:flex-col max-[640px]:items-stretch">
               <div className="relative">
                 <input
-                  className="w-64 rounded border border-slate-300 bg-white py-1.5 pl-7 pr-7 text-xs text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+                  className="w-64 rounded border border-slate-300 bg-white py-1.5 pl-7 pr-7 text-xs text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none max-[640px]:h-10 max-[640px]:w-full max-[640px]:pr-10 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Tìm theo tên, gợi nhớ, SĐT, ID..."
                   type="text"
                   value={search}
                 />
-                <span className="absolute left-2.5 top-1.5 text-xs text-slate-400">🔍</span>
+                <span className="absolute left-2.5 top-1.5 text-xs text-slate-400 max-[640px]:top-1/2 max-[640px]:-translate-y-1/2">
+                  🔍
+                </span>
                 {search && (
                   <button
-                    className="absolute right-2 top-1.5 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    aria-label="Xóa tìm kiếm"
+                    className="absolute right-2 top-1.5 text-xs text-slate-400 hover:text-slate-600 max-[640px]:top-0 max-[640px]:right-0 max-[640px]:inline-flex max-[640px]:size-10 max-[640px]:items-center max-[640px]:justify-center dark:hover:text-slate-200"
                     onClick={() => setSearch('')}
                     title="Xóa tìm kiếm"
                     type="button"
@@ -625,10 +669,12 @@ export function ZcaScreen() {
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5">
+              {/* Phones show the sort select in the chip row below. */}
+              <div className="flex items-center gap-1.5 max-[640px]:hidden">
                 <span className="text-xs text-slate-500">Sắp xếp:</span>
                 <select
                   className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+                  aria-label="Sắp xếp"
                   onChange={(e) => {
                     if (isChatRowSort(e.target.value)) setSortBy(e.target.value);
                   }}
@@ -649,101 +695,118 @@ export function ZcaScreen() {
               )}
             </div>
 
-            <div className="flex flex-wrap items-center rounded-md border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800">
-              {FILTER_TABS.map((tab) => (
-                <button
-                  className={`rounded px-2.5 py-1 text-xs font-medium ${
-                    filter === tab.key
-                      ? tab.activeClass ||
-                        'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100'
-                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
-                  }`}
-                  key={tab.key}
-                  onClick={() => setFilter(tab.key)}
-                  type="button"
+            <div className={`flex gap-1.5 ${MOBILE_TOOLBAR_ROW}`}>
+              {isCompact && (
+                <select
+                  className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 hidden h-10 shrink-0 max-[640px]:block"
+                  aria-label="Sắp xếp"
+                  onChange={(e) => {
+                    if (isChatRowSort(e.target.value)) setSortBy(e.target.value);
+                  }}
+                  value={sortBy}
                 >
-                  {tab.label} ({rowCounts[tab.key]})
-                </button>
-              ))}
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <div className="flex flex-wrap items-center rounded-md border border-slate-200 bg-slate-100 p-0.5 max-[640px]:shrink-0 max-[640px]:flex-nowrap dark:border-slate-700 dark:bg-slate-800">
+                {FILTER_TABS.map((tab) => (
+                  <button
+                    className={`rounded px-2.5 py-1 text-xs font-medium max-[640px]:h-10 max-[640px]:shrink-0 max-[640px]:px-3 max-[640px]:text-[12.5px] max-[640px]:whitespace-nowrap ${
+                      filter === tab.key
+                        ? tab.activeClass ||
+                          'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
+                    }`}
+                    key={tab.key}
+                    onClick={() => setFilter(tab.key)}
+                    type="button"
+                  >
+                    {tab.label} ({rowCounts[tab.key]})
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Bảng hợp nhất */}
-          <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-800">
-            <table className="min-w-full divide-y divide-slate-200 text-left text-xs dark:divide-slate-800">
-              <thead className="bg-slate-50 dark:bg-slate-800/50">
-                <tr>
-                  <th className="w-20 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
-                    Loại
-                  </th>
-                  <th className="whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
-                    Cuộc trò chuyện / Người dùng
-                  </th>
-                  <th className="w-40 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
-                    ID
-                  </th>
-                  <th className="w-28 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
-                    Lắng nghe
-                  </th>
-                  <th className="w-40 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
-                    Tính năng
-                  </th>
-                  <th className="w-48 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
-                    Quyền tương tác
-                  </th>
-                  <th className="w-28 text-right whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
-                    Thao tác
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
-                {isTableLoading ? (
+          {/* Compact screens: a flat two-line list (tap a row for details and actions). */}
+          {isCompact ? (
+            <ul className="m-0 list-none rounded border border-slate-200 p-0 dark:border-slate-800">
+              {isTableLoading ? (
+                <li className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center text-xs text-slate-400">
+                  <span className="size-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                  <span>{LOADING_ROWS_MESSAGE}</span>
+                </li>
+              ) : sortedRows.length === 0 ? (
+                <li className="px-4 py-8 text-center text-xs text-slate-400">{emptyRowsMessage}</li>
+              ) : (
+                paginatedRows.map((row) => <ChatListRow key={rowKey(row)} {...rowProps(row)} />)
+              )}
+            </ul>
+          ) : (
+            /* Bảng hợp nhất */
+            <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-800">
+              <table className="min-w-full divide-y divide-slate-200 text-left text-xs dark:divide-slate-800">
+                <thead className="bg-slate-50 dark:bg-slate-800/50">
                   <tr>
-                    <td className="px-4 py-12 text-center text-slate-400" colSpan={7}>
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <span className="size-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-                        <span>Đang tải danh sách nhóm, bạn bè và người dùng...</span>
-                      </div>
-                    </td>
+                    <th className="w-20 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
+                      Loại
+                    </th>
+                    <th className="whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
+                      Cuộc trò chuyện / Người dùng
+                    </th>
+                    <th className="w-40 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
+                      ID
+                    </th>
+                    <th className="w-28 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
+                      Lắng nghe
+                    </th>
+                    <th className="w-40 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
+                      Tính năng
+                    </th>
+                    <th className="w-48 whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
+                      Quyền tương tác
+                    </th>
+                    <th className="w-28 text-right whitespace-nowrap px-3.5 py-2 font-semibold text-slate-700 dark:text-slate-300">
+                      Thao tác
+                    </th>
                   </tr>
-                ) : sortedRows.length === 0 ? (
-                  <tr>
-                    <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
-                      {chatRows.length === 0
-                        ? 'Chưa có cuộc trò chuyện hay người dùng nào. Hãy đăng nhập Zalo hoặc thêm thủ công ở trên.'
-                        : 'Không tìm thấy kết quả phù hợp với từ khóa hoặc bộ lọc.'}
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedRows.map((row) => (
-                    <ChatTableRow
-                      config={configMap.get(row.id)}
-                      isCopied={copiedId === row.id}
-                      key={`${row.kind}:${row.id}`}
-                      onCopyId={copyToClipboard}
-                      onDeleteThread={(r) => void handleDeleteThread(r)}
-                      onDeleteUser={(r) => void handleDeleteUser(r)}
-                      onDriveOpened={handleDriveOpened}
-                      onEditUser={handleEditUser}
-                      onMergeUser={handleMergeUser}
-                      onViewLinkedContacts={handleViewLinkedContacts}
-                      onSyncMedia={setSyncThreadTarget}
-                      onToggleAccess={(r) => void handleToggleAccess(r)}
-                      onToggleListen={(threadId) => void handleToggleThread(threadId)}
-                      row={row}
-                    />
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white dark:divide-slate-800 dark:bg-slate-900">
+                  {isTableLoading ? (
+                    <tr>
+                      <td className="px-4 py-12 text-center text-slate-400" colSpan={7}>
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <span className="size-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                          <span>{LOADING_ROWS_MESSAGE}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : sortedRows.length === 0 ? (
+                    <tr>
+                      <td className="px-4 py-8 text-center text-slate-400" colSpan={7}>
+                        {emptyRowsMessage}
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedRows.map((row) => (
+                      <ChatTableRow key={rowKey(row)} {...rowProps(row)} />
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Pagination Controls */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs text-slate-600 dark:text-slate-400">
             <div className="flex items-center gap-2">
               <span>Số mục mỗi trang:</span>
               <select
-                className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 max-[640px]:h-10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                 onChange={(e) => setPageSize(Number(e.target.value))}
                 value={pageSize}
               >
@@ -766,7 +829,7 @@ export function ZcaScreen() {
             {totalPages > 1 && (
               <div className="flex items-center gap-1">
                 <button
-                  className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+                  className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 max-[640px]:h-10 max-[640px]:px-3 dark:border-slate-700 dark:hover:bg-slate-800"
                   disabled={currentPage <= 1}
                   onClick={() => setPage(Math.max(1, currentPage - 1))}
                   type="button"
@@ -777,7 +840,7 @@ export function ZcaScreen() {
                   {currentPage} / {totalPages}
                 </span>
                 <button
-                  className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+                  className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 max-[640px]:h-10 max-[640px]:px-3 dark:border-slate-700 dark:hover:bg-slate-800"
                   disabled={currentPage >= totalPages}
                   onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
                   type="button"
@@ -789,6 +852,26 @@ export function ZcaScreen() {
           </div>
         </div>
       </div>
+
+      <MobileActionBar>
+        {status && !status.loggedIn && (
+          <button
+            className={`${MOBILE_ACTION_BUTTON} border-blue-600 bg-blue-600 text-white hover:bg-blue-700`}
+            onClick={() => void handleOpenQrLogin(false)}
+            type="button"
+          >
+            <QrIcon />
+            {QR_LOGIN_LABEL}
+          </button>
+        )}
+        <button
+          className={`${MOBILE_ACTION_BUTTON} border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700 dark:border-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-600`}
+          onClick={() => setUserDialog({ mode: 'create' })}
+          type="button"
+        >
+          {ADD_USER_LABEL}
+        </button>
+      </MobileActionBar>
 
       {/* QR Login Modal */}
       <Modal
@@ -805,7 +888,8 @@ export function ZcaScreen() {
             Đăng nhập Zalo cá nhân (ZCA)
           </h3>
           <button
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            aria-label={t('common.close')}
+            className={`rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200 ${MODAL_CLOSE_TAP}`}
             onClick={() => setIsQrModalOpen(false)}
             type="button"
           >
@@ -854,7 +938,7 @@ export function ZcaScreen() {
                 <span>⏰ Mã QR đã hết hạn.</span>
               </div>
               <button
-                className="mt-1 font-semibold underline hover:text-amber-900 dark:hover:text-amber-100"
+                className="mt-1 font-semibold underline max-sm:min-h-10 max-sm:px-2 hover:text-amber-900 dark:hover:text-amber-100"
                 onClick={() => void handleOpenQrLogin(true)}
                 type="button"
               >
@@ -865,7 +949,7 @@ export function ZcaScreen() {
             <div className="w-full flex flex-col items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300">
               <span>❌ Yêu cầu đăng nhập đã bị từ chối trên điện thoại.</span>
               <button
-                className="mt-1 font-semibold underline hover:text-rose-900 dark:hover:text-rose-100"
+                className="mt-1 font-semibold underline max-sm:min-h-10 max-sm:px-2 hover:text-rose-900 dark:hover:text-rose-100"
                 onClick={() => void handleOpenQrLogin(true)}
                 type="button"
               >
@@ -876,7 +960,7 @@ export function ZcaScreen() {
             <div className="w-full flex flex-col items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300">
               <span>⚠️ Đăng nhập thất bại: {status.qrStatus.error || status.qrStatus.message}</span>
               <button
-                className="mt-1 font-semibold underline hover:text-rose-900 dark:hover:text-rose-100"
+                className="mt-1 font-semibold underline max-sm:min-h-10 max-sm:px-2 hover:text-rose-900 dark:hover:text-rose-100"
                 onClick={() => void handleOpenQrLogin(true)}
                 type="button"
               >
@@ -907,14 +991,14 @@ export function ZcaScreen() {
           className={`${MODAL_STICKY_FOOTER} flex justify-end gap-2 border-t border-slate-100 bg-white pt-3 pb-5 dark:border-slate-800 dark:bg-slate-900`}
         >
           <button
-            className="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+            className={`rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 ${MODAL_FOOTER_TAP}`}
             onClick={() => void handleOpenQrLogin(true)}
             type="button"
           >
             Làm mới mã QR
           </button>
           <button
-            className="rounded bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900"
+            className={`rounded bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 ${MODAL_FOOTER_TAP}`}
             onClick={() => setIsQrModalOpen(false)}
             type="button"
           >

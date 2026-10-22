@@ -4,7 +4,13 @@ import { useId, useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { GrantAccessStatus, UserRole, type IUserListItem } from '@zalobot/contracts';
 import { useCreateUserMutation, useUpdateUserMutation } from '@/modules/users/api/users-query';
-import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
+import {
+  Modal,
+  MODAL_CLOSE_TAP,
+  MODAL_FOOTER_TAP,
+  MODAL_STICKY_FOOTER,
+  MODAL_STICKY_HEADER,
+} from '@/shared/ui/modal';
 
 interface UserFormDialogProps {
   /** Edit an existing user; omit to create a new one. */
@@ -16,7 +22,7 @@ interface UserFormDialogProps {
 }
 
 const inputClass =
-  'mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100';
+  'mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 max-sm:h-10';
 const labelClass = 'block text-xs font-semibold uppercase tracking-wider text-slate-500';
 
 function apiErrorMessage(err: unknown, fallback: string): string {
@@ -95,7 +101,7 @@ export function UserFormDialog({ user, initialId, initialName, onClose }: UserFo
         </h3>
         <button
           aria-label="Đóng"
-          className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+          className={`rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 ${MODAL_CLOSE_TAP}`}
           onClick={onClose}
           type="button"
         >
@@ -177,7 +183,7 @@ export function UserFormDialog({ user, initialId, initialName, onClose }: UserFo
         </div>
 
         {!isEdit && (
-          <label className="flex cursor-pointer items-center gap-3 pt-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+          <label className="flex cursor-pointer items-center gap-3 pt-1 text-sm font-medium text-slate-700 max-sm:min-h-10 max-sm:pt-0 dark:text-slate-300">
             <input
               checked={grantAccess}
               className="size-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -192,14 +198,14 @@ export function UserFormDialog({ user, initialId, initialName, onClose }: UserFo
           className={`${MODAL_STICKY_FOOTER} mt-2 flex items-center justify-end gap-2 bg-white pt-2 pb-6 dark:bg-slate-900`}
         >
           <button
-            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+            className={`rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${MODAL_FOOTER_TAP}`}
             onClick={onClose}
             type="button"
           >
             Hủy
           </button>
           <button
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 active:scale-95 disabled:opacity-50"
+            className={`rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 active:scale-95 disabled:opacity-50 ${MODAL_FOOTER_TAP}`}
             disabled={isPending}
             type="submit"
           >

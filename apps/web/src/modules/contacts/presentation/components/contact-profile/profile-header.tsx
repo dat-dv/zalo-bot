@@ -43,7 +43,7 @@ export function ProfileHeader({ contact }: { contact: IContactProfile }) {
   return (
     <section className="flex min-w-0 flex-col gap-2 rounded border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-800 dark:bg-slate-900">
       <Link
-        className="w-fit text-[11px] font-medium text-slate-500 hover:text-sky-600 dark:text-slate-400 dark:hover:text-sky-400"
+        className="w-fit text-[11px] font-medium text-slate-500 hover:text-sky-600 max-[640px]:-my-2 max-[640px]:inline-flex max-[640px]:min-h-10 max-[640px]:items-center max-[640px]:text-[12.5px] dark:text-slate-400 dark:hover:text-sky-400"
         href={APP_ROUTES.contacts}
       >
         ← {t('contacts.profile.back')}

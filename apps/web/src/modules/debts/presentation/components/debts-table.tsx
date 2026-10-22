@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { localeTag, type IDebtListItem } from '@zalobot/contracts';
+import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
@@ -44,6 +45,22 @@ export function getDebtStatus(item: IDebtListItem): 'active' | 'settled' {
   return item.remainingAmount === 0 || item.settledAt ? 'settled' : 'active';
 }
 
+function getPaidProgress(item: IDebtListItem): { paidTotal: number; paidPct: number } {
+  const paidTotal = item.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
+  const paidPct =
+    item.originalAmount > 0
+      ? Math.min(Math.round((paidTotal / item.originalAmount) * 100), 100)
+      : 0;
+  return { paidTotal, paidPct };
+}
+
+const remainingAmountTone = (item: Pick<IDebtListItem, 'remainingAmount' | 'direction'>) =>
+  item.remainingAmount === 0
+    ? 'font-normal text-slate-400 dark:text-slate-500'
+    : item.direction === 'receivable'
+      ? 'text-emerald-700 dark:text-emerald-400'
+      : 'text-amber-700 dark:text-amber-400';
+
 export function DebtsTable({
   id = 'debts-table',
   debts,
@@ -67,6 +84,8 @@ export function DebtsTable({
 }: DebtsTableProps) {
   const { locale, t } = useLocale();
   const money = useMoneyFormatter();
+  // Compact screens render the DataTable as a list + detail sheet (see DataTable mobileSlot).
+  const isCompact = useIsCompact();
   const [expandedDebtIds, setExpandedDebtIds] = useState<Set<string>>(new Set());
 
   // Only display root level debts in main table to prevent STT numbering pollution
@@ -84,11 +103,16 @@ export function DebtsTable({
   );
 
   const columns = useMemo<DataTableColumn<IDebtListItem>[]>(() => {
-    const hasActions = Boolean(onStartEdit || onSaveEdit || onQuickSettle || onDelete);
+    // List rows are a single button, so on compact screens selection moves from the
+    // checkbox column to a Select toggle in the detail sheet footer.
+    const hasSheetSelectToggle = isCompact && Boolean(onToggleSelect && selectedIds);
+    const hasActions = Boolean(
+      onStartEdit || onSaveEdit || onQuickSettle || onDelete || hasSheetSelectToggle,
+    );
 
     const list: DataTableColumn<IDebtListItem>[] = [];
 
-    if (onToggleSelect && selectedIds) {
+    if (onToggleSelect && selectedIds && !isCompact) {
       list.push({
         id: 'select',
         header: (
@@ -115,74 +139,88 @@ export function DebtsTable({
       });
     }
 
+    const statusColumn: DataTableColumn<IDebtListItem> = {
+      id: 'status',
+      header: t('debts.columns.status'),
+      minWidth: '100px',
+      width: 100,
+      hideable: false,
+      mobileSlot: 'secondary',
+      mobileCell: (item) =>
+        getDebtStatus(item) === 'settled' ? t('debts.status.settled') : t('debts.status.active'),
+      cell: (item) => {
+        const status = getDebtStatus(item);
+        return (
+          <span
+            className={`inline-flex items-center rounded-[2px] border px-1.5 py-0.5 text-[10px] font-semibold select-none ${
+              status === 'settled'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+            }`}
+          >
+            {status === 'settled' ? t('debts.status.settled') : t('debts.status.active')}
+          </span>
+        );
+      },
+    };
+    const directionColumn: DataTableColumn<IDebtListItem> = {
+      id: 'direction',
+      header: t('dashboard.columns.direction'),
+      minWidth: '100px',
+      mobileSlot: 'secondary',
+      mobileCell: (item) =>
+        item.direction === 'receivable' ? t('table.filter.receivable') : t('table.filter.payable'),
+      cell: (item) => {
+        if (editingId === item.id && editDraft && onChangeEditDraft) {
+          return (
+            <select
+              className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
+              value={editDraft.direction}
+              onChange={(e) =>
+                onChangeEditDraft((prev) => ({
+                  ...prev,
+                  direction: e.target.value as 'receivable' | 'payable',
+                }))
+              }
+              aria-label={t('dashboard.columns.direction')}
+            >
+              <option value="receivable">{t('table.filter.receivable')}</option>
+              <option value="payable">{t('table.filter.payable')}</option>
+            </select>
+          );
+        }
+        return (
+          <span
+            className={`inline-flex items-center rounded-[2px] border px-1.5 py-0.5 text-[10px] font-semibold select-none ${
+              onStartEdit ? 'cursor-pointer' : ''
+            } ${
+              item.direction === 'receivable'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+            }`}
+            onDoubleClick={() => onStartEdit?.(item)}
+          >
+            {item.direction === 'receivable'
+              ? t('table.filter.receivable')
+              : t('table.filter.payable')}
+          </span>
+        );
+      },
+    };
+
     list.push(
-      {
-        id: 'status',
-        header: t('debts.columns.status'),
-        minWidth: '100px',
-        width: 100,
-        hideable: false,
-        cell: (item) => {
-          const status = getDebtStatus(item);
-          return (
-            <span
-              className={`inline-flex items-center rounded-[2px] border px-1.5 py-0.5 text-[10px] font-semibold select-none ${
-                status === 'settled'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                  : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-              }`}
-            >
-              {status === 'settled' ? t('debts.status.settled') : t('debts.status.active')}
-            </span>
-          );
-        },
-      },
-      {
-        id: 'direction',
-        header: t('dashboard.columns.direction'),
-        minWidth: '100px',
-        cell: (item) => {
-          if (editingId === item.id && editDraft && onChangeEditDraft) {
-            return (
-              <select
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
-                value={editDraft.direction}
-                onChange={(e) =>
-                  onChangeEditDraft((prev) => ({
-                    ...prev,
-                    direction: e.target.value as 'receivable' | 'payable',
-                  }))
-                }
-                aria-label={t('dashboard.columns.direction')}
-              >
-                <option value="receivable">{t('table.filter.receivable')}</option>
-                <option value="payable">{t('table.filter.payable')}</option>
-              </select>
-            );
-          }
-          return (
-            <span
-              className={`inline-flex items-center rounded-[2px] border px-1.5 py-0.5 text-[10px] font-semibold select-none ${
-                onStartEdit ? 'cursor-pointer' : ''
-              } ${
-                item.direction === 'receivable'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                  : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-              }`}
-              onDoubleClick={() => onStartEdit?.(item)}
-            >
-              {item.direction === 'receivable'
-                ? t('table.filter.receivable')
-                : t('table.filter.payable')}
-            </span>
-          );
-        },
-      },
+      // The list row reads "direction · status · due", so direction leads on compact screens.
+      ...(isCompact ? [directionColumn, statusColumn] : [statusColumn, directionColumn]),
       {
         id: 'counterparty',
         header: t('dashboard.columns.counterparty'),
         minWidth: '200px',
         hideable: false,
+        mobileSlot: 'primary',
+        mobileCell: (item) =>
+          `${selectedIds?.has(item.id) ? '✓ ' : ''}${item.counterparty}${
+            item.counterpartyAlias ? ` · ${item.counterpartyAlias}` : ''
+          }`,
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -217,8 +255,8 @@ export function DebtsTable({
 
           return (
             <div className="flex items-center gap-1.5">
-              {/* EXACTLY 1 single dropdown toggle button */}
-              {hasSubDetails && (
+              {/* EXACTLY 1 single dropdown toggle button; the compact sheet always shows sub-details. */}
+              {hasSubDetails && !isCompact && (
                 <button
                   type="button"
                   className="inline-flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-100"
@@ -328,6 +366,10 @@ export function DebtsTable({
         align: 'right',
         minWidth: '140px',
         hideable: false,
+        mobileSlot: 'trailing',
+        mobileCell: (item) => (
+          <span className={remainingAmountTone(item)}>{money(item.remainingAmount)}</span>
+        ),
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -357,11 +399,7 @@ export function DebtsTable({
             );
           }
 
-          const paidTotal = item.payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
-          const paidPct =
-            item.originalAmount > 0
-              ? Math.min(Math.round((paidTotal / item.originalAmount) * 100), 100)
-              : 0;
+          const { paidTotal, paidPct } = getPaidProgress(item);
           const progressTitle =
             paidTotal > 0
               ? t('debts.paidProgressWithCount', {
@@ -378,15 +416,7 @@ export function DebtsTable({
               onDoubleClick={() => onStartEdit?.(item)}
               title={progressTitle}
             >
-              <strong
-                className={`tabular-nums ${
-                  item.remainingAmount === 0
-                    ? 'font-normal text-slate-400 dark:text-slate-500'
-                    : item.direction === 'receivable'
-                      ? 'text-emerald-700 dark:text-emerald-400'
-                      : 'text-amber-700 dark:text-amber-400'
-                }`}
-              >
+              <strong className={`tabular-nums ${remainingAmountTone(item)}`}>
                 {money(item.remainingAmount)}
               </strong>
               {paidTotal > 0 && item.remainingAmount > 0 && (
@@ -415,6 +445,16 @@ export function DebtsTable({
         id: 'dueAt',
         header: t('dashboard.columns.dueDate'),
         minWidth: '130px',
+        mobileSlot: 'secondary',
+        // The list row has no paid-progress bar, so the paid share rides along after the due date.
+        mobileCell: (item) => {
+          const { paidTotal, paidPct } = getPaidProgress(item);
+          const paid =
+            paidTotal > 0 && item.remainingAmount > 0
+              ? t('debts.paidPercent', { percent: paidPct })
+              : '';
+          return [date(item.dueAt), paid].filter(Boolean).join(' · ') || null;
+        },
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -541,9 +581,24 @@ export function DebtsTable({
           }
 
           const isSettled = getDebtStatus(item) === 'settled';
+          const isSelected = Boolean(selectedIds?.has(item.id));
 
           return (
             <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+              {hasSheetSelectToggle && onToggleSelect && (
+                <button
+                  type="button"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
+                    isSelected
+                      ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                      : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                  }`}
+                  onClick={() => onToggleSelect(item.id)}
+                  aria-pressed={isSelected}
+                >
+                  {isSelected ? `✓ ${t('debts.deselectOne')}` : t('debts.selectOne')}
+                </button>
+              )}
               {!isSettled && onQuickSettle && (
                 <button
                   type="button"
@@ -586,6 +641,7 @@ export function DebtsTable({
     editDraft,
     editingId,
     expandedDebtIds,
+    isCompact,
     isPending,
     money,
     onCancelEdit,
@@ -607,6 +663,101 @@ export function DebtsTable({
     const hasChildren = Boolean(item.children && item.children.length > 0);
     const hasPayments = Boolean(item.payments && item.payments.length > 0);
     if (!hasChildren && !hasPayments) return null;
+
+    // Inside the compact detail sheet the nested tables would scroll sideways, so they
+    // become flat two-line lists like the main list rows.
+    if (isCompact) {
+      return (
+        <div className="flex flex-col">
+          {hasChildren && item.children && (
+            <section aria-label={t('debts.badge.parent', { count: item.children.length })}>
+              <h3 className="m-0 flex items-center gap-1.5 border-b border-slate-100 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300">
+                <span className="font-mono text-sky-600 dark:text-sky-400" aria-hidden="true">
+                  ↳
+                </span>
+                {t('debts.badge.parent', { count: item.children.length })}
+              </h3>
+              <ul className="m-0 list-none p-0">
+                {item.children.map((child) => (
+                  <li
+                    key={child.id}
+                    className="flex min-h-[52px] flex-col justify-center gap-0.5 border-b border-slate-100 px-3 py-2 dark:border-slate-800"
+                  >
+                    <span className="flex w-full min-w-0 items-baseline gap-3">
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-900 dark:text-slate-100">
+                        {child.counterparty}
+                        {child.counterpartyAlias ? ` · ${child.counterpartyAlias}` : ''}
+                      </span>
+                      <span
+                        className={`shrink-0 text-[13px] font-semibold tabular-nums ${remainingAmountTone(child)}`}
+                      >
+                        {money(child.remainingAmount)}
+                      </span>
+                    </span>
+                    <span className="block truncate text-[11.5px] text-slate-500 dark:text-slate-400">
+                      {[
+                        `${t('dashboard.columns.original')} ${money(child.originalAmount)}`,
+                        date(child.dueAt),
+                        child.note,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {hasPayments && item.payments && (
+            <section
+              aria-label={t('debts.badge.paymentInstallment', { count: item.payments.length })}
+            >
+              <h3 className="m-0 flex items-center gap-1.5 border-b border-emerald-100 bg-emerald-50/60 px-3 py-2 text-[11px] font-semibold text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
+                <span aria-hidden="true">💸</span>
+                {t('debts.badge.paymentInstallment', { count: item.payments.length })}
+              </h3>
+              <ul className="m-0 list-none p-0">
+                {item.payments.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex min-h-[52px] items-center gap-2 border-b border-slate-100 py-1.5 pr-1.5 pl-3 dark:border-slate-800"
+                  >
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="flex w-full min-w-0 items-baseline gap-3">
+                        <span className="min-w-0 flex-1 truncate text-[13px] text-slate-800 dark:text-slate-200">
+                          {p.note || t('debts.badge.paymentChild')}
+                        </span>
+                        <span className="shrink-0 text-[13px] font-semibold text-emerald-700 tabular-nums dark:text-emerald-400">
+                          - {money(p.amount)}
+                        </span>
+                      </span>
+                      <span className="block truncate text-[11.5px] text-slate-500 dark:text-slate-400">
+                        {date(p.paymentDate || p.createdAt)}
+                        {p.financeTransactionId
+                          ? ` · 🔗 ${t('debts.payments.linkedTransaction')}`
+                          : ''}
+                      </span>
+                    </span>
+                    {onDeletePayment && (
+                      <button
+                        type="button"
+                        className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-[3px] border border-rose-200 bg-white text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-800 dark:bg-slate-900 dark:text-rose-400"
+                        onClick={() => void onDeletePayment(item.id, p.id)}
+                        title={t('common.cancel')}
+                        aria-label={t('common.cancel')}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-3 py-2 pl-12 pr-4">

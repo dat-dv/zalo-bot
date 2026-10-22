@@ -3,7 +3,13 @@
 import { useState, useEffect, useId, useMemo } from 'react';
 import type { IFinancePlace } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
+import {
+  Modal,
+  MODAL_CLOSE_TAP,
+  MODAL_FOOTER_TAP,
+  MODAL_STICKY_FOOTER,
+  MODAL_STICKY_HEADER,
+} from '@/shared/ui/modal';
 import { useCombinePlacesMutation } from '../../api/places-query';
 
 interface CombinePlacesDialogProps {
@@ -108,7 +114,7 @@ export function CombinePlacesDialog({
         </div>
         <button
           type="button"
-          className="flex size-7 cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          className={`flex size-7 cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 ${MODAL_CLOSE_TAP}`}
           onClick={onClose}
           disabled={combineMutation.isPending}
           aria-label={t('common.close')}
@@ -130,7 +136,7 @@ export function CombinePlacesDialog({
 
           {/* Top section: Selected places collection */}
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between max-sm:flex-wrap max-sm:gap-x-2">
               <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {t('places.combineModal.placesList')} ({selectedPlaces.length})
               </span>
@@ -139,7 +145,8 @@ export function CombinePlacesDialog({
               </span>
             </div>
 
-            <div className="flex max-h-48 flex-col gap-1.5 overflow-y-auto rounded border border-slate-200 bg-slate-50/50 p-2 dark:border-slate-800 dark:bg-slate-950/40">
+            {/* Phones: the sheet scrolls instead of a nested scroll box. */}
+            <div className="flex max-h-48 flex-col gap-1.5 overflow-y-auto rounded border border-slate-200 bg-slate-50/50 p-2 dark:border-slate-800 dark:bg-slate-950/40 max-sm:max-h-none max-sm:overflow-visible">
               {sortedCandidates.map((place, index) => {
                 const isLead = place.id === leadPlaceId;
                 const isTopCount = index === 0;
@@ -148,7 +155,7 @@ export function CombinePlacesDialog({
                   <div
                     key={place.id}
                     onClick={() => handleSelectLead(place)}
-                    className={`flex cursor-pointer items-center justify-between rounded border p-2 text-xs transition-colors ${
+                    className={`flex cursor-pointer items-center justify-between gap-2 rounded border p-2 text-xs transition-colors max-sm:min-h-11 ${
                       isLead
                         ? 'border-sky-500 bg-sky-50/80 shadow-xs dark:border-sky-500/80 dark:bg-sky-950/40'
                         : 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700'
@@ -162,7 +169,7 @@ export function CombinePlacesDialog({
                         className="size-3.5 accent-sky-600 dark:accent-sky-500"
                         checked={isLead}
                         onChange={() => handleSelectLead(place)}
-                        aria-label={`Chọn ${place.name} làm nơi chốn chính`}
+                        aria-label={t('places.combineModal.setLead', { name: place.name })}
                       />
                       <div className="flex flex-col">
                         <span
@@ -189,7 +196,7 @@ export function CombinePlacesDialog({
                         </span>
                       ) : isTopCount ? (
                         <span className="rounded bg-slate-200 px-1 py-0.5 text-[10px] text-slate-600 dark:bg-slate-800 dark:text-slate-400">
-                          Top
+                          {t('places.combineModal.topBadge')}
                         </span>
                       ) : null}
                     </div>
@@ -212,7 +219,7 @@ export function CombinePlacesDialog({
             <input
               id="combine-place-new-name"
               type="text"
-              className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
+              className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-sm:h-10"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder={t('places.placeholder.name')}
@@ -220,8 +227,11 @@ export function CombinePlacesDialog({
               required
             />
             <span className="text-[11px] text-slate-500 dark:text-slate-400">
-              {t('places.combineModal.transactionsBadge', { count: totalTransactions })} sẽ được cập
-              nhật sang nơi chốn này.
+              {t('places.combineModal.newNameHint', {
+                transactions: t('places.combineModal.transactionsBadge', {
+                  count: totalTransactions,
+                }),
+              })}
             </span>
           </div>
 
@@ -239,7 +249,7 @@ export function CombinePlacesDialog({
         >
           <button
             type="button"
-            className="inline-flex min-h-8 items-center justify-center rounded border border-slate-300 bg-white px-3.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            className={`inline-flex min-h-8 items-center justify-center rounded border border-slate-300 bg-white px-3.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${MODAL_FOOTER_TAP}`}
             onClick={onClose}
             disabled={combineMutation.isPending}
           >
@@ -247,7 +257,7 @@ export function CombinePlacesDialog({
           </button>
           <button
             type="submit"
-            className="inline-flex min-h-8 items-center justify-center rounded border border-slate-900 bg-slate-900 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            className={`inline-flex min-h-8 items-center justify-center rounded border border-slate-900 bg-slate-900 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 ${MODAL_FOOTER_TAP}`}
             disabled={combineMutation.isPending || !newName.trim()}
           >
             {combineMutation.isPending

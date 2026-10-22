@@ -43,6 +43,9 @@ Tiêu đề trang, nút Làm mới và Đăng xuất do `WorkspaceHeader` của 
   - Ngôn ngữ và Giao diện Sáng/Tối: chỉ là dòng thông tin kèm nhãn "Đã hỗ trợ", không có công tắc đổi ở đây.
   - **Quản lý số dư & Cân chỉnh ví**: nút `⚖️` mở `AdjustBalanceModal` (thuộc module dashboard) để cân số dư sổ sách với số dư ví thật. Số dư trên sổ lấy từ `finance.ledgerBalance` của payload dashboard (tổng thu − tổng chi toàn thời gian), không phải số dư của tháng.
   - Công tắc **React Scan**.
+- **Trên điện thoại / màn hình hẹp** (desktop giữ nguyên):
+  - Hai bảng danh mục chuyển thành danh sách (≤ 960px): dòng 1 là tên danh mục, dòng 2 là loại (Thu/Chi). Danh mục không có số lần dùng nên không có giá trị bên phải. Chạm dòng mở bottom-sheet; đổi tên bằng nút Sửa ở chân sheet (ô nhập 40px), Lưu/✕ và Xoá cũng ở đó vì điện thoại không nhấp đúp được.
+  - Ở ≤ 640px: hai tab thành một hàng chip cuộn ngang cao 40px; ô tìm kiếm và nút Thêm của mỗi bảng rộng hết màn hình, cao 40px; hàng thêm nhanh có ô nhập và nút ✓/✕ cao 40px; nút trong tab Tuỳ chọn cao 40px. Hai bảng danh mục xếp chồng ở 640px. Toast nằm phía trên thanh tab để không che tiêu đề trang.
 
 ## 4. React Scan — giới hạn đã biết
 

@@ -22,6 +22,7 @@
   - Language and Theme: informational rows with a "Supported" badge (no switcher here).
   - Wallet & Balance: button opens `AdjustBalanceModal` (`@/modules/dashboard/presentation/components/adjust-balance-modal`) to reconcile the ledger balance with a real wallet balance; `currentBalance` = `dashboard.finance.ledgerBalance` (all-time income − expense).
   - React Scan: toggle bound to `useReactScan()`.
+- **Compact / phone** (desktop unchanged): both category `DataTable`s use the mobile list (<= 960px): primary `name`, secondary type label; no trailing (categories carry no count/usage). Rename goes through the sheet footer Edit (input 40px), Save/✕ and Delete sit in the sheet footer. At <= 640px the tabs are one sideways-scrolling row of 40px chips (`MOBILE_TOOLBAR_ROW`); panel toolbars stack a full-width 40px search (`TAP_INPUT`) over a full-width 40px Add button; the inline add row's input and ✓/✕ are 40px (`TAP_CONTROL`); Preferences buttons are 40px and the panel padding shrinks. Category panels stack at 640px (`grid-cols-1`). Toast uses `TOAST_POSITION`; Retry 40px.
 
 ## React Scan (known gap)
 

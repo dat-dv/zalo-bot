@@ -10,6 +10,7 @@ import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-tab
 import { usePeriodFilter } from '@/shared/hooks/use-period-filter';
 import { PeriodFilterToolbar } from '@/shared/ui/period-filter-toolbar';
 import { TrendSummaryStrip } from '@/shared/ui/trend-summary-strip';
+import { TAP_CONTROL, TAP_INPUT, TOAST_POSITION } from '@/shared/ui/touch';
 import {
   expensesQueryKeys,
   useDeleteExpenseMutation,
@@ -118,6 +119,11 @@ export function ExpensesScreen() {
       timeStyle: 'short',
     }).format(new Date(value));
 
+  const shortDate = (value: string) =>
+    new Intl.DateTimeFormat(localeTag(locale), { day: '2-digit', month: '2-digit' }).format(
+      new Date(value),
+    );
+
   const showToast = (message: string) => {
     setToastMessage(message);
     setTimeout(() => {
@@ -190,6 +196,8 @@ export function ExpensesScreen() {
       header: t('dashboard.columns.category'),
       minWidth: '160px',
       hideable: false,
+      mobileSlot: 'secondary',
+      mobileCell: (item) => item.category,
       cell: (item) => {
         if (editingId === item.id) {
           return (
@@ -225,6 +233,8 @@ export function ExpensesScreen() {
       id: 'note',
       header: t('dashboard.columns.note'),
       minWidth: '180px',
+      mobileSlot: 'primary',
+      mobileCell: (item) => item.note || '—',
       cell: (item) => {
         if (editingId === item.id) {
           return (
@@ -259,6 +269,10 @@ export function ExpensesScreen() {
       align: 'right',
       minWidth: '140px',
       hideable: false,
+      mobileSlot: 'trailing',
+      mobileCell: (item) => (
+        <span className="text-amber-700 dark:text-amber-400">{money(item.amount)}</span>
+      ),
       cell: (item) => {
         if (editingId === item.id) {
           return (
@@ -342,6 +356,8 @@ export function ExpensesScreen() {
       header: t('dashboard.columns.date'),
       align: 'right',
       minWidth: '150px',
+      mobileSlot: 'secondary',
+      mobileCell: (item) => shortDate(item.occurredAt),
       cell: (item) => {
         if (editingId === item.id) {
           return (
@@ -439,7 +455,7 @@ export function ExpensesScreen() {
 
       {toastMessage && (
         <div
-          className="fixed top-4 left-1/2 z-[1000] -translate-x-1/2 rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900"
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
           role="status"
           aria-live="polite"
         >
@@ -473,7 +489,7 @@ export function ExpensesScreen() {
           <strong>{t('dashboard.error.title')}</strong>
           <button
             type="button"
-            className="cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
+            className={`cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600 ${TAP_CONTROL}`}
             onClick={refresh}
           >
             {t('common.retry')}
@@ -486,9 +502,9 @@ export function ExpensesScreen() {
             description={t('expenses.subtitle')}
             counter={t('table.rowsCount', { count: filteredExpenses.length })}
             toolbar={
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5 max-[640px]:w-full max-[640px]:flex-col max-[640px]:items-stretch">
                 <select
-                  className="h-6 min-h-6 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
+                  className={`h-6 min-h-6 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${TAP_INPUT}`}
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                   aria-label={t('common.allCategories')}
@@ -502,7 +518,7 @@ export function ExpensesScreen() {
                 </select>
                 <input
                   type="search"
-                  className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
+                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${TAP_INPUT}`}
                   placeholder={t('table.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}

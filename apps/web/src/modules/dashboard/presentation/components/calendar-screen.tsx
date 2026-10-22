@@ -14,14 +14,28 @@ import {
   useUpdateCalendarEventMutation,
 } from '@/modules/calendar/api/calendar-query';
 import { CalendarGrid } from '@/modules/calendar/view/calendar-grid';
+import { CalendarAgenda } from '@/modules/calendar/view/calendar-agenda';
 import { getCalendarGridRange } from '@/modules/calendar/model/calendar-date-utils';
 import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
-import { TOAST_POSITION } from '@/shared/ui/touch';
+import { useIsPhone } from '@/shared/hooks/use-media-query';
+import { MOBILE_TOOLBAR_ROW, TOAST_POSITION } from '@/shared/ui/touch';
+
+type CalendarViewMode = 'agenda' | 'grid' | 'table';
+
+const CHIP_PHONE =
+  'max-[640px]:shrink-0 max-[640px]:whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
+const NAV_PHONE = 'max-[640px]:h-10 max-[640px]:min-h-10 max-[640px]:w-10 max-[640px]:min-w-10';
 
 export function CalendarScreen() {
   const queryClient = useQueryClient();
   const { locale, t } = useLocale();
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const isPhone = useIsPhone();
+  // null = not chosen yet: phones start on the agenda, larger screens on the month grid.
+  const [chosenViewMode, setChosenViewMode] = useState<CalendarViewMode | null>(null);
+  const viewMode: CalendarViewMode =
+    chosenViewMode === 'agenda' && !isPhone
+      ? 'grid'
+      : (chosenViewMode ?? (isPhone ? 'agenda' : 'grid'));
   const [currentMonth, setCurrentMonth] = useState<Date>(() => new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => new Date());
   const [search, setSearch] = useState('');
@@ -69,12 +83,25 @@ export function CalendarScreen() {
     }).format(currentMonth);
   }, [currentMonth, locale]);
 
-  const handlePrevMonth = () => {
-    setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  const shiftMonth = (delta: number) => {
+    const next = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + delta, 1);
+    setCurrentMonth(next);
+    // The agenda shows the selected day's week, so it has to follow the month.
+    if (viewMode === 'agenda') setSelectedDate(next);
   };
 
-  const handleNextMonth = () => {
-    setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  const handlePrevMonth = () => shiftMonth(-1);
+
+  const handleNextMonth = () => shiftMonth(1);
+
+  const handleAgendaSelectDate = (date: Date) => {
+    setSelectedDate(date);
+    if (
+      date.getFullYear() !== currentMonth.getFullYear() ||
+      date.getMonth() !== currentMonth.getMonth()
+    ) {
+      setCurrentMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+    }
   };
 
   const handleToday = () => {
@@ -189,14 +216,14 @@ export function CalendarScreen() {
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                    className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-slate-300 bg-white px-2 text-[11px] font-medium max-[640px]:h-10 max-[640px]:min-h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                     onClick={handleToday}
                   >
                     {t('common.today')}
                   </button>
                   <button
                     type="button"
-                    className="inline-flex h-6 w-6 min-h-6 min-w-6 cursor-pointer items-center justify-center rounded-[3px] border border-slate-300 bg-white text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                    className={`inline-flex h-6 w-6 min-h-6 min-w-6 cursor-pointer items-center justify-center rounded-[3px] border border-slate-300 bg-white text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 ${NAV_PHONE}`}
                     onClick={handlePrevMonth}
                     aria-label={t('calendar.nav.prev')}
                   >
@@ -204,7 +231,7 @@ export function CalendarScreen() {
                   </button>
                   <button
                     type="button"
-                    className="inline-flex h-6 w-6 min-h-6 min-w-6 cursor-pointer items-center justify-center rounded-[3px] border border-slate-300 bg-white text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                    className={`inline-flex h-6 w-6 min-h-6 min-w-6 cursor-pointer items-center justify-center rounded-[3px] border border-slate-300 bg-white text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 ${NAV_PHONE}`}
                     onClick={handleNextMonth}
                     aria-label={t('calendar.nav.next')}
                   >
@@ -215,27 +242,43 @@ export function CalendarScreen() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5">
-                  <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5 max-[640px]:flex-col max-[640px]:items-stretch">
+                  <div className={`flex items-center gap-1 ${MOBILE_TOOLBAR_ROW}`}>
+                    {isPhone && (
+                      <button
+                        type="button"
+                        className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${CHIP_PHONE} ${
+                          viewMode === 'agenda'
+                            ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                            : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                        }`}
+                        onClick={() => setChosenViewMode('agenda')}
+                        aria-pressed={viewMode === 'agenda'}
+                      >
+                        {t('calendar.view.agenda')}
+                      </button>
+                    )}
                     <button
                       type="button"
-                      className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                      className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${CHIP_PHONE} ${
                         viewMode === 'grid'
                           ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
                           : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
                       }`}
-                      onClick={() => setViewMode('grid')}
+                      onClick={() => setChosenViewMode('grid')}
+                      aria-pressed={viewMode === 'grid'}
                     >
                       {t('calendar.view.grid')}
                     </button>
                     <button
                       type="button"
-                      className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                      className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${CHIP_PHONE} ${
                         viewMode === 'table'
                           ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
                           : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
                       }`}
-                      onClick={() => setViewMode('table')}
+                      onClick={() => setChosenViewMode('table')}
+                      aria-pressed={viewMode === 'table'}
                     >
                       {t('calendar.view.table')}
                     </button>
@@ -243,7 +286,7 @@ export function CalendarScreen() {
 
                   <input
                     type="search"
-                    className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
+                    className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:h-10 max-[640px]:w-full"
                     placeholder={t('table.searchPlaceholder')}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -253,7 +296,23 @@ export function CalendarScreen() {
               </div>
             }
           >
-            {viewMode === 'grid' ? (
+            {viewMode === 'agenda' ? (
+              <CalendarAgenda
+                events={filteredCalendar}
+                selectedDate={selectedDate ?? currentMonth}
+                onSelectDate={handleAgendaSelectDate}
+                loading={isLoading}
+                onEdit={handleStartEdit}
+                onDelete={handleDelete}
+                editingId={editingId}
+                editDraft={editDraft}
+                onEditDraftChange={setEditDraft}
+                onSaveEdit={handleSaveEdit}
+                onCancelEdit={handleCancelEdit}
+                isSaving={updateMutation.isPending}
+                isDeleting={deleteMutation.isPending}
+              />
+            ) : viewMode === 'grid' ? (
               <CalendarGrid
                 events={filteredCalendar}
                 currentDate={currentMonth}

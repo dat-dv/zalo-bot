@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { localeTag, type ICalendarEventItem } from '@zalobot/contracts';
+import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 
@@ -45,6 +46,8 @@ export function CalendarTable({
   isPending = false,
 }: CalendarTableProps) {
   const { locale, t } = useLocale();
+  // Compact screens edit inside the row sheet; focusing a field there would pop the keyboard.
+  const isCompact = useIsCompact();
 
   const columns = useMemo<DataTableColumn<ICalendarEventItem>[]>(() => {
     const hasActions = Boolean(onStartEdit || onSaveEdit || onDelete);
@@ -55,6 +58,16 @@ export function CalendarTable({
             timeStyle: 'short',
           }).format(new Date(value))
         : t('common.notSet');
+    // All-day events carry a bare `YYYY-MM-DD`; show only the day for those.
+    const shortStart = (value?: string) => {
+      if (!value) return null;
+      const isAllDay = /^\d{4}-\d{2}-\d{2}$/.test(value);
+      return new Intl.DateTimeFormat(localeTag(locale), {
+        day: '2-digit',
+        month: '2-digit',
+        ...(isAllDay ? {} : { hour: '2-digit', minute: '2-digit', hour12: false }),
+      }).format(isAllDay ? new Date(`${value}T00:00:00`) : new Date(value));
+    };
 
     const list: DataTableColumn<ICalendarEventItem>[] = [
       {
@@ -62,6 +75,8 @@ export function CalendarTable({
         header: t('dashboard.columns.title'),
         minWidth: '180px',
         hideable: false,
+        mobileSlot: 'primary',
+        mobileCell: (item) => item.title,
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -83,7 +98,7 @@ export function CalendarTable({
                   if (e.key === 'Escape') onCancelEdit();
                 }}
                 placeholder={t('calendar.placeholder.title')}
-                autoFocus
+                autoFocus={!isCompact}
                 required
                 aria-label={t('dashboard.columns.title')}
               />
@@ -106,6 +121,8 @@ export function CalendarTable({
         id: 'location',
         header: t('calendar.columns.location'),
         minWidth: '150px',
+        mobileSlot: 'secondary',
+        mobileCell: (item) => item.location || null,
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -150,6 +167,8 @@ export function CalendarTable({
         minWidth: '120px',
         width: '160px',
         defaultHidden: false,
+        mobileSlot: 'secondary',
+        mobileCell: (item) => item.description || null,
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -193,6 +212,8 @@ export function CalendarTable({
         header: t('dashboard.columns.date'),
         align: 'right',
         minWidth: '140px',
+        mobileSlot: 'trailing',
+        mobileCell: (item) => shortStart(item.startAt),
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -338,6 +359,7 @@ export function CalendarTable({
   }, [
     editDraft,
     editingId,
+    isCompact,
     isPending,
     locale,
     onCancelEdit,

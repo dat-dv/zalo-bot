@@ -27,7 +27,7 @@ export function ThreadConfigScreen() {
 
   const backLink = (
     <Link
-      className="text-sm font-semibold text-blue-600 hover:underline dark:text-blue-400"
+      className="text-sm font-semibold text-blue-600 hover:underline max-[640px]:inline-flex max-[640px]:min-h-10 max-[640px]:items-center dark:text-blue-400"
       href={backHref}
     >
       ← Quay lại Zalo & Người dùng
@@ -53,7 +53,7 @@ export function ThreadConfigScreen() {
       <div className={PANEL}>
         Không tải được cấu hình của cuộc trò chuyện này.
         <button
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          className="rounded border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 max-[640px]:h-10 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
           onClick={() => void configQuery.refetch()}
           type="button"
         >

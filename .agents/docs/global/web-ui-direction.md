@@ -78,7 +78,9 @@ Thành phần `DataTable` tích hợp sẵn nút Cài đặt cột (`TableColumn
   - Có ít nhất một cột khai báo `mobileSlot`.
   - Không truyền `mobileList={false}`.
 - Bảng chưa khai báo slot vẫn là bảng cuộn ngang như cũ, nên có thể chuyển dần từng màn.
-- Hiện chỉ màn **Thu chi** (`/transactions`) bật. Bảng giao dịch ở Tổng quan để sang giai đoạn B.
+- `TransactionsTable` bật mặc định. Các bảng khác bật bằng cách khai báo `mobileSlot` cho cột.
+- Bảng chưa có slot vẫn cuộn ngang, nhưng trên màn hẹp không còn hộp cuộn lồng `max-h-[520px]` nữa (cả trang cuộn), tránh cảnh vuốt trong bảng mà trang không chạy.
+- Trong bảng trượt chi tiết, ô nhập, select và nút trong giá trị, cùng mọi nút ở chân sheet, tự to lên 40px. Nhờ vậy từng bảng không phải tự thêm class. Trên cảm ứng, việc sửa đi qua nút **Sửa** ở chân sheet. Double-click chỉ còn dùng trên desktop.
 
 **Khai báo cột:**
 - `mobileSlot`:
@@ -113,7 +115,7 @@ Thành phần `DataTable` tích hợp sẵn nút Cài đặt cột (`TableColumn
   - Nút kỳ và mũi tên của `PeriodFilterToolbar`.
   - Nút lọc cột.
 - Desktop giữ control nhỏ 22–30px để giữ mật độ dữ liệu cao.
-- Toolbar trên điện thoại dùng **một hàng chip cuộn ngang** thay vì mỗi chip một dòng. Nhóm nút kỳ cũng cuộn ngang khi không đủ chỗ.
+- Toolbar trên điện thoại dùng **một hàng chip cuộn ngang** thay vì mỗi chip một dòng. Trên điện thoại, `PeriodFilterToolbar` đổi nhóm nút Tuần/Tháng/Quý/Năm thành một ô chọn native (cao 40px), để chu kỳ và cụm ‹ nhãn kỳ › nằm trên cùng một hàng. Trước đó thanh này chiếm khoảng 88px, đẩy dữ liệu xuống thấp. Desktop vẫn giữ nhóm nút.
 - **Giữ nguyên bo góc nhỏ** (`rounded-[2px]`, `rounded-[3px]`, `rounded`). Không đưa vào chip bo tròn, nút nổi bo tròn, hay "chuẩn hoá" bo góc khi làm mobile.
 
 Nút phải có focus rõ, độ tương phản đủ và lỗi phải kèm cách thử lại.

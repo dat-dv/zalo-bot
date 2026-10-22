@@ -31,7 +31,8 @@ export function ConfigSwitch({
   tone = 'blue',
 }: ConfigSwitchProps) {
   return (
-    <label className="relative inline-flex shrink-0 cursor-pointer items-center">
+    // Phones: 40px tap area around the unchanged track.
+    <label className="relative inline-flex shrink-0 cursor-pointer items-center max-[640px]:min-h-10 max-[640px]:min-w-10 max-[640px]:justify-center">
       <input
         aria-label={label}
         checked={checked}

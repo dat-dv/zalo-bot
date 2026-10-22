@@ -162,7 +162,8 @@ export function DataTableMobileList<T extends DataTableRow>({
             </button>
           </header>
 
-          <dl className="m-0 grid grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)] gap-x-3 px-3 py-1 text-xs">
+          {/* Desktop-sized inline-edit fields (22–28px) become 40px touch targets inside the sheet. */}
+          <dl className="m-0 grid grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)] gap-x-3 px-3 py-1 text-xs [&_:is(input:not([type=checkbox]):not([type=radio]),select,textarea)]:min-h-10 [&_dd_button]:min-h-10">
             {layout.detail.map((column) => (
               <div
                 key={column.id}
@@ -201,7 +202,8 @@ export function DataTableMobileList<T extends DataTableRow>({
 
           {layout.actions && (
             <footer
-              className={`${MODAL_STICKY_FOOTER} flex justify-end border-t border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900`}
+              // Row action buttons/links are 22px on desktop; give them 40px targets in the sheet footer.
+              className={`${MODAL_STICKY_FOOTER} flex justify-end border-t border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900 [&_:is(a,button)]:inline-flex [&_:is(a,button)]:min-h-10 [&_:is(a,button)]:min-w-10 [&_:is(a,button)]:items-center [&_:is(a,button)]:justify-center [&_:is(a,button)]:px-3`}
             >
               {layout.actions.cell(selectedRow, selectedIndex)}
             </footer>

@@ -24,6 +24,7 @@
 - `DataTable` `id="expenses"` columns: `category` (non-hideable), `note`, `amount` (non-hideable; proportional bar vs period max, only while amounts are revealed), `paymentMethod`, `currency`, `occurredAt`, `actions` (non-hideable).
 - Inline edit: category (datalist `expense-categories-autocomplete` from `useCategoriesQuery('expense')`, loaded expense categories, `DEFAULT_EXPENSE_CATEGORIES`), note, amount (>0), payment method, occurredAt. Delete uses `window.confirm`.
 - Money masked via `useMoneyVisibility().money()`; amount ratio bar renders only while amounts are revealed; inputs stay unmasked. Error banner Retry invalidates `['expenses']` and `['categories']`.
+- Compact (<= 960px) list mapping: primary `note` (`—` when empty), trailing amount (masked, amber, no ratio bar), secondary category · date (dd/MM). The detail sheet holds every column; editing goes through the footer Edit button (double-click stays desktop-only). Phone (<= 640px) toolbar: category select and search each full width, 40px (`TAP_INPUT`). Toast uses `TOAST_POSITION`; Retry 40px.
 
 ## Known issues
 

@@ -7,6 +7,7 @@ import {
   type ReminderNotifyType,
   type ReminderRepeatType,
 } from '@zalobot/contracts';
+import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 
@@ -51,6 +52,8 @@ export function RemindersTable({
   isPending = false,
 }: RemindersTableProps) {
   const { locale, t } = useLocale();
+  // Compact screens edit inside the row sheet; focusing a field there would pop the keyboard.
+  const isCompact = useIsCompact();
 
   const columns = useMemo<DataTableColumn<IReminderListItem>[]>(() => {
     const hasActions = Boolean(onStartEdit || onSaveEdit || onSnooze || onDelete);
@@ -61,6 +64,24 @@ export function RemindersTable({
             timeStyle: 'short',
           }).format(new Date(value))
         : t('common.notSet');
+    const shortDateTime = (value?: string) =>
+      value
+        ? new Intl.DateTimeFormat(localeTag(locale), {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          }).format(new Date(value))
+        : null;
+    const notifyLabel = (item: IReminderListItem) =>
+      item.notifyType === 'call' ? t('reminders.notifyType.call') : t('reminders.notifyType.text');
+    const repeatLabel = (item: IReminderListItem) =>
+      item.repeatType === 'daily'
+        ? t('reminders.repeatType.daily')
+        : item.repeatType === 'weekly'
+          ? t('reminders.repeatType.weekly')
+          : t('reminders.repeatType.none');
 
     const list: DataTableColumn<IReminderListItem>[] = [
       {
@@ -68,6 +89,8 @@ export function RemindersTable({
         header: t('dashboard.columns.title'),
         minWidth: '200px',
         hideable: false,
+        mobileSlot: 'primary',
+        mobileCell: (item) => item.title,
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -87,7 +110,7 @@ export function RemindersTable({
                   if (e.key === 'Escape') onCancelEdit();
                 }}
                 placeholder={t('reminders.placeholder.title')}
-                autoFocus
+                autoFocus={!isCompact}
                 required
                 aria-label={t('dashboard.columns.title')}
               />
@@ -110,6 +133,8 @@ export function RemindersTable({
         id: 'notifyType',
         header: t('reminders.columns.notifyType'),
         minWidth: '120px',
+        mobileSlot: 'secondary',
+        mobileCell: notifyLabel,
         cell: (item) => {
           if (editingId === item.id && editDraft && onChangeEditDraft) {
             return (
@@ -136,9 +161,7 @@ export function RemindersTable({
               }`}
               onDoubleClick={() => onStartEdit?.(item)}
             >
-              {item.notifyType === 'call'
-                ? `📞 ${t('reminders.notifyType.call')}`
-                : `💬 ${t('reminders.notifyType.text')}`}
+              {item.notifyType === 'call' ? '📞' : '💬'} {notifyLabel(item)}
             </span>
           );
         },
@@ -148,6 +171,8 @@ export function RemindersTable({
         header: t('dashboard.columns.schedule'),
         align: 'right',
         minWidth: '150px',
+        mobileSlot: 'trailing',
+        mobileCell: (item) => shortDateTime(item.remindAt),
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -189,6 +214,8 @@ export function RemindersTable({
         header: t('reminders.columns.repeatType'),
         minWidth: '120px',
         defaultHidden: false,
+        mobileSlot: 'secondary',
+        mobileCell: repeatLabel,
         cell: (item) => {
           if (editingId === item.id && editDraft && onChangeEditDraft) {
             return (
@@ -216,11 +243,7 @@ export function RemindersTable({
               }`}
               onDoubleClick={() => onStartEdit?.(item)}
             >
-              {item.repeatType === 'daily'
-                ? t('reminders.repeatType.daily')
-                : item.repeatType === 'weekly'
-                  ? t('reminders.repeatType.weekly')
-                  : t('reminders.repeatType.none')}
+              {repeatLabel(item)}
             </span>
           );
         },
@@ -302,6 +325,7 @@ export function RemindersTable({
   }, [
     editDraft,
     editingId,
+    isCompact,
     isPending,
     locale,
     onCancelEdit,

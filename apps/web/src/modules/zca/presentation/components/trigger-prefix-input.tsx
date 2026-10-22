@@ -70,7 +70,7 @@ export function TriggerPrefixInput({ value, onChange }: TriggerPrefixInputProps)
             {prefix}
             <button
               aria-label={`Xoá tiền tố ${prefix}`}
-              className="rounded px-1 leading-none text-blue-500 hover:bg-blue-100 hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:hover:bg-blue-900 dark:hover:text-blue-100"
+              className="rounded px-1 leading-none text-blue-500 max-[640px]:-my-2 max-[640px]:-mr-1 max-[640px]:inline-flex max-[640px]:size-10 max-[640px]:items-center max-[640px]:justify-center hover:bg-blue-100 hover:text-blue-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 dark:hover:bg-blue-900 dark:hover:text-blue-100"
               onClick={() => onChange(value.filter((item) => item !== prefix))}
               type="button"
             >
@@ -81,7 +81,7 @@ export function TriggerPrefixInput({ value, onChange }: TriggerPrefixInputProps)
         <input
           aria-describedby={hintId}
           aria-invalid={error !== null}
-          className="min-w-[8rem] flex-1 bg-transparent py-0.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-slate-100"
+          className="min-w-[8rem] flex-1 bg-transparent py-0.5 text-xs max-[640px]:h-10 text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-slate-100"
           id={inputId}
           maxLength={TRIGGER_PREFIX_LIMITS.MAX_LENGTH + 1}
           onChange={(event) => {
@@ -94,7 +94,7 @@ export function TriggerPrefixInput({ value, onChange }: TriggerPrefixInputProps)
           value={draft}
         />
         <button
-          className="rounded px-2 py-0.5 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent dark:text-blue-400 dark:hover:bg-blue-950"
+          className="rounded px-2 py-0.5 text-xs font-medium text-blue-600 max-[640px]:h-10 max-[640px]:px-3 hover:bg-blue-50 disabled:cursor-not-allowed disabled:text-slate-400 disabled:hover:bg-transparent dark:text-blue-400 dark:hover:bg-blue-950"
           disabled={!draft.trim()}
           onClick={commit}
           type="button"

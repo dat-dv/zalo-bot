@@ -17,6 +17,10 @@ import { DebtStructureChart } from '@/shared/ui/charts/debt-structure-chart';
 import { Button } from '@/shared/ui/button';
 import { MetricGrid, MetricGridSkeleton, type MetricGridItem } from '@/shared/ui/metric-grid';
 
+// Chart/Table toggle: 40px and sharing the row on phones.
+const PHONE_TOGGLE =
+  'max-[640px]:h-10 max-[640px]:flex-1 max-[640px]:px-3 max-[640px]:text-[12.5px]';
+
 export function AnalyticsScreen() {
   const queryClient = useQueryClient();
   const { t } = useLocale();
@@ -193,6 +197,8 @@ export function AnalyticsScreen() {
         id: 'period',
         header: t('analytics.cashflow.column.period'),
         width: '22%',
+        mobileSlot: 'primary',
+        mobileCell: (item) => item.label,
         cell: (item) => (
           <span className="font-semibold text-slate-900 dark:text-slate-100">{item.label}</span>
         ),
@@ -202,6 +208,8 @@ export function AnalyticsScreen() {
         header: t('analytics.cashflow.column.income'),
         align: 'right',
         width: '19%',
+        mobileSlot: 'secondary',
+        mobileCell: (item) => `${t('chart.income')} +${money(item.income)}`,
         cell: (item) => (
           <span className="tabular-nums font-medium text-sky-700 dark:text-sky-400">
             + {money(item.income)}
@@ -213,6 +221,8 @@ export function AnalyticsScreen() {
         header: t('analytics.cashflow.column.expense'),
         align: 'right',
         width: '19%',
+        mobileSlot: 'secondary',
+        mobileCell: (item) => `${t('chart.expense')} -${money(item.expense)}`,
         cell: (item) => (
           <span className="tabular-nums font-medium text-amber-700 dark:text-amber-400">
             - {money(item.expense)}
@@ -224,6 +234,7 @@ export function AnalyticsScreen() {
         header: t('analytics.cashflow.column.netCashflow'),
         align: 'right',
         width: '20%',
+        mobileSlot: 'trailing',
         cell: (item) => {
           const net =
             typeof item.netCashflow === 'number' ? item.netCashflow : item.income - item.expense;
@@ -369,10 +380,11 @@ export function AnalyticsScreen() {
       <DataPanel
         title={t('analytics.chart.cashflowTrend')}
         toolbar={
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 max-[640px]:w-full">
             <Button
               onClick={() => setCashflowViewMode('chart')}
-              className={`rounded-[3px] px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              aria-pressed={cashflowViewMode === 'chart'}
+              className={`rounded-[3px] px-2 py-0.5 text-[11px] font-medium transition-colors ${PHONE_TOGGLE} ${
                 cashflowViewMode === 'chart'
                   ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                   : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
@@ -382,7 +394,8 @@ export function AnalyticsScreen() {
             </Button>
             <Button
               onClick={() => setCashflowViewMode('table')}
-              className={`rounded-[3px] px-2 py-0.5 text-[11px] font-medium transition-colors ${
+              aria-pressed={cashflowViewMode === 'table'}
+              className={`rounded-[3px] px-2 py-0.5 text-[11px] font-medium transition-colors ${PHONE_TOGGLE} ${
                 cashflowViewMode === 'table'
                   ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900'
                   : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
@@ -393,7 +406,8 @@ export function AnalyticsScreen() {
           </div>
         }
       >
-        <div className="p-3">
+        {/* Compact table mode is the edge-to-edge mobile list, so it drops the panel padding. */}
+        <div className={cashflowViewMode === 'table' ? 'p-3 max-[960px]:p-0' : 'p-3'}>
           {cashflowViewMode === 'chart' ? (
             <CashflowTrendChart buckets={trendBuckets} height={220} />
           ) : (

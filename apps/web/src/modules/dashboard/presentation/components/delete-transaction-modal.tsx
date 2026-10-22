@@ -3,7 +3,13 @@
 import { useId } from 'react';
 import { localeTag, type ITransactionItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
+import {
+  Modal,
+  MODAL_CLOSE_TAP,
+  MODAL_FOOTER_TAP,
+  MODAL_STICKY_FOOTER,
+  MODAL_STICKY_HEADER,
+} from '@/shared/ui/modal';
 import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 
 export interface DeleteTransactionModalProps {
@@ -65,7 +71,7 @@ export function DeleteTransactionModal({
         </div>
         <button
           type="button"
-          className="inline-flex size-7 cursor-pointer items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600 disabled:opacity-50 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+          className={`inline-flex size-7 cursor-pointer items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600 disabled:opacity-50 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300 ${MODAL_CLOSE_TAP}`}
           onClick={onClose}
           disabled={isPending}
           aria-label={t('transactions.actions.cancel')}
@@ -78,8 +84,8 @@ export function DeleteTransactionModal({
       <div className="space-y-4 p-5 text-xs text-slate-700 dark:text-slate-300">
         {/* Transaction Summary Card */}
         <div className="rounded-md border border-slate-200 bg-slate-50/50 p-3.5 dark:border-slate-800 dark:bg-slate-950/40">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <span
                 className={`inline-flex items-center rounded-[2px] border px-1.5 py-0.5 text-[10px] font-semibold select-none ${
                   transaction.type === 'income'
@@ -111,9 +117,9 @@ export function DeleteTransactionModal({
             </strong>
           </div>
 
-          <div className="mt-2.5 flex items-center justify-between text-[11.5px] text-slate-500 dark:text-slate-400">
-            <span>{transaction.note || '—'}</span>
-            <span className="font-mono">{formattedDate}</span>
+          <div className="mt-2.5 flex items-center justify-between gap-2 text-[11.5px] text-slate-500 dark:text-slate-400">
+            <span className="min-w-0 break-words">{transaction.note || '—'}</span>
+            <span className="shrink-0 font-mono">{formattedDate}</span>
           </div>
         </div>
 
@@ -175,7 +181,7 @@ export function DeleteTransactionModal({
       >
         <button
           type="button"
-          className="cursor-pointer rounded-[2px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          className={`cursor-pointer rounded-[2px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 ${MODAL_FOOTER_TAP}`}
           onClick={onClose}
           disabled={isPending}
         >
@@ -183,7 +189,7 @@ export function DeleteTransactionModal({
         </button>
         <button
           type="button"
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-[2px] border border-rose-600 bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-rose-700 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-700 dark:hover:bg-rose-800"
+          className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-[2px] border border-rose-600 bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-rose-700 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-700 dark:hover:bg-rose-800 ${MODAL_FOOTER_TAP}`}
           onClick={handleConfirm}
           disabled={isPending}
         >

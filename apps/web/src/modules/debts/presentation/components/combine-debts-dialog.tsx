@@ -3,7 +3,14 @@
 import { useState, useEffect, useId } from 'react';
 import type { IDebtListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
+import {
+  Modal,
+  MODAL_CLOSE_TAP,
+  MODAL_FOOTER_TAP,
+  MODAL_STICKY_FOOTER,
+  MODAL_STICKY_HEADER,
+} from '@/shared/ui/modal';
+import { TAP_INPUT } from '@/shared/ui/touch';
 import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { useCombineDebtsMutation } from '../../api/debts-query';
 
@@ -89,6 +96,7 @@ export function CombineDebtsDialog({
       labelledBy={titleId}
       describedBy={descId}
       backdropClassName="bg-slate-900/50 backdrop-blur-xs"
+      phoneLayout="fullscreen"
       panelClassName="max-w-[560px] rounded-md border border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900"
     >
       <header
@@ -107,7 +115,7 @@ export function CombineDebtsDialog({
         </div>
         <button
           type="button"
-          className="flex size-7 cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          className={`flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 ${MODAL_CLOSE_TAP}`}
           onClick={onClose}
           disabled={combineMutation.isPending}
           aria-label={t('common.close')}
@@ -149,9 +157,9 @@ export function CombineDebtsDialog({
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
               {t('debts.title')} ({selectedDebts.length})
             </span>
-            <div className="max-h-40 overflow-y-auto rounded border border-slate-200 dark:border-slate-800">
+            <div className="max-h-40 overflow-y-auto rounded border border-slate-200 dark:border-slate-800 max-sm:max-h-none max-sm:overflow-visible">
               <table className="w-full text-left text-xs">
-                <thead className="sticky top-0 bg-slate-50 text-[11px] text-slate-500 dark:bg-slate-800/80 dark:text-slate-400">
+                <thead className="sticky top-0 bg-slate-50 max-sm:static text-[11px] text-slate-500 dark:bg-slate-800/80 dark:text-slate-400">
                   <tr>
                     <th className="px-2.5 py-1.5">{t('contacts.placeholder.name')}</th>
                     <th className="px-2.5 py-1.5 text-right">
@@ -219,7 +227,7 @@ export function CombineDebtsDialog({
             <input
               id="combine-debt-note"
               type="text"
-              className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
+              className={`h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${TAP_INPUT}`}
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder={t('debts.placeholder.note')}
@@ -237,7 +245,7 @@ export function CombineDebtsDialog({
             <input
               id="combine-debt-due-date"
               type="date"
-              className="h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
+              className={`h-8 w-full rounded border border-slate-300 bg-white px-2.5 text-xs text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${TAP_INPUT}`}
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
               disabled={combineMutation.isPending}
@@ -257,7 +265,7 @@ export function CombineDebtsDialog({
         >
           <button
             type="button"
-            className="inline-flex min-h-8 items-center justify-center rounded border border-slate-300 bg-white px-3.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            className={`inline-flex min-h-8 items-center justify-center rounded border border-slate-300 bg-white px-3.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${MODAL_FOOTER_TAP}`}
             onClick={onClose}
             disabled={combineMutation.isPending}
           >
@@ -265,7 +273,7 @@ export function CombineDebtsDialog({
           </button>
           <button
             type="submit"
-            className="inline-flex min-h-8 items-center justify-center rounded border border-slate-900 bg-slate-900 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+            className={`inline-flex min-h-8 items-center justify-center rounded border border-slate-900 bg-slate-900 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 ${MODAL_FOOTER_TAP}`}
             disabled={combineMutation.isPending || isMismatched || isCurrencyMismatched}
           >
             {combineMutation.isPending

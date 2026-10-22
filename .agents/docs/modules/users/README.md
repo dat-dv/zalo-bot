@@ -121,6 +121,7 @@ Toàn bộ chạy trong **một transaction**: lỗi ở bất kỳ bước nào
 - `users.id` là danh tính của toàn hệ thống: người tạo giao dịch, liên kết người liên quan, nhắc lịch và token Google đều tham chiếu tới nó. Dữ liệu tài chính không thuộc về user nào (không còn cột `is_ledger_owner`, xem `global/finance-domain.md`).
 
 - `MergeUserDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo).
+- Trên điện thoại, cả `MergeUserDialog` và `LinkedContactsDialog` có nút ✕ và các nút ở chân (Huỷ/Gộp, Mở danh bạ/Đóng) rộng 40px, chia đều hàng; ô chọn tài khoản giữ lại và ô tích "không thể hoàn tác" cũng cao 40px. Lý do: gộp tài khoản là thao tác không hoàn tác được, nút quá nhỏ trên màn cảm ứng dễ bấm nhầm. Máy tính không đổi.
 
 ## 6. Các Endpoint API (chỉ Admin)
 

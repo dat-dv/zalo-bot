@@ -19,7 +19,7 @@ export function ConfigField({ label, hint, className = '', ...inputProps }: Conf
       </label>
       <input
         aria-describedby={hint ? hintId : undefined}
-        className="mt-1 w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+        className="mt-1 w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-sm max-[640px]:h-10 text-slate-900 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
         id={id}
         {...inputProps}
       />

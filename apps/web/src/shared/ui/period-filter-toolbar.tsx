@@ -33,8 +33,24 @@ export function PeriodFilterToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-2" role="toolbar">
+      {/* Phones: a native select keeps grain + prev/label/next on one 40px row. */}
+      <select
+        className="hidden h-10 min-h-10 shrink-0 rounded-[3px] border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-900 max-[640px]:block dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+        aria-label={t('period.grain')}
+        value={filter.grain}
+        onChange={(event) => {
+          const next = grains.find((g) => g === event.target.value);
+          if (next) filter.setGrain(next);
+        }}
+      >
+        {grains.map((g) => (
+          <option key={g} value={g}>
+            {t(GRAIN_LABELS[g])}
+          </option>
+        ))}
+      </select>
       <div
-        className="inline-flex rounded-[3px] border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-700 dark:bg-slate-900 max-[640px]:max-w-full max-[640px]:overflow-x-auto"
+        className="inline-flex rounded-[3px] border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-700 dark:bg-slate-900 max-[640px]:hidden"
         role="group"
       >
         {grains.map((g) => (
@@ -54,7 +70,7 @@ export function PeriodFilterToolbar({
       </div>
 
       {!isAll ? (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 max-[640px]:min-w-0 max-[640px]:flex-1">
           <Button
             type="button"
             className="inline-flex size-7 max-[640px]:size-10 items-center justify-center rounded-[3px] border border-slate-300 !bg-white !p-0 text-base text-slate-600 hover:!bg-slate-100 dark:border-slate-600 dark:!bg-slate-800 dark:!text-slate-200 dark:hover:!bg-slate-700"
@@ -64,7 +80,7 @@ export function PeriodFilterToolbar({
           >
             ‹
           </Button>
-          <span className="min-w-24 text-center text-xs font-medium text-slate-700 dark:text-slate-200">
+          <span className="min-w-24 text-center text-xs font-medium text-slate-700 max-[640px]:min-w-0 max-[640px]:flex-1 max-[640px]:truncate dark:text-slate-200">
             {filter.label}
           </span>
           <Button

@@ -98,7 +98,7 @@ export function TransactionsTable({
   columnFilters = EMPTY_TRANSACTION_COLUMN_FILTERS,
   onChangeColumnFilters,
   filterOptions = EMPTY_FILTER_OPTIONS,
-  mobileList = false,
+  mobileList = true,
 }: TransactionsTableProps) {
   const { locale, t } = useLocale();
   const { money, isMoneyVisible } = useMoneyVisibility();
@@ -301,7 +301,10 @@ export function TransactionsTable({
             <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
-                className="inline-flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-100"
+                // The mobile list sheet always shows the details, so the toggle is desktop-only there.
+                className={`inline-flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-100 ${
+                  mobileList ? 'max-[960px]:hidden' : ''
+                }`}
                 onClick={(e) => {
                   e.stopPropagation();
                   setExpandedAllocationIds((prev) => {
@@ -340,14 +343,14 @@ export function TransactionsTable({
               {allocationCount > 0 && onOpenAllocate && (
                 <button
                   type="button"
-                  className="inline-flex cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-sky-50 px-1 py-0.5 text-[10px] font-semibold text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-300"
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-sky-50 px-1 py-0.5 text-[10px] font-semibold text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-300 max-[640px]:min-h-10 max-[640px]:px-2.5 max-[640px]:text-[12px]"
                   onClick={(e) => {
                     e.stopPropagation();
                     onOpenAllocate(item);
                   }}
                   title={t('transactions.allocation.badgeAllocated', { count: allocationCount })}
                 >
-                  <span>🔗</span>
+                  <span aria-hidden="true">🔗</span>
                   <span>
                     {t('transactions.allocation.badgeAllocated', { count: allocationCount })}
                   </span>
@@ -690,8 +693,9 @@ export function TransactionsTable({
                     className="inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-sky-50 px-1.5 text-[11px] font-medium text-sky-700 whitespace-nowrap transition-colors hover:bg-sky-100 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-400 dark:hover:bg-sky-950/70"
                     onClick={() => onOpenAllocate(item)}
                     title={t('transactions.actions.allocateDebts')}
+                    aria-label={t('transactions.actions.allocateDebts')}
                   >
-                    <span>🔗</span>
+                    <span aria-hidden="true">🔗</span>
                   </button>
                 )}
                 <button
@@ -765,6 +769,7 @@ export function TransactionsTable({
     columnFilters,
     onChangeColumnFilters,
     filterOptions,
+    mobileList,
     t,
   ]);
 
@@ -831,7 +836,7 @@ export function TransactionsTable({
           <div className="overflow-hidden rounded border border-sky-200/80 bg-sky-50/20 shadow-xs dark:border-sky-900/60 dark:bg-sky-950/20">
             <header className="flex items-center justify-between border-b border-sky-100/80 bg-sky-50/50 px-3 py-1.5 text-xs font-semibold text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/50 dark:text-sky-300">
               <div className="flex items-center gap-1.5">
-                <span>🔗</span>
+                <span aria-hidden="true">🔗</span>
                 <span>
                   {t('transactions.allocation.badgeAllocated', { count: item.allocations.length })}
                 </span>
@@ -839,15 +844,38 @@ export function TransactionsTable({
               {onOpenAllocate && (
                 <button
                   type="button"
-                  className="inline-flex cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-white px-2 py-0.5 text-[10.5px] font-medium text-sky-700 transition-colors hover:bg-sky-50 dark:border-sky-800 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-slate-800"
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-white px-2 py-0.5 text-[10.5px] font-medium text-sky-700 transition-colors hover:bg-sky-50 dark:border-sky-800 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-slate-800 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12px]"
                   onClick={() => onOpenAllocate(item)}
                 >
-                  <span>✏️</span>
+                  <span aria-hidden="true">✏️</span>
                   <span>{t('transactions.allocation.editAllocations')}</span>
                 </button>
               )}
             </header>
-            <div className="overflow-x-auto">
+            {/* Phones: one row per allocation instead of a sideways-scrolling table. */}
+            <ul className="m-0 hidden list-none divide-y divide-sky-100/60 p-0 text-xs max-[640px]:block dark:divide-sky-900/40">
+              {item.allocations.map((alloc, idx: number) => (
+                <li
+                  key={alloc.id || idx}
+                  className="flex min-h-[52px] flex-col justify-center gap-0.5 px-3 py-2"
+                >
+                  <span className="flex min-w-0 items-baseline gap-3">
+                    <span className="min-w-0 flex-1 truncate font-medium text-slate-800 dark:text-slate-200">
+                      {alloc.counterparty || t('transactions.badge.allocatedChild')}
+                    </span>
+                    <span className="shrink-0 font-semibold tabular-nums text-sky-700 dark:text-sky-300">
+                      {money(alloc.amount)}
+                    </span>
+                  </span>
+                  {alloc.note && (
+                    <span className="truncate text-[11.5px] text-slate-500 dark:text-slate-400">
+                      {alloc.note}
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div className="overflow-x-auto max-[640px]:hidden">
               <table className="w-full text-left text-xs">
                 <thead>
                   <tr className="border-b border-sky-200/50 bg-sky-100/30 text-[10.5px] font-semibold uppercase tracking-wider text-sky-800 dark:border-sky-800/40 dark:bg-sky-900/30 dark:text-sky-300">

@@ -14,7 +14,7 @@ import {
   type UpdateChannelStorageLinkDto,
 } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { Modal, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
+import { Modal, MODAL_CLOSE_TAP, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
 import {
   useDeleteThreadStorageLinkMutation,
   useThreadStorageLinksQuery,
@@ -72,7 +72,7 @@ export function ThreadStorageLinksDialog({
         </div>
         <button
           aria-label={t('zca.storageLinks.close')}
-          className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+          className={`shrink-0 rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200 ${MODAL_CLOSE_TAP}`}
           onClick={onClose}
           type="button"
         >
@@ -94,7 +94,7 @@ export function ThreadStorageLinksDialog({
           <div className="flex flex-col items-start gap-2 rounded border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
             <p>{t('zca.storageLinks.error')}</p>
             <button
-              className="rounded border border-red-300 px-2 py-1 font-medium hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-900/40"
+              className="rounded border border-red-300 px-2 py-1 font-medium hover:bg-red-100 max-sm:min-h-10 max-sm:px-3 dark:border-red-800 dark:hover:bg-red-900/40"
               onClick={() => void query.refetch()}
               type="button"
             >
@@ -121,9 +121,9 @@ export function ThreadStorageLinksDialog({
 type Translate = ReturnType<typeof useLocale>['t'];
 
 const INPUT_CLASS =
-  'mt-1 w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 aria-[invalid=true]:border-red-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-900';
+  'mt-1 w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 aria-[invalid=true]:border-red-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-900 max-sm:h-10';
 const ACTION_BUTTON_CLASS =
-  'inline-flex min-h-8 items-center gap-1 rounded border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-flex min-h-8 items-center gap-1 rounded border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 max-sm:min-h-10 max-sm:px-3';
 
 function updateErrorMessage(
   t: Translate,
@@ -182,7 +182,7 @@ function StorageLinkRow({ threadId, link }: { threadId: string; link: ChannelSto
     >
       <div className="flex items-start justify-between gap-2">
         <a
-          className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800 hover:text-blue-600 hover:underline dark:text-slate-100 dark:hover:text-blue-400"
+          className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800 hover:text-blue-600 hover:underline max-sm:-my-2 max-sm:leading-10 dark:text-slate-100 dark:hover:text-blue-400"
           href={link.url}
           rel="noopener noreferrer"
           target="_blank"

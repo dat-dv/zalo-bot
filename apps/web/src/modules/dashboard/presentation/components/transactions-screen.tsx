@@ -289,7 +289,10 @@ export function TransactionsScreen() {
         </div>
       )}
 
-      <section className="flex flex-col gap-3" aria-label={t('transactions.title')}>
+      <section
+        className="flex flex-col gap-3 max-[640px]:gap-2"
+        aria-label={t('transactions.title')}
+      >
         <PeriodFilterToolbar filter={periodFilter} />
 
         <TrendSummaryStrip buckets={periodBuckets} income={periodIncome} expense={periodExpense} />
@@ -392,7 +395,6 @@ export function TransactionsScreen() {
             columnFilters={columnFilters}
             onChangeColumnFilters={setColumnFilters}
             filterOptions={filterOptions}
-            mobileList
           />
           {transactionsQuery.hasNextPage && (
             <div className="flex justify-center border-t border-slate-200 py-2 dark:border-slate-800">

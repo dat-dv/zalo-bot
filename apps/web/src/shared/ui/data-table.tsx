@@ -917,9 +917,13 @@ export function DataTable<T extends DataTableRow>({
         </div>
       )}
 
-      <div className="relative max-h-[520px] w-full min-w-0 overflow-auto" aria-busy={loading}>
+      {/* Compact screens scroll the page, not a nested 520px box; sideways scroll stays here. */}
+      <div
+        className="relative max-h-[520px] w-full min-w-0 overflow-auto max-[960px]:max-h-none"
+        aria-busy={loading}
+      >
         <table
-          className="w-full min-w-full border-collapse text-left text-xs max-[640px]:min-w-max"
+          className="w-full min-w-full border-collapse text-left text-xs max-[960px]:min-w-max"
           aria-label={ariaLabel}
         >
           <colgroup>

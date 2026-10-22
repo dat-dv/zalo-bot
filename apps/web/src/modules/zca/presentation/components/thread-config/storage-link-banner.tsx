@@ -59,7 +59,7 @@ export function StorageLinkBanner({
         </div>
       </div>
       <button
-        className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors ${tone.button}`}
+        className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors max-[640px]:h-10 ${tone.button}`}
         onClick={onOpen}
         title={buttonTitle}
         type="button"

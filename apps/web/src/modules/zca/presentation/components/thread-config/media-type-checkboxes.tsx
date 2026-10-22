@@ -22,10 +22,10 @@ export function MediaTypeCheckboxes({ media, onChange }: MediaTypeCheckboxesProp
       <legend className="text-xs font-semibold text-slate-600 dark:text-slate-400">
         Loại tài nguyên tự động lưu (Mặc định tắt):
       </legend>
-      <div className="mt-2 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+      <div className="mt-2 grid grid-cols-1 gap-2.5 max-[640px]:gap-0 sm:grid-cols-2">
         {MEDIA_TYPES.map(({ key, label }) => (
           <label
-            className="flex cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-300"
+            className="flex cursor-pointer items-center gap-2 text-sm text-slate-700 max-[640px]:min-h-10 dark:text-slate-300"
             key={key}
           >
             <input

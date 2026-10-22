@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { localeTag, type ITaskListItem } from '@zalobot/contracts';
+import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 
@@ -46,6 +47,8 @@ export function TasksTable({
   isPending = false,
 }: TasksTableProps) {
   const { locale, t } = useLocale();
+  // Compact screens edit inside the row sheet; focusing a field there would pop the keyboard.
+  const isCompact = useIsCompact();
 
   const columns = useMemo<DataTableColumn<ITaskListItem>[]>(() => {
     const hasActions = Boolean(onStartEdit || onSaveEdit || onDelete);
@@ -56,6 +59,14 @@ export function TasksTable({
             timeStyle: 'short',
           }).format(new Date(value))
         : t('common.notSet');
+    const shortDate = (value?: string) =>
+      value
+        ? new Intl.DateTimeFormat(localeTag(locale), { day: '2-digit', month: '2-digit' }).format(
+            new Date(value),
+          )
+        : null;
+    const statusLabel = (item: ITaskListItem) =>
+      item.status === 'completed' ? t('tasks.status.completed') : t('tasks.status.needsAction');
 
     const list: DataTableColumn<ITaskListItem>[] = [
       {
@@ -64,6 +75,8 @@ export function TasksTable({
         minWidth: '130px',
         width: '130px',
         hideable: false,
+        mobileSlot: 'secondary',
+        mobileCell: statusLabel,
         cell: (item) => {
           const isEditing = editingId === item.id;
           if (isEditing && editDraft && onChangeEditDraft) {
@@ -87,7 +100,7 @@ export function TasksTable({
 
           const isCompleted = item.status === 'completed';
           return (
-            <label className="inline-flex cursor-pointer items-center gap-1.5 select-none">
+            <label className="inline-flex cursor-pointer items-center gap-1.5 select-none max-[960px]:min-h-10 max-[960px]:pr-2">
               <input
                 type="checkbox"
                 className="cursor-pointer accent-slate-900 dark:accent-sky-500"
@@ -103,7 +116,7 @@ export function TasksTable({
                     : 'border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
                 }`}
               >
-                {isCompleted ? t('tasks.status.completed') : t('tasks.status.needsAction')}
+                {statusLabel(item)}
               </span>
             </label>
           );
@@ -114,6 +127,8 @@ export function TasksTable({
         header: t('dashboard.columns.title'),
         minWidth: '220px',
         hideable: false,
+        mobileSlot: 'primary',
+        mobileCell: (item) => item.title,
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -133,7 +148,7 @@ export function TasksTable({
                   if (e.key === 'Escape') onCancelEdit();
                 }}
                 placeholder={t('tasks.placeholder.title')}
-                autoFocus
+                autoFocus={!isCompact}
                 required
                 aria-label={t('dashboard.columns.title')}
               />
@@ -158,6 +173,8 @@ export function TasksTable({
         id: 'notes',
         header: t('tasks.columns.notes'),
         minWidth: '200px',
+        mobileSlot: 'secondary',
+        mobileCell: (item) => item.notes || null,
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -199,6 +216,8 @@ export function TasksTable({
         header: t('dashboard.columns.dueDate'),
         align: 'right',
         minWidth: '150px',
+        mobileSlot: 'trailing',
+        mobileCell: (item) => shortDate(item.dueAt),
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -312,6 +331,7 @@ export function TasksTable({
   }, [
     editDraft,
     editingId,
+    isCompact,
     isPending,
     locale,
     onCancelEdit,

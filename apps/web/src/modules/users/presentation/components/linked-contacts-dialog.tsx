@@ -4,7 +4,13 @@ import { useId } from 'react';
 import Link from 'next/link';
 import { APP_ROUTES, type IUserListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
+import {
+  Modal,
+  MODAL_CLOSE_TAP,
+  MODAL_FOOTER_TAP,
+  MODAL_STICKY_FOOTER,
+  MODAL_STICKY_HEADER,
+} from '@/shared/ui/modal';
 import { useUserLinkedContactsQuery } from '../../api/users-query';
 import { userLabel } from './merge-user-dialog';
 
@@ -41,7 +47,7 @@ export function LinkedContactsDialog({ user, onClose }: LinkedContactsDialogProp
           type="button"
           onClick={onClose}
           aria-label={t('users.linkedContacts.close')}
-          className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+          className={`rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 ${MODAL_CLOSE_TAP}`}
         >
           ✕
         </button>
@@ -72,7 +78,7 @@ export function LinkedContactsDialog({ user, onClose }: LinkedContactsDialogProp
             <button
               type="button"
               onClick={() => void query.refetch()}
-              className="shrink-0 font-semibold underline"
+              className="shrink-0 font-semibold underline max-sm:min-h-10 max-sm:px-2"
             >
               {t('common.retry')}
             </button>
@@ -112,14 +118,14 @@ export function LinkedContactsDialog({ user, onClose }: LinkedContactsDialogProp
       >
         <Link
           href={APP_ROUTES.contacts}
-          className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          className={`inline-flex items-center rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 max-sm:justify-center dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${MODAL_FOOTER_TAP}`}
         >
           {t('users.linkedContacts.openContacts')}
         </Link>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          className={`rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 ${MODAL_FOOTER_TAP}`}
         >
           {t('users.linkedContacts.close')}
         </button>

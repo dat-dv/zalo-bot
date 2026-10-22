@@ -14,7 +14,8 @@ import {
 } from '../../api/places-query';
 import { CombinePlacesDialog } from './combine-places-dialog';
 import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
-import { TOAST_POSITION } from '@/shared/ui/touch';
+import { MOBILE_TOOLBAR_ROW, TOAST_POSITION } from '@/shared/ui/touch';
+import { useIsCompact } from '@/shared/hooks/use-media-query';
 
 export function PlacesScreen() {
   const queryClient = useQueryClient();
@@ -27,6 +28,9 @@ export function PlacesScreen() {
   const [newPlaceName, setNewPlaceName] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [isCombineOpen, setIsCombineOpen] = useState(false);
+  // Compact list rows open a detail sheet on tap, so picking places to combine needs its own mode.
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const isCompact = useIsCompact();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -48,6 +52,9 @@ export function PlacesScreen() {
   const selectedPlaces = useMemo(() => {
     return rawList.filter((p) => selectedIds.has(p.id));
   }, [rawList, selectedIds]);
+
+  const isSelectListShown = isCompact && isSelectMode;
+  const showSelectionChips = !isCompact || isSelectMode;
 
   const formatDate = (value?: string) =>
     value
@@ -84,6 +91,11 @@ export function PlacesScreen() {
     } else {
       setSelectedIds(new Set(filteredPlaces.map((p) => p.id)));
     }
+  };
+
+  const handleToggleSelectMode = () => {
+    setIsSelectMode((prev) => !prev);
+    setSelectedIds(new Set());
   };
 
   const handleStartEdit = (place: IFinancePlace) => {
@@ -178,6 +190,8 @@ export function PlacesScreen() {
       header: t('places.columns.name'),
       minWidth: '220px',
       hideable: false,
+      mobileSlot: 'primary',
+      mobileCell: (item) => item.name,
       cell: (item) => {
         if (editingId === item.id) {
           return (
@@ -213,6 +227,8 @@ export function PlacesScreen() {
       header: t('places.columns.transactionCount'),
       minWidth: '110px',
       align: 'right',
+      mobileSlot: 'trailing',
+      mobileCell: (item) => String(item.transactionCount ?? 0),
       cell: (item) => (
         <span className="font-mono text-[11.5px] text-slate-600 dark:text-slate-400">
           {item.transactionCount ?? 0}
@@ -224,6 +240,8 @@ export function PlacesScreen() {
       header: t('dashboard.columns.date'),
       minWidth: '140px',
       align: 'right',
+      mobileSlot: 'secondary',
+      mobileCell: (item) => formatDate(item.createdAt),
       cell: (item) => (
         <span className="text-[11.5px] text-slate-500 dark:text-slate-400">
           {formatDate(item.createdAt)}
@@ -305,14 +323,20 @@ export function PlacesScreen() {
                 setEditingId(null);
               }}
               title={t('places.actions.delete')}
+              aria-label={t('places.actions.delete')}
             >
-              🗑️
+              <span aria-hidden="true">🗑️</span>
             </button>
           </div>
         );
       },
     },
   ];
+
+  // The select column would show up as a field in the detail sheet; compact uses select mode instead.
+  const visibleColumns = isCompact
+    ? placeColumns.filter((column) => column.id !== 'select')
+    : placeColumns;
 
   const isPartiallySelected = selectedIds.size > 0 && selectedIds.size < filteredPlaces.length;
 
@@ -336,7 +360,7 @@ export function PlacesScreen() {
           <strong>{t('dashboard.error.title')}</strong>
           <button
             type="button"
-            className="cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
+            className="cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600 max-[640px]:h-10 max-[640px]:px-3"
             onClick={refresh}
           >
             {t('common.retry')}
@@ -349,41 +373,61 @@ export function PlacesScreen() {
             description={t('places.subtitle')}
             counter={t('table.rowsCount', { count: filteredPlaces.length })}
             toolbar={
-              <div className="flex flex-wrap items-center gap-1.5">
-                {selectedIds.size >= 2 && (
-                  <button
-                    type="button"
-                    className="inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-                    onClick={() => setIsCombineOpen(true)}
-                  >
-                    {t('places.actions.combine', { count: selectedIds.size })}
-                  </button>
-                )}
-                {filteredPlaces.length > 0 && (
-                  <button
-                    type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                      selectedIds.size === filteredPlaces.length
-                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-                    }`}
-                    onClick={handleToggleSelectAll}
-                  >
-                    {selectedIds.size === filteredPlaces.length
-                      ? t('places.deselectAll')
-                      : t('places.selectAll')}
-                  </button>
-                )}
-                {isPartiallySelected && (
-                  <button
-                    type="button"
-                    className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-sky-500 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/50"
-                    onClick={() => setSelectedIds(new Set())}
-                    title={t('places.deselectAll')}
-                  >
-                    {t('places.selectedCount', { count: selectedIds.size })} ✕
-                  </button>
-                )}
+              <div className="flex flex-wrap items-center gap-1.5 max-[640px]:w-full max-[640px]:flex-col max-[640px]:items-stretch">
+                {/* Phones: one sideways-scrolling chip row, then the create form and search. */}
+                <div
+                  className={`flex flex-wrap items-center gap-1.5 empty:hidden ${MOBILE_TOOLBAR_ROW}`}
+                >
+                  {selectedIds.size >= 2 && (
+                    <button
+                      type="button"
+                      // Compact screens get this action in the MobileActionBar instead.
+                      className="inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 max-[960px]:hidden"
+                      onClick={() => setIsCombineOpen(true)}
+                    >
+                      {t('places.actions.combine', { count: selectedIds.size })}
+                    </button>
+                  )}
+                  {isCompact && filteredPlaces.length > 0 && (
+                    <button
+                      type="button"
+                      className={`inline-flex h-6 min-h-6 shrink-0 whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                        isSelectMode
+                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                      onClick={handleToggleSelectMode}
+                      aria-pressed={isSelectMode}
+                    >
+                      {isSelectMode ? t('places.selectModeDone') : t('places.selectMode')}
+                    </button>
+                  )}
+                  {showSelectionChips && filteredPlaces.length > 0 && (
+                    <button
+                      type="button"
+                      className={`inline-flex h-6 min-h-6 shrink-0 whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                        selectedIds.size === filteredPlaces.length
+                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                      onClick={handleToggleSelectAll}
+                    >
+                      {selectedIds.size === filteredPlaces.length
+                        ? t('places.deselectAll')
+                        : t('places.selectAll')}
+                    </button>
+                  )}
+                  {showSelectionChips && isPartiallySelected && (
+                    <button
+                      type="button"
+                      className="inline-flex h-6 min-h-6 shrink-0 whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] cursor-pointer items-center rounded-[3px] border border-sky-500 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/50"
+                      onClick={() => setSelectedIds(new Set())}
+                      title={t('places.deselectAll')}
+                    >
+                      {t('places.selectedCount', { count: selectedIds.size })} ✕
+                    </button>
+                  )}
+                </div>
                 {isCreating ? (
                   <form
                     onSubmit={(e) => void handleCreatePlace(e)}
@@ -428,7 +472,7 @@ export function PlacesScreen() {
                 )}
                 <input
                   type="search"
-                  className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
+                  className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:h-10 max-[640px]:w-full"
                   placeholder={t('table.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -437,30 +481,79 @@ export function PlacesScreen() {
               </div>
             }
           >
-            <DataTable
-              id="places"
-              ariaLabel={t('places.title')}
-              rows={filteredPlaces}
-              loading={places.isLoading}
-              emptyMessage={t('places.noData')}
-              columns={placeColumns}
-              getRowKey={(item) => item.id}
-            />
+            {isSelectListShown && !places.isLoading ? (
+              <ul className="m-0 list-none p-0" aria-label={t('places.title')}>
+                {filteredPlaces.length > 0 ? (
+                  filteredPlaces.map((item) => (
+                    <li key={item.id} className="border-b border-slate-100 dark:border-slate-800">
+                      {/* The whole row is the checkbox's label: a 52px tap target, same checkbox look. */}
+                      <label className="flex min-h-[52px] cursor-pointer items-center gap-3 px-3 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                        <input
+                          type="checkbox"
+                          className="shrink-0 cursor-pointer accent-slate-900 dark:accent-sky-500"
+                          checked={selectedIds.has(item.id)}
+                          onChange={() => handleToggleRow(item.id)}
+                        />
+                        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <span className="flex min-w-0 items-baseline gap-3">
+                            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-900 dark:text-slate-100">
+                              {item.name}
+                            </span>
+                            <span className="shrink-0 text-[13px] font-semibold text-slate-700 tabular-nums dark:text-slate-300">
+                              {item.transactionCount ?? 0}
+                            </span>
+                          </span>
+                          <span className="truncate text-[11.5px] text-slate-500 dark:text-slate-400">
+                            {formatDate(item.createdAt)}
+                          </span>
+                        </span>
+                      </label>
+                    </li>
+                  ))
+                ) : (
+                  <li className="flex h-20 items-center justify-center text-xs text-slate-400 italic">
+                    {t('places.noData')}
+                  </li>
+                )}
+              </ul>
+            ) : (
+              <DataTable
+                id="places"
+                ariaLabel={t('places.title')}
+                rows={filteredPlaces}
+                loading={places.isLoading}
+                emptyMessage={t('places.noData')}
+                columns={visibleColumns}
+                getRowKey={(item) => item.id}
+              />
+            )}
           </DataPanel>
         </section>
       )}
 
-      {!isCreating && (
-        <MobileActionBar>
-          <button
-            type="button"
-            onClick={() => setIsCreating(true)}
-            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
-          >
-            + {t('places.actions.create')}
-          </button>
-        </MobileActionBar>
-      )}
+      {isSelectListShown
+        ? selectedIds.size >= 2 && (
+            <MobileActionBar>
+              <button
+                type="button"
+                onClick={() => setIsCombineOpen(true)}
+                className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+              >
+                {t('places.actions.combine', { count: selectedIds.size })}
+              </button>
+            </MobileActionBar>
+          )
+        : !isCreating && (
+            <MobileActionBar>
+              <button
+                type="button"
+                onClick={() => setIsCreating(true)}
+                className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+              >
+                + {t('places.actions.create')}
+              </button>
+            </MobileActionBar>
+          )}
 
       <CombinePlacesDialog
         isOpen={isCombineOpen}
@@ -468,6 +561,7 @@ export function PlacesScreen() {
         onClose={() => setIsCombineOpen(false)}
         onSuccess={(count) => {
           setSelectedIds(new Set());
+          setIsSelectMode(false);
           showToast(t('places.combine.success', { count }));
         }}
       />

@@ -3,7 +3,13 @@
 import { useMemo } from 'react';
 import { localeTag, type ICalendarEventItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { getEventDateKeys } from '../../model/calendar-date-utils';
+import {
+  formatEventTime,
+  getEventDateKeys,
+  toDateKey,
+  type CalendarEventDraft,
+} from '../../model/calendar-date-utils';
+import { CalendarEventFields } from './calendar-event-fields';
 
 interface ICalendarGridProps {
   events: ICalendarEventItem[];
@@ -13,28 +19,8 @@ interface ICalendarGridProps {
   onEdit: (item: ICalendarEventItem) => void;
   onDelete: (id: string) => void;
   editingId: string | null;
-  editDraft: {
-    summary: string;
-    location: string;
-    description: string;
-    startDateTime: string;
-    endDateTime: string;
-  };
-  onEditDraftChange: (
-    updater: (prev: {
-      summary: string;
-      location: string;
-      description: string;
-      startDateTime: string;
-      endDateTime: string;
-    }) => {
-      summary: string;
-      location: string;
-      description: string;
-      startDateTime: string;
-      endDateTime: string;
-    },
-  ) => void;
+  editDraft: CalendarEventDraft;
+  onEditDraftChange: (updater: (prev: CalendarEventDraft) => CalendarEventDraft) => void;
   onSaveEdit: (id: string) => void;
   onCancelEdit: () => void;
   isSaving: boolean;
@@ -77,13 +63,6 @@ export function CalendarGrid({
     t('calendar.day.sat'),
     t('calendar.day.sun'),
   ];
-
-  const toDateKey = (d: Date): string => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  };
 
   const eventsByDate = useMemo(() => {
     const map = new Map<string, ICalendarEventItem[]>();
@@ -170,17 +149,7 @@ export function CalendarGrid({
     return eventsByDate.get(key) || [];
   }, [selectedDate, eventsByDate]);
 
-  const formatTime = (isoString?: string) => {
-    if (!isoString) return '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(isoString)) return '';
-    const d = new Date(isoString);
-    if (Number.isNaN(d.getTime())) return '';
-    return new Intl.DateTimeFormat(localeTag(locale), {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    }).format(d);
-  };
+  const formatTime = (isoString?: string) => formatEventTime(isoString, localeTag(locale));
 
   const formatFullDate = (d: Date) => {
     return new Intl.DateTimeFormat(localeTag(locale), {
@@ -220,7 +189,7 @@ export function CalendarGrid({
             <button
               type="button"
               key={cell.dateKey}
-              className={`flex min-h-[96px] cursor-pointer flex-col items-stretch border-t border-r border-slate-200 p-1.5 text-left outline-none transition-colors dark:border-slate-800 ${
+              className={`flex min-h-[96px] cursor-pointer flex-col items-stretch border-t border-r border-slate-200 p-1.5 text-left max-[640px]:min-h-[52px] max-[640px]:items-center max-[640px]:p-1 outline-none transition-colors dark:border-slate-800 ${
                 cell.isCurrentMonth
                   ? 'bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/80'
                   : 'bg-slate-50/60 opacity-55 hover:bg-slate-100/70 dark:bg-slate-950/60 dark:hover:bg-slate-950'
@@ -232,7 +201,7 @@ export function CalendarGrid({
               onClick={() => onSelectDate(cell.date)}
               aria-label={`${cell.dateKey}, ${cell.events.length} ${t('dashboard.calendar')}`}
             >
-              <div className="mb-1 flex items-center justify-between">
+              <div className="mb-1 flex items-center justify-between max-[640px]:mb-0.5 max-[640px]:justify-center">
                 <span
                   className={`inline-flex size-[22px] items-center justify-center rounded-full text-xs ${
                     cell.isToday
@@ -244,7 +213,7 @@ export function CalendarGrid({
                 </span>
                 {cell.events.length > 0 && (
                   <span
-                    className="rounded-full bg-slate-200 px-1.5 py-px text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                    className="rounded-full bg-slate-200 px-1.5 py-px text-[10px] font-semibold text-slate-600 max-[640px]:hidden dark:bg-slate-800 dark:text-slate-300"
                     title={t('table.rowsCount', { count: cell.events.length })}
                   >
                     {cell.events.length}
@@ -252,7 +221,19 @@ export function CalendarGrid({
                 )}
               </div>
 
-              <div className="flex flex-col gap-0.5 overflow-hidden">
+              {/* Phones: a 7-column cell is ~50px wide, too narrow for text chips; dots mark busy days. */}
+              {cell.events.length > 0 && (
+                <span className="hidden items-center gap-0.5 max-[640px]:flex" aria-hidden="true">
+                  {cell.events.slice(0, 3).map((event) => (
+                    <span
+                      key={event.id}
+                      className="size-1.5 rounded-full bg-blue-500 dark:bg-blue-400"
+                    />
+                  ))}
+                </span>
+              )}
+
+              <div className="flex flex-col gap-0.5 overflow-hidden max-[640px]:hidden">
                 {cell.events.map((event) => (
                   <div
                     key={event.id}
@@ -303,78 +284,16 @@ export function CalendarGrid({
                       className="flex flex-col gap-2 rounded border border-blue-500 bg-white p-3 dark:border-blue-500 dark:bg-slate-900"
                     >
                       <div className="flex w-full flex-col gap-2">
-                        <div>
-                          <input
-                            type="text"
-                            className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
-                            value={editDraft.summary}
-                            onChange={(e) =>
-                              onEditDraftChange((prev) => ({ ...prev, summary: e.target.value }))
-                            }
-                            placeholder={t('calendar.placeholder.title')}
-                            autoFocus
-                            required
-                            aria-label={t('calendar.placeholder.title')}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 max-[640px]:grid-cols-1">
-                          <input
-                            type="datetime-local"
-                            className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
-                            value={editDraft.startDateTime}
-                            onChange={(e) =>
-                              onEditDraftChange((prev) => ({
-                                ...prev,
-                                startDateTime: e.target.value,
-                              }))
-                            }
-                            aria-label={t('dashboard.columns.date')}
-                          />
-                          <input
-                            type="datetime-local"
-                            className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
-                            value={editDraft.endDateTime}
-                            onChange={(e) =>
-                              onEditDraftChange((prev) => ({
-                                ...prev,
-                                endDateTime: e.target.value,
-                              }))
-                            }
-                            aria-label={t('calendar.columns.endAt')}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 max-[640px]:grid-cols-1">
-                          <input
-                            type="text"
-                            className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
-                            value={editDraft.location}
-                            onChange={(e) =>
-                              onEditDraftChange((prev) => ({ ...prev, location: e.target.value }))
-                            }
-                            placeholder={t('calendar.placeholder.location')}
-                            aria-label={t('calendar.placeholder.location')}
-                          />
-                          <input
-                            type="text"
-                            className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
-                            value={editDraft.description}
-                            onChange={(e) =>
-                              onEditDraftChange((prev) => ({
-                                ...prev,
-                                description: e.target.value,
-                              }))
-                            }
-                            placeholder={t('calendar.placeholder.description')}
-                            aria-label={t('calendar.placeholder.description')}
-                          />
-                        </div>
+                        <CalendarEventFields
+                          draft={editDraft}
+                          onDraftChange={onEditDraftChange}
+                          autoFocusTitle
+                        />
 
                         <div className="flex justify-end gap-2 pt-1">
                           <button
                             type="button"
-                            className="inline-flex min-h-7 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                            className="inline-flex min-h-7 items-center justify-center rounded-[3px] border border-slate-900 max-[640px]:min-h-10 max-[640px]:flex-1 bg-slate-900 px-2.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
                             onClick={() => onSaveEdit(event.id)}
                             disabled={isSaving || !editDraft.summary.trim()}
                           >
@@ -382,7 +301,7 @@ export function CalendarGrid({
                           </button>
                           <button
                             type="button"
-                            className="inline-flex min-h-7 items-center justify-center rounded-[3px] border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                            className="inline-flex min-h-7 items-center justify-center rounded-[3px] border border-slate-300 max-[640px]:min-h-10 max-[640px]:flex-1 bg-white px-2.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
                             onClick={onCancelEdit}
                             disabled={isSaving}
                           >
@@ -397,7 +316,7 @@ export function CalendarGrid({
                 return (
                   <div
                     key={event.id}
-                    className="flex items-start justify-between gap-3 rounded border border-slate-200 bg-slate-50/50 p-3 dark:border-slate-800 dark:bg-slate-950/40"
+                    className="flex items-start justify-between gap-3 rounded border border-slate-200 bg-slate-50/50 p-3 max-[640px]:flex-col max-[640px]:items-stretch dark:border-slate-800 dark:bg-slate-950/40"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="mb-1.5 inline-block rounded-[3px] bg-blue-50 px-1.5 py-0.5 text-[11px] font-semibold text-blue-600 dark:bg-blue-950/60 dark:text-blue-400">
@@ -419,10 +338,10 @@ export function CalendarGrid({
                       )}
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-1.5">
+                    <div className="flex shrink-0 items-center gap-1.5 max-[640px]:[&>button]:flex-1 max-[640px]:[&>button]:justify-center">
                       <button
                         type="button"
-                        className="inline-flex h-[22px] min-h-[22px] cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                        className="inline-flex h-[22px] min-h-[22px] cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 max-[640px]:h-10 max-[640px]:min-h-10 max-[640px]:px-3 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
                         onClick={() => onEdit(event)}
                         title={t('calendar.actions.edit')}
                       >
@@ -430,7 +349,7 @@ export function CalendarGrid({
                       </button>
                       <button
                         type="button"
-                        className="inline-flex h-[22px] min-h-[22px] cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-900 dark:hover:bg-rose-950/50 dark:hover:text-rose-400"
+                        className="inline-flex h-[22px] min-h-[22px] cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 max-[640px]:h-10 max-[640px]:min-h-10 max-[640px]:px-3 text-[11px] font-medium text-slate-700 transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-900 dark:hover:bg-rose-950/50 dark:hover:text-rose-400"
                         onClick={() => onDelete(event.id)}
                         disabled={isDeleting}
                         title={t('calendar.actions.delete')}

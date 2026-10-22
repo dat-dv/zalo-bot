@@ -19,7 +19,7 @@ export function ThreadConfigHeader({
   return (
     <header className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
       <Link
-        className="w-fit text-xs font-medium text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400"
+        className="w-fit text-xs font-medium text-slate-500 hover:text-blue-600 max-[640px]:-my-2 max-[640px]:inline-flex max-[640px]:min-h-10 max-[640px]:items-center max-[640px]:text-[12.5px] dark:text-slate-400 dark:hover:text-blue-400"
         href={backHref}
       >
         ← Zalo & Người dùng

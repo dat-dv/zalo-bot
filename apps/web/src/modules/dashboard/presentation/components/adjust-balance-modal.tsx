@@ -2,7 +2,13 @@
 
 import { useState, useEffect, useId, useMemo } from 'react';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
+import {
+  Modal,
+  MODAL_CLOSE_TAP,
+  MODAL_FOOTER_TAP,
+  MODAL_STICKY_FOOTER,
+  MODAL_STICKY_HEADER,
+} from '@/shared/ui/modal';
 import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { useCreateTransactionMutation } from '../../api/transactions-query';
 
@@ -136,7 +142,7 @@ export function AdjustBalanceModal({
         </div>
         <button
           type="button"
-          className="inline-flex size-7 cursor-pointer items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600 disabled:opacity-50 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+          className={`inline-flex size-7 cursor-pointer items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600 disabled:opacity-50 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300 ${MODAL_CLOSE_TAP}`}
           onClick={onClose}
           disabled={createMutation.isPending}
           aria-label={t('common.close')}
@@ -173,9 +179,8 @@ export function AdjustBalanceModal({
             value={targetAmountInput}
             onChange={(e) => setTargetAmountInput(e.target.value)}
             placeholder={t('transactions.balanceAdjust.targetPlaceholder')}
-            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm font-semibold tabular-nums text-slate-900 transition-colors focus:border-indigo-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-indigo-400"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm font-semibold tabular-nums text-slate-900 transition-colors focus:border-indigo-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-indigo-400 max-sm:h-10"
             disabled={createMutation.isPending}
-            autoFocus
           />
         </div>
 
@@ -217,7 +222,7 @@ export function AdjustBalanceModal({
               setIsCustomNote(true);
               setNote(e.target.value);
             }}
-            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 transition-colors focus:border-indigo-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-indigo-400"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 transition-colors focus:border-indigo-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-indigo-400 max-sm:h-10"
             disabled={createMutation.isPending}
           />
         </div>
@@ -235,7 +240,7 @@ export function AdjustBalanceModal({
             type="datetime-local"
             value={occurredAt}
             onChange={(e) => setOccurredAt(e.target.value)}
-            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 transition-colors focus:border-indigo-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-indigo-400"
+            className="w-full rounded border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 transition-colors focus:border-indigo-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-indigo-400 max-sm:h-10"
             disabled={createMutation.isPending}
           />
         </div>
@@ -249,11 +254,12 @@ export function AdjustBalanceModal({
 
         {/* Modal Footer */}
         <footer
-          className={`${MODAL_STICKY_FOOTER} flex items-center justify-end gap-2 border-t border-slate-100 bg-white pt-3 pb-1 dark:border-slate-800 dark:bg-slate-900`}
+          // Phones: span the panel edge to edge and keep room under the buttons when stuck.
+          className={`${MODAL_STICKY_FOOTER} flex items-center justify-end gap-2 border-t border-slate-100 bg-white pt-3 pb-1 dark:border-slate-800 dark:bg-slate-900 max-sm:-mx-5 max-sm:-mb-5 max-sm:px-5 max-sm:pb-3`}
         >
           <button
             type="button"
-            className="cursor-pointer rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            className={`cursor-pointer rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 ${MODAL_FOOTER_TAP}`}
             onClick={onClose}
             disabled={createMutation.isPending}
           >
@@ -261,7 +267,7 @@ export function AdjustBalanceModal({
           </button>
           <button
             type="submit"
-            className="cursor-pointer rounded bg-indigo-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-600"
+            className={`cursor-pointer rounded bg-indigo-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-600 ${MODAL_FOOTER_TAP}`}
             disabled={createMutation.isPending || parsedTargetAmount === null || diff === 0}
           >
             {createMutation.isPending ? t('common.saving') : t('transactions.balanceAdjust.submit')}

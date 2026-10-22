@@ -6,7 +6,14 @@ import type {
   SyncThreadMediaResponse,
   ThreadBotConfig,
 } from '@zalobot/contracts';
-import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
+import {
+  Modal,
+  MODAL_CLOSE_TAP,
+  MODAL_FOOTER_TAP,
+  MODAL_STICKY_FOOTER,
+  MODAL_STICKY_HEADER,
+} from '@/shared/ui/modal';
+import { useLocale } from '@/shared/providers/locale-provider';
 import { useSyncThreadMediaMutation } from '../api/zca-query';
 import {
   getThreadDriveLink,
@@ -35,6 +42,7 @@ const TIME_RANGES: { value: SyncMediaTimeRange; label: string; desc: string }[] 
 ];
 
 export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMediaModalProps) {
+  const { t } = useLocale();
   const syncMutation = useSyncThreadMediaMutation();
 
   const [timeRange, setTimeRange] = useState<SyncMediaTimeRange>('1_month');
@@ -102,6 +110,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
       onDismiss={handleClose}
       backdropClassName="bg-slate-900/60 backdrop-blur-sm"
       panelClassName="max-w-lg rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+      phoneLayout="fullscreen"
     >
       {/* Header */}
       <div
@@ -124,7 +133,8 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
           </div>
         </div>
         <button
-          className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-40 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          aria-label={t('common.close')}
+          className={`shrink-0 rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-40 dark:hover:bg-slate-800 dark:hover:text-slate-200 ${MODAL_CLOSE_TAP}`}
           disabled={syncMutation.isPending}
           onClick={handleClose}
           type="button"
@@ -204,7 +214,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
           </label>
           <div className="grid grid-cols-3 gap-2">
             <label
-              className={`flex items-center justify-center gap-2 rounded-lg border p-2.5 text-xs font-medium cursor-pointer transition-colors ${
+              className={`flex items-center justify-center gap-2 rounded-lg border p-2.5 text-xs font-medium cursor-pointer transition-colors max-sm:min-h-10 ${
                 mediaTypes.image
                   ? 'border-blue-500 bg-blue-50/60 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400'
@@ -221,7 +231,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
             </label>
 
             <label
-              className={`flex items-center justify-center gap-2 rounded-lg border p-2.5 text-xs font-medium cursor-pointer transition-colors ${
+              className={`flex items-center justify-center gap-2 rounded-lg border p-2.5 text-xs font-medium cursor-pointer transition-colors max-sm:min-h-10 ${
                 mediaTypes.video
                   ? 'border-blue-500 bg-blue-50/60 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400'
@@ -238,7 +248,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
             </label>
 
             <label
-              className={`flex items-center justify-center gap-2 rounded-lg border p-2.5 text-xs font-medium cursor-pointer transition-colors ${
+              className={`flex items-center justify-center gap-2 rounded-lg border p-2.5 text-xs font-medium cursor-pointer transition-colors max-sm:min-h-10 ${
                 mediaTypes.file
                   ? 'border-blue-500 bg-blue-50/60 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400'
@@ -263,7 +273,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
               📁 Thư mục Google Drive của nhóm
             </span>
             <a
-              className="inline-flex items-center gap-1 font-semibold text-blue-600 hover:underline dark:text-blue-400"
+              className="inline-flex shrink-0 items-center gap-1 font-semibold text-blue-600 hover:underline max-sm:-my-2 max-sm:min-h-10 dark:text-blue-400"
               href={driveLink}
               rel="noopener noreferrer"
               target="_blank"
@@ -293,7 +303,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
               </strong>
             </span>
             <a
-              className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline dark:text-indigo-400 shrink-0"
+              className="inline-flex items-center gap-1 font-semibold text-indigo-600 hover:underline dark:text-indigo-400 shrink-0 max-sm:-my-2 max-sm:min-h-10"
               href={photosLink}
               rel="noopener noreferrer"
               target="_blank"
@@ -334,7 +344,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
                 </div>
                 <div className="flex flex-col gap-1.5 shrink-0">
                   <a
-                    className="inline-flex items-center justify-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 transition-colors"
+                    className="inline-flex items-center justify-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm max-sm:min-h-10 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 transition-colors"
                     href={driveLink}
                     rel="noopener noreferrer"
                     target="_blank"
@@ -342,7 +352,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
                     📂 Mở Drive
                   </a>
                   <a
-                    className="inline-flex items-center justify-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 transition-colors"
+                    className="inline-flex items-center justify-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm max-sm:min-h-10 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 transition-colors"
                     href={photosLink}
                     rel="noopener noreferrer"
                     target="_blank"
@@ -369,13 +379,13 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
             </div>
           ) : (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50/80 p-3.5 text-xs text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-bold flex items-center gap-1.5">
                   ✅ Hoàn thành sao lưu media
                 </span>
                 <div className="flex items-center gap-1.5">
                   <a
-                    className="inline-flex items-center gap-1 rounded bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700"
+                    className="inline-flex items-center gap-1 rounded bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700 max-sm:min-h-10"
                     href={driveLink}
                     rel="noopener noreferrer"
                     target="_blank"
@@ -383,7 +393,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
                     📂 Google Drive
                   </a>
                   <a
-                    className="inline-flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-indigo-700"
+                    className="inline-flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-indigo-700 max-sm:min-h-10"
                     href={photosLink}
                     rel="noopener noreferrer"
                     target="_blank"
@@ -430,7 +440,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
         className={`${MODAL_STICKY_FOOTER} flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800`}
       >
         <button
-          className="rounded border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          className={`rounded border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 ${MODAL_FOOTER_TAP}`}
           disabled={syncMutation.isPending}
           onClick={handleClose}
           type="button"
@@ -438,7 +448,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
           {result ? 'Đóng' : 'Hủy bỏ'}
         </button>
         <button
-          className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+          className={`inline-flex items-center justify-center gap-1.5 rounded bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 ${MODAL_FOOTER_TAP}`}
           disabled={
             syncMutation.isPending || (!mediaTypes.image && !mediaTypes.video && !mediaTypes.file)
           }

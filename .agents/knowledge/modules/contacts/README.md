@@ -27,7 +27,9 @@
 - One line per cell: display text is `whitespace-nowrap` and truncated (`max-w` per column: name 220px, alias 160px, descriptor 260px, bank name 140px, linked user 200px) with the full value in `title`. Inline-edit inputs are unchanged.
 - Inline edit (double-click a cell or Edit): `displayName` (required), `alias`, `descriptor`, `phoneNumber`, `bankAccountNumber`, `bankName`, and — admins only — `linkedUser` (select from `useUsersQuery`, option "Not linked"). `linkedUserId` is sent only when it changed (`null` = unlink). `Enter` saves, `Escape` cancels. Empty optional fields are sent as `undefined`; the API clears `alias`/`descriptor` on empty but leaves phone/bank fields unchanged, so those cannot be cleared from the UI.
 - Toolbar: Combine button when 2+ rows selected, select/deselect all, selected-count chip, search (displayName/alias/descriptor).
-- States: loading via `DataTable`, empty message, error banner with Retry (invalidates `['contacts']`), toast after save/combine.
+- States: loading via `DataTable`, empty message, error banner with Retry (invalidates `['contacts']`), toast after save/combine (`TOAST_POSITION`).
+- **Compact (<= 960px)**: `DataTable` mobile list. Slots: primary `displayName (alias)` (prefixed `✓` while selected), trailing `phoneNumber` (there is no balance column), secondary linked account (`firstName (@username)` / `#<id prefix>`) · resources (`N nợ · N giao dịch`). The `select` column is dropped on compact (its sheet row would read "Select all"); selecting for Combine is the sheet footer toggle `contacts.actions.select` / `contacts.actions.selected` (`aria-pressed`). Sheet footer also has `Hồ sơ` (link) and Edit; Edit turns the sheet rows into inputs and the footer into Save/✕ (double-click edit stays desktop-only in practice). With 2+ selected, Combine moves to `MobileActionBar` (toolbar copy `max-[960px]:hidden`).
+- **Phone (<= 640px) toolbar**: Sync / Combine / Select all / selected-count chips in one sideways-scrolling row (`MOBILE_TOOLBAR_ROW`, 40px chips), search on its own full-width 40px row. Suggestion panel ✕ and Link buttons are 40px.
 - `useDeleteContactMutation` exists but no delete action is rendered.
 
 ## Combine (`CombineContactsDialog`)
@@ -39,7 +41,7 @@
 - Payload: `{ targetContactId, sourceContactIds, displayName, alias, descriptor, linkedUserId, consolidateDebts }`.
 - Success invalidates `contacts`, `users`, `debts`, `transactions`, `expenses`, `dashboard`. Update/delete invalidate `contacts`, `users`, `debts`, `dashboard` (`users` carries `linkedContactCount` for the ZCA page).
 
-- `CombineContactsDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard).
+- `CombineContactsDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard). Phones: `phoneLayout="fullscreen"` (long form); the inner `max-h-[75vh]` body and `max-h-48` candidate list stop scrolling (`max-sm:max-h-none overflow-visible`) so the panel is the only scroller; inputs/select 40px, consolidate-debts label 40px, footer buttons `MODAL_FOOTER_TAP`, ✕ `MODAL_CLOSE_TAP`.
 
 ## Contact ↔ user account link (`linkedUserId`)
 
@@ -73,7 +75,7 @@
 - **Screen** (`ContactProfileScreen`): flat single canvas, square controls (same as the `/zca` and `/contacts` tables).
   - Header: back link, square avatar (contact or linked user), name `(alias)`, descriptor, `Tài khoản Zalo: name @username · ● access` (+ link to `/zca` for admins) or "not linked".
   - `MetricGrid` 4 cells (lent still owed, borrowed still owing, total income, total expense; amounts follow the money visibility toggle) + one line `N open · N transactions`.
-  - Desktop: left "Details" `DataPanel` (~320–400px), right debts table + recent transactions table (`DataTable`, mobile list slots). Mobile: stacked.
+  - Desktop: left "Details" `DataPanel` (~320–400px), right debts table + recent transactions table (`DataTable`, mobile list slots). Mobile: stacked. Phones: `profile-styles.ts` buttons and inputs grow to 40px (`max-[640px]:` only), back link 40px, toast uses `TOAST_POSITION`.
   - Details view: phones / accounts (primary first with "Primary"), birthday, relationship, address, workplace, notes (pre-line). Edit: "Sửa" turns the panel into an in-place form (name, alias, descriptor, primary + extra phones/accounts with add/remove rows, birthday, relationship, address, workplace, notes); "Lưu"/"Huỷ". Save = validate with the same contracts rules (field errors under each field, row index for lists) → `PATCH /api/contacts/:id` only if base fields changed (same body as the table inline edit; empty primary phone/bank keeps the value) → `PATCH …/profile`.
   - States: missing `id`, loading skeleton, not found (404, e.g. deleted/merged), error + retry, data; empty tables show an empty row.
 - **Entry points**: `/contacts` actions column "Hồ sơ" link (name click stays inline edit); `/zca` row "⋯" menu for rows with a `users` row: "Xem hồ sơ" (has linked contact) or "Tạo hồ sơ" (none: `useOpenContactProfile` creates a contact named after the user with its phone and `linkedUserId`, admin-only, then opens it).

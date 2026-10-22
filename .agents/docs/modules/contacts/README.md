@@ -22,6 +22,7 @@ metadata:
       - apps/web/src/modules/contacts/model/contact-profile-form.ts
       - apps/web/src/modules/contacts/view/contact-profile-screen.tsx
       - apps/web/src/modules/contacts/view/use-open-contact-profile.ts
+      - apps/web/src/modules/contacts/presentation/components/contact-profile/profile-styles.ts
 ---
 
 # Module danh bạ công nợ (contacts)
@@ -47,7 +48,12 @@ Tài liệu này ánh xạ trực tiếp với tri thức canonical [`README.md`
 - Sửa trực tiếp: nhấp đúp ô hoặc bấm Sửa để sửa Tên (bắt buộc), Biệt danh, Mô tả, Số điện thoại, Số tài khoản, Tên ngân hàng; `Enter` lưu, `Escape` huỷ. Admin còn thấy ô chọn **Tài khoản User** ở cột liên kết (có lựa chọn "Không liên kết"); xem mục "Liên kết với tài khoản User".
   - Hạn chế đã biết: để trống biệt danh/mô tả sẽ xoá giá trị cũ, nhưng để trống số điện thoại/ngân hàng thì backend **giữ nguyên** giá trị cũ (client gửi `undefined`), nên hiện không xoá được các trường này từ giao diện.
 - Thanh công cụ: nút Gộp (khi chọn từ 2 dòng), chọn/bỏ chọn tất cả, chip số dòng đã chọn, ô tìm kiếm theo tên/biệt danh/mô tả.
-- Trạng thái: đang tải, rỗng, lỗi kèm nút Thử lại, toast sau khi lưu/gộp.
+- Trạng thái: đang tải, rỗng, lỗi kèm nút Thử lại, toast sau khi lưu/gộp (vị trí toast dùng chung `TOAST_POSITION`, trên điện thoại nằm ngay trên thanh tab dưới).
+- **Trên điện thoại/tablet (≤ 960px)** bảng 11 cột không đọc được, nên `DataTable` chuyển sang danh sách hai dòng:
+  - Dòng 1: **Tên (biệt danh)** bên trái, **số điện thoại** bên phải (màn này không có cột số dư nợ nên SĐT là thông tin cần nhìn nhanh nhất). Dòng 2: tài khoản Zalo đã gắn · số khoản nợ/giao dịch.
+  - Chạm một dòng để mở bottom-sheet có đủ các cột. Nút **Sửa** ở chân sheet là cách sửa trên màn cảm ứng (nhấp đúp chỉ tiện trên máy tính): bấm Sửa thì các ô trong sheet thành ô nhập 40px, chân sheet thành **Lưu** / ✕. Nút **Hồ sơ** cũng nằm ở chân sheet.
+  - **Chọn để gộp**: cột checkbox bị bỏ ở chế độ này (trong sheet nó sẽ hiện nhãn "Chọn tất cả", gây hiểu nhầm). Thay vào đó chân sheet có nút **Chọn để gộp / ✓ Đã chọn**; dòng đã chọn có dấu ✓ trước tên. Khi chọn từ 2 người, nút **Gộp liên hệ (N)** xuất hiện ở thanh hành động cố định phía dưới (`MobileActionBar`) cho dễ bấm bằng ngón cái; nút trên thanh công cụ bị ẩn để không trùng.
+- **Thanh công cụ trên điện thoại (≤ 640px)**: các nút Đồng bộ / Gộp / Chọn tất cả / Đã chọn N nằm trên **một hàng cuộn ngang** cao 40px, ô tìm kiếm chiếm nguyên một hàng riêng cao 40px. Nút ✕ đóng khung gợi ý và nút Gắn cũng cao 40px. Máy tính giữ nguyên giao diện cũ.
 
 ## Liên kết với tài khoản User
 
@@ -103,7 +109,7 @@ Bảng `debt_contacts` có thêm 7 cột (migration `1724850000000-AddProfileFie
 
 - Đầu trang: nút quay lại, avatar vuông, tên (biệt danh), mô tả, tài khoản Zalo đã gắn kèm trạng thái quyền (admin thấy thêm link sang trang Zalo & Người dùng).
 - Dải 4 số liệu: đang cho vay còn lại, đang nợ còn lại, tổng thu, tổng chi (theo nút ẩn/hiện số tiền), kèm dòng "N khoản đang mở · N giao dịch".
-- Máy tính: khối **Thông tin** bên trái, bảng **Khoản nợ** và **Giao dịch gần đây** bên phải. Điện thoại: xếp dọc.
+- Máy tính: khối **Thông tin** bên trái, bảng **Khoản nợ** và **Giao dịch gần đây** bên phải. Điện thoại: xếp dọc. Trên điện thoại mọi nút và ô nhập của trang hồ sơ (khai báo chung ở `profile-styles.ts`) cao 40px để bấm chính xác, link quay lại cũng vậy; máy tính giữ cỡ nhỏ gọn cũ.
 - Bấm **Sửa** thì khối Thông tin chuyển thành form ngay tại chỗ: sửa tên, biệt danh, mô tả, SĐT/tài khoản chính, thêm/xoá dòng SĐT và tài khoản phụ, ngày sinh, quan hệ, địa chỉ, nơi làm việc, ghi chú. Lỗi hiện ngay dưới từng ô. Khi lưu, phần tên/SĐT chính đi qua API sửa danh bạ cũ (chỉ khi có đổi), phần hồ sơ đi qua API mới. Hạn chế cũ vẫn còn: để trống SĐT/tài khoản chính thì giữ nguyên số cũ, không xoá được.
 - Trạng thái: thiếu mã trong đường dẫn, đang tải, không tìm thấy (đã xoá hoặc đã gộp vào người khác), lỗi kèm Thử lại.
 
@@ -129,6 +135,7 @@ Khi gộp nhiều Người liên quan, liên hệ chính giữ dữ liệu hồ 
 - **Lưu ý quan trọng**: thao tác gộp liên hệ **không** chạy trong một database transaction duy nhất. Nếu lỗi giữa chừng (ví dụ khi gom nợ), các bước trước đó đã được lưu. Mỗi lần gom nợ (`combineDebts`) thì có transaction riêng.
 
 - Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo).
+- Trên điện thoại dialog gộp mở **toàn màn hình** (form dài: danh sách ứng viên, 3 ô nhập, ô chọn tài khoản, ô gom nợ, cảnh báo). Phần thân và danh sách ứng viên không còn tự cuộn riêng (`max-h` + `overflow-y-auto` bị tắt ở ≤ 640px) vì cuộn lồng nhau trên màn cảm ứng rất khó dùng; chỉ khung dialog cuộn. Ô nhập 40px, nút Huỷ/Gộp ở chân dính và chia đều chiều rộng.
 
 ## Kiểm thử
 

@@ -45,6 +45,17 @@ Trang `/debts` cho người dùng theo dõi **khoản phải thu** (người kh�
 
 - `CombineDebtsDialog`: Dialog dùng khung `Modal` dùng chung: trên mobile là bottom-sheet, tiêu đề và nút hành động luôn nằm trên bàn phím ảo. Chi tiết xem [web-ui-direction](../../global/web-ui-direction.md#modal-trên-mobile--bàn-phím-ảo).
 
+## Trên điện thoại / màn hình hẹp
+
+Giao diện desktop (> 960px) giữ nguyên. Trên màn hình hẹp, bảng công nợ quá rộng để đọc, nên chuyển thành danh sách giống ứng dụng:
+
+- **Mỗi dòng** (`DebtsTable`, cả ở Trang chủ): dòng 1 là người liên quan (kèm biệt danh) và **số còn lại** bên phải — cùng màu với cột trên desktop (xanh = phải thu, cam = phải trả, xám khi đã hết) và bị che khi đang ẩn số tiền. Dòng 2: chiều nợ · trạng thái · hạn trả · "Đã trả x%" nếu đã trả một phần. Chiều nợ đứng trước vì đó là điều người dùng cần biết đầu tiên.
+- **Chạm vào dòng** mở bottom-sheet có đủ mọi cột. Nút **Sửa** ở chân sheet chuyển các ô thành ô nhập cao 40px (kể cả ô chọn ngày hạn trả); trên điện thoại không có nhấp đúp nên đây là đường sửa duy nhất. Lưu/✕ cũng nằm ở chân sheet.
+- **Khoản con và lịch sử đợt trả** trong sheet hiện thành danh sách phẳng 2 dòng thay vì bảng lồng phải cuộn ngang; mỗi đợt trả có nút xoá 40×40px (vẫn hỏi xác nhận). Nút mở rộng ▶ bị ẩn vì sheet luôn hiện phần chi tiết.
+- **Chọn để gộp**: dòng danh sách là một nút bấm nên không đặt được checkbox. Cách đơn giản nhất: chân sheet có nút **Chọn / Bỏ chọn**; dòng đã chọn có dấu `✓` trước tên. Chip "Chọn tất cả" và chip "Đã chọn n ✕" trên thanh công cụ vẫn dùng được. Khi chọn từ 2 khoản, nút **Gộp** chuyển xuống thanh hành động cố định phía trên thanh tab (nút trên toolbar bị ẩn để không trùng).
+- **Thanh công cụ (≤ 640px)**: các chip trạng thái, chiều nợ và chọn nằm trên **một hàng cuộn ngang** cao 40px, ô tìm kiếm rộng hết màn hình ở hàng riêng. Thông báo (toast) nằm phía trên thanh tab.
+- **Hộp thoại gộp nợ**: mở toàn màn hình trên điện thoại (form dài), nút ✕ và nút chân hộp thoại 40px, ô nhập 40px; danh sách khoản đã chọn không còn khung cuộn riêng, cả hộp thoại cuộn một lần.
+
 ## Quy tắc nghiệp vụ phía backend
 
 - **Sửa số còn lại**: về 0 thì chuyển `settled` và ghi ngày tất toán; lớn hơn 0 thì mở lại.

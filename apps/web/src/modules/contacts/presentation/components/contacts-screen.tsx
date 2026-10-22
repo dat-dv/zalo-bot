@@ -10,8 +10,11 @@ import {
   type IContactListItem,
   type IContactUserSyncSuggestion,
 } from '@zalobot/contracts';
+import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
+import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
+import { MOBILE_TOOLBAR_ROW, TOAST_POSITION } from '@/shared/ui/touch';
 
 import {
   contactsQueryKeys,
@@ -35,6 +38,7 @@ function apiErrorMessage(error: unknown): string | undefined {
 export function ContactsScreen() {
   const queryClient = useQueryClient();
   const { locale, t } = useLocale();
+  const isCompact = useIsCompact();
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -256,6 +260,18 @@ export function ContactsScreen() {
       header: t('dashboard.columns.name'),
       minWidth: '180px',
       hideable: false,
+      mobileSlot: 'primary',
+      mobileCell: (item) => (
+        <>
+          {selectedIds.has(item.id) && (
+            <span className="text-sky-600 dark:text-sky-400">
+              <span aria-hidden="true">✓ </span>
+              <span className="sr-only">{t('contacts.actions.selected')}: </span>
+            </span>
+          )}
+          {item.alias ? `${item.displayName} (${item.alias})` : item.displayName}
+        </>
+      ),
       cell: (item) => {
         if (editingId === item.id) {
           return (
@@ -352,6 +368,13 @@ export function ContactsScreen() {
       header: t('contacts.columns.phone'),
       minWidth: '130px',
       defaultHidden: false,
+      // No balance column here, so the phone is the row's key value.
+      mobileSlot: 'trailing',
+      mobileCell: (item) => (
+        <span className="font-normal text-slate-600 dark:text-slate-300">
+          {item.phoneNumber || '—'}
+        </span>
+      ),
       cell: (item) => {
         if (editingId === item.id) {
           return (
@@ -461,6 +484,14 @@ export function ContactsScreen() {
       header: t('contacts.columns.linkedUser'),
       minWidth: '140px',
       defaultHidden: false,
+      mobileSlot: 'secondary',
+      mobileCell: (item) => {
+        if (item.linkedUser) {
+          const { firstName, username } = item.linkedUser;
+          return firstName ? `${firstName} (@${username})` : `@${username}`;
+        }
+        return item.linkedUserId ? `#${item.linkedUserId.slice(0, 8)}` : null;
+      },
       cell: (item) => {
         if (editingId === item.id && canLinkUsers) {
           return (
@@ -513,6 +544,17 @@ export function ContactsScreen() {
       header: t('contacts.columns.resources'),
       minWidth: '150px',
       defaultHidden: false,
+      mobileSlot: 'secondary',
+      mobileCell: (item) => {
+        const debts = item.debtCount ?? 0;
+        const txs = item.transactionCount ?? 0;
+        return [
+          debts > 0 ? t('contacts.combineModal.debtsBadge', { count: debts }) : '',
+          txs > 0 ? t('contacts.combineModal.transactionsBadge', { count: txs }) : '',
+        ]
+          .filter(Boolean)
+          .join(' · ');
+      },
       cell: (item) => {
         const debts = item.debtCount ?? 0;
         const txs = item.transactionCount ?? 0;
@@ -565,7 +607,7 @@ export function ContactsScreen() {
             <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 max-[960px]:h-10 max-[960px]:text-[12.5px] dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
                 onClick={() => void handleSaveEdit(item.id)}
                 disabled={updateMutation.isPending || !editDraft.displayName.trim()}
                 title={t('contacts.actions.save')}
@@ -574,10 +616,11 @@ export function ContactsScreen() {
               </button>
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center justify-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 max-[960px]:h-10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
                 onClick={handleCancelEdit}
                 disabled={updateMutation.isPending}
                 title={t('contacts.actions.cancel')}
+                aria-label={t('contacts.actions.cancel')}
               >
                 ✕
               </button>
@@ -586,15 +629,32 @@ export function ContactsScreen() {
         }
         return (
           <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+            {/* Compact list: the row checkbox column is gone, so selecting for Combine happens here. */}
+            {isCompact && (
+              <button
+                type="button"
+                className={`inline-flex h-10 min-h-10 shrink-0 cursor-pointer items-center rounded-[2px] border px-3 text-[12.5px] font-medium whitespace-nowrap transition-colors ${
+                  selectedIds.has(item.id)
+                    ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                }`}
+                onClick={() => handleToggleRow(item.id)}
+                aria-pressed={selectedIds.has(item.id)}
+              >
+                {selectedIds.has(item.id)
+                  ? `✓ ${t('contacts.actions.selected')}`
+                  : t('contacts.actions.select')}
+              </button>
+            )}
             <Link
-              className="inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border border-slate-200 bg-white px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+              className="inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border border-slate-200 bg-white px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:border-slate-300 hover:bg-slate-50 max-[960px]:h-10 max-[960px]:px-3 max-[960px]:text-[12.5px] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
               href={APP_ROUTES.contactProfile(item.id)}
             >
               {t('contacts.actions.profile')}
             </Link>
             <button
               type="button"
-              className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+              className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 max-[960px]:h-10 max-[960px]:text-[12.5px] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
               onClick={() => handleStartEdit(item)}
               title={t('contacts.actions.edit')}
             >
@@ -607,12 +667,18 @@ export function ContactsScreen() {
   ];
 
   const isPartiallySelected = selectedIds.size > 0 && selectedIds.size < filteredContacts.length;
+  // The list sheet shows every column; a tiny checkbox labelled "Select all" there would mislead.
+  const visibleColumns = isCompact
+    ? contactColumns.filter((column) => column.id !== 'select')
+    : contactColumns;
+  const chipClass =
+    'inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-[3px] border px-2 text-[11px] transition-colors max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
 
   return (
     <>
       {toastMessage && (
         <div
-          className="fixed top-4 left-1/2 z-[1000] -translate-x-1/2 rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900"
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
           role="status"
           aria-live="polite"
         >
@@ -628,7 +694,7 @@ export function ContactsScreen() {
           <strong>{t('dashboard.error.title')}</strong>
           <button
             type="button"
-            className="cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
+            className="cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 max-[640px]:h-10 max-[640px]:px-3 dark:bg-rose-700 dark:hover:bg-rose-600"
             onClick={refresh}
           >
             {t('common.retry')}
@@ -652,7 +718,7 @@ export function ContactsScreen() {
                 </div>
                 <button
                   type="button"
-                  className="shrink-0 cursor-pointer rounded px-1 text-amber-700 hover:bg-amber-100 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                  className="shrink-0 cursor-pointer rounded px-1 text-amber-700 hover:bg-amber-100 max-[640px]:inline-flex max-[640px]:size-10 max-[640px]:items-center max-[640px]:justify-center dark:text-amber-300 dark:hover:bg-amber-900/50"
                   onClick={() => setSuggestions([])}
                   aria-label={t('contacts.syncUsers.dismiss')}
                   title={t('contacts.syncUsers.dismiss')}
@@ -677,7 +743,7 @@ export function ContactsScreen() {
                       </span>
                       <button
                         type="button"
-                        className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-default disabled:opacity-60 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                        className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-default disabled:opacity-60 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
                         onClick={() => void handleLinkSuggestion(suggestion)}
                         disabled={isLinked || updateMutation.isPending}
                       >
@@ -696,56 +762,60 @@ export function ContactsScreen() {
             description={t('contacts.subtitle')}
             counter={t('table.rowsCount', { count: filteredContacts.length })}
             toolbar={
-              <div className="flex flex-wrap items-center gap-1.5">
-                {canLinkUsers && (
-                  <button
-                    type="button"
-                    className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                    onClick={() => void handleSyncUsers()}
-                    disabled={syncUsersMutation.isPending}
-                  >
-                    {syncUsersMutation.isPending
-                      ? t('contacts.syncUsers.running')
-                      : t('contacts.syncUsers.action')}
-                  </button>
-                )}
-                {selectedIds.size >= 2 && (
-                  <button
-                    type="button"
-                    className="inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-                    onClick={() => setIsCombineOpen(true)}
-                  >
-                    {t('contacts.actions.combine', { count: selectedIds.size })}
-                  </button>
-                )}
-                {filteredContacts.length > 0 && (
-                  <button
-                    type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                      selectedIds.size === filteredContacts.length
-                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
-                    }`}
-                    onClick={handleToggleSelectAll}
-                  >
-                    {selectedIds.size === filteredContacts.length
-                      ? t('contacts.deselectAll')
-                      : t('contacts.selectAll')}
-                  </button>
-                )}
-                {isPartiallySelected && (
-                  <button
-                    type="button"
-                    className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-sky-500 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/50"
-                    onClick={() => setSelectedIds(new Set())}
-                    title={t('contacts.deselectAll')}
-                  >
-                    {t('contacts.selectedCount', { count: selectedIds.size })} ✕
-                  </button>
-                )}
+              <div className="flex flex-wrap items-center gap-1.5 max-[640px]:w-full max-[640px]:flex-col max-[640px]:items-stretch">
+                {/* Phones: one sideways-scrolling chip row, search on its own full-width row. */}
+                <div className={`flex flex-wrap items-center gap-1.5 ${MOBILE_TOOLBAR_ROW}`}>
+                  {canLinkUsers && (
+                    <button
+                      type="button"
+                      className={`${chipClass} border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800`}
+                      onClick={() => void handleSyncUsers()}
+                      disabled={syncUsersMutation.isPending}
+                    >
+                      {syncUsersMutation.isPending
+                        ? t('contacts.syncUsers.running')
+                        : t('contacts.syncUsers.action')}
+                    </button>
+                  )}
+                  {selectedIds.size >= 2 && (
+                    <button
+                      type="button"
+                      // Compact screens get this action in the MobileActionBar instead.
+                      className={`${chipClass} justify-center border-slate-900 bg-slate-900 font-semibold text-white hover:bg-slate-800 max-[960px]:hidden dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+                      onClick={() => setIsCombineOpen(true)}
+                    >
+                      {t('contacts.actions.combine', { count: selectedIds.size })}
+                    </button>
+                  )}
+                  {filteredContacts.length > 0 && (
+                    <button
+                      type="button"
+                      className={`${chipClass} font-medium ${
+                        selectedIds.size === filteredContacts.length
+                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
+                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                      }`}
+                      onClick={handleToggleSelectAll}
+                    >
+                      {selectedIds.size === filteredContacts.length
+                        ? t('contacts.deselectAll')
+                        : t('contacts.selectAll')}
+                    </button>
+                  )}
+                  {isPartiallySelected && (
+                    <button
+                      type="button"
+                      className={`${chipClass} border-sky-500 bg-sky-50 font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/50`}
+                      onClick={() => setSelectedIds(new Set())}
+                      title={t('contacts.deselectAll')}
+                    >
+                      {t('contacts.selectedCount', { count: selectedIds.size })} ✕
+                    </button>
+                  )}
+                </div>
                 <input
                   type="search"
-                  className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
+                  className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 max-[640px]:h-10 max-[640px]:w-full dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
                   placeholder={t('table.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
@@ -760,11 +830,23 @@ export function ContactsScreen() {
               rows={filteredContacts}
               loading={contacts.isLoading}
               emptyMessage={t('dashboard.noContacts')}
-              columns={contactColumns}
+              columns={visibleColumns}
               getRowKey={(item) => item.id}
             />
           </DataPanel>
         </section>
+      )}
+
+      {selectedIds.size >= 2 && (
+        <MobileActionBar>
+          <button
+            type="button"
+            onClick={() => setIsCombineOpen(true)}
+            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+          >
+            {t('contacts.actions.combine', { count: selectedIds.size })}
+          </button>
+        </MobileActionBar>
       )}
 
       <CombineContactsDialog

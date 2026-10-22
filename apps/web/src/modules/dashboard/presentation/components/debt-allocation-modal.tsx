@@ -3,7 +3,13 @@
 import { useState, useEffect, useId, useMemo } from 'react';
 import { localeTag, type ICandidateDebtItem, type IDebtAllocationItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
+import {
+  Modal,
+  MODAL_CLOSE_TAP,
+  MODAL_FOOTER_TAP,
+  MODAL_STICKY_FOOTER,
+  MODAL_STICKY_HEADER,
+} from '@/shared/ui/modal';
 import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import {
   useCandidateDebtsQuery,
@@ -174,8 +180,9 @@ export function DebtAllocationModal({
         onSuccess();
       }
       onClose();
-    } catch (err) {
-      setErrorMessage((err as Error).message || t('transactions.allocation.exceededAmount'));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '';
+      setErrorMessage(message || t('transactions.allocation.exceededAmount'));
     }
   };
 
@@ -188,17 +195,18 @@ export function DebtAllocationModal({
       labelledBy={titleId}
       backdropClassName="bg-slate-950/60 backdrop-blur-xs"
       panelClassName="max-w-2xl rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900"
+      phoneLayout="fullscreen"
     >
       {/* Header */}
       <div
-        className={`${MODAL_STICKY_HEADER} flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-900`}
+        className={`${MODAL_STICKY_HEADER} flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-900 max-sm:px-4 max-sm:py-2.5`}
       >
         <div>
           <h2
             id={titleId}
             className="text-base font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2"
           >
-            <span>🔗</span> {t('transactions.allocation.title')}
+            <span aria-hidden="true">🔗</span> {t('transactions.allocation.title')}
           </h2>
           <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
             {isIncome
@@ -210,7 +218,7 @@ export function DebtAllocationModal({
           type="button"
           onClick={onClose}
           disabled={allocateMutation.isPending}
-          className="cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+          className={`cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50 dark:hover:bg-slate-800 dark:hover:text-slate-300 ${MODAL_CLOSE_TAP}`}
           aria-label={t('common.cancel')}
         >
           ✕
@@ -218,17 +226,18 @@ export function DebtAllocationModal({
       </div>
 
       {/* Source Transaction Details Banner */}
-      <div className="border-b border-slate-100 bg-slate-50/80 px-6 py-3 dark:border-slate-800/80 dark:bg-slate-900/50">
+      <div className="border-b border-slate-100 bg-slate-50/80 px-6 py-3 dark:border-slate-800/80 dark:bg-slate-900/50 max-sm:px-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             <span
-              className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold ${
+              className={`inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase ${
                 isIncome
                   ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
                   : 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300'
               }`}
             >
-              {isIncome ? '↓ THU' : '↑ CHI'}
+              <span aria-hidden="true">{isIncome ? '↓' : '↑'}&nbsp;</span>
+              {isIncome ? t('table.filter.income') : t('table.filter.expense')}
             </span>
             <span className="font-semibold text-slate-800 dark:text-slate-200">
               {transaction.category}
@@ -252,7 +261,7 @@ export function DebtAllocationModal({
         </div>
 
         {/* Amount Allocation Progress Bar */}
-        <div className="mt-3 flex items-center justify-between rounded border border-slate-200 bg-white p-2.5 text-xs shadow-xs dark:border-slate-800 dark:bg-slate-950">
+        <div className="mt-3 flex items-center justify-between rounded border border-slate-200 bg-white p-2.5 text-xs shadow-xs dark:border-slate-800 dark:bg-slate-950 max-sm:flex-col max-sm:items-stretch max-sm:gap-1">
           <div>
             <span className="text-slate-500 dark:text-slate-400">
               {t('transactions.allocation.totalAmount')}:{' '}
@@ -289,7 +298,7 @@ export function DebtAllocationModal({
       </div>
 
       {/* Form Body */}
-      <form onSubmit={handleSubmit} className="px-6 py-4">
+      <form onSubmit={handleSubmit} className="px-6 py-4 max-sm:px-4">
         {errorMessage && (
           <div className="mb-4 rounded-md border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300">
             ⚠️ {errorMessage}
@@ -297,13 +306,14 @@ export function DebtAllocationModal({
         )}
 
         <div className="mb-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-          Danh sách công nợ phù hợp ({candidates.length})
+          {t('transactions.allocation.candidatesTitle', { count: candidates.length })}
         </div>
 
-        <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
+        {/* Phones: the sheet itself scrolls, so no nested scroll box. */}
+        <div className="max-h-72 overflow-y-auto space-y-2 pr-1 max-sm:max-h-none max-sm:overflow-visible max-sm:pr-0">
           {isLoadingCandidates || isLoadingExisting ? (
             <div className="space-y-2 py-4 text-center text-xs text-slate-400">
-              Đang tải danh sách công nợ...
+              {t('transactions.allocation.loadingCandidates')}
             </div>
           ) : candidates.length === 0 ? (
             <div className="rounded border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
@@ -325,7 +335,7 @@ export function DebtAllocationModal({
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <label className="flex cursor-pointer items-start gap-2.5">
+                    <label className="flex cursor-pointer items-start gap-2.5 max-sm:min-h-10 max-sm:flex-1 max-sm:py-1">
                       <input
                         type="checkbox"
                         checked={isSelected}
@@ -342,7 +352,9 @@ export function DebtAllocationModal({
                           )}
                         </div>
                         <div className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
-                          Nợ gốc: {money(debt.originalAmount)} · Còn lại:{' '}
+                          {t('transactions.allocation.originalAmount')}:{' '}
+                          {money(debt.originalAmount)} ·{' '}
+                          {t('transactions.allocation.remainingAmount')}:{' '}
                           <span className="font-medium text-slate-800 dark:text-slate-200">
                             {money(debt.remainingAmount)}
                           </span>
@@ -355,9 +367,9 @@ export function DebtAllocationModal({
                       <button
                         type="button"
                         onClick={() => handleQuickAllocateMax(debt)}
-                        className="shrink-0 cursor-pointer rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                        className="shrink-0 cursor-pointer rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 max-sm:h-10 max-sm:px-3 max-sm:text-[12px]"
                       >
-                        Phân bổ tối đa
+                        {t('transactions.allocation.allocateMax')}
                       </button>
                     )}
                   </div>
@@ -366,7 +378,7 @@ export function DebtAllocationModal({
                     <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-slate-200/60 pt-2.5 dark:border-slate-800/60">
                       <div>
                         <label className="block text-[10px] font-medium text-slate-500 dark:text-slate-400 mb-1">
-                          Số tiền phân bổ (VND)
+                          {t('transactions.allocation.amountLabel')}
                         </label>
                         <input
                           type="number"
@@ -376,7 +388,7 @@ export function DebtAllocationModal({
                           value={currentAmount || ''}
                           onChange={(e) => handleAmountChange(debt.id, e.target.value)}
                           placeholder="0"
-                          className="w-full rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-900 focus:border-sky-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                          className="w-full rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-900 focus:border-sky-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 max-sm:h-10"
                         />
                       </div>
                       <div>
@@ -393,7 +405,7 @@ export function DebtAllocationModal({
                             }))
                           }
                           placeholder={t('debts.placeholder.note')}
-                          className="w-full rounded border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-900 focus:border-sky-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                          className="w-full rounded border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-900 focus:border-sky-500 focus:outline-hidden dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 max-sm:h-10"
                         />
                       </div>
                     </div>
@@ -412,7 +424,7 @@ export function DebtAllocationModal({
             type="button"
             onClick={onClose}
             disabled={allocateMutation.isPending}
-            className="cursor-pointer rounded-[4px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            className={`cursor-pointer rounded-[4px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 ${MODAL_FOOTER_TAP}`}
           >
             {t('common.cancel')}
           </button>
@@ -423,7 +435,7 @@ export function DebtAllocationModal({
               isLoadingCandidates ||
               totalAllocated > transaction.amount
             }
-            className="cursor-pointer rounded-[4px] border border-sky-600 bg-sky-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-500 dark:bg-sky-600 dark:hover:bg-sky-500"
+            className={`cursor-pointer rounded-[4px] border border-sky-600 bg-sky-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-500 dark:bg-sky-600 dark:hover:bg-sky-500 ${MODAL_FOOTER_TAP}`}
           >
             {allocateMutation.isPending ? t('common.saving') : t('transactions.allocation.submit')}
           </button>

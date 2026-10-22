@@ -84,3 +84,4 @@
 - Contracts: `IUserListItem` (`linkedContactCount?`), `IUserLinkedContactItem`, `UserRole`, `GrantAccessStatus`, `USER_MERGE_TABLES`, `UserMergeTable`, `IUserMergeRequest`, `IUserMergeSummary`, `IUserMergeResult`, `IUserMergeConflicts`; i18n keys `users.merge.*`, `users.linkedContacts.*` (vi + en).
 
 - `MergeUserDialog`: Dialogs render through the shared `Modal` shell (bottom sheet on mobile, sticky header/actions above the on-screen keyboard); see [web-ui-direction](../../global/web-ui-direction.md#mobile-dialogs--on-screen-keyboard).
+- Phones (`MergeUserDialog`, `LinkedContactsDialog`): ✕ gets `MODAL_CLOSE_TAP`, footer buttons/link `MODAL_FOOTER_TAP` (sticky footer already), target select 40px, "irreversible" checkbox label and Retry 40px tall. Desktop unchanged.

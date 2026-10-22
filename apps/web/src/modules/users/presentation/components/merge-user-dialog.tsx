@@ -10,7 +10,13 @@ import {
   type UserMergeTable,
 } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
+import {
+  Modal,
+  MODAL_CLOSE_TAP,
+  MODAL_FOOTER_TAP,
+  MODAL_STICKY_FOOTER,
+  MODAL_STICKY_HEADER,
+} from '@/shared/ui/modal';
 import { useMergeUserMutation, useUserMergePreviewQuery } from '../../api/users-query';
 
 interface MergeUserDialogProps {
@@ -97,7 +103,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
           onClick={onClose}
           disabled={mergeMutation.isPending}
           aria-label={t('users.merge.close')}
-          className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 dark:hover:bg-slate-800"
+          className={`rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 dark:hover:bg-slate-800 ${MODAL_CLOSE_TAP}`}
         >
           ✕
         </button>
@@ -137,7 +143,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
                 setSubmitError('');
               }}
               disabled={mergeMutation.isPending}
-              className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm max-sm:h-10 text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="">{t('users.merge.targetPlaceholder')}</option>
               {targets.map((u) => (
@@ -212,7 +218,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
               {!summary.sourceIsBotAccount && (
                 <label
                   htmlFor={confirmId}
-                  className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-200"
+                  className="flex items-start gap-2 text-sm text-slate-700 max-sm:min-h-10 max-sm:py-2 dark:text-slate-200"
                 >
                   <input
                     id={confirmId}
@@ -245,7 +251,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
             type="button"
             onClick={onClose}
             disabled={mergeMutation.isPending}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
+            className={`rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800 ${MODAL_FOOTER_TAP}`}
           >
             {t('users.merge.cancel')}
           </button>
@@ -253,7 +259,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
             type="button"
             onClick={() => void handleMerge()}
             disabled={!canMerge}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 active:scale-95 disabled:opacity-50"
+            className={`rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 active:scale-95 disabled:opacity-50 ${MODAL_FOOTER_TAP}`}
           >
             {mergeMutation.isPending ? t('users.merge.merging') : t('users.merge.confirm')}
           </button>
