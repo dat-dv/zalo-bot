@@ -107,7 +107,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
     - Nút Lưu/Huỷ/Xoá nằm ở chân bảng trượt, luôn thấy kể cả khi bàn phím mở.
   - Các nút lọc theo cột chuyển lên một dải cuộn ngang phía trên danh sách.
   - Toolbar gom chip Tất cả / Thu / Chi / Xoá bộ lọc vào một hàng cuộn ngang. Ô tìm kiếm nằm hàng riêng. Mọi nút, ô nhập và "Tải thêm" cao 40px.
-  - Trên màn hẹp (≤ 960px), nút **Cân chỉnh số dư** rời toolbar, xuống thanh hành động (`MobileActionBar`) ngay trên thanh tab, để ngón cái bấm được mà không phải cuộn lên đầu trang. Chế độ danh sách cũng áp dụng tới 960px.
+  - Trên màn hẹp (≤ 960px), nút **Cân chỉnh số dư** vẫn nằm trên toolbar, ở cuối hàng chip lọc cuộn ngang. Trang này không dùng thanh hành động dưới đáy (`MobileActionBar`): thao tác cân chỉnh hiếm khi dùng nên không đáng chiếm một thanh cố định che bớt danh sách. Chế độ danh sách cũng áp dụng tới 960px.
   - Bảng giao dịch ở trang Tổng quan cũng dùng danh sách (xem nhanh 5 dòng, xem phần Tổng quan).
   - **Phần đầu trang thấp hơn**: dải tổng hợp `TrendSummaryStrip` (dùng chung với trang Chi tiêu) trên điện thoại chỉ còn một dòng: tổng thu, tổng chi, chênh lệch. Chạm vào dòng đó để mở biểu đồ cột (và chỉ số phụ nếu có). Mặc định thu gọn, để danh sách giao dịch xuất hiện ngay màn hình đầu. Desktop giữ nguyên.
   - Trong bảng trượt chi tiết, bảng phân bổ nợ lồng bên trong thành danh sách dọc (người liên quan + số tiền, ghi chú bên dưới) thay vì bảng phải cuộn ngang. Nút "Chỉnh sửa phân bổ" và nhãn `🔗 N phân bổ` cao 40px. Nút mũi tên mở rộng bị ẩn vì sheet luôn hiện chi tiết. Nút chỉ có biểu tượng `🔗` (khi đang sửa) có `aria-label` để trình đọc màn hình đọc được.

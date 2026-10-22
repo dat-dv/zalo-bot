@@ -33,7 +33,6 @@ import {
   useTransactionsInfiniteQuery,
   useUpdateTransactionMutation,
 } from '../../api/transactions-query';
-import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
 import { TOAST_POSITION } from '@/shared/ui/touch';
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -344,8 +343,8 @@ export function TransactionsScreen() {
                 <button
                   type="button"
                   onClick={() => setIsAdjustBalanceOpen(true)}
-                  // Compact screens get this action in the MobileActionBar instead.
-                  className="inline-flex h-6 min-h-6 shrink-0 max-[960px]:hidden cursor-pointer items-center whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] gap-1 rounded-[3px] border border-indigo-300 bg-indigo-50 px-2 text-[11px] font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/60"
+                  // Rarely used, so it stays in the chip row on compact screens instead of a pinned bottom bar.
+                  className="inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] gap-1 rounded-[3px] border border-indigo-300 bg-indigo-50 px-2 text-[11px] font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/60"
                 >
                   <span>⚖️</span>
                   {t('transactions.balanceAdjust.actionButton')}
@@ -410,17 +409,6 @@ export function TransactionsScreen() {
           )}
         </DataPanel>
       </section>
-
-      <MobileActionBar>
-        <button
-          type="button"
-          onClick={() => setIsAdjustBalanceOpen(true)}
-          className={`${MOBILE_ACTION_BUTTON} border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:bg-indigo-900/60`}
-        >
-          <span aria-hidden="true">⚖️</span>
-          {t('transactions.balanceAdjust.actionButton')}
-        </button>
-      </MobileActionBar>
 
       <DebtAllocationModal
         isOpen={Boolean(allocatingTransaction)}

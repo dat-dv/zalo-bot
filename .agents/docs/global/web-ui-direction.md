@@ -70,7 +70,8 @@ Thành phần `DataTable` tích hợp sẵn nút Cài đặt cột (`TableColumn
 - **Thanh hành động chính** (`MobileActionBar`):
   - Trên màn hẹp, nút chính *đã có sẵn* của màn hình chuyển từ toolbar trên đầu xuống một thanh cố định ngay trên thanh tab. Nút cao 40px, bo góc 3px.
   - Nút trên toolbar thêm `max-[960px]:hidden` để không hiện hai lần.
-  - Hiện dùng cho Thu chi ("Điều chỉnh số dư") và Nơi chốn ("+ Tạo"; ẩn khi form tạo đang mở).
+  - Hiện dùng cho Nơi chốn ("+ Tạo"; ẩn khi form tạo đang mở).
+  - Chỉ dành cho thao tác dùng thường xuyên. Nút "Cân chỉnh số dư" ở Thu chi hiếm khi dùng nên vẫn để trên toolbar, không đưa xuống thanh này.
   - Không dùng thanh này để thêm tính năng mới. Không dùng nút nổi tròn (FAB).
 
 ## Chế độ danh sách trên điện thoại (DataTable, màn hẹp ≤ 960px)
