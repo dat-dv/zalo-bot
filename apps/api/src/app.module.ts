@@ -12,6 +12,7 @@ import { RemindersModule } from './reminders/reminders.module';
 import { FinanceModule } from './finance/finance.module';
 import { AuditModule } from './audit/audit.module';
 import { ReportsModule } from './reports/reports.module';
+import { CalendarModule } from './calendar/calendar.module';
 import { fromApiRoot, fromProjectRoot } from './config/project-root';
 import { CommonModule } from './common/common.module';
 import { HealthModule } from './health/health.module';
@@ -35,6 +36,7 @@ import { HealthModule } from './health/health.module';
     DatabaseModule,
     UsersModule,
     GoogleModule,
+    CalendarModule,
     RemindersModule,
     FinanceModule,
     AuditModule,

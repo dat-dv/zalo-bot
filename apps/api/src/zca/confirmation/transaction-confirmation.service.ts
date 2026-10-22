@@ -17,7 +17,8 @@ import {
   toValidReminderDate,
 } from '../../reminders/reminders.service';
 import { GoogleTasksService, CreateTaskOptions } from '../../google/google-tasks.service';
-import { GoogleCalendarService, CreateEventOptions } from '../../google/google-calendar.service';
+import { CreateEventOptions } from '../../google/google-calendar.service';
+import { CalendarService } from '../../calendar/calendar.service';
 import { UsersService } from '../../users/users.service';
 import { GoogleAuthService } from '../../google/google-auth.service';
 import { RedisService } from '../../redis/redis.service';
@@ -157,7 +158,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     private readonly financeService: FinanceService,
     @Optional() private readonly remindersService?: RemindersService,
     @Optional() private readonly googleTasksService?: GoogleTasksService,
-    @Optional() private readonly googleCalendarService?: GoogleCalendarService,
+    @Optional() private readonly calendarService?: CalendarService,
     @Optional() private readonly usersService?: UsersService,
     @Optional() private readonly googleAuthService?: GoogleAuthService,
     @Optional() private readonly redisService?: RedisService,
@@ -826,7 +827,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       userId: params.userId,
       chatId: params.chatId,
       actionType: 'CREATE_CALENDAR_EVENT',
-      title: 'tạo sự kiện Google Calendar',
+      title: 'tạo sự kiện lịch',
       payload: params.payload,
       descriptor: CALENDAR_EVENT_DESCRIPTOR,
       rawPrompt: params.rawPrompt,
@@ -846,7 +847,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       userId: params.userId,
       chatId: params.chatId,
       actionType: 'DELETE_CALENDAR_EVENT',
-      title: 'XÓA sự kiện Google Calendar',
+      title: 'XÓA sự kiện lịch',
       payload: params.payload,
       descriptor: DELETE_CALENDAR_EVENT_DESCRIPTOR,
       rawPrompt: params.rawPrompt,
@@ -1320,11 +1321,23 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           break;
         }
         case 'CREATE_CALENDAR_EVENT': {
-          if (!this.googleCalendarService) {
-            throw new Error('GoogleCalendarService chưa được cấu hình.');
+          if (!this.calendarService) {
+            throw new Error('CalendarService chưa được cấu hình.');
           }
           const payload = pending.payload as unknown as CreateEventOptions;
-          await this.googleCalendarService.createEvent(payload, pending.userId);
+          // Saved in the shared calendar; copied to Google when an account is connected.
+          await this.calendarService.createEvent(
+            {
+              title: payload.summary,
+              description: payload.description,
+              location: payload.location,
+              startAt: new Date(payload.startDateTime),
+              endAt: new Date(payload.endDateTime),
+              timeZone: payload.timeZone,
+              reminderMinutes: payload.reminderMinutes,
+            },
+            { userId: pending.userId, chatId: pending.chatId, source: 'zalo' },
+          );
           if (!silent) {
             await this.zaloService.sendMessage(
               chatId,
@@ -1334,11 +1347,11 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           break;
         }
         case 'DELETE_CALENDAR_EVENT': {
-          if (!this.googleCalendarService) {
-            throw new Error('GoogleCalendarService chưa được cấu hình.');
+          if (!this.calendarService) {
+            throw new Error('CalendarService chưa được cấu hình.');
           }
           const payload = pending.payload as unknown as DeleteCalendarEventDto;
-          await this.googleCalendarService.deleteEvent(payload.eventId, pending.userId);
+          await this.calendarService.deleteEvent(payload.eventId, pending.userId);
           if (!silent) {
             await this.zaloService.sendMessage(
               chatId,

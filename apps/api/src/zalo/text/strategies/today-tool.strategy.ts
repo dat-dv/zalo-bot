@@ -2,7 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
-import { GoogleCalendarService } from '../../../google/google-calendar.service';
+import { CalendarService } from '../../../calendar/calendar.service';
+import { formatEventStartVN } from '../../../calendar/calendar-event.mapper';
 import { GoogleTasksService } from '../../../google/google-tasks.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
 import { FinanceService } from '../../../finance/finance.service';
@@ -15,7 +16,7 @@ export class TodayToolStrategy implements TextToolStrategy {
 
   constructor(
     private readonly zaloService: ZaloService,
-    private readonly calendarService: GoogleCalendarService,
+    private readonly calendarService: CalendarService,
     private readonly tasksService: GoogleTasksService,
     private readonly googleAuthService: GoogleAuthService,
     private readonly financeService: FinanceService,
@@ -30,41 +31,33 @@ export class TodayToolStrategy implements TextToolStrategy {
     let calendarSection = '';
     let tasksSection = '';
 
-    if (isGoogleConnected) {
-      try {
-        const events = await this.calendarService.listEvents(
-          {
-            timeMin: startOfDay.toISOString(),
-            timeMax: endOfDay.toISOString(),
-            maxResults: 10,
-          },
-          context.senderId,
-        );
+    try {
+      const events = await this.calendarService.listEvents({
+        timeMin: startOfDay,
+        timeMax: endOfDay,
+        limit: 10,
+        importForUserId: context.senderId,
+      });
 
-        if (events.length === 0) {
-          calendarSection = '📅 Lịch hẹn: Hôm nay bạn không có lịch hẹn nào.';
-        } else {
-          calendarSection =
-            `📅 Lịch hẹn hôm nay (${events.length}):\n` +
-            events
-              .map((e, idx) => {
-                const startTime = e.start?.dateTime
-                  ? new Date(e.start.dateTime).toLocaleTimeString('vi-VN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      timeZone: 'Asia/Ho_Chi_Minh',
-                    })
-                  : 'Cả ngày';
-                const loc = e.location ? ` (tại ${e.location})` : '';
-                return `  ${idx + 1}. [${startTime}] ${e.summary || 'Không có tiêu đề'}${loc}`;
-              })
-              .join('\n');
-        }
-      } catch (err) {
-        this.logger.error(`Failed to fetch today events: ${(err as Error).message}`);
-        calendarSection = '📅 Lịch hẹn: Không thể tra cứu lúc này.';
+      if (events.length === 0) {
+        calendarSection = '📅 Lịch hẹn: Hôm nay bạn không có lịch hẹn nào.';
+      } else {
+        calendarSection =
+          `📅 Lịch hẹn hôm nay (${events.length}):\n` +
+          events
+            .map((e, idx) => {
+              const loc = e.location ? ` (tại ${e.location})` : '';
+              return `  ${idx + 1}. [${formatEventStartVN(e, false)}] ${e.title}${loc}`;
+            })
+            .join('\n');
       }
+    } catch (err) {
+      this.logger.error(`Failed to fetch today events: ${(err as Error).message}`);
+      calendarSection = '📅 Lịch hẹn: Không thể tra cứu lúc này.';
+    }
 
+    // Events live in zalobot; tasks still come straight from Google Tasks.
+    if (isGoogleConnected) {
       try {
         const tasks = await this.tasksService.listTasks(
           { showCompleted: false, maxResults: 10 },
@@ -88,7 +81,7 @@ export class TodayToolStrategy implements TextToolStrategy {
         tasksSection = '📝 Việc cần làm: Không thể tra cứu lúc này.';
       }
     } else {
-      calendarSection = '⚠️ Google Calendar & Tasks: Chưa kết nối. Gõ /login để liên kết ngay.';
+      tasksSection = '⚠️ Google Tasks: Chưa kết nối. Gõ /login để liên kết ngay.';
     }
 
     let financeSection = '';

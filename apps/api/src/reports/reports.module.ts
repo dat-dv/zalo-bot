@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { FinanceModule } from '../finance/finance.module';
 import { AuditModule } from '../audit/audit.module';
 import { GoogleModule } from '../google/google.module';
+import { CalendarModule } from '../calendar/calendar.module';
 import { RemindersModule } from '../reminders/reminders.module';
 import { UsersModule } from '../users/users.module';
 import { DatabaseModule } from '../database/database.module';
@@ -15,6 +16,7 @@ import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
     FinanceModule,
     AuditModule,
     GoogleModule,
+    CalendarModule,
     RemindersModule,
     UsersModule,
   ],

@@ -17,12 +17,8 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
-import {
-  type ICalendarEventItem,
-  type ITaskListItem,
-  type ThreadBotConfig,
-} from '@zalobot/contracts';
-import { type calendar_v3, type tasks_v1 } from 'googleapis';
+import { type ITaskListItem, type ThreadBotConfig } from '@zalobot/contracts';
+import { type tasks_v1 } from 'googleapis';
 import {
   assertDashboardAdmin,
   getDashboardUserId,
@@ -30,7 +26,6 @@ import {
   requireDashboardAdmin,
 } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
-import { GoogleCalendarService } from './google-calendar.service';
 import { GoogleTasksService } from './google-tasks.service';
 import { GoogleAuthService } from './google-auth.service';
 import { GooglePhotosService } from './google-photos.service';
@@ -50,14 +45,13 @@ import {
   resolveChannelPhotosAlbumTitle,
 } from './channel-storage.util';
 
-@ApiTags('Google Workspace (Calendar & Tasks)')
+@ApiTags('Google Workspace (Tasks, Drive, Photos)')
 @ApiBearerAuth('bearer-jwt')
 @Controller()
 export class GoogleResourcesController {
   private readonly logger = new Logger(GoogleResourcesController.name);
 
   constructor(
-    private readonly calendar: GoogleCalendarService,
     private readonly tasks: GoogleTasksService,
     private readonly tokens: ReportsTokenService,
     private readonly authService: GoogleAuthService,
@@ -283,95 +277,6 @@ export class GoogleResourcesController {
     res.redirect(targetUrl);
   }
 
-  @Get('calendar/events')
-  @ApiOperation({ summary: 'Lấy danh sách sự kiện Google Calendar' })
-  async listEvents(@Req() req: Request, @Query() query: Record<string, string | undefined>) {
-    const userId = this.userId(req);
-    if (!this.authService.isAuthorized(userId)) {
-      return { data: [] };
-    }
-    const timeMin = query.timeMin ? this.date(query.timeMin, 'timeMin') : undefined;
-    const timeMax = query.timeMax ? this.date(query.timeMax, 'timeMax') : undefined;
-    if (timeMin && timeMax && new Date(timeMin) >= new Date(timeMax)) {
-      throw new BadRequestException('timeMin must be earlier than timeMax.');
-    }
-    try {
-      const items = await this.calendar.listEvents(
-        {
-          timeMin,
-          timeMax,
-          query: query.query,
-          maxResults: query.maxResults ? this.limit(query.maxResults) : 100,
-        },
-        userId,
-      );
-      return {
-        data: items.map((item) => this.mapEventToListItem(item)),
-      };
-    } catch (err) {
-      if (
-        typeof this.authService?.handleAuthError === 'function' &&
-        (await this.authService.handleAuthError(userId, err))
-      ) {
-        return { data: [] };
-      }
-      this.logger.warn(
-        `Failed to retrieve Google Calendar events for user ${userId}: ${(err as Error).message}`,
-      );
-      return { data: [] };
-    }
-  }
-
-  @Get('calendar/events/:id')
-  async getEvent(@Req() req: Request, @Param('id') id: string) {
-    const userId = this.userId(req);
-    try {
-      const item = await this.calendar.getEvent(id, userId);
-      return { data: this.mapEventToListItem(item) };
-    } catch (err) {
-      await this.handleGoogleResourceError(userId, err, 'sự kiện');
-    }
-  }
-
-  @Post('calendar/events')
-  async createEvent(@Req() req: Request, @Body() body: Record<string, unknown>) {
-    const userId = this.userId(req);
-    try {
-      const item = await this.calendar.createEvent(this.eventInput(body), userId);
-      return { data: this.mapEventToListItem(item) };
-    } catch (err) {
-      await this.handleGoogleResourceError(userId, err, 'sự kiện');
-    }
-  }
-
-  @Patch('calendar/events/:id')
-  async updateEvent(
-    @Req() req: Request,
-    @Param('id') id: string,
-    @Body() body: Record<string, unknown>,
-  ) {
-    const userId = this.userId(req);
-    try {
-      const item = await this.calendar.updateEvent(id, this.eventInput(body, true), userId);
-      return {
-        data: this.mapEventToListItem(item),
-      };
-    } catch (err) {
-      await this.handleGoogleResourceError(userId, err, 'sự kiện');
-    }
-  }
-
-  @Delete('calendar/events/:id')
-  async deleteEvent(@Req() req: Request, @Param('id') id: string) {
-    const userId = this.userId(req);
-    try {
-      await this.calendar.deleteEvent(id, userId);
-      return { data: { deleted: true } };
-    } catch (err) {
-      await this.handleGoogleResourceError(userId, err, 'sự kiện');
-    }
-  }
-
   @Get('tasks')
   async listTasks(@Req() req: Request, @Query() query: Record<string, string | undefined>) {
     const userId = this.userId(req);
@@ -518,17 +423,6 @@ export class GoogleResourcesController {
     throw new BadRequestException(msg || `Thao tác ${resourceName} trên Google thất bại.`);
   }
 
-  private mapEventToListItem(item: calendar_v3.Schema$Event): ICalendarEventItem {
-    return {
-      id: item.id || item.etag || item.summary || 'event',
-      title: item.summary || 'Không có tiêu đề',
-      description: item.description || undefined,
-      location: item.location || undefined,
-      startAt: item.start?.dateTime || item.start?.date || undefined,
-      endAt: item.end?.dateTime || item.end?.date || undefined,
-    };
-  }
-
   private mapTaskToListItem(item: tasks_v1.Schema$Task): ITaskListItem {
     return {
       id: item.id || item.title || 'task',
@@ -570,23 +464,6 @@ export class GoogleResourcesController {
     if (!Number.isInteger(number) || number < 1 || number > 100)
       throw new BadRequestException('maxResults is invalid.');
     return number;
-  }
-  private eventInput(body: Record<string, unknown>, partial = false) {
-    return {
-      summary:
-        body.summary === undefined && partial ? undefined : this.text(body.summary, 'summary'),
-      description: this.optional(body.description),
-      startDateTime:
-        body.startDateTime === undefined && partial
-          ? undefined
-          : this.date(body.startDateTime, 'startDateTime'),
-      endDateTime:
-        body.endDateTime === undefined && partial
-          ? undefined
-          : this.date(body.endDateTime, 'endDateTime'),
-      location: this.optional(body.location),
-      timeZone: this.optional(body.timeZone),
-    };
   }
   private taskInput(body: Record<string, unknown>, partial = false) {
     return {

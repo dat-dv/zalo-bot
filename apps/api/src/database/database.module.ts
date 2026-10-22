@@ -15,6 +15,7 @@ import { FinancePlaceEntity } from './entities/finance-place.entity';
 import { ZcaThreadConfigEntity } from './entities/zca-thread-config.entity';
 import { ZcaMessageEntity } from './entities/zca-message.entity';
 import { ChannelStorageLinkEntity } from './entities/channel-storage-link.entity';
+import { CalendarEventEntity } from './entities/calendar-event.entity';
 import { AuditLogSubscriber } from './audit-log.subscriber';
 import { InitSchema1724650000000 } from './migrations/1724650000000-InitSchema';
 import { MigrateLegacyPlaceContacts1724660000000 } from './migrations/1724660000000-MigrateLegacyPlaceContacts';
@@ -38,6 +39,7 @@ import { CreateChannelStorageLinks1724830000000 } from './migrations/17248300000
 import { AddDisplayNameToChannelStorageLinks1724840000000 } from './migrations/1724840000000-AddDisplayNameToChannelStorageLinks';
 import { AddProfileFieldsToDebtContacts1724850000000 } from './migrations/1724850000000-AddProfileFieldsToDebtContacts';
 import { AddCodeHashToDashboardExchangeTokens1724860000000 } from './migrations/1724860000000-AddCodeHashToDashboardExchangeTokens';
+import { CreateCalendarEvents1724870000000 } from './migrations/1724870000000-CreateCalendarEvents';
 
 @Module({
   imports: [
@@ -62,6 +64,7 @@ import { AddCodeHashToDashboardExchangeTokens1724860000000 } from './migrations/
           ZcaThreadConfigEntity,
           ZcaMessageEntity,
           ChannelStorageLinkEntity,
+          CalendarEventEntity,
         ];
 
         return {
@@ -93,6 +96,7 @@ import { AddCodeHashToDashboardExchangeTokens1724860000000 } from './migrations/
             AddDisplayNameToChannelStorageLinks1724840000000,
             AddProfileFieldsToDebtContacts1724850000000,
             AddCodeHashToDashboardExchangeTokens1724860000000,
+            CreateCalendarEvents1724870000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

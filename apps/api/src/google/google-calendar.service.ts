@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { google, calendar_v3 } from 'googleapis';
 import { GoogleAuthService } from './google-auth.service';
 
+/** Payload of a bot "create calendar event" pending action (kept in Redis while awaiting approval). */
 export interface CreateEventOptions {
   summary: string;
   description?: string;
@@ -13,30 +13,22 @@ export interface CreateEventOptions {
   timeZone?: string;
 }
 
-export interface UpdateEventOptions {
-  summary?: string;
-  description?: string;
-  startDateTime?: string;
-  endDateTime?: string;
-  location?: string;
-  timeZone?: string;
-}
+/** Google Calendar copy of a `calendar_events` row. Built by `toGoogleEventBody`. */
+export type GoogleEventBody = calendar_v3.Schema$Event;
 
-export interface ListEventsOptions {
-  timeMin?: string;
-  timeMax?: string;
-  maxResults?: number;
-  query?: string;
-}
+const PAGE_SIZE = 250;
+const MAX_PAGES = 10;
 
+/**
+ * Thin Google Calendar client. Events live in `calendar_events` (see `CalendarService`);
+ * this service only writes and reads their Google copy in the `primary` calendar of the
+ * account behind `GoogleAuthService.getOAuth2Client(userId)`.
+ */
 @Injectable()
 export class GoogleCalendarService {
   private readonly logger = new Logger(GoogleCalendarService.name);
 
-  constructor(
-    private readonly authService: GoogleAuthService,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private readonly authService: GoogleAuthService) {}
 
   private getCalendarClient(userId?: number | string): calendar_v3.Calendar {
     const auth = this.authService.getOAuth2Client(userId);
@@ -48,132 +40,58 @@ export class GoogleCalendarService {
     return google.calendar({ version: 'v3', auth });
   }
 
-  public async listEvents(
-    options: ListEventsOptions = {},
+  /**
+   * Every event overlapping [timeMin, timeMax), recurring ones expanded. Throws unless all
+   * pages were read, so callers can trust a missing event as deleted on Google.
+   */
+  public async listEventsInRange(
+    range: { timeMin: Date; timeMax: Date },
     userId?: number | string,
   ): Promise<calendar_v3.Schema$Event[]> {
-    if (userId !== undefined && !this.authService.isAuthorized(userId)) {
-      return [];
-    }
     const calendar = this.getCalendarClient(userId);
-    const timeZone = this.configService.getOrThrow<string>('timezone');
-
-    try {
+    const items: calendar_v3.Schema$Event[] = [];
+    let pageToken: string | undefined;
+    for (let page = 0; page < MAX_PAGES; page++) {
       const res = await calendar.events.list({
         calendarId: 'primary',
-        timeMin: options.timeMin || new Date().toISOString(),
-        timeMax: options.timeMax,
-        maxResults: options.maxResults || 20,
+        timeMin: range.timeMin.toISOString(),
+        timeMax: range.timeMax.toISOString(),
+        maxResults: PAGE_SIZE,
         singleEvents: true,
         orderBy: 'startTime',
-        timeZone,
-        q: options.query,
+        pageToken,
       });
-
-      return res.data.items || [];
-    } catch (err) {
-      if (userId !== undefined && (await this.authService.handleAuthError(userId, err))) {
-        this.logger.warn(`Revoked invalid Google token for user ${userId} during listEvents`);
-        return [];
-      }
-      this.logger.error(
-        `Error listing Google Calendar events for user ${userId}: ${(err as Error).message}`,
-      );
-      throw err;
+      items.push(...(res.data.items ?? []));
+      pageToken = res.data.nextPageToken ?? undefined;
+      if (!pageToken) return items;
     }
+    throw new Error(`Google Calendar returned more than ${MAX_PAGES * PAGE_SIZE} events.`);
   }
 
-  public async createEvent(
-    options: CreateEventOptions,
+  public async insertEvent(
+    body: GoogleEventBody,
     userId?: number | string,
   ): Promise<calendar_v3.Schema$Event> {
     const calendar = this.getCalendarClient(userId);
-    const defaultTimeZone = this.configService.getOrThrow<string>('timezone');
-    const timeZone = options.timeZone || defaultTimeZone;
+    const res = await calendar.events.insert({ calendarId: 'primary', requestBody: body });
+    this.logger.log(`Created Google Calendar event ${res.data.id} for user ${userId ?? 'shared'}`);
+    return res.data;
+  }
 
-    // Multi-Reminder 4 mốc: 60p, 30p, 10p, 0p
-    const reminderMinutes =
-      options.reminderMinutes && options.reminderMinutes.length > 0
-        ? options.reminderMinutes
-        : [60, 30, 10, 0];
-
-    const overrides = reminderMinutes.map((minutes) => ({
-      method: 'popup',
-      minutes,
-    }));
-
-    const eventPayload: calendar_v3.Schema$Event = {
-      summary: options.summary,
-      description: options.description,
-      location: options.location,
-      start: {
-        dateTime: options.startDateTime,
-        timeZone,
-      },
-      end: {
-        dateTime: options.endDateTime,
-        timeZone,
-      },
-      reminders: {
-        useDefault: false,
-        overrides,
-      },
-    };
-
-    const res = await calendar.events.insert({
-      calendarId: 'primary',
-      requestBody: eventPayload,
-    });
-
-    this.logger.log(
-      `Created Google Calendar event: "${options.summary}" for user ${userId || 'default'} (ID: ${res.data.id})`,
-    );
+  public async patchEvent(
+    eventId: string,
+    body: GoogleEventBody,
+    userId?: number | string,
+  ): Promise<calendar_v3.Schema$Event> {
+    const calendar = this.getCalendarClient(userId);
+    const res = await calendar.events.patch({ calendarId: 'primary', eventId, requestBody: body });
     return res.data;
   }
 
   public async deleteEvent(eventId: string, userId?: number | string): Promise<boolean> {
     const calendar = this.getCalendarClient(userId);
-    await calendar.events.delete({
-      calendarId: 'primary',
-      eventId,
-    });
-    this.logger.log(`Deleted Google Calendar event: ${eventId} for user ${userId || 'default'}`);
+    await calendar.events.delete({ calendarId: 'primary', eventId });
+    this.logger.log(`Deleted Google Calendar event ${eventId} for user ${userId ?? 'shared'}`);
     return true;
-  }
-
-  public async updateEvent(
-    eventId: string,
-    options: UpdateEventOptions,
-    userId?: number | string,
-  ): Promise<calendar_v3.Schema$Event> {
-    const calendar = this.getCalendarClient(userId);
-    const existing = await this.getEvent(eventId, userId);
-    const timeZone = options.timeZone || this.configService.getOrThrow<string>('timezone');
-    const res = await calendar.events.patch({
-      calendarId: 'primary',
-      eventId,
-      requestBody: {
-        summary: options.summary ?? existing.summary,
-        description: options.description ?? existing.description,
-        location: options.location ?? existing.location,
-        start: options.startDateTime
-          ? { dateTime: options.startDateTime, timeZone }
-          : existing.start,
-        end: options.endDateTime ? { dateTime: options.endDateTime, timeZone } : existing.end,
-      },
-    });
-    return res.data;
-  }
-
-  public async getEvent(
-    eventId: string,
-    userId?: number | string,
-  ): Promise<calendar_v3.Schema$Event> {
-    const calendar = this.getCalendarClient(userId);
-    const res = await calendar.events.get({
-      calendarId: 'primary',
-      eventId,
-    });
-    return res.data;
   }
 }

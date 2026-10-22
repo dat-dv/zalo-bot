@@ -27,6 +27,8 @@ export const API_ROUTES = {
   usersMerge: (id: string) => `/api/users/${id}/merge`,
   usersLinkedContacts: (id: string) => `/api/users/${id}/linked-contacts`,
   calendarEvents: '/api/calendar/events',
+  calendarEvent: (id: string) => `/api/calendar/events/${id}`,
+  calendarEventResync: (id: string) => `/api/calendar/events/${id}/resync`,
   tasks: '/api/tasks',
   googleAuthCallback: '/api/oauth2callback',
   swaggerDocs: '/api/docs',
@@ -757,10 +759,11 @@ const messages = {
     'analytics.cashflow.column.netCashflow': 'Chênh lệch Thu–Chi',
     'analytics.cashflow.column.balance': 'Số dư ví cuối kỳ',
     'calendar.title': 'Lịch',
-    'calendar.subtitle': 'Lịch trình sự kiện 7 ngày tới',
+    'calendar.subtitle': 'Lịch chung, lưu trong zalobot và sao chép lên Google',
     'calendar.columns.description': 'Mô tả',
     'calendar.columns.location': 'Địa điểm',
     'calendar.columns.endAt': 'Kết thúc',
+    'calendar.columns.sync': 'Google Calendar',
     'calendar.actions.edit': 'Sửa',
     'calendar.actions.save': 'Lưu',
     'calendar.actions.cancel': 'Hủy',
@@ -791,6 +794,62 @@ const messages = {
     'calendar.selectedDayEvents': 'Sự kiện ngày {date}',
     'calendar.noEventsOnDay': 'Không có sự kiện nào trong ngày này',
     'calendar.quickCreate': 'Tạo nhanh sự kiện',
+    'calendar.add': 'Thêm sự kiện',
+    'calendar.create.title': 'Sự kiện mới',
+    'calendar.create.success': 'Đã thêm sự kiện',
+    'calendar.edit.title': 'Sửa sự kiện',
+    'calendar.details.title': 'Chi tiết sự kiện',
+    'calendar.details.created': 'Tạo lúc {date}',
+    'calendar.details.when': 'Thời gian',
+    'calendar.details.origin': 'Nguồn',
+    'calendar.delete.title': 'Xoá sự kiện?',
+    'calendar.delete.message':
+      'Sự kiện bị xoá khỏi zalobot và khỏi Google Calendar nếu tài khoản giữ bản sao vẫn còn kết nối.',
+    'calendar.upcoming': 'Sắp tới · 14 ngày',
+    'calendar.upcoming.empty': 'Chưa có sự kiện nào trong 14 ngày tới',
+    'calendar.dayEmpty': 'Không có sự kiện',
+    'calendar.tomorrow': 'Ngày mai',
+    'calendar.summary.today': 'Hôm nay',
+    'calendar.summary.next7': '7 ngày tới',
+    'calendar.summary.month': 'Trong tháng',
+    'calendar.summary.unsynced': 'Chưa lên Google',
+    'calendar.filter.unsyncedOnly': 'Đang lọc sự kiện chưa lên Google',
+    'calendar.filter.clear': 'Bỏ lọc',
+    'calendar.search.open': 'Tìm sự kiện',
+    'calendar.localOnlyTip':
+      'Chưa kết nối Google: sự kiện vẫn lưu trong zalobot, chỉ chưa có nhắc trên Google Calendar.',
+    'calendar.status.ongoing': 'Đang diễn ra',
+    'calendar.status.past': 'Đã qua',
+    'calendar.duration.minutes': '{count} phút',
+    'calendar.duration.hours': '{count} giờ',
+    'calendar.duration.hoursMinutes': '{hours} giờ {minutes} phút',
+    'calendar.duration.days': '{count} ngày',
+    'calendar.sync.synced': 'Đã lên Google',
+    'calendar.sync.pending': 'Đang đồng bộ',
+    'calendar.sync.failed': 'Lỗi đồng bộ Google',
+    'calendar.sync.local': 'Chỉ lưu trong app',
+    'calendar.sync.otherAccount': 'Ở tài khoản Google cũ',
+    'calendar.sync.account': 'Bản sao Google: {email}',
+    'calendar.sync.resync': 'Đồng bộ lại',
+    'calendar.sync.resynced': 'Đã đồng bộ lên Google',
+    'calendar.source.zalo': 'Tạo từ Zalo',
+    'calendar.source.dashboard': 'Tạo từ dashboard',
+    'calendar.source.google': 'Tạo trên Google Calendar',
+    'calendar.meta.createdBy': 'Tạo bởi {name}',
+    'calendar.meta.inChat': 'trong {chat}',
+    'calendar.reminders.label': 'Nhắc',
+    'calendar.reminders.none': 'Không nhắc',
+    'calendar.reminders.atStart': 'Lúc bắt đầu',
+    'calendar.reminders.minutes': '{count} phút trước',
+    'calendar.reminders.hours': '{count} giờ trước',
+    'calendar.reminders.days': '{count} ngày trước',
+    'calendar.form.title': 'Tiêu đề',
+    'calendar.form.allDay': 'Cả ngày',
+    'calendar.form.start': 'Bắt đầu',
+    'calendar.form.end': 'Kết thúc',
+    'calendar.form.location': 'Địa điểm',
+    'calendar.form.description': 'Mô tả',
+    'calendar.form.invalidRange': 'Thời điểm kết thúc phải sau lúc bắt đầu',
     'tasks.title': 'Việc cần làm',
     'tasks.subtitle': 'Danh sách công việc từ Google Tasks',
     'tasks.columns.status': 'Trạng thái',
@@ -1667,10 +1726,11 @@ const messages = {
     'analytics.cashflow.column.netCashflow': 'Net Surplus / Deficit',
     'analytics.cashflow.column.balance': 'Ending Balance',
     'calendar.title': 'Calendar',
-    'calendar.subtitle': 'Upcoming 7-day schedule and events',
+    'calendar.subtitle': 'Shared calendar, saved in zalobot and copied to Google',
     'calendar.columns.description': 'Description',
     'calendar.columns.location': 'Location',
     'calendar.columns.endAt': 'End time',
+    'calendar.columns.sync': 'Google Calendar',
     'calendar.actions.edit': 'Edit',
     'calendar.actions.save': 'Save',
     'calendar.actions.cancel': 'Cancel',
@@ -1701,6 +1761,62 @@ const messages = {
     'calendar.selectedDayEvents': 'Events on {date}',
     'calendar.noEventsOnDay': 'No events on this day',
     'calendar.quickCreate': 'Quick Add Event',
+    'calendar.add': 'Add event',
+    'calendar.create.title': 'New event',
+    'calendar.create.success': 'Event added',
+    'calendar.edit.title': 'Edit event',
+    'calendar.details.title': 'Event details',
+    'calendar.details.created': 'Created {date}',
+    'calendar.details.when': 'When',
+    'calendar.details.origin': 'Origin',
+    'calendar.delete.title': 'Delete event?',
+    'calendar.delete.message':
+      'The event is removed from zalobot, and from Google Calendar while the account holding its copy is still connected.',
+    'calendar.upcoming': 'Upcoming · 14 days',
+    'calendar.upcoming.empty': 'No events in the next 14 days',
+    'calendar.dayEmpty': 'No events',
+    'calendar.tomorrow': 'Tomorrow',
+    'calendar.summary.today': 'Today',
+    'calendar.summary.next7': 'Next 7 days',
+    'calendar.summary.month': 'This month',
+    'calendar.summary.unsynced': 'Not on Google',
+    'calendar.filter.unsyncedOnly': 'Showing events not on Google',
+    'calendar.filter.clear': 'Clear filter',
+    'calendar.search.open': 'Search events',
+    'calendar.localOnlyTip':
+      'Google is not connected: events are still saved in zalobot, just without Google Calendar reminders.',
+    'calendar.status.ongoing': 'Happening now',
+    'calendar.status.past': 'Past',
+    'calendar.duration.minutes': '{count} min',
+    'calendar.duration.hours': '{count} h',
+    'calendar.duration.hoursMinutes': '{hours} h {minutes} min',
+    'calendar.duration.days': '{count} days',
+    'calendar.sync.synced': 'On Google',
+    'calendar.sync.pending': 'Syncing',
+    'calendar.sync.failed': 'Google sync failed',
+    'calendar.sync.local': 'Saved in app only',
+    'calendar.sync.otherAccount': 'In a previous Google account',
+    'calendar.sync.account': 'Google copy: {email}',
+    'calendar.sync.resync': 'Sync again',
+    'calendar.sync.resynced': 'Synced to Google',
+    'calendar.source.zalo': 'Created from Zalo',
+    'calendar.source.dashboard': 'Created from the dashboard',
+    'calendar.source.google': 'Created in Google Calendar',
+    'calendar.meta.createdBy': 'By {name}',
+    'calendar.meta.inChat': 'in {chat}',
+    'calendar.reminders.label': 'Reminders',
+    'calendar.reminders.none': 'No reminder',
+    'calendar.reminders.atStart': 'At start',
+    'calendar.reminders.minutes': '{count} min before',
+    'calendar.reminders.hours': '{count} h before',
+    'calendar.reminders.days': '{count} days before',
+    'calendar.form.title': 'Title',
+    'calendar.form.allDay': 'All day',
+    'calendar.form.start': 'Start',
+    'calendar.form.end': 'End',
+    'calendar.form.location': 'Location',
+    'calendar.form.description': 'Description',
+    'calendar.form.invalidRange': 'The end must be after the start',
     'tasks.title': 'Tasks',
     'tasks.subtitle': 'Task list from Google Tasks',
     'tasks.columns.status': 'Status',
@@ -2204,14 +2320,38 @@ export interface IDashboardData {
   admin?: { userCount: number; googleConnectedCount: number };
 }
 
+/** Where the Google Calendar copy of an event stands. The event itself always lives in the DB. */
+export type CalendarSyncStatus = 'synced' | 'pending' | 'failed' | 'local';
+
+export type CalendarEventSource = 'zalo' | 'dashboard' | 'google';
+
+export interface ICalendarEventSync {
+  status: CalendarSyncStatus;
+  /** Google account holding the copy; absent when the event never reached Google. */
+  accountEmail?: string;
+  /** False when the copy sits in a Google account the system is no longer connected to. */
+  isCurrentAccount: boolean;
+  syncedAt?: string;
+}
+
 export interface ICalendarEventItem {
   id: string;
   title: string;
   description?: string;
   location?: string;
   startAt?: string;
+  /** Exclusive end; for all-day events this is midnight after the last day, as in Google. */
   endAt?: string;
   timeZone?: string;
+  allDay?: boolean;
+  reminderMinutes?: number[];
+  createdByUserId?: string;
+  createdByName?: string;
+  source?: CalendarEventSource;
+  sourceChatName?: string;
+  sourceChatType?: 'user' | 'group';
+  sync?: ICalendarEventSync;
+  createdAt?: string;
 }
 
 export interface ICalendarEventsQuery {
@@ -2227,6 +2367,8 @@ export interface IUpdateCalendarEventRequest {
   endDateTime?: string;
   location?: string;
   timeZone?: string;
+  allDay?: boolean;
+  reminderMinutes?: number[];
 }
 
 export interface ICreateCalendarEventRequest {
@@ -2236,6 +2378,8 @@ export interface ICreateCalendarEventRequest {
   endDateTime: string;
   location?: string;
   timeZone?: string;
+  allDay?: boolean;
+  reminderMinutes?: number[];
 }
 
 export interface IReminderListItem {

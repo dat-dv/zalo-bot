@@ -11,7 +11,11 @@ import {
 } from '../../finance/finance.service';
 import { RemindersService, CreateReminderDto } from '../../reminders/reminders.service';
 import { GoogleTasksService, CreateTaskOptions } from '../../google/google-tasks.service';
-import { GoogleCalendarService, CreateEventOptions } from '../../google/google-calendar.service';
+import type {
+  CalendarActor,
+  CalendarEventInput,
+  CalendarService,
+} from '../../calendar/calendar.service';
 import { UsersService } from '../../users/users.service';
 import { GoogleAuthService } from '../../google/google-auth.service';
 import { RedisService } from '../../redis/redis.service';
@@ -28,7 +32,7 @@ interface TestContext {
   createdReminders: CreateReminderDto[];
   createdTasks: Array<CreateTaskOptions & { userId: string }>;
   completedTasks: Array<{ taskId: string; listId: string; userId: string }>;
-  createdEvents: Array<CreateEventOptions & { userId: string }>;
+  createdEvents: Array<CalendarEventInput & { actor: CalendarActor }>;
   deletedCalendarEvents: Array<{ eventId: string; userId: string }>;
   bannedUsers: string[];
   revokedTokens: string[];
@@ -45,7 +49,7 @@ function createTestContext(
   const createdReminders: CreateReminderDto[] = [];
   const createdTasks: Array<CreateTaskOptions & { userId: string }> = [];
   const completedTasks: Array<{ taskId: string; listId: string; userId: string }> = [];
-  const createdEvents: Array<CreateEventOptions & { userId: string }> = [];
+  const createdEvents: Array<CalendarEventInput & { actor: CalendarActor }> = [];
   const deletedCalendarEvents: Array<{ eventId: string; userId: string }> = [];
   const bannedUsers: string[] = [];
   const revokedTokens: string[] = [];
@@ -110,19 +114,16 @@ function createTestContext(
     },
   } as unknown as GoogleTasksService;
 
-  const mockGoogleCalendarService = {
-    createEvent: (options: CreateEventOptions, userId: string) => {
-      createdEvents.push({ ...options, userId });
-      return Promise.resolve({
-        id: 'event_1',
-        summary: options.summary,
-      } as never);
+  const mockCalendarService = {
+    createEvent: (input: CalendarEventInput, actor: CalendarActor) => {
+      createdEvents.push({ ...input, actor });
+      return Promise.resolve({ id: 'event_1', title: input.title } as never);
     },
     deleteEvent: (eventId: string, userId: string) => {
       deletedCalendarEvents.push({ eventId, userId });
-      return Promise.resolve(true);
+      return Promise.resolve({ id: eventId } as never);
     },
-  } as unknown as GoogleCalendarService;
+  } as unknown as CalendarService;
 
   const mockUsersService = {
     banUser: (userId: string) => {
@@ -143,7 +144,7 @@ function createTestContext(
     mockFinanceService,
     mockRemindersService,
     mockGoogleTasksService,
-    mockGoogleCalendarService,
+    mockCalendarService,
     mockUsersService,
     mockGoogleAuthService,
     redisService,
@@ -487,7 +488,7 @@ void test('TransactionConfirmationService creates and confirms Google Task with 
   service.clearAll();
 });
 
-void test('TransactionConfirmationService creates and confirms Google Calendar Event with strict shape', async () => {
+void test('TransactionConfirmationService creates and confirms calendar event with strict shape', async () => {
   const { service, sentMessages, createdEvents } = createTestContext();
 
   const pending = await service.createPendingCalendarEvent({
@@ -503,14 +504,16 @@ void test('TransactionConfirmationService creates and confirms Google Calendar E
 
   assert.equal(pending.code.length, 3);
   assert.equal(createdEvents.length, 0);
-  assert.match(sentMessages[0].text, /Xác nhận tạo sự kiện Google Calendar/i);
+  assert.match(sentMessages[0].text, /Xác nhận tạo sự kiện lịch/i);
   assert.match(sentMessages[0].text, /Gặp gỡ đối tác/);
   assert.match(sentMessages[0].text, /The Coffee House/);
 
   // Confirm
   await service.handleCommand('u1', 'c1', `yes ${pending.code}`);
   assert.equal(createdEvents.length, 1);
-  assert.equal(createdEvents[0].summary, 'Gặp gỡ đối tác');
+  assert.equal(createdEvents[0].title, 'Gặp gỡ đối tác');
+  assert.equal(createdEvents[0].startAt.toISOString(), '2026-10-16T07:00:00.000Z');
+  assert.deepEqual(createdEvents[0].actor, { userId: 'u1', chatId: 'c1', source: 'zalo' });
   assert.equal(
     sentMessages[1].text,
     `📅 [${pending.code}] Gặp gỡ đối tác · 14:00–15:30 16/10\n📍 The Coffee House`,
@@ -546,7 +549,7 @@ void test('TransactionConfirmationService creates and confirms task completion w
   service.clearAll();
 });
 
-void test('TransactionConfirmationService creates and confirms Google Calendar event deletion with strict shape', async () => {
+void test('TransactionConfirmationService creates and confirms calendar event deletion with strict shape', async () => {
   const { service, sentMessages, deletedCalendarEvents } = createTestContext();
 
   const pending = await service.createPendingDeleteCalendarEvent({
@@ -561,7 +564,7 @@ void test('TransactionConfirmationService creates and confirms Google Calendar e
 
   assert.equal(pending.code.length, 3);
   assert.equal(deletedCalendarEvents.length, 0);
-  assert.match(sentMessages[0].text, /Xác nhận XÓA sự kiện Google Calendar/i);
+  assert.match(sentMessages[0].text, /Xác nhận XÓA sự kiện lịch/i);
   assert.match(sentMessages[0].text, /Họp giao ban sáng/);
   assert.match(sentMessages[0].text, /Phòng họp A/);
 
@@ -1010,7 +1013,7 @@ void test('TransactionConfirmationService captures messageId from sendMessageWit
     mockFinanceService,
     {} as unknown as RemindersService,
     {} as unknown as GoogleTasksService,
-    {} as unknown as GoogleCalendarService,
+    {} as unknown as CalendarService,
     {} as unknown as UsersService,
     {} as unknown as GoogleAuthService,
   );
@@ -1077,7 +1080,7 @@ void test('TransactionConfirmationService captures cliMsgId and exposes undoMess
     mockFinanceService,
     {} as unknown as RemindersService,
     {} as unknown as GoogleTasksService,
-    {} as unknown as GoogleCalendarService,
+    {} as unknown as CalendarService,
     {} as unknown as UsersService,
     {} as unknown as GoogleAuthService,
   );

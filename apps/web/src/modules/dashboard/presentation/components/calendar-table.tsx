@@ -51,22 +51,36 @@ export function CalendarTable({
 
   const columns = useMemo<DataTableColumn<ICalendarEventItem>[]>(() => {
     const hasActions = Boolean(onStartEdit || onSaveEdit || onDelete);
-    const date = (value?: string) =>
+    // All-day events (flag, or a bare `YYYY-MM-DD` from older payloads) show only the day.
+    const isAllDayValue = (item: ICalendarEventItem, value: string) =>
+      Boolean(item.allDay) || /^\d{4}-\d{2}-\d{2}$/.test(value);
+    const toDate = (value: string) =>
+      /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
+    const date = (item: ICalendarEventItem, value?: string) =>
       value
         ? new Intl.DateTimeFormat(localeTag(locale), {
             dateStyle: 'short',
-            timeStyle: 'short',
-          }).format(new Date(value))
+            ...(isAllDayValue(item, value) ? {} : { timeStyle: 'short' }),
+          }).format(toDate(value))
         : t('common.notSet');
-    // All-day events carry a bare `YYYY-MM-DD`; show only the day for those.
-    const shortStart = (value?: string) => {
+    const shortStart = (item: ICalendarEventItem) => {
+      const value = item.startAt;
       if (!value) return null;
-      const isAllDay = /^\d{4}-\d{2}-\d{2}$/.test(value);
       return new Intl.DateTimeFormat(localeTag(locale), {
         day: '2-digit',
         month: '2-digit',
-        ...(isAllDay ? {} : { hour: '2-digit', minute: '2-digit', hour12: false }),
-      }).format(isAllDay ? new Date(`${value}T00:00:00`) : new Date(value));
+        ...(isAllDayValue(item, value)
+          ? {}
+          : { hour: '2-digit', minute: '2-digit', hour12: false }),
+      }).format(toDate(value));
+    };
+    const syncLabel = (item: ICalendarEventItem) => {
+      if (!item.sync) return '—';
+      if (item.sync.status === 'local') return t('calendar.sync.local');
+      if (item.sync.status === 'failed') return t('calendar.sync.failed');
+      if (!item.sync.isCurrentAccount) return t('calendar.sync.otherAccount');
+      if (item.sync.status === 'pending') return t('calendar.sync.pending');
+      return t('calendar.sync.synced');
     };
 
     const list: DataTableColumn<ICalendarEventItem>[] = [
@@ -213,7 +227,7 @@ export function CalendarTable({
         align: 'right',
         minWidth: '140px',
         mobileSlot: 'trailing',
-        mobileCell: (item) => shortStart(item.startAt),
+        mobileCell: (item) => shortStart(item),
         cell: (item) => {
           if (
             editingId === item.id &&
@@ -245,7 +259,7 @@ export function CalendarTable({
               }`}
               onDoubleClick={() => onStartEdit?.(item)}
             >
-              {date(item.startAt)}
+              {date(item, item.startAt)}
             </span>
           );
         },
@@ -287,10 +301,33 @@ export function CalendarTable({
               }`}
               onDoubleClick={() => onStartEdit?.(item)}
             >
-              {item.endAt ? date(item.endAt) : '—'}
+              {item.endAt && !item.allDay ? date(item, item.endAt) : '—'}
             </span>
           );
         },
+      },
+      {
+        id: 'createdBy',
+        header: t('dashboard.columns.createdBy'),
+        minWidth: '140px',
+        cell: (item) => (
+          <span className="text-[11.5px] text-slate-600 dark:text-slate-300">
+            {[item.createdByName, item.sourceChatName].filter(Boolean).join(' · ') || '—'}
+          </span>
+        ),
+      },
+      {
+        id: 'sync',
+        header: t('calendar.columns.sync'),
+        minWidth: '130px',
+        cell: (item) => (
+          <span
+            className="text-[11.5px] text-slate-500 dark:text-slate-400"
+            title={item.sync?.accountEmail}
+          >
+            {syncLabel(item)}
+          </span>
+        ),
       },
     ];
 

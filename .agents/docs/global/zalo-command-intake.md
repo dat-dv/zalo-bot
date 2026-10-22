@@ -59,8 +59,8 @@ Hướng dẫn này ánh xạ trực tiếp với tri thức canonical [`zalo-co
 | `/zlogout`, `/zalo-logout`, `/zca-logout` | Admin — đăng xuất ZCA |
 | `/login`, `/auth` | Admin — link kết nối Google |
 | `/status`, `/id`, `/myid` | ID, vai trò, trạng thái Google |
-| `/today`, `hôm nay` | Lịch, việc cần làm và thu–chi hôm nay |
-| `/week`, `tuần này` | Lịch và việc trong 7 ngày tới (cần kết nối Google) |
+| `/today`, `hôm nay` | Lịch (lịch chung trong zalobot), việc cần làm (Google Tasks) và thu–chi hôm nay |
+| `/week`, `tuần này` | Lịch 7 ngày tới (không cần Google) và việc cần làm (cần kết nối Google) |
 | `/finance`, `/thuchi`, `/money` | Tổng thu–chi hôm nay |
 | `/debts`, `/debt`, `/congo` | Các khoản nợ đang mở |
 | `/tasks`, `/task`, `/viec` | Danh sách Google Tasks; `/task <tiêu đề>` tạo việc **ngay, không qua xác nhận** |

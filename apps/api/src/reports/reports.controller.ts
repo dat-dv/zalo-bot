@@ -14,16 +14,20 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
-import { calendar_v3, tasks_v1 } from 'googleapis';
+import { tasks_v1 } from 'googleapis';
 import { AuditService } from '../audit/audit.service';
 import { FinanceService } from '../finance/finance.service';
 import { GoogleAuthService } from '../google/google-auth.service';
-import { GoogleCalendarService } from '../google/google-calendar.service';
+import { CalendarService } from '../calendar/calendar.service';
 import { GoogleTasksService } from '../google/google-tasks.service';
 import { RemindersService } from '../reminders/reminders.service';
 import { UsersService } from '../users/users.service';
 import { DebtEntity } from '../database/entities/debt.entity';
-import type { IApiResponse, IDashboardAccessTokenResponse } from '@zalobot/contracts';
+import type {
+  IApiResponse,
+  ICalendarEventItem,
+  IDashboardAccessTokenResponse,
+} from '@zalobot/contracts';
 import { ReportsTokenService } from './reports-token.service';
 import { AccessCodeRateLimiter } from './access-code-rate-limiter';
 import { DashboardAccessCodeDto } from './dto/dashboard-access-code.dto';
@@ -59,7 +63,7 @@ export class ReportsController {
     private readonly finance: FinanceService,
     private readonly audit: AuditService,
     private readonly googleAuth: GoogleAuthService,
-    private readonly calendar: GoogleCalendarService,
+    private readonly calendar: CalendarService,
     private readonly tasks: GoogleTasksService,
     private readonly reminders: RemindersService,
     private readonly users: UsersService,
@@ -164,7 +168,7 @@ export class ReportsController {
     const startAt = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const endAt = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
     const googleConnected = this.googleAuth.isAuthorized(userId);
-    const calendarPromise = this.getCalendarEvents(googleConnected, userId, now);
+    const calendarPromise = this.getCalendarEvents(String(userId), now);
     const tasksPromise = this.getTasks(googleConnected, userId);
     const [summary, ledgerBalance, debts, reminders, activity, calendar, tasks] = await Promise.all(
       [
@@ -197,14 +201,7 @@ export class ReportsController {
         },
         transactions: await this.finance.toTransactionItems(summary.transactions.slice(0, 20)),
         debts: debts.map((item) => this.mapDebt(item)),
-        calendar: calendar.map((item) => ({
-          id: item.id || item.etag || item.summary || 'event',
-          title: item.summary || 'Không có tiêu đề',
-          description: item.description || undefined,
-          location: item.location || undefined,
-          startAt: item.start?.dateTime || item.start?.date || undefined,
-          endAt: item.end?.dateTime || item.end?.date || undefined,
-        })),
+        calendar,
         tasks: tasks.map((item) => ({
           id: item.id || item.title || 'task',
           title: item.title || 'Không có tiêu đề',
@@ -360,17 +357,16 @@ export class ReportsController {
     };
   }
 
-  private async getCalendarEvents(
-    googleConnected: boolean,
-    userId: number | string,
-    now: Date,
-  ): Promise<calendar_v3.Schema$Event[]> {
-    if (!googleConnected) return [];
+  /** Next 7 days from the shared calendar (DB); events never depend on Google being connected. */
+  private async getCalendarEvents(userId: string, now: Date): Promise<ICalendarEventItem[]> {
     try {
-      return await this.calendar.listEvents(
-        { timeMax: new Date(now.getTime() + 7 * 86400000).toISOString(), maxResults: 10 },
-        userId,
-      );
+      const rows = await this.calendar.listEvents({
+        timeMin: now,
+        timeMax: new Date(now.getTime() + 7 * 86400000),
+        limit: 10,
+        importForUserId: userId,
+      });
+      return await this.calendar.toItems(rows, userId);
     } catch {
       return [];
     }

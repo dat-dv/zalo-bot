@@ -2,9 +2,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   addDays,
+  createEmptyDraft,
+  draftFromEvent,
+  draftToRequest,
   getCalendarGridRange,
   getEventDateKeys,
+  getEventDuration,
+  getEventPhase,
   getWeekDays,
+  groupEventsByDate,
+  isEventUnsynced,
   toDateKey,
 } from './calendar-date-utils';
 
@@ -56,4 +63,98 @@ void test('builds the Monday-to-Sunday week around a date, across a month bounda
 
 void test('moves by whole days at local midnight', () => {
   assert.equal(toDateKey(addDays(new Date(2026, 9, 31, 23, 0), 7)), '2026-11-07');
+});
+
+void test('all-day events flagged by the API use their exclusive end like Google dates', () => {
+  const start = new Date(2026, 9, 23);
+  const end = new Date(2026, 9, 25);
+  assert.deepEqual(
+    getEventDateKeys({
+      id: 'holiday',
+      title: 'Nghỉ',
+      allDay: true,
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
+    }),
+    ['2026-10-23', '2026-10-24'],
+  );
+});
+
+void test('groupEventsByDate puts all-day events first, then by start time', () => {
+  const day = new Date(2026, 9, 23);
+  const at = (hours: number) => new Date(2026, 9, 23, hours).toISOString();
+  const grouped = groupEventsByDate([
+    { id: 'late', title: 'Late', startAt: at(15), endAt: at(16) },
+    {
+      id: 'all',
+      title: 'All day',
+      allDay: true,
+      startAt: day.toISOString(),
+      endAt: addDays(day, 1).toISOString(),
+    },
+    { id: 'early', title: 'Early', startAt: at(8), endAt: at(9) },
+  ]);
+  assert.deepEqual(
+    grouped.get('2026-10-23')?.map((event) => event.id),
+    ['all', 'early', 'late'],
+  );
+});
+
+void test('draftToRequest turns an inclusive all-day range into an exclusive end', () => {
+  const request = draftToRequest({
+    summary: ' Du lịch ',
+    location: '',
+    description: '',
+    allDay: true,
+    start: '2026-10-23T09:00',
+    end: '2026-10-25T09:00',
+    reminderMinutes: [0, 60],
+  });
+  assert.ok(request);
+  assert.equal(request.summary, 'Du lịch');
+  assert.equal(request.startDateTime, new Date(2026, 9, 23).toISOString());
+  assert.equal(request.endDateTime, new Date(2026, 9, 26).toISOString());
+  assert.deepEqual(request.reminderMinutes, [60, 0]);
+});
+
+void test('draftToRequest rejects an end before the start and an empty title', () => {
+  const draft = createEmptyDraft(new Date(2026, 9, 23), new Date(2026, 9, 20, 8));
+  assert.equal(draft.start, '2026-10-23T09:00');
+  assert.equal(draft.end, '2026-10-23T10:00');
+  assert.equal(draftToRequest(draft), null);
+  assert.equal(draftToRequest({ ...draft, summary: 'Họp', end: '2026-10-23T08:00' }), null);
+  assert.ok(draftToRequest({ ...draft, summary: 'Họp' }));
+});
+
+void test('draftFromEvent shows the last day of an all-day event, not its exclusive end', () => {
+  const draft = draftFromEvent({
+    id: 'e',
+    title: 'Nghỉ',
+    allDay: true,
+    startAt: new Date(2026, 9, 23).toISOString(),
+    endAt: new Date(2026, 9, 25).toISOString(),
+  });
+  assert.equal(draft.end.slice(0, 10), '2026-10-24');
+});
+
+void test('event phase, duration and sync helpers', () => {
+  const event = {
+    id: 'e',
+    title: 'Họp',
+    startAt: new Date(2026, 9, 23, 9).toISOString(),
+    endAt: new Date(2026, 9, 23, 10, 30).toISOString(),
+  };
+  assert.equal(getEventPhase(event, new Date(2026, 9, 23, 8)), 'upcoming');
+  assert.equal(getEventPhase(event, new Date(2026, 9, 23, 9, 30)), 'ongoing');
+  assert.equal(getEventPhase(event, new Date(2026, 9, 23, 11)), 'past');
+  assert.deepEqual(getEventDuration(event), { hours: 1, minutes: 30 });
+  assert.equal(isEventUnsynced(event), false);
+  assert.equal(
+    isEventUnsynced({ ...event, sync: { status: 'synced', isCurrentAccount: false } }),
+    true,
+  );
+  assert.equal(
+    isEventUnsynced({ ...event, sync: { status: 'local', isCurrentAccount: true } }),
+    true,
+  );
 });

@@ -24,6 +24,14 @@
 - **Số còn lại**: Phần tiền chưa được trả; khoản nợ chỉ hoàn tất khi số này bằng 0.
 - **Hồ sơ**: Trang gom mọi thông tin về một Người liên quan và người dùng zalo đã liên kết với họ (nếu có): SĐT và tài khoản chính/phụ, ngày sinh, quan hệ, địa chỉ, nơi làm việc, ghi chú, cùng các khoản nợ và giao dịch của họ. Gốc của hồ sơ là Người liên quan; người dùng zalo chưa có Người liên quan thì admin tạo hồ sơ để tạo và liên kết.
 
+## Lịch
+
+- **Sự kiện lịch**: Một cuộc hẹn hoặc việc có giờ giấc, lưu trong **lịch chung** của zalobot, ghi nhận **người tạo** và nguồn (nhóm Zalo, chat riêng, dashboard hoặc Google Calendar).
+- **Lịch chung**: Toàn hệ thống có một lịch duy nhất giống sổ chung; ai cũng xem được mọi sự kiện. Đổi tài khoản Google không làm mất sự kiện.
+- **Sự kiện cả ngày**: Sự kiện không có giờ; ngày kết thúc được lưu là nửa đêm sau ngày cuối (như Google Calendar).
+- **Bản sao Google**: Bản chép của sự kiện trong Google Calendar của tài khoản đang kết nối, để điện thoại nhận nhắc. Mỗi sự kiện nhớ bản sao nằm ở tài khoản nào; bản sao ở tài khoản cũ được tạo lại ở tài khoản hiện tại khi sửa hoặc **đồng bộ lại**.
+- **Chỉ lưu trong app**: Sự kiện chưa có bản sao Google vì lúc tạo chưa kết nối Google.
+
 ## Nhật ký kiểm toán
 
 - **Nhật ký kiểm toán**: Bản ghi không thể thay thế về việc thêm, sửa hoặc xoá một dữ liệu, gồm dữ liệu trước/sau, thời điểm và người liên quan nếu xác định được.

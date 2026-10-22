@@ -40,7 +40,8 @@ REST surface of `apps/api` (global prefix `/api`). The API is organized by top-l
 | Reports | `GET /api/dashboard`, `GET /api/expenses`, `GET /api/finance/analytics?startAt&endAt&grain` |
 | Reminders | `GET/POST /api/reminders`, `GET/PATCH/DELETE /api/reminders/:id` (`title`, `remindAt`, `notifyType`, `repeatType`) |
 | Users (admin) | `GET/POST /api/users`, `GET/PATCH/DELETE /api/users/:id`, `POST /api/users/sync-zca`, `PATCH /api/users/:id/grant-access`, `GET /api/users/:id/merge-preview?targetUserId=`, `POST /api/users/:id/merge`, `GET /api/users/:id/linked-contacts` |
-| Google | `GET/POST /api/calendar/events`, `GET/PATCH/DELETE /api/calendar/events/:id`, `GET/POST /api/tasks`, `GET/PATCH/DELETE /api/tasks/:id` |
+| Calendar (shared, DB) | `GET/POST /api/calendar/events`, `GET/PATCH/DELETE /api/calendar/events/:id`, `POST /api/calendar/events/:id/resync` (see `modules/calendar/README.md`) |
+| Google | `GET/POST /api/tasks`, `GET/PATCH/DELETE /api/tasks/:id` |
 
 ## Business Rules
 

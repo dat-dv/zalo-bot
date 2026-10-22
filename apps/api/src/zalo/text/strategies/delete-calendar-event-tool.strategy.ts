@@ -2,8 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZaloService } from '../../zalo.service';
-import { GoogleCalendarService } from '../../../google/google-calendar.service';
-import { GoogleAuthService } from '../../../google/google-auth.service';
+import { CalendarService } from '../../../calendar/calendar.service';
 import { TransactionConfirmationService } from '../../../zca/confirmation/transaction-confirmation.service';
 
 @Injectable()
@@ -13,22 +12,11 @@ export class DeleteCalendarEventToolStrategy implements TextToolStrategy {
 
   constructor(
     private readonly zaloService: ZaloService,
-    private readonly calendarService: GoogleCalendarService,
-    private readonly googleAuthService: GoogleAuthService,
+    private readonly calendarService: CalendarService,
     private readonly confirmationService: TransactionConfirmationService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
-    const isGoogleConnected = this.googleAuthService.isAuthorized(context.senderId);
-
-    if (!isGoogleConnected) {
-      await this.zaloService.sendMessage(
-        context.chatId,
-        '⚠️ Bạn chưa kết nối Google Workspace. Vui lòng gõ /login để liên kết Google Calendar.',
-      );
-      return;
-    }
-
     const args = (context.toolArgs ?? {}) as {
       eventId?: string;
       query?: string;
@@ -44,24 +32,27 @@ export class DeleteCalendarEventToolStrategy implements TextToolStrategy {
     try {
       if (!targetEventId && args.query) {
         // Search matching event by query
-        const events = await this.calendarService.listEvents(
-          { query: args.query, maxResults: 5 },
-          context.senderId,
-        );
+        // Upcoming events first: deleting is about plans, not history.
+        const events = await this.calendarService.listEvents({
+          timeMin: new Date(),
+          query: args.query,
+          limit: 5,
+          importForUserId: context.senderId,
+        });
         if (events.length === 0) {
           await this.zaloService.sendMessage(
             context.chatId,
-            `⚠️ Không tìm thấy sự kiện nào khớp với từ khóa "${args.query}" trên Calendar.`,
+            `⚠️ Không tìm thấy sự kiện sắp tới nào khớp với từ khóa "${args.query}".`,
           );
           return;
         }
         const matched = events[0];
-        targetEventId = matched.id || undefined;
-        targetSummary = matched.summary || '';
-        targetStart = matched.start?.dateTime || matched.start?.date || undefined;
-        targetEnd = matched.end?.dateTime || matched.end?.date || undefined;
-        targetLocation = matched.location || undefined;
-        targetDescription = matched.description || undefined;
+        targetEventId = matched.id;
+        targetSummary = matched.title;
+        targetStart = matched.startAt.toISOString();
+        targetEnd = matched.endAt.toISOString();
+        targetLocation = matched.location ?? undefined;
+        targetDescription = matched.description ?? undefined;
       }
 
       if (!targetEventId) {
@@ -78,7 +69,7 @@ export class DeleteCalendarEventToolStrategy implements TextToolStrategy {
         rawPrompt: context.text,
         payload: {
           eventId: targetEventId,
-          summary: targetSummary || 'Sự kiện Google Calendar',
+          summary: targetSummary || 'Sự kiện lịch',
           startDateTime: targetStart,
           endDateTime: targetEnd,
           location: targetLocation,

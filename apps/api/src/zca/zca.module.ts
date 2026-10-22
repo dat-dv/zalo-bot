@@ -15,6 +15,7 @@ import { UsersModule } from '../users/users.module';
 import { FinanceModule } from '../finance/finance.module';
 import { RemindersModule } from '../reminders/reminders.module';
 import { GoogleModule } from '../google/google.module';
+import { CalendarModule } from '../calendar/calendar.module';
 import { LlmModule } from '../llm/llm.module';
 import { OcrModule } from '../ocr/ocr.module';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
@@ -42,6 +43,7 @@ const COMMON_IMPORTS = [
   FinanceModule,
   forwardRef(() => RemindersModule),
   forwardRef(() => GoogleModule),
+  forwardRef(() => CalendarModule),
   LlmModule,
   OcrModule,
   DashboardAuthModule,

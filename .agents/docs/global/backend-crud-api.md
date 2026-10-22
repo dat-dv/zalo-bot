@@ -40,7 +40,8 @@ Backend **không bao giờ** nhận `userId` từ client. Người gọi đượ
 - **Báo cáo**: `GET /api/dashboard`, `GET /api/expenses`, `GET /api/finance/analytics?startAt&endAt&grain`.
 - **Lời nhắc**: `GET/POST /api/reminders`, `GET/PATCH/DELETE /api/reminders/:id`.
 - **Người dùng (admin)**: `GET/POST /api/users`, `GET/PATCH/DELETE /api/users/:id`, `POST /api/users/sync-zca` (đồng bộ tên, avatar, SĐT từ danh bạ ZCA), `PATCH /api/users/:id/grant-access`, `GET /api/users/:id/merge-preview?targetUserId=`, `POST /api/users/:id/merge`, `GET /api/users/:id/linked-contacts` (Người liên quan đang gắn với user).
-- **Google**: `/api/calendar/events[/:id]`, `/api/tasks[/:id]` — chỉ thao tác trên tài khoản Google đã liên kết của người gọi, không trả OAuth token.
+- **Lịch**: `/api/calendar/events[/:id]`, `POST /api/calendar/events/:id/resync` — lịch chung lưu trong DB, Google chỉ giữ bản sao (xem `modules/calendar/README.md`).
+- **Google**: `/api/tasks[/:id]` — chỉ thao tác trên tài khoản Google đã liên kết của người gọi, không trả OAuth token.
 
 ## Quy tắc nghiệp vụ quan trọng
 

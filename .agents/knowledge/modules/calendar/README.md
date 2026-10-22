@@ -1,49 +1,93 @@
+---
+metadata:
+  agent-artifact:
+    id: module-calendar-knowledge
+    type: documentation
+    depends_on:
+      - apps/api/src/calendar/calendar.service.ts
+      - apps/api/src/calendar/calendar.controller.ts
+      - apps/api/src/calendar/calendar-event.mapper.ts
+      - apps/api/src/calendar/dto/calendar-event.dto.ts
+      - apps/api/src/database/entities/calendar-event.entity.ts
+      - apps/api/src/database/migrations/1724870000000-CreateCalendarEvents.ts
+      - apps/api/src/google/google-calendar.service.ts
+      - apps/web/src/modules/calendar/api/calendar-api.ts
+      - apps/web/src/modules/calendar/api/calendar-query.ts
+      - apps/web/src/modules/calendar/model/calendar-date-utils.ts
+      - apps/web/src/modules/calendar/presentation/components/calendar-grid.tsx
+      - apps/web/src/modules/calendar/presentation/components/calendar-agenda.tsx
+      - apps/web/src/modules/calendar/presentation/components/calendar-day-list.tsx
+      - apps/web/src/modules/calendar/presentation/components/calendar-event-card.tsx
+      - apps/web/src/modules/calendar/presentation/components/calendar-event-form.tsx
+      - apps/web/src/modules/calendar/presentation/components/calendar-event-sheet.tsx
+      - apps/web/src/modules/calendar/presentation/components/calendar-summary-strip.tsx
+      - apps/web/src/modules/calendar/presentation/components/use-calendar-format.ts
+      - apps/web/src/modules/dashboard/presentation/components/calendar-screen.tsx
+      - apps/web/src/modules/dashboard/presentation/components/calendar-table.tsx
+---
+
 # Calendar Module
+
+Owner: Core Engineering Team · Status: active
 
 > Developer guide (Vietnamese): [`README.md`](../../../docs/modules/calendar/README.md)
 
 ## Purpose
 
-`apps/web/src/modules/calendar` provides the Google Calendar data layer, date utilities, the presentational month grid and the phone agenda for the authenticated user's events. The routed page (`/calendar`) is `CalendarScreen` in the dashboard module (`modules/dashboard/presentation/components/calendar-screen.tsx`), which owns view toggle, month navigation, search, edit state, and the list view (`CalendarTable`).
+Shared system calendar. Events live in the DB (`calendar_events`); Google Calendar only holds a copy. Before this, events existed only in Google (mostly the admin's shared account), so switching the Google account made them vanish from the dashboard and the bot.
 
-## Files
+- **Shared like the finance ledger**: every user sees every event; `created_by_user_id` / `created_by_name` / `source` / `source_chat_id` are display-only, never filters.
+- **Google copy**: written to the `primary` calendar of `GoogleAuthService.getOAuth2Client(actorId)` (own token, else the shared account), keyed by `(google_account_email, google_event_id)`. Keeps phone reminders from Google Calendar.
+- **No Google connected** → event still saved (`sync_status = local`).
 
-- `api/calendar-api.ts`: `getCalendarEvents(params)` → `GET API_ROUTES.calendarEvents` with `ICalendarEventsQuery` (`timeMin`, `timeMax`); `updateCalendarEvent(id, data)` → `PATCH /api/calendar/events/:id` (`IUpdateCalendarEventRequest`); `deleteCalendarEvent(id)` → `DELETE /api/calendar/events/:id`.
-- `api/calendar-query.ts`: keys `['calendarEvents']` (all) and `['calendarEvents', params]` (range); `useCalendarEventsQuery(params)`, `useUpdateCalendarEventMutation`, `useDeleteCalendarEventMutation`. Both mutations invalidate all `calendarEvents` ranges and `['dashboard']`.
-- `model/calendar-date-utils.ts` (+ spec):
-  - `getCalendarGridRange(month)`: Monday-first grid covering leading/trailing padding days; returns ISO `timeMin`/`timeMax` (end exclusive, local midnight after last cell).
-  - `getEventDateKeys(event)`: local `YYYY-MM-DD` keys for every covered day. Date-only (all-day) ends and timed ends at exactly 00:00 are exclusive.
-  - `toDateKey(date)`, `addDays(date, n)` (local midnight), `getWeekDays(anchor)` (Mon–Sun week, same layout as the grid), `formatEventTime(value, localeTag)` (`HH:mm` 24h; empty for all-day/invalid), type `CalendarEventDraft`.
-- `presentation/components/calendar-grid.tsx` (re-exported by `view/calendar-grid.tsx`): `CalendarGrid`.
-- `presentation/components/calendar-agenda.tsx` (re-exported by `view/calendar-agenda.tsx`): `CalendarAgenda` (phone view). Each day section is keyed by date and uses `animate-row-in`, so a newly picked day eases in; event rows are `data-press="none"` (background press state, no shrink). Month-grid count badge and event chip use `rounded-[2px]` (no pills).
-- `presentation/components/calendar-event-fields.tsx`: `CalendarEventFields`, the edit inputs shared by the grid day panel and the agenda sheet (`autoFocusTitle` prop; inputs 40px full width at phone).
+## Data: `calendar_events` (migration `1724870000000-CreateCalendarEvents`)
 
-## `CalendarGrid` (controlled component)
+`id` uuid, `title`, `description`, `location`, `start_at`, `end_at` (exclusive; all-day = local midnight after the last day, Google's convention), `all_day`, `time_zone` (default config `timezone`), `reminder_minutes` jsonb (default `[60,30,10,0]`), `created_by_user_id`, `created_by_name`, `source` (`zalo|dashboard|google`), `source_chat_id`, `google_event_id`, `google_account_email`, `sync_status` (`synced|pending|failed|local`), `synced_at`, `deleted_at` (soft delete), timestamps. Indexes: `start_at`, `deleted_at`, partial unique `(google_account_email, google_event_id) WHERE google_event_id IS NOT NULL`.
 
-- Props: `events`, `currentDate`, `selectedDate`, `onSelectDate`, edit state (`editingId`, `editDraft`, `onEditDraftChange`, `onSaveEdit`, `onCancelEdit`), `onEdit`, `onDelete`, `isSaving`, `isDeleting`. It holds no server or edit state itself.
-- 7-column grid Mon–Sun with localized weekday headers; padding days dimmed; today highlighted; selected day outlined; per-day event count badge.
-- Every event of the day renders as a chip (start time + title). Titles are single-line and truncated (`truncate`); full text is in the chip `title` tooltip and the detail panel.
-- Selected-day panel lists that day's events with Edit / Delete; inline edit fields: title (required), start, end, location, description.
-- Phone (<= 640px): cells shrink to 52px min height; text chips and the count badge are hidden, replaced by up to 3 dots per busy day (cells are ~50px wide). Day-panel cards stack, Edit/Delete/Save/Cancel become 40px.
+## Backend: `apps/api/src/calendar/`
 
-## `CalendarAgenda` (phone default, controlled)
+`CalendarModule` (imports `GoogleModule` via `forwardRef`; imported by App, Reports, Zalo, Zca modules). `CalendarService` is the only reader/writer of events; `GoogleCalendarService` is a thin client (`listEventsInRange` with pagination up to 10×250, throws on overflow; `insertEvent`, `patchEvent`, `deleteEvent`).
 
-Why: a 7-column month grid at 375px cannot show event text, so phones start on a list.
+- `createEvent(input, actor)`: save row (`pending` if Google authorized for actor, else `local`) → push copy → `synced` or `failed` (row kept either way).
+- `updateEvent(id, patch, actorId)`: DB first, then patch the copy if its account is reachable (actor's client or shared client whose email matches); if unreachable (account switched), re-create the copy in the actor's current account. `''` clears description/location.
+- `deleteEvent(id, actorId)`: soft delete; delete the Google copy when reachable (404/410 ignored).
+- `resyncEvent(id, actorId)`: same push logic, for `failed`/`local`/old-account events.
+- `getEvent(id)`: by uuid, or by `google_event_id` (bot delete actions queued in Redis before the DB move).
+- `listEvents({ timeMin, timeMax?, query?, limit?, importForUserId? })`: overlap query (`end_at > timeMin AND start_at < timeMax`), ILIKE on title/location/description, ordered by start, default limit 500.
+- **Import from Google** (when `importForUserId` set): for the viewer's account (needs authorization + known email). First time an account is seen: import ±365 days (flag `calendar:initial-import:<email>` in Redis, plus in-memory). Then per `(email, range)` at most every 5 min (in-memory), concurrent callers share one run. Upsert by `(email, google_event_id)`; rows deleted in zalobot are never resurrected; rows of that account starting inside the range that Google no longer returns are soft-deleted (deleted in Google). Written with `callListeners(false)` so bulk imports do not flood `audit_logs`; user writes go through `save()` and are audited.
+- `toItems(rows, viewerId)`: `ICalendarEventItem` with creator name (current `users.first_name` wins over the snapshot), source chat name/type (`zca_thread_configs`), `sync { status, accountEmail, isCurrentAccount, syncedAt }` (`isCurrentAccount` = email is the viewer's or the shared account's).
 
-- Same edit/delete props as the grid plus `selectedDate`, `onSelectDate`, `loading`.
-- Week strip: prev-week / next-week buttons (40px) and 7 day buttons (40px tall: weekday, day number, dot when the day has events); today tinted, selected filled sky. Prev/next shift the selected date by 7 days.
-- List: the selected day first (always shown; empty → `calendar.noEventsOnDay`), then later days of the same week that have events, each under a day heading. Rows are flat `border-b` buttons, min 52px: time range (`calendar.allDay` for all-day) + title, location · description on line 2. Loading: 3 skeleton rows.
-- Tap a row → `Modal` bottom sheet: time, location, description; sticky footer Delete / Edit. Edit swaps the body to `CalendarEventFields` (no autofocus) with Cancel / Save. Closing the sheet while editing cancels the edit; the sheet closes when its event leaves the list.
+### HTTP (`CalendarController`, Bearer dashboard token, any signed-in user)
 
-## Behavior owned by `CalendarScreen` (dashboard module)
+| Method | Route (`API_ROUTES`) | Notes |
+| --- | --- | --- |
+| GET | `calendarEvents` `?timeMin&timeMax&query` | ISO dates; `timeMin < timeMax`; range ≤ 400 days; imports viewer's Google first |
+| GET | `calendarEvent(id)` | |
+| POST | `calendarEvents` | `CreateCalendarEventDto`: `summary`, `startDateTime`, `endDateTime` (exclusive), `description?`, `location?`, `timeZone?`, `allDay?`, `reminderMinutes?` (≤5 ints, 0–40320) |
+| PATCH | `calendarEvent(id)` | all fields optional |
+| DELETE | `calendarEvent(id)` | soft delete → `{ deleted: true }` |
+| POST | `calendarEventResync(id)` | rewrite the Google copy |
 
-- View toggle grid/table (default grid), Today / previous / next month, localized month-year label, client-side search over title/location/description.
-- Phone (`useIsPhone`): an extra Agenda toggle appears and is the default until the user picks another view (a chosen Agenda falls back to grid above 640px). In agenda mode, previous/next month also move the selected date to the 1st of that month, and picking a day in another month moves `currentMonth` (the query range always covers the selected week). Toolbar at phone: Today/prev/next 40px, view chips in one sideways-scrolling row (`MOBILE_TOOLBAR_ROW`), search full width 40px.
-- `CalendarTable` list mode (<= 960px): primary title, trailing start (`dd/MM HH:mm`, `dd/MM` for all-day), secondary location · description; edit via the row sheet's Edit button (title input does not autofocus on compact).
-- Queries `useCalendarEventsQuery(getCalendarGridRange(currentMonth))`; each month is its own cache entry. Empty result stays empty (no fallback to the dashboard calendar summary).
-- Delete asks `window.confirm`. Retry/refresh invalidates all calendar ranges and the dashboard key.
-- Shows the "connect Google" hint when `dashboard.user.googleConnected` is false.
+Errors: unknown id → 404; Google failures never fail the request (reflected in `sync.status`).
 
-## Backend seam
+### Other callers
 
-`GoogleResourcesController` (`apps/api/src/google/google-resources.controller.ts`): `GET/POST /api/calendar/events`, `GET/PATCH/DELETE /api/calendar/events/:id`. List returns `{ data: [] }` when the user has no Google authorization or Google errors; rejects `timeMin >= timeMax` (400); default `maxResults` 100. Items map to `ICalendarEventItem` (`id`, `title`, `description`, `location`, `startAt`, `endAt`, ...).
+- `GET /api/dashboard` `calendar`: next 7 days from `CalendarService` (limit 10), independent of Google connection.
+- Bot: `/today`, `/week`, `LIST_CALENDAR_EVENTS` read the DB (with import); `DELETE_CALENDAR_EVENT` searches upcoming DB events; `CREATE_CALENDAR_EVENT` no longer requires Google. Confirm (`TransactionConfirmationService`) creates via `CalendarService` with `{ userId, chatId, source: 'zalo' }` and deletes by id. Tasks parts of `/today`, `/week` still need Google.
+
+## Web: `apps/web/src/modules/calendar`
+
+- `api/`: `getCalendarEvents`, `createCalendarEvent`, `updateCalendarEvent`, `deleteCalendarEvent`, `resyncCalendarEvent`; query keys `['calendarEvents', params]`; `useCalendarEventsQuery(params, enabled)` keeps previous data while navigating; every mutation invalidates all calendar ranges and `['dashboard']`.
+- `model/calendar-date-utils.ts` (+ spec): grid range, `getDaysRange`, `getEventDateKeys` (all-day and 00:00 ends exclusive), `groupEventsByDate` (all-day first, then start), phase (`past|ongoing|upcoming`), duration, `isEventUnsynced` (status ≠ synced or other account), form draft (`createEmptyDraft`: next full hour today else 09:00, 1 h; `draftFromEvent`; `draftToRequest`: all-day inclusive last day → exclusive end, null when title empty or end ≤ start).
+- Components (re-exported from `view/`): `CalendarGrid`, `CalendarAgenda`, `CalendarDayList` (+ `buildDayGroups`), `CalendarEventCard`, `CalendarEventForm`, `CalendarEventSheet`, `CalendarSummaryStrip`, hook `useCalendarFormat` (range/duration/reminder/sync/origin labels).
+
+## UI (`CalendarScreen` in the dashboard module)
+
+- **Header strip** `CalendarSummaryStrip`: Today, Next 7 days (from a separate today..+15d query), This month, Not on Google (month + upcoming, unique). The last tile toggles an "unsynced only" filter (amber banner with Clear). Counts ignore search/filter. 4 columns, 2 on phones.
+- `calendar.localOnlyTip` banner when `dashboard.user.googleConnected === false`.
+- **Toolbar** (one row on desktop): `‹ Month YYYY ›`, Today, segmented view switch, search (client-side over title/location/description/creator/chat), `+ Add event` (hidden ≤ 960px; `MobileActionBar` button instead).
+- **Desktop/tablet views**: Month (default) or List (`CalendarTable` of the month; row Edit opens the sheet). Month = `CalendarGrid` + right column (300px, sticky above 1180px, stacked below): selected day (`CalendarDayList`) and "Upcoming · 14 days" (compact cards, days with events only).
+- **Grid**: fixed cell height (112px, 96px ≤ 1180px, 52px phone); up to 3 chips (time + title; all-day = filled bar) then `+N` (selects the day); past events dimmed; today = filled circle; selected = sky tint. Phone cells show up to 3 dots.
+- **Phone (≤ 640px)**: views Agenda (default) / Month. One toolbar row (`‹ month ›`, Today, search icon toggling the search field), segmented control full width. Agenda = week strip (prev/next week, 7 day buttons with up to 3 dots) + `CalendarDayList` from the selected day for 14 days (selected day always shown, empty = one dashed line; then only days with events) — never a blank screen. Agenda data = selected week's Monday + 21 days. Month view shows the selected day's list under the grid.
+- **Event card**: 3px left bar by phase (emerald ongoing, sky upcoming, slate past + 70% opacity), time range + duration, "Happening now" tag, title, location, 2-line description (not in compact), creator · chat, sync badge only when not synced.
+- **Sheet** `CalendarEventSheet` (`Modal`; phone bottom sheet, full screen while editing): details (when + duration, location, description, reminders, origin + created time), sync row (badge, Google account, `Sync again` when not OK), footer Delete / Edit. Edit & create share `CalendarEventForm` (title, all-day checkbox switching `datetime-local`/`date`, start/end, location, textarea description, reminder chips 0/10/30/60/1440 min). Delete confirms with the shared `ConfirmDialog`. Errors show inline in the sheet; success toasts via `TOAST_POSITION`.

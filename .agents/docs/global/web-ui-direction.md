@@ -14,6 +14,7 @@ metadata:
       - apps/web/src/shared/ui/workspace-header.tsx
       - apps/web/src/shared/ui/app-navigation.tsx
       - apps/web/src/shared/ui/logout-confirm-dialog.tsx
+      - apps/web/src/shared/ui/confirm-dialog.tsx
       - apps/web/src/shared/store/money-visibility-store.ts
       - apps/web/src/shared/store/theme-store.ts
       - apps/web/src/shared/providers/app-providers.tsx
@@ -132,7 +133,7 @@ Tiêu đề theo route, trạng thái đăng nhập, Làm mới, Đăng xuất v
 - Ở ≤ 960px, `WorkspaceHeader` bị ẩn và **topbar mobile** trong `AppNavigation` thay thế: `[Tên trang] [icon ẩn/hiện số tiền] [icon làm mới]`, mỗi nút 40px.
 - Khi chưa đăng nhập, hai icon được thay bằng nút "Mở Zalo Bot".
 - Phụ đề không hiện trên mobile. **Đăng xuất nằm ở chân sheet Thêm**.
-- **Đăng xuất luôn hỏi lại trước.** Nút Đăng xuất trên header desktop và ở chân sheet Thêm đều chỉ mở hộp xác nhận `LogoutConfirmDialog` (`apps/web/src/shared/ui/logout-confirm-dialog.tsx`), chưa thoát ngay.
+- **Đăng xuất luôn hỏi lại trước.** Nút Đăng xuất trên header desktop và ở chân sheet Thêm đều chỉ mở hộp xác nhận `LogoutConfirmDialog` (`apps/web/src/shared/ui/logout-confirm-dialog.tsx`), chưa thoát ngay. Hộp này bọc component dùng chung `ConfirmDialog` (`shared/ui/confirm-dialog.tsx`); các thao tác xoá khác như xoá sự kiện lịch cũng dùng nó thay cho `window.confirm`.
   - Hộp dựng trên `Modal` (`role="alertdialog"`): desktop là thẻ giữa màn hình; điện thoại và PWA là bottom sheet chồng lên sheet Thêm, bấm Huỷ, bấm nền hay vuốt xuống thì quay lại sheet Thêm.
   - Chỉ nút "Đăng xuất" trong hộp mới gọi `confirmLogout()`: gọi API đăng xuất, xoá token và cache, tải lại trang với `?status=logged_out`. Trong lúc chạy, hai nút bị khoá và hộp không đóng được.
   - Hook `useWorkspaceHeader()` chỉ trả `requestLogout` / `cancelLogout` / `confirmLogout`, không còn hàm đăng xuất thẳng, để sau này thêm nút mới cũng không bỏ qua được bước xác nhận.
