@@ -344,7 +344,7 @@ export function PlacesScreen() {
     <>
       {toastMessage && (
         <div
-          className={`${TOAST_POSITION} rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-4 py-2 text-xs font-medium text-white shadow-lg dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100`}
           role="status"
           aria-live="polite"
         >
@@ -382,7 +382,7 @@ export function PlacesScreen() {
                     <button
                       type="button"
                       // Compact screens get this action in the MobileActionBar instead.
-                      className="inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 max-[960px]:hidden"
+                      className="inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500 max-[960px]:hidden"
                       onClick={() => setIsCombineOpen(true)}
                     >
                       {t('places.actions.combine', { count: selectedIds.size })}
@@ -465,7 +465,7 @@ export function PlacesScreen() {
                     type="button"
                     onClick={() => setIsCreating(true)}
                     // Compact screens get this action in the MobileActionBar instead.
-                    className="inline-flex h-6 min-h-6 max-[960px]:hidden cursor-pointer items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                    className="inline-flex h-6 min-h-6 max-[960px]:hidden cursor-pointer items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
                   >
                     + {t('places.actions.create')}
                   </button>
@@ -537,7 +537,7 @@ export function PlacesScreen() {
               <button
                 type="button"
                 onClick={() => setIsCombineOpen(true)}
-                className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+                className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`}
               >
                 {t('places.actions.combine', { count: selectedIds.size })}
               </button>
@@ -548,7 +548,7 @@ export function PlacesScreen() {
               <button
                 type="button"
                 onClick={() => setIsCreating(true)}
-                className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200`}
+                className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`}
               >
                 + {t('places.actions.create')}
               </button>

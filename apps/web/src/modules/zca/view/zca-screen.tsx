@@ -655,7 +655,7 @@ export function ZcaScreen() {
               />
             </div>
             <button
-              className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 max-[640px]:h-10 max-[640px]:w-full dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+              className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 max-[640px]:h-10 max-[640px]:w-full dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
               type="submit"
             >
               + Bật lắng nghe ID
@@ -1022,7 +1022,7 @@ export function ZcaScreen() {
             Làm mới mã QR
           </button>
           <button
-            className={`rounded bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 ${MODAL_FOOTER_TAP}`}
+            className={`rounded bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-sky-600 dark:text-white ${MODAL_FOOTER_TAP}`}
             onClick={() => setIsQrModalOpen(false)}
             type="button"
           >

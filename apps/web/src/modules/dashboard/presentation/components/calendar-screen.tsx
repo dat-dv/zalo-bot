@@ -221,7 +221,7 @@ export function CalendarScreen() {
       {toastMessage && (
         <div
           role="status"
-          className={`${TOAST_POSITION} rounded bg-slate-900 px-3 py-2 text-xs text-white shadow-lg dark:bg-slate-100 dark:text-slate-900`}
+          className={`${TOAST_POSITION} rounded bg-slate-900 px-3 py-2 text-xs text-white shadow-lg dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100`}
         >
           {toastMessage}
         </div>
@@ -320,7 +320,7 @@ export function CalendarScreen() {
 
             <button
               type="button"
-              className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white transition-colors hover:bg-slate-800 dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 max-[960px]:hidden"
+              className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500 max-[960px]:hidden"
               onClick={openCreate}
             >
               + {t('calendar.add')}
@@ -405,7 +405,7 @@ export function CalendarScreen() {
       <MobileActionBar>
         <button
           type="button"
-          className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white dark:border-slate-100 dark:bg-slate-100 dark:text-slate-900`}
+          className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white dark:border-sky-600 dark:bg-sky-600 dark:text-white`}
           onClick={openCreate}
         >
           + {t('calendar.add')}

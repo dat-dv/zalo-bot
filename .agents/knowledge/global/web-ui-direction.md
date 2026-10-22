@@ -82,6 +82,13 @@ The shared navigation (`apps/web/src/shared/ui/app-navigation.tsx`) is an admin-
 
 Dark mode is activated by `html[data-theme='dark']`; the inline script in `app/layout.tsx` sets it before hydration, and `useThemeStore` (`apps/web/src/shared/store/theme-store.ts`) starts as `light`, syncs from `document.documentElement.dataset.theme` in the `AppProviders` mount effect, and persists toggles to `localStorage['zalobot-theme']`; Tailwind dark utilities target this same data attribute via `@custom-variant dark`. All surfaces (desktop/mobile navigation, workspace headers, period controls, data panels, forms, dialogs, charts, and public/legal pages) use Tailwind dark utilities (`dark:bg-*`, `dark:border-*`, `dark:text-*`, `dark:hover:*`, `dark:focus:*`). Keep the selected navigation/action state high contrast and retain a visible light-blue keyboard focus outline.
 
+Dark-mode button tones (light mode keeps the black `bg-slate-900 text-white` primary). Never invert to near-white (`dark:bg-slate-100 dark:text-slate-900`): on the `#090d16` / `slate-900` surfaces it reads as a glaring white block, worst in dialogs and sheets.
+- Primary action (save/create/+ add, `MOBILE_ACTION_BUTTON` primaries, small table primaries, "Open Zalo Bot" link): `dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500` (same sky accent as calendar selection and focus).
+- Selected state (active sidebar link, active More-sheet tile, active locale button, segmented toggles): neutral `dark:border-slate-600 dark:bg-slate-700 dark:text-white`, quieter than primary actions.
+- Toasts: `dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100`.
+- Danger outline (More-sheet Logout): tinted fill `dark:bg-rose-950/40` + `dark:border-rose-800`; a bare `rose-900` border sinks into `slate-900`.
+- Secondary (Cancel) stays `dark:border-slate-700 dark:bg-slate-800`. The 2px tab-bar indicator may stay light (thin line, not a block).
+
 ## Skeleton & Loading State Full Fidelity
 
 Skeleton loading states must achieve strict 1:1 structural, spatial, and visual boundary parity with real rendered components:

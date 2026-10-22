@@ -92,3 +92,7 @@
 ## Corner radius
 
 - Buttons, inputs, cards/panels and dialog panels in this module use `rounded-[3px]` (max `rounded`, 4px); no `rounded-lg/xl/2xl`. `rounded-full` only for avatars, status dots, switches, spinners and progress fills. See [web-ui-direction](../../global/web-ui-direction.md).
+
+## Dark-mode buttons
+
+- Primary actions use the sky tone in dark mode (`dark:bg-sky-600 dark:text-white`), never the near-white inverted `dark:bg-slate-100`: profile `PRIMARY_BUTTON`, the combine dialog submit, toolbar/mobile-bar create buttons and row primaries; screen toasts use the dark toast tone. See [web-ui-direction](../../global/web-ui-direction.md).
