@@ -33,7 +33,7 @@ import {
   useTransactionsInfiniteQuery,
   useUpdateTransactionMutation,
 } from '../../api/transactions-query';
-import { TOAST_POSITION } from '@/shared/ui/touch';
+import { PHONE_CHIP, PHONE_TOOLBAR_INPUT, TOAST_POSITION } from '@/shared/ui/touch';
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -309,7 +309,7 @@ export function TransactionsScreen() {
               <div className="flex flex-wrap items-center gap-1.5 max-[640px]:flex-nowrap max-[640px]:overflow-x-auto">
                 <button
                   type="button"
-                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap ${PHONE_CHIP} rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
                     activeFilter === 'all'
                       ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
                       : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
@@ -320,7 +320,7 @@ export function TransactionsScreen() {
                 </button>
                 <button
                   type="button"
-                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap ${PHONE_CHIP} rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
                     activeFilter === 'income'
                       ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
                       : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
@@ -331,7 +331,7 @@ export function TransactionsScreen() {
                 </button>
                 <button
                   type="button"
-                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap ${PHONE_CHIP} rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
                     activeFilter === 'expense'
                       ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
                       : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
@@ -344,7 +344,7 @@ export function TransactionsScreen() {
                   type="button"
                   onClick={() => setIsAdjustBalanceOpen(true)}
                   // Rarely used, so it stays in the chip row on compact screens instead of a pinned bottom bar.
-                  className="inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] gap-1 rounded-[3px] border border-indigo-300 bg-indigo-50 px-2 text-[11px] font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/60"
+                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap ${PHONE_CHIP} gap-1 rounded-[3px] border border-indigo-300 bg-indigo-50 px-2 text-[11px] font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/60`}
                 >
                   <span>⚖️</span>
                   {t('transactions.balanceAdjust.actionButton')}
@@ -353,7 +353,7 @@ export function TransactionsScreen() {
                   <button
                     type="button"
                     onClick={clearColumnFilters}
-                    className="inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] gap-1 rounded-[3px] border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/60"
+                    className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap ${PHONE_CHIP} gap-1 rounded-[3px] border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/60`}
                   >
                     {t('table.columnFilter.clearAll')}
                     <span className="rounded-[2px] bg-sky-600 px-1.5 text-[10px] leading-4 font-semibold text-white dark:bg-sky-500">
@@ -364,7 +364,7 @@ export function TransactionsScreen() {
               </div>
               <input
                 type="search"
-                className="h-6 min-h-6 w-44 max-[640px]:h-10 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 max-[640px]:w-full"
+                className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${PHONE_TOOLBAR_INPUT}`}
                 placeholder={t('table.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}

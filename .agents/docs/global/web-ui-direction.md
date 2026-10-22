@@ -46,7 +46,7 @@ Thành phần `DataTable` tích hợp sẵn nút Cài đặt cột (`TableColumn
 **Vì sao cần:** trước đây trên điện thoại, dashboard chỉ là bản desktop thu nhỏ. Muốn đổi trang phải mở hamburger rồi chọn trong 11 mục. Nút chính nằm tít trên đầu trang, ngón cái khó với tới. Khi "Thêm vào màn hình chính" trên iPhone, topbar còn bị tai thỏ che. Mục tiêu là dùng trên điện thoại giống một app thật. Desktop (> 960px) giữ nguyên.
 
 - **Hai mốc breakpoint, khai báo một chỗ** (`apps/web/src/shared/ui/breakpoints.ts`):
-  - **Điện thoại (≤ 640px)**: bottom sheet, vùng chạm 40px. Trong Tailwind viết `max-sm:` / `max-[640px]:`.
+  - **Điện thoại (≤ 640px)**: bottom sheet, vùng chạm 40px cho nút thao tác, 32–36px cho control trên toolbar. Trong Tailwind viết `max-sm:` / `max-[640px]:`.
   - **Màn hẹp (≤ 960px)**, gồm cả tablet dọc và điện thoại xoay ngang: topbar + thanh tab dưới đáy + chế độ danh sách của bảng. Trong Tailwind viết `max-[960px]:`.
   - Trong code dùng hook `useIsPhone()` / `useIsCompact()`. Không tự đặt thêm mốc khác.
 - **Thanh tab dưới đáy** (trong `AppNavigation`, ≤ 960px):
@@ -64,7 +64,10 @@ Thành phần `DataTable` tích hợp sẵn nút Cài đặt cột (`TableColumn
   - Tắt vệt xám khi chạm (`-webkit-tap-highlight-color`).
   - Đặt `touch-action: manipulation` cho nút, link và input, để bỏ độ trễ chờ double-tap. Zoom bằng hai ngón vẫn dùng được.
 - **Hằng class dùng chung** (`touch.ts`). Khi làm giao diện mobile mới, dùng các hằng này thay vì tự viết lại class:
-  - `TAP_CONTROL`, `TAP_INPUT`: control cao 40px trên điện thoại.
+  - `TAP_CONTROL`, `TAP_INPUT`: control thao tác cao 40px trên điện thoại (nút trong sheet/dialog, ô nhập form, hàng thêm nhanh).
+  - `PHONE_CHIP`: chip lọc, tab, nút chuyển kiểu và chip hành động trên toolbar, cao 32px, chữ 12px.
+  - `PHONE_ICON_CHIP`: nút chỉ có icon trên toolbar (‹ ›, phễu lọc cột, ✕ xoá tìm kiếm), 32×32.
+  - `PHONE_TOOLBAR_INPUT`: ô tìm kiếm và ô chọn trên toolbar, cao 36px, rộng hết hàng.
   - `MOBILE_TOOLBAR_ROW`: một hàng chip cuộn ngang. Không dùng cho bộ lọc quan trọng dễ bị khuất: filter Công nợ (2 hàng × 3 nút đều nhau) và lối tắt Tổng quan (lưới 4 cột) đã bỏ cuộn ngang.
   - `TOAST_POSITION`: góc phải dưới trên desktop; trên màn hẹp rộng hết màn và nằm trên thanh tab.
 - **Toast**: đã chuyển sang `TOAST_POSITION` ở Tổng quan, Thu chi, Nơi chốn, Việc cần làm, Nhắc nhở, Lịch. Các màn còn lại chuyển khi tới lượt làm mobile cho màn đó.
@@ -115,14 +118,12 @@ Thành phần `DataTable` tích hợp sẵn nút Cài đặt cột (`TableColumn
 
 ## Vùng chạm trên điện thoại và bo góc
 
-- Ở bề ngang điện thoại, mọi thứ người dùng chạm đều cao **≥ 40px**:
-  - Topbar, thanh tab và sheet Thêm (≤ 960px).
-  - Dòng danh sách, nút trong bảng trượt và input khi sửa.
-  - Chip lọc, ô tìm kiếm và nút "Tải thêm" của Thu chi.
-  - Nút kỳ và mũi tên của `PeriodFilterToolbar`.
-  - Nút lọc cột.
+- Ở bề ngang điện thoại có **hai cỡ** control:
+  - **Cỡ thao tác, ≥ 40px**: thanh tab đáy (56px) và sheet Thêm, dòng danh sách, nút và ô nhập trong bảng trượt/dialog, ô sửa trực tiếp, hàng thêm nhanh, thanh hành động dưới đáy, nút "Tải thêm", nút trong tab Tuỳ chọn.
+  - **Cỡ toolbar, gọn hơn**: chip lọc, tab, nút chuyển kiểu và chip hành động trên toolbar cao 32px; nút chỉ có icon (‹ › của `PeriodFilterToolbar`, phễu lọc cột, ✕ xoá tìm kiếm) 32×32; ô tìm kiếm và ô chọn kỳ/sắp xếp 36px (ô chọn nằm chung hàng chip thì cao 32px như chip); icon trên topbar mobile 36×36.
+  - Lý do: khi toolbar cũng cao 40px, chip lọc, ô kỳ và ô tìm kiếm chiếm gần nửa màn hình đầu, dữ liệu bị đẩy xuống. 32px vẫn lớn hơn mức tối thiểu 24px của WCAG 2.5.8, và giữa các chip luôn có khoảng hở ≥ 6px để khó bấm nhầm. Trên màn cảm ứng chữ trong ô nhập vẫn là 16px để iOS không tự phóng to khi focus.
 - Desktop giữ control nhỏ 22–30px để giữ mật độ dữ liệu cao.
-- Toolbar trên điện thoại dùng **một hàng chip cuộn ngang** thay vì mỗi chip một dòng. Trên điện thoại, `PeriodFilterToolbar` đổi nhóm nút Tuần/Tháng/Quý/Năm thành một ô chọn native (cao 40px), để chu kỳ và cụm ‹ nhãn kỳ › nằm trên cùng một hàng. Trước đó thanh này chiếm khoảng 88px, đẩy dữ liệu xuống thấp. Desktop vẫn giữ nhóm nút.
+- Toolbar trên điện thoại dùng **một hàng chip cuộn ngang** thay vì mỗi chip một dòng. Trên điện thoại, `PeriodFilterToolbar` đổi nhóm nút Tuần/Tháng/Quý/Năm thành một ô chọn native (cao 36px), để chu kỳ và cụm ‹ nhãn kỳ › nằm trên cùng một hàng. Trước đó thanh này chiếm khoảng 88px, đẩy dữ liệu xuống thấp. Desktop vẫn giữ nhóm nút.
 - **Bo góc nhỏ** (`rounded-[2px]`, `rounded-[3px]`, `rounded`): nút, link dạng nút, ô nhập, thẻ/panel và khung dialog tối đa `rounded` (4px); dashboard không dùng `rounded-lg/xl/2xl` (trang public `/about`, `/privacy`, `/terms` không áp dụng). Badge đếm/chip dùng `rounded-[2px]` chứ không bo tròn kiểu viên thuốc. `rounded-full` chỉ dành cho avatar, chấm trạng thái, công tắc bật/tắt, vòng quay tải và thanh tiến độ. Lý do: dashboard là công cụ quản trị, cạnh sắc giúp lưới bảng và form thẳng hàng, nhìn nhất quán giữa các trang. Không dùng nút nổi bo tròn.
 
 Nút phải có focus rõ, độ tương phản đủ và lỗi phải kèm cách thử lại.
@@ -130,7 +131,7 @@ Nút phải có focus rõ, độ tương phản đủ và lỗi phải kèm các
 Tiêu đề không gian làm việc (`WorkspaceHeader`) được render **một lần duy nhất** trong common private layout (`apps/web/app/(private)/layout.tsx`) bằng `<WorkspaceHeader />` không truyền props — component tự động resolve title và subtitle từ `usePathname()` thông qua `ROUTE_HEADER_MAP`. Component phân biệt hai trạng thái auth: **Đã xác thực** (`hasToken && !isLoggedOut`, trong đó `isLoggedOut` lấy từ query `?status=logged_out` sau khi đăng xuất): hiển thị title/subtitle theo route, nút `Ẩn/Hiện số tiền` (`useMoneyVisibility`), nút Làm mới (`queryClient.invalidateQueries()`), và nút Đăng xuất; **Chưa xác thực / Đã đăng xuất**: hiển thị title/subtitle theo route và link "Mở Zalo Bot" (key `auth.openZaloBot`; thử mở app Zalo qua `zalo://`, không có app thì mở `https://chat.zalo.me`, xem `modules/auth/README.md`). **Các file screen trong từng module tuyệt đối không được tự render `<WorkspaceHeader>`** — layout đã cung cấp sẵn cho mọi trang.
 
 Tiêu đề theo route, trạng thái đăng nhập, Làm mới, Đăng xuất và link Zalo Bot lấy từ hook dùng chung `useWorkspaceHeader()` (cùng file), để desktop và mobile không lặp logic.
-- Ở ≤ 960px, `WorkspaceHeader` bị ẩn và **topbar mobile** trong `AppNavigation` thay thế: `[Tên trang] [icon ẩn/hiện số tiền] [icon làm mới]`, mỗi nút 40px.
+- Ở ≤ 960px, `WorkspaceHeader` bị ẩn và **topbar mobile** trong `AppNavigation` thay thế: `[Tên trang] [icon ẩn/hiện số tiền] [icon làm mới]`, mỗi nút 36px.
 - Khi chưa đăng nhập, hai icon được thay bằng nút "Mở Zalo Bot".
 - Phụ đề không hiện trên mobile. **Đăng xuất nằm ở chân sheet Thêm**.
 - **Đăng xuất luôn hỏi lại trước.** Nút Đăng xuất trên header desktop và ở chân sheet Thêm đều chỉ mở hộp xác nhận `LogoutConfirmDialog` (`apps/web/src/shared/ui/logout-confirm-dialog.tsx`), chưa thoát ngay. Hộp này bọc component dùng chung `ConfirmDialog` (`shared/ui/confirm-dialog.tsx`); các thao tác xoá khác như xoá sự kiện lịch cũng dùng nó thay cho `window.confirm`.

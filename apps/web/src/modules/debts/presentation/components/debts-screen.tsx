@@ -11,7 +11,7 @@ import { CombineDebtsDialog } from './combine-debts-dialog';
 import { CreateDebtDialog } from './create-debt-dialog';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
-import { TAP_CONTROL, TAP_INPUT, TOAST_POSITION } from '@/shared/ui/touch';
+import { PHONE_CHIP, PHONE_TOOLBAR_INPUT, TAP_CONTROL, TOAST_POSITION } from '@/shared/ui/touch';
 
 import { useContactsQuery } from '@/modules/contacts/api/contacts-query';
 import {
@@ -24,8 +24,6 @@ import {
 } from '../../api/debts-query';
 import { matchContact } from '../../model/debt-create-form';
 
-/** Toolbar chip sizing at phone width (40px tall), matching the Transactions toolbar. */
-const PHONE_CHIP = 'max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
 const CONTACTS_DATALIST_ID = 'debt-contacts-autocomplete';
 
 const DIRECTION_FILTERS = ['all', 'receivable', 'payable'] as const;
@@ -547,7 +545,7 @@ export function DebtsScreen() {
 
                 <input
                   type="search"
-                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${TAP_INPUT}`}
+                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${PHONE_TOOLBAR_INPUT}`}
                   placeholder={t('table.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}

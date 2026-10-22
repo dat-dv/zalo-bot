@@ -23,7 +23,7 @@ import { visibleNavSections } from './nav-visibility';
 import { useWorkspaceHeader } from './workspace-header';
 
 const TOPBAR_ICON_BUTTON =
-  'inline-flex size-10 shrink-0 items-center justify-center rounded-[3px] border border-slate-300 !bg-transparent !p-0 !text-slate-700 hover:!border-slate-400 hover:!bg-slate-100 dark:border-slate-600 dark:!text-slate-200 dark:hover:!border-slate-500 dark:hover:!bg-slate-800';
+  'inline-flex size-9 shrink-0 items-center justify-center rounded-[3px] border border-slate-300 !bg-transparent !p-0 !text-slate-700 hover:!border-slate-400 hover:!bg-slate-100 dark:border-slate-600 dark:!text-slate-200 dark:hover:!border-slate-500 dark:hover:!bg-slate-800';
 
 export type NavigationPage =
   | 'home'
@@ -315,7 +315,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           </>
         ) : (
           <a
-            className="inline-flex h-10 shrink-0 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white no-underline transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+            className="inline-flex h-9 shrink-0 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white no-underline transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
             href={ZALO_LINKS.WEB}
             target="_blank"
             rel="noopener noreferrer"

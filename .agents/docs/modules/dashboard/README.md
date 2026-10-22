@@ -111,7 +111,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
     - Bấm **Sửa** thì các trường thành ô nhập ngay trong bảng trượt.
     - Nút Lưu/Huỷ/Xoá nằm ở chân bảng trượt, luôn thấy kể cả khi bàn phím mở.
   - Các nút lọc theo cột chuyển lên một dải cuộn ngang phía trên danh sách.
-  - Toolbar gom chip Tất cả / Thu / Chi / Xoá bộ lọc vào một hàng cuộn ngang. Ô tìm kiếm nằm hàng riêng. Mọi nút, ô nhập và "Tải thêm" cao 40px.
+  - Toolbar gom chip Tất cả / Thu / Chi / Cân chỉnh số dư / Xoá bộ lọc vào một hàng cuộn ngang, chip cao 32px. Ô tìm kiếm nằm hàng riêng, cao 36px. Nút phễu lọc cột 32×32. Nút "Tải thêm" và ô sửa vẫn cao 40px.
   - Trên màn hẹp (≤ 960px), nút **Cân chỉnh số dư** vẫn nằm trên toolbar, ở cuối hàng chip lọc cuộn ngang. Trang này không dùng thanh hành động dưới đáy (`MobileActionBar`): thao tác cân chỉnh hiếm khi dùng nên không đáng chiếm một thanh cố định che bớt danh sách. Chế độ danh sách cũng áp dụng tới 960px.
   - Bảng giao dịch ở trang Tổng quan cũng dùng danh sách (xem nhanh 5 dòng, xem phần Tổng quan).
   - **Phần đầu trang thấp hơn**: dải tổng hợp `TrendSummaryStrip` (dùng chung với trang Chi tiêu) trên điện thoại chỉ còn một dòng: tổng thu, tổng chi, chênh lệch. Chạm vào dòng đó để mở biểu đồ cột (và chỉ số phụ nếu có). Mặc định thu gọn, để danh sách giao dịch xuất hiện ngay màn hình đầu. Desktop giữ nguyên.
@@ -144,7 +144,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - **Kết quả trong kỳ**: Tổng thu, Tổng chi, Tiết kiệm ròng, Tỷ lệ tiết kiệm.
 - **Tình hình hiện tại** (không phụ thuộc bộ lọc): Số dư dòng tiền toàn thời gian, Phải thu, Phải trả, Tài sản ròng. Đây không phải số dư ngân hàng vì hệ thống không quản lý số dư đầu kỳ.
 - Khối Dòng tiền: nút chuyển Biểu đồ/Bảng; biểu đồ Recharts gồm cột thu/chi và đường số dư lũy kế, hoặc bảng số liệu theo kỳ.
-- Trên điện thoại: hai nút Biểu đồ/Bảng cao 40px, chia đôi hàng. Bảng số liệu là theo **kỳ** (không theo danh mục), nên ở dạng danh sách: dòng trên là tên kỳ + dòng tiền ròng (có dấu, có màu), dòng dưới là "Thu +x · Chi −y"; số dư lũy kế xem trong sheet chi tiết. Các thẻ chỉ số giữ 2 thẻ một hàng, thấp hơn.
+- Trên điện thoại: hai nút Biểu đồ/Bảng cao 32px, chia đôi hàng. Bảng số liệu là theo **kỳ** (không theo danh mục), nên ở dạng danh sách: dòng trên là tên kỳ + dòng tiền ròng (có dấu, có màu), dòng dưới là "Thu +x · Chi −y"; số dư lũy kế xem trong sheet chi tiết. Các thẻ chỉ số giữ 2 thẻ một hàng, thấp hơn.
 - Khối Phân bổ chi tiêu (biểu đồ donut, đủ mọi danh mục chi, chú thích cuộn được) và Cơ cấu công nợ (tỷ lệ phải thu/phải trả + top 3 người liên quan mỗi bên; khi ẩn số tiền thì các thanh tỷ lệ cũng ẩn để không lộ ai nợ nhiều/ít). Các biểu đồ nằm ở `shared/ui/charts/`.
 - Chỉ hiện màn hình "Phiên hết hạn" khi lỗi tải dashboard. Skeleton được viết trực tiếp trong màn hình (không có component `AnalyticsSkeleton`).
 
@@ -154,7 +154,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - Bảng `id="places"`: chọn, Tên (sửa trực tiếp, `Enter`/`Escape`), Số giao dịch, Ngày tạo, Thao tác (Sửa, Xoá xác nhận 2 bước ngay trên dòng). Có ô tìm kiếm và form thêm nhanh. Trên màn hẹp (≤ 960px), nút "+ Tạo" chuyển xuống thanh hành động trên thanh tab và ẩn đi khi form đang mở. Trên điện thoại, ô nhập và nút của form cao 40px, rộng hết hàng.
 - Trên màn hẹp (≤ 960px) bảng thành danh sách: tên + số giao dịch ở dòng trên, ngày tạo ở dòng dưới. Chạm để mở sheet, bấm **Sửa**/**Xoá** ở chân sheet (desktop vẫn double-click).
 - **Chế độ chọn trên màn hẹp**: ở dạng danh sách, chạm vào dòng là mở sheet chi tiết, nên không thể vừa chạm để chọn. Vì vậy có chip **Chọn**/**Xong**: bật lên thì danh sách đổi thành các dòng có ô tích (cả dòng là vùng chạm 52px), chip "Chọn tất cả" chỉ hiện trong chế độ này. Chọn từ 2 nơi chốn thì thanh hành động dưới đáy đổi từ "+ Tạo" thành "Gộp (N)". Thoát chế độ chọn hoặc gộp xong sẽ xoá lựa chọn. Cách này đơn giản hơn đặt ô chọn vào sheet (phải mở từng sheet để chọn từng nơi).
-- Toolbar trên điện thoại: một hàng chip 40px cuộn ngang, rồi form thêm nhanh, rồi ô tìm kiếm full width.
+- Toolbar trên điện thoại: một hàng chip 32px cuộn ngang, rồi form thêm nhanh (40px), rồi ô tìm kiếm full width 36px.
 - **Gộp nơi chốn**: chọn từ 2 dòng → `CombinePlacesDialog` xếp hạng ứng viên theo số giao dịch nhiều nhất rồi tạo sớm nhất, người dùng chọn nơi chốn chính và tên cuối cùng; gọi `POST /api/places/combine`. Backend chuyển giao dịch sang nơi chốn chính và từ chối nếu tên mới trùng một nơi chốn khác.
 - Xoá nơi chốn không bao giờ xoá giao dịch; giao dịch chỉ mất liên kết nơi chốn.
 
@@ -164,7 +164,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - `TasksScreen`: bộ lọc kỳ có Ngày / Tuần / Tháng / Quý / Năm / Tất cả, thẻ tổng quan (tổng, cần làm, đã xong, quá hạn), lọc trạng thái Tất cả / Cần làm / Đã xong, **thêm việc** qua `CreateTaskDialog` (có danh sách **giờ nhắc** `ReminderTimesField` và bộ ô **đích nhắc** `ReminderTargetFields`: kênh, người được nhắc, cách nhắc; bộ ô này luôn hiện giống form lời nhắc, cả khi sửa trực tiếp, chứ không đợi nhập giờ nhắc), sửa trực tiếp, xoá bằng hộp xác nhận trong app, cột Người tạo, cột **Nhắc lúc** (chỉ trên trang `/tasks`, khung ở trang Tổng quan giữ bảng rút gọn). Quy tắc nhắc việc xem `modules/tasks/README.md`. Task chỉ lưu trong zalobot, không đồng bộ Google (xem `modules/tasks/README.md`). Khung Việc cần làm ở trang Tổng quan không có dòng nhắc kết nối Google.
 - `RemindersScreen`: hộp thoại thêm lời nhắc và sửa tại chỗ dùng cùng bộ ô đích nhắc `ReminderTargetFields`, bảng có thêm cột **Gửi tới** (chỉ trên trang `/reminders`). "Gọi điện" chỉ chọn được khi gửi vào chat riêng của chính mình. Lý do và quy tắc xem `modules/reminders/README.md`.
 - `RemindersScreen`: tìm kiếm, sửa trực tiếp, xoá có xác nhận, và **thêm lời nhắc** qua `CreateReminderDialog` (nút trên toolbar ở desktop, thanh hành động dưới cùng ở điện thoại). Quy tắc mặc định và kiểm tra thời điểm xem tài liệu module [reminders](../reminders/README.md).
-- Trên điện thoại: các chip trạng thái của Việc cần làm nằm trên một hàng cuộn ngang cao 40px thay vì xếp chồng, ô tìm kiếm full width 40px. Hai màn này không có nút tạo mới nên cũng không có thanh hành động dưới đáy.
+- Trên điện thoại: các chip trạng thái của Việc cần làm nằm trên một hàng cuộn ngang cao 32px thay vì xếp chồng, ô tìm kiếm full width 36px. Hai màn này không có nút tạo mới nên cũng không có thanh hành động dưới đáy.
 - Ở màn hẹp (≤ 960px), ba bảng `TasksTable`, `RemindersTable`, `CalendarTable` hiển thị dạng danh sách hai dòng — ở mọi nơi bảng xuất hiện, kể cả trang Tổng quan. Việc cần làm: tiêu đề + hạn (`dd/MM`), dòng hai trạng thái · ghi chú. Nhắc nhở: nội dung + giờ nhắc (`dd/MM HH:mm`), dòng hai kênh (nhắn tin/gọi) · lặp lại. Lịch: tiêu đề + giờ bắt đầu, dòng hai địa điểm · mô tả. Lý do: trên cảm ứng không double-click được, nên chạm vào dòng để mở sheet chi tiết rồi bấm **Sửa** ở chân sheet; các ô trong sheet tự chuyển thành ô nhập. Ô tiêu đề không tự focus trên màn hẹp để bàn phím không bật lên khi vừa bấm Sửa. Desktop vẫn sửa bằng double-click như cũ.
 
 ## Hành vi giao diện dùng chung

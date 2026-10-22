@@ -53,7 +53,7 @@ Tài liệu này ánh xạ trực tiếp với tri thức canonical [`README.md`
   - Dòng 1: **Tên (biệt danh)** bên trái, **số điện thoại** bên phải (màn này không có cột số dư nợ nên SĐT là thông tin cần nhìn nhanh nhất). Dòng 2: tài khoản Zalo đã gắn · số khoản nợ/giao dịch. Tài khoản Zalo không có username thì chỉ hiện tên (không hiện `@null`, áp dụng cả cột trên desktop).
   - Chạm một dòng để mở bottom-sheet có đủ các cột. Nút **Sửa** ở chân sheet là cách sửa trên màn cảm ứng (nhấp đúp chỉ tiện trên máy tính): bấm Sửa thì các ô trong sheet thành ô nhập 40px, chân sheet thành **Lưu** / ✕. Nút **Hồ sơ** cũng nằm ở chân sheet.
   - **Chọn để gộp**: cột checkbox bị bỏ ở chế độ này (trong sheet nó sẽ hiện nhãn "Chọn tất cả", gây hiểu nhầm). Thay vào đó chân sheet có nút **Chọn để gộp / ✓ Đã chọn**; dòng đã chọn có dấu ✓ trước tên. Khi chọn từ 2 người, nút **Gộp liên hệ (N)** xuất hiện ở thanh hành động cố định phía dưới (`MobileActionBar`) cho dễ bấm bằng ngón cái; nút trên thanh công cụ bị ẩn để không trùng.
-- **Thanh công cụ trên điện thoại (≤ 640px)**: các nút Đồng bộ / Gộp / Chọn tất cả / Đã chọn N nằm trên **một hàng cuộn ngang** cao 40px, ô tìm kiếm chiếm nguyên một hàng riêng cao 40px. Nút ✕ đóng khung gợi ý và nút Gắn cũng cao 40px. Máy tính giữ nguyên giao diện cũ.
+- **Thanh công cụ trên điện thoại (≤ 640px)**: các nút Đồng bộ / Gộp / Chọn tất cả / Đã chọn N nằm trên **một hàng cuộn ngang** cao 32px, ô tìm kiếm chiếm nguyên một hàng riêng cao 36px. Nút ✕ đóng khung gợi ý 32×32; nút Gắn vẫn cao 40px. Máy tính giữ nguyên giao diện cũ.
 
 ## Liên kết với tài khoản User
 

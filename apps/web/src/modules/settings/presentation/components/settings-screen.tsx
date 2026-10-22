@@ -6,7 +6,13 @@ import type { ICategoryItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { useReactScan } from '@/shared/providers/react-scan-provider';
-import { MOBILE_TOOLBAR_ROW, TAP_CONTROL, TAP_INPUT, TOAST_POSITION } from '@/shared/ui/touch';
+import {
+  MOBILE_TOOLBAR_ROW,
+  PHONE_CHIP,
+  PHONE_TOOLBAR_INPUT,
+  TAP_CONTROL,
+  TOAST_POSITION,
+} from '@/shared/ui/touch';
 
 import {
   categoriesQueryKeys,
@@ -18,9 +24,6 @@ import {
 import { useDashboardQuery } from '@/modules/dashboard/api/dashboard-query';
 import { AdjustBalanceModal } from '@/modules/dashboard/presentation/components/adjust-balance-modal';
 import { InstallAppRow } from './install-app-row';
-
-/** Chip sizing at phone width (40px tall), matching the Transactions toolbar. */
-const PHONE_CHIP = 'max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
 
 export function SettingsScreen() {
   const queryClient = useQueryClient();
@@ -297,7 +300,7 @@ export function SettingsScreen() {
               <div className="flex flex-wrap items-center gap-2 max-[640px]:w-full max-[640px]:flex-col max-[640px]:items-stretch">
                 <input
                   type="search"
-                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${TAP_INPUT}`}
+                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${PHONE_TOOLBAR_INPUT}`}
                   placeholder={t('table.searchPlaceholder')}
                   value={expenseSearch}
                   onChange={(e) => setExpenseSearch(e.target.value)}
@@ -369,7 +372,7 @@ export function SettingsScreen() {
               <div className="flex flex-wrap items-center gap-2 max-[640px]:w-full max-[640px]:flex-col max-[640px]:items-stretch">
                 <input
                   type="search"
-                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${TAP_INPUT}`}
+                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${PHONE_TOOLBAR_INPUT}`}
                   placeholder={t('table.searchPlaceholder')}
                   value={incomeSearch}
                   onChange={(e) => setIncomeSearch(e.target.value)}

@@ -67,7 +67,12 @@ import {
   MODAL_STICKY_FOOTER,
   MODAL_STICKY_HEADER,
 } from '@/shared/ui/modal';
-import { MOBILE_TOOLBAR_ROW, TAP_CONTROL } from '@/shared/ui/touch';
+import {
+  MOBILE_TOOLBAR_ROW,
+  PHONE_CHIP,
+  PHONE_TOOLBAR_INPUT,
+  TAP_CONTROL,
+} from '@/shared/ui/touch';
 
 const FILTER_TABS: { key: ChatRowFilter; label: string; activeClass?: string }[] = [
   { key: 'all', label: 'Tất cả' },
@@ -609,7 +614,7 @@ export function ZcaScreen() {
               className={`flex flex-wrap items-center gap-2 max-[640px]:w-full ${MOBILE_TOOLBAR_ROW}`}
             >
               <button
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-[3px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${TAP_CONTROL}`}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-[3px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${PHONE_CHIP}`}
                 disabled={syncUsersMutation.isPending}
                 onClick={() => void handleSyncUsers()}
                 title="Đồng bộ tên, avatar và SĐT từ danh bạ Zalo cá nhân (ZCA) sang người dùng"
@@ -627,7 +632,7 @@ export function ZcaScreen() {
                 {ADD_USER_LABEL}
               </button>
               <a
-                className={`${TAP_CONTROL} inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[3px] border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400`}
+                className={`${PHONE_CHIP} inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[3px] border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400`}
                 href={driveRootData?.webViewLink || getThreadDriveOpenUrl()}
                 rel="noopener noreferrer"
                 target="_blank"
@@ -668,7 +673,7 @@ export function ZcaScreen() {
             <div className="flex flex-wrap items-center gap-2 max-[640px]:flex-col max-[640px]:items-stretch">
               <div className="relative">
                 <input
-                  className="w-64 rounded border border-slate-300 bg-white py-1.5 pl-7 pr-7 text-xs text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none max-[640px]:h-10 max-[640px]:w-full max-[640px]:pr-10 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+                  className={`w-64 rounded border border-slate-300 bg-white py-1.5 pl-7 pr-7 text-xs text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none max-[640px]:pr-9 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 ${PHONE_TOOLBAR_INPUT}`}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Tìm theo tên, gợi nhớ, SĐT, ID..."
                   type="text"
@@ -680,7 +685,7 @@ export function ZcaScreen() {
                 {search && (
                   <button
                     aria-label="Xóa tìm kiếm"
-                    className="absolute right-2 top-1.5 text-xs text-slate-400 hover:text-slate-600 max-[640px]:top-0 max-[640px]:right-0 max-[640px]:inline-flex max-[640px]:size-10 max-[640px]:items-center max-[640px]:justify-center dark:hover:text-slate-200"
+                    className="absolute right-2 top-1.5 text-xs text-slate-400 hover:text-slate-600 max-[640px]:top-0.5 max-[640px]:right-0.5 max-[640px]:inline-flex max-[640px]:size-8 max-[640px]:items-center max-[640px]:justify-center dark:hover:text-slate-200"
                     onClick={() => setSearch('')}
                     title="Xóa tìm kiếm"
                     type="button"
@@ -739,7 +744,7 @@ export function ZcaScreen() {
               <div className="flex flex-wrap items-center rounded-md border border-slate-200 bg-slate-100 p-0.5 max-[640px]:shrink-0 max-[640px]:flex-nowrap dark:border-slate-700 dark:bg-slate-800">
                 {FILTER_TABS.map((tab) => (
                   <button
-                    className={`rounded px-2.5 py-1 text-xs font-medium max-[640px]:h-10 max-[640px]:shrink-0 max-[640px]:px-3 max-[640px]:text-[12.5px] max-[640px]:whitespace-nowrap ${
+                    className={`rounded px-2.5 py-1 text-xs font-medium max-[640px]:shrink-0 max-[640px]:whitespace-nowrap ${PHONE_CHIP} ${
                       filter === tab.key
                         ? tab.activeClass ||
                           'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100'
@@ -830,7 +835,7 @@ export function ZcaScreen() {
             <div className="flex items-center gap-2">
               <span>Số mục mỗi trang:</span>
               <select
-                className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 max-[640px]:h-10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                className="rounded border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 max-[640px]:h-8 max-[640px]:py-0 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                 onChange={(e) => setPageSize(Number(e.target.value))}
                 value={pageSize}
               >
@@ -853,7 +858,7 @@ export function ZcaScreen() {
             {totalPages > 1 && (
               <div className="flex items-center gap-1">
                 <button
-                  className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 max-[640px]:h-10 max-[640px]:px-3 dark:border-slate-700 dark:hover:bg-slate-800"
+                  className={`rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800 ${PHONE_CHIP}`}
                   disabled={currentPage <= 1}
                   onClick={() => setPage(Math.max(1, currentPage - 1))}
                   type="button"
@@ -864,7 +869,7 @@ export function ZcaScreen() {
                   {currentPage} / {totalPages}
                 </span>
                 <button
-                  className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 max-[640px]:h-10 max-[640px]:px-3 dark:border-slate-700 dark:hover:bg-slate-800"
+                  className={`rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800 ${PHONE_CHIP}`}
                   disabled={currentPage >= totalPages}
                   onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
                   type="button"

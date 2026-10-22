@@ -14,7 +14,13 @@ import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
-import { MOBILE_TOOLBAR_ROW, TOAST_POSITION } from '@/shared/ui/touch';
+import {
+  MOBILE_TOOLBAR_ROW,
+  PHONE_CHIP,
+  PHONE_ICON_CHIP,
+  PHONE_TOOLBAR_INPUT,
+  TOAST_POSITION,
+} from '@/shared/ui/touch';
 
 import {
   contactsQueryKeys,
@@ -674,8 +680,7 @@ export function ContactsScreen() {
   const visibleColumns = isCompact
     ? contactColumns.filter((column) => column.id !== 'select')
     : contactColumns;
-  const chipClass =
-    'inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-[3px] border px-2 text-[11px] transition-colors max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px]';
+  const chipClass = `inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-[3px] border px-2 text-[11px] transition-colors ${PHONE_CHIP}`;
 
   return (
     <>
@@ -721,7 +726,7 @@ export function ContactsScreen() {
                 </div>
                 <button
                   type="button"
-                  className="shrink-0 cursor-pointer rounded px-1 text-amber-700 hover:bg-amber-100 max-[640px]:inline-flex max-[640px]:size-10 max-[640px]:items-center max-[640px]:justify-center dark:text-amber-300 dark:hover:bg-amber-900/50"
+                  className={`shrink-0 cursor-pointer rounded px-1 text-amber-700 hover:bg-amber-100 max-[640px]:inline-flex max-[640px]:items-center max-[640px]:justify-center dark:text-amber-300 dark:hover:bg-amber-900/50 ${PHONE_ICON_CHIP}`}
                   onClick={() => setSuggestions([])}
                   aria-label={t('contacts.syncUsers.dismiss')}
                   title={t('contacts.syncUsers.dismiss')}
@@ -818,7 +823,7 @@ export function ContactsScreen() {
                 </div>
                 <input
                   type="search"
-                  className="h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 max-[640px]:h-10 max-[640px]:w-full dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500"
+                  className={`h-6 min-h-6 w-44 rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] text-slate-900 outline-none focus:border-sky-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-sky-500 ${PHONE_TOOLBAR_INPUT}`}
                   placeholder={t('table.searchPlaceholder')}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
