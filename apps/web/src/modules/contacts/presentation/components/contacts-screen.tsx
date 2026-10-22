@@ -274,7 +274,7 @@ export function ContactsScreen() {
         }
         return (
           <span
-            className="cursor-pointer font-semibold text-slate-900 select-none hover:text-sky-600 dark:text-slate-100 dark:hover:text-sky-400"
+            className="block max-w-[220px] cursor-pointer truncate font-semibold whitespace-nowrap text-slate-900 select-none hover:text-sky-600 dark:text-slate-100 dark:hover:text-sky-400"
             onDoubleClick={() => handleStartEdit(item)}
             title={item.displayName}
           >
@@ -305,8 +305,9 @@ export function ContactsScreen() {
         }
         return (
           <span
-            className="cursor-pointer text-slate-500 select-none dark:text-slate-400"
+            className="block max-w-[160px] cursor-pointer truncate whitespace-nowrap text-slate-500 select-none dark:text-slate-400"
             onDoubleClick={() => handleStartEdit(item)}
+            title={item.alias || undefined}
           >
             {item.alias || '—'}
           </span>
@@ -335,7 +336,7 @@ export function ContactsScreen() {
         }
         return (
           <span
-            className="cursor-pointer text-slate-500 select-none dark:text-slate-400"
+            className="block max-w-[260px] cursor-pointer truncate whitespace-nowrap text-slate-500 select-none dark:text-slate-400"
             onDoubleClick={() => handleStartEdit(item)}
             title={item.descriptor}
           >
@@ -367,19 +368,22 @@ export function ContactsScreen() {
         }
         return (
           <span
-            className="cursor-pointer text-slate-500 select-none dark:text-slate-400"
+            className="cursor-pointer whitespace-nowrap text-slate-500 select-none dark:text-slate-400"
             onDoubleClick={() => handleStartEdit(item)}
           >
             {item.phoneNumber || '—'}
             {item.linkedUser?.phoneNumber &&
               item.phoneNumber &&
               item.linkedUser.phoneNumber !== item.phoneNumber && (
-                <span
-                  className="ml-1.5 rounded bg-amber-50 px-1 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/60 dark:text-amber-300"
-                  title={t('contacts.phone.zaloMismatchTitle')}
-                >
-                  {t('contacts.phone.zaloMismatch', { phone: item.linkedUser.phoneNumber })}
-                </span>
+                <>
+                  <span className="px-1 text-slate-300 dark:text-slate-600">·</span>
+                  <span
+                    className="text-[11px] font-medium text-amber-700 dark:text-amber-400"
+                    title={t('contacts.phone.zaloMismatchTitle')}
+                  >
+                    {t('contacts.phone.zaloMismatch', { phone: item.linkedUser.phoneNumber })}
+                  </span>
+                </>
               )}
           </span>
         );
@@ -410,7 +414,7 @@ export function ContactsScreen() {
         }
         return (
           <span
-            className="cursor-pointer font-mono text-[11px] text-slate-600 select-none dark:text-slate-400"
+            className="cursor-pointer font-mono text-[11px] whitespace-nowrap text-slate-600 select-none dark:text-slate-400"
             onDoubleClick={() => handleStartEdit(item)}
           >
             {item.bankAccountNumber || '—'}
@@ -441,8 +445,9 @@ export function ContactsScreen() {
         }
         return (
           <span
-            className="cursor-pointer text-slate-500 select-none dark:text-slate-400"
+            className="block max-w-[140px] cursor-pointer truncate whitespace-nowrap text-slate-500 select-none dark:text-slate-400"
             onDoubleClick={() => handleStartEdit(item)}
+            title={item.bankName || undefined}
           >
             {item.bankName || '—'}
           </span>
@@ -478,12 +483,16 @@ export function ContactsScreen() {
           );
         }
         if (item.linkedUser) {
+          const { firstName, username } = item.linkedUser;
           return (
-            <span className="inline-flex items-center gap-1 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700 dark:bg-sky-950/60 dark:text-sky-300">
-              <span aria-hidden="true">👤</span>
-              {item.linkedUser.firstName
-                ? `${item.linkedUser.firstName} (@${item.linkedUser.username})`
-                : `@${item.linkedUser.username}`}
+            <span
+              className="block max-w-[200px] truncate whitespace-nowrap"
+              title={firstName ? `${firstName} (@${username})` : `@${username}`}
+            >
+              {firstName && (
+                <span className="text-slate-700 dark:text-slate-300">{firstName} </span>
+              )}
+              <span className="text-slate-500 dark:text-slate-400">@{username}</span>
             </span>
           );
         }
@@ -509,24 +518,24 @@ export function ContactsScreen() {
           return <span className="text-slate-400 select-none dark:text-slate-600">0</span>;
         }
         return (
-          <div className="flex flex-wrap items-center gap-1.5">
+          <span className="whitespace-nowrap text-[11px]">
             {debts > 0 ? (
               <span
-                className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[10.5px] font-medium text-amber-800 dark:bg-amber-950/80 dark:text-amber-300"
+                className="font-medium text-amber-700 dark:text-amber-400"
                 title={`${debts} khoản nợ`}
               >
                 {t('contacts.combineModal.debtsBadge', { count: debts })}
               </span>
             ) : null}
+            {debts > 0 && txs > 0 ? (
+              <span className="px-1 text-slate-300 dark:text-slate-600">·</span>
+            ) : null}
             {txs > 0 ? (
-              <span
-                className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10.5px] text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                title={`${txs} giao dịch`}
-              >
+              <span className="text-slate-500 dark:text-slate-400" title={`${txs} giao dịch`}>
                 {t('contacts.combineModal.transactionsBadge', { count: txs })}
               </span>
             ) : null}
-          </div>
+          </span>
         );
       },
     },
@@ -559,7 +568,7 @@ export function ContactsScreen() {
                 disabled={updateMutation.isPending || !editDraft.displayName.trim()}
                 title={t('contacts.actions.save')}
               >
-                ✓ {t('contacts.actions.save')}
+                {t('contacts.actions.save')}
               </button>
               <button
                 type="button"
@@ -581,7 +590,7 @@ export function ContactsScreen() {
               onClick={() => handleStartEdit(item)}
               title={t('contacts.actions.edit')}
             >
-              ✎ {t('contacts.actions.edit')}
+              {t('contacts.actions.edit')}
             </button>
           </div>
         );

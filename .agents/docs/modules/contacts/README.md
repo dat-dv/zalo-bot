@@ -36,8 +36,9 @@ Tài liệu này ánh xạ trực tiếp với tri thức canonical [`README.md`
 ## Màn hình danh bạ
 
 - Tiêu đề trang, nút Làm mới/Đăng xuất do `WorkspaceHeader` của layout chung hiển thị; `ContactsScreen` chỉ render bảng.
-- Các cột: chọn (checkbox), Tên (không ẩn được), Biệt danh, Mô tả, Số điện thoại, Số tài khoản, Ngân hàng, Tài khoản liên kết (badge `Tên (@username)` hoặc `#<mã>`), Tài nguyên (số khoản nợ / số giao dịch), Ngày tạo, Thao tác (rộng tối thiểu 120px, chỉ có nút Sửa).
+- Các cột: chọn (checkbox), Tên (không ẩn được), Biệt danh, Mô tả, Số điện thoại, Số tài khoản, Ngân hàng, Tài khoản liên kết (chữ thường `Tên @username`, username màu nhạt, hoặc `#<mã>`), Tài nguyên (một dòng `N nợ · N giao dịch`, số nợ chữ vàng, chỉ hiện phần khác 0), Ngày tạo, Thao tác (rộng tối thiểu 120px, chỉ có nút Sửa).
 - Dữ liệu hiển thị dạng chữ thường, **không** có link gọi điện hay Google Maps.
+- **Bảng phẳng, mỗi ô một dòng** (cùng phong cách với bảng `/zca`): không dùng chip/pill hay emoji trong ô. Chữ dài bị cắt `…` thay vì xuống dòng, rê chuột vào ô để xem đầy đủ, hoặc nhấp đúp để sửa. Lý do: bảng cần lướt nhanh nhiều dòng, một mô tả dài không được làm cả hàng cao gấp ba.
 - Sửa trực tiếp: nhấp đúp ô hoặc bấm Sửa để sửa Tên (bắt buộc), Biệt danh, Mô tả, Số điện thoại, Số tài khoản, Tên ngân hàng; `Enter` lưu, `Escape` huỷ. Admin còn thấy ô chọn **Tài khoản User** ở cột liên kết (có lựa chọn "Không liên kết"); xem mục "Liên kết với tài khoản User".
   - Hạn chế đã biết: để trống biệt danh/mô tả sẽ xoá giá trị cũ, nhưng để trống số điện thoại/ngân hàng thì backend **giữ nguyên** giá trị cũ (client gửi `undefined`), nên hiện không xoá được các trường này từ giao diện.
 - Thanh công cụ: nút Gộp (khi chọn từ 2 dòng), chọn/bỏ chọn tất cả, chip số dòng đã chọn, ô tìm kiếm theo tên/biệt danh/mô tả.
@@ -57,7 +58,7 @@ Quy tắc nghiệp vụ:
 - **Lưu dự phòng số điện thoại.** Zalo thường ẩn số, nên khi liên hệ đã gắn với user thì hai bên bù số cho nhau, với nguyên tắc **chỉ điền vào chỗ trống, không bao giờ ghi đè**:
   - Lúc gắn: liên hệ chưa có số thì lấy số của user, và user chưa có số thì lấy số của liên hệ.
   - Khi số của user thay đổi (admin sửa trên trang ZCA, thêm user, hoặc bấm "Đồng bộ thông tin" từ ZCA): số mới được điền vào các liên hệ đã gắn mà còn trống số.
-  - Nếu hai bên có hai số khác nhau thì hệ thống giữ cả hai, và cột Số điện thoại hiện chip vàng `Zalo: <số>` để anh tự quyết định giữ số nào.
+  - Nếu hai bên có hai số khác nhau thì hệ thống giữ cả hai, và cột Số điện thoại hiện thêm chữ vàng `· Zalo: <số>` (không có nền) ngay sau số để anh tự quyết định giữ số nào.
 
 ## Đồng bộ người dùng Zalo vào danh bạ
 
