@@ -58,10 +58,13 @@ export function ReminderNagFields({
       )}
       {value.enabled && (
         <div className="flex flex-wrap items-center gap-2">
+          {/* A label never wraps; on a narrow line the whole "label + select" pair moves down. */}
           <label className="flex items-center gap-1">
-            <span className={label}>{t('reminderRule.nagEvery')}</span>
+            <span className={`${label} shrink-0 whitespace-nowrap`}>
+              {t('reminderRule.nagEvery')}
+            </span>
             <select
-              className={`${field} w-auto`}
+              className={field}
               value={value.everyMinutes}
               onChange={(e) => onChange({ ...value, everyMinutes: Number(e.target.value) })}
               disabled={disabled}
@@ -74,9 +77,11 @@ export function ReminderNagFields({
             </select>
           </label>
           <label className="flex items-center gap-1">
-            <span className={label}>{t('reminderRule.nagCount')}</span>
+            <span className={`${label} shrink-0 whitespace-nowrap`}>
+              {t('reminderRule.nagCount')}
+            </span>
             <select
-              className={`${field} w-auto`}
+              className={field}
               value={value.count}
               onChange={(e) => onChange({ ...value, count: Number(e.target.value) })}
               disabled={disabled}

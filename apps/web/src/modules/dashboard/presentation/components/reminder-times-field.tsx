@@ -39,9 +39,9 @@ const WEEKDAY_KEYS: Record<number, TranslationKey> = {
 };
 
 /**
- * The reminder times of a task or a reminder: one `datetime-local` per time with its own
- * repeat (and the weekdays of a weekly one), a remove button per row and "+ Add a time" (up
- * to `MAX_TIMES`). A time that already went out is marked.
+ * The reminder times of a task or a reminder: one `datetime-local` per time, under it its own
+ * repeat with the remove button (and below, the weekdays of a weekly one), then "+ Add a time"
+ * (up to `MAX_TIMES`). A time that already went out is marked.
  */
 export function ReminderTimesField({
   value,
@@ -71,30 +71,31 @@ export function ReminderTimesField({
     <div className="grid gap-1">
       {rows.map((row, index) => (
         <div key={index} className="grid gap-1">
-          <div className="flex flex-wrap items-center gap-1">
-            <input
-              type="datetime-local"
-              className={`${field} min-w-[150px] flex-1`}
-              value={row.value}
-              // Editing a saved time makes it a new one, checked against the clock again; it
-              // keeps the repeat picked for it.
-              onChange={(e) =>
-                update(index, {
-                  value: e.target.value,
-                  repeatType: row.repeatType,
-                  repeatWeekdays: row.repeatWeekdays,
-                })
-              }
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') onEnter?.();
-                if (e.key === 'Escape') onEscape?.();
-              }}
-              aria-label={`${ariaLabel} ${index + 1}`}
-              aria-invalid={invalid}
-              disabled={disabled}
-            />
+          <input
+            type="datetime-local"
+            className={field}
+            value={row.value}
+            // Editing a saved time makes it a new one, checked against the clock again; it
+            // keeps the repeat picked for it.
+            onChange={(e) =>
+              update(index, {
+                value: e.target.value,
+                repeatType: row.repeatType,
+                repeatWeekdays: row.repeatWeekdays,
+              })
+            }
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onEnter?.();
+              if (e.key === 'Escape') onEscape?.();
+            }}
+            aria-label={`${ariaLabel} ${index + 1}`}
+            aria-invalid={invalid}
+            disabled={disabled}
+          />
+          {/* The repeat takes the rest of the line so ✕ always sits beside it. */}
+          <div className="flex items-center gap-1">
             <select
-              className={`${field} w-auto shrink-0`}
+              className={`${field} min-w-0 flex-1`}
               value={row.repeatType ?? 'none'}
               // A saved time keeps whether it was sent; only its repeat changes.
               onChange={(e) => {
@@ -111,7 +112,9 @@ export function ReminderTimesField({
               ))}
             </select>
             {row.sentAt && (
-              <span className={`shrink-0 ${FORM_HINT}`}>{t('reminderTimes.sent')}</span>
+              <span className={`shrink-0 whitespace-nowrap ${FORM_HINT}`}>
+                {t('reminderTimes.sent')}
+              </span>
             )}
             {(rows.length > 1 || row.value) && (
               <button
