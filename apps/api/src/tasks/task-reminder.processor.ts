@@ -1,6 +1,7 @@
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import type { Job, Queue } from 'bullmq';
+import { AuditContext } from '../audit/audit-context';
 import { isFinalFailure, processReminderJob, scheduleReminderScan } from '../queue/reminder-job';
 import { throttledErrorLogger } from '../queue/reminder-queue';
 import { TASK_REMINDERS_QUEUE } from './task-reminder.queue';
@@ -30,10 +31,13 @@ export class TaskReminderProcessor extends WorkerHost implements OnApplicationBo
   }
 
   public process(job: Job<unknown>): Promise<string | undefined> {
-    return processReminderJob(job, {
-      scan: () => this.scheduler.scanDueReminders(),
-      deliver: (data) => this.scheduler.deliverReminder(data),
-    });
+    // Jobs act for nobody, even when a dashboard request or chat queued them.
+    return AuditContext.runAsSystem(() =>
+      processReminderJob(job, {
+        scan: () => this.scheduler.scanDueReminders(),
+        deliver: (data) => this.scheduler.deliverReminder(data),
+      }),
+    );
   }
 
   @OnWorkerEvent('failed')

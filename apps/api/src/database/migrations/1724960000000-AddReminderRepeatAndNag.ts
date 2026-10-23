@@ -14,8 +14,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  *
  * Time columns follow the `remind_at` type of their table.
  */
-export class AddReminderRepeatAndNag1724950000000 implements MigrationInterface {
-  name = 'AddReminderRepeatAndNag1724950000000';
+export class AddReminderRepeatAndNag1724960000000 implements MigrationInterface {
+  name = 'AddReminderRepeatAndNag1724960000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

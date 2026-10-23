@@ -58,7 +58,7 @@ metadata:
 - `captureDashboardToken` reads `dashboard_token` or `token` from the URL hash or query. A query token without `.` is treated as an exchange token and redirected to `/api/access`; otherwise the access token is stored in `localStorage` key `zalobot.dashboard.access-token` and removed from the URL.
 - `SessionStateScreen` renders `AccessCodeForm` (see `modules/auth`), which posts the code and stores the returned access token.
 - `httpClient` sends `Authorization: Bearer <token>`; on the first `401` (except from `/api/refresh` and `/api/access/code`) it calls `POST /api/refresh` once (shared in-flight promise), retries, and clears the stored token if refresh fails.
-- Private pages (`apps/web/app/(private)/`): `/` and `/dashboard` (overview), `/transactions` (`/expenses`, `/income` redirect to `?type=expense|income`), `/debts`, `/analytics`, `/calendar`, `/tasks`, `/reminders`, `/contacts`, `/places`, `/zca` (Zalo & Users), `/google-storage` (Google Drive), `/settings`. All share the dashboard session and the `DataTable` primitive.
+- Private pages (`apps/web/app/(private)/`): `/` and `/dashboard` (overview), `/transactions` (`/expenses`, `/income` redirect to `?type=expense|income`), `/debts`, `/analytics`, `/calendar`, `/tasks`, `/reminders`, `/contacts`, `/places`, `/zca` (Zalo & Users), `/google-storage` (Google Drive), `/activity` (activity log), `/settings`. All share the dashboard session and the `DataTable` primitive.
 
 ## Session Identity (`GET API_ROUTES.sessionMe` = `/api/me`)
 
@@ -71,7 +71,7 @@ metadata:
 
 ## Admin-Only Navigation
 
-- `NavItem.adminOnly`: `zca` (Zalo & Users) and `googleStorage` (Google Drive), whose APIs use `requireDashboardAdmin`.
+- `NavItem.adminOnly`: `zca` (Zalo & Users), `googleStorage` (Google Drive) and `activity` (activity log), whose APIs use `requireDashboardAdmin`.
 - `visibleNavSections(sections, isAdmin)` (`shared/ui/nav-visibility.ts`) shows them only when `isAdmin === true`; while loading or on error they are hidden (an admin's hard reload shows them one fetch late; in-app navigation uses the cached session). Empty sections are dropped. Applies to the sidebar and the "More" sheet; the tab bar has no admin items.
 - Cosmetic only: the API still enforces admin rights; a non-admin opening the URL directly gets the page's forbidden state.
 - `GET /api/contacts` derives the user from the access token and returns at most 200 of that user's `debt_contacts`.

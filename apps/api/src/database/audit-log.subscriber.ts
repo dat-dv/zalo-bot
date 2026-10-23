@@ -5,6 +5,7 @@ import {
   RemoveEvent,
   UpdateEvent,
 } from 'typeorm';
+import { AuditContext } from '../audit/audit-context';
 import { AuditLogEntity } from './entities/audit-log.entity';
 
 @EventSubscriber()
@@ -47,17 +48,16 @@ export class AuditLogSubscriber implements EntitySubscriberInterface {
       })
       .filter(Boolean)
       .join(':');
+    // The actor is whoever caused this write (see AuditContext), never a user id stored in the
+    // row: the creator of a shared transaction is not the person who later edits it.
+    const context = AuditContext.current();
     await event.manager.getRepository(AuditLogEntity).save({
       tableName,
       recordId: recordId || undefined,
       action,
-      // Finance rows are shared (no owner), so their author is the actor.
-      actorId:
-        typeof data.userId === 'string'
-          ? data.userId
-          : typeof data.createdByUserId === 'string'
-            ? data.createdByUserId
-            : undefined,
+      actorId: context?.actorId ?? null,
+      actorSource: context?.source ?? 'system',
+      channelId: context?.channelId ?? null,
       beforeData: this.redact(beforeData),
       afterData: this.redact(afterData),
     });

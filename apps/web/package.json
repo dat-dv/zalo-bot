@@ -1,6 +1,6 @@
 {
   "name": "@zalobot/web",
-  "version": "1.0.174",
+  "version": "1.0.176",
   "private": true,
   "type": "module",
   "scripts": {

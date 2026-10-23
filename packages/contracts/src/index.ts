@@ -63,6 +63,8 @@ export const API_ROUTES = {
   googleStorageAccount: '/api/google/storage-account',
   googleStorageAccountLogin: '/api/google/storage-account/login',
   googleStorageAccountLogout: '/api/google/storage-account/logout',
+  auditLogs: '/api/audit-logs',
+  auditLog: (id: string) => `/api/audit-logs/${id}`,
 } as const;
 
 export const APP_ROUTES = {
@@ -98,6 +100,10 @@ export const APP_ROUTES = {
   zcaThread: (threadId: string) => `/zca/thread?id=${encodeURIComponent(threadId)}`,
   settings: '/settings',
   googleStorage: '/google-storage',
+  activity: '/activity',
+  // Static export has no dynamic segments, so the activity filters travel in the query string.
+  activityFor: (table: AuditTableName, recordId: string) =>
+    `/activity?table=${encodeURIComponent(table)}&recordId=${encodeURIComponent(recordId)}`,
 } as const;
 
 export const SUPPORTED_LOCALES = ['vi', 'en'] as const;
@@ -206,6 +212,87 @@ const messages = {
     'zca.forbidden.body':
       'Tài khoản bạn đang đăng nhập dashboard chưa có quyền admin. Hãy nhờ admin cấp quyền hoặc đăng nhập bằng tài khoản admin.',
     'zca.forbidden.backHome': 'Về trang tổng quan',
+    'nav.activity': 'Nhật ký hoạt động',
+    'audit.title': 'Nhật ký hoạt động',
+    'audit.subtitle': 'Ai đã thêm, sửa hoặc xoá dữ liệu, lúc nào và từ đâu.',
+    'audit.filter.tables': 'Dữ liệu',
+    'audit.filter.allTables': 'Tất cả dữ liệu',
+    'audit.filter.actions': 'Hành động',
+    'audit.filter.allActions': 'Mọi hành động',
+    'audit.filter.sources': 'Nguồn',
+    'audit.filter.allSources': 'Mọi nguồn',
+    'audit.filter.actors': 'Người thực hiện',
+    'audit.filter.allActors': 'Mọi người',
+    'audit.filter.from': 'Từ ngày',
+    'audit.filter.to': 'Đến ngày',
+    'audit.filter.technical': 'Hiện bản ghi kỹ thuật',
+    'audit.filter.technicalHint':
+      'Token Google, phiên đăng nhập dashboard và dấu đã gửi của từng lần nhắc.',
+    'audit.filter.record': 'Bản ghi {id}',
+    'audit.filter.clearRecord': 'Bỏ lọc bản ghi',
+    'audit.filter.clearAll': 'Xoá bộ lọc',
+    'audit.columns.time': 'Thời điểm',
+    'audit.columns.actor': 'Người thực hiện',
+    'audit.columns.action': 'Hành động',
+    'audit.columns.record': 'Dữ liệu',
+    'audit.columns.changes': 'Trường thay đổi',
+    'audit.view': 'Xem',
+    'audit.viewTitle': 'Xem dữ liệu trước và sau khi thay đổi',
+    'audit.action.insert': 'Thêm',
+    'audit.action.update': 'Sửa',
+    'audit.action.remove': 'Xoá',
+    'audit.source.dashboard': 'Dashboard',
+    'audit.source.zalo': 'Zalo',
+    'audit.source.system': 'Hệ thống',
+    'audit.source.legacy': 'Dữ liệu cũ',
+    'audit.group.finance': 'Tài chính',
+    'audit.group.planning': 'Kế hoạch',
+    'audit.group.system': 'Hệ thống',
+    'audit.table.finance_transactions': 'Giao dịch thu chi',
+    'audit.table.debts': 'Khoản nợ',
+    'audit.table.debt_payments': 'Lần trả nợ',
+    'audit.table.debt_payment_allocations': 'Phân bổ trả nợ',
+    'audit.table.debt_contacts': 'Người liên quan',
+    'audit.table.finance_places': 'Nơi chốn',
+    'audit.table.user_categories': 'Danh mục',
+    'audit.table.tasks': 'Việc cần làm',
+    'audit.table.task_reminder_times': 'Lần nhắc việc',
+    'audit.table.calendar_events': 'Sự kiện lịch',
+    'audit.table.reminders': 'Lời nhắc',
+    'audit.table.reminder_times': 'Lần nhắc',
+    'audit.table.users': 'Người dùng',
+    'audit.table.zca_thread_configs': 'Cấu hình kênh',
+    'audit.table.channel_storage_links': 'Nơi lưu trữ của kênh',
+    'audit.table.user_tokens': 'Kết nối Google',
+    'audit.table.dashboard_exchange_tokens': 'Phiên đăng nhập dashboard',
+    'audit.actor.system': 'Hệ thống',
+    'audit.actor.unknown': 'Không xác định',
+    'audit.actor.unnamed': 'Chưa rõ tên (…{suffix})',
+    'audit.channel.direct': 'Chat riêng',
+    'audit.channel.group': 'Nhóm {name}',
+    'audit.channel.groupUnnamed': 'Nhóm Zalo',
+    'audit.bulk': 'Hàng loạt',
+    'audit.bulkHint':
+      'Thay đổi hàng loạt theo điều kiện: không có mã bản ghi và bản sao dữ liệu trước khi sửa.',
+    'audit.legacyHint':
+      'Dữ liệu cũ: người hiển thị là người tạo bản ghi, có thể không phải người đã sửa.',
+    'audit.moreFields': '+{count}',
+    'audit.empty': 'Không có hoạt động nào khớp bộ lọc.',
+    'audit.error': 'Không thể tải nhật ký. Vui lòng thử lại.',
+    'audit.range': '{from}–{to} / {total}',
+    'audit.prev': 'Trang trước',
+    'audit.next': 'Trang sau',
+    'audit.detail.title': 'Chi tiết thay đổi',
+    'audit.detail.field': 'Trường',
+    'audit.detail.before': 'Trước',
+    'audit.detail.after': 'Sau',
+    'audit.detail.value': 'Giá trị',
+    'audit.detail.noData': 'Không có dữ liệu chi tiết.',
+    'audit.detail.loading': 'Đang tải chi tiết…',
+    'audit.detail.error': 'Không thể tải chi tiết. Vui lòng thử lại.',
+    'audit.detail.recordId': 'Mã bản ghi',
+    'audit.detail.channel': 'Kênh',
+    'audit.detail.recordHistory': 'Lịch sử bản ghi này',
     'nav.personalSpace': 'Cá nhân',
     'session.title': 'Đang đăng nhập',
     'session.owner': 'Chủ hệ thống (mã đăng nhập)',
@@ -281,6 +368,7 @@ const messages = {
     'transactions.details.paymentMethod': 'Phương thức',
     'transactions.details.currency': 'Tiền tệ',
     'transactions.details.note': 'Ghi chú',
+    'transactions.details.history': 'Xem lịch sử thay đổi',
     'table.total': 'Tổng: {total}',
     'table.columnSettings': 'Cài đặt cột',
     'table.columnVisibility': 'Ẩn/hiện cột',
@@ -1345,6 +1433,87 @@ const messages = {
     'zca.forbidden.body':
       'The account signed in to the dashboard is not an admin. Ask an admin to grant access or sign in with an admin account.',
     'zca.forbidden.backHome': 'Back to overview',
+    'nav.activity': 'Activity log',
+    'audit.title': 'Activity log',
+    'audit.subtitle': 'Who added, changed or deleted data, when and from where.',
+    'audit.filter.tables': 'Data',
+    'audit.filter.allTables': 'All data',
+    'audit.filter.actions': 'Action',
+    'audit.filter.allActions': 'All actions',
+    'audit.filter.sources': 'Source',
+    'audit.filter.allSources': 'All sources',
+    'audit.filter.actors': 'Actor',
+    'audit.filter.allActors': 'Everyone',
+    'audit.filter.from': 'From',
+    'audit.filter.to': 'To',
+    'audit.filter.technical': 'Show technical records',
+    'audit.filter.technicalHint':
+      'Google tokens, dashboard sign-in tokens and the sent mark of each reminder time.',
+    'audit.filter.record': 'Record {id}',
+    'audit.filter.clearRecord': 'Clear record filter',
+    'audit.filter.clearAll': 'Clear filters',
+    'audit.columns.time': 'Time',
+    'audit.columns.actor': 'Actor',
+    'audit.columns.action': 'Action',
+    'audit.columns.record': 'Data',
+    'audit.columns.changes': 'Changed fields',
+    'audit.view': 'View',
+    'audit.viewTitle': 'View the data before and after the change',
+    'audit.action.insert': 'Added',
+    'audit.action.update': 'Changed',
+    'audit.action.remove': 'Deleted',
+    'audit.source.dashboard': 'Dashboard',
+    'audit.source.zalo': 'Zalo',
+    'audit.source.system': 'System',
+    'audit.source.legacy': 'Legacy',
+    'audit.group.finance': 'Finance',
+    'audit.group.planning': 'Planning',
+    'audit.group.system': 'System',
+    'audit.table.finance_transactions': 'Transaction',
+    'audit.table.debts': 'Debt',
+    'audit.table.debt_payments': 'Debt payment',
+    'audit.table.debt_payment_allocations': 'Debt allocation',
+    'audit.table.debt_contacts': 'Contact',
+    'audit.table.finance_places': 'Place',
+    'audit.table.user_categories': 'Category',
+    'audit.table.tasks': 'Task',
+    'audit.table.task_reminder_times': 'Task reminder time',
+    'audit.table.calendar_events': 'Calendar event',
+    'audit.table.reminders': 'Reminder',
+    'audit.table.reminder_times': 'Reminder time',
+    'audit.table.users': 'User',
+    'audit.table.zca_thread_configs': 'Channel settings',
+    'audit.table.channel_storage_links': 'Channel storage',
+    'audit.table.user_tokens': 'Google connection',
+    'audit.table.dashboard_exchange_tokens': 'Dashboard sign-in',
+    'audit.actor.system': 'System',
+    'audit.actor.unknown': 'Unknown',
+    'audit.actor.unnamed': 'Unnamed (…{suffix})',
+    'audit.channel.direct': 'Direct chat',
+    'audit.channel.group': 'Group {name}',
+    'audit.channel.groupUnnamed': 'Zalo group',
+    'audit.bulk': 'Bulk',
+    'audit.bulkHint':
+      'Bulk change by criteria: no record id and no copy of the data before the change.',
+    'audit.legacyHint':
+      'Legacy record: the person shown created the row and may not be the one who changed it.',
+    'audit.moreFields': '+{count}',
+    'audit.empty': 'No activity matches the filters.',
+    'audit.error': 'Could not load the activity log. Please try again.',
+    'audit.range': '{from}–{to} of {total}',
+    'audit.prev': 'Previous page',
+    'audit.next': 'Next page',
+    'audit.detail.title': 'Change details',
+    'audit.detail.field': 'Field',
+    'audit.detail.before': 'Before',
+    'audit.detail.after': 'After',
+    'audit.detail.value': 'Value',
+    'audit.detail.noData': 'No detailed data.',
+    'audit.detail.loading': 'Loading details…',
+    'audit.detail.error': 'Could not load the details. Please try again.',
+    'audit.detail.recordId': 'Record id',
+    'audit.detail.channel': 'Channel',
+    'audit.detail.recordHistory': 'History of this record',
     'nav.personalSpace': 'Personal',
     'session.title': 'Signed in as',
     'session.owner': 'System owner (sign-in code)',
@@ -1420,6 +1589,7 @@ const messages = {
     'transactions.details.paymentMethod': 'Payment method',
     'transactions.details.currency': 'Currency',
     'transactions.details.note': 'Note',
+    'transactions.details.history': 'View change history',
     'table.total': 'Total: {total}',
     'table.columnSettings': 'Column settings',
     'table.columnVisibility': 'Toggle columns',
@@ -4103,4 +4273,123 @@ export interface SyncThreadMediaResponse {
   failedCount: number;
   message: string;
   warning?: string;
+}
+
+/** Who caused an audited change: a dashboard user, a Zalo sender, or a background job. */
+export const AUDIT_ACTOR_SOURCES = ['dashboard', 'zalo', 'system'] as const;
+export type AuditActorSource = (typeof AUDIT_ACTOR_SOURCES)[number];
+/** Source filter of the activity log; `legacy` matches rows written before the actor was recorded. */
+export const AUDIT_SOURCE_FILTERS = [...AUDIT_ACTOR_SOURCES, 'legacy'] as const;
+export type AuditSourceFilter = (typeof AUDIT_SOURCE_FILTERS)[number];
+
+export const AUDIT_ACTIONS = ['insert', 'update', 'remove'] as const;
+export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+export const AUDIT_TABLE_GROUPS = ['finance', 'planning', 'system'] as const;
+export type AuditTableGroup = (typeof AUDIT_TABLE_GROUPS)[number];
+
+/**
+ * Tables the activity log knows. `technical` ones (Google tokens, dashboard sign-in tokens, the
+ * sent marks of each reminder time) are high-volume bookkeeping, hidden unless asked for.
+ */
+export const AUDIT_TABLES = [
+  { table: 'finance_transactions', group: 'finance', technical: false },
+  { table: 'debts', group: 'finance', technical: false },
+  { table: 'debt_payments', group: 'finance', technical: false },
+  { table: 'debt_payment_allocations', group: 'finance', technical: false },
+  { table: 'debt_contacts', group: 'finance', technical: false },
+  { table: 'finance_places', group: 'finance', technical: false },
+  { table: 'user_categories', group: 'finance', technical: false },
+  { table: 'tasks', group: 'planning', technical: false },
+  { table: 'task_reminder_times', group: 'planning', technical: true },
+  { table: 'calendar_events', group: 'planning', technical: false },
+  { table: 'reminders', group: 'planning', technical: false },
+  { table: 'reminder_times', group: 'planning', technical: true },
+  { table: 'users', group: 'system', technical: false },
+  { table: 'zca_thread_configs', group: 'system', technical: false },
+  { table: 'channel_storage_links', group: 'system', technical: false },
+  { table: 'user_tokens', group: 'system', technical: true },
+  { table: 'dashboard_exchange_tokens', group: 'system', technical: true },
+] as const satisfies readonly { table: string; group: AuditTableGroup; technical: boolean }[];
+export type AuditTableName = (typeof AUDIT_TABLES)[number]['table'];
+export const AUDIT_TECHNICAL_TABLES: readonly AuditTableName[] = AUDIT_TABLES.filter(
+  (entry) => entry.technical,
+).map((entry) => entry.table);
+
+export function isAuditTableName(value: unknown): value is AuditTableName {
+  return typeof value === 'string' && AUDIT_TABLES.some((entry) => entry.table === value);
+}
+
+export function isAuditAction(value: unknown): value is AuditAction {
+  return typeof value === 'string' && (AUDIT_ACTIONS as readonly string[]).includes(value);
+}
+
+export function isAuditSourceFilter(value: unknown): value is AuditSourceFilter {
+  return typeof value === 'string' && (AUDIT_SOURCE_FILTERS as readonly string[]).includes(value);
+}
+
+export const AUDIT_LOG_DEFAULT_LIMIT = 50;
+export const AUDIT_LOG_MAX_LIMIT = 200;
+
+export interface IAuditLogListQuery {
+  tables?: AuditTableName[];
+  actions?: AuditAction[];
+  sources?: AuditSourceFilter[];
+  actorIds?: string[];
+  recordId?: string;
+  /** Inclusive ISO bounds on the change time. */
+  startAt?: string;
+  endAt?: string;
+  /** Also list `technical` tables when no table is picked. */
+  includeTechnical?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface IAuditLogListItem {
+  id: string;
+  /** Raw table name; tables outside `AUDIT_TABLES` keep theirs. */
+  tableName: string;
+  /** Null for a bulk change (update/delete by criteria). */
+  recordId: string | null;
+  action: AuditAction;
+  actorId: string | null;
+  /** Empty when the actor has no profile name. */
+  actorName: string;
+  /** The fixed-code dashboard owner account, which has no Zalo profile. */
+  actorIsOwner: boolean;
+  /**
+   * Null = written before the actor was recorded: `actorId` is then the row's creator,
+   * not necessarily who changed it.
+   */
+  actorSource: AuditActorSource | null;
+  channelId: string | null;
+  /** Empty when the channel has no stored name. */
+  channelName: string;
+  channelType: 'group' | 'user' | null;
+  /** Fields that changed (update with a before copy) or were written (bulk update); empty otherwise. */
+  changedFields: string[];
+  createdAt: string;
+}
+
+export interface IAuditLogActorFacet {
+  id: string;
+  /** Empty when the actor has no profile name. */
+  name: string;
+  isOwner: boolean;
+}
+
+export interface IAuditLogListResponse {
+  items: IAuditLogListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+  /** Everyone who appears in the log, independent of the current filters. */
+  facets: { actors: IAuditLogActorFacet[] };
+}
+
+export interface IAuditLogDetail extends IAuditLogListItem {
+  /** Secrets (`token`, `secret`, `password`, `authorization` keys) are redacted when written. */
+  beforeData: Record<string, unknown> | null;
+  afterData: Record<string, unknown> | null;
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import {
   localeTag,
   TRANSACTION_FILTER_NO_PLACE,
@@ -67,6 +68,8 @@ export type TransactionsTableProps = {
   filterOptions?: TransactionFilterOptions;
   /** Phone-width list rows with a detail sheet instead of the scrolling table. */
   mobileList?: boolean;
+  /** Link to a transaction's change history; set only for admins, who can read the log. */
+  historyHref?: (transactionId: string) => string;
 };
 
 export type TransactionFilterOptions = {
@@ -99,6 +102,7 @@ export function TransactionsTable({
   onChangeColumnFilters,
   filterOptions = EMPTY_FILTER_OPTIONS,
   mobileList = true,
+  historyHref,
 }: TransactionsTableProps) {
   const { locale, t } = useLocale();
   const { money, isMoneyVisible } = useMoneyVisibility();
@@ -818,6 +822,15 @@ export function TransactionsTable({
                 {item.note || '—'}
               </p>
             </div>
+            {historyHref && (
+              <Link
+                href={historyHref(item.id)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:underline max-[640px]:min-h-10 dark:text-sky-400"
+              >
+                {t('transactions.details.history')}
+                <span aria-hidden="true">&rarr;</span>
+              </Link>
+            )}
           </div>
           {item.hasReceipt && (
             <div className="shrink-0 sm:w-56">

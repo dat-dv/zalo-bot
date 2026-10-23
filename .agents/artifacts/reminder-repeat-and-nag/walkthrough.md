@@ -10,7 +10,7 @@ Branch: `feat/reminder-repeat-and-nag`, worktree `.claude/worktrees/repeat-nag`,
   - `IReminderTime` (dữ liệu trả về) có thêm `repeatType` và `repeatWeekdays`.
   - Thêm `IReminderTimeInput`. `ReminderTimeRequest` nhận cả chuỗi ISO lẫn dạng có kiểu lặp.
   - Thêm `nagEveryMinutes` / `nagCount` cho việc cần làm và lời nhắc; thêm chuỗi i18n vi/en.
-- **Dữ liệu** (migration `1724950000000-AddReminderRepeatAndNag`):
+- **Dữ liệu** (migration `1724960000000-AddReminderRepeatAndNag`):
   - Bảng giờ nhắc thêm `repeat_type`, `repeat_weekdays`, `anchor_at`, `nag_at`, `nag_left`.
   - `tasks` và `reminders` thêm `nag_every_minutes`, `nag_count`.
   - Kiểu lặp cũ của lời nhắc được chép xuống từng giờ.

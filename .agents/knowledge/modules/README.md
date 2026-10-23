@@ -12,6 +12,7 @@ Each module document covers:
 3. **Data Flow & Technical Seams**: Local state, DTO payload contracts, and integration points.
 
 ## Modules Index
+- [Audit](audit/README.md): Activity log: who changed what (actor recorded via `AuditContext`), admin page `/activity`.
 - [Authentication](auth/README.md): Dashboard access token storage and lifecycle.
 - [Calendar](calendar/README.md): Shared calendar stored in `calendar_events` with a Google Calendar copy; month/agenda UI, create/edit/delete, re-sync.
 - [Contacts](contacts/README.md): Debt-contact retrieval and presentation.

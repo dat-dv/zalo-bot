@@ -1,5 +1,6 @@
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Request } from 'express';
+import { AuditContext } from '../audit/audit-context';
 import { ReportsTokenService } from '../reports/reports-token.service';
 
 /** Cookie set by `GET /api/access` and rotated by `POST /api/refresh`. */
@@ -13,7 +14,13 @@ export interface DashboardAdminChecker {
 export function getDashboardUserId(req: Request, tokens: ReportsTokenService): string | number {
   const token = req.headers.authorization?.replace(/^Bearer\s+/i, '');
   if (!token) throw new UnauthorizedException();
-  return tokens.verifyAccessToken(token);
+  return withAuditActor(tokens.verifyAccessToken(token));
+}
+
+/** Every dashboard route resolves its user here, so this is where audit rows learn the actor. */
+function withAuditActor(userId: string | number): string | number {
+  AuditContext.setActor(String(userId));
+  return userId;
 }
 
 /**
@@ -31,7 +38,7 @@ export function getDashboardUserIdFromBrowser(
       ? (cookies as Record<string, unknown>)[DASHBOARD_REFRESH_COOKIE]
       : undefined;
   if (typeof refresh !== 'string' || !refresh) throw new UnauthorizedException();
-  return tokens.verifyRefreshToken(refresh);
+  return withAuditActor(tokens.verifyRefreshToken(refresh));
 }
 
 export function assertDashboardAdmin(

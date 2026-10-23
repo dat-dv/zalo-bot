@@ -21,6 +21,8 @@ metadata:
       - apps/api/src/queue/reminder-job.ts
       - apps/api/src/queue/reminder-queue.ts
       - apps/api/src/audit/audit.service.ts
+      - apps/api/src/audit/audit-context.ts
+      - apps/api/src/common/middleware/audit-context.middleware.ts
       - apps/api/src/database/audit-log.subscriber.ts
 ---
 
@@ -86,7 +88,9 @@ All scheduled work runs on BullMQ (`bullmq` 5 + `@nestjs/bullmq` 10); `@nestjs/s
 
 ## Audit (`audit/`, `database/audit-log.subscriber.ts`)
 
-- `AuditLogSubscriber` (TypeORM, registered in `DatabaseModule` and `data-source.ts`) writes an `audit_logs` row after every entity insert / update / remove, except on `audit_logs` itself.
-- Row: `tableName`, `recordId` (primary key values joined by `:`), `action` (`insert`|`update`|`remove`), `actorId` (= entity `userId` when it is a string), `beforeData`, `afterData`. Keys matching `/token|secret|password|authorization/i` are stored as `[REDACTED]`.
-- Only repository `save`/`remove` trigger it; query-builder / `delete()` bulk writes are not audited.
-- `AuditService.listRecent(userId, limit = 20)` reads by `actorId`; `GET /api/dashboard` shows the latest 10 as activity.
+- `AuditLogSubscriber` (TypeORM, registered in `DatabaseModule` and `data-source.ts`) writes an `audit_logs` row after every entity insert / update / remove, except on `audit_logs` and `zca_messages`.
+- Row: `tableName`, `recordId` (primary key values joined by `:`), `action` (`insert`|`update`|`remove`), `actorId`, `actorSource` (`dashboard`|`zalo`|`system`), `channelId`, `beforeData`, `afterData`. Keys matching `/token|secret|password|authorization/i` are stored as `[REDACTED]`.
+- **Actor = who caused the write**, read from `AuditContext` (AsyncLocalStorage, `audit/audit-context.ts`), never from the row's `userId`/`createdByUserId`. Dashboard: `AuditContextMiddleware` opens a context per request, `getDashboardUserId` sets the verified user. Zalo: `ZcaService.dispatchMessage`/`dispatchReaction` run plugins as the sender + chat; a confirmed pending action runs as its requester (`TransactionConfirmationService.executeConfirmed`). BullMQ reminder processors and the Google Calendar import run via `AuditContext.runAsSystem`. No context → `actorSource = 'system'`, `actorId = NULL`.
+- Rows before migration `1724950000000-AddAuditLogActorSource` have `actorSource = NULL` (legacy): their `actorId` is the row creator, not necessarily who changed it. Not backfilled.
+- `save`/`remove` give full data. Query-builder / repository `update()` reach the subscriber with only the written values (no `recordId` unless the id is among them, no before copy); `delete()` by criteria gives an empty row. Writes with `callListeners(false)` (calendar import) are not audited.
+- `AuditService.listRecent(userId, limit = 20)` reads by `actorId`; `GET /api/dashboard` shows the latest 10 as activity. The admin activity log (`GET /api/audit-logs`) is in [modules/audit](../modules/audit/README.md).

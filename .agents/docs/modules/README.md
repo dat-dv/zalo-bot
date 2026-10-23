@@ -12,6 +12,7 @@ metadata:
 This directory contains developer & operating guides organized by feature modules, mirroring [`.agents/knowledge/modules/`](../../knowledge/modules/README.md). Mỗi thư mục ứng với một module web `apps/web/src/modules/<name>/`; nghiệp vụ thu chi backend (`apps/api/src/finance`) nằm ở [`global/finance-domain.md`](../global/finance-domain.md).
 
 ## Danh Mục Modules
+- [Nhật ký hoạt động](audit/README.md): Ghi đúng ai đã thêm/sửa/xoá dữ liệu và trang `/activity` cho admin.
 - [Xác thực](auth/README.md): Lưu và quản lý phiên truy cập dashboard.
 - [Lịch biểu](calendar/README.md): Quản lý, cập nhật và xóa sự kiện lịch Google Calendar.
 - [Danh bạ](contacts/README.md): Tải và hiển thị danh bạ công nợ.

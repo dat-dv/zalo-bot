@@ -105,7 +105,7 @@ Toàn bộ chạy trong **một transaction**: lỗi ở bất kỳ bước nào
 - **Đích nhắc** của lời nhắc và việc cần làm: kênh nhận nhắc là chat riêng của ID nguồn ⇒ đổi sang user đích; ID nguồn nằm trong danh sách **người được nhắc** ⇒ đổi sang user đích (bỏ bớt nếu user đích đã có trong danh sách). Lý do: ID cũ của Zalo Bot chính thức không nhận được tin qua ZCA, nên nếu không chuyển thì nhắc vẫn gửi vào chỗ không ai nhận.
 - **Kết nối Google**: nếu chỉ một bên có thì giữ bên đó. Nếu cả hai cùng có thì giữ token có refresh token, còn hoà thì giữ token mới hơn.
 - **Hồ sơ user đích**: các trường đang trống (tên, SĐT, avatar, thư mục Drive) được lấy từ user nguồn. Giữ quyền Admin và "Đã cấp quyền" nếu một trong hai có. Ngày kết nối lấy ngày sớm hơn.
-- Xoá user nguồn và ghi **một** dòng nhật ký kiểm toán mới. Nhật ký cũ giữ nguyên, không bị sửa.
+- Xoá user nguồn và ghi **một** dòng nhật ký kiểm toán mới, với người thực hiện là admin đang gộp (nguồn dashboard). Nhật ký cũ giữ nguyên, không bị sửa.
 - Sau khi gộp: xoá whitelist Redis của ID nguồn và làm mới cache quyền.
 
 ### Xử lý sự cố

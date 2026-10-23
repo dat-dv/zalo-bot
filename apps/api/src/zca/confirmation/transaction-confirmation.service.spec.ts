@@ -23,11 +23,14 @@ import { RedisService } from '../../redis/redis.service';
 import { ZcaService } from '../zca.service';
 import { ThreadConfigService } from '../thread-config.service';
 import { FINANCE_TRANSACTION_DESCRIPTOR } from './dto-descriptor.util';
+import { AuditContext, zaloAuditContext, type AuditContextStore } from '../../audit/audit-context';
 
 interface TestContext {
   service: TransactionConfirmationService;
   sentMessages: Array<{ chatId: string | number; text: string }>;
   createdTransactions: CreateFinanceTransactionDto[];
+  /** Audit context seen by each `createTransaction` call. */
+  transactionAuditContexts: Array<AuditContextStore | undefined>;
   deletedTransactions: Array<{ id: string }>;
   createdDebts: CreateDebtDto[];
   createdReminders: CreateReminderDto[];
@@ -45,6 +48,7 @@ function createTestContext(
 ): TestContext {
   const sentMessages: Array<{ chatId: string | number; text: string }> = [];
   const createdTransactions: CreateFinanceTransactionDto[] = [];
+  const transactionAuditContexts: Array<AuditContextStore | undefined> = [];
   const deletedTransactions: Array<{ id: string }> = [];
   const createdDebts: CreateDebtDto[] = [];
   const createdReminders: CreateReminderDto[] = [];
@@ -65,6 +69,7 @@ function createTestContext(
   const mockFinanceService = {
     createTransaction: (dto: CreateFinanceTransactionDto) => {
       createdTransactions.push(dto);
+      transactionAuditContexts.push(AuditContext.current());
       return Promise.resolve({
         id: 'tx_1',
         amount: dto.amount,
@@ -154,6 +159,7 @@ function createTestContext(
     service,
     sentMessages,
     createdTransactions,
+    transactionAuditContexts,
     deletedTransactions,
     createdDebts,
     createdReminders,
@@ -217,6 +223,25 @@ void test('TransactionConfirmationService confirms transaction with "yes <mã>"'
     `✅ [${pending.code}] Chi 15.000đ · Ăn uống · uống cà phê`,
   );
   assert.ok(sentMessages[1].text.split('\n').length <= 2);
+
+  service.clearAll();
+});
+
+void test('a confirmed action is credited to its requester, not to whoever approved it', async () => {
+  const { service, createdTransactions, transactionAuditContexts } = createTestContext();
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: { type: 'expense', amount: 15000, category: 'Ăn uống', note: 'cà phê' },
+  });
+
+  // u2 approves in the same group, inside the Zalo context of their own message.
+  await AuditContext.run(zaloAuditContext('u2', 'c1'), () =>
+    service.handleCommand('u2', 'c1', `yes ${pending.code}`),
+  );
+
+  assert.equal(createdTransactions.length, 1);
+  assert.deepEqual(transactionAuditContexts, [{ source: 'zalo', actorId: 'u1', channelId: 'c1' }]);
 
   service.clearAll();
 });

@@ -457,6 +457,8 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
             columns={activityColumns}
             getRowKey={(item) => item.id}
           />
+          {/* The full activity log of everyone is an admin page. */}
+          {data.user.isAdmin && <ViewAllLink href={APP_ROUTES.activity} />}
         </DataPanel>
       </section>
 

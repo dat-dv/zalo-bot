@@ -100,7 +100,7 @@ Một lời nhắc (giống việc cần làm) có thể nhắc **nhiều lần*
 
 - Lý do để riêng từng giờ: một việc thường có giờ cố định hằng ngày và vài giờ nhắc một lần (ví dụ "uống thuốc 8h mỗi ngày, riêng thứ 7 này nhắc thêm 14h").
 - Ngày và thứ tính theo **giờ Việt Nam**. Giờ lặp không bao giờ bị đánh dấu "đã gửi": gửi xong thì dòng đó tự dời sang lần kế tiếp.
-- Dữ liệu cũ: lời nhắc trước đây lặp "hằng ngày/hằng tuần" cho cả lời nhắc, migration `1724950000000-AddReminderRepeatAndNag` chép kiểu lặp đó xuống từng giờ, nên vẫn chạy y như trước. Cột `reminders.repeat_type` chỉ còn để tương thích (ghi kiểu lặp của giờ sớm nhất).
+- Dữ liệu cũ: lời nhắc trước đây lặp "hằng ngày/hằng tuần" cho cả lời nhắc, migration `1724960000000-AddReminderRepeatAndNag` chép kiểu lặp đó xuống từng giờ, nên vẫn chạy y như trước. Cột `reminders.repeat_type` chỉ còn để tương thích (ghi kiểu lặp của giờ sớm nhất).
 
 **Nhắc lại — dùng chung cho cả lời nhắc / việc.** Bật "Nhắc lại", chọn "Mỗi" (5, 10, 15, 30 phút, 1 hoặc 2 giờ) và "Tối đa" (1–10 lần).
 
