@@ -11,6 +11,9 @@ metadata:
       - apps/api/src/database/migrations/1724810000000-CreateZcaMessages.ts
       - apps/api/src/database/migrations/1724820000000-AddChatMemoryToZcaThreadConfigs.ts
       - apps/web/src/modules/zca/view/thread-config-screen.tsx
+      - apps/api/src/zca/memory/image-text-memory.service.ts
+      - apps/api/src/ocr/ocr.service.ts
+      - apps/web/src/modules/zca/presentation/components/thread-config/image-text-memory-section.tsx
 ---
 
 # Trí nhớ hội thoại (ZCA)
@@ -29,6 +32,8 @@ Cách làm:
 
 Ngoài ra, khoảng 10 tin gần nhất của kênh được đưa vào prompt để bot hiểu câu nối tiếp ("thế tháng 5 thì sao?").
 
+Nhóm hay gửi **ảnh** thay cho chữ: ảnh menu, lịch họp, thông báo, hoá đơn. Trước đây trí nhớ chỉ ghi `[Ảnh] <chú thích>`, nên hỏi "@bot cái menu lúc nãy có món gì" thì bot không biết. Nay bot **đọc chữ trong ảnh** ngay trên server (OCR Tesseract, không gửi ảnh cho AI) và gắn chữ đó vào đúng tin ảnh trong trí nhớ (xem mục 3).
+
 ## 2. Quy tắc nghiệp vụ
 
 - **Nhớ theo từng kênh**: hỏi ở nhóm A chỉ tìm trong tin của nhóm A; chat 1-1 chỉ tìm trong chat đó. Khác với tài chính (sổ chung), nội dung chat không được lộ sang kênh khác.
@@ -37,7 +42,7 @@ Ngoài ra, khoảng 10 tin gần nhất của kênh được đưa vào prompt �
 - **Kết quả tra cứu không tính câu hỏi đang hỏi và câu trả lời cũ của bot**: câu hỏi luôn khớp từ khóa của chính nó, còn câu trả lời cũ có thể sai nên không được dùng làm bằng chứng (vẫn hiện nếu nằm cạnh một tin khớp).
 - **Kênh chưa bật trí nhớ dài hạn không thấy tool tra cứu** (dù có bật ngắn hạn): LLM không được đưa tool `SEARCH_CHAT_HISTORY`, nên câu hỏi chuyện cũ ở kênh này vẫn được trả lời kiểu trò chuyện (hoặc im lặng nếu kênh tắt `allowAiChat`) như trước khi có tính năng.
 - **Tin bot gửi cũng được nhớ** (`is_bot = true`), để câu hỏi nối tiếp hiểu được bot vừa trả lời gì.
-- **Không lưu link media**: ảnh/video/file chỉ lưu nhãn và chú thích (`[Ảnh] Bãi biển Mũi Né`, `[File: ve.pdf]`), vì link CDN của Zalo hết hạn.
+- **Không lưu link media**: ảnh/video/file chỉ lưu nhãn và chú thích (`[Ảnh] Bãi biển Mũi Né`, `[File: ve.pdf]`), vì link CDN của Zalo hết hạn. Ảnh đã đọc được chữ thì lưu thêm phần chữ: `[Ảnh] menu trưa — chữ trong ảnh: CƠM GÀ 45.000 / BÚN BÒ 50.000`.
 - **Lưu vô hạn** ở Bước 1. Chưa có job xoá theo hạn.
 - Tool chỉ đọc nên **không cần xác nhận** (không sinh thẻ chờ duyệt).
 - Khối "ngữ cảnh gần đây" trong prompt cấm LLM gọi tool cho các yêu cầu cũ trong khối, để không ghi lại giao dịch cũ lần nữa.
@@ -62,10 +67,27 @@ Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm 
 - **Cấu hình cũ** (trước khi tách, chỉ có một công tắc): kênh đang bật trí nhớ và có `contextWindow > 0` được coi là bật cả hai; kênh đang tắt thì tắt cả hai; `contextWindow = 0` cũ nghĩa là tắt ngắn hạn. Không kênh nào bị đổi hành vi.
 - **Bật dài hạn**: bot bắt đầu lưu từ lúc đó. Tin trong buffer Redis (≤200 tin, 7 ngày) được nạp vào ở lần khởi động API sau.
 - **Tắt dài hạn**: có hiệu lực ngay, không cần restart. Bot ngừng lưu và ngừng tra. **Tin đã lưu vẫn giữ trong DB** và dùng tiếp khi bật lại.
-- **Trí nhớ ngắn hạn**: giữ tối đa 60 bản ghi thô (gấp đôi cửa sổ lớn nhất, vì tin bot có thể được ghi hai lần: lúc gửi và lúc Zalo gửi lại bản echo), khi đọc thì gộp bản trùng. Khi Redis không chạy thì dùng bộ nhớ trong tiến trình, mất khi restart. Không nạp lại lúc khởi động.
+- **Trí nhớ ngắn hạn**: giữ tối đa 90 bản ghi thô (gấp ba cửa sổ lớn nhất, vì một tin có thể được ghi hai lần: tin bot lúc gửi và lúc Zalo gửi lại bản echo, ảnh lúc nhận và lúc đã đọc xong chữ), khi đọc thì gộp bản trùng và giữ bản có chữ dài hơn. Khi Redis không chạy thì dùng bộ nhớ trong tiến trình, mất khi restart. Không nạp lại lúc khởi động.
 - **Số ngày nhớ của trí nhớ ngắn hạn** tính theo giờ gửi của **từng tin**, không tính theo tin cuối của kênh. Trước đây chỉ có hạn 24 giờ cố định, gia hạn sau mỗi tin mới, nên nhóm nào ngày nào cũng có tin thì bot không bao giờ quên và ngữ cảnh lẫn chuyện cũ. Nay bot bỏ qua tin cũ hơn N ngày lúc đọc; kênh im lặng quá N ngày thì Redis tự xoá dữ liệu. Cấu hình cũ chưa có trường này nhận 1 ngày, đúng hành vi cũ. Sau khi thu hồi tin, list được ghi lại với hạn 7 ngày (lúc đó không biết cấu hình kênh), nhưng khi đọc vẫn lọc theo N ngày.
 - **Card trí nhớ dài hạn** có khối "Cách hoạt động" giải thích cho admin: lưu gì, hỏi thế nào, AI thấy gì, phạm vi và thu hồi, hạn chế. Đọc xong admin biết mình đang bật gì trước khi bật.
 - Tin bị thu hồi trên Zalo bị xoá khỏi **cả hai** trí nhớ, kể cả khi kênh đang tắt chúng.
+
+### Đọc chữ trong ảnh (`readImageText`)
+
+Card thứ ba "🖼️ Đọc chữ trong ảnh" nằm dưới hai card trí nhớ. **Mặc định bật**, nhưng chỉ có tác dụng khi kênh bật ít nhất một loại trí nhớ (card hiện ghi chú "Chưa có tác dụng" nếu cả hai đang tắt). Nhờ mặc định bật, kênh đã bật trí nhớ từ trước có ngay tính năng mà admin không phải làm gì; cấu hình cũ chưa có trường này cũng được coi là bật.
+
+Vì sao vẫn cần công tắc: chữ trong ảnh có thể là dữ liệu nhạy cảm (ảnh CCCD, ảnh chụp sao kê, chuyển khoản). Chữ đó sẽ nằm trong Postgres và có thể vào prompt LLM qua cửa sổ ngắn hạn hoặc kết quả tra cứu, giống tin nhắn chữ. Nhóm nào hay gửi giấy tờ thì admin tắt riêng cho nhóm đó.
+
+Cách chạy (`ImageTextMemoryService`):
+
+1. Mọi ảnh (`chat.photo`) của kênh được đưa vào hàng đợi, **kể cả ảnh không gọi bot**, vì mục tiêu là bot nắm được ngữ cảnh của cả cuộc chat.
+2. Hàng đợi nằm trong tiến trình API, đọc **từng ảnh một** (Tesseract tốn 1–3 giây CPU mỗi ảnh), tối đa 20 ảnh chờ. Gửi dồn album lớn hơn thì các ảnh dư chỉ được nhớ là `[Ảnh]`. Restart API thì ảnh đang chờ bị bỏ.
+3. Kết quả OCR được **lọc rác**: bỏ nếu độ tin cậy Tesseract dưới 40, bỏ những dòng gần như toàn ký hiệu (thứ Tesseract đọc ra từ khuôn mặt, phong cảnh), bỏ nếu cả ảnh có dưới 8 chữ/số. Các dòng còn lại nối bằng ` / `.
+4. Ghi vào trí nhớ đang bật: dài hạn cập nhật cột `text` của đúng dòng ảnh (cột tìm kiếm tự cập nhật, không cần migration, nên `SEARCH_CHAT_HISTORY` tìm được theo chữ trong ảnh); ngắn hạn thêm một bản sao của tin ảnh, phần chữ ảnh tối đa 500 ký tự để một tấm poster không chiếm hết prompt.
+5. Ảnh bị thu hồi trong lúc đang đọc thì không được ghi chữ vào (dài hạn lọc `recalled_at IS NULL`, ngắn hạn kiểm tra tin ảnh còn trong danh sách).
+6. Ảnh **có gọi bot** (ảnh kèm chú thích trong chat 1-1, hoặc tag bot trong nhóm) chỉ bị OCR **một lần**: luồng trả lời lấy kết quả từ hàng đợi (rút ảnh lên đọc ngay, không chờ các ảnh khác). Ảnh được quote lại vẫn được OCR riêng như trước.
+
+Không đọc: ảnh gửi trước khi có tính năng hoặc được nạp lại từ buffer lúc khởi động (không còn link ảnh), video, ghi âm, file.
 - Giá trị nhập ngoài giới hạn được tự kẹp lại (vd 99 → 30), ở cả dashboard lẫn API (`normalizeChatMemoryConfig` trong `@zalobot/contracts`).
 
 - Cả phần chọn tool, sinh từ khóa lẫn phần viết câu trả lời đều đi qua cùng chuỗi provider chung (`LLM_PROVIDER` rồi `LLM_FALLBACK_PROVIDERS`, hiện là 9router → Gemini). Trí nhớ không có cấu hình LLM riêng.
@@ -75,7 +97,8 @@ Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm 
 ## 4. Quyền riêng tư
 
 - Bot lưu tin của **mọi thành viên** kênh đang listen, kể cả người không dùng bot. Admin cần cân nhắc trước khi listen một nhóm.
-- Chỉ các đoạn khớp (≤80 dòng, khi bật dài hạn) và vài tin gần nhất (≤30, khi bật ngắn hạn) được gửi ra LLM, không bao giờ gửi cả lịch sử. Muốn giữ hoàn toàn nội bộ thì đặt chuỗi provider về `qwen` local (`LLM_PROVIDER=qwen`).
+- Chỉ các đoạn khớp (≤80 dòng, khi bật dài hạn) và vài tin gần nhất (≤30, khi bật ngắn hạn) được gửi ra LLM, không bao giờ gửi cả lịch sử.
+- Chữ đọc từ ảnh đi cùng các dòng đó như tin nhắn chữ; bản thân ảnh không bao giờ được gửi cho AI. Tắt "Đọc chữ trong ảnh" nếu kênh hay gửi giấy tờ cá nhân. Muốn giữ hoàn toàn nội bộ thì đặt chuỗi provider về `qwen` local (`LLM_PROVIDER=qwen`).
 - Log raw payload của ZCA đã hạ xuống mức `debug`.
 
 ## 5. Kiểm thử
@@ -83,6 +106,8 @@ Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm 
 - Unit test: `npm run test --workspace @zalobot/api`. Các file liên quan:
   - `zca/memory/chat-memory.{mapper,query,service}.spec.ts`
   - `zca/memory/short-term-memory.service.spec.ts`
+  - `zca/memory/image-text-memory.service.spec.ts` (hàng đợi đọc ảnh)
+  - `ocr/ocr.service.spec.ts`
   - `zalo/text/strategies/search-chat-history-tool.strategy.spec.ts`
   - các test trí nhớ trong `zca/zca-bot-feature.service.spec.ts`
 - Thử tay:
@@ -90,6 +115,7 @@ Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm 
   2. `SELECT sender_name, text, sent_at FROM zca_messages WHERE channel_id = '<id>' ORDER BY sent_at DESC LIMIT 10;`
   3. Thu hồi một tin, kiểm tra `text` của nó đã thành `NULL`, `recalled_at` có giá trị.
   4. Mention bot: "@bot hôm nay mình nói gì về <chủ đề>?" → bot trả lời kèm ngày và người nói.
+  5. Gửi một ảnh có chữ (menu, thông báo) mà **không** tag bot, đợi vài giây, kiểm tra `text` của dòng ảnh có phần `— chữ trong ảnh: …` và log `[ImageTextMemory] Remembered … chars`. Sau đó hỏi "@bot ảnh lúc nãy ghi gì?".
 
 ## 6. Xử lý sự cố
 
@@ -100,4 +126,6 @@ Vì sao làm theo kênh: mỗi nhóm có nhu cầu riêng tư khác nhau. Nhóm 
 | Migration lỗi `permission denied to create extension "unaccent"` | User DB không có quyền tạo extension; nhờ admin DB chạy `CREATE EXTENSION unaccent;` rồi khởi động lại |
 | Bảng trống dù đang chat | Kênh chưa được listen hoặc chưa bật trí nhớ, hoặc log có `[ChatMemory] Could not store …` (xem lỗi DB) |
 | "Không tìm thấy…" dù đã từng nói | Từ khóa LLM sinh ra không khớp, hoặc khoảng ngày sai; hỏi lại cụ thể hơn. Tin trước khi bật tính năng chỉ có từ buffer Redis 7 ngày |
+| Ảnh chỉ được nhớ là `[Ảnh]`, không có chữ | Card "Đọc chữ trong ảnh" đang tắt; ảnh không có chữ hoặc chữ quá mờ (bị lọc rác); hàng đợi đầy (log `[ImageTextMemory] Queue full`); không tải được ảnh (log `Could not read photo`); hoặc API restart khi ảnh còn chờ |
+| CPU API tăng khi nhóm gửi nhiều ảnh | Mỗi ảnh tốn 1–3 giây Tesseract, đọc lần lượt. Tắt "Đọc chữ trong ảnh" ở kênh gửi ảnh nhiều mà không cần nhớ chữ |
 | Câu hỏi tổng hợp kiểu "cả năm đi những đâu" trả lời thiếu | Giới hạn của Bước 1 (tìm theo từ khóa); Bước 2 sẽ thêm tóm tắt theo ngày/tháng |

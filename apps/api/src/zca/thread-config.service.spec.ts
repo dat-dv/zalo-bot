@@ -44,6 +44,7 @@ void test('createDefaultThreadConfig creates sensible defaults for group vs user
     contextWindow: 10,
     shortTermDays: 1,
     searchLimit: 15,
+    readImageText: true,
   });
 
   const userConfig = createDefaultThreadConfig('u-789', {
@@ -502,6 +503,7 @@ void test('ThreadConfigService merges and clamps chat memory updates', async () 
     contextWindow: 30,
     shortTermDays: 1,
     searchLimit: 15,
+    readImageText: true,
   });
 
   const tuned = await service.updateConfig(threadId, {
@@ -513,6 +515,7 @@ void test('ThreadConfigService merges and clamps chat memory updates', async () 
     contextWindow: 30,
     shortTermDays: 1,
     searchLimit: 1,
+    readImageText: true,
   });
 
   // Long-term off keeps the short-term memory on.
@@ -527,6 +530,7 @@ void test('normalizeChatMemoryConfig fills defaults and rejects junk values', ()
     contextWindow: 10,
     shortTermDays: 1,
     searchLimit: 15,
+    readImageText: true,
   });
   assert.deepEqual(
     normalizeChatMemoryConfig({
@@ -541,6 +545,7 @@ void test('normalizeChatMemoryConfig fills defaults and rejects junk values', ()
       contextWindow: 10,
       shortTermDays: 1,
       searchLimit: 15,
+      readImageText: true,
     },
   );
   assert.deepEqual(
@@ -549,8 +554,16 @@ void test('normalizeChatMemoryConfig fills defaults and rejects junk values', ()
       shortTermEnabled: true,
       contextWindow: 7.6,
       searchLimit: 80,
+      readImageText: true,
     }),
-    { enabled: false, shortTermEnabled: true, contextWindow: 8, shortTermDays: 1, searchLimit: 50 },
+    {
+      enabled: false,
+      shortTermEnabled: true,
+      contextWindow: 8,
+      shortTermDays: 1,
+      searchLimit: 50,
+      readImageText: true,
+    },
   );
 });
 
@@ -570,6 +583,7 @@ void test('normalizeChatMemoryConfig keeps the behaviour of configs saved before
       contextWindow: 10,
       shortTermDays: 1,
       searchLimit: 15,
+      readImageText: true,
     },
   );
   // Memory off turned the window off too.
@@ -578,6 +592,15 @@ void test('normalizeChatMemoryConfig keeps the behaviour of configs saved before
       .shortTermEnabled,
     false,
   );
+});
+
+void test('normalizeChatMemoryConfig keeps the photo switch and turns it on for older configs', () => {
+  assert.equal(normalizeChatMemoryConfig({ enabled: true }).readImageText, true);
+  assert.equal(
+    normalizeChatMemoryConfig({ enabled: true, readImageText: false }).readImageText,
+    false,
+  );
+  assert.equal(normalizeChatMemoryConfig({ readImageText: 'no' }).readImageText, true);
 });
 
 void test('normalizeChatMemoryConfig clamps the short-term days to 1–7', () => {

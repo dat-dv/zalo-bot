@@ -90,6 +90,25 @@ void test('markRecalled erases the content of the recalled message only in its c
   ]);
 });
 
+void test('attachImageText updates only the member photo row that is not recalled', async () => {
+  const { service, calls } = createService();
+
+  await service.attachImageText('g-1', '7001', '[Ảnh] — chữ trong ảnh: CƠM GÀ 45.000');
+
+  assert.deepEqual(calls.find((call) => call.method === 'set')?.args, [
+    { text: '[Ảnh] — chữ trong ảnh: CƠM GÀ 45.000' },
+  ]);
+  assert.deepEqual(
+    calls.filter((call) => call.method === 'andWhere').map((call) => call.args[0]),
+    ['msg_id = :msgId', 'recalled_at IS NULL', 'NOT is_bot'],
+  );
+  assert.ok(calls.some((call) => call.method === 'execute'));
+
+  const skipped = createService();
+  await skipped.service.attachImageText('g-1', '7001', '');
+  assert.equal(skipped.calls.length, 0);
+});
+
 void test('search runs hit then neighbour queries and returns chronological lines', async () => {
   const neighbourRows: MemoryLineRow[] = [
     {

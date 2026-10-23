@@ -9,6 +9,7 @@ metadata:
       - apps/api/src/dashboard-auth/dashboard-user.ts
       - apps/api/src/redis/redis.service.ts
       - apps/api/src/ocr/ocr.service.ts
+      - apps/api/src/zca/memory/image-text-memory.service.ts
       - apps/api/src/receipt-storage/media-storage.service.ts
       - apps/api/src/google/channel-storage.util.ts
       - apps/api/src/google/google-resources.controller.ts
@@ -49,7 +50,8 @@ Cross-cutting NestJS services in `apps/api/src` that are not feature CRUD.
 
 ## OCR (`ocr/`)
 
-- `OcrService.extractTextFromBuffer(buffer)`: `sharp` pre-process (auto-rotate, grayscale, normalize; raw buffer on failure) then `tesseract.js` worker with languages `vie` + `eng`; worker terminated after each call. Errors return `''`. Local only; images are never sent to an LLM.
+- `OcrService.recognize(buffer) → { text, confidence }`: `sharp` pre-process (auto-rotate, grayscale, normalize; raw buffer on failure) then `tesseract.js` worker with languages `vie` + `eng`; worker terminated after each call. `confidence` is Tesseract's mean word confidence (0–100). Errors return `{ text: '', confidence: 0 }`. `extractTextFromBuffer(buffer)` returns only the text. Local only; images are never sent to an LLM.
+- Background use: `ImageTextMemoryService` (`zca/memory/`) reads chat photos for chat memory through an in-process queue, one photo at a time, ≤ 20 waiting, lost on restart (see `modules/zca/chat-memory.md`). Not a BullMQ queue.
 
 ## Media storage (`receipt-storage/`)
 

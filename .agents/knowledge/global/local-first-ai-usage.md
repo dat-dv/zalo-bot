@@ -8,6 +8,7 @@ metadata:
       - apps/api/src/llm/llm.service.ts
       - apps/api/src/zca/pending-image/strategies/create-bill-pending-image.strategy.ts
       - apps/api/src/zca/text/strategies/search-chat-history-tool.strategy.ts
+      - apps/api/src/zca/memory/image-text-memory.service.ts
 ---
 
 # Local-First AI Usage
@@ -15,6 +16,7 @@ metadata:
 Media and deterministic extraction are local-first to conserve AI tokens and reduce external disclosure. OCR, parsing, conversion, metadata, and validation must use an installed local capability before AI is considered.
 
 - Receipt images: `OcrService` (Sharp pre-processing + Tesseract.js `vie+eng`) extracts text locally; `LlmService` receives only that text plus prompt context, never image bytes or base64.
+- Chat photos for chat memory: the same local OCR reads every photo of a thread with a memory and `chatMemory.readImageText` on, in a background queue; only the cleaned text is stored (see `modules/zca/chat-memory.md`).
 - Voice messages are not transcribed: ZCA only backs up `chat.voice` audio to Drive when the thread's `mediaBackup.uploadAudios` is enabled. There is no speech-to-text runtime.
 
 AI (`LlmService`, provider per `LLM_PROVIDER`) may receive only minimal extracted text for semantic classification, categorization, summarization, or ambiguity resolution. It never bypasses confirmation, authorization, validation, or audit controls: tool calls only create pending actions.
@@ -25,4 +27,4 @@ Raw-media AI is an approved exception only when local processing cannot meet the
 
 - **External LLM router first** (`LLM_PROVIDER=router`, 9router, fallback Gemini). Reason: owner's choice of cost/availability over a single provider. Data: every prompt `LlmService` sends (bot-addressed chat text, OCR text of receipts, memory snippets) goes to the router's upstream (currently a free DeepSeek model) and, on failure, to Gemini. Minimization rules above are unchanged. Fallback/rollback: `LLM_PROVIDER=gemini` or `qwen` for on-prem.
 
-- **Chat memory answers** (`SEARCH_CHAT_HISTORY`, `modules/zca/chat-memory.md`). Reason: answering questions about past conversations needs language understanding; local full-text search only finds candidates. Minimization: only matched lines (≤80, `[date] sender: text`, no media URLs) when long-term memory is on, and the latest `chatMemory.contextWindow` messages (≤30, only those sent within the thread's `shortTermDays`, 1–7, kept in Redis) when short-term memory is on; never the full history. Cost: one extra tool-free LLM call per memory question. Uses the shared provider chain; set `LLM_PROVIDER=qwen` to keep it on-prem; both memories are off by default and enabled separately per thread by an admin.
+- **Chat memory answers** (`SEARCH_CHAT_HISTORY`, `modules/zca/chat-memory.md`). Reason: answering questions about past conversations needs language understanding; local full-text search only finds candidates. Minimization: only matched lines (≤80, `[date] sender: text`, no media URLs) when long-term memory is on, and the latest `chatMemory.contextWindow` messages (≤30, only those sent within the thread's `shortTermDays`, 1–7, kept in Redis) when short-term memory is on; never the full history. These lines may include text read locally from photos (≤2000 chars per photo long-term, ≤500 short-term), never photo bytes; `readImageText` turns that off per thread. Cost: one extra tool-free LLM call per memory question. Uses the shared provider chain; set `LLM_PROVIDER=qwen` to keep it on-prem; both memories are off by default and enabled separately per thread by an admin.

@@ -85,6 +85,36 @@ for (const [label, makeService] of [
     );
   });
 
+  void test(`ShortTermMemoryService (${label}) gives a photo the text read from it`, async () => {
+    const service = makeService();
+    const photo = message('p1', '', minutesAgo(30), {
+      msgType: 'chat.photo',
+      content: { title: 'menu trưa', href: 'https://cdn/x.jpg' },
+    });
+    await service.record('t1', photo, 1);
+    await service.record('t1', message('m2', 'ăn gì đây', minutesAgo(20)), 1);
+    await service.recordImageText('t1', photo, '[Ảnh] menu trưa — chữ trong ảnh: CƠM GÀ 45.000', 1);
+
+    const lines = await service.getRecent('t1', { limit: 10, maxAgeDays: 1 });
+    assert.deepEqual(
+      lines.map((line) => line.text),
+      ['[Ảnh] menu trưa — chữ trong ảnh: CƠM GÀ 45.000', 'ăn gì đây'],
+    );
+  });
+
+  void test(`ShortTermMemoryService (${label}) does not bring back a photo recalled while it was read`, async () => {
+    const service = makeService();
+    const photo = message('p1', '', minutesAgo(30), {
+      msgType: 'chat.photo',
+      content: { href: 'https://cdn/x.jpg' },
+    });
+    await service.record('t1', photo, 1);
+    await service.markRecalled('t1', 'p1');
+    await service.recordImageText('t1', photo, '[Ảnh] — chữ trong ảnh: CCCD 0790', 1);
+
+    assert.deepEqual(await service.getRecent('t1', { limit: 10, maxAgeDays: 1 }), []);
+  });
+
   void test(`ShortTermMemoryService (${label}) merges a bot reply with its self-listen echo`, async () => {
     const service = makeService();
     await service.record('t1', message('b1', 'Đã ghi 45k', minutesAgo(30)), 1);

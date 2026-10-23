@@ -21,6 +21,7 @@ function makeConfig(overrides: Partial<ThreadBotConfig> = {}): ThreadBotConfig {
       contextWindow: 8,
       shortTermDays: 2,
       searchLimit: 12,
+      readImageText: false,
     },
     memberAccess: { mode: 'selected-members', memberIds: ['u1'] },
     ...overrides,
@@ -61,6 +62,7 @@ test('resolveChatMemory falls back to defaults for empty fields and clamps typed
       contextWindow: CHAT_MEMORY_DEFAULTS.contextWindow,
       shortTermDays: CHAT_MEMORY_DEFAULTS.shortTermDays,
       searchLimit: CHAT_MEMORY_DEFAULTS.searchLimit,
+      readImageText: false,
     },
   );
   assert.equal(
@@ -90,6 +92,7 @@ test('formToPayload sends identity, every section and the resolved chat memory',
     contextWindow: 8,
     shortTermDays: 2,
     searchLimit: 12,
+    readImageText: false,
   });
 });
 
@@ -102,6 +105,7 @@ test('formToPayload keeps the short-term memory on while the long-term memory is
         contextWindow: 6,
         shortTermDays: 3,
         searchLimit: 15,
+        readImageText: true,
       },
     }),
     'group',
@@ -112,6 +116,7 @@ test('formToPayload keeps the short-term memory on while the long-term memory is
   assert.equal(payload.chatMemory?.shortTermEnabled, true);
   assert.equal(payload.chatMemory?.contextWindow, 6);
   assert.equal(payload.chatMemory?.shortTermDays, 3);
+  assert.equal(payload.chatMemory?.readImageText, true);
 });
 
 test('configToForm and formToPayload keep a clean member access config', () => {

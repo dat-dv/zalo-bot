@@ -84,6 +84,29 @@ export class ChatMemoryService {
     }
   }
 
+  /**
+   * Replaces a member photo's text with one that includes the text read from it; the generated
+   * search vector follows. A photo recalled meanwhile stays erased.
+   */
+  public async attachImageText(channelId: string, msgId: string, text: string): Promise<void> {
+    if (!channelId || !msgId || !text) return;
+    try {
+      await this.messageRepository
+        .createQueryBuilder()
+        .update(ZcaMessageEntity)
+        .set({ text })
+        .where('channel_id = :channelId', { channelId })
+        .andWhere('msg_id = :msgId', { msgId })
+        .andWhere('recalled_at IS NULL')
+        .andWhere('NOT is_bot')
+        .execute();
+    } catch (err: unknown) {
+      this.logger.warn(
+        `[ChatMemory] Could not store image text in ${channelId}: ${errorMessage(err)}`,
+      );
+    }
+  }
+
   /** Re-imports buffered messages (e.g. the Redis recent buffer); duplicates are skipped. */
   public async backfill(
     channelId: string,

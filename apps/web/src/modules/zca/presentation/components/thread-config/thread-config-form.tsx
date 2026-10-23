@@ -4,6 +4,7 @@ import type { ThreadBotConfig } from '@zalobot/contracts';
 import type { ThreadKind } from '../../../model/thread-config-form';
 import { ConfirmationRulesSection } from './confirmation-rules-section';
 import { DirectInteractionSection } from './direct-interaction-section';
+import { ImageTextMemorySection } from './image-text-memory-section';
 import { ListenToggleCard } from './listen-toggle-card';
 import { LongTermMemorySection } from './long-term-memory-section';
 import { MediaBackupSection } from './media-backup-section';
@@ -64,6 +65,7 @@ export function ThreadConfigForm({
             onDraftChange={setDraft}
             onDraftCommit={commitDraft}
           />
+          <ImageTextMemorySection form={form} onChange={setForm} />
         </div>
       </div>
       <ThreadConfigActionBar isSaving={isSaving} status={status} />

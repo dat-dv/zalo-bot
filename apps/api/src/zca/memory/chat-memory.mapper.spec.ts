@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  IMAGE_TEXT_MIN_CONFIDENCE,
   MEMORY_TEXT_MAX_CHARS,
+  buildImageMemoryText,
   buildMemoryText,
+  cleanOcrTextForMemory,
   formatMemoryLine,
   toMemoryRecord,
   toSentAt,
@@ -80,4 +83,31 @@ void test('formatMemoryLine renders local time and speaker', () => {
     'Asia/Ho_Chi_Minh',
   );
   assert.equal(botLine, '[2025-07-12 19:03] Bot: ok');
+});
+
+void test('cleanOcrTextForMemory keeps real text lines and joins them on one line', () => {
+  const raw = "CƠM GÀ   45.000\n| ~ ' ee\n\nBÚN BÒ 50.000\n_—";
+  assert.equal(cleanOcrTextForMemory(raw, 82), 'CƠM GÀ 45.000 / BÚN BÒ 50.000');
+});
+
+void test('cleanOcrTextForMemory drops photos without real text', () => {
+  // Low confidence: Tesseract guessing on a face or scenery.
+  assert.equal(cleanOcrTextForMemory('Họp lúc 9h sáng thứ hai', IMAGE_TEXT_MIN_CONFIDENCE - 1), '');
+  // Only symbol noise.
+  assert.equal(cleanOcrTextForMemory("|| ~~ '' —\n; : ,", 90), '');
+  // Too few letters to be text.
+  assert.equal(cleanOcrTextForMemory('ok', 90), '');
+});
+
+void test('buildImageMemoryText appends the photo text and respects both caps', () => {
+  assert.equal(
+    buildImageMemoryText('[Ảnh] menu trưa', 'CƠM GÀ 45.000'),
+    '[Ảnh] menu trưa — chữ trong ảnh: CƠM GÀ 45.000',
+  );
+  assert.equal(buildImageMemoryText('', 'abc'), '[Ảnh] — chữ trong ảnh: abc');
+  assert.equal(buildImageMemoryText('[Ảnh]', 'abcdefgh', 5), '[Ảnh] — chữ trong ảnh: abcd…');
+
+  const long = buildImageMemoryText('[Ảnh]', 'x'.repeat(5000));
+  assert.equal(long.length, MEMORY_TEXT_MAX_CHARS);
+  assert.ok(long.endsWith('…'));
 });

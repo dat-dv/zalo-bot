@@ -48,6 +48,7 @@ import type { OcrService } from '../ocr/ocr.service';
 import { cleanBotMention } from './text/bot-mention.util';
 import { ChatMemoryService } from './memory/chat-memory.service';
 import { ShortTermMemoryService } from './memory/short-term-memory.service';
+import { ImageTextMemoryService } from './memory/image-text-memory.service';
 
 /** Per-thread memory settings for the text pipeline; each part only when the thread has it on. */
 function toAgentMemory(
@@ -355,6 +356,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     @Optional() private readonly chatMemoryService?: ChatMemoryService,
     @Optional() threadAccessService?: ThreadAccessService,
     @Optional() private readonly shortTermMemoryService?: ShortTermMemoryService,
+    @Optional() private readonly imageTextMemoryService?: ImageTextMemoryService,
   ) {
     this.threadAccessService = threadAccessService ?? new ThreadAccessService();
     if (mediaStorageServiceOrConfirmation) {
@@ -702,14 +704,23 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     threadId: string;
     cleanedText: string;
     source: 'quoted' | 'direct';
+    /** The photo's own message id, when it is the message being answered. */
+    messageId?: string;
   }): Promise<{ promptText: string; receiptUrl: string }> {
-    const { mediaUrl, senderId, threadId, cleanedText, source } = params;
+    const { mediaUrl, senderId, threadId, cleanedText, source, messageId } = params;
     let receiptUrl = mediaUrl;
     let ocrText = '';
 
     try {
       const buffer = await fetchImageBuffer(mediaUrl);
-      if (this.ocrService) {
+      // A photo the chat memory is reading is read once, for both the memory and this reply.
+      const readForMemory =
+        source === 'direct'
+          ? await this.imageTextMemoryService?.recognizeNow(threadId, messageId, buffer)
+          : null;
+      if (typeof readForMemory === 'string') {
+        ocrText = readForMemory;
+      } else if (this.ocrService) {
         ocrText = await this.ocrService.extractTextFromBuffer(buffer);
       } else {
         this.logger.warn(
@@ -813,6 +824,32 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     }
   }
 
+  /**
+   * Queues a photo so the text read from it (local OCR, in the background) joins its entry in the
+   * chat memories that are on. Every photo of the chat, whether or not it addresses the bot.
+   */
+  private rememberImageText(
+    message: Message,
+    config: ThreadBotConfig,
+    channelType: 'user' | 'group',
+    afterStored?: Promise<unknown>,
+  ): void {
+    const memory = config.chatMemory;
+    if (!this.imageTextMemoryService || message.data?.msgType !== 'chat.photo') return;
+    if (!memory?.readImageText || (!memory.enabled && !memory.shortTermEnabled)) return;
+    const { url } = extractMediaMeta(message.data?.content);
+    if (!url) return;
+    this.imageTextMemoryService.enqueue({
+      channelId: message.threadId,
+      channelType,
+      data: message.data,
+      imageUrl: url,
+      shortTermDays: memory.shortTermEnabled ? memory.shortTermDays : undefined,
+      longTerm: memory.enabled,
+      afterStored,
+    });
+  }
+
   private resolveBotName(): string {
     return this.configService?.get<string>('zalo.botName') || process.env.BOT_NAME || 'Bot';
   }
@@ -838,7 +875,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
    * - Pending fast-paths: `yes/cancel/edit <code>` and pending image replies. `edit` is limited to
    *   the pending owner or granted users and only re-issues the same tool.
    * - L3 passive media: auto backup per `mediaBackup`, for every member (no user access check).
-   *   A media message that does not address the bot stops there: stored, never OCR'd or sent to AI.
+   *   A media message that does not address the bot stops there: stored, never sent to AI. A photo
+   *   in a chat with memory on still has its text read locally for that memory (`readImageText`).
    * - L1 direct: in a group the message must @mention the bot or start with one of the thread's
    *   `triggerPrefixes`; in a 1-1 chat any text addresses the bot. Direct guards with replies,
    *   full tool set, AI chat per `allowAiChat`.
@@ -859,16 +897,15 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     void this.bufferRecentMessage(threadId, message);
     const memory = toAgentMemory(config);
     const messageId = message.data?.msgId ? String(message.data.msgId) : undefined;
+    const channelType = message.type === ThreadType.Group ? 'group' : 'user';
     if (memory.shortTermMemory) {
       void this.shortTermMemoryService?.record(threadId, message.data, memory.shortTermMemory.days);
     }
-    if (memory.longTermMemory) {
-      void this.chatMemoryService?.record(
-        threadId,
-        message.type === ThreadType.Group ? 'group' : 'user',
-        message.data,
-      );
-    }
+    // Never rejects; the photo reader waits for the row before adding the photo's text to it.
+    const longTermStored = memory.longTermMemory
+      ? this.chatMemoryService?.record(threadId, channelType, message.data)
+      : undefined;
+    this.rememberImageText(message, config, channelType, longTermStored);
 
     const directConfig: ThreadDirectInteractionConfig = config.directInteraction ?? {
       enabled: true,
@@ -1197,6 +1234,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
           threadId,
           cleanedText,
           source: 'direct',
+          messageId,
         });
 
         if (this.textInputService) {
