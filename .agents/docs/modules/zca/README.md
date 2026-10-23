@@ -269,7 +269,7 @@ Link Google dùng trên trang (thuộc `GoogleResourcesController`): `GET /api/d
 - Đổi tài khoản Google thì link cũ vẫn được giữ trong bảng lịch sử `channel_storage_links`; bấm Drive/Photos trên bảng sẽ thấy toàn bộ. Chi tiết: [Lưu trữ media theo kênh](channel-storage.md).
 - Backend chặn tại một chỗ: `saveDriveFolderInfo` từ chối lưu thư mục không phải gốc, `savePhotosAlbumInfo` từ chối album khác album của kênh.
 - Khi admin đổi thư mục tuỳ chỉnh hoặc tên album trong **Cấu hình**, link cũ tự bị xoá; lần bấm mở tiếp theo backend tìm lại đúng thư mục/album rồi lưu.
-- Dữ liệu cũ đã lưu sai **không cần migration**: khi đọc cấu hình, link lệch gốc bị bỏ qua, web rơi về `/api/drive/open` / `/api/photos/open`, và endpoint này lưu lại link đúng.
+- Dữ liệu cũ đã lưu sai **không cần migration**: khi đọc cấu hình, link lệch gốc bị bỏ qua, web rơi về `/api/drive/open` / `/api/photos/open`. `/api/drive/open` lưu lại link thư mục đúng; `/api/photos/open` không dùng link album trong cấu hình nữa mà đọc album của kênh trên tài khoản Google đang dùng từ bảng `channel_storage_links` (xem [Lưu trữ media theo kênh](channel-storage.md)).
 
 **Khi phát triển thêm:** đừng gọi `saveDriveFolderInfo` với thư mục trả về từ upload; muốn lấy thư mục gốc hãy dùng `getThreadDriveRoot(config)` / `resolveChannelDriveRoot(channelId)`, và tên album dùng `getThreadPhotosAlbumTitle(config)`. Phía web dùng `getThreadDriveFolderLabel` / `getThreadPhotosAlbumLabel` để hiển thị.
 

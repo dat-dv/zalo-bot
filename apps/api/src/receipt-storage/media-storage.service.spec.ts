@@ -430,7 +430,6 @@ void test('MediaStorageService.syncCurrentStorage reads the album from history, 
   } as unknown as GoogleDriveService;
   const mockPhotosService = {
     createAlbum: () => Promise.reject(new Error('must not create an album')),
-    findAlbumInfo: () => Promise.reject(new Error('must not list albums')),
   } as unknown as GooglePhotosService;
   const mockAuthService = {
     isSharedAuthorized: () => true,

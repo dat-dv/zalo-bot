@@ -9,6 +9,7 @@ import { GoogleResourcesController } from './google-resources.controller';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 import { UsersModule } from '../users/users.module';
 import { ZcaModule } from '../zca/zca.module';
+import { ChannelStorageLinkModule } from '../zca/storage/channel-storage-link.module';
 
 import { GoogleDriveService } from './google-drive.service';
 import { GooglePhotosService } from './google-photos.service';
@@ -19,6 +20,8 @@ import { GooglePhotosService } from './google-photos.service';
     DashboardAuthModule,
     forwardRef(() => UsersModule),
     forwardRef(() => ZcaModule),
+    // Standalone module: the album links read the channel storage history without a cycle.
+    ChannelStorageLinkModule,
   ],
   controllers: [GoogleAuthController, GoogleResourcesController],
   providers: [

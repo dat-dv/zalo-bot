@@ -7,6 +7,11 @@ import type { GoogleDriveService } from '../../../google/google-drive.service';
 import type { ThreadConfigService } from '../../thread-config.service';
 import type { UsersService } from '../../../users/users.service';
 import type { AgentInput } from '../../../types/agent-input.type';
+import type { ChannelStorageLinkService } from '../../storage/channel-storage-link.service';
+import {
+  buildChannelStorageTarget,
+  type ChannelStorageTarget,
+} from '../../../google/channel-storage.util';
 
 void test('GetStorageLinksToolStrategy outputs channel-specific links and permission help prompt', async () => {
   let sentMessage = '';
@@ -177,4 +182,85 @@ void test('GetStorageLinksToolStrategy saves numeric ZCA group folder on thread 
 
   assert.deepEqual(savedThreadIds, ['7120342145544273834']);
   assert.deepEqual(savedUserIds, []);
+});
+
+async function runStorageLinks(options: {
+  target: ChannelStorageTarget;
+  albums?: Record<string, string>;
+}): Promise<{ message: string; drivePaths: string[] }> {
+  let message = '';
+  const drivePaths: string[] = [];
+  const strategy = new GetStorageLinksToolStrategy(
+    {
+      sendMessage: (_chatId: string, msg: string) => {
+        message = msg;
+        return Promise.resolve();
+      },
+    } as unknown as ZcaMessengerService,
+    {
+      isSharedAuthorized: () => true,
+      hasStorageScopes: () => true,
+      getSharedAccountEmail: () => Promise.resolve('shared@gmail.com'),
+    } as unknown as GoogleAuthService,
+    {
+      getFolderWebLink: (path: string) => {
+        drivePaths.push(path);
+        return Promise.resolve(`https://drive.mock/${path}`);
+      },
+    } as unknown as GoogleDriveService,
+    {
+      findAlbum: (threadId: string, email: string, title: string) => {
+        const url = options.albums?.[`${threadId}|${email}|${title}`];
+        return Promise.resolve(url ? { resourceId: 'album-id', url } : null);
+      },
+    } as unknown as ChannelStorageLinkService,
+    undefined,
+    {
+      getStorageTarget: () => Promise.resolve(options.target),
+      isGroupThread: () => Promise.resolve(true),
+      saveDriveFolderInfo: () => Promise.resolve(),
+    } as unknown as ThreadConfigService,
+  );
+
+  await strategy.execute({
+    chatId: options.target.channelId,
+    senderId: 'user-1',
+    displayName: 'Dat Doan',
+    text: '/album',
+    input: {} as unknown as AgentInput,
+  });
+  return { message, drivePaths };
+}
+
+void test('GetStorageLinksToolStrategy shows the channel album recorded for the current account', async () => {
+  const { message } = await runStorageLinks({
+    target: buildChannelStorageTarget('g-12345', { threadName: 'Nhà' }),
+    albums: { 'g-12345|shared@gmail.com|[Zalo] Nhà': 'https://photos.app.goo.gl/nha' },
+  });
+
+  assert.match(
+    message,
+    /📸 Google Photos \(Album \[\[Zalo\] Nhà\]\):\n👉 https:\/\/photos\.app\.goo\.gl\/nha/,
+  );
+  assert.doesNotMatch(message, /ZaloBot - /);
+});
+
+void test('GetStorageLinksToolStrategy says the album comes with the first media when none is recorded', async () => {
+  const { message } = await runStorageLinks({
+    target: buildChannelStorageTarget('g-12345', { threadName: 'Nhà' }),
+  });
+
+  assert.match(
+    message,
+    /Album \[\[Zalo\] Nhà\]\):\n⚠️ Chưa có \(album được tạo khi gửi ảnh\/hóa đơn\/video đầu tiên\)/,
+  );
+});
+
+void test('GetStorageLinksToolStrategy lists only the custom folder, never category folders it would create', async () => {
+  const { message, drivePaths } = await runStorageLinks({
+    target: buildChannelStorageTarget('g-12345', { customFolder: 'Nhà/Chung' }),
+  });
+
+  assert.deepEqual(drivePaths.sort(), ['Nhà/Chung', 'zalobot']);
+  assert.doesNotMatch(message, /HÓA ĐƠN|zalobot\/g-12345/);
 });

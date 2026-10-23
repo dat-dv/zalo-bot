@@ -396,20 +396,4 @@ export class MediaStorageService {
   public hasStorageScopes(userId?: number | string): boolean {
     return this.driveService ? this.driveService.hasStorageScopes(userId) : false;
   }
-
-  /**
-   * Lấy link thư mục Google Drive (zalobot/video) và album Google Photos (ZaloBot - Video)
-   */
-  public async getVideoStorageLinks(): Promise<{
-    driveLink: string | null;
-    photosLink: string | null;
-    isPermissionMissing?: boolean;
-  }> {
-    const isPermissionMissing = this.driveService ? !this.driveService.hasStorageScopes() : false;
-    const [driveLink, photosLink] = await Promise.all([
-      this.driveService ? this.driveService.getFolderWebLink('zalobot/video') : null,
-      this.photosService ? this.photosService.getAlbumLink('ZaloBot - Video') : null,
-    ]);
-    return { driveLink, photosLink, isPermissionMissing };
-  }
 }

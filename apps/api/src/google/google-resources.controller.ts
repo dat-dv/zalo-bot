@@ -24,8 +24,8 @@ import {
 } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import { GoogleAuthService } from './google-auth.service';
-import { GooglePhotosService } from './google-photos.service';
 import { GoogleDriveService, GG_DRIVE_ROOT_FOLDER } from './google-drive.service';
+import { ChannelStorageLinkService } from '../zca/storage/channel-storage-link.service';
 import { UsersService } from '../users/users.service';
 import {
   ThreadConfigService,
@@ -41,6 +41,8 @@ import {
   resolveChannelPhotosAlbumTitle,
 } from './channel-storage.util';
 
+const GOOGLE_PHOTOS_HOME = 'https://photos.google.com';
+
 @ApiTags('Google Workspace (Drive, Photos)')
 @ApiBearerAuth('bearer-jwt')
 @Controller()
@@ -51,7 +53,7 @@ export class GoogleResourcesController {
     private readonly tokens: ReportsTokenService,
     private readonly authService: GoogleAuthService,
     @Optional() private readonly driveService?: GoogleDriveService,
-    @Optional() private readonly photosService?: GooglePhotosService,
+    @Optional() private readonly storageLinks?: ChannelStorageLinkService,
     @Optional() private readonly usersService?: UsersService,
     @Optional() private readonly threadConfigService?: ThreadConfigService,
   ) {}
@@ -200,61 +202,35 @@ export class GoogleResourcesController {
     return this.resolvePhotosAlbumLink(channelId, threadName);
   }
 
+  /**
+   * The channel's album in the current shared account, as recorded by uploads
+   * (`channel_storage_links`), the same one the dashboard marks "in use". Never asks Google (the
+   * app cannot list albums) and never trusts the thread config's `photosAlbumUrl`, which may
+   * belong to a previous account. There is no system-wide album: no channel opens Google Photos.
+   */
   private async resolvePhotosAlbumLink(channelId?: string, threadName?: string) {
-    let albumTitle = 'ZaloBot - Hình ảnh';
-    let cachedUrl: string | undefined;
-
-    if (channelId) {
-      const config = await this.loadChannelConfig(channelId, threadName);
-      // Same title the media uploads use, so the link opens the album photos actually go to.
-      albumTitle = config
-        ? getThreadPhotosAlbumTitle(config)
-        : resolveChannelPhotosAlbumTitle(channelId, { threadName });
-      cachedUrl =
-        config && config.photosAlbumTitle?.trim() === albumTitle
-          ? config.photosAlbumUrl
-          : undefined;
+    if (!channelId) {
+      return { data: { albumTitle: '', webViewLink: GOOGLE_PHOTOS_HOME } };
     }
 
-    if (cachedUrl) {
-      return {
-        data: {
-          albumTitle,
-          webViewLink: cachedUrl,
-        },
-      };
-    }
-
-    if (!this.photosService) {
-      return {
-        data: {
-          albumTitle,
-          webViewLink: 'https://photos.google.com',
-        },
-      };
-    }
+    const config = await this.loadChannelConfig(channelId, threadName);
+    // Same title the media uploads use, so the link opens the album photos actually go to.
+    const albumTitle = config
+      ? getThreadPhotosAlbumTitle(config)
+      : resolveChannelPhotosAlbumTitle(channelId, { threadName });
 
     try {
-      const albumUrl = await this.photosService.getAlbumLink(albumTitle);
-      if (channelId && albumUrl && this.threadConfigService?.savePhotosAlbumInfo) {
-        void this.threadConfigService.savePhotosAlbumInfo(channelId, {
-          albumUrl,
-          albumTitle,
-        });
-      }
-      return {
-        data: {
-          albumTitle,
-          webViewLink: albumUrl || 'https://photos.google.com',
-        },
-      };
-    } catch {
-      return {
-        data: {
-          albumTitle,
-          webViewLink: 'https://photos.google.com',
-        },
-      };
+      const email = this.storageLinks ? await this.authService.getSharedAccountEmail() : null;
+      const album =
+        email && this.storageLinks
+          ? await this.storageLinks.findAlbum(channelId, email, albumTitle)
+          : null;
+      return { data: { albumTitle, webViewLink: album?.url || GOOGLE_PHOTOS_HOME } };
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Could not read the Photos album of ${channelId}: ${err instanceof Error ? err.message : 'unknown error'}`,
+      );
+      return { data: { albumTitle, webViewLink: GOOGLE_PHOTOS_HOME } };
     }
   }
 
@@ -268,8 +244,7 @@ export class GoogleResourcesController {
   ): Promise<void> {
     this.browserAdmin(req);
     const result = await this.resolvePhotosAlbumLink(channelId, threadName);
-    const targetUrl = result.data.webViewLink || 'https://photos.google.com';
-    res.redirect(targetUrl);
+    res.redirect(result.data.webViewLink);
   }
 
   @Get('google/storage-account')

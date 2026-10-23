@@ -5,7 +5,7 @@ import { Request } from 'express';
 import { GoogleResourcesController } from './google-resources.controller';
 import { GoogleAuthService } from './google-auth.service';
 import { GoogleDriveService } from './google-drive.service';
-import type { GooglePhotosService } from './google-photos.service';
+import type { ChannelStorageLinkService } from '../zca/storage/channel-storage-link.service';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import type { ThreadConfigService } from '../zca/thread-config.service';
 import type { UsersService } from '../users/users.service';
@@ -349,7 +349,25 @@ void test('GoogleResourcesController getDriveFolderLink ignores a stored month s
   });
 });
 
-void test('GoogleResourcesController getPhotosAlbumLink follows the photosAlbum override, not a stale cached album', async () => {
+const sharedEmailAuth = {
+  getSharedAccountEmail: () => Promise.resolve('shared@gmail.com'),
+} as unknown as GoogleAuthService;
+
+/** History with one album row per `channel|email|title` key. */
+function albumHistory(rows: Record<string, string>) {
+  const lookups: string[] = [];
+  const service = {
+    findAlbum: (threadId: string, email: string, title: string) => {
+      const key = `${threadId}|${email}|${title}`;
+      lookups.push(key);
+      const url = rows[key];
+      return Promise.resolve(url ? { resourceId: 'album-id', url } : null);
+    },
+  } as unknown as ChannelStorageLinkService;
+  return { service, lookups };
+}
+
+void test('GoogleResourcesController getPhotosAlbumLink reads the album of the current account, not a stale cached one', async () => {
   const mockThreadConfigService = {
     getConfigSync: (tId: string) => ({
       threadId: tId,
@@ -358,22 +376,16 @@ void test('GoogleResourcesController getPhotosAlbumLink follows the photosAlbum 
       photosAlbumTitle: '[Zalo] Team Dev',
       photosAlbumUrl: 'https://photos.google.com/album/old',
     }),
-    savePhotosAlbumInfo: () => Promise.resolve(),
   } as unknown as ThreadConfigService;
-
-  const requestedTitles: string[] = [];
-  const mockPhotos = {
-    getAlbumLink: (title: string) => {
-      requestedTitles.push(title);
-      return Promise.resolve('https://photos.google.com/album/new');
-    },
-  } as unknown as GooglePhotosService;
+  const history = albumHistory({
+    '123|shared@gmail.com|Album mới': 'https://photos.google.com/album/new',
+  });
 
   const controller = new GoogleResourcesController(
     adminTokens,
-    {} as unknown as GoogleAuthService,
+    sharedEmailAuth,
     undefined,
-    mockPhotos,
+    history.service,
     adminUsers,
     mockThreadConfigService,
   );
@@ -382,7 +394,68 @@ void test('GoogleResourcesController getPhotosAlbumLink follows the photosAlbum 
   assert.deepEqual(res, {
     data: { albumTitle: 'Album mới', webViewLink: 'https://photos.google.com/album/new' },
   });
-  assert.deepEqual(requestedTitles, ['Album mới']);
+  assert.deepEqual(history.lookups, ['123|shared@gmail.com|Album mới']);
+});
+
+void test('GoogleResourcesController getPhotosAlbumLink opens Google Photos when the channel has no album yet', async () => {
+  const mockThreadConfigService = {
+    getConfigSync: (tId: string) => ({
+      threadId: tId,
+      threadName: 'Team Dev',
+      mediaBackup: {},
+      photosAlbumTitle: '[Zalo] Team Dev',
+      // Album of a previous Google account: never used.
+      photosAlbumUrl: 'https://photos.google.com/album/old-account',
+    }),
+  } as unknown as ThreadConfigService;
+
+  const controller = new GoogleResourcesController(
+    adminTokens,
+    sharedEmailAuth,
+    undefined,
+    albumHistory({}).service,
+    adminUsers,
+    mockThreadConfigService,
+  );
+
+  const res = await controller.getPhotosAlbumLink(createMockRequest(ADMIN_ID), '123');
+  assert.deepEqual(res, {
+    data: { albumTitle: '[Zalo] Team Dev', webViewLink: 'https://photos.google.com' },
+  });
+});
+
+void test('GoogleResourcesController getPhotosAlbumLink without a channel opens Google Photos, there is no shared album', async () => {
+  const history = albumHistory({});
+  const controller = new GoogleResourcesController(
+    adminTokens,
+    sharedEmailAuth,
+    undefined,
+    history.service,
+    adminUsers,
+  );
+
+  const res = await controller.getPhotosAlbumLink(createMockRequest(ADMIN_ID));
+  assert.deepEqual(res, { data: { albumTitle: '', webViewLink: 'https://photos.google.com' } });
+  assert.deepEqual(history.lookups, []);
+});
+
+void test('GoogleResourcesController openPhotosAlbum redirects to the recorded channel album', async () => {
+  const controller = new GoogleResourcesController(
+    adminTokens,
+    sharedEmailAuth,
+    undefined,
+    albumHistory({ 'g-9|shared@gmail.com|[Zalo] Nhà': 'https://photos.app.goo.gl/nha' }).service,
+    adminUsers,
+  );
+  let redirectedUrl = '';
+  const mockRes = {
+    redirect: (url: string) => {
+      redirectedUrl = url;
+    },
+  } as unknown as import('express').Response;
+
+  await controller.openPhotosAlbum(createMockRequest(ADMIN_ID), mockRes, 'g-9', 'Nhà');
+  assert.equal(redirectedUrl, 'https://photos.app.goo.gl/nha');
 });
 
 function createStorageAccountAuth(state: { connected: boolean; scopes: boolean }) {

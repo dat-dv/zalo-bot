@@ -3,17 +3,14 @@ import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZcaMessengerService } from '../../zca-messenger.service';
 import { GoogleDriveService, GG_DRIVE_ROOT_FOLDER } from '../../../google/google-drive.service';
-import { GooglePhotosService } from '../../../google/google-photos.service';
 import { GoogleAuthService } from '../../../google/google-auth.service';
 import { UsersService } from '../../../users/users.service';
+import { ThreadConfigService, hasLegacyGroupPrefix } from '../../thread-config.service';
+import { ChannelStorageLinkService } from '../../storage/channel-storage-link.service';
 import {
-  ThreadConfigService,
-  getThreadDriveRoot,
-  hasLegacyGroupPrefix,
-} from '../../thread-config.service';
-import {
-  getChannelDriveFolderPath,
-  resolveChannelDriveRoot,
+  buildChannelStorageTarget,
+  getChannelUploadFolder,
+  type ChannelStorageTarget,
 } from '../../../google/channel-storage.util';
 
 type StorageType = 'all' | 'bill' | 'image' | 'video';
@@ -21,25 +18,12 @@ type StorageType = 'all' | 'bill' | 'image' | 'video';
 interface StorageCategoryMeta {
   emoji: string;
   label: string;
-  photosAlbum: string;
 }
 
 const CATEGORY_META: Record<Exclude<StorageType, 'all'>, StorageCategoryMeta> = {
-  bill: {
-    emoji: '🧾',
-    label: 'Hóa đơn',
-    photosAlbum: 'ZaloBot - Hóa đơn',
-  },
-  image: {
-    emoji: '🖼️',
-    label: 'Hình ảnh',
-    photosAlbum: 'ZaloBot - Hình ảnh',
-  },
-  video: {
-    emoji: '🎬',
-    label: 'Video',
-    photosAlbum: 'ZaloBot - Video',
-  },
+  bill: { emoji: '🧾', label: 'Hóa đơn' },
+  image: { emoji: '🖼️', label: 'Hình ảnh' },
+  video: { emoji: '🎬', label: 'Video' },
 };
 
 @Injectable()
@@ -52,7 +36,7 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
     private readonly zcaMessenger: ZcaMessengerService,
     private readonly googleAuthService: GoogleAuthService,
     @Optional() private readonly driveService?: GoogleDriveService,
-    @Optional() private readonly photosService?: GooglePhotosService,
+    @Optional() private readonly storageLinks?: ChannelStorageLinkService,
     @Optional() private readonly usersService?: UsersService,
     @Optional() private readonly threadConfigService?: ThreadConfigService,
     @Optional() private readonly recallDelayMs?: number,
@@ -94,7 +78,7 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
       return;
     }
 
-    if (!this.driveService && !this.photosService) {
+    if (!this.driveService && !this.storageLinks) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
         `⚠️ Dịch vụ lưu trữ chưa sẵn sàng. Vui lòng thử lại sau.`,
@@ -116,15 +100,16 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
     }
 
     try {
-      // Same root the dashboard links and media uploads use (honours the group's customFolder).
-      const threadConfig = await this.threadConfigService?.findStoredConfig?.(context.chatId);
-      const channelDrivePath = threadConfig
-        ? getThreadDriveRoot(threadConfig)
-        : resolveChannelDriveRoot(context.chatId);
+      // Same root and album the dashboard links and media uploads use (honours customFolder).
+      const target =
+        (await this.threadConfigService?.getStorageTarget?.(context.chatId)) ??
+        buildChannelStorageTarget(context.chatId);
+      const channelDrivePath = target.driveRoot;
 
-      const [rootDriveLink, channelDriveLink] = await Promise.all([
+      const [rootDriveLink, channelDriveLink, album] = await Promise.all([
         this.driveService ? this.driveService.getFolderWebLink(GG_DRIVE_ROOT_FOLDER) : null,
         this.driveService ? this.driveService.getFolderWebLink(channelDrivePath) : null,
+        this.findChannelAlbum(target),
       ]);
 
       // Lưu thông tin đường dẫn vào database để tra cứu sau này
@@ -145,9 +130,6 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
         }
       }
 
-      const entriesToFetch =
-        storageType === 'all' ? (['bill', 'image', 'video'] as const) : [storageType];
-
       const lines: string[] = [
         `📦 KHO LƯU TRỮ GOOGLE CỦA BOT`,
         ``,
@@ -157,29 +139,34 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
         `📁 Google Drive (Thư mục gốc hệ thống):`,
         rootDriveLink ? `👉 ${rootDriveLink}` : `⚠️ Chưa có dữ liệu`,
         ``,
+        `📸 Google Photos (Album [${target.photosAlbumTitle}]):`,
+        album
+          ? `👉 ${album.url}`
+          : `⚠️ Chưa có (album được tạo khi gửi ảnh/hóa đơn/video đầu tiên)`,
+        ``,
       ];
 
-      for (const category of entriesToFetch) {
-        const meta = CATEGORY_META[category];
-        const driveFolder = getChannelDriveFolderPath(context.chatId, category);
+      // A custom folder takes every upload directly (by month), so it has no category folders:
+      // listing `zalobot/<id>/<category>` there would create empty folders nobody uses.
+      if (target.splitByCategory) {
+        const entriesToFetch =
+          storageType === 'all' ? (['bill', 'image', 'video'] as const) : [storageType];
+        for (const category of entriesToFetch) {
+          const meta = CATEGORY_META[category];
+          const driveFolder = getChannelUploadFolder(target, category);
+          const driveLink = this.driveService
+            ? await this.driveService.getFolderWebLink(driveFolder)
+            : null;
 
-        const [driveLink, photosLink] = await Promise.all([
-          this.driveService ? this.driveService.getFolderWebLink(driveFolder) : null,
-          this.photosService ? this.photosService.getAlbumLink(meta.photosAlbum) : null,
-        ]);
-
-        lines.push(`${meta.emoji} ${meta.label.toUpperCase()}:`);
-        lines.push(
-          `• 📁 Drive [${driveFolder}]:`,
-          driveLink
-            ? `  👉 ${driveLink}`
-            : `  ⚠️ Chưa có (chưa upload ${meta.label.toLowerCase()} nào)`,
-        );
-        lines.push(
-          `• 📸 Photos [${meta.photosAlbum}]:`,
-          photosLink ? `  👉 ${photosLink}` : `  ⚠️ Chưa có (album chưa được tạo)`,
-        );
-        lines.push(``);
+          lines.push(`${meta.emoji} ${meta.label.toUpperCase()}:`);
+          lines.push(
+            `• 📁 Drive [${driveFolder}]:`,
+            driveLink
+              ? `  👉 ${driveLink}`
+              : `  ⚠️ Chưa có (chưa upload ${meta.label.toLowerCase()} nào)`,
+          );
+          lines.push(``);
+        }
       }
 
       lines.push(`💡 Các thư mục/album được tạo tự động khi bạn gửi ảnh/hóa đơn/video lên bot.`);
@@ -245,6 +232,25 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
         context.chatId,
         `⚠️ Không thể lấy đường dẫn lưu trữ: ${(err as Error).message}`,
       );
+    }
+  }
+
+  /**
+   * The channel's album in the shared account, as recorded by uploads (`channel_storage_links`).
+   * Read-only: the app cannot list albums on Google, and an album only exists once media did.
+   */
+  private async findChannelAlbum(target: ChannelStorageTarget): Promise<{ url: string } | null> {
+    if (!this.storageLinks) return null;
+    try {
+      const email = await this.googleAuthService.getSharedAccountEmail();
+      if (!email) return null;
+      return await this.storageLinks.findAlbum(target.channelId, email, target.photosAlbumTitle);
+    } catch (err: unknown) {
+      // The Drive links are still worth sending without the album.
+      this.logger.warn(
+        `Could not read the Photos album of ${target.channelId}: ${err instanceof Error ? err.message : 'unknown error'}`,
+      );
+      return null;
     }
   }
 }

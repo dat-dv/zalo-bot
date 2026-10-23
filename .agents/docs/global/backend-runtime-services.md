@@ -42,7 +42,7 @@ Tài liệu này ánh xạ với tri thức canonical [`backend-runtime-services
 `MediaStorageService` đưa ảnh, video, tệp người dùng gửi lên Google Drive và Google Photos.
 
 - **Phân vùng theo kênh:** mỗi cuộc trò chuyện có thư mục riêng `zalobot/<channelId>/<loại>` với loại là `bill`, `image`, `video`, `file`, `audio`; bên trong chia tiếp theo tháng `YYYY-MM`. Nhờ vậy dữ liệu các nhóm không lẫn vào nhau và có thể chia sẻ riêng từng nhóm.
-- Hoá đơn, ảnh, video được tải song song lên Drive và Photos (album mặc định `ZaloBot - Hóa đơn`, `ZaloBot - Hình ảnh`, `ZaloBot - Video`). Một bên lỗi không ảnh hưởng bên còn lại. Tệp tài liệu chỉ lên Drive.
+- Hoá đơn, ảnh, video được tải song song lên Drive và Photos, vào nơi lưu của kênh. Photos vào **album duy nhất của kênh trên tài khoản Google dùng chung**, tra trong bảng `channel_storage_links`; chỉ tạo album khi chưa có. Không còn album mặc định chung như `ZaloBot - Hình ảnh` (chi tiết: [Lưu trữ media theo kênh](../modules/zca/channel-storage.md)). Một bên lỗi không ảnh hưởng bên còn lại. Tệp tài liệu chỉ lên Drive.
 - Dùng tài khoản Google của chính người dùng nếu đã liên kết, nếu không dùng tài khoản Google dùng chung của admin. Khi thiếu quyền, tin nhắn tóm tắt nhắc admin gõ `/login`.
 
 ## 5. Link Drive/Photos (`google/google-resources.controller.ts`)
@@ -52,7 +52,7 @@ Tài liệu này ánh xạ với tri thức canonical [`backend-runtime-services
 | `POST /api/drive/share` | Chia sẻ thư mục `zalobot/<channelId>` cho một email (`reader` mặc định) và lưu thông tin thư mục vào cấu hình kênh |
 | `GET /api/drive/folder-link` | Trả link thư mục Drive của kênh (ưu tiên link đã cache) |
 | `GET /api/drive/open` | Chuyển hướng thẳng tới thư mục Drive |
-| `GET /api/photos/album-link` | Trả link album Photos của kênh (mặc định `ZaloBot - Hình ảnh`, theo kênh là `[Zalo] <tên nhóm>`) |
+| `GET /api/photos/album-link` | Trả link album Photos của kênh trên tài khoản Google đang dùng, đọc từ `channel_storage_links` (tên album `[Zalo] <tên nhóm>` hoặc tên riêng). Kênh chưa có album, hoặc không truyền kênh, thì trả trang chủ Google Photos |
 | `GET /api/photos/open` | Chuyển hướng thẳng tới album |
 
 **Phân quyền:** cả năm route **chỉ dành cho admin dashboard** (401 khi thiếu hoặc sai token, 403 khi không phải admin).

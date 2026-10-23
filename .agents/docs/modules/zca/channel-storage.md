@@ -16,6 +16,7 @@ metadata:
       - apps/web/src/modules/zca/presentation/components/google-storage-account-panel.tsx
       - apps/web/src/modules/zca/view/google-storage-screen.tsx
       - apps/api/src/google/google-resources.controller.ts
+      - apps/api/src/zca/text/strategies/get-storage-links-tool.strategy.ts
 ---
 
 # Lưu trữ media theo kênh (Drive/Photos)
@@ -121,7 +122,11 @@ Tài liệu canonical tương ứng: [`channel-storage.md`](../../../knowledge/m
 | **Tìm album trên Google luôn bị từ chối** vì app chỉ có quyền chỉ-ghi, nên cứ hụt cache là tạo album mới. Thêm ảnh lỗi bất kỳ (quá tải, lỗi tạm) cũng tạo album mới, và album mới này thành album đang dùng. Gửi nhiều ảnh cùng lúc thì mỗi ảnh tạo một album. | DB (`channel_storage_links`) là nguồn duy nhất của album; album được ghi DB ngay khi tạo; chỉ thay album khi Google báo chính album không dùng được; các upload đồng thời chờ chung một lần tạo (cả album lẫn thư mục Drive) |
 
 - Các album trùng đã sinh ra trước bản sửa **không tự gộp được**: API Google Photos không có lệnh xoá album, và quyền chỉ-ghi không cho chuyển ảnh giữa các album. Cần gộp/xoá tay trong Google Photos nếu muốn. Upload mới sẽ dính vào album được dùng gần nhất của kênh; các dòng thừa trong hộp "Mở Photos" có thể xoá trên dashboard.
-- Còn tồn tại (chưa sửa): lệnh xem kho lưu trữ trên Zalo và endpoint `GET /api/photos/album-link` vẫn tìm album bằng danh sách album của Google nên luôn báo "chưa có". Chúng không tạo album, chỉ hiện sai link.
+- Sau đó, **mọi chỗ hiện link album cũng đọc từ DB** theo đúng quy tắc trên, không hỏi Google và không bao giờ tạo album. App không còn gọi API lấy danh sách album ở bất kỳ đâu.
+  - **Lệnh xem kho trên Zalo** (`/drive`, `/kho`, `/album`, hoặc hỏi "ảnh lưu ở đâu"): trước đây hiện 3 album chung `ZaloBot - Hóa đơn/Hình ảnh/Video` nên luôn báo "chưa có". Giờ chỉ còn **một dòng album của kênh**; kênh chưa có ảnh/video nào trên tài khoản đang dùng thì báo "album được tạo khi gửi ảnh/hóa đơn/video đầu tiên". Nếu tra album bị lỗi, tin nhắn vẫn gửi link Drive, chỉ thiếu dòng album.
+  - Cũng trong lệnh này: kênh dùng **thư mục Drive riêng** chỉ hiện đúng thư mục đó. Trước đây lệnh vẫn liệt kê `zalobot/<id>/bill|image|video`, mà việc lấy link lại tự tạo thư mục, nên sinh ra 3 thư mục rỗng không ai dùng.
+  - **`GET /api/photos/album-link` và `GET /api/photos/open`** (nút "📸 Photos ↗" trên web): trước đây ưu tiên link album lưu trong cấu hình kênh. Link này lưu theo kênh chứ không theo tài khoản, nên sau khi đổi tài khoản Google nó mở album của tài khoản cũ. Giờ endpoint đọc album của kênh trên tài khoản đang dùng từ DB; chưa có thì mở trang chủ Google Photos. Gọi mà không có kênh cũng mở trang chủ, vì không còn album chung.
+- Còn tồn tại (chưa sửa): trên web, hàm `getThreadPhotosLink` (hộp đồng bộ media) vẫn ưu tiên link album trong cấu hình kênh trước khi gọi `/api/photos/open`. Link đó được ghi lại sau mỗi lần upload, nên chỉ sai trong khoảng ngay sau khi đổi tài khoản Google đến lần upload kế tiếp.
 
 ## 4. Vận hành và kiểm tra
 

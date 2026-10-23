@@ -67,15 +67,9 @@ export function isAlbumRejection(status: number, body: string): boolean {
   return (status === 400 || status === 403) && /album/i.test(body);
 }
 
-const ALBUM_PAGE_SIZE = 50;
-// Upper bound on album pages scanned (2 500 albums) so a bad pageToken loop cannot spin forever.
-const MAX_ALBUM_PAGES = 50;
-
 @Injectable()
 export class GooglePhotosService {
   private readonly logger = new Logger(GooglePhotosService.name);
-  /** Albums by title, per OAuth client: a new Google account (new client) never reuses ids. */
-  private readonly albumCache = new WeakMap<object, Map<string, PhotosAlbum>>();
   private readonly baseUrl = 'https://photoslibrary.googleapis.com/v1';
 
   constructor(private readonly authService: GoogleAuthService) {}
@@ -129,55 +123,10 @@ export class GooglePhotosService {
     return uploadToken.trim();
   }
 
-  private albumCacheFor(userId?: number | string): Map<string, PhotosAlbum> {
-    const client = this.authService.getOAuth2Client(userId);
-    if (!client) return new Map();
-    let cache = this.albumCache.get(client);
-    if (!cache) {
-      cache = new Map();
-      this.albumCache.set(client, cache);
-    }
-    return cache;
-  }
-
   /**
-   * Finds an app-created album by exact title, scanning every page. Read-only links only: the
-   * app's `photoslibrary.appendonly` scope does not allow `albums.list` (it needs
-   * `photoslibrary.readonly.appcreateddata`), so Google answers 403 and uploads never rely on it.
-   */
-  private async findAppAlbum(
-    title: string,
-    accessToken: string,
-  ): Promise<GooglePhotosAlbum | undefined> {
-    const wanted = title.trim();
-    let pageToken: string | undefined;
-    for (let page = 0; page < MAX_ALBUM_PAGES; page++) {
-      const params = new URLSearchParams({
-        pageSize: String(ALBUM_PAGE_SIZE),
-        excludeNonAppCreatedData: 'true',
-      });
-      if (pageToken) params.set('pageToken', pageToken);
-      const listRes = await fetch(`${this.baseUrl}/albums?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!listRes.ok) {
-        throw new Error(`Google Photos albums.list failed (${listRes.status})`);
-      }
-      const listData = (await listRes.json()) as {
-        albums?: GooglePhotosAlbum[];
-        nextPageToken?: string;
-      };
-      const found = listData.albums?.find((a) => a.title?.trim() === wanted);
-      if (found?.id) return found;
-      if (!listData.nextPageToken) return undefined;
-      pageToken = listData.nextPageToken;
-    }
-    return undefined;
-  }
-
-  /**
-   * Creates an album, never looking one up first (see `findAppAlbum`): the caller owns the
-   * decision, from the channel's album recorded in `channel_storage_links`.
+   * Creates an album, never looking one up first: the app's `photoslibrary.appendonly` scope does
+   * not allow `albums.list` (it needs `photoslibrary.readonly.appcreateddata`), so the caller
+   * decides from the channel's album recorded in `channel_storage_links`.
    */
   public async createAlbum(title: string, userId?: number | string): Promise<PhotosAlbum> {
     const accessToken = await this.getAccessToken(userId);
@@ -401,34 +350,5 @@ export class GooglePhotosService {
       },
       userId,
     );
-  }
-
-  /**
-   * Lấy productUrl (link web) của album Google Photos theo tiêu đề.
-   * Trả về null nếu chưa tồn tại hoặc chưa được uỷ quyền.
-   */
-  public async getAlbumLink(albumTitle: string, userId?: number | string): Promise<string | null> {
-    return (await this.findAlbumInfo(albumTitle, userId))?.url ?? null;
-  }
-
-  /** Existing app-created album (id + productUrl) by title; never creates one. */
-  public async findAlbumInfo(
-    albumTitle: string,
-    userId?: number | string,
-  ): Promise<PhotosAlbum | null> {
-    const cache = this.albumCacheFor(userId);
-    const cached = cache.get(albumTitle);
-    if (cached?.url) return cached;
-
-    try {
-      const accessToken = await this.getAccessToken(userId);
-      const album = await this.findAppAlbum(albumTitle, accessToken);
-      if (!album?.productUrl) return null;
-      const info = { id: album.id, url: album.productUrl };
-      cache.set(albumTitle, info);
-      return info;
-    } catch {
-      return null;
-    }
   }
 }

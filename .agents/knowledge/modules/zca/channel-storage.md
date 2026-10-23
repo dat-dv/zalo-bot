@@ -17,6 +17,8 @@ metadata:
       - apps/api/src/google/google-drive.service.ts
       - apps/api/src/google/google-photos.service.ts
       - apps/api/src/google/google-resources.controller.ts
+      - apps/api/src/google/google.module.ts
+      - apps/api/src/zca/text/strategies/get-storage-links-tool.strategy.ts
       - apps/api/src/google/google-auth.controller.ts
       - apps/api/src/zca/thread-config.service.ts
       - apps/api/src/zca/zca.controller.ts
@@ -52,7 +54,7 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 - The shared account is pinned by `user_tokens.is_shared` (one row). Only an explicit login (`exchangeCodeForTokens` → `saveTokensForUser(id, tokens, { shared: true })`) sets it and unmarks the others. Token refreshes (`client.on('tokens')`) never move it.
   - Why: before, every saved token (incl. hourly refreshes of any admin, e.g. one person with a webhook id and a ZCA uid) re-pointed the shared account, so media went to different Google accounts and album ids were overwritten across accounts.
   - **No fallback**: only the token marked `is_shared` (preload) or the last login is the shared account. With none, `getSharedOAuth2Client()` returns `null` and uploads stop; another admin's token is never picked silently. A token saved without a login (refresh, merge) never becomes shared.
-- A login always builds a **new OAuth client**. Caches are keyed by client object (`WeakMap`): account email (`getAccountEmail(userId?)`), Drive folder ids and in-flight folder creations (`GoogleDriveService`), album links read by title (`GooglePhotosService.findAlbumInfo`). So switching accounts never reuses ids of the old account. Upload albums are keyed by account email in `channel_storage_links` (see Album lookup).
+- A login always builds a **new OAuth client**. Caches are keyed by client object (`WeakMap`): account email (`getAccountEmail(userId?)`), Drive folder ids and in-flight folder creations (`GoogleDriveService`). So switching accounts never reuses ids of the old account. Albums are keyed by account email in `channel_storage_links` (see Album lookup).
 - Migration `1724830000000-CreateChannelStorageLinks` marks the most recently updated token as shared.
 
 ### Dashboard sign-in / sign-out (admin-only, `GoogleResourcesController`)
@@ -83,7 +85,11 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
   - `replaceAlbum(failedAlbumId)`: single-flight under its own key; re-reads history and returns the recorded album when it already differs from the failed one (another upload replaced it), else creates + records a new album and logs `warn`.
 - `GooglePhotosService.uploadPhoto({ album, replaceAlbum })`: uploads bytes once, `mediaItems:batchCreate` into `album.id`. Only `PhotosAlbumUnavailableError` (`isAlbumRejection(status, body)`: 404, or 400/403 whose body mentions "album") triggers `replaceAlbum` and one retry with the same upload token. Any other failure (429, 5xx, rejected item, missing scope) is thrown: the album is kept, the Photos side reports the error.
 - Successful uploads still `record` the album (bumps `last_used_at`).
-- `findAppAlbum` / `findAlbumInfo` / `getAlbumLink` (scan every `albums.list` page, cached per client) remain only for read-only links: Zalo storage-links command (global `ZaloBot - …` albums), `GET API_ROUTES.photosAlbumLink`, `getVideoStorageLinks`. With the current scope they return `null`; they never create albums. Known gap: move them to history-based channel links.
+- The app never calls `albums.list` (the find-by-title helpers `findAppAlbum` / `findAlbumInfo` / `getAlbumLink` and the unused `getVideoStorageLinks` were removed). Every album link is read from history with the same rule (current shared account email + channel + title, `findAlbum`), never Google, never creating:
+  - Upload resolution and `syncCurrentStorage` (dashboard "in use").
+  - Zalo `GET_STORAGE_LINKS` command (`/drive`, `/kho`, `/album`…; `get-storage-links-tool.strategy.ts`): one line `📸 Google Photos (Album [<title>])` with the link, or "⚠️ Chưa có (album được tạo khi gửi ảnh/hóa đơn/video đầu tiên)". There is no per-category or system-wide album any more. A failed lookup only drops the album line (Drive links are still sent). Uses `ThreadConfigService.getStorageTarget(chatId)`.
+  - `GET API_ROUTES.photosAlbumLink` / `GET API_ROUTES.photosOpen` (see API).
+- Zalo command Drive lines: channel root and `zalobot` root, then per category (`getChannelUploadFolder(target, category)`, filtered by the tool's `type` arg) **only when `target.splitByCategory`**. A custom-folder channel lists just its folder: `getFolderWebLink` creates folders, and listing `zalobot/<id>/<category>` there used to create empty folders nobody uploads to.
 - Drive needs no history lookup: `drive.file` can list app-created folders, so `ensureFolder` finds by name. `ensureFolderPath` resolves each path prefix once per client (cache + in-flight `Promise` map), so concurrent uploads of a channel create `zalobot/<channel>` and each category folder once.
 - Existing duplicate albums are not merged (the API cannot delete albums or move items with this scope); uploads stick to the most recently used one. Extra history rows can be deleted in the dashboard dialog.
 - The legacy `zca_thread_configs.photos_album_id` is not passed to uploads.
@@ -119,6 +125,15 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
   - Why: links from before history was tracked, or from another Google account, could not be listed. It only adds an existing link: nothing is created on Google and it never becomes `isCurrent` unless it is the folder/album uploads already use (changing where media goes stays in the thread config `customFolder` / `photosAlbum`).
   - `kind` not `drive|photos` → 400. Validation `validateChannelStorageLinkCreate(kind, dto, existingUrls)` (contracts, shared with the web form): edit rules + URL required + `url_duplicate` when a link of the same thread and kind has the same normalized URL or the same folder/album id. Format errors → 400; duplicate → 409; a unique-key race (`23505`) → 409 via the global exception filter.
   - No thread existence check, same as GET. Insert via `repository.save`, so the audit log records it with the dashboard admin as actor.
+
+### Album link routes (`GoogleResourcesController`, admin-only)
+
+- `GET API_ROUTES.photosAlbumLink?channelId&threadName` → `{ data: { albumTitle, webViewLink } }`; `GET API_ROUTES.photosOpen` 302-redirects to `webViewLink` (web `getThreadPhotosLink` falls back to it).
+- With `channelId`: title as uploads (`getThreadPhotosAlbumTitle(config)` or `resolveChannelPhotosAlbumTitle(channelId, { threadName })`), album = `ChannelStorageLinkService.findAlbum(channelId, getSharedAccountEmail(), title)`; none / no email / lookup error → `https://photos.google.com`.
+  - Why: the thread config's `photosAlbumUrl` is per channel, not per account, so after a Google account switch it opened the previous account's album; `getAlbumLink` always failed (403). The route no longer reads or writes `photosAlbumUrl`.
+- Without `channelId`: `{ albumTitle: '', webViewLink: 'https://photos.google.com' }` (no system-wide album).
+- `GoogleModule` imports the standalone `ChannelStorageLinkModule` (no module cycle); the controller no longer depends on `GooglePhotosService`.
+- Known gap (web, out of scope): `getThreadPhotosLink` (`zca-api.ts`, `sync-media-modal`) still prefers `config.photosAlbumUrl` before `photosOpen`; it is rewritten by every upload, so it is only stale right after an account switch.
 
 ## Receipt proxy
 
