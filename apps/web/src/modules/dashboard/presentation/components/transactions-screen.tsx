@@ -8,6 +8,7 @@ import {
   DEFAULT_EXPENSE_CATEGORIES,
 } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataPanel } from '@/shared/ui/data-table';
 import {
   TransactionsTable,
@@ -318,10 +319,8 @@ export function TransactionsScreen() {
               <div className="flex flex-wrap items-center gap-1.5 max-[640px]:flex-nowrap max-[640px]:overflow-x-auto">
                 <button
                   type="button"
-                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap ${PHONE_CHIP} rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                    activeFilter === 'all'
-                      ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                  className={`inline-flex h-6 min-h-6 shrink-0 items-center whitespace-nowrap ${PHONE_CHIP} rounded-[3px] border px-2 text-[11px] font-medium ${
+                    activeFilter === 'all' ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
                   }`}
                   onClick={() => setFilter('all')}
                 >
@@ -329,10 +328,8 @@ export function TransactionsScreen() {
                 </button>
                 <button
                   type="button"
-                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap ${PHONE_CHIP} rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                    activeFilter === 'income'
-                      ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                  className={`inline-flex h-6 min-h-6 shrink-0 items-center whitespace-nowrap ${PHONE_CHIP} rounded-[3px] border px-2 text-[11px] font-medium ${
+                    activeFilter === 'income' ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
                   }`}
                   onClick={() => setFilter('income')}
                 >
@@ -340,10 +337,8 @@ export function TransactionsScreen() {
                 </button>
                 <button
                   type="button"
-                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap ${PHONE_CHIP} rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                    activeFilter === 'expense'
-                      ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                  className={`inline-flex h-6 min-h-6 shrink-0 items-center whitespace-nowrap ${PHONE_CHIP} rounded-[3px] border px-2 text-[11px] font-medium ${
+                    activeFilter === 'expense' ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
                   }`}
                   onClick={() => setFilter('expense')}
                 >
@@ -353,7 +348,7 @@ export function TransactionsScreen() {
                   type="button"
                   onClick={() => setIsAdjustBalanceOpen(true)}
                   // Rarely used, so it stays in the chip row on compact screens instead of a pinned bottom bar.
-                  className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap ${PHONE_CHIP} gap-1 rounded-[3px] border border-indigo-300 bg-indigo-50 px-2 text-[11px] font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/60`}
+                  className={`inline-flex h-6 min-h-6 shrink-0 items-center whitespace-nowrap ${PHONE_CHIP} gap-1 rounded-[3px] border px-2 text-[11px] font-semibold ${BUTTON_TONE.chip}`}
                 >
                   <span>⚖️</span>
                   {t('transactions.balanceAdjust.actionButton')}
@@ -362,7 +357,7 @@ export function TransactionsScreen() {
                   <button
                     type="button"
                     onClick={clearColumnFilters}
-                    className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap ${PHONE_CHIP} gap-1 rounded-[3px] border border-sky-300 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/60`}
+                    className={`inline-flex h-6 min-h-6 shrink-0 items-center whitespace-nowrap ${PHONE_CHIP} gap-1 rounded-[3px] border px-2 text-[11px] font-medium hover:bg-sky-100 dark:hover:bg-sky-900/60 ${BUTTON_TONE.chipSelected}`}
                   >
                     {t('table.columnFilter.clearAll')}
                     <span className="rounded-[2px] bg-sky-600 px-1.5 text-[10px] leading-4 font-semibold text-white dark:bg-sky-500">
@@ -411,7 +406,7 @@ export function TransactionsScreen() {
                 type="button"
                 onClick={() => void transactionsQuery.fetchNextPage()}
                 disabled={transactionsQuery.isFetchingNextPage}
-                className="inline-flex h-7 min-h-7 max-[640px]:h-10 cursor-pointer items-center rounded-[3px] border border-slate-300 bg-white px-3 text-[11.5px] font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                className={`inline-flex h-7 min-h-7 max-[640px]:h-10 items-center rounded-[3px] border px-3 text-[11.5px] font-medium ${BUTTON_TONE.secondary}`}
               >
                 {t('table.loadMore')}
               </button>

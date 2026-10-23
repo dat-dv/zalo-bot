@@ -29,13 +29,16 @@ metadata:
       - apps/web/src/shared/hooks/use-swipe-dismiss.ts
       - apps/web/src/shared/hooks/swipe-dismiss.ts
       - apps/web/src/shared/ui/pull-to-refresh.tsx
+      - apps/web/src/shared/ui/button-styles.ts
+      - apps/web/src/shared/ui/button.tsx
+      - apps/web/src/shared/ui/button-states.spec.ts
 ---
 
 # Web UI Direction
 
 > Developer guide (Vietnamese): [`web-ui-direction.md`](../../docs/global/web-ui-direction.md)
 
-The web app is an operational, data-dense personal dashboard. Prefer one flat workspace, subtle borders, compact controls, and semantic table markup over decorative cards or heavy shadows. Tailwind CSS v4 is the exclusive styling foundation across 100% of web components and screens: all layout, panels, tables, dialogs, forms, KPI metrics, charts, and buttons use readable utility groups with responsive modifiers and `dark:` theme variants. `apps/web/src/styles.css` holds only `@import 'tailwindcss'`, the `@custom-variant dark` declaration, and a small base layer (`:root` text/background/font, `html[data-theme='dark']` colors, dark-mode `:focus-visible` outline color `#93c5fd`, `box-sizing`, `body` defaults); it has no BEM or component classes.
+The web app is an operational, data-dense personal dashboard. Prefer one flat workspace, subtle borders, compact controls, and semantic table markup over decorative cards or heavy shadows. Tailwind CSS v4 is the exclusive styling foundation across 100% of web components and screens: all layout, panels, tables, dialogs, forms, KPI metrics, charts, and buttons use readable utility groups with responsive modifiers and `dark:` theme variants. `apps/web/src/styles.css` holds only `@import 'tailwindcss'`, the `@custom-variant dark` declaration, and a small base layer (`:root` text/background/font, `html[data-theme='dark']` colors, dark-mode `:focus-visible` outline color `#93c5fd`, the button interaction states (see Button Interaction States), `box-sizing`, `body` defaults); it has no BEM or component classes.
 
 Shared UI primitives in `apps/web/src/shared/ui/` own reusable panel/table behavior. Tables fill their containing data panel on desktop, keep semantic headers, right-align numeric data, provide loading, empty, and populated states, and, unless the table opts into the mobile list (below), support smooth horizontal scrolling within their own wrapper on narrow mobile screens (`min-width: max-content` with column-level `minWidth` definitions to prevent data squashing). Action columns (`id: 'actions'`) must enforce adequate `minWidth` (120px–150px), use `flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap` on button containers, and apply `shrink-0 whitespace-nowrap` to each button (`Edit`, `Delete`, `Save`, `Cancel`, `Repay`, `Snooze`) and categorical badge to prevent unwanted line wrapping or broken button layouts.
 
@@ -82,12 +85,25 @@ The shared navigation (`apps/web/src/shared/ui/app-navigation.tsx`) is an admin-
 
 Dark mode is activated by `html[data-theme='dark']`; the inline script in `app/layout.tsx` sets it before hydration, and `useThemeStore` (`apps/web/src/shared/store/theme-store.ts`) starts as `light`, syncs from `document.documentElement.dataset.theme` in the `AppProviders` mount effect, and persists toggles to `localStorage['zalobot-theme']`; Tailwind dark utilities target this same data attribute via `@custom-variant dark`. All surfaces (desktop/mobile navigation, workspace headers, period controls, data panels, forms, dialogs, charts, and public/legal pages) use Tailwind dark utilities (`dark:bg-*`, `dark:border-*`, `dark:text-*`, `dark:hover:*`, `dark:focus:*`). Keep the selected navigation/action state high contrast and retain a visible light-blue keyboard focus outline.
 
-Dark-mode button tones (light mode keeps the black `bg-slate-900 text-white` primary). Never invert to near-white (`dark:bg-slate-100 dark:text-slate-900`): on the `#090d16` / `slate-900` surfaces it reads as a glaring white block, worst in dialogs and sheets.
-- Primary action (save/create/+ add, `MOBILE_ACTION_BUTTON` primaries, small table primaries, "Open Zalo Bot" link): `dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500` (same sky accent as calendar selection and focus).
-- Selected state (active sidebar link, active More-sheet tile, active locale button, segmented toggles): neutral `dark:border-slate-600 dark:bg-slate-700 dark:text-white`, quieter than primary actions.
-- Toasts: `dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100`.
-- Danger outline (More-sheet Logout): tinted fill `dark:bg-rose-950/40` + `dark:border-rose-800`; a bare `rose-900` border sinks into `slate-900`.
-- Secondary (Cancel) stays `dark:border-slate-700 dark:bg-slate-800`. The 2px tab-bar indicator may stay light (thin line, not a block).
+## Button Interaction States
+
+Goal: every button reacts the same way (cursor, hover, keyboard focus, pressed, disabled, selected). Before this, half the buttons showed an arrow cursor, disabled buttons still changed colour on hover, a few had no visible keyboard focus, and the same role had up to five colours (e.g. primary in slate-900, blue-600, indigo-600, emerald-600 and sky-700).
+
+- **Base layer** (`styles.css`, `@layer base`, applies to every `button`, `[role=button]`, plus focus for `a`/`summary`/`[role=tab]`): enabled → `cursor: pointer`; `:disabled` → `cursor: not-allowed` + `opacity: .5`; transitions on color/background/border/opacity/transform, 120ms ease-out (not outline-color, so the focus ring appears at once); `:focus-visible` → `outline: 2px solid #0284c7` (sky-600), `outline-offset: 1px`, dark mode `#93c5fd`. Being in the base layer, a single utility can still opt out.
+- **Pressed**: touch screens only (the `@media (hover: none)` rules in Touch Feedback). Desktop has no pressed transform. Tailwind v4 `hover:` already runs only on hover-capable devices.
+- **Colour tones**: `BUTTON_TONE` in `apps/web/src/shared/ui/button-styles.ts` holds colours and their hover/dark variants only. Size, padding, radius and font weight stay with the caller (`${SHAPE} ${BUTTON_TONE.primary}`). Hover is `not-disabled:hover:` (not `enabled:`, which never matches `<a>`), so a disabled button keeps its resting colours. Tones:
+  - `primary`: save/create/+ add/confirm, `MOBILE_ACTION_BUTTON` primaries, "Open Zalo Bot" link. Light `slate-900`, dark `sky-600` (hover `sky-500`). Never the near-white inversion (`dark:bg-slate-100 dark:text-slate-900`): on `#090d16`/`slate-900` it reads as a glaring block.
+  - `secondary`: Cancel, toolbar actions, pagination. White with a `slate-300` border; dark `slate-800`/`slate-700`.
+  - `ghost`: icon and quiet actions (✕ close, theme toggle). `accent`: link-like sky text.
+  - `danger`: confirming destruction (solid `rose-600`). `dangerSoft`: tinted Delete/Logout (`rose-50`; dark `rose-950/40` + `rose-800` border, since a bare `rose-900` border sinks into `slate-900`). `dangerGhost`: borderless rose text.
+  - `positiveSoft`: a granted/healthy state that is also an action.
+  - `chip` / `chipSelected`: standalone filter/toggle chips, selected = sky (blue means selected).
+  - `segment` / `segmentSelected`: options inside a segmented track (period grain, calendar view mode, More-sheet locale). Selected = raised white tile; dark neutral `border-slate-600 bg-slate-700 text-white`, quieter than primary actions.
+- **Rules for every button**: no `cursor-*`, `transition`/`transition-colors`/`transition-all`, `disabled:opacity-*`, `disabled:cursor-*`, `focus:*`, `focus-visible:ring*`, `outline-none`, `active:scale-*`, and no `!` on colour utilities (leftovers from the removed global button CSS). A button that can be disabled uses `not-disabled:hover:`. Allowed: `focus-visible:-outline-offset-*` (move the outline inside a clipping track) and `focus-visible:after:`/`before:` cues (column resize handle). A disabled "current" item that must not dim writes `disabled:opacity-100 disabled:cursor-default`.
+- **Exceptions** keep their own colours (rules above still apply): rows with `data-press="none"` (mobile list, ZCA list, agenda), colour that encodes data (calendar event chips, selected calendar day in sky), tab bar items, sidebar/More-sheet links, the DataTable ID cell, controls on a tinted surface (PWA update bar ✕), the always-dark error boundary (writes the dark-mode primary/secondary colours out).
+- **Guard**: `apps/web/src/shared/ui/button-states.spec.ts` (runs in `npm run test`) scans every `<button>`/`<Button>` opening tag plus the top-level constants and helpers it references, and fails with `file:line token (reason)` for any rule above.
+- `Button` (`button.tsx`) only defaults `type="button"`; raw `<button>` is equally fine.
+- Toasts: `dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100`. The 2px tab-bar indicator may stay light (thin line, not a block).
 
 ## Skeleton & Loading State Full Fidelity
 

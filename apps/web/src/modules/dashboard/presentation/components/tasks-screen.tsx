@@ -10,6 +10,7 @@ import {
 } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataPanel } from '@/shared/ui/data-table';
 import { TasksTable, type TaskEditDraft } from './tasks-table';
 import {
@@ -294,7 +295,7 @@ export function TasksScreen() {
           <strong>{t('dashboard.error.title')}</strong>
           <button
             type="button"
-            className="cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
+            className={`rounded-[2px] px-2 py-0.5 ${BUTTON_TONE.danger}`}
             onClick={refresh}
           >
             {t('common.retry')}
@@ -350,10 +351,8 @@ export function TasksScreen() {
                 <div className={`flex items-center gap-1 ${MOBILE_TOOLBAR_ROW}`}>
                   <button
                     type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${CHIP_PHONE} ${
-                      statusFilter === 'all'
-                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                    className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border px-2 text-[11px] font-medium ${CHIP_PHONE} ${
+                      statusFilter === 'all' ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
                     }`}
                     onClick={() => setStatusFilter('all')}
                   >
@@ -361,10 +360,8 @@ export function TasksScreen() {
                   </button>
                   <button
                     type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${CHIP_PHONE} ${
-                      statusFilter === 'needsAction'
-                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                    className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border px-2 text-[11px] font-medium ${CHIP_PHONE} ${
+                      statusFilter === 'needsAction' ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
                     }`}
                     onClick={() => setStatusFilter('needsAction')}
                   >
@@ -372,10 +369,8 @@ export function TasksScreen() {
                   </button>
                   <button
                     type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${CHIP_PHONE} ${
-                      statusFilter === 'completed'
-                        ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                        : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                    className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border px-2 text-[11px] font-medium ${CHIP_PHONE} ${
+                      statusFilter === 'completed' ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
                     }`}
                     onClick={() => setStatusFilter('completed')}
                   >
@@ -385,7 +380,7 @@ export function TasksScreen() {
                 <button
                   type="button"
                   // Compact screens get this action in the MobileActionBar instead.
-                  className="inline-flex h-6 min-h-6 max-[960px]:hidden cursor-pointer items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+                  className={`inline-flex h-6 min-h-6 max-[960px]:hidden items-center justify-center rounded-[3px] border px-2 text-[11px] font-semibold ${BUTTON_TONE.primary}`}
                   onClick={() => setIsCreateOpen(true)}
                 >
                   + {t('tasks.actions.create')}
@@ -427,7 +422,7 @@ export function TasksScreen() {
       <MobileActionBar>
         <button
           type="button"
-          className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`}
+          className={`${MOBILE_ACTION_BUTTON} ${BUTTON_TONE.primary}`}
           onClick={() => setIsCreateOpen(true)}
         >
           + {t('tasks.actions.create')}

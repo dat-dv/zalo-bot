@@ -13,6 +13,7 @@ import {
   useDeletePlaceMutation,
 } from '../../api/places-query';
 import { CombinePlacesDialog } from './combine-places-dialog';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
 import {
   MOBILE_TOOLBAR_ROW,
@@ -265,7 +266,7 @@ export function PlacesScreen() {
             <div className="flex items-center justify-end gap-1">
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-emerald-600 bg-emerald-600 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-emerald-700 dark:border-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-600"
+                className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-semibold whitespace-nowrap ${BUTTON_TONE.primary}`}
                 onClick={() => void handleSaveEdit(item.id)}
                 disabled={updateMutation.isPending}
                 title={t('places.actions.save')}
@@ -274,7 +275,7 @@ export function PlacesScreen() {
               </button>
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
                 onClick={handleCancelEdit}
                 disabled={updateMutation.isPending}
                 title={t('places.actions.cancel')}
@@ -290,7 +291,7 @@ export function PlacesScreen() {
             <div className="flex items-center justify-end gap-1">
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-rose-600 bg-rose-600 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-rose-700 dark:border-rose-500 dark:bg-rose-500 dark:hover:bg-rose-600"
+                className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-semibold whitespace-nowrap ${BUTTON_TONE.danger}`}
                 onClick={() => void handleDeletePlace(item.id)}
                 disabled={deleteMutation.isPending}
                 title={t('places.actions.delete')}
@@ -299,7 +300,7 @@ export function PlacesScreen() {
               </button>
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
                 onClick={() => setDeleteConfirmId(null)}
                 disabled={deleteMutation.isPending}
                 title={t('places.actions.cancel')}
@@ -314,7 +315,7 @@ export function PlacesScreen() {
           <div className="flex items-center justify-end gap-1 whitespace-nowrap">
             <button
               type="button"
-              className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+              className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
               onClick={() => handleStartEdit(item)}
               title={t('places.actions.edit')}
             >
@@ -322,7 +323,7 @@ export function PlacesScreen() {
             </button>
             <button
               type="button"
-              className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-rose-200 bg-rose-50 px-1.5 text-[11px] font-medium text-rose-700 whitespace-nowrap transition-colors hover:bg-rose-100 hover:text-rose-900 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300 dark:hover:bg-rose-900/60 dark:hover:text-rose-100"
+              className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.dangerSoft}`}
               onClick={() => {
                 setDeleteConfirmId(item.id);
                 setEditingId(null);
@@ -365,7 +366,7 @@ export function PlacesScreen() {
           <strong>{t('dashboard.error.title')}</strong>
           <button
             type="button"
-            className="cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600 max-[640px]:h-10 max-[640px]:px-3"
+            className={`rounded-[2px] px-2 py-0.5 max-[640px]:h-10 max-[640px]:px-3 ${BUTTON_TONE.danger}`}
             onClick={refresh}
           >
             {t('common.retry')}
@@ -387,7 +388,7 @@ export function PlacesScreen() {
                     <button
                       type="button"
                       // Compact screens get this action in the MobileActionBar instead.
-                      className="inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500 max-[960px]:hidden"
+                      className={`inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border px-2 text-[11px] font-semibold max-[960px]:hidden ${BUTTON_TONE.primary}`}
                       onClick={() => setIsCombineOpen(true)}
                     >
                       {t('places.actions.combine', { count: selectedIds.size })}
@@ -396,10 +397,8 @@ export function PlacesScreen() {
                   {isCompact && filteredPlaces.length > 0 && (
                     <button
                       type="button"
-                      className={`inline-flex h-6 min-h-6 shrink-0 whitespace-nowrap ${PHONE_CHIP} cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-                        isSelectMode
-                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                      className={`inline-flex h-6 min-h-6 shrink-0 whitespace-nowrap ${PHONE_CHIP} items-center rounded-[3px] border px-2 text-[11px] font-medium ${
+                        isSelectMode ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
                       }`}
                       onClick={handleToggleSelectMode}
                       aria-pressed={isSelectMode}
@@ -410,10 +409,10 @@ export function PlacesScreen() {
                   {showSelectionChips && filteredPlaces.length > 0 && (
                     <button
                       type="button"
-                      className={`inline-flex h-6 min-h-6 shrink-0 whitespace-nowrap ${PHONE_CHIP} cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
+                      className={`inline-flex h-6 min-h-6 shrink-0 whitespace-nowrap ${PHONE_CHIP} items-center rounded-[3px] border px-2 text-[11px] font-medium ${
                         selectedIds.size === filteredPlaces.length
-                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                          ? BUTTON_TONE.chipSelected
+                          : BUTTON_TONE.chip
                       }`}
                       onClick={handleToggleSelectAll}
                     >
@@ -425,7 +424,7 @@ export function PlacesScreen() {
                   {showSelectionChips && isPartiallySelected && (
                     <button
                       type="button"
-                      className="inline-flex h-6 min-h-6 shrink-0 whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] cursor-pointer items-center rounded-[3px] border border-sky-500 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/50"
+                      className={`inline-flex h-6 min-h-6 shrink-0 whitespace-nowrap max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] items-center rounded-[3px] border px-2 text-[11px] font-medium hover:bg-sky-100 dark:hover:bg-sky-900/50 ${BUTTON_TONE.chipSelected}`}
                       onClick={() => setSelectedIds(new Set())}
                       title={t('places.deselectAll')}
                     >
@@ -450,7 +449,7 @@ export function PlacesScreen() {
                     <button
                       type="submit"
                       disabled={createMutation.isPending || !newPlaceName.trim()}
-                      className="inline-flex h-6 min-h-6 max-[640px]:h-10 max-[640px]:px-3 cursor-pointer items-center justify-center rounded-[3px] border border-emerald-600 bg-emerald-600 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 dark:border-emerald-500 dark:bg-emerald-500"
+                      className={`inline-flex h-6 min-h-6 max-[640px]:h-10 max-[640px]:px-3 items-center justify-center rounded-[3px] border px-2 text-[11px] font-semibold ${BUTTON_TONE.primary}`}
                     >
                       ✓ {t('places.actions.save')}
                     </button>
@@ -460,7 +459,7 @@ export function PlacesScreen() {
                         setIsCreating(false);
                         setNewPlaceName('');
                       }}
-                      className="inline-flex h-6 min-h-6 max-[640px]:size-10 cursor-pointer items-center justify-center rounded-[3px] border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                      className={`inline-flex h-6 min-h-6 max-[640px]:size-10 items-center justify-center rounded-[3px] border px-2 text-[11px] font-medium ${BUTTON_TONE.secondary}`}
                     >
                       ✕
                     </button>
@@ -470,7 +469,7 @@ export function PlacesScreen() {
                     type="button"
                     onClick={() => setIsCreating(true)}
                     // Compact screens get this action in the MobileActionBar instead.
-                    className="inline-flex h-6 min-h-6 max-[960px]:hidden cursor-pointer items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+                    className={`inline-flex h-6 min-h-6 max-[960px]:hidden items-center justify-center rounded-[3px] border px-2 text-[11px] font-semibold ${BUTTON_TONE.primary}`}
                   >
                     + {t('places.actions.create')}
                   </button>
@@ -542,7 +541,7 @@ export function PlacesScreen() {
               <button
                 type="button"
                 onClick={() => setIsCombineOpen(true)}
-                className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`}
+                className={`${MOBILE_ACTION_BUTTON} ${BUTTON_TONE.primary}`}
               >
                 {t('places.actions.combine', { count: selectedIds.size })}
               </button>
@@ -553,7 +552,7 @@ export function PlacesScreen() {
               <button
                 type="button"
                 onClick={() => setIsCreating(true)}
-                className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`}
+                className={`${MOBILE_ACTION_BUTTON} ${BUTTON_TONE.primary}`}
               >
                 + {t('places.actions.create')}
               </button>

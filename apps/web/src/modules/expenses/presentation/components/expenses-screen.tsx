@@ -4,6 +4,7 @@ import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { localeTag, DEFAULT_EXPENSE_CATEGORIES, type IExpenseListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 
@@ -397,7 +398,7 @@ export function ExpensesScreen() {
             <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+                className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-semibold whitespace-nowrap ${BUTTON_TONE.primary}`}
                 onClick={() => void handleSaveEdit(item.id)}
                 disabled={
                   updateMutation.isPending ||
@@ -410,7 +411,7 @@ export function ExpensesScreen() {
               </button>
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
                 onClick={handleCancelEdit}
                 disabled={updateMutation.isPending}
                 title={t('expenses.actions.cancel')}
@@ -424,7 +425,7 @@ export function ExpensesScreen() {
           <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
             <button
               type="button"
-              className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+              className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
               onClick={() => handleStartEdit(item)}
               title={t('expenses.actions.edit')}
             >
@@ -432,7 +433,7 @@ export function ExpensesScreen() {
             </button>
             <button
               type="button"
-              className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-900 dark:hover:bg-rose-950/50 dark:hover:text-rose-400"
+              className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.dangerSoft}`}
               onClick={() => void handleDelete(item.id)}
               disabled={deleteMutation.isPending}
               title={t('expenses.actions.delete')}
@@ -489,7 +490,7 @@ export function ExpensesScreen() {
           <strong>{t('dashboard.error.title')}</strong>
           <button
             type="button"
-            className={`cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600 ${TAP_CONTROL}`}
+            className={`rounded-[2px] px-2 py-0.5 ${BUTTON_TONE.danger} ${TAP_CONTROL}`}
             onClick={refresh}
           >
             {t('common.retry')}

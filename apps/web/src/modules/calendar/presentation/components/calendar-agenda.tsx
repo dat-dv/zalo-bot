@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import type { ICalendarEventItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { addDays, getWeekDays, toDateKey } from '../../model/calendar-date-utils';
 import { buildDayGroups, CalendarDayList } from './calendar-day-list';
 import { DAY_HEADER_KEYS } from './calendar-grid';
@@ -19,8 +20,7 @@ interface CalendarAgendaProps {
 /** Days listed after the picked one, so an empty day never leaves an empty screen. */
 export const AGENDA_DAYS = 14;
 
-const STRIP_NAV =
-  'inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-[3px] border border-slate-200 !bg-white text-sm text-slate-700 dark:border-slate-700 dark:!bg-slate-900 dark:text-slate-200';
+const STRIP_NAV = `inline-flex size-10 shrink-0 items-center justify-center rounded-[3px] border text-sm ${BUTTON_TONE.secondary}`;
 
 /**
  * Phone view: a Monday-to-Sunday strip (dots mark busy days) to pick a day, then that day
@@ -67,7 +67,7 @@ export function CalendarAgenda({
                 onClick={() => onSelectDate(day)}
                 aria-pressed={isSelected}
                 aria-label={`${key}, ${t('table.rowsCount', { count })}`}
-                className={`flex h-14 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-[3px] border text-center transition-colors ${
+                className={`flex h-14 flex-col items-center justify-center gap-0.5 rounded-[3px] border text-center ${
                   isSelected
                     ? 'border-sky-600 bg-sky-600 text-white dark:border-sky-500 dark:bg-sky-600'
                     : 'border-transparent bg-transparent text-slate-700 dark:text-slate-200'

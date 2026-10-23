@@ -4,6 +4,7 @@ import { Fragment, useState, type ReactNode } from 'react';
 import type { ChannelStorageLinkKind, ThreadBotConfig } from '@zalobot/contracts';
 import { useOpenContactProfile } from '@/modules/contacts/view/use-open-contact-profile';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import type { ZcaThread } from '../../api/zca-api';
 import { hasInteractionAccess, type ChatRow } from '../../model/chat-rows';
 import type { ChatRowMenuItem } from './chat-row-menu';
@@ -59,16 +60,21 @@ export const COPY_ID_LABEL = 'Sao chép ID';
 export const COPIED_LABEL = 'Đã chép';
 
 const CELL_BUTTON =
-  'inline-flex h-[22px] shrink-0 items-center gap-1 rounded-[2px] border px-1.5 text-[11px] whitespace-nowrap transition-colors';
+  'inline-flex h-[22px] shrink-0 items-center gap-1 rounded-[2px] border px-1.5 text-[11px] whitespace-nowrap';
 /** Same buttons at 40px for the compact row sheet. */
 export const SHEET_BUTTON =
-  'inline-flex h-10 min-h-10 shrink-0 cursor-pointer items-center justify-center gap-1 rounded-[2px] border px-3 text-[12.5px] whitespace-nowrap transition-colors';
-export const NEUTRAL_TONE =
-  'border-slate-200 bg-white font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800';
-export const POSITIVE_TONE =
-  'border-emerald-600 bg-emerald-50 font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/60';
+  'inline-flex h-10 min-h-10 shrink-0 items-center justify-center gap-1 rounded-[2px] border px-3 text-[12.5px] whitespace-nowrap';
+export const NEUTRAL_TONE = `font-medium ${BUTTON_TONE.secondary}`;
+export const POSITIVE_TONE = `font-semibold ${BUTTON_TONE.positiveSoft}`;
+/**
+ * Revoke access: neutral at rest like its neighbours, red only on hover (a destructive action in
+ * a dense table). Secondary's resting colours; its own hover because the text colour differs.
+ */
+export const REVOKE_TONE =
+  'border-slate-300 bg-white font-medium text-slate-700 not-disabled:hover:border-slate-400 not-disabled:hover:bg-slate-50 not-disabled:hover:text-rose-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:not-disabled:hover:border-slate-600 dark:not-disabled:hover:bg-slate-700 dark:not-disabled:hover:text-rose-400';
 export const NEUTRAL_BUTTON = `${CELL_BUTTON} ${NEUTRAL_TONE}`;
 export const POSITIVE_BUTTON = `${CELL_BUTTON} ${POSITIVE_TONE}`;
+export const REVOKE_BUTTON = `${CELL_BUTTON} ${REVOKE_TONE}`;
 
 export function memberCountLabel(thread: ZcaThread | undefined): string {
   return typeof thread?.totalMembers === 'number'

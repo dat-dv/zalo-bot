@@ -36,7 +36,7 @@ export function CalendarEventCard({ event, now, onOpen, compact = false }: Calen
     <button
       type="button"
       onClick={() => onOpen(event)}
-      className={`group relative flex w-full cursor-pointer gap-2.5 overflow-hidden rounded-[3px] border border-slate-200 bg-white py-2 pr-2.5 pl-3 text-left transition-colors hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800/70 max-[640px]:py-2.5 ${
+      className={`group relative flex w-full gap-2.5 overflow-hidden rounded-[3px] border border-slate-200 bg-white py-2 pr-2.5 pl-3 text-left hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800/70 max-[640px]:py-2.5 ${
         phase === 'past' ? 'opacity-70' : ''
       }`}
     >

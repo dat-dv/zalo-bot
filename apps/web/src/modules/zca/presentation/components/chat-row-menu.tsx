@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 
 export interface ChatRowMenuItem {
   key: string;
@@ -59,7 +60,7 @@ export function ChatRowMenu({ items, label }: { items: ChatRowMenuItem[]; label:
         aria-expanded={isOpen}
         aria-haspopup="menu"
         aria-label={label}
-        className="inline-flex h-[22px] items-center rounded-[2px] border border-slate-200 bg-white px-1.5 text-xs font-bold text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+        className={`inline-flex h-[22px] items-center rounded-[2px] border px-1.5 text-xs font-bold ${BUTTON_TONE.secondary}`}
         onClick={() => setIsOpen(!isOpen)}
         title={label}
         type="button"
@@ -75,9 +76,7 @@ export function ChatRowMenu({ items, label }: { items: ChatRowMenuItem[]; label:
           {items.map((item) => (
             <button
               className={`block w-full px-3 py-1.5 text-left text-xs font-medium ${
-                item.tone === 'danger'
-                  ? 'text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40'
-                  : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'
+                item.tone === 'danger' ? BUTTON_TONE.dangerGhost : BUTTON_TONE.ghost
               }`}
               key={item.key}
               onClick={() => {

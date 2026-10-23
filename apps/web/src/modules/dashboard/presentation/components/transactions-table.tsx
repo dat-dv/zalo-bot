@@ -9,6 +9,7 @@ import {
 } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { CategoryAutocomplete } from '@/shared/ui/category-autocomplete';
 import {
@@ -306,7 +307,7 @@ export function TransactionsTable({
               <button
                 type="button"
                 // The mobile list sheet always shows the details, so the toggle is desktop-only there.
-                className={`inline-flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-100 ${
+                className={`inline-flex size-4.5 shrink-0 items-center justify-center rounded border ${BUTTON_TONE.secondary} ${
                   mobileList ? 'max-[960px]:hidden' : ''
                 }`}
                 onClick={(e) => {
@@ -347,7 +348,7 @@ export function TransactionsTable({
               {allocationCount > 0 && onOpenAllocate && (
                 <button
                   type="button"
-                  className="inline-flex cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-sky-50 px-1 py-0.5 text-[10px] font-semibold text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-300 max-[640px]:min-h-10 max-[640px]:px-2.5 max-[640px]:text-[12px]"
+                  className="inline-flex items-center gap-1 rounded-[2px] border border-sky-200 bg-sky-50 px-1 py-0.5 text-[10px] font-semibold text-sky-700 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-300 max-[640px]:min-h-10 max-[640px]:px-2.5 max-[640px]:text-[12px]"
                   onClick={(e) => {
                     e.stopPropagation();
                     onOpenAllocate(item);
@@ -694,7 +695,7 @@ export function TransactionsTable({
                 {onOpenAllocate && (
                   <button
                     type="button"
-                    className="inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-sky-50 px-1.5 text-[11px] font-medium text-sky-700 whitespace-nowrap transition-colors hover:bg-sky-100 dark:border-sky-900/50 dark:bg-sky-950/40 dark:text-sky-400 dark:hover:bg-sky-950/70"
+                    className={`inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] items-center gap-1 rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
                     onClick={() => onOpenAllocate(item)}
                     title={t('transactions.actions.allocateDebts')}
                     aria-label={t('transactions.actions.allocateDebts')}
@@ -704,7 +705,7 @@ export function TransactionsTable({
                 )}
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] items-center rounded-[2px] border px-1.5 text-[11px] font-semibold whitespace-nowrap ${BUTTON_TONE.primary}`}
                   onClick={() => void onSaveEdit(item.id)}
                   disabled={isSaveDisabled}
                   title={saveButtonTitle}
@@ -713,7 +714,7 @@ export function TransactionsTable({
                 </button>
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
                   onClick={onCancelEdit}
                   disabled={isPending}
                   title={t('transactions.actions.cancel')}
@@ -728,7 +729,7 @@ export function TransactionsTable({
               {onStartEdit && (
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] cursor-pointer items-center rounded-[2px] border border-slate-200 bg-white px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
                   onClick={() => onStartEdit(item)}
                   title={t('transactions.actions.edit')}
                 >
@@ -738,7 +739,7 @@ export function TransactionsTable({
               {onDelete && (
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] cursor-pointer items-center rounded-[2px] border border-rose-200 bg-rose-50 px-1.5 text-[11px] font-medium text-rose-700 whitespace-nowrap transition-colors hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-950/70"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.dangerSoft}`}
                   onClick={() => void onDelete(item.id)}
                   title={t('transactions.actions.delete')}
                 >
@@ -857,7 +858,7 @@ export function TransactionsTable({
               {onOpenAllocate && (
                 <button
                   type="button"
-                  className="inline-flex cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-white px-2 py-0.5 text-[10.5px] font-medium text-sky-700 transition-colors hover:bg-sky-50 dark:border-sky-800 dark:bg-slate-900 dark:text-sky-300 dark:hover:bg-slate-800 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12px]"
+                  className={`inline-flex items-center gap-1 rounded-[2px] border px-2 py-0.5 text-[10.5px] font-medium max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12px] ${BUTTON_TONE.secondary}`}
                   onClick={() => onOpenAllocate(item)}
                 >
                   <span aria-hidden="true">✏️</span>

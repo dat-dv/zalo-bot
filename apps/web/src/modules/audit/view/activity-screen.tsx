@@ -5,6 +5,7 @@ import type { IAuditLogListItem } from '@zalobot/contracts';
 import { SessionStateScreen } from '@/modules/auth/view/session-state-screen';
 import { ZcaAdminOnlyNotice } from '@/modules/zca/presentation/components/zca-admin-only-notice';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataPanel } from '@/shared/ui/data-table';
 import { PHONE_CHIP } from '@/shared/ui/touch';
 import { isForbiddenError, isUnauthorizedError, useAuditLogsQuery } from '../api/audit-query';
@@ -14,7 +15,7 @@ import { AuditFilters } from '../presentation/components/audit-filters';
 import { AuditTable } from '../presentation/components/audit-table';
 import { useAuditFilterUrlState } from './use-audit-filter-url-state';
 
-const PAGE_BUTTON = `h-7 rounded-[3px] border border-slate-300 px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${PHONE_CHIP}`;
+const PAGE_BUTTON = `h-7 rounded-[3px] border px-2.5 text-xs font-medium ${BUTTON_TONE.secondary} ${PHONE_CHIP}`;
 
 /** `/activity`: who added, changed or deleted data (admins only). */
 export function ActivityScreen() {

@@ -2,6 +2,7 @@
 
 import { useId } from 'react';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { type CalendarEventDraft, REMINDER_CHOICES } from '../../model/calendar-date-utils';
 import { useCalendarFormat } from './use-calendar-format';
 
@@ -136,10 +137,8 @@ export function CalendarEventForm({
                 type="button"
                 aria-pressed={active}
                 onClick={() => toggleReminder(minutes)}
-                className={`inline-flex h-7 cursor-pointer items-center rounded-[3px] border px-2 text-[11.5px] font-medium transition-colors max-[640px]:h-9 max-[640px]:px-3 ${
-                  active
-                    ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                    : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                className={`inline-flex h-7 items-center rounded-[3px] border px-2 text-[11.5px] font-medium max-[640px]:h-9 max-[640px]:px-3 ${
+                  active ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
                 }`}
               >
                 {format.reminder(minutes)}

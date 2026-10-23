@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { IContactListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import {
   FORM_ERROR_TEXT,
   FORM_FIELD,
@@ -39,11 +40,7 @@ const emptyDraft = (): DebtCreateDraft => ({
 });
 
 const CHIP =
-  'inline-flex h-8 flex-1 cursor-pointer items-center justify-center rounded-[3px] border px-2 text-xs font-medium transition-colors max-[640px]:h-10';
-const CHIP_ON =
-  'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300';
-const CHIP_OFF =
-  'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800';
+  'inline-flex h-8 flex-1 items-center justify-center rounded-[3px] border px-2 text-xs font-medium max-[640px]:h-10';
 
 export function CreateDebtDialog({
   open,
@@ -108,7 +105,7 @@ export function CreateDebtDialog({
               type="button"
               role="radio"
               aria-checked={draft.direction === direction}
-              className={`${CHIP} ${draft.direction === direction ? CHIP_ON : CHIP_OFF}`}
+              className={`${CHIP} ${draft.direction === direction ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip}`}
               onClick={() => update({ direction })}
               disabled={createMutation.isPending}
             >

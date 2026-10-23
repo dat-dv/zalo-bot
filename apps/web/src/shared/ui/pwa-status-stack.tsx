@@ -6,6 +6,7 @@ import { usePwaStore } from '@/shared/pwa/pwa-store';
 import { useOnlineStatus } from '@/shared/pwa/use-online-status';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { Button } from '@/shared/ui/button';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 
 function applyUpdate(worker: ServiceWorker | null) {
   // The worker activates, `controllerchange` fires and PwaRegistrar reloads the page once.
@@ -93,14 +94,15 @@ export function PwaUpdateBar() {
       <span className="min-w-0 flex-1 truncate font-medium">{t('pwa.update.title')}</span>
       <Button
         onClick={() => applyUpdate(waitingWorker)}
-        className="h-8 min-h-8 shrink-0 rounded-[3px] bg-sky-700 px-3 text-xs font-semibold text-white hover:bg-sky-800 dark:bg-sky-500 dark:text-slate-950"
+        className={`h-8 min-h-8 shrink-0 rounded-[3px] border px-3 text-xs font-semibold ${BUTTON_TONE.primary}`}
       >
         {t('pwa.update.reload')}
       </Button>
       <Button
         onClick={() => setDismissedWorker(waitingWorker)}
         aria-label={t('common.close')}
-        className="inline-flex size-8 shrink-0 items-center justify-center rounded-[3px] !bg-transparent text-sky-700 hover:!bg-sky-100 dark:text-sky-300 dark:hover:!bg-sky-900"
+        // Sits on the sky notice bar, so it keeps the bar's own colours.
+        className="inline-flex size-8 shrink-0 items-center justify-center rounded-[3px] bg-transparent text-sky-700 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-900"
       >
         <span aria-hidden="true">✕</span>
       </Button>

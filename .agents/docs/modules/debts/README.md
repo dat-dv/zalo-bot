@@ -88,6 +88,6 @@ Giao diện desktop (> 960px) giữ nguyên. Trên màn hình hẹp, bảng côn
 
 `npm run typecheck`, `npm run lint`, `npm run build` (scope `--workspace @zalobot/web`); test backend liên quan chạy bằng `npm run test --workspace @zalobot/api`.
 
-## Màu nút ở dark mode
+## Nút bấm
 
-- Ở dark mode, nút hành động chính dùng tông xanh sky (`dark:bg-sky-600 dark:text-white`), không dùng kiểu đảo màu `dark:bg-slate-100` vì nó thành khối trắng chói trên nền tối. Trong module này áp dụng cho nút tạo (toolbar và thanh hành động mobile), nút xác nhận gộp công nợ và nút chính trong dòng `DebtsTable`; toast dùng tông toast tối. Light mode giữ nút đen như cũ. Xem [web-ui-direction](../../global/web-ui-direction.md).
+- Màu nút lấy từ `BUTTON_TONE`; con trỏ, độ mờ khi khoá, viền focus và hiệu ứng chuyển màu do lớp nền lo, nên nút trong module không tự khai báo lại. Nút tạo (toolbar và thanh hành động mobile), nút xác nhận gộp công nợ và nút chính trong dòng `DebtsTable` dùng `primary`; bộ lọc trạng thái/chiều nợ (`filterChipClass`) và chip trong hộp tạo nợ dùng `chip`/`chipSelected`; xoá khoản nợ và xoá lần trả dùng `dangerSoft`; Thử lại dùng `danger`. Toast dùng tông toast tối. Xem [web-ui-direction](../../global/web-ui-direction.md#trạng-thái-tương-tác-của-nút).

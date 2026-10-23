@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { APP_ROUTES } from '@zalobot/contracts';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { useZcaThreadConfigQuery, useZcaThreadsQuery } from '../api/zca-query';
 import { ThreadConfigForm } from '../presentation/components/thread-config/thread-config-form';
 import { ThreadConfigHeader } from '../presentation/components/thread-config/thread-config-header';
@@ -53,7 +54,7 @@ export function ThreadConfigScreen() {
       <div className={PANEL}>
         Không tải được cấu hình của cuộc trò chuyện này.
         <button
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 max-[640px]:h-10 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          className={`rounded border px-3 py-1.5 text-sm font-semibold max-[640px]:h-10 ${BUTTON_TONE.secondary}`}
           onClick={() => void configQuery.refetch()}
           type="button"
         >

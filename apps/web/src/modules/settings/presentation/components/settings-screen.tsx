@@ -4,6 +4,7 @@ import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ICategoryItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { useReactScan } from '@/shared/providers/react-scan-provider';
 import {
@@ -198,7 +199,7 @@ export function SettingsScreen() {
             <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+                className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-semibold whitespace-nowrap ${BUTTON_TONE.primary}`}
                 onClick={() => void handleSaveEdit(item.id)}
                 title={t('expenses.actions.save')}
               >
@@ -206,7 +207,7 @@ export function SettingsScreen() {
               </button>
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
                 onClick={handleCancelEdit}
                 title={t('expenses.actions.cancel')}
               >
@@ -219,7 +220,7 @@ export function SettingsScreen() {
           <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
             <button
               type="button"
-              className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+              className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
               onClick={() => handleStartEdit(item)}
               title={t('expenses.actions.edit')}
             >
@@ -227,7 +228,7 @@ export function SettingsScreen() {
             </button>
             <button
               type="button"
-              className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-rose-900 dark:hover:bg-rose-950/50 dark:hover:text-rose-400"
+              className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.dangerSoft}`}
               onClick={() => void handleDelete(item)}
               title={t('expenses.actions.delete')}
             >
@@ -254,10 +255,8 @@ export function SettingsScreen() {
       <div className={`mb-4 flex gap-2 ${MOBILE_TOOLBAR_ROW}`}>
         <button
           type="button"
-          className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap transition-colors ${PHONE_CHIP} ${
-            activeTab === 'categories'
-              ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-              : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+          className={`inline-flex h-6 min-h-6 shrink-0 items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap ${PHONE_CHIP} ${
+            activeTab === 'categories' ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
           }`}
           onClick={() => setActiveTab('categories')}
         >
@@ -265,10 +264,8 @@ export function SettingsScreen() {
         </button>
         <button
           type="button"
-          className={`inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap transition-colors ${PHONE_CHIP} ${
-            activeTab === 'preferences'
-              ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-              : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+          className={`inline-flex h-6 min-h-6 shrink-0 items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap ${PHONE_CHIP} ${
+            activeTab === 'preferences' ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
           }`}
           onClick={() => setActiveTab('preferences')}
         >
@@ -284,7 +281,7 @@ export function SettingsScreen() {
           <strong>{t('dashboard.error.title')}</strong>
           <button
             type="button"
-            className={`cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600 ${TAP_CONTROL}`}
+            className={`rounded-[2px] px-2 py-0.5 ${BUTTON_TONE.danger} ${TAP_CONTROL}`}
             onClick={refresh}
           >
             {t('common.retry')}
@@ -309,7 +306,7 @@ export function SettingsScreen() {
                 {!isAddingExpense && (
                   <button
                     type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-sky-500 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300 max-[640px]:justify-center ${PHONE_CHIP}`}
+                    className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border px-2 text-[11px] font-medium max-[640px]:justify-center ${BUTTON_TONE.primary} ${PHONE_CHIP}`}
                     onClick={() => setIsAddingExpense(true)}
                   >
                     {t('settings.categories.addExpense')}
@@ -334,7 +331,7 @@ export function SettingsScreen() {
                 />
                 <button
                   type="button"
-                  className={`inline-flex h-[22px] min-h-[22px] cursor-pointer items-center justify-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500 ${TAP_CONTROL}`}
+                  className={`inline-flex h-[22px] min-h-[22px] items-center justify-center rounded-[2px] border px-1.5 text-[11px] font-semibold ${BUTTON_TONE.primary} ${TAP_CONTROL}`}
                   onClick={() => void handleCreateCategory('expense')}
                   title={t('expenses.actions.save')}
                 >
@@ -342,7 +339,7 @@ export function SettingsScreen() {
                 </button>
                 <button
                   type="button"
-                  className={`inline-flex h-[22px] min-h-[22px] cursor-pointer items-center justify-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100 ${TAP_CONTROL}`}
+                  className={`inline-flex h-[22px] min-h-[22px] items-center justify-center rounded-[2px] border px-1.5 text-[11px] font-medium ${BUTTON_TONE.secondary} ${TAP_CONTROL}`}
                   onClick={() => {
                     setIsAddingExpense(false);
                     setNewExpenseName('');
@@ -381,7 +378,7 @@ export function SettingsScreen() {
                 {!isAddingIncome && (
                   <button
                     type="button"
-                    className={`inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-sky-500 bg-sky-50 px-2 text-[11px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300 max-[640px]:justify-center ${PHONE_CHIP}`}
+                    className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border px-2 text-[11px] font-medium max-[640px]:justify-center ${BUTTON_TONE.primary} ${PHONE_CHIP}`}
                     onClick={() => setIsAddingIncome(true)}
                   >
                     {t('settings.categories.addIncome')}
@@ -406,7 +403,7 @@ export function SettingsScreen() {
                 />
                 <button
                   type="button"
-                  className={`inline-flex h-[22px] min-h-[22px] cursor-pointer items-center justify-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500 ${TAP_CONTROL}`}
+                  className={`inline-flex h-[22px] min-h-[22px] items-center justify-center rounded-[2px] border px-1.5 text-[11px] font-semibold ${BUTTON_TONE.primary} ${TAP_CONTROL}`}
                   onClick={() => void handleCreateCategory('income')}
                   title={t('expenses.actions.save')}
                 >
@@ -414,7 +411,7 @@ export function SettingsScreen() {
                 </button>
                 <button
                   type="button"
-                  className={`inline-flex h-[22px] min-h-[22px] cursor-pointer items-center justify-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100 ${TAP_CONTROL}`}
+                  className={`inline-flex h-[22px] min-h-[22px] items-center justify-center rounded-[2px] border px-1.5 text-[11px] font-medium ${BUTTON_TONE.secondary} ${TAP_CONTROL}`}
                   onClick={() => {
                     setIsAddingIncome(false);
                     setNewIncomeName('');
@@ -479,7 +476,7 @@ export function SettingsScreen() {
                 <button
                   type="button"
                   onClick={() => setIsAdjustBalanceOpen(true)}
-                  className="inline-flex h-6 min-w-[76px] shrink-0 cursor-pointer items-center justify-center gap-1 max-[640px]:h-10 max-[640px]:px-3 rounded-[3px] border border-indigo-300 bg-indigo-50 px-2 text-[11px] font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/60"
+                  className={`inline-flex h-6 min-w-[76px] shrink-0 items-center justify-center gap-1 rounded-[3px] border px-2 text-[11px] font-semibold max-[640px]:h-10 max-[640px]:px-3 ${BUTTON_TONE.secondary}`}
                 >
                   <span>⚖️</span>
                   {t('transactions.balanceAdjust.actionButton')}
@@ -499,10 +496,8 @@ export function SettingsScreen() {
                   role="switch"
                   aria-checked={isReactScanEnabled}
                   aria-label={t('settings.preferences.reactScanTitle')}
-                  className={`inline-flex h-6 min-w-[76px] shrink-0 items-center justify-center rounded-[3px] border px-2 text-[11px] font-semibold transition-colors max-[640px]:h-10 max-[640px]:px-3 ${
-                    isReactScanEnabled
-                      ? 'border-violet-500 bg-violet-50 text-violet-700 hover:bg-violet-100 dark:border-violet-400 dark:bg-violet-950/50 dark:text-violet-300'
-                      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                  className={`inline-flex h-6 min-w-[76px] shrink-0 items-center justify-center rounded-[3px] border px-2 text-[11px] font-semibold max-[640px]:h-10 max-[640px]:px-3 ${
+                    isReactScanEnabled ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
                   }`}
                   onClick={() => setReactScanEnabled(!isReactScanEnabled)}
                 >

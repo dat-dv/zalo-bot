@@ -9,6 +9,7 @@ import {
   type ChannelStorageLinkUpdateErrors,
 } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 
 export interface StorageLinkDraft {
   displayName: string;
@@ -45,9 +46,9 @@ type Translate = ReturnType<typeof useLocale>['t'];
 const INPUT_CLASS =
   'mt-1 w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 aria-[invalid=true]:border-red-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-900 max-sm:h-10';
 export const STORAGE_LINK_ACTION_BUTTON_CLASS =
-  'inline-flex min-h-8 items-center gap-1 rounded border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 max-sm:min-h-10 max-sm:px-3';
-export const STORAGE_LINK_SECONDARY_BUTTON_CLASS = `${STORAGE_LINK_ACTION_BUTTON_CLASS} border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700`;
-const PRIMARY_BUTTON_CLASS = `${STORAGE_LINK_ACTION_BUTTON_CLASS} border-blue-600 bg-blue-600 text-white hover:bg-blue-700 dark:border-blue-500 dark:bg-blue-600 dark:hover:bg-blue-500`;
+  'inline-flex min-h-8 items-center gap-1 rounded border px-2.5 py-1 text-xs font-medium max-sm:min-h-10 max-sm:px-3';
+export const STORAGE_LINK_SECONDARY_BUTTON_CLASS = `${STORAGE_LINK_ACTION_BUTTON_CLASS} ${BUTTON_TONE.secondary}`;
+const PRIMARY_BUTTON_CLASS = `${STORAGE_LINK_ACTION_BUTTON_CLASS} ${BUTTON_TONE.primary}`;
 
 function storageLinkErrorMessage(
   t: Translate,

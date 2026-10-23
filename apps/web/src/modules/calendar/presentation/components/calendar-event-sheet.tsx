@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { ICalendarEventItem } from '@zalobot/contracts';
 import { useIsPhone } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import {
   MODAL_CLOSE_TAP,
@@ -38,10 +39,10 @@ interface CalendarEventSheetProps {
   onNotify: (message: string) => void;
 }
 
-const FOOTER_BUTTON = `inline-flex min-h-8 cursor-pointer items-center justify-center rounded-[3px] border px-3 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-50 ${MODAL_FOOTER_TAP}`;
-const PRIMARY = `${FOOTER_BUTTON} border-slate-900 bg-slate-900 font-semibold text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`;
-const SECONDARY = `${FOOTER_BUTTON} border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700`;
-const DANGER = `${FOOTER_BUTTON} border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-950/70`;
+const FOOTER_BUTTON = `inline-flex min-h-8 items-center justify-center rounded-[3px] border px-3 text-xs font-medium ${MODAL_FOOTER_TAP}`;
+const PRIMARY = `${FOOTER_BUTTON} font-semibold ${BUTTON_TONE.primary}`;
+const SECONDARY = `${FOOTER_BUTTON} ${BUTTON_TONE.secondary}`;
+const DANGER = `${FOOTER_BUTTON} ${BUTTON_TONE.dangerSoft}`;
 
 /**
  * Details, edit and create in one sheet: a centered card on desktop, a bottom sheet on
@@ -173,7 +174,7 @@ export function CalendarEventSheet({ target, onClose, onNotify }: CalendarEventS
           </h2>
           <button
             type="button"
-            className={`inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-[3px] border-0 !bg-transparent text-lg text-slate-500 hover:!bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:!bg-slate-800 dark:hover:text-slate-100 ${MODAL_CLOSE_TAP}`}
+            className={`inline-flex size-8 shrink-0 items-center justify-center rounded-[3px] border-0 text-lg ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
             onClick={onClose}
             disabled={isBusy}
             aria-label={t('common.close')}
@@ -226,7 +227,7 @@ export function CalendarEventSheet({ target, onClose, onNotify }: CalendarEventS
             {canResync && (
               <button
                 type="button"
-                className="ml-auto inline-flex h-7 cursor-pointer items-center rounded-[3px] border border-sky-300 bg-sky-50 px-2 text-[11.5px] font-semibold text-sky-700 hover:bg-sky-100 disabled:opacity-50 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-300 max-[640px]:h-9"
+                className={`ml-auto inline-flex h-7 items-center rounded-[3px] border px-2 text-[11.5px] font-semibold max-[640px]:h-9 ${BUTTON_TONE.accent}`}
                 onClick={() => void resync()}
                 disabled={isBusy}
               >

@@ -2,6 +2,7 @@
 
 import { localeTag, type IAuditLogListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { TAP_CONTROL } from '@/shared/ui/touch';
 import {
@@ -108,7 +109,7 @@ export function AuditTable({ rows, loading, emptyMessage, onOpen }: AuditTablePr
         <span className="flex min-w-0 flex-wrap items-center gap-1.5">
           <button
             type="button"
-            className="group inline-flex min-w-0 flex-wrap items-center gap-1.5 rounded-[3px] text-left outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            className="group inline-flex min-w-0 flex-wrap items-center gap-1.5 rounded-[3px] text-left"
             title={t('audit.viewTitle')}
             aria-label={`${t('audit.view')}: ${recordLine(item)}`}
             onClick={() => onOpen(item)}
@@ -171,7 +172,7 @@ export function AuditTable({ rows, loading, emptyMessage, onOpen }: AuditTablePr
       cell: (item) => (
         <button
           type="button"
-          className={`rounded-[3px] border border-slate-300 px-2 py-0.5 text-[11.5px] font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${TAP_CONTROL}`}
+          className={`rounded-[3px] border px-2 py-0.5 text-[11.5px] font-medium ${BUTTON_TONE.secondary} ${TAP_CONTROL}`}
           title={t('audit.viewTitle')}
           onClick={() => onOpen(item)}
         >

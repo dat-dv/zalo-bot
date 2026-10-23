@@ -7,6 +7,7 @@ import {
   type TranslationKey,
 } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { FORM_FIELD, FORM_HINT } from '@/shared/ui/form-dialog';
 import {
   emptyReminderTimeDraft,
@@ -63,9 +64,10 @@ export function ReminderTimesField({
     else copy.splice(index, 1);
     onChange(copy.length > 0 ? copy : [emptyReminderTimeDraft()]);
   };
-  const button = compact
-    ? 'inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center justify-center rounded-[2px] border border-slate-300 px-1.5 text-[11px] text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
-    : 'inline-flex h-8 min-h-8 shrink-0 cursor-pointer items-center justify-center rounded-[3px] border border-slate-300 px-2 text-[12px] text-slate-600 hover:bg-slate-100 disabled:opacity-50 max-[640px]:h-10 max-[640px]:min-h-10 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800';
+  const buttonShape = compact
+    ? 'inline-flex h-6 min-h-6 shrink-0 items-center justify-center rounded-[2px] border px-1.5 text-[11px]'
+    : 'inline-flex h-8 min-h-8 shrink-0 items-center justify-center rounded-[3px] border px-2 text-[12px] max-[640px]:h-10 max-[640px]:min-h-10';
+  const button = `${buttonShape} ${BUTTON_TONE.secondary}`;
 
   return (
     <div className="grid gap-1">
@@ -141,7 +143,7 @@ export function ReminderTimesField({
                   <button
                     key={day}
                     type="button"
-                    className={`${button} ${picked ? 'border-sky-600 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950 dark:text-sky-200' : ''}`}
+                    className={`${buttonShape} ${picked ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip}`}
                     aria-pressed={picked}
                     onClick={() =>
                       update(index, {

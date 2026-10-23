@@ -16,14 +16,14 @@ import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { handleZaloLinkClick, ZALO_LINKS } from '@/shared/zalo/zalo-app-link';
 import { useSessionUserQuery } from '@/modules/auth/api/session-user-query';
 import { SessionUserCard } from '@/modules/auth/presentation/components/session-user-card';
+import { BUTTON_TONE } from './button-styles';
 import { LogoutConfirmDialog } from './logout-confirm-dialog';
 import { MODAL_STICKY_HEADER, Modal } from './modal';
 import { bounce } from './motion';
 import { visibleNavSections } from './nav-visibility';
 import { useWorkspaceHeader } from './workspace-header';
 
-const TOPBAR_ICON_BUTTON =
-  'inline-flex size-9 shrink-0 items-center justify-center rounded-[3px] border border-slate-300 !bg-transparent !p-0 !text-slate-700 hover:!border-slate-400 hover:!bg-slate-100 dark:border-slate-600 dark:!text-slate-200 dark:hover:!border-slate-500 dark:hover:!bg-slate-800';
+const TOPBAR_ICON_BUTTON = `inline-flex size-9 shrink-0 items-center justify-center rounded-[3px] border p-0 ${BUTTON_TONE.secondary}`;
 
 export type NavigationPage =
   | 'home'
@@ -177,20 +177,19 @@ const tabBarItems: readonly NavItem[] = TAB_BAR_PAGES.flatMap((page) =>
 );
 
 const TAB_BAR_ITEM =
-  'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[3px] !bg-transparent !p-0 text-[10.5px] leading-tight no-underline';
-const TAB_BAR_ITEM_ACTIVE = `${TAB_BAR_ITEM} font-semibold !text-slate-900 dark:!text-slate-100`;
-const TAB_BAR_ITEM_IDLE = `${TAB_BAR_ITEM} font-medium !text-slate-500 dark:!text-slate-400`;
+  'flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[3px] bg-transparent p-0 text-[10.5px] leading-tight no-underline';
+const TAB_BAR_ITEM_ACTIVE = `${TAB_BAR_ITEM} font-semibold text-slate-900 dark:text-slate-100`;
+const TAB_BAR_ITEM_IDLE = `${TAB_BAR_ITEM} font-medium text-slate-500 dark:text-slate-400`;
 
 const MENU_TILE =
   'flex h-[72px] flex-col items-center justify-center gap-1.5 rounded-[3px] border px-1 text-center text-[12px] leading-tight no-underline';
 const MENU_TILE_ACTIVE = `${MENU_TILE} border-slate-900 bg-slate-900 font-semibold text-white dark:border-slate-600 dark:bg-slate-700 dark:text-white`;
 const MENU_TILE_IDLE = `${MENU_TILE} border-slate-200 bg-slate-50 font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200`;
-const MENU_FOOTER_BUTTON =
-  'inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[3px] border border-slate-200 !bg-transparent px-3 text-xs font-medium !text-slate-700 dark:border-slate-700 dark:!text-slate-200';
+const MENU_FOOTER_BUTTON = `inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[3px] border px-3 text-xs font-medium ${BUTTON_TONE.secondary}`;
 const MENU_LOCALE =
-  'inline-flex min-w-0 flex-1 items-center justify-center rounded-[2px] border-0 !px-1 !py-0 text-xs';
-const MENU_LOCALE_ACTIVE = `${MENU_LOCALE} !bg-slate-900 font-semibold !text-white dark:!bg-slate-700 dark:!text-white`;
-const MENU_LOCALE_IDLE = `${MENU_LOCALE} !bg-transparent font-medium !text-slate-700 dark:!text-slate-200`;
+  'inline-flex min-w-0 flex-1 items-center justify-center rounded-[2px] border px-1 py-0 text-xs';
+const MENU_LOCALE_ACTIVE = `${MENU_LOCALE} font-semibold ${BUTTON_TONE.segmentSelected}`;
+const MENU_LOCALE_IDLE = `${MENU_LOCALE} font-medium ${BUTTON_TONE.segment}`;
 const LOCALE_LABEL_KEYS = {
   vi: 'web.language.vi',
   en: 'web.language.en',
@@ -324,7 +323,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           </>
         ) : (
           <a
-            className="inline-flex h-9 shrink-0 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white no-underline transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+            className={`inline-flex h-9 shrink-0 items-center justify-center rounded-[3px] border px-3 text-xs font-semibold no-underline ${BUTTON_TONE.primary}`}
             href={ZALO_LINKS.WEB}
             target="_blank"
             rel="noopener noreferrer"
@@ -389,7 +388,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           {footer}
           <button
             aria-label={nextThemeLabel}
-            className="flex min-h-7 w-full items-center gap-2 rounded-[3px] !bg-transparent px-1.5 text-left text-xs font-medium text-slate-600 hover:!bg-slate-100 hover:!text-slate-900 dark:!text-slate-300 dark:hover:!bg-slate-800 dark:hover:!text-slate-100"
+            className={`flex min-h-7 w-full items-center gap-2 rounded-[3px] px-1.5 text-left text-xs font-medium ${BUTTON_TONE.ghost}`}
             onClick={toggleTheme}
             title={nextThemeLabel}
             type="button"
@@ -431,7 +430,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           </h2>
           <button
             aria-label={t('nav.closeMenu')}
-            className="inline-flex size-10 items-center justify-center rounded-[3px] !bg-transparent !p-0 !text-slate-500 hover:!bg-slate-100 dark:!text-slate-400 dark:hover:!bg-slate-800"
+            className={`inline-flex size-10 items-center justify-center rounded-[3px] p-0 ${BUTTON_TONE.ghost}`}
             onClick={() => setIsOpen(false)}
             type="button"
           >
@@ -485,7 +484,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
             <div
               role="group"
               aria-label={t('common.language')}
-              className="flex h-10 min-w-0 flex-1 gap-0.5 rounded-[3px] border border-slate-200 p-0.5 dark:border-slate-700"
+              className="flex h-10 min-w-0 flex-1 gap-0.5 rounded-[3px] border border-slate-200 bg-slate-50 p-0.5 dark:border-slate-700 dark:bg-slate-900"
             >
               {SUPPORTED_LOCALES.map((code) => (
                 <button
@@ -502,7 +501,7 @@ export function AppNavigation({ active, footer }: { active?: NavigationPage; foo
           </div>
           {isAuthenticated && (
             <button
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-[3px] border border-rose-200 !bg-transparent text-xs font-semibold !text-rose-700 dark:border-rose-800 dark:!bg-rose-950/40 dark:!text-rose-300"
+              className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-[3px] border text-xs font-semibold ${BUTTON_TONE.dangerSoft}`}
               onClick={requestLogout}
               type="button"
             >

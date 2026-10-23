@@ -68,7 +68,7 @@ export function SessionUserCard({ user, isLoading, variant }: SessionUserCardPro
         </div>
         <button
           aria-label={copyLabel}
-          className={`flex max-w-full min-w-0 items-center !bg-transparent !p-0 text-left font-mono text-[10.5px] !text-slate-500 hover:!text-slate-800 dark:!text-slate-400 dark:hover:!text-slate-200 ${isSheet ? 'min-h-10' : ''}`}
+          className={`flex max-w-full min-w-0 items-center bg-transparent !p-0 text-left font-mono text-[10.5px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 ${isSheet ? 'min-h-10' : ''}`}
           onClick={copyId}
           title={copyLabel}
           type="button"

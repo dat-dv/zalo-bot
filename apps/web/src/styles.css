@@ -50,9 +50,40 @@ html[data-theme='dark'] {
 
 html[data-theme='dark'] button:focus-visible,
 html[data-theme='dark'] a:focus-visible,
+html[data-theme='dark'] summary:focus-visible,
+html[data-theme='dark'] [role='button']:focus-visible,
+html[data-theme='dark'] [role='tab']:focus-visible,
 html[data-theme='dark'] input:focus-visible,
 html[data-theme='dark'] select:focus-visible {
   outline-color: #93c5fd;
+}
+
+/* One set of interaction states for every button (see `shared/ui/button-styles.ts` for the
+   colour tones). Base layer, so a utility on a single button can still opt out, e.g. a
+   "current" item that is disabled but must not dim: `disabled:opacity-100 disabled:cursor-default`. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  /* No outline-color: the focus ring must appear at once, not fade in from the text colour. */
+  button,
+  [role='button'] {
+    transition-property: color, background-color, border-color, opacity, transform;
+    transition-duration: 120ms;
+    transition-timing-function: ease-out;
+  }
+
+  :is(button, a, summary, [role='button'], [role='tab']):focus-visible {
+    outline: 2px solid #0284c7;
+    outline-offset: 1px;
+  }
 }
 
 html {

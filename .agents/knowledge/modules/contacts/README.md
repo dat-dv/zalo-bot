@@ -95,6 +95,6 @@
 
 - Buttons, inputs, cards/panels and dialog panels in this module use `rounded-[3px]` (max `rounded`, 4px); no `rounded-lg/xl/2xl`. `rounded-full` only for avatars, status dots, switches, spinners and progress fills. See [web-ui-direction](../../global/web-ui-direction.md).
 
-## Dark-mode buttons
+## Buttons
 
-- Primary actions use the sky tone in dark mode (`dark:bg-sky-600 dark:text-white`), never the near-white inverted `dark:bg-slate-100`: profile `PRIMARY_BUTTON`, the combine dialog submit, toolbar/mobile-bar create buttons and row primaries; screen toasts use the dark toast tone. See [web-ui-direction](../../global/web-ui-direction.md).
+- Colours come from `BUTTON_TONE`; cursor, disabled dimming, focus outline and transitions come from the base layer, so buttons here never re-spell them. Profile `PRIMARY_BUTTON`/`SECONDARY_BUTTON`/`GHOST_BUTTON` (`profile-styles.ts`) keep their shapes and take `primary`/`secondary`/`accent`; the combine submit, toolbar/mobile-bar create and row primaries are `primary`; filter chips are `chip`/`chipSelected`; Retry is `danger`. Exception: the ✕ that closes the suggestion inside the amber notice keeps the notice colours. Screen toasts use the dark toast tone. See [web-ui-direction](../../global/web-ui-direction.md#button-interaction-states).

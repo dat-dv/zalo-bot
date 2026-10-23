@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { TAP_CONTROL, TAP_INPUT } from '@/shared/ui/touch';
 import { useUsersQuery } from '@/modules/users/api/users-query';
 import {
@@ -23,11 +24,7 @@ interface GroupMemberPickerProps {
   onChange: (memberIds: string[]) => void;
 }
 
-const CHIP =
-  'inline-flex h-7 items-center rounded-[3px] border px-2.5 text-xs font-medium transition-colors';
-const CHIP_ACTIVE = 'border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500';
-const CHIP_IDLE =
-  'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800';
+const CHIP = 'inline-flex h-7 items-center rounded-[3px] border px-2.5 text-xs font-medium';
 
 function MemberAvatar({ row }: { row: GroupMemberRow }) {
   const [imgError, setImgError] = useState(false);
@@ -86,7 +83,7 @@ export function GroupMemberPicker({ threadId, memberIds, onChange }: GroupMember
           {t('zca.memberAccess.loadError')}
         </p>
         <button
-          className={`${CHIP} ${CHIP_IDLE} ${TAP_CONTROL}`}
+          className={`${CHIP} ${BUTTON_TONE.secondary} ${TAP_CONTROL}`}
           onClick={() => void membersQuery.refetch()}
           type="button"
         >
@@ -111,7 +108,7 @@ export function GroupMemberPicker({ threadId, memberIds, onChange }: GroupMember
           {(['all', 'selected'] as const).map((key) => (
             <button
               aria-pressed={filter === key}
-              className={`${CHIP} ${filter === key ? CHIP_ACTIVE : CHIP_IDLE} ${TAP_CONTROL}`}
+              className={`${CHIP} ${filter === key ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip} ${TAP_CONTROL}`}
               key={key}
               onClick={() => setFilter(key)}
               type="button"
@@ -122,7 +119,7 @@ export function GroupMemberPicker({ threadId, memberIds, onChange }: GroupMember
             </button>
           ))}
           <button
-            className={`${CHIP} ${CHIP_IDLE} ${TAP_CONTROL} disabled:opacity-60`}
+            className={`${CHIP} ${BUTTON_TONE.secondary} ${TAP_CONTROL}`}
             disabled={refreshMutation.isPending}
             onClick={() => refreshMutation.mutate()}
             type="button"

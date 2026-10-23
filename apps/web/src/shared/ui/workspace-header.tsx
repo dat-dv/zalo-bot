@@ -10,6 +10,7 @@ import { httpClient } from '@/shared/api/http-client';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { handleZaloLinkClick, ZALO_LINKS } from '@/shared/zalo/zalo-app-link';
+import { BUTTON_TONE } from './button-styles';
 import { LogoutConfirmDialog } from './logout-confirm-dialog';
 
 interface RouteHeaderMeta {
@@ -224,7 +225,7 @@ export function WorkspaceHeader({
           <>
             {showMoneyToggle && (
               <button
-                className="inline-flex min-h-[30px] items-center justify-center gap-1.5 rounded-[3px] border border-slate-300 !bg-white px-2.5 text-xs font-medium text-slate-700 hover:!border-slate-400 hover:!bg-slate-100 hover:!text-slate-900 dark:border-slate-600 dark:!bg-slate-800 dark:!text-slate-200 dark:hover:!border-slate-500 dark:hover:!bg-slate-700"
+                className={`inline-flex min-h-[30px] items-center justify-center gap-1.5 rounded-[3px] border px-2.5 text-xs font-medium ${BUTTON_TONE.secondary}`}
                 type="button"
                 onClick={toggleMoneyVisibility}
                 aria-pressed={!isMoneyVisible}
@@ -240,7 +241,7 @@ export function WorkspaceHeader({
 
             {showRefresh && (
               <button
-                className="inline-flex min-h-[30px] items-center justify-center rounded-[3px] border border-slate-300 !bg-white px-2.5 text-xs font-medium text-slate-900 hover:!border-slate-400 hover:!bg-slate-100 dark:border-slate-600 dark:!bg-slate-800 dark:!text-slate-100 dark:hover:!border-slate-500 dark:hover:!bg-slate-700"
+                className={`inline-flex min-h-[30px] items-center justify-center rounded-[3px] border px-2.5 text-xs font-medium ${BUTTON_TONE.secondary}`}
                 type="button"
                 onClick={handleRefresh}
               >
@@ -250,7 +251,7 @@ export function WorkspaceHeader({
 
             {showLogout && (
               <button
-                className="inline-flex min-h-[30px] items-center justify-center rounded-[3px] border border-transparent !bg-transparent px-2.5 text-xs font-medium text-slate-600 hover:!border-slate-200 hover:!bg-slate-100 hover:!text-slate-900 dark:!text-slate-300 dark:hover:!border-slate-700 dark:hover:!bg-slate-800 dark:hover:!text-slate-100"
+                className={`inline-flex min-h-[30px] items-center justify-center rounded-[3px] border px-2.5 text-xs font-medium ${BUTTON_TONE.ghost}`}
                 type="button"
                 onClick={requestLogout}
               >
@@ -267,7 +268,7 @@ export function WorkspaceHeader({
           </>
         ) : (
           <a
-            className="inline-flex min-h-[30px] items-center justify-center gap-1.5 rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white no-underline transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+            className={`inline-flex min-h-[30px] items-center justify-center gap-1.5 rounded-[3px] border px-3 text-xs font-semibold no-underline ${BUTTON_TONE.primary}`}
             href={ZALO_LINKS.WEB}
             target="_blank"
             rel="noopener noreferrer"

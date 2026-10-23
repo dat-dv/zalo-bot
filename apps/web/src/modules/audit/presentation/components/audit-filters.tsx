@@ -13,6 +13,7 @@ import {
 } from '@zalobot/contracts';
 import { useIsPhone } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import {
   MODAL_CLOSE_TAP,
   MODAL_FOOTER_TAP,
@@ -89,7 +90,7 @@ export function AuditFilters({ state, actors, onChange }: AuditFiltersProps) {
   const clearAll = hasActiveAuditFilters(state) && (
     <button
       type="button"
-      className={`h-7 shrink-0 rounded-[3px] px-2 text-xs font-medium text-sky-700 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-slate-800 ${PHONE_CHIP}`}
+      className={`h-7 shrink-0 rounded-[3px] px-2 text-xs font-medium ${BUTTON_TONE.accent} ${PHONE_CHIP}`}
       onClick={() => onChange(CLEARED)}
     >
       {t('audit.filter.clearAll')}
@@ -114,9 +115,7 @@ export function AuditFilters({ state, actors, onChange }: AuditFiltersProps) {
         aria-expanded={sheetOpen}
         onClick={() => setSheetOpen(true)}
         className={`inline-flex h-7 shrink-0 items-center gap-1.5 rounded-[3px] border px-2 text-xs font-medium ${
-          sheetCount > 0
-            ? 'border-sky-300 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-200'
-            : 'border-slate-300 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+          sheetCount > 0 ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
         } ${PHONE_CHIP}`}
       >
         <svg viewBox="0 0 16 16" className="size-3" fill="currentColor" aria-hidden="true">
@@ -147,7 +146,7 @@ export function AuditFilters({ state, actors, onChange }: AuditFiltersProps) {
             type="button"
             onClick={() => setSheetOpen(false)}
             aria-label={t('common.close')}
-            className={`rounded-[3px] p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 ${MODAL_CLOSE_TAP}`}
+            className={`rounded-[3px] p-1 ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
           >
             ✕
           </button>
@@ -163,7 +162,7 @@ export function AuditFilters({ state, actors, onChange }: AuditFiltersProps) {
             <button
               type="button"
               onClick={() => onChange(CLEARED)}
-              className={`rounded-[3px] border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${MODAL_FOOTER_TAP}`}
+              className={`rounded-[3px] border px-3 py-1.5 text-sm font-medium ${BUTTON_TONE.secondary} ${MODAL_FOOTER_TAP}`}
             >
               {t('audit.filter.clearAll')}
             </button>
@@ -171,7 +170,7 @@ export function AuditFilters({ state, actors, onChange }: AuditFiltersProps) {
           <button
             type="button"
             onClick={() => setSheetOpen(false)}
-            className={`rounded-[3px] bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-sky-600 dark:hover:bg-sky-500 ${MODAL_FOOTER_TAP}`}
+            className={`rounded-[3px] px-3 py-1.5 text-sm font-semibold ${BUTTON_TONE.primary} ${MODAL_FOOTER_TAP}`}
           >
             {t('audit.filter.done')}
           </button>

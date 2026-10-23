@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useMemo, Fragment, type ReactNode } from '
 import type { TranslationKey } from '@zalobot/contracts';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from './button-styles';
 import { DataTableMobileList } from './data-table-mobile-list';
 import { supportsMobileList, type MobileSlot } from './data-table-mobile';
 import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from './modal';
@@ -212,7 +213,7 @@ export function IdExplainerDialog({
         </div>
         <button
           type="button"
-          className="flex size-7 cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          className={`flex size-7 items-center justify-center rounded-[3px] border-0 text-lg ${BUTTON_TONE.ghost}`}
           onClick={onClose}
           aria-label={t('common.close')}
         >
@@ -252,7 +253,7 @@ export function IdExplainerDialog({
             </code>
             <button
               type="button"
-              className="inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-[3px] border border-slate-300 bg-white px-2 text-[11px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+              className={`inline-flex h-6 shrink-0 items-center gap-1 rounded-[3px] border px-2 text-[11px] font-medium ${BUTTON_TONE.secondary}`}
               onClick={() => void handleCopy(rowId, 'id')}
             >
               {copiedKey === 'id' ? (
@@ -308,7 +309,7 @@ export function IdExplainerDialog({
                   </span>
                   <button
                     type="button"
-                    className="inline-flex h-5 cursor-pointer items-center gap-1 rounded-[2px] border border-sky-200 bg-sky-50 px-1.5 text-[10.5px] font-medium text-sky-700 transition-colors hover:bg-sky-100 dark:border-sky-900/60 dark:bg-sky-950/60 dark:text-sky-300 dark:hover:bg-sky-900/80"
+                    className={`inline-flex h-5 items-center gap-1 rounded-[2px] border px-1.5 text-[10.5px] font-medium ${BUTTON_TONE.accent}`}
                     onClick={() => void handleCopy(p.text, p.key)}
                   >
                     {copiedKey === p.key ? (
@@ -334,7 +335,7 @@ export function IdExplainerDialog({
       >
         <button
           type="button"
-          className="inline-flex min-h-7 items-center justify-center rounded border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+          className={`inline-flex min-h-7 items-center justify-center rounded border px-3 text-xs font-medium ${BUTTON_TONE.secondary}`}
           onClick={onClose}
         >
           {t('common.close')}
@@ -489,10 +490,8 @@ export function TableColumnSettings<T extends DataTableRow>({
     <div className="relative inline-flex" ref={containerRef}>
       <button
         type="button"
-        className={`inline-flex h-6 min-h-6 items-center gap-1.5 rounded-[3px] border px-2 text-[11px] font-medium transition-colors ${
-          hiddenCount > 0
-            ? 'border-sky-500 text-sky-600 hover:bg-sky-50 dark:border-sky-400 dark:text-sky-400 dark:hover:bg-sky-950/50'
-            : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-100'
+        className={`inline-flex h-6 min-h-6 items-center gap-1.5 rounded-[3px] border px-2 text-[11px] font-medium ${
+          hiddenCount > 0 ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
         }`}
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label={t('table.columnSettings')}
@@ -574,14 +573,14 @@ export function TableColumnSettings<T extends DataTableRow>({
           <footer className="flex items-center justify-between gap-1.5 border-t border-slate-100 px-2.5 pt-1.5 pb-0.5 text-[10.5px] dark:border-slate-800">
             <button
               type="button"
-              className="cursor-pointer rounded-[2px] border-0 bg-transparent px-1 py-0.5 text-[10.5px] font-medium text-sky-600 transition-colors hover:bg-sky-50 hover:text-sky-700 dark:text-sky-400 dark:hover:bg-sky-950/60 dark:hover:text-sky-300"
+              className={`rounded-[2px] border-0 px-1 py-0.5 text-[10.5px] font-medium ${BUTTON_TONE.accent}`}
               onClick={onShowAllColumns}
             >
               {t('table.showAllColumns')}
             </button>
             <button
               type="button"
-              className="cursor-pointer rounded-[2px] border-0 bg-transparent px-1 py-0.5 text-[10.5px] font-medium text-sky-600 transition-colors hover:bg-sky-50 hover:text-sky-700 dark:text-sky-400 dark:hover:bg-sky-950/60 dark:hover:text-sky-300"
+              className={`rounded-[2px] border-0 px-1 py-0.5 text-[10.5px] font-medium ${BUTTON_TONE.accent}`}
               onClick={onResetColumns}
             >
               {t('table.resetColumns')}
@@ -649,7 +648,7 @@ export function DataTable<T extends DataTableRow>({
         cell: (row) => (
           <button
             type="button"
-            className="group inline-flex cursor-pointer items-center gap-1.5 rounded-[2px] border border-transparent px-1.5 py-0.5 font-mono text-[11px] text-slate-600 transition-all hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 focus:ring-1 focus:ring-sky-500 focus:outline-none dark:text-slate-400 dark:hover:border-sky-800 dark:hover:bg-sky-950/60 dark:hover:text-sky-300"
+            className="group inline-flex items-center gap-1.5 rounded-[2px] border border-transparent px-1.5 py-0.5 font-mono text-[11px] text-slate-600 hover:border-sky-300 hover:bg-sky-50 hover:text-sky-700 dark:text-slate-400 dark:hover:border-sky-800 dark:hover:bg-sky-950/60 dark:hover:text-sky-300"
             onClick={(e) => {
               e.stopPropagation();
               setInspectedRowId(row.id);

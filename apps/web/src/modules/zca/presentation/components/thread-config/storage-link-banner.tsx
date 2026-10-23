@@ -1,15 +1,15 @@
 'use client';
 
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
+
 const TONE = {
   drive: {
     box: 'border-blue-100 bg-blue-50/60 dark:border-blue-900/50 dark:bg-blue-950/30',
     code: 'border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-300',
-    button: 'bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-500',
   },
   photos: {
     box: 'border-indigo-200/80 bg-indigo-50/70 dark:border-indigo-900/40 dark:bg-indigo-950/30',
     code: 'border-indigo-200 text-indigo-700 dark:border-indigo-800 dark:text-indigo-300',
-    button: 'bg-indigo-600 hover:bg-indigo-700 dark:hover:bg-indigo-500',
   },
 } as const;
 
@@ -59,7 +59,7 @@ export function StorageLinkBanner({
         </div>
       </div>
       <button
-        className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors max-[640px]:h-10 ${tone.button}`}
+        className={`inline-flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold shadow-sm max-[640px]:h-10 ${BUTTON_TONE.primary}`}
         onClick={onOpen}
         title={buttonTitle}
         type="button"
