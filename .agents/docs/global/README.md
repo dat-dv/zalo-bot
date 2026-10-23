@@ -43,7 +43,7 @@ This directory contains human-facing operational guides for system-wide architec
 - [Ứng dụng cài được (PWA)](pwa.md): Manifest, service worker và quy tắc cache, cập nhật phiên bản, trang offline, nơi mời cài app và header cache của nginx.
 - [Việc cần làm qua chat](google-tasks.md): Tool `CREATE_TASK`, cảnh báo task có khả năng trùng và lệnh `/task`/`/tasks`.
 - [Công khai web và xác minh Google OAuth](google-oauth-public-verification.md): Scope tối thiểu, trang pháp lý public và checklist nộp Google.
-- [Bố cục phản hồi Zalo](zalo-response-layout.md): Response gọn, mã xác nhận 3 số, thả cảm xúc và thu hồi tin nhắn.
+- [Bố cục phản hồi Zalo](zalo-response-layout.md): Văn bản thuần (bỏ markdown của LLM lúc gửi), response gọn, mã xác nhận 3 số, thả cảm xúc và thu hồi tin nhắn.
 - [Nhận lệnh Zalo](zalo-command-intake.md): Kênh ZCA, guard, cooldown và bảng lệnh fast-path.
 - [Phân tích ảnh hoá đơn và thu-chi](receipt-image-analysis.md): Đọc ảnh trong bộ nhớ, đề xuất giao dịch và bắt buộc xác nhận.
 - [Định hướng UI web](web-ui-direction.md): Quy chuẩn giao diện dashboard dùng chung, bảng dữ liệu và khả năng truy cập.

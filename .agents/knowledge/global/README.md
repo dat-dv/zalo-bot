@@ -13,7 +13,7 @@ This directory contains system-wide business policies, cross-cutting architectur
 - [Installable Web App (PWA)](pwa.md): Manifest, hand-written service worker caching rules, update handoff, offline shell, install entry, and nginx cache headers.
 - [Task Commands](google-tasks.md): `CREATE_TASK` tool, duplicate check, and `/tasks` listing.
 - [Public Google OAuth Verification](google-oauth-public-verification.md): Minimal scope contract, public policy pages, and production review requirements.
-- [Zalo Response Layout](zalo-response-layout.md): Compact response hierarchy, pending-action codes, reactions, and message recall.
+- [Zalo Response Layout](zalo-response-layout.md): Plain-text replies (LLM markdown stripped at send), compact response hierarchy, pending-action codes, reactions, and message recall.
 - [Zalo Command Intake](zalo-command-intake.md): ZCA intake, guards, cooldown, and fast-path commands.
 - [Receipt Image Analysis](receipt-image-analysis.md): In-memory image analysis and confirmation-gated finance proposals.
 - [Web UI Direction](web-ui-direction.md): Shared data-dense dashboard, accessibility requirements, and global client UI state (Zustand stores).

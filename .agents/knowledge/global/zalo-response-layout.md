@@ -10,6 +10,7 @@ metadata:
       - apps/api/src/zca/confirmation/compact-summary.util.ts
       - apps/api/src/zca/zca.service.ts
       - apps/api/src/zca/thread-config.service.ts
+      - apps/api/src/zca/text/zalo-plain-text.util.ts
 ---
 
 # Zalo Response Layout
@@ -20,6 +21,11 @@ Human guide: [Zalo Response Layout](../../docs/global/zalo-response-layout.md).
 
 - All bot replies are plain text. There are no buttons, inline keyboards, or callback payloads; every follow-up action is a typed command or a reaction.
 - Layout: one short heading line (emoji prefix), then `• Label: value` lines; keep each item compact for mobile. Exception: success messages after confirmation use the compact 1–2 line format below.
+- No markdown: Zalo shows `**`, `#`, backticks as raw symbols, and LLMs write markdown by habit.
+  - Prevention: `ZALO_PLAIN_TEXT_INSTRUCTION` (`apps/api/src/zca/text/zalo-plain-text.util.ts`) is appended to every system instruction whose reply text can reach a chat: `TextInputService` (main, edit, chit-chat), `SearchChatHistoryToolStrategy`, `CreateBillPendingImageStrategy`. New LLM prompts that may reply in chat must append it too.
+  - Guarantee: `ZcaService.sendMessage` (the single exit for every outgoing message) runs `toZaloPlainMessage`: `**x**`/`__x__`/`***x***`/word-glued `*x*`/`` `x` `` -> `x`; fence lines, `---`/`***` rule lines dropped; leading `#` removed; leading `* `/`+ ` -> `• ` (`- ` kept); `[label](url)` -> `label: url`; stray `**`/`__` dropped (unclosed marker, or a 1900-char chunk split mid-marker); 3+ newlines -> 2. URLs are kept byte for byte; single `_` is untouched. A result that would be empty sends the original text.
+  - Exception: a `MessageContent` with `mentions` or `styles` goes out as built, since their positions index into `msg`. Tagged messages are bot-built (reminders), not LLM text.
+  - Chat memory rows saved before this rule may still contain markdown; they are not rewritten.
 - `ZcaMessengerService.sendMessageWithResult` (`apps/api/src/zca/zca-messenger.service.ts`): sends through ZCA only; text is split into 1900-character chunks (300 ms apart). ZCA logged out or a send error -> `{ success: false }` (never throws). Returns `{ success, msgId?, cliMsgId? }` of the last chunk, used for later recall. `withChatAction` keeps a ZCA typing indicator (`sendTypingEvent`, every 4 s) while a tool runs.
 
 ## Confirmation cards
@@ -106,4 +112,4 @@ Principle: interaction messages are ephemeral; after resolution only the outcome
 
 ## Tests
 
-`apps/api/src/zca/confirmation/transaction-confirmation.service.spec.ts`, `dto-descriptor.util.spec.ts`, `compact-summary.util.spec.ts`.
+`apps/api/src/zca/confirmation/transaction-confirmation.service.spec.ts`, `dto-descriptor.util.spec.ts`, `compact-summary.util.spec.ts`; markdown cleanup: `apps/api/src/zca/text/zalo-plain-text.util.spec.ts`, `zca.service.spec.ts` (`sendMessage`).

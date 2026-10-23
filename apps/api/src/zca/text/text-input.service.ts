@@ -26,6 +26,7 @@ import { CreateBillPendingImageStrategy } from '../pending-image/strategies/crea
 import { getVietnamDateTimeContext } from '../../common/utils/datetime.util';
 import { ShortTermMemoryService } from '../memory/short-term-memory.service';
 import { formatMemoryLine } from '../memory/chat-memory.mapper';
+import { ZALO_PLAIN_TEXT_INSTRUCTION } from './zalo-plain-text.util';
 
 /**
  * Appended to the prompt when free chat is allowed. Without it the tool-heavy prompt makes the
@@ -197,6 +198,7 @@ export class TextInputService {
       '- KẾ THỪA NGỮ CẢNH DÙNG CHUNG: Khi câu chứa nhiều hành động/giao dịch cùng chia sẻ ngữ cảnh chung (như địa điểm "ở...", thời gian "hôm nay...", hoặc phương thức thanh toán "chuyển khoản/tiền mặt..."), ví dụ: "hôm nay mua cà phê 13k và mua nước cam 20k ở đối diện ctgroup", bạn PHẢI điền đầy đủ các thông tin dùng chung đó (thời gian occurredAt, địa điểm placeName: "đối diện ctgroup", phương thức paymentMethod) cho TẤT CẢ các tool call tương ứng của các giao dịch đó, không được bỏ sót ở bất kỳ giao dịch nào. Nếu từng hành động có địa điểm hoặc thời gian riêng (ví dụ: "ở bến thành... sau đó ở aeon...") thì giữ đúng thông tin riêng của từng hành động.\n' +
       '- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object (ví dụ đúng: {"amount": 15000, "category": "Ăn uống", "type": "expense", "note": "uống cà phê"}, KHÔNG ĐƯỢC: {"amount": {"amount": 15000}}).' +
       (input.allowAiChat !== false ? `\n\n${CHIT_CHAT_INSTRUCTION}` : '') +
+      `\n\n${ZALO_PLAIN_TEXT_INSTRUCTION}` +
       recentContext;
 
     try {
@@ -355,7 +357,8 @@ export class TextInputService {
       `${dtContext.systemInstructionSnippet}\n\n` +
       `Nhiệm vụ: Cập nhật thông tin thao tác dựa trên ngữ cảnh thao tác trước đó và yêu cầu điều chỉnh của người dùng để gọi công cụ phù hợp.\n` +
       `QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n` +
-      `- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object.`;
+      `- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object.\n\n` +
+      ZALO_PLAIN_TEXT_INSTRUCTION;
 
     try {
       const response = await this.zcaMessenger.withTyping(chatId, () =>
@@ -455,7 +458,8 @@ export class TextInputService {
       `Bạn là trợ lý cá nhân thông minh trên Zalo.\n\n` +
       `${dateTimeSnippet}\n\n` +
       'Hãy trả lời tin nhắn của người dùng một cách tự nhiên, thân thiện, ngắn gọn bằng tiếng Việt.\n\n' +
-      CHIT_CHAT_INSTRUCTION;
+      `${CHIT_CHAT_INSTRUCTION}\n\n` +
+      ZALO_PLAIN_TEXT_INSTRUCTION;
     try {
       const response = await this.llmService.generate(text, undefined, systemInstruction);
       const reply = response.text?.trim();

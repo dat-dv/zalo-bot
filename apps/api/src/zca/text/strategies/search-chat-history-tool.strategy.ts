@@ -8,6 +8,7 @@ import { ChatMemoryService } from '../../memory/chat-memory.service';
 import { formatMemoryLine, type MemoryLine } from '../../memory/chat-memory.mapper';
 import { normalizeDate } from '../../memory/chat-memory.query';
 import { getVietnamDateTimeContext } from '../../../common/utils/datetime.util';
+import { ZALO_PLAIN_TEXT_INSTRUCTION } from '../zalo-plain-text.util';
 
 function readStringArg(args: Record<string, unknown> | undefined, key: string): string {
   const value = args?.[key];
@@ -101,7 +102,8 @@ export class SearchChatHistoryToolStrategy implements TextToolStrategy {
       '- CHỈ dựa vào các đoạn tin nhắn được cung cấp; không bịa thêm.\n' +
       '- Nêu rõ ngày (dd/mm/yyyy) và người nói khi trả lời.\n' +
       '- Nếu đoạn tin nhắn không đủ để trả lời chắc chắn, nói rõ là không chắc hoặc không thấy.\n' +
-      '- Trả lời ngắn gọn bằng tiếng Việt, dạng gạch đầu dòng nếu có nhiều ý.';
+      '- Trả lời ngắn gọn bằng tiếng Việt, dạng gạch đầu dòng nếu có nhiều ý.\n\n' +
+      ZALO_PLAIN_TEXT_INSTRUCTION;
     const prompt =
       `Câu hỏi: ${question}\n\n` +
       `Các đoạn tin nhắn liên quan${describeRange(fromDate, toDate)} (định dạng [ngày giờ] người gửi: nội dung):\n` +

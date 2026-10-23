@@ -13,6 +13,7 @@ import { ThreadConfigService } from '../../thread-config.service';
 import { TextToolFactory } from '../../text/text-tool.factory';
 import { TextToolType } from '../../text/text-tool.enum';
 import { ZALO_TOOL_DEFINITIONS } from '../../text/text-tool.definitions';
+import { ZALO_PLAIN_TEXT_INSTRUCTION } from '../../text/zalo-plain-text.util';
 import { fetchImageBuffer } from '../../../common/utils/image-fetcher.util';
 import { getVietnamDateTimeContext } from '../../../common/utils/datetime.util';
 import { PendingImageContext, PendingImageStrategy } from '../pending-image.interface';
@@ -136,7 +137,8 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
       `Bạn là trợ lý cá nhân thông minh trên Zalo.\n\n` +
       `${dtContext.systemInstructionSnippet}\n\n` +
       `Nhiệm vụ: Phân tích hóa đơn đã OCR để gọi công cụ RECORD_TRANSACTION chính xác.\n` +
-      `QUY TẮC: Mọi tham số truyền vào arguments PHẢI là giá trị phẳng (primitive: string, number). Luôn truyền đúng receiptUrl: "${activeReceiptUrl}".`;
+      `QUY TẮC: Mọi tham số truyền vào arguments PHẢI là giá trị phẳng (primitive: string, number). Luôn truyền đúng receiptUrl: "${activeReceiptUrl}".\n\n` +
+      ZALO_PLAIN_TEXT_INSTRUCTION;
 
     if (!this.llmService || !this.toolFactory) {
       await this.notify(context.chatId, '⚠️ Dịch vụ AI hoặc công cụ xử lý hiện chưa sẵn sàng.');

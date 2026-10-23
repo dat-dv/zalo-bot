@@ -17,6 +17,7 @@ import { ZcaBotFeatureService } from './zca-bot-feature.service';
 import { RedisService } from '../redis/redis.service';
 import { ChatMemoryService } from './memory/chat-memory.service';
 import { ShortTermMemoryService } from './memory/short-term-memory.service';
+import { toZaloPlainMessage } from './text/zalo-plain-text.util';
 import {
   Zalo,
   type API,
@@ -1728,7 +1729,8 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   }
 
   /**
-   * Helper to send a message via active API.
+   * Helper to send a message via active API. Every outgoing message passes here, so this is where
+   * LLM markdown is rewritten as plain text (Zalo would show the raw symbols).
    */
   public async sendMessage(
     message: MessageContent | string,
@@ -1739,7 +1741,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       throw new Error('Cannot send message: ZCA is not logged in.');
     }
     const resolvedType = type ?? this.resolveThreadType(threadId);
-    return this.api.sendMessage(message, threadId, resolvedType);
+    return this.api.sendMessage(toZaloPlainMessage(message), threadId, resolvedType);
   }
 
   /**

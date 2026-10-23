@@ -642,6 +642,24 @@ void test('ZcaService bootstrap skips login when there is no session or credenti
   }
 });
 
+void test('ZcaService.sendMessage sends LLM markdown as plain text, except tagged messages', async () => {
+  const service = new ZcaService(new ConfigService({}));
+  const sent: unknown[] = [];
+  (service as unknown as { api: { sendMessage: (message: unknown) => Promise<object> } }).api = {
+    sendMessage: (message: unknown) => {
+      sent.push(message);
+      return Promise.resolve({});
+    },
+  };
+  const tagged = { msg: '**@Nam** nhớ họp', mentions: [{ pos: 2, uid: '1', len: 4 }] };
+
+  await service.sendMessage('**Phở** ngon', 'u-1');
+  await service.sendMessage({ msg: '## Món ngon\n* Bún' }, 'u-1');
+  await service.sendMessage(tagged, 'g-1');
+
+  assert.deepEqual(sent, ['Phở ngon', { msg: 'Món ngon\n• Bún' }, tagged]);
+});
+
 void test('ZcaService.undo also forgets the recalled message in chat memory', async () => {
   const recalls: unknown[][] = [];
   const memory = {

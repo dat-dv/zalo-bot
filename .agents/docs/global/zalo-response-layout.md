@@ -7,6 +7,7 @@ metadata:
       - .agents/knowledge/global/zalo-response-layout.md
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
       - apps/api/src/zca/confirmation/compact-summary.util.ts
+      - apps/api/src/zca/text/zalo-plain-text.util.ts
 ---
 
 # Bố cục phản hồi Zalo
@@ -17,7 +18,27 @@ Hướng dẫn này ánh xạ trực tiếp với tri thức canonical [`zalo-re
 
 - Mọi phản hồi của bot là **văn bản thuần**. Zalo không có nút bấm hay bàn phím inline như các nền tảng khác, nên mọi thao tác tiếp theo đều là **gõ lệnh** (`yes 629`, `/today`...) hoặc **thả cảm xúc**.
 - Bố cục: một dòng tiêu đề ngắn có emoji, sau đó các dòng `• Nhãn: giá trị`. Giữ gọn để đọc tốt trên điện thoại. Riêng tin **đã xác nhận thành công** dùng dạng gọn 1–2 dòng (mục 2.1).
+- **Không có markdown** (xem mục 1.1).
 - Gửi tin qua `ZcaMessengerService` (chỉ dùng ZCA): tin dài được cắt thành đoạn 1900 ký tự, gửi cách nhau 300 ms. ZCA chưa đăng nhập hoặc gửi lỗi thì trả `success: false`, không ném lỗi. Kết quả trả về `msgId`/`cliMsgId` của đoạn cuối để có thể thu hồi về sau. Trong lúc bot đang xử lý, `withChatAction` gửi hiệu ứng "đang soạn tin" của ZCA mỗi 4 giây.
+
+### 1.1. Bỏ markdown khỏi tin gửi đi
+
+Zalo hiển thị tin nhắn đúng từng ký tự, không hiểu markdown. Trong khi đó LLM (Gemini, OpenAI, Qwen) có thói quen in đậm bằng `**chữ**`, đặt tiêu đề bằng `#`, bọc lệnh trong dấu `` ` ``. Kết quả là người dùng thấy nguyên các ký hiệu đó trong câu trả lời. Template do bot tự dựng (thẻ xác nhận, tin kết quả...) vốn đã là văn bản thuần; markdown chỉ đến từ chữ do LLM viết.
+
+Hệ thống chặn bằng 2 lớp (code: `apps/api/src/zca/text/zalo-plain-text.util.ts`):
+
+1. **Dặn LLM từ đầu:** hằng `ZALO_PLAIN_TEXT_INSTRUCTION` được nối vào mọi prompt mà câu trả lời có thể gửi ra chat: prompt chính, prompt sửa thẻ (`edit <mã>`) và prompt trò chuyện trong `TextInputService`, prompt tra cứu trí nhớ dài hạn, prompt đọc hoá đơn. Khi thêm prompt mới có trả lời ra chat, nhớ nối hằng này vào.
+2. **Làm sạch lúc gửi:** mọi tin ra Zalo đều đi qua `ZcaService.sendMessage`, nên ở đó bot viết lại markdown thành văn bản thuần. Lớp này là chốt chặn cuối khi LLM vẫn lỡ dùng markdown:
+   - `**chữ**`, `__chữ__`, `*chữ*`, `` `chữ` `` → `chữ`. Dấu `*` không dính vào chữ (`5*3`, `a * b`) thì giữ nguyên.
+   - Bỏ dấu `#` ở đầu dòng tiêu đề; bỏ dòng ```` ``` ```` (giữ nội dung bên trong) và dòng kẻ `---`, `***`.
+   - `* ` hoặc `+ ` ở đầu dòng → `• ` cho khớp kiểu gạch đầu dòng của bot; `- ` giữ nguyên.
+   - `[chữ](link)` → `chữ: link` để Zalo tự nhận link.
+   - Dấu `**`, `__` lẻ còn sót thì bỏ. Trường hợp này xảy ra khi LLM quên đóng, hoặc khi tin dài bị cắt đoạn 1900 ký tự đúng giữa `**chữ**`.
+   - Link được tách riêng ra trước rồi trả lại nguyên vẹn, nên link Drive/Photos có `_` hay `*` không bị sửa. Dấu `_` đơn (ví dụ `user_id`) cũng không bị đụng.
+
+Ngoại lệ: tin có **tag người dùng** (nhắc việc, lời nhắc) không được làm sạch. Vị trí tag trỏ vào đúng từng ký tự trong tin, bỏ ký tự sẽ làm lệch tag. Các tin này do bot tự dựng nên không có markdown.
+
+Tin cũ đã lưu trong trí nhớ hội thoại trước khi có quy tắc này vẫn có thể còn `**`; hệ thống không sửa lại dữ liệu cũ.
 
 ## 2. Thẻ xác nhận 3 số
 
@@ -109,4 +130,5 @@ Nguyên tắc: **tin nhắn trong quá trình tương tác là tạm thời; khi
 2. Duyệt xong chỉ còn một tin kết quả trong cuộc trò chuyện, tối đa 2 dòng (thêm dòng link hoá đơn nếu có), không có `(trống)`.
 3. Huỷ hoặc hết hạn chỉ còn một tin thông báo.
 4. Sửa thì thẻ cũ biến mất trước khi thẻ mới xuất hiện.
-5. Test `apps/api/src/zca/confirmation/transaction-confirmation.service.spec.ts` và `compact-summary.util.spec.ts` pass.
+5. Hỏi bot một câu cần liệt kê (ví dụ "gợi ý 3 món ăn sáng"): câu trả lời không còn `**`, `#` hay dấu `` ` ``.
+6. Test `apps/api/src/zca/confirmation/transaction-confirmation.service.spec.ts`, `compact-summary.util.spec.ts`, `apps/api/src/zca/text/zalo-plain-text.util.spec.ts` và `zca.service.spec.ts` pass.
