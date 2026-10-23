@@ -29,15 +29,18 @@ void test('the actor comes from the audit context, not from the row creator', as
   assert.equal(saved[0].recordId, 'tx1');
   assert.equal(saved[0].actorId, 'editor');
   assert.equal(saved[0].actorSource, 'dashboard');
+  assert.equal(saved[0].actorName, null);
   assert.equal(saved[0].channelId, null);
 });
 
-void test('a Zalo write keeps the sender and the chat', async () => {
+void test('a Zalo write keeps the sender, their name and the chat', async () => {
   const saved: AuditLogEntity[] = [];
-  await AuditContext.run({ source: 'zalo', actorId: 'sender', channelId: 'group1' }, () =>
-    new AuditLogSubscriber().afterInsert(fakeEvent('tasks', { id: 't1' }, saved)),
+  await AuditContext.run(
+    { source: 'zalo', actorId: 'sender', actorName: 'Văn Đạt', channelId: 'group1' },
+    () => new AuditLogSubscriber().afterInsert(fakeEvent('tasks', { id: 't1' }, saved)),
   );
   assert.equal(saved[0].actorId, 'sender');
+  assert.equal(saved[0].actorName, 'Văn Đạt');
   assert.equal(saved[0].actorSource, 'zalo');
   assert.equal(saved[0].channelId, 'group1');
 });

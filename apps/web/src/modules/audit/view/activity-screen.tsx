@@ -2,11 +2,12 @@
 
 import { useMemo, useState } from 'react';
 import type { IAuditLogListItem } from '@zalobot/contracts';
+import { SessionStateScreen } from '@/modules/auth/view/session-state-screen';
 import { ZcaAdminOnlyNotice } from '@/modules/zca/presentation/components/zca-admin-only-notice';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { DataPanel } from '@/shared/ui/data-table';
 import { PHONE_CHIP } from '@/shared/ui/touch';
-import { isForbiddenError, useAuditLogsQuery } from '../api/audit-query';
+import { isForbiddenError, isUnauthorizedError, useAuditLogsQuery } from '../api/audit-query';
 import { toAuditListQuery } from '../model/audit-url-state';
 import { AuditDetailDialog } from '../presentation/components/audit-detail-dialog';
 import { AuditFilters } from '../presentation/components/audit-filters';
@@ -24,6 +25,10 @@ export function ActivityScreen() {
   const [opened, setOpened] = useState<IAuditLogListItem | null>(null);
 
   if (isForbiddenError(logs.error)) return <ZcaAdminOnlyNotice />;
+  // Same sign-in screen as the other dashboard pages; other errors keep the inline retry.
+  if (isUnauthorizedError(logs.error)) {
+    return <SessionStateScreen reason="expired" onRetry={() => void logs.refetch()} />;
+  }
 
   const data = logs.data;
   const total = data?.total ?? 0;

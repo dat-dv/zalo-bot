@@ -231,6 +231,10 @@ const messages = {
     'audit.filter.record': 'Bản ghi {id}',
     'audit.filter.clearRecord': 'Bỏ lọc bản ghi',
     'audit.filter.clearAll': 'Xoá bộ lọc',
+    'audit.filter.open': 'Bộ lọc',
+    'audit.filter.openCount': 'Bộ lọc · {count}',
+    'audit.filter.sheetTitle': 'Lọc nhật ký',
+    'audit.filter.done': 'Xong',
     'audit.columns.time': 'Thời điểm',
     'audit.columns.actor': 'Người thực hiện',
     'audit.columns.action': 'Hành động',
@@ -1452,6 +1456,10 @@ const messages = {
     'audit.filter.record': 'Record {id}',
     'audit.filter.clearRecord': 'Clear record filter',
     'audit.filter.clearAll': 'Clear filters',
+    'audit.filter.open': 'Filters',
+    'audit.filter.openCount': 'Filters · {count}',
+    'audit.filter.sheetTitle': 'Filter the log',
+    'audit.filter.done': 'Done',
     'audit.columns.time': 'Time',
     'audit.columns.actor': 'Actor',
     'audit.columns.action': 'Action',
@@ -2852,7 +2860,7 @@ export interface IDashboardData {
   calendar: ICalendarEventItem[];
   tasks: ITaskListItem[];
   reminders: IReminderListItem[];
-  activity: Array<{ id: string; action: string; tableName: string; createdAt: string }>;
+  activity: Array<{ id: string; action: AuditAction; tableName: string; createdAt: string }>;
   admin?: { userCount: number; googleConnectedCount: number };
 }
 

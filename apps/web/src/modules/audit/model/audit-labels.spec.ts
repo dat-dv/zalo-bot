@@ -4,6 +4,7 @@ import { translate, type TranslationKey } from '@zalobot/contracts';
 import {
   buildAuditDiffRows,
   describeAuditActor,
+  describeAuditChange,
   describeAuditChannel,
   describeAuditTable,
   formatAuditValue,
@@ -39,6 +40,8 @@ void test('channels and tables read like the rest of the dashboard', () => {
   );
   assert.equal(describeAuditTable('finance_transactions', t), 'Giao dịch thu chi');
   assert.equal(describeAuditTable('legacy_table', t), 'legacy_table');
+  assert.equal(describeAuditChange('insert', 'reminders', t), 'Thêm · Lời nhắc');
+  assert.equal(describeAuditChange('remove', 'legacy_table', t), 'Xoá · legacy_table');
 });
 
 void test('diff rows put changed fields first and format values', () => {

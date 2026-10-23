@@ -125,3 +125,16 @@ export function toAuditListQuery(state: AuditFilterState): IAuditLogListQuery {
 export function hasActiveAuditFilters(state: AuditFilterState): boolean {
   return toAuditFilterQuery({ ...state, page: 1 }) !== '';
 }
+
+/** Filters set inside the phone filter sheet; the record id has its own chip, so it is left out. */
+export function countActiveAuditFilters(state: AuditFilterState): number {
+  return [
+    state.tables.length > 0,
+    state.actions.length > 0,
+    state.sources.length > 0,
+    state.actorIds.length > 0,
+    state.from !== '',
+    state.to !== '',
+    state.technical,
+  ].filter(Boolean).length;
+}

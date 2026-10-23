@@ -4,6 +4,7 @@ import { APP_ROUTES } from '@zalobot/contracts';
 import {
   AUDIT_PAGE_SIZE,
   DEFAULT_AUDIT_FILTER_STATE,
+  countActiveAuditFilters,
   hasActiveAuditFilters,
   parseAuditFilterState,
   toAuditFilterQuery,
@@ -58,4 +59,27 @@ void test('the API query pages by AUDIT_PAGE_SIZE and spans whole local days', (
   assert.equal(query.endAt, new Date(2026, 9, 2, 23, 59, 59, 999).toISOString());
   assert.equal(query.tables, undefined);
   assert.equal(query.includeTechnical, undefined);
+});
+
+void test('the phone filter chip counts the sheet filters, not the record id or the page', () => {
+  assert.equal(countActiveAuditFilters(DEFAULT_AUDIT_FILTER_STATE), 0);
+  assert.equal(
+    countActiveAuditFilters({
+      ...DEFAULT_AUDIT_FILTER_STATE,
+      recordId: 'tx1',
+      page: 4,
+    }),
+    0,
+  );
+  assert.equal(
+    countActiveAuditFilters({
+      ...DEFAULT_AUDIT_FILTER_STATE,
+      tables: ['debts'],
+      actorIds: ['u1', 'u2'],
+      from: '2026-10-01',
+      to: '2026-10-23',
+      technical: true,
+    }),
+    5,
+  );
 });

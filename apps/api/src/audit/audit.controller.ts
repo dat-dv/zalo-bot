@@ -19,6 +19,9 @@ export class AuditController {
     private readonly users: UsersService,
   ) {}
 
+  /** Actor names as the rest of the dashboard shows them (ZCA directory, cached). */
+  private readonly resolveNames = (ids: string[]) => this.users.resolveZaloNames(ids);
+
   @Get()
   @ApiOperation({ summary: 'Nhật ký hoạt động: lọc, phân trang, mới nhất trước (Admin Only)' })
   async list(
@@ -26,14 +29,14 @@ export class AuditController {
     @Query() query: Record<string, unknown>,
   ): Promise<IApiResponse<IAuditLogListResponse>> {
     requireDashboardAdmin(req, this.tokens, this.users);
-    return { data: await this.audit.list(parseAuditLogListQuery(query)) };
+    return { data: await this.audit.list(parseAuditLogListQuery(query), this.resolveNames) };
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Chi tiết một thay đổi kèm dữ liệu trước/sau (Admin Only)' })
   async get(@Req() req: Request, @Param('id') id: string): Promise<IApiResponse<IAuditLogDetail>> {
     requireDashboardAdmin(req, this.tokens, this.users);
-    const detail = await this.audit.get(id);
+    const detail = await this.audit.get(id, this.resolveNames);
     if (!detail) throw new NotFoundException('Audit log not found.');
     return { data: detail };
   }

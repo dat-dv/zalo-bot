@@ -84,3 +84,35 @@ void test('getSessionProfile keeps a renamed dashboard owner name', async () => 
 
   assert.equal((await service.getSessionProfile(DASHBOARD_OWNER_USER_ID)).name, 'Anh Đạt');
 });
+
+void test('resolveZaloNames reads only user entries of the ZCA directory', async () => {
+  const zca = createZca([
+    { id: '42', type: 'user', name: 'Đạt Đoàn', alias: 'Anh Đạt' },
+    { id: '43', type: 'user', name: '', displayName: 'Lan Zalo' },
+    { id: '44', type: 'group', name: 'Nhóm' },
+    { id: '45', type: 'user', name: 'Not asked' },
+  ]);
+  const service = new UsersService(createRepo([]), undefined, zca);
+
+  const names = await service.resolveZaloNames(['42', '43', '44', '99']);
+
+  assert.deepEqual(
+    [...names],
+    [
+      ['42', 'Anh Đạt'],
+      ['43', 'Lan Zalo'],
+    ],
+  );
+});
+
+void test('resolveZaloNames returns nothing when the directory cannot be read', async () => {
+  const zca = {
+    getAvailableThreads: () => Promise.reject(new Error('not logged in')),
+  } as unknown as ZcaService;
+
+  assert.equal(
+    (await new UsersService(createRepo([]), undefined, zca).resolveZaloNames(['1'])).size,
+    0,
+  );
+  assert.equal((await new UsersService(createRepo([])).resolveZaloNames(['1'])).size, 0);
+});

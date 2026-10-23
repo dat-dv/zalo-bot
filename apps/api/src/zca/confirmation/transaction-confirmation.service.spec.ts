@@ -235,13 +235,33 @@ void test('a confirmed action is credited to its requester, not to whoever appro
     payload: { type: 'expense', amount: 15000, category: 'Ăn uống', note: 'cà phê' },
   });
 
-  // u2 approves in the same group, inside the Zalo context of their own message.
-  await AuditContext.run(zaloAuditContext('u2', 'c1'), () =>
+  // u2 approves in the same group, inside the Zalo context of their own message. Their name
+  // must not be recorded as the requester's.
+  await AuditContext.run(zaloAuditContext('u2', 'c1', 'Bình'), () =>
     service.handleCommand('u2', 'c1', `yes ${pending.code}`),
   );
 
   assert.equal(createdTransactions.length, 1);
   assert.deepEqual(transactionAuditContexts, [{ source: 'zalo', actorId: 'u1', channelId: 'c1' }]);
+
+  service.clearAll();
+});
+
+void test('a requester confirming their own action keeps their Zalo name', async () => {
+  const { service, transactionAuditContexts } = createTestContext();
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: { type: 'expense', amount: 15000, category: 'Ăn uống', note: 'cà phê' },
+  });
+
+  await AuditContext.run(zaloAuditContext('u1', 'c1', 'An'), () =>
+    service.handleCommand('u1', 'c1', `yes ${pending.code}`),
+  );
+
+  assert.deepEqual(transactionAuditContexts, [
+    { source: 'zalo', actorId: 'u1', actorName: 'An', channelId: 'c1' },
+  ]);
 
   service.clearAll();
 });

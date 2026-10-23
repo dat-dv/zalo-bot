@@ -9,16 +9,28 @@ import {
   type IAuditLogListQuery,
   type IAuditLogListResponse,
 } from '@zalobot/contracts';
-import { Brackets, In, Repository, type SelectQueryBuilder } from 'typeorm';
+import { Brackets, In, Not, Repository, type SelectQueryBuilder } from 'typeorm';
 import { AuditLogEntity } from '../database/entities/audit-log.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
 import { DASHBOARD_OWNER_USER_ID } from '../users/dashboard-owner';
 import { computeChangedFields } from './audit-log-query';
 
+/** Display names of user ids from a source outside this module (the ZCA directory). */
+export type AuditNameResolver = (ids: string[]) => Promise<Map<string, string>>;
+
 interface AuditLookups {
+  /** From the ZCA directory: the name the admin sees everywhere else on the dashboard. */
+  zaloNames: Map<string, string>;
+  /** `users.first_name`, the last resort. */
   userNames: Map<string, string>;
   chats: Map<string, { name: string; type: 'group' | 'user' }>;
+}
+
+interface ActorRow {
+  actorId: string;
+  /** One name saved on the actor's rows (see `actor_name`), if any. */
+  actorName: string | null;
 }
 
 @Injectable()
@@ -33,32 +45,37 @@ export class AuditService {
     private readonly threadConfigRepo?: Repository<ZcaThreadConfigEntity>,
   ) {}
 
+  /** The home page's recent activity; sign-ins and reminder bookkeeping would crowd it out. */
   public listRecent(userId: number | string, limit = 20): Promise<AuditLogEntity[]> {
     return this.auditRepo.find({
-      where: { actorId: userId.toString() },
+      where: { actorId: userId.toString(), tableName: Not(In([...AUDIT_TECHNICAL_TABLES])) },
       order: { createdAt: 'DESC' },
       take: limit,
     });
   }
 
   /** Newest-first page of the activity log for the admin page. */
-  public async list(query: IAuditLogListQuery): Promise<IAuditLogListResponse> {
+  public async list(
+    query: IAuditLogListQuery,
+    resolveNames?: AuditNameResolver,
+  ): Promise<IAuditLogListResponse> {
     const limit = query.limit ?? AUDIT_LOG_DEFAULT_LIMIT;
     const offset = query.offset ?? 0;
     const builder = this.auditRepo.createQueryBuilder('log');
     applyListFilters(builder, query);
-    const [[rows, total], actorIds] = await Promise.all([
+    const [[rows, total], actors] = await Promise.all([
       builder
         .orderBy('log.createdAt', 'DESC')
         .addOrderBy('log.id', 'DESC')
         .skip(offset)
         .take(limit)
         .getManyAndCount(),
-      this.distinctActorIds(),
+      this.distinctActors(),
     ]);
     const lookups = await this.lookups(
-      [...actorIds, ...rows.map((row) => row.actorId)],
+      [...actors.map((actor) => actor.actorId), ...rows.map((row) => row.actorId)],
       rows.map((row) => row.channelId),
+      resolveNames,
     );
     return {
       items: rows.map((row) => toListItem(row, lookups)),
@@ -66,19 +83,19 @@ export class AuditService {
       limit,
       offset,
       facets: {
-        actors: actorIds.map((id): IAuditLogActorFacet => ({
-          id,
-          name: lookups.userNames.get(id) ?? '',
-          isOwner: id === DASHBOARD_OWNER_USER_ID,
+        actors: actors.map((actor): IAuditLogActorFacet => ({
+          id: actor.actorId,
+          name: actorNameOf(actor.actorId, actor.actorName, lookups),
+          isOwner: actor.actorId === DASHBOARD_OWNER_USER_ID,
         })),
       },
     };
   }
 
-  public async get(id: string): Promise<IAuditLogDetail | null> {
+  public async get(id: string, resolveNames?: AuditNameResolver): Promise<IAuditLogDetail | null> {
     const row = await this.auditRepo.findOne({ where: { id } });
     if (!row) return null;
-    const lookups = await this.lookups([row.actorId], [row.channelId]);
+    const lookups = await this.lookups([row.actorId], [row.channelId], resolveNames);
     return {
       ...toListItem(row, lookups),
       beforeData: row.beforeData ?? null,
@@ -86,23 +103,29 @@ export class AuditService {
     };
   }
 
-  private async distinctActorIds(): Promise<string[]> {
+  private async distinctActors(): Promise<ActorRow[]> {
     const rows = await this.auditRepo
       .createQueryBuilder('log')
-      .select('DISTINCT log.actor_id', 'actorId')
+      .select('log.actor_id', 'actorId')
+      .addSelect('MAX(log.actor_name)', 'actorName')
       .where('log.actor_id IS NOT NULL')
-      .getRawMany<{ actorId: string }>();
-    return rows.map((row) => row.actorId).sort();
+      .groupBy('log.actor_id')
+      .getRawMany<ActorRow>();
+    return rows.sort((a, b) => a.actorId.localeCompare(b.actorId));
   }
 
   /** Names of the actors and chats on a page, one query each. */
   private async lookups(
     actorIds: ReadonlyArray<string | null | undefined>,
     channelIds: ReadonlyArray<string | null | undefined>,
+    resolveNames?: AuditNameResolver,
   ): Promise<AuditLookups> {
     const userIds = [...new Set(actorIds.filter((id): id is string => !!id))];
     const chatIds = [...new Set(channelIds.filter((id): id is string => !!id))];
-    const [users, chats] = await Promise.all([
+    const [zaloNames, users, chats] = await Promise.all([
+      userIds.length && resolveNames
+        ? resolveNames(userIds).catch(() => new Map<string, string>())
+        : Promise.resolve(new Map<string, string>()),
       userIds.length && this.userRepo
         ? this.userRepo.find({ where: { id: In(userIds) }, select: { id: true, firstName: true } })
         : Promise.resolve<UserEntity[]>([]),
@@ -114,6 +137,7 @@ export class AuditService {
         : Promise.resolve<ZcaThreadConfigEntity[]>([]),
     ]);
     return {
+      zaloNames,
       userNames: new Map(
         users.flatMap((user): [string, string][] => {
           const name = user.firstName?.trim();
@@ -171,7 +195,7 @@ function toListItem(row: AuditLogEntity, lookups: AuditLookups): IAuditLogListIt
     recordId: row.recordId || null,
     action: row.action,
     actorId: row.actorId ?? null,
-    actorName: row.actorId ? (lookups.userNames.get(row.actorId) ?? '') : '',
+    actorName: row.actorId ? actorNameOf(row.actorId, row.actorName, lookups) : '',
     actorIsOwner: row.actorId === DASHBOARD_OWNER_USER_ID,
     actorSource: row.actorSource ?? null,
     channelId: row.channelId ?? null,
@@ -180,4 +204,15 @@ function toListItem(row: AuditLogEntity, lookups: AuditLookups): IAuditLogListIt
     changedFields: computeChangedFields(row.action, row.beforeData, row.afterData),
     createdAt: row.createdAt.toISOString(),
   };
+}
+
+/** Directory name first, then the name saved when the change was made, then `first_name`. */
+function actorNameOf(
+  actorId: string,
+  savedName: string | null | undefined,
+  lookups: AuditLookups,
+): string {
+  return (
+    lookups.zaloNames.get(actorId) || savedName?.trim() || lookups.userNames.get(actorId) || ''
+  );
 }

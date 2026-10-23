@@ -52,6 +52,7 @@ import { AddReminderTargets1724930000000 } from './migrations/1724930000000-AddR
 import { CreateReminderTimes1724940000000 } from './migrations/1724940000000-CreateReminderTimes';
 import { AddAuditLogActorSource1724950000000 } from './migrations/1724950000000-AddAuditLogActorSource';
 import { AddReminderRepeatAndNag1724960000000 } from './migrations/1724960000000-AddReminderRepeatAndNag';
+import { AddAuditLogActorName1724970000000 } from './migrations/1724970000000-AddAuditLogActorName';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -120,6 +121,7 @@ export const AppDataSource = new DataSource({
     CreateReminderTimes1724940000000,
     AddAuditLogActorSource1724950000000,
     AddReminderRepeatAndNag1724960000000,
+    AddAuditLogActorName1724970000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

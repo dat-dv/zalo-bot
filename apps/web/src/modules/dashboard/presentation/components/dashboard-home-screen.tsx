@@ -15,6 +15,12 @@ import { RemindersTable } from './reminders-table';
 import { CalendarTable } from './calendar-table';
 import { AdjustBalanceModal } from './adjust-balance-modal';
 import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
+import {
+  AUDIT_ACTION_LABEL_KEYS,
+  describeAuditChange,
+  describeAuditTable,
+} from '@/modules/audit/model/audit-labels';
+import { AUDIT_ACTION_TONE } from '@/modules/audit/presentation/components/audit-table';
 import { TOAST_POSITION } from '@/shared/ui/touch';
 import { useIsCompact, useIsPhone } from '@/shared/hooks/use-media-query';
 
@@ -209,13 +215,14 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
     );
   }, [data.debts, debtQuery]);
 
+  // Same labels as /activity ("Thêm · Lời nhắc"); the search matches what is shown.
   const filteredActivity = useMemo(() => {
     if (!activityQuery.trim()) return data.activity;
     const q = activityQuery.toLowerCase();
-    return data.activity.filter(
-      (item) => item.action.toLowerCase().includes(q) || item.tableName.toLowerCase().includes(q),
+    return data.activity.filter((item) =>
+      describeAuditChange(item.action, item.tableName, t).toLowerCase().includes(q),
     );
-  }, [data.activity, activityQuery]);
+  }, [data.activity, activityQuery, t]);
 
   const activityColumns: DataTableColumn<DashboardData['activity'][number]>[] = [
     {
@@ -224,10 +231,13 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
       minWidth: '180px',
       hideable: false,
       mobileSlot: 'primary',
-      mobileCell: (item) => `${item.action} · ${item.tableName}`,
+      mobileCell: (item) => describeAuditChange(item.action, item.tableName, t),
       cell: (item) => (
         <span className="font-semibold text-slate-900 dark:text-slate-100">
-          {item.action} · {item.tableName}
+          <span className={AUDIT_ACTION_TONE[item.action]}>
+            {t(AUDIT_ACTION_LABEL_KEYS[item.action])}
+          </span>{' '}
+          · {describeAuditTable(item.tableName, t)}
         </span>
       ),
     },

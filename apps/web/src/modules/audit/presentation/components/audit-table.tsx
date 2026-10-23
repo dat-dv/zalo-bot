@@ -9,13 +9,15 @@ import {
   AUDIT_SOURCE_LABEL_KEYS,
   auditSourceOf,
   describeAuditActor,
+  describeAuditChange,
   describeAuditChannel,
   describeAuditTable,
 } from '../../model/audit-labels';
 
 const MAX_FIELD_CHIPS = 4;
 
-const ACTION_TONE = {
+/** Text colour of each action, shared with the home page's activity panel. */
+export const AUDIT_ACTION_TONE = {
   insert: 'text-emerald-700 dark:text-emerald-400',
   update: 'text-sky-700 dark:text-sky-400',
   remove: 'text-red-700 dark:text-red-400',
@@ -45,13 +47,13 @@ export function AuditTable({ rows, loading, emptyMessage, onOpen }: AuditTablePr
       .filter(Boolean)
       .join(' · ');
   const recordLine = (item: IAuditLogListItem) =>
-    `${t(AUDIT_ACTION_LABEL_KEYS[item.action])} · ${describeAuditTable(item.tableName, t)}`;
+    describeAuditChange(item.action, item.tableName, t);
 
   const columns: DataTableColumn<IAuditLogListItem>[] = [
     {
       id: 'createdAt',
       header: t('audit.columns.time'),
-      minWidth: '140px',
+      minWidth: '130px',
       hideable: false,
       mobileSlot: 'trailing',
       cell: (item) => (
@@ -63,7 +65,7 @@ export function AuditTable({ rows, loading, emptyMessage, onOpen }: AuditTablePr
     {
       id: 'actor',
       header: t('audit.columns.actor'),
-      minWidth: '200px',
+      minWidth: '180px',
       mobileSlot: 'secondary',
       mobileCell: actorLine,
       cell: (item) => (
@@ -96,18 +98,28 @@ export function AuditTable({ rows, loading, emptyMessage, onOpen }: AuditTablePr
     {
       id: 'record',
       header: t('audit.columns.record'),
-      minWidth: '220px',
+      minWidth: '200px',
       hideable: false,
       mobileSlot: 'primary',
       mobileCell: recordLine,
+      // The way into the details that always stays on screen: the ID column is wide, so the
+      // trailing "View" button can scroll out of view on a 1280px screen.
       cell: (item) => (
         <span className="flex min-w-0 flex-wrap items-center gap-1.5">
-          <span className={`font-semibold ${ACTION_TONE[item.action]}`}>
-            {t(AUDIT_ACTION_LABEL_KEYS[item.action])}
-          </span>
-          <span className="text-slate-800 dark:text-slate-200">
-            {describeAuditTable(item.tableName, t)}
-          </span>
+          <button
+            type="button"
+            className="group inline-flex min-w-0 flex-wrap items-center gap-1.5 rounded-[3px] text-left outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            title={t('audit.viewTitle')}
+            aria-label={`${t('audit.view')}: ${recordLine(item)}`}
+            onClick={() => onOpen(item)}
+          >
+            <span className={`font-semibold ${AUDIT_ACTION_TONE[item.action]}`}>
+              {t(AUDIT_ACTION_LABEL_KEYS[item.action])}
+            </span>
+            <span className="text-sky-700 group-hover:underline dark:text-sky-400">
+              {describeAuditTable(item.tableName, t)}
+            </span>
+          </button>
           {item.recordId ? (
             <span
               className="font-mono text-[11px] text-slate-500 dark:text-slate-400"
@@ -129,7 +141,7 @@ export function AuditTable({ rows, loading, emptyMessage, onOpen }: AuditTablePr
     {
       id: 'changes',
       header: t('audit.columns.changes'),
-      minWidth: '200px',
+      minWidth: '160px',
       cell: (item) =>
         item.changedFields.length === 0 ? (
           <span className="text-slate-400">—</span>

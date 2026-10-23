@@ -507,6 +507,25 @@ export class UsersService implements OnModuleInit {
     };
   }
 
+  /**
+   * Zalo names of the given user ids from the ZCA directory (cached, never fetched from Zalo
+   * here), for screens that list many people at once. Ids not in the directory are left out.
+   */
+  public async resolveZaloNames(ids: readonly string[]): Promise<Map<string, string>> {
+    const wanted = new Set(ids);
+    if (!wanted.size || !this.zcaService) return new Map();
+    const threads = await this.zcaService
+      .getAvailableThreads(false)
+      .catch((): AvailableThread[] => []);
+    return new Map(
+      threads.flatMap((t): [string, string][] => {
+        if (t.type !== 'user' || !wanted.has(t.id)) return [];
+        const name = (t.alias || t.name || t.displayName)?.trim();
+        return name ? [[t.id, name]] : [];
+      }),
+    );
+  }
+
   public async getUsers(): Promise<
     Array<UserEntity & { alias?: string; zaloName?: string; displayName?: string }>
   > {

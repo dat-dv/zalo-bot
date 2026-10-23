@@ -56,6 +56,7 @@ export class AuditLogSubscriber implements EntitySubscriberInterface {
       recordId: recordId || undefined,
       action,
       actorId: context?.actorId ?? null,
+      actorName: context?.actorName ?? null,
       actorSource: context?.source ?? 'system',
       channelId: context?.channelId ?? null,
       beforeData: this.redact(beforeData),

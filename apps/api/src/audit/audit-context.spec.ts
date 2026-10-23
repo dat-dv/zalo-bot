@@ -48,3 +48,14 @@ void test('zaloAuditContext accepts zca ids as strings or numbers', () => {
     channelId: undefined,
   });
 });
+
+void test('zaloAuditContext keeps the trimmed sender name, and only a real one', () => {
+  assert.deepEqual(zaloAuditContext('1', '2', ' Văn Đạt '), {
+    source: 'zalo',
+    actorId: '1',
+    actorName: 'Văn Đạt',
+    channelId: '2',
+  });
+  assert.equal(zaloAuditContext('1', '2', '   ').actorName, undefined);
+  assert.equal(zaloAuditContext('1', '2', 42).actorName, undefined);
+});

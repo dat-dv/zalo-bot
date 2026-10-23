@@ -21,6 +21,10 @@ export class AuditLogEntity {
   @Column({ name: 'actor_id', type: 'varchar', nullable: true })
   actorId?: string | null;
 
+  /** Zalo display name of the sender at the time of the change; NULL for other sources. */
+  @Column({ name: 'actor_name', type: 'varchar', nullable: true })
+  actorName?: string | null;
+
   /** NULL on rows written before the actor was recorded; their `actorId` is the row's creator. */
   @Column({ name: 'actor_source', type: 'varchar', nullable: true })
   actorSource?: AuditActorSource | null;

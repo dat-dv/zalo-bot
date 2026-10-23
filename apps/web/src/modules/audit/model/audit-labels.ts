@@ -55,6 +55,11 @@ export function describeAuditTable(tableName: string, t: Translate): string {
   return isAuditTableName(tableName) ? t(AUDIT_TABLE_LABEL_KEYS[tableName]) : tableName;
 }
 
+/** "Thêm · Lời nhắc": what happened to which kind of data. */
+export function describeAuditChange(action: AuditAction, tableName: string, t: Translate): string {
+  return `${t(AUDIT_ACTION_LABEL_KEYS[action])} · ${describeAuditTable(tableName, t)}`;
+}
+
 type ActorFields = Pick<
   IAuditLogListItem,
   'actorId' | 'actorName' | 'actorIsOwner' | 'actorSource'

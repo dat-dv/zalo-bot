@@ -2025,7 +2025,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     const api = this.api;
     // Database writes made while handling the message are credited to its sender and chat.
     await AuditContext.run(
-      zaloAuditContext(message?.data?.uidFrom, message?.threadId),
+      zaloAuditContext(message?.data?.uidFrom, message?.threadId, message?.data?.dName),
       async () => {
         for (const plugin of this.plugins) {
           if (plugin.onMessage) {
@@ -2054,7 +2054,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     const api = this.api;
     // Credited to whoever reacted; a confirmation run by the reaction switches to the requester.
     await AuditContext.run(
-      zaloAuditContext(reaction?.data?.uidFrom, reaction?.threadId),
+      zaloAuditContext(reaction?.data?.uidFrom, reaction?.threadId, reaction?.data?.dName),
       async () => {
         for (const plugin of this.plugins) {
           if (plugin.onReaction) {

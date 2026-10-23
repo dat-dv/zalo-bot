@@ -85,4 +85,5 @@ Lý do: hệ thống không kiểm tra người gọi có thuộc kênh hay khô
   - Job nhắc việc/lời nhắc và việc nhập lịch từ Google chạy với nguồn **hệ thống**. Không có ngữ cảnh thì cũng là hệ thống.
 - Dòng ghi trước migration `AddAuditLogActorSource` có nguồn rỗng ("dữ liệu cũ"): người hiển thị là người tạo bản ghi, có thể không phải người sửa. Không thể suy ngược nên không sửa lại.
 - `save`/`remove` ghi đủ dữ liệu. Lệnh `update()` hàng loạt chỉ có các giá trị mới (thường không có mã bản ghi), còn `delete()` theo điều kiện chỉ để lại một dòng trống. Ghi với `callListeners(false)` (nhập lịch) thì không có dòng nào.
-- Dashboard (`GET /api/dashboard`) hiển thị 10 hoạt động gần nhất do chính người dùng thực hiện. Trang Nhật ký hoạt động cho admin nằm ở [modules/audit](../modules/audit/README.md).
+- Thao tác từ Zalo lưu thêm **tên Zalo của người gửi** lúc đó vào cột `actor_name` (migration `AddAuditLogActorName`). Lý do: nhiều thành viên nhóm không kết bạn với bot nên danh bạ ZCA không có tên họ, và `users.first_name` thường trống.
+- Dashboard (`GET /api/dashboard`) hiển thị 10 hoạt động gần nhất do chính người dùng thực hiện, **không tính các bảng kỹ thuật** (phiên đăng nhập, token, dấu đã gửi của lần nhắc), vì chúng sinh ra liên tục và đẩy các thay đổi thật ra khỏi khối. Trang Nhật ký hoạt động cho admin nằm ở [modules/audit](../modules/audit/README.md).

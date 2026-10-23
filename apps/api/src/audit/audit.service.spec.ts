@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ForbiddenException } from '@nestjs/common';
 import { AUDIT_TECHNICAL_TABLES } from '@zalobot/contracts';
-import { Brackets } from 'typeorm';
+import { Brackets, type FindOperator } from 'typeorm';
 import type { AuditLogEntity } from '../database/entities/audit-log.entity';
 import { AuditController } from './audit.controller';
 import { AuditService } from './audit.service';
@@ -12,10 +12,16 @@ interface Recorded {
   orders: string[];
   skip?: number;
   take?: number;
+  findOptions?: unknown;
 }
 
 /** Just enough of TypeORM's query builder to record the filters the service applies. */
-function fakeAuditRepo(rows: AuditLogEntity[], actorIds: string[], recorded: Recorded) {
+function fakeAuditRepo(
+  rows: AuditLogEntity[],
+  actorIds: string[],
+  recorded: Recorded,
+  savedNames: Record<string, string> = {},
+) {
   const builder = {
     andWhere(condition: string | Brackets, params?: Record<string, unknown>) {
       if (condition instanceof Brackets) {
@@ -49,10 +55,22 @@ function fakeAuditRepo(rows: AuditLogEntity[], actorIds: string[], recorded: Rec
     },
     getManyAndCount: () => Promise.resolve([rows, rows.length + 100]),
     select: () => builder,
+    addSelect: () => builder,
     where: () => builder,
-    getRawMany: () => Promise.resolve(actorIds.map((actorId) => ({ actorId }))),
+    groupBy: () => builder,
+    getRawMany: () =>
+      Promise.resolve(
+        actorIds.map((actorId) => ({ actorId, actorName: savedNames[actorId] ?? null })),
+      ),
   };
-  return { createQueryBuilder: () => builder, findOne: () => Promise.resolve(rows[0] ?? null) };
+  return {
+    createQueryBuilder: () => builder,
+    findOne: () => Promise.resolve(rows[0] ?? null),
+    find: (options: unknown) => {
+      recorded.findOptions = options;
+      return Promise.resolve(rows);
+    },
+  };
 }
 
 function row(overrides: Partial<AuditLogEntity>): AuditLogEntity {
@@ -71,7 +89,12 @@ function row(overrides: Partial<AuditLogEntity>): AuditLogEntity {
   };
 }
 
-function service(rows: AuditLogEntity[], actorIds: string[], recorded: Recorded) {
+function service(
+  rows: AuditLogEntity[],
+  actorIds: string[],
+  recorded: Recorded,
+  savedNames: Record<string, string> = {},
+) {
   const users = {
     find: () =>
       Promise.resolve([
@@ -83,7 +106,7 @@ function service(rows: AuditLogEntity[], actorIds: string[], recorded: Recorded)
     find: () => Promise.resolve([{ threadId: 'g1', threadName: 'Nhà', threadType: 'group' }]),
   };
   return new AuditService(
-    fakeAuditRepo(rows, actorIds, recorded) as never,
+    fakeAuditRepo(rows, actorIds, recorded, savedNames) as never,
     users as never,
     chats as never,
   );
@@ -153,6 +176,58 @@ void test('items carry actor and chat names, changed fields and the actor facet'
     { id: 'u2', name: 'Bình', isOwner: false },
     { id: 'u9', name: '', isOwner: false },
   ]);
+});
+
+void test('actor names: ZCA directory, then the name saved on the row, then first_name', async () => {
+  const recorded: Recorded = { wheres: [], orders: [] };
+  const asked: string[][] = [];
+  const resolveNames = (ids: string[]) => {
+    asked.push(ids);
+    return Promise.resolve(new Map([['u3', 'Cường (danh bạ)']]));
+  };
+  const result = await service(
+    [
+      row({ actorId: 'u2', actorName: 'Bình lúc đó' }),
+      row({ id: 'log2', actorId: 'u3', actorName: 'Cường lúc đó' }),
+      row({ id: 'log3', actorId: 'u2', actorName: null }),
+      row({ id: 'log4', actorId: 'u9', actorName: '  ' }),
+    ],
+    ['u2', 'u3', 'u9'],
+    recorded,
+    { u2: 'Bình lúc đó', u9: 'Chín' },
+  ).list({}, resolveNames);
+
+  assert.deepEqual(
+    result.items.map((item) => item.actorName),
+    ['Bình lúc đó', 'Cường (danh bạ)', 'Bình', ''],
+  );
+  assert.deepEqual(
+    result.facets.actors.map((actor) => actor.name),
+    ['Bình lúc đó', 'Cường (danh bạ)', 'Chín'],
+  );
+  assert.deepEqual(asked, [['u2', 'u3', 'u9']]);
+});
+
+void test('an unreadable ZCA directory falls back to the saved names', async () => {
+  const recorded: Recorded = { wheres: [], orders: [] };
+  const detail = await service([row({ actorName: 'Bình lúc đó' })], [], recorded).get('log1', () =>
+    Promise.reject(new Error('ZCA offline')),
+  );
+  assert.equal(detail?.actorName, 'Bình lúc đó');
+});
+
+void test('the home page activity leaves out the technical tables', async () => {
+  const recorded: Recorded = { wheres: [], orders: [] };
+  await service([], [], recorded).listRecent(42, 10);
+  const options = recorded.findOptions as {
+    where: { actorId: string; tableName: FindOperator<string> };
+    take: number;
+  };
+  assert.equal(options.where.actorId, '42');
+  assert.equal(options.where.tableName.type, 'not');
+  // FindOperator.value unwraps the nested In(...).
+  assert.deepEqual(options.where.tableName.value, [...AUDIT_TECHNICAL_TABLES]);
+  assert.equal(options.take, 10);
 });
 
 void test('the detail returns the before and after data', async () => {

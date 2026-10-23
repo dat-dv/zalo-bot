@@ -1240,10 +1240,16 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     await this.deletePending(pending.code, pending.userId);
     await this.recallTempMessages(chatId, pending.code);
 
-    // The writes belong to whoever asked for the action, not to whoever approved it.
+    // The writes belong to whoever asked for the action, not to whoever approved it. The pending
+    // action does not store the requester's name, so the current sender's name is kept only
+    // when the requester confirms their own action.
     const confirmed = pending;
-    return AuditContext.run(zaloAuditContext(confirmed.userId, confirmed.chatId), () =>
-      this.executeConfirmed(confirmed, userId, chatId, silent),
+    const current = AuditContext.current();
+    const requesterName =
+      current?.actorId === String(confirmed.userId) ? current.actorName : undefined;
+    return AuditContext.run(
+      zaloAuditContext(confirmed.userId, confirmed.chatId, requesterName),
+      () => this.executeConfirmed(confirmed, userId, chatId, silent),
     );
   }
 

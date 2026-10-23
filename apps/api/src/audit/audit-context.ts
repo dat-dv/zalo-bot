@@ -6,6 +6,8 @@ export interface AuditContextStore {
   source: AuditActorSource;
   /** `users.id`; unset until known (dashboard: after the token is verified). */
   actorId?: string;
+  /** Zalo display name of the sender, kept because many group members are not in the directory. */
+  actorName?: string;
   /** Zalo chat the change came from. */
   channelId?: string;
 }
@@ -40,8 +42,18 @@ export const AuditContext = {
 };
 
 /** Context of a Zalo event; zca-js hands ids over as strings or numbers. */
-export function zaloAuditContext(senderId: unknown, channelId: unknown): AuditContextStore {
-  return { source: 'zalo', actorId: toAuditId(senderId), channelId: toAuditId(channelId) };
+export function zaloAuditContext(
+  senderId: unknown,
+  channelId: unknown,
+  senderName?: unknown,
+): AuditContextStore {
+  const actorName = typeof senderName === 'string' ? senderName.trim() : '';
+  return {
+    source: 'zalo',
+    actorId: toAuditId(senderId),
+    ...(actorName && { actorName }),
+    channelId: toAuditId(channelId),
+  };
 }
 
 function toAuditId(value: unknown): string | undefined {

@@ -18,14 +18,19 @@ export const auditQueryKeys = {
 export const isForbiddenError = (error: unknown): boolean =>
   axios.isAxiosError(error) && error.response?.status === 403;
 
-/** Admin-only: other users get 403, which is not retried. */
+/** The session expired or was signed out: the screen asks to sign in again. */
+export const isUnauthorizedError = (error: unknown): boolean =>
+  axios.isAxiosError(error) && error.response?.status === 401;
+
+/** Admin-only: other users get 403; neither 403 nor 401 is retried. */
 export function useAuditLogsQuery(query: IAuditLogListQuery) {
   return useQuery<IAuditLogListResponse>({
     queryKey: auditQueryKeys.list(query),
     queryFn: ({ signal }) => listAuditLogs(query, signal),
     // Keep the current page on screen while the next page or filter loads.
     placeholderData: keepPreviousData,
-    retry: (failureCount, error) => !isForbiddenError(error) && failureCount < 1,
+    retry: (failureCount, error) =>
+      !isForbiddenError(error) && !isUnauthorizedError(error) && failureCount < 1,
   });
 }
 
