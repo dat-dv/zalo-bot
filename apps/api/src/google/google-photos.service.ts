@@ -5,17 +5,37 @@ export interface PhotosUploadResult {
   mediaItemId: string;
   productUrl?: string;
   albumTitle: string;
-  albumId?: string;
+  albumId: string;
   albumUrl?: string;
   description?: string;
 }
 
+export interface PhotosAlbum {
+  id: string;
+  url?: string;
+}
+
+/** The album an upload goes to; the caller resolves it (see `MediaStorageService`). */
+export interface PhotosAlbumTarget extends PhotosAlbum {
+  title: string;
+}
+
+/** Album to use instead of `failedAlbumId` once Google refused it. */
+export type ReplacePhotosAlbum = (failedAlbumId: string) => Promise<PhotosAlbum>;
+
 export interface UploadPhotoOptions {
   buffer: Buffer;
   filename: string;
-  albumTitle: string;
-  albumId?: string;
+  album: PhotosAlbumTarget;
+  replaceAlbum?: ReplacePhotosAlbum;
   description?: string;
+}
+
+export interface ChannelPhotoOptions {
+  album: PhotosAlbumTarget;
+  replaceAlbum?: ReplacePhotosAlbum;
+  note?: string;
+  extension?: string;
 }
 
 interface GooglePhotosAlbum {
@@ -25,9 +45,26 @@ interface GooglePhotosAlbum {
   isWriteable?: boolean;
 }
 
-interface CachedAlbum {
-  id: string;
-  url?: string;
+/** Google refused the album itself (deleted, or not writable by the app), not the media item. */
+export class PhotosAlbumUnavailableError extends Error {
+  constructor(
+    public readonly albumId: string,
+    public readonly status: number,
+    detail: string,
+  ) {
+    super(`Google Photos album "${albumId}" is unavailable (${status}): ${detail}`);
+    this.name = 'PhotosAlbumUnavailableError';
+  }
+}
+
+/**
+ * Whether a failed `mediaItems:batchCreate` points at the album rather than the item: 404, or a
+ * 400/403 whose message names the album. Quota, server errors and rejected files are not, so they
+ * never lead to a replacement album.
+ */
+export function isAlbumRejection(status: number, body: string): boolean {
+  if (status === 404) return true;
+  return (status === 400 || status === 403) && /album/i.test(body);
 }
 
 const ALBUM_PAGE_SIZE = 50;
@@ -38,7 +75,7 @@ const MAX_ALBUM_PAGES = 50;
 export class GooglePhotosService {
   private readonly logger = new Logger(GooglePhotosService.name);
   /** Albums by title, per OAuth client: a new Google account (new client) never reuses ids. */
-  private readonly albumCache = new WeakMap<object, Map<string, CachedAlbum>>();
+  private readonly albumCache = new WeakMap<object, Map<string, PhotosAlbum>>();
   private readonly baseUrl = 'https://photoslibrary.googleapis.com/v1';
 
   constructor(private readonly authService: GoogleAuthService) {}
@@ -92,7 +129,7 @@ export class GooglePhotosService {
     return uploadToken.trim();
   }
 
-  private albumCacheFor(userId?: number | string): Map<string, CachedAlbum> {
+  private albumCacheFor(userId?: number | string): Map<string, PhotosAlbum> {
     const client = this.authService.getOAuth2Client(userId);
     if (!client) return new Map();
     let cache = this.albumCache.get(client);
@@ -104,8 +141,9 @@ export class GooglePhotosService {
   }
 
   /**
-   * Finds an app-created album by exact title, scanning every page: reading only the first page
-   * made albums beyond it invisible, so a duplicate album with the same title was created.
+   * Finds an app-created album by exact title, scanning every page. Read-only links only: the
+   * app's `photoslibrary.appendonly` scope does not allow `albums.list` (it needs
+   * `photoslibrary.readonly.appcreateddata`), so Google answers 403 and uploads never rely on it.
    */
   private async findAppAlbum(
     title: string,
@@ -138,32 +176,11 @@ export class GooglePhotosService {
   }
 
   /**
-   * Lấy hoặc tạo mới Album theo tiêu đề
+   * Creates an album, never looking one up first (see `findAppAlbum`): the caller owns the
+   * decision, from the channel's album recorded in `channel_storage_links`.
    */
-  public async getOrCreateAlbum(title: string, userId?: number | string): Promise<string> {
-    return (await this.getOrCreateAlbumInfo(title, userId)).id;
-  }
-
-  public async getOrCreateAlbumInfo(title: string, userId?: number | string): Promise<CachedAlbum> {
-    const cache = this.albumCacheFor(userId);
-    const cached = cache.get(title);
-    if (cached) return cached;
-
+  public async createAlbum(title: string, userId?: number | string): Promise<PhotosAlbum> {
     const accessToken = await this.getAccessToken(userId);
-
-    // 1. Kiểm tra danh sách albums do app tạo
-    try {
-      const found = await this.findAppAlbum(title, accessToken);
-      if (found) {
-        const info = { id: found.id, url: found.productUrl };
-        cache.set(title, info);
-        return info;
-      }
-    } catch (listErr) {
-      this.logger.warn(`Could not list albums from Google Photos: ${(listErr as Error).message}`);
-    }
-
-    // 2. Tạo album mới nếu chưa có
     const createRes = await fetch(`${this.baseUrl}/albums`, {
       method: 'POST',
       headers: {
@@ -190,9 +207,7 @@ export class GooglePhotosService {
     }
 
     this.logger.log(`Created Google Photos album "${title}" (id: ${newAlbum.id}).`);
-    const info = { id: newAlbum.id, url: newAlbum.productUrl };
-    cache.set(title, info);
-    return info;
+    return { id: newAlbum.id, url: newAlbum.productUrl };
   }
 
   /**
@@ -231,6 +246,9 @@ export class GooglePhotosService {
 
     if (!res.ok) {
       const errText = await res.text();
+      if (isAlbumRejection(res.status, errText)) {
+        throw new PhotosAlbumUnavailableError(albumId, res.status, errText);
+      }
       throw new Error(`Google Photos batchCreate failed (${res.status}): ${errText}`);
     }
 
@@ -262,53 +280,36 @@ export class GooglePhotosService {
   ): Promise<PhotosUploadResult> {
     try {
       const uploadToken = await this.uploadBytes(options.buffer, options.filename, userId);
-      let albumId = options.albumId;
-      let albumUrl: string | undefined;
-      if (!albumId) {
-        const album = await this.getOrCreateAlbumInfo(options.albumTitle, userId);
-        albumId = album.id;
-        albumUrl = album.url;
-      }
-      let media;
+      const addTo = (albumId: string) =>
+        this.createMediaItem(uploadToken, albumId, options.description, options.filename, userId);
+
+      let album: PhotosAlbum = options.album;
+      let media: { mediaItemId: string; productUrl?: string };
       try {
-        media = await this.createMediaItem(
-          uploadToken,
-          albumId,
-          options.description,
-          options.filename,
-          userId,
-        );
+        media = await addTo(album.id);
       } catch (createErr) {
-        // Nếu albumId lưu trước đó bị xoá hoặc không hợp lệ, thử fallback sang getOrCreateAlbum
-        if (options.albumId) {
-          this.logger.warn(
-            `Failed to add to albumId "${options.albumId}", falling back to getOrCreateAlbum("${options.albumTitle}"): ${(createErr as Error).message}`,
-          );
-          const album = await this.getOrCreateAlbumInfo(options.albumTitle, userId);
-          albumId = album.id;
-          albumUrl = album.url;
-          media = await this.createMediaItem(
-            uploadToken,
-            albumId,
-            options.description,
-            options.filename,
-            userId,
-          );
-        } else {
+        // Only an album Google refuses is replaced: any other failure (quota, 5xx, a rejected
+        // file) keeps the channel's album, so a failed upload never leaves a duplicate album.
+        if (!(createErr instanceof PhotosAlbumUnavailableError) || !options.replaceAlbum) {
           throw createErr;
         }
+        this.logger.warn(
+          `Google Photos album "${options.album.title}" (${album.id}) refused media, using a replacement: ${createErr.message}`,
+        );
+        album = await options.replaceAlbum(album.id);
+        media = await addTo(album.id);
       }
 
       this.logger.log(
-        `Added photo "${options.filename}" to Google Photos album "${options.albumTitle}" (${media.mediaItemId}).`,
+        `Added photo "${options.filename}" to Google Photos album "${options.album.title}" (${media.mediaItemId}).`,
       );
 
       return {
         mediaItemId: media.mediaItemId,
         productUrl: media.productUrl,
-        albumTitle: options.albumTitle,
-        albumId,
-        albumUrl,
+        albumTitle: options.album.title,
+        albumId: album.id,
+        albumUrl: album.url,
         description: options.description,
       };
     } catch (err) {
@@ -330,85 +331,73 @@ export class GooglePhotosService {
   }
 
   /**
-   * Tải ảnh hóa đơn / bill vào album "ZaloBot - Hóa đơn"
+   * Tải ảnh hóa đơn / bill vào album của kênh
    */
   public async uploadBillPhoto(
     buffer: Buffer,
     senderId: string,
-    options?: {
-      note?: string;
-      extension?: string;
-      occurredAt?: Date;
-      albumTitle?: string;
-      albumId?: string;
-    },
+    options: ChannelPhotoOptions & { occurredAt?: Date },
     userId?: number | string,
   ): Promise<PhotosUploadResult> {
-    const date = options?.occurredAt || new Date();
+    const date = options.occurredAt || new Date();
     const ts = this.getFormattedTimestamp(date);
-    const ext = (options?.extension || 'jpg').replace(/^\./, '');
-    const filename = `bill_${ts}_${senderId}.${ext}`;
-    const albumTitle = options?.albumTitle?.trim() || 'ZaloBot - Hóa đơn';
+    const ext = (options.extension || 'jpg').replace(/^\./, '');
 
     return this.uploadPhoto(
       {
         buffer,
-        filename,
-        albumTitle,
-        albumId: options?.albumId,
-        description: options?.note || `Hóa đơn chi tiêu từ Zalo ID ${senderId}`,
+        filename: `bill_${ts}_${senderId}.${ext}`,
+        album: options.album,
+        replaceAlbum: options.replaceAlbum,
+        description: options.note || `Hóa đơn chi tiêu từ Zalo ID ${senderId}`,
       },
       userId,
     );
   }
 
   /**
-   * Tải ảnh thông thường vào album chỉ định hoặc mặc định "ZaloBot - Hình ảnh"
+   * Tải ảnh thông thường vào album của kênh
    */
   public async uploadGeneralPhoto(
     buffer: Buffer,
     senderId: string,
-    options?: { note?: string; extension?: string; albumTitle?: string; albumId?: string },
+    options: ChannelPhotoOptions,
     userId?: number | string,
   ): Promise<PhotosUploadResult> {
     const ts = this.getFormattedTimestamp(new Date());
-    const ext = (options?.extension || 'jpg').replace(/^\./, '');
-    const filename = `img_${ts}_${senderId}.${ext}`;
-    const albumTitle = options?.albumTitle?.trim() || 'ZaloBot - Hình ảnh';
+    const ext = (options.extension || 'jpg').replace(/^\./, '');
 
     return this.uploadPhoto(
       {
         buffer,
-        filename,
-        albumTitle,
-        albumId: options?.albumId,
-        description: options?.note || `Ảnh từ Zalo ID ${senderId}`,
+        filename: `img_${ts}_${senderId}.${ext}`,
+        album: options.album,
+        replaceAlbum: options.replaceAlbum,
+        description: options.note || `Ảnh từ Zalo ID ${senderId}`,
       },
       userId,
     );
   }
 
   /**
-   * Tải video vào album chỉ định hoặc mặc định "ZaloBot - Video"
+   * Tải video vào album của kênh
    */
   public async uploadVideo(
     buffer: Buffer,
     senderId: string,
-    options?: { note?: string; extension?: string; albumTitle?: string; albumId?: string },
+    options: ChannelPhotoOptions,
     userId?: number | string,
   ): Promise<PhotosUploadResult> {
     const ts = this.getFormattedTimestamp(new Date());
-    const ext = (options?.extension || 'mp4').replace(/^\./, '');
-    const filename = `vid_${ts}_${senderId}.${ext}`;
-    const albumTitle = options?.albumTitle?.trim() || 'ZaloBot - Video';
+    const ext = (options.extension || 'mp4').replace(/^\./, '');
 
     return this.uploadPhoto(
       {
         buffer,
-        filename,
-        albumTitle,
-        albumId: options?.albumId,
-        description: options?.note || `Video từ Zalo ID ${senderId}`,
+        filename: `vid_${ts}_${senderId}.${ext}`,
+        album: options.album,
+        replaceAlbum: options.replaceAlbum,
+        description: options.note || `Video từ Zalo ID ${senderId}`,
       },
       userId,
     );
@@ -426,7 +415,7 @@ export class GooglePhotosService {
   public async findAlbumInfo(
     albumTitle: string,
     userId?: number | string,
-  ): Promise<CachedAlbum | null> {
+  ): Promise<PhotosAlbum | null> {
     const cache = this.albumCacheFor(userId);
     const cached = cache.get(albumTitle);
     if (cached?.url) return cached;

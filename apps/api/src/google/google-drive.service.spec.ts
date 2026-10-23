@@ -109,3 +109,52 @@ void test('shareFolderWithUser creates a user permission on the target folder', 
   assert.equal(permissionsCreated[0].requestBody.role, 'reader');
   assert.equal(permissionsCreated[0].requestBody.type, 'user');
 });
+
+void test('ensureFolderPath creates each folder once for concurrent uploads of one channel', async () => {
+  const folders = new Map<string, string>();
+  const created: string[] = [];
+  const keyOf = (name: string, parent: string) => `${parent}/${name}`;
+  const queryOf = (q: string) => {
+    const name = /name = '([^']+)'/.exec(q)?.[1] ?? '';
+    const parent = /'([^']+)' in parents/.exec(q)?.[1] ?? '';
+    return keyOf(name, parent);
+  };
+
+  const mockDrive = {
+    files: {
+      list: async (params: { q: string }) => {
+        await new Promise((resolve) => setImmediate(resolve));
+        const id = folders.get(queryOf(params.q));
+        return { data: { files: id ? [{ id, name: 'x' }] : [] } };
+      },
+      create: async (params: { requestBody: { name: string; parents: string[] } }) => {
+        await new Promise((resolve) => setImmediate(resolve));
+        const key = keyOf(params.requestBody.name, params.requestBody.parents[0]);
+        created.push(key);
+        const id = `f${created.length}`;
+        folders.set(key, id);
+        return { data: { id } };
+      },
+    },
+  };
+  // One client object, as for the shared account: the caches are keyed by it.
+  const client = { credentials: { access_token: 'valid_token' } };
+  const mockAuthService = {
+    getOAuth2Client: () => client,
+    isAuthorized: () => true,
+  } as unknown as GoogleAuthService;
+
+  const service = new GoogleDriveService(mockAuthService);
+  Reflect.set(service, 'getDriveClient', () => mockDrive);
+
+  const [image, bill, imageAgain] = await Promise.all([
+    service.ensureFolderPath('zalobot/g-1/image'),
+    service.ensureFolderPath('zalobot/g-1/bill'),
+    service.ensureFolderPath('zalobot/g-1/image'),
+  ]);
+
+  // zalobot → f1, g-1 → f2, then image and bill under f2.
+  assert.deepEqual(created.sort(), ['f1/g-1', 'f2/bill', 'f2/image', 'root/zalobot']);
+  assert.equal(image, imageAgain);
+  assert.notEqual(image, bill);
+});

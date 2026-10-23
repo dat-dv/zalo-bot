@@ -52,7 +52,7 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 - The shared account is pinned by `user_tokens.is_shared` (one row). Only an explicit login (`exchangeCodeForTokens` → `saveTokensForUser(id, tokens, { shared: true })`) sets it and unmarks the others. Token refreshes (`client.on('tokens')`) never move it.
   - Why: before, every saved token (incl. hourly refreshes of any admin, e.g. one person with a webhook id and a ZCA uid) re-pointed the shared account, so media went to different Google accounts and album ids were overwritten across accounts.
   - **No fallback**: only the token marked `is_shared` (preload) or the last login is the shared account. With none, `getSharedOAuth2Client()` returns `null` and uploads stop; another admin's token is never picked silently. A token saved without a login (refresh, merge) never becomes shared.
-- A login always builds a **new OAuth client**. Caches are keyed by client object (`WeakMap`): account email (`getAccountEmail(userId?)`), Drive folder ids (`GoogleDriveService`), Photos album ids/urls (`GooglePhotosService`). So switching accounts never reuses ids of the old account.
+- A login always builds a **new OAuth client**. Caches are keyed by client object (`WeakMap`): account email (`getAccountEmail(userId?)`), Drive folder ids and in-flight folder creations (`GoogleDriveService`), album links read by title (`GooglePhotosService.findAlbumInfo`). So switching accounts never reuses ids of the old account. Upload albums are keyed by account email in `channel_storage_links` (see Album lookup).
 - Migration `1724830000000-CreateChannelStorageLinks` marks the most recently updated token as shared.
 
 ### Dashboard sign-in / sign-out (admin-only, `GoogleResourcesController`)
@@ -70,14 +70,23 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 - Built by `buildChannelStorageTarget(channelId, { customFolder, photosAlbum, photosAlbumTitle, threadName, fileSuffix })`; for ZCA threads `getThreadStorageTarget(config)` / `ThreadConfigService.getStorageTarget(threadId)` (default target when no stored config).
 - `driveRoot`: `customFolder` (normalized) else `zalobot/<sanitized channelId>`. `splitByCategory`: true for the default root.
 - Upload folder (`getChannelUploadFolder`): `<root>/<bill|image|video|file>` or the custom folder itself; the Drive service appends `/<YYYY-MM>`. Audio uses `file`.
-- `photosAlbumTitle`: `photosAlbum` override → stored `photosAlbumTitle` → `[Zalo] <threadName>` → `[Zalo] Nhóm <channelId>`. **One album per channel per account**: bills, images and videos all go to it. The global defaults (`ZaloBot - Hóa đơn/Hình ảnh/Video`) remain only in `GooglePhotosService` wrappers when no title is passed.
-- `MediaStorageService.uploadBill|uploadImage|uploadVideo|uploadFile(senderId, buffer, target, options?)` require a target (type-enforced), so no upload path can skip the channel storage. `senderId` only names files.
+- `photosAlbumTitle`: `photosAlbum` override → stored `photosAlbumTitle` → `[Zalo] <threadName>` → `[Zalo] Nhóm <channelId>`. **One album per channel per account**: bills, images and videos all go to it. The title is frozen after the first upload (`savePhotosAlbumInfo` stores it); an admin changing the override deliberately gets one new album with that name.
+- `MediaStorageService.uploadBill|uploadImage|uploadVideo|uploadFile(senderId, buffer, target, options?)` require a target (type-enforced), so no upload path can skip the channel storage. `senderId` only names files. The Photos wrappers (`uploadBillPhoto|uploadGeneralPhoto|uploadVideo`) require `{ album, replaceAlbum? }`; there is no global default album any more.
 
 ## Album lookup
 
-- `GooglePhotosService.findAppAlbum` scans every `albums.list` page (`pageSize=50`, `nextPageToken`, max 50 pages). Before, only page 1 was read, so albums beyond 50 were invisible and duplicates with the same title were created.
-- `getOrCreateAlbumInfo(title)` → `{ id, url }` (find or create); `findAlbumInfo(title)` → existing only; `getAlbumLink` uses it.
-- Uploads first reuse the album recorded in history for the current account (`ChannelStorageLinkService.findAlbum(threadId, email, title)`); the legacy `zca_thread_configs.photos_album_id` is no longer passed to uploads.
+- **Why**: the app requests only `photoslibrary.appendonly`. Google's `albums.list` accepts only `photoslibrary.readonly.appcreateddata`, so listing always fails (403). The old find-by-title-then-create silently fell through to create, and every miss of the in-memory cache, every failed `batchCreate` and every burst of concurrent uploads created another album with the same title. No new scope is requested (decision 2026-10-23: no re-consent, no OAuth re-verification).
+- **Source of truth**: `channel_storage_links` row `(thread_id, kind='photos', google_email, label=title)`, most recent `last_used_at` (`ChannelStorageLinkService.findAlbum`). Uploads never look an album up on Google.
+- `MediaStorageService.channelAlbum(target, email)`:
+  - No email (shared account unknown) or no link service → the Photos side fails ("Không xác định được tài khoản Google dùng chung."), Drive still uploads. Never creates an album that could not be found again.
+  - Single-flight per `email + channelId + title` (in-memory `Map<string, Promise>`, one API instance): history row → use it; none → `GooglePhotosService.createAlbum(title)` (POST only) and **record the row before adding media**, so a failed add still reuses it. A failed record is logged at `error` (the next upload would create another album).
+  - `replaceAlbum(failedAlbumId)`: single-flight under its own key; re-reads history and returns the recorded album when it already differs from the failed one (another upload replaced it), else creates + records a new album and logs `warn`.
+- `GooglePhotosService.uploadPhoto({ album, replaceAlbum })`: uploads bytes once, `mediaItems:batchCreate` into `album.id`. Only `PhotosAlbumUnavailableError` (`isAlbumRejection(status, body)`: 404, or 400/403 whose body mentions "album") triggers `replaceAlbum` and one retry with the same upload token. Any other failure (429, 5xx, rejected item, missing scope) is thrown: the album is kept, the Photos side reports the error.
+- Successful uploads still `record` the album (bumps `last_used_at`).
+- `findAppAlbum` / `findAlbumInfo` / `getAlbumLink` (scan every `albums.list` page, cached per client) remain only for read-only links: Zalo storage-links command (global `ZaloBot - …` albums), `GET API_ROUTES.photosAlbumLink`, `getVideoStorageLinks`. With the current scope they return `null`; they never create albums. Known gap: move them to history-based channel links.
+- Drive needs no history lookup: `drive.file` can list app-created folders, so `ensureFolder` finds by name. `ensureFolderPath` resolves each path prefix once per client (cache + in-flight `Promise` map), so concurrent uploads of a channel create `zalobot/<channel>` and each category folder once.
+- Existing duplicate albums are not merged (the API cannot delete albums or move items with this scope); uploads stick to the most recently used one. Extra history rows can be deleted in the dashboard dialog.
+- The legacy `zca_thread_configs.photos_album_id` is not passed to uploads.
 
 ## Storage history (`channel_storage_links`)
 
@@ -91,7 +100,7 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 | `first_used_at`, `last_used_at` | Usage range |
 
 - Unique `(thread_id, kind, resource_id)`. `record()` upserts: updates `url`, `label`, `last_used_at = GREATEST(...)`, adopts `google_email` only when NULL.
-- Written after each successful upload (`MediaStorageService`: Drive root id via `ensureFolderPath(driveRoot)`, album id + url) and by `syncCurrentStorage(target)`. Recording is best effort: failures are logged, the upload result is kept.
+- Written after each successful upload (`MediaStorageService`: Drive root id via `ensureFolderPath(driveRoot)`, album id + url), when a channel album is created (before media is added), and by `syncCurrentStorage(target)` (Drive root only). Recording is best effort: failures are logged, the upload result is kept.
 - Admins can also add a row by hand (`ChannelStorageLinkService.createLink`, see API): `label = ''`, `first_used_at = last_used_at =` time added (the real usage time is unknown), `resource_id = channelStorageResourceIdFromUrl(kind, url)` (contracts: Drive `/folders/<id>`, Photos `/album/<id>` incl. `/lr/album/<id>`, else the URL). Keying by the real id means a later upload to the same folder/album hits the same row through `record()` instead of adding a second one.
 - Backfill: one Drive row and one Photos row per thread config that had a cached URL.
 - Legacy `driveFolder*` / `photosAlbum*` columns on `zca_thread_configs` stay (still written by existing flows) but are not the source of the dashboard list.
@@ -99,7 +108,7 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 ## API
 
 - `GET /api/zca/threads/:threadId/storage-links` (`API_ROUTES.zcaThreadStorageLinks`, admin-only) → `ChannelStorageLinksResponse { threadId, drive: ChannelStorageLink[], photos: ChannelStorageLink[] }`.
-  - First `syncCurrentStorage(target)`: when the shared account is connected with storage scopes, ensures the Drive root (may create folders) and finds (never creates) the album, records both, marks them `isCurrent`.
+  - First `syncCurrentStorage(target)`: when the shared account is connected with storage scopes, ensures and records the Drive root (may create folders) and reads the album from history (`findAlbum`, never Google, never creates); both are marked `isCurrent`.
   - `toChannelStorageLinksResponse` (pure, `storage/channel-storage-links.mapper.ts`): merges rows with the same URL (backfilled + real id), current first, then `lastUsedAt` desc. Each link carries `id` (representative row) and `displayName`.
 - `PATCH /api/zca/threads/:threadId/storage-links/:linkId` (`API_ROUTES.zcaThreadStorageLink`, body `UpdateChannelStorageLinkDto { displayName?, url?, googleEmail? }`) and `DELETE` on the same path; admin-only; both return the fresh `ChannelStorageLinksResponse`.
   - Scope: every row of the thread with the same `kind + url` as `linkId` (`ChannelStorageLinkService.findLinkGroup`, = one dialog item). Unknown id / other thread → 404.

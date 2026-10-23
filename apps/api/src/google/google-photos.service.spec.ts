@@ -1,7 +1,59 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { GooglePhotosService } from './google-photos.service';
+import { GooglePhotosService, isAlbumRejection } from './google-photos.service';
 import { GoogleAuthService } from './google-auth.service';
+
+interface FetchCall {
+  url: string;
+  method: string;
+  body?: string;
+}
+
+const urlOf = (url: string | URL | Request): string =>
+  typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
+
+const json = (body: unknown, status = 200): Response =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+const mediaCreated = (id: string): Response =>
+  json({ newMediaItemResults: [{ mediaItem: { id, productUrl: `https://photos/${id}` } }] });
+
+/** Replaces `fetch` for the duration of `run`, recording every call. */
+async function withFetch(
+  respond: (call: FetchCall) => Response,
+  run: (calls: FetchCall[]) => Promise<void>,
+): Promise<void> {
+  const calls: FetchCall[] = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (url: string | URL | Request, init?: RequestInit) => {
+    const call = {
+      url: urlOf(url),
+      method: init?.method ?? 'GET',
+      body: typeof init?.body === 'string' ? init.body : undefined,
+    };
+    calls.push(call);
+    return Promise.resolve(respond(call));
+  };
+  try {
+    await run(calls);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+const authorizedService = (): GooglePhotosService => {
+  const client = { getAccessToken: () => Promise.resolve({ token: 'token' }) };
+  const mockAuthService = {
+    getOAuth2Client: () => client,
+    isAuthorized: () => true,
+  } as unknown as GoogleAuthService;
+  return new GooglePhotosService(mockAuthService);
+};
+
+const isAlbumRequest = (call: FetchCall): boolean => /\/albums(\?|$)/.test(call.url);
 
 void test('GooglePhotosService throws BadRequestException when unauthorized', async () => {
   const mockAuthService = {
@@ -18,124 +70,147 @@ void test('GooglePhotosService throws BadRequestException when unauthorized', as
   );
 });
 
-void test('GooglePhotosService uploads photo and creates media item in album', async () => {
-  const mockAuthService = {
-    getOAuth2Client: () => ({
-      getAccessToken: async () => {
-        await Promise.resolve();
-        return { token: 'mock_access_token' };
-      },
-    }),
-    isAuthorized: () => true,
-  } as unknown as GoogleAuthService;
+void test('GooglePhotosService adds media to the given album without listing or creating albums', async () => {
+  const service = authorizedService();
 
-  const service = new GooglePhotosService(mockAuthService);
-
-  // Mock global fetch for Google Photos API endpoints
-  const originalFetch = globalThis.fetch;
-  try {
-    globalThis.fetch = async (url: string | URL | Request, init?: RequestInit) => {
-      await Promise.resolve();
-      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
-      if (urlStr.endsWith('/uploads')) {
-        return new Response('mock_upload_token_xyz', { status: 200 });
-      }
-      if (urlStr.endsWith('/albums') && init?.method === 'POST') {
-        return new Response(
-          JSON.stringify({
-            id: 'album_id_bills_123',
-            title: 'ZaloBot - Hóa đơn',
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        );
-      }
-      if (urlStr.includes('/albums?') || urlStr.endsWith('/albums')) {
-        return new Response(JSON.stringify({ albums: [] }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-      if (urlStr.endsWith('/mediaItems:batchCreate')) {
-        return new Response(
-          JSON.stringify({
-            newMediaItemResults: [
-              {
-                status: { message: 'Success' },
-                mediaItem: {
-                  id: 'media_item_789',
-                  productUrl: 'https://photos.google.com/photo/media_item_789',
-                },
-              },
-            ],
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        );
-      }
+  await withFetch(
+    (call) => {
+      if (call.url.endsWith('/uploads')) return new Response('upload-token', { status: 200 });
+      if (call.url.endsWith('/mediaItems:batchCreate')) return mediaCreated('media-1');
       return new Response('Not found', { status: 404 });
-    };
+    },
+    async (calls) => {
+      const album = { id: 'album-1', title: '[Zalo] Nhà', url: 'https://photos/album-1' };
+      const bill = await service.uploadBillPhoto(Buffer.from('x'), 'sender_456', {
+        album,
+        note: 'Ăn tối Highlands',
+        occurredAt: new Date('2026-10-12T19:00:00Z'),
+      });
 
-    const buffer = Buffer.from('photo-bytes');
-    const result = await service.uploadBillPhoto(buffer, 'sender_456', {
-      note: 'Ăn tối Highlands',
-      occurredAt: new Date('2026-10-12T19:00:00Z'),
-    });
+      assert.equal(bill.mediaItemId, 'media-1');
+      assert.equal(bill.albumId, 'album-1');
+      assert.equal(bill.albumTitle, '[Zalo] Nhà');
+      assert.equal(bill.albumUrl, 'https://photos/album-1');
+      assert.equal(bill.productUrl, 'https://photos/media-1');
 
-    assert.equal(result.mediaItemId, 'media_item_789');
-    assert.equal(result.albumTitle, 'ZaloBot - Hóa đơn');
-    assert.equal(result.productUrl, 'https://photos.google.com/photo/media_item_789');
-
-    // Test uploadGeneralPhoto with custom albumTitle
-    const customResult = await service.uploadGeneralPhoto(buffer, 'sender_456', {
-      albumTitle: 'Gia đình nhà ông Bảo Duyên - Zalo Photos',
-    });
-    assert.equal(customResult.albumTitle, 'Gia đình nhà ông Bảo Duyên - Zalo Photos');
-    assert.equal(customResult.mediaItemId, 'media_item_789');
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+      const batch = calls.find((c) => c.url.endsWith('/mediaItems:batchCreate'));
+      const batchBody = JSON.parse(batch?.body ?? '{}') as { albumId?: string };
+      assert.equal(batchBody.albumId, 'album-1');
+      assert.equal(calls.filter(isAlbumRequest).length, 0);
+    },
+  );
 });
 
-void test('GooglePhotosService finds an album beyond the first page instead of creating a duplicate', async () => {
-  const client = {
-    getAccessToken: () => Promise.resolve({ token: 'token' }),
-  };
-  const mockAuthService = {
-    getOAuth2Client: () => client,
-    isAuthorized: () => true,
-  } as unknown as GoogleAuthService;
-  const service = new GooglePhotosService(mockAuthService);
+void test('GooglePhotosService.createAlbum creates the album without looking one up', async () => {
+  const service = authorizedService();
 
-  const listCalls: string[] = [];
-  let created = false;
-  const originalFetch = globalThis.fetch;
-  try {
-    globalThis.fetch = (url: string | URL | Request, init?: RequestInit) => {
-      const urlStr = typeof url === 'string' ? url : url instanceof URL ? url.href : url.url;
-      if (init?.method === 'POST') {
-        created = true;
-        return Promise.resolve(new Response(JSON.stringify({ id: 'dup' }), { status: 200 }));
-      }
-      listCalls.push(urlStr);
-      const body = urlStr.includes('pageToken=p2')
-        ? { albums: [{ id: 'album-2', title: '[Zalo] Nhà', productUrl: 'https://photos/a2' }] }
-        : { albums: [{ id: 'album-1', title: 'Khác' }], nextPageToken: 'p2' };
-      return Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
-    };
+  await withFetch(
+    () => json({ id: 'album-new', title: '[Zalo] Nhà', productUrl: 'https://photos/new' }),
+    async (calls) => {
+      const album = await service.createAlbum('[Zalo] Nhà');
 
-    const album = await service.getOrCreateAlbumInfo('[Zalo] Nhà');
-    assert.deepEqual(album, { id: 'album-2', url: 'https://photos/a2' });
-    assert.equal(created, false);
-    assert.equal(listCalls.length, 2);
-
-    // Cached per account: no second listing for the same client.
-    await service.getOrCreateAlbumInfo('[Zalo] Nhà');
-    assert.equal(listCalls.length, 2);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+      assert.deepEqual(album, { id: 'album-new', url: 'https://photos/new' });
+      assert.deepEqual(
+        calls.map((c) => c.method),
+        ['POST'],
+      );
+      assert.deepEqual(JSON.parse(calls[0].body ?? '{}'), { album: { title: '[Zalo] Nhà' } });
+    },
+  );
 });
 
-void test('GooglePhotosService does not reuse album ids cached for another Google account', async () => {
+void test('isAlbumRejection only blames the album when Google points at it', () => {
+  assert.equal(isAlbumRejection(404, 'Requested entity was not found.'), true);
+  assert.equal(isAlbumRejection(400, 'Invalid album ID'), true);
+  assert.equal(isAlbumRejection(403, 'No permission to add media items to this album.'), true);
+
+  assert.equal(isAlbumRejection(400, 'Request must contain a valid upload token.'), false);
+  assert.equal(isAlbumRejection(403, 'Request had insufficient authentication scopes.'), false);
+  assert.equal(isAlbumRejection(429, 'Quota exceeded for album writes'), false);
+  assert.equal(isAlbumRejection(500, 'Internal error'), false);
+});
+
+void test('GooglePhotosService replaces a refused album once and reuses the upload token', async () => {
+  const service = authorizedService();
+  const replaced: string[] = [];
+
+  await withFetch(
+    (call) => {
+      if (call.url.endsWith('/uploads')) return new Response('upload-token', { status: 200 });
+      const body = JSON.parse(call.body ?? '{}') as { albumId?: string };
+      return body.albumId === 'album-old'
+        ? json({ error: { message: 'Invalid album ID' } }, 400)
+        : mediaCreated('media-2');
+    },
+    async (calls) => {
+      const result = await service.uploadGeneralPhoto(Buffer.from('x'), 'u', {
+        album: { id: 'album-old', title: '[Zalo] Nhà' },
+        replaceAlbum: (failedAlbumId) => {
+          replaced.push(failedAlbumId);
+          return Promise.resolve({ id: 'album-new', url: 'https://photos/new' });
+        },
+      });
+
+      assert.deepEqual(replaced, ['album-old']);
+      assert.equal(result.albumId, 'album-new');
+      assert.equal(result.albumUrl, 'https://photos/new');
+      assert.equal(calls.filter((c) => c.url.endsWith('/uploads')).length, 1);
+      assert.equal(calls.filter(isAlbumRequest).length, 0);
+    },
+  );
+});
+
+void test('GooglePhotosService keeps the album when adding media fails for another reason', async () => {
+  const service = authorizedService();
+  let replacements = 0;
+
+  await withFetch(
+    (call) =>
+      call.url.endsWith('/uploads')
+        ? new Response('upload-token', { status: 200 })
+        : new Response('Backend Error', { status: 500 }),
+    async (calls) => {
+      await assert.rejects(
+        service.uploadVideo(Buffer.from('x'), 'u', {
+          album: { id: 'album-1', title: '[Zalo] Nhà' },
+          replaceAlbum: () => {
+            replacements += 1;
+            return Promise.resolve({ id: 'album-dup' });
+          },
+        }),
+        /batchCreate failed \(500\)/,
+      );
+
+      assert.equal(replacements, 0);
+      assert.equal(calls.filter(isAlbumRequest).length, 0);
+    },
+  );
+});
+
+void test('GooglePhotosService finds an album link beyond the first page', async () => {
+  const service = authorizedService();
+
+  await withFetch(
+    (call) =>
+      json(
+        call.url.includes('pageToken=p2')
+          ? { albums: [{ id: 'album-2', title: '[Zalo] Nhà', productUrl: 'https://photos/a2' }] }
+          : { albums: [{ id: 'album-1', title: 'Khác' }], nextPageToken: 'p2' },
+      ),
+    async (calls) => {
+      const album = await service.findAlbumInfo('[Zalo] Nhà');
+      assert.deepEqual(album, { id: 'album-2', url: 'https://photos/a2' });
+      assert.equal(calls.length, 2);
+      assert.ok(calls.every((c) => c.method === 'GET'));
+
+      // Cached per account: no second listing for the same client.
+      await service.findAlbumInfo('[Zalo] Nhà');
+      assert.equal(calls.length, 2);
+    },
+  );
+});
+
+void test('GooglePhotosService does not reuse album links cached for another Google account', async () => {
   let client = { getAccessToken: () => Promise.resolve({ token: 'a' }) };
   const mockAuthService = {
     getOAuth2Client: () => client,
@@ -148,17 +223,13 @@ void test('GooglePhotosService does not reuse album ids cached for another Googl
     globalThis.fetch = (_url: string | URL | Request, init?: RequestInit) => {
       const auth = new Headers(init?.headers).get('Authorization');
       const id = auth === 'Bearer a' ? 'album-a' : 'album-b';
-      return Promise.resolve(
-        new Response(JSON.stringify({ albums: [{ id, title: 'T', productUrl: `u-${id}` }] }), {
-          status: 200,
-        }),
-      );
+      return Promise.resolve(json({ albums: [{ id, title: 'T', productUrl: `u-${id}` }] }));
     };
 
-    assert.equal(await service.getOrCreateAlbum('T'), 'album-a');
+    assert.equal((await service.findAlbumInfo('T'))?.id, 'album-a');
     // A login builds a new OAuth client for the new account.
     client = { getAccessToken: () => Promise.resolve({ token: 'b' }) };
-    assert.equal(await service.getOrCreateAlbum('T'), 'album-b');
+    assert.equal((await service.findAlbumInfo('T'))?.id, 'album-b');
   } finally {
     globalThis.fetch = originalFetch;
   }

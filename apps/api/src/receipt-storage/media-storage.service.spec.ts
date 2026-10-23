@@ -1,14 +1,71 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { setImmediate as nextTick } from 'node:timers/promises';
 import { MediaStorageService } from './media-storage.service';
 import { GoogleDriveService } from '../google/google-drive.service';
-import { GooglePhotosService } from '../google/google-photos.service';
+import {
+  GooglePhotosService,
+  type ChannelPhotoOptions,
+  type PhotosUploadResult,
+} from '../google/google-photos.service';
 import { GoogleAuthService } from '../google/google-auth.service';
 import { buildChannelStorageTarget } from '../google/channel-storage.util';
 import { ChannelStorageLinkService } from '../zca/storage/channel-storage-link.service';
 import type { ChannelStorageLinkInput } from '../zca/storage/channel-storage-link.service';
 
 const target = buildChannelStorageTarget('g-12345', { threadName: 'Nhà' });
+const EMAIL = 'shared@gmail.com';
+
+const sharedAuth = (email: string | null = EMAIL) =>
+  ({ getAccountEmail: () => Promise.resolve(email) }) as unknown as GoogleAuthService;
+
+const recordedAlbum = (resourceId: string): ChannelStorageLinkInput => ({
+  threadId: target.channelId,
+  kind: 'photos',
+  googleEmail: EMAIL,
+  resourceId,
+  url: `https://photos.app.goo.gl/${resourceId}`,
+  label: target.photosAlbumTitle,
+});
+
+/** `channel_storage_links` in memory: `record` moves a row to the end (most recently used). */
+function memoryLinks(initial: ChannelStorageLinkInput[] = []) {
+  const rows = [...initial];
+  const service = {
+    findAlbum: async (threadId: string, email: string, title: string) => {
+      await Promise.resolve();
+      const matches = rows.filter(
+        (r) =>
+          r.kind === 'photos' &&
+          r.threadId === threadId &&
+          r.googleEmail === email &&
+          r.label === title,
+      );
+      const row = matches[matches.length - 1];
+      return row ? { resourceId: row.resourceId, url: row.url } : null;
+    },
+    record: (input: ChannelStorageLinkInput) => {
+      const index = rows.findIndex(
+        (r) =>
+          r.threadId === input.threadId &&
+          r.kind === input.kind &&
+          r.resourceId === input.resourceId,
+      );
+      if (index >= 0) rows.splice(index, 1);
+      rows.push(input);
+      return Promise.resolve();
+    },
+  } as unknown as ChannelStorageLinkService;
+  return { service, rows };
+}
+
+const photoResult = (o: ChannelPhotoOptions): PhotosUploadResult => ({
+  mediaItemId: 'm',
+  productUrl: 'https://photos.google.com/photo/m',
+  albumTitle: o.album.title,
+  albumId: o.album.id,
+  albumUrl: o.album.url,
+});
 
 void test('MediaStorageService dual uploads bill to both Drive and Photos', async () => {
   const mockDriveService = {
@@ -24,17 +81,18 @@ void test('MediaStorageService dual uploads bill to both Drive and Photos', asyn
   } as unknown as GoogleDriveService;
 
   const mockPhotosService = {
-    uploadBillPhoto: async () => {
+    uploadBillPhoto: async (_b: Buffer, _s: string, o: ChannelPhotoOptions) => {
       await Promise.resolve();
-      return {
-        mediaItemId: 'photo_123',
-        productUrl: 'https://photos.google.com/photo/photo_123',
-        albumTitle: 'ZaloBot - Hóa đơn',
-      };
+      return { ...photoResult(o), mediaItemId: 'photo_123' };
     },
   } as unknown as GooglePhotosService;
 
-  const service = new MediaStorageService(mockDriveService, mockPhotosService);
+  const service = new MediaStorageService(
+    mockDriveService,
+    mockPhotosService,
+    sharedAuth(),
+    memoryLinks([recordedAlbum('album-1')]).service,
+  );
   const result = await service.uploadBill('user_1', Buffer.from('test'), target);
 
   assert.equal(result.drive?.fileId, 'drive_123');
@@ -49,7 +107,8 @@ void test('MediaStorageService dual uploads bill to both Drive and Photos', asyn
   assert.match(summary, /https:\/\/photos\.google\.com/);
 });
 
-void test('MediaStorageService handles partial failure gracefully if Photos fails', async () => {
+void test('MediaStorageService keeps the album and reports the error when Photos fails', async () => {
+  let createdAlbums = 0;
   const mockDriveService = {
     uploadImage: async () => {
       await Promise.resolve();
@@ -63,18 +122,28 @@ void test('MediaStorageService handles partial failure gracefully if Photos fail
   } as unknown as GoogleDriveService;
 
   const mockPhotosService = {
+    createAlbum: () => {
+      createdAlbums += 1;
+      return Promise.resolve({ id: 'dup', url: 'https://photos/dup' });
+    },
     uploadGeneralPhoto: async () => {
       await Promise.resolve();
       throw new Error('Google Photos API quota exceeded');
     },
   } as unknown as GooglePhotosService;
 
-  const service = new MediaStorageService(mockDriveService, mockPhotosService);
+  const service = new MediaStorageService(
+    mockDriveService,
+    mockPhotosService,
+    sharedAuth(),
+    memoryLinks([recordedAlbum('album-1')]).service,
+  );
   const result = await service.uploadImage('user_1', Buffer.from('test'), target);
 
   assert.equal(result.drive?.fileId, 'drive_456');
   assert.equal(result.photos, undefined);
   assert.match(result.photosError || '', /quota exceeded/);
+  assert.equal(createdAlbums, 0);
 
   const summary = service.formatUploadSummary(result, 'image');
   assert.match(summary, /Google Drive/);
@@ -152,23 +221,28 @@ void test('MediaStorageService forwards msgId and filename to drive options', as
 });
 
 void test('MediaStorageService puts every channel upload into the channel album, never a global default', async () => {
-  const albumTitles: (string | undefined)[] = [];
-  const photo = (options?: { albumTitle?: string }) => {
-    albumTitles.push(options?.albumTitle);
-    return Promise.resolve({ mediaItemId: 'p', albumTitle: options?.albumTitle ?? '' });
+  const albums: string[] = [];
+  const photo = (o: ChannelPhotoOptions) => {
+    albums.push(`${o.album.id}:${o.album.title}`);
+    return Promise.resolve(photoResult(o));
   };
   const mockPhotosService = {
-    uploadBillPhoto: (_b: Buffer, _s: string, o?: { albumTitle?: string }) => photo(o),
-    uploadGeneralPhoto: (_b: Buffer, _s: string, o?: { albumTitle?: string }) => photo(o),
-    uploadVideo: (_b: Buffer, _s: string, o?: { albumTitle?: string }) => photo(o),
+    uploadBillPhoto: (_b: Buffer, _s: string, o: ChannelPhotoOptions) => photo(o),
+    uploadGeneralPhoto: (_b: Buffer, _s: string, o: ChannelPhotoOptions) => photo(o),
+    uploadVideo: (_b: Buffer, _s: string, o: ChannelPhotoOptions) => photo(o),
   } as unknown as GooglePhotosService;
 
-  const service = new MediaStorageService(undefined, mockPhotosService);
+  const service = new MediaStorageService(
+    undefined,
+    mockPhotosService,
+    sharedAuth(),
+    memoryLinks([recordedAlbum('album-1')]).service,
+  );
   await service.uploadBill('u', Buffer.from('x'), target);
   await service.uploadImage('u', Buffer.from('x'), target);
   await service.uploadVideo('u', Buffer.from('x'), target);
 
-  assert.deepEqual(albumTitles, ['[Zalo] Nhà', '[Zalo] Nhà', '[Zalo] Nhà']);
+  assert.deepEqual(albums, ['album-1:[Zalo] Nhà', 'album-1:[Zalo] Nhà', 'album-1:[Zalo] Nhà']);
 });
 
 void test('MediaStorageService sends a custom folder upload straight into that folder', async () => {
@@ -198,22 +272,16 @@ void test('MediaStorageService reuses the recorded album of the current account 
     ensureFolderPath: (path: string) => Promise.resolve(path === target.driveRoot ? 'root-1' : 'x'),
   } as unknown as GoogleDriveService;
   const mockPhotosService = {
-    uploadGeneralPhoto: (_b: Buffer, _s: string, o?: { albumId?: string; albumTitle?: string }) => {
-      usedAlbumId = o?.albumId;
-      return Promise.resolve({
-        mediaItemId: 'm',
-        albumTitle: o?.albumTitle ?? '',
-        albumId: o?.albumId,
-      });
+    createAlbum: () => Promise.reject(new Error('must not create an album')),
+    uploadGeneralPhoto: (_b: Buffer, _s: string, o: ChannelPhotoOptions) => {
+      usedAlbumId = o.album.id;
+      return Promise.resolve(photoResult(o));
     },
   } as unknown as GooglePhotosService;
-  const mockAuthService = {
-    getAccountEmail: () => Promise.resolve('shared@gmail.com'),
-  } as unknown as GoogleAuthService;
   const mockLinkService = {
     findAlbum: (threadId: string, email: string, title: string) =>
       Promise.resolve(
-        threadId === 'g-12345' && email === 'shared@gmail.com' && title === '[Zalo] Nhà'
+        threadId === 'g-12345' && email === EMAIL && title === '[Zalo] Nhà'
           ? { resourceId: 'album-1', url: 'https://photos.app.goo.gl/album-1' }
           : null,
       ),
@@ -226,7 +294,7 @@ void test('MediaStorageService reuses the recorded album of the current account 
   const service = new MediaStorageService(
     mockDriveService,
     mockPhotosService,
-    mockAuthService,
+    sharedAuth(),
     mockLinkService,
   );
   const result = await service.uploadImage('u', Buffer.from('x'), target);
@@ -238,14 +306,150 @@ void test('MediaStorageService reuses the recorded album of the current account 
     [
       [
         'drive',
-        'shared@gmail.com',
+        EMAIL,
         'root-1',
         'https://drive.google.com/drive/folders/root-1',
         'zalobot/g-12345',
       ],
-      ['photos', 'shared@gmail.com', 'album-1', 'https://photos.app.goo.gl/album-1', '[Zalo] Nhà'],
+      ['photos', EMAIL, 'album-1', 'https://photos.app.goo.gl/album-1', '[Zalo] Nhà'],
     ],
   );
+});
+
+void test('MediaStorageService creates one album for a burst of uploads and records it before adding media', async () => {
+  const events: string[] = [];
+  const links = memoryLinks();
+  const record = links.service.record.bind(links.service);
+  Reflect.set(links.service, 'record', (input: ChannelStorageLinkInput) => {
+    events.push(`record:${input.resourceId}`);
+    return record(input);
+  });
+  const mockPhotosService = {
+    createAlbum: async (title: string) => {
+      events.push(`create:${title}`);
+      await nextTick();
+      return { id: 'album-new', url: 'https://photos/new' };
+    },
+    uploadGeneralPhoto: (_b: Buffer, _s: string, o: ChannelPhotoOptions) => {
+      events.push(`add:${o.album.id}`);
+      return Promise.resolve(photoResult(o));
+    },
+  } as unknown as GooglePhotosService;
+
+  const service = new MediaStorageService(
+    undefined,
+    mockPhotosService,
+    sharedAuth(),
+    links.service,
+  );
+  const results = await Promise.all(
+    [1, 2, 3].map(() => service.uploadImage('u', Buffer.from('x'), target)),
+  );
+
+  assert.deepEqual(
+    results.map((r) => r.photos?.albumId),
+    ['album-new', 'album-new', 'album-new'],
+  );
+  assert.equal(events.filter((e) => e.startsWith('create:')).length, 1);
+  assert.equal(events[0], 'create:[Zalo] Nhà');
+  assert.equal(events[1], 'record:album-new');
+  assert.deepEqual(
+    links.rows.map((r) => r.resourceId),
+    ['album-new'],
+  );
+});
+
+void test('MediaStorageService replaces a refused album once, even for concurrent uploads', async () => {
+  let createdAlbums = 0;
+  const links = memoryLinks([recordedAlbum('album-old')]);
+  const mockPhotosService = {
+    createAlbum: async () => {
+      createdAlbums += 1;
+      await nextTick();
+      return { id: 'album-new', url: 'https://photos/new' };
+    },
+    uploadGeneralPhoto: async (_b: Buffer, _s: string, o: ChannelPhotoOptions) => {
+      // Google refuses only the old album.
+      if (o.album.id !== 'album-old') return photoResult(o);
+      staleReplace = o.replaceAlbum;
+      const replacement = await o.replaceAlbum?.(o.album.id);
+      return photoResult({ ...o, album: { ...o.album, ...replacement } });
+    },
+  } as unknown as GooglePhotosService;
+  let staleReplace: ChannelPhotoOptions['replaceAlbum'];
+
+  const service = new MediaStorageService(
+    undefined,
+    mockPhotosService,
+    sharedAuth(),
+    links.service,
+  );
+  const [first, second] = await Promise.all([
+    service.uploadImage('u', Buffer.from('x'), target),
+    service.uploadImage('u', Buffer.from('x'), target),
+  ]);
+  // An upload that still held the old album asks again after the replacement finished.
+  const reused = await staleReplace?.('album-old');
+  const later = await service.uploadImage('u', Buffer.from('x'), target);
+
+  assert.equal(createdAlbums, 1);
+  assert.equal(first.photos?.albumId, 'album-new');
+  assert.equal(second.photos?.albumId, 'album-new');
+  assert.equal(reused?.id, 'album-new');
+  assert.equal(later.photos?.albumId, 'album-new');
+});
+
+void test('MediaStorageService never creates an album when the shared account email is unknown', async () => {
+  let createdAlbums = 0;
+  const mockPhotosService = {
+    createAlbum: () => {
+      createdAlbums += 1;
+      return Promise.resolve({ id: 'orphan', url: 'https://photos/orphan' });
+    },
+    uploadGeneralPhoto: (_b: Buffer, _s: string, o: ChannelPhotoOptions) =>
+      Promise.resolve(photoResult(o)),
+  } as unknown as GooglePhotosService;
+
+  const service = new MediaStorageService(
+    undefined,
+    mockPhotosService,
+    sharedAuth(null),
+    memoryLinks().service,
+  );
+  const result = await service.uploadImage('u', Buffer.from('x'), target);
+
+  assert.equal(createdAlbums, 0);
+  assert.equal(result.photos, undefined);
+  assert.match(result.photosError || '', /tài khoản Google/);
+});
+
+void test('MediaStorageService.syncCurrentStorage reads the album from history, not Google', async () => {
+  const mockDriveService = {
+    hasStorageScopes: () => true,
+    ensureFolderPath: () => Promise.resolve('root-1'),
+  } as unknown as GoogleDriveService;
+  const mockPhotosService = {
+    createAlbum: () => Promise.reject(new Error('must not create an album')),
+    findAlbumInfo: () => Promise.reject(new Error('must not list albums')),
+  } as unknown as GooglePhotosService;
+  const mockAuthService = {
+    isSharedAuthorized: () => true,
+    getAccountEmail: () => Promise.resolve(EMAIL),
+  } as unknown as GoogleAuthService;
+
+  const service = new MediaStorageService(
+    mockDriveService,
+    mockPhotosService,
+    mockAuthService,
+    memoryLinks([recordedAlbum('album-1')]).service,
+  );
+  const current = await service.syncCurrentStorage(target);
+
+  assert.deepEqual(current.photos, {
+    resourceId: 'album-1',
+    url: 'https://photos.app.goo.gl/album-1',
+  });
+  assert.equal(current.drive?.resourceId, 'root-1');
 });
 
 void test('MediaStorageService keeps the upload result when recording the link fails', async () => {

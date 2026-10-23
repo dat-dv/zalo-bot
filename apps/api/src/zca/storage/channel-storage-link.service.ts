@@ -56,7 +56,10 @@ export class ChannelStorageLinkService {
     );
   }
 
-  /** The channel's album with this title in this Google account, if one was recorded. */
+  /**
+   * The channel's album with this title in this Google account (the most recently used one), if
+   * one was recorded. Uploads rely on it alone: the app cannot list albums on Google.
+   */
   public async findAlbum(
     threadId: string,
     googleEmail: string,

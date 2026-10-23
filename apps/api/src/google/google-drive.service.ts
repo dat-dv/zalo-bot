@@ -31,6 +31,8 @@ export class GoogleDriveService {
   private readonly logger = new Logger(GoogleDriveService.name);
   /** Folder ids by path, per OAuth client: a new Google account (new client) never reuses ids. */
   private readonly folderCache = new WeakMap<object, Map<string, string>>();
+  /** Folder lookups/creations in flight by path, per OAuth client, so none is created twice. */
+  private readonly pendingFolders = new WeakMap<object, Map<string, Promise<string>>>();
   public readonly rootFolderName = GG_DRIVE_ROOT_FOLDER;
 
   constructor(private readonly authService: GoogleAuthService) {}
@@ -116,30 +118,51 @@ export class GoogleDriveService {
 
     if (!cleanPath) return 'root';
 
-    const cache = this.folderCacheFor(userId);
+    const client = this.authService.getOAuth2Client(userId);
+    const cache = this.clientMap(this.folderCache, client);
     const cached = cache.get(cleanPath);
     if (cached) return cached;
 
+    const pending = this.clientMap(this.pendingFolders, client);
     const segments = cleanPath.split('/').filter(Boolean);
     let currentParent = 'root';
+    let prefix = '';
 
+    // Resolved per prefix: uploads of one channel share `zalobot/<channel>` even when their
+    // category folders differ, so concurrent uploads wait for one creation of each folder.
     for (const segment of segments) {
-      currentParent = await this.ensureFolder(segment, currentParent, userId);
+      prefix = prefix ? `${prefix}/${segment}` : segment;
+      const known = cache.get(prefix);
+      if (known) {
+        currentParent = known;
+        continue;
+      }
+      let resolving = pending.get(prefix);
+      if (resolving === undefined) {
+        const key = prefix;
+        resolving = this.ensureFolder(segment, currentParent, userId).finally(() =>
+          pending.delete(key),
+        );
+        pending.set(key, resolving);
+      }
+      currentParent = await resolving;
+      cache.set(prefix, currentParent);
     }
 
-    cache.set(cleanPath, currentParent);
     return currentParent;
   }
 
-  private folderCacheFor(userId?: number | string): Map<string, string> {
-    const client = this.authService.getOAuth2Client(userId);
+  private clientMap<T>(
+    store: WeakMap<object, Map<string, T>>,
+    client: object | null,
+  ): Map<string, T> {
     if (!client) return new Map();
-    let cache = this.folderCache.get(client);
-    if (!cache) {
-      cache = new Map();
-      this.folderCache.set(client, cache);
+    let map = store.get(client);
+    if (!map) {
+      map = new Map();
+      store.set(client, map);
     }
-    return cache;
+    return map;
   }
 
   /**

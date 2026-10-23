@@ -7,6 +7,8 @@ metadata:
       - .agents/knowledge/modules/zca/channel-storage.md
       - apps/api/src/zca/storage/channel-storage-link.service.ts
       - apps/api/src/receipt-storage/media-storage.service.ts
+      - apps/api/src/google/google-photos.service.ts
+      - apps/api/src/google/google-drive.service.ts
       - apps/api/src/google/google-auth.service.ts
       - apps/api/src/database/migrations/1724830000000-CreateChannelStorageLinks.ts
       - apps/web/src/modules/zca/presentation/components/thread-storage-links-dialog.tsx
@@ -24,7 +26,7 @@ Tài liệu canonical tương ứng: [`channel-storage.md`](../../../knowledge/m
 
 - Ảnh, video, tệp và hoá đơn của mỗi kênh Zalo được lưu lên Google Drive và Google Photos.
 - Khi admin **đổi tài khoản Google**, ảnh cũ vẫn nằm ở tài khoản cũ, không bị xoá. Nhưng trước đây mỗi kênh chỉ nhớ được **một** link Drive và **một** album. Đổi tài khoản là link cũ biến mất khỏi dashboard, ảnh hoá đơn cũ cũng không xem được nữa.
-- Ngoài ra, ảnh hay bị **lưu sai album**. Có 4 nguyên nhân, đều đã sửa (xem mục 3).
+- Ngoài ra, ảnh hay bị **lưu sai album** và **cứ tạo album mới trùng tên**. Có 5 nguyên nhân, đều đã sửa (xem mục 3).
 
 ## 2. Hoạt động hiện tại
 
@@ -50,12 +52,25 @@ Tài liệu canonical tương ứng: [`channel-storage.md`](../../../knowledge/m
 ### 2.2. Nơi lưu của từng kênh
 
 - **Drive**: thư mục gốc của kênh là `zalobot/<channelId>`, trong đó có `bill`, `image`, `video`, `file`, mỗi thư mục chia tiếp theo tháng `YYYY-MM`. Nếu kênh đặt "thư mục Drive riêng" thì mọi thứ vào thẳng thư mục đó (chia theo tháng).
-- **Photos**: **mỗi kênh có một album trên mỗi tài khoản Google**. Hoá đơn, ảnh và video đều vào album này. Tên album: tên album riêng nếu có, nếu không thì `[Zalo] <tên nhóm>`.
+- **Photos**: **mỗi kênh có một album trên mỗi tài khoản Google**. Hoá đơn, ảnh và video đều vào album này. Tên album: tên album riêng nếu có, nếu không thì `[Zalo] <tên nhóm>`. Tên được giữ cố định từ lần upload đầu; admin đổi "Tên Album Google Photos riêng" thì hệ thống tạo **đúng một** album mới mang tên đó.
 - Hàm upload bắt buộc phải nhận "nơi lưu của kênh" (`ChannelStorageTarget`), nên không còn đường upload nào tự rơi vào album mặc định dùng chung.
+
+#### Hệ thống biết album của kênh bằng cách nào
+
+- App chỉ xin quyền Google Photos **chỉ-ghi** (`photoslibrary.appendonly`): được tạo album và thêm ảnh, nhưng **không được xem danh sách album**. Đây là chủ ý: xin thêm quyền đọc thì mọi tài khoản phải đăng nhập lại và app phải xin Google duyệt lại.
+- Vì không hỏi được Google "kênh này đã có album nào", **bảng `channel_storage_links` là nơi duy nhất nhớ album**: mỗi dòng gồm kênh, email tài khoản Google, id và link album. Album của một kênh trên một tài khoản là dòng dùng gần nhất.
+- Luồng upload một ảnh:
+  1. Lấy email tài khoản dùng chung. Không lấy được → bỏ qua phần Photos và báo lỗi (Drive vẫn lưu). Lý do: album tạo ra lúc này không gắn được với tài khoản nào nên lần sau sẽ không tìm lại được, sinh thêm album trùng.
+  2. Tìm dòng album của kênh + email trong DB. Có → dùng luôn.
+  3. Chưa có → tạo album mới và **ghi vào DB ngay**, trước khi thêm ảnh. Nhờ vậy, dù thêm ảnh lỗi, lần sau vẫn dùng lại album này.
+  4. Thêm ảnh vào album. Lỗi do quá tải, lỗi máy chủ Google hay file bị từ chối → **giữ album**, chỉ báo lỗi phần Photos. Chỉ khi Google báo chính album không dùng được (ví dụ admin đã xoá album trong Google Photos) thì mới tạo album thay thế, ghi DB, rồi thử lại một lần.
+- **Gửi nhiều ảnh một lúc**: các upload cùng kênh, cùng tài khoản chờ chung một lần tìm/tạo album, nên chỉ có một album. Drive cũng vậy: thư mục `zalobot/<kênh>` và từng thư mục `image`/`bill`… chỉ được tạo một lần.
+- Drive không cần tra DB như Photos: quyền `drive.file` cho phép tìm thư mục do app tạo theo tên, nên vẫn tìm thư mục như cũ.
 
 ### 2.3. Lịch sử link (bảng `channel_storage_links`)
 
-- Mỗi lần upload thành công, hệ thống ghi lại thư mục gốc Drive và album Photos, kèm **email tài khoản Google** và thời gian dùng.
+- Mỗi lần upload thành công, hệ thống ghi lại thư mục gốc Drive và album Photos, kèm **email tài khoản Google** và thời gian dùng. Album mới tạo được ghi ngay lúc tạo.
+- Với Photos, bảng này không chỉ là lịch sử để xem mà còn là **nơi upload tra album** (mục 2.2). Xoá dòng album "Đang dùng" bị chặn trên dashboard; nếu xoá thẳng trong DB thì lần upload sau sẽ tạo album mới.
 - Đổi tài khoản thì có thêm dòng mới; dòng cũ vẫn giữ nguyên.
 - Khi chạy migration, link đang lưu trong cấu hình kênh được chép sang bảng này với email để trống (hiển thị là "Tài khoản cũ").
 
@@ -95,18 +110,23 @@ Tài liệu canonical tương ứng: [`channel-storage.md`](../../../knowledge/m
 - API tải ảnh hoá đơn theo thứ tự: token tài khoản dùng chung → token người tạo giao dịch → **link công khai** của file. File được đặt sẵn quyền "ai có link cũng xem được" ngay khi upload.
 - Vì vậy, sau khi đổi tài khoản, ảnh hoá đơn cũ vẫn hiện được. Không hiện được trong hai trường hợp: tài khoản Google cũ đã bị xoá, hoặc Google Workspace chặn chia sẻ công khai.
 
-## 3. Bốn nguyên nhân "lưu sai album" đã sửa
+## 3. Năm nguyên nhân "lưu sai album / tạo album trùng" đã sửa
 
 | Nguyên nhân | Cách sửa |
 | --- | --- |
 | 5 đường upload (ảnh hoá đơn gửi thẳng/quote, video gửi thẳng, ảnh chọn "lưu trữ", tạo bill từ ảnh chờ, video của bot chính thức) không truyền album của kênh nên rơi vào album mặc định chung cho mọi kênh | Upload bắt buộc nhận `ChannelStorageTarget` |
 | Tài khoản dùng chung tự nhảy sang token vừa được làm mới (nhiều admin, hoặc một người có hai ID) | Ghim bằng `is_shared`, chỉ đổi khi đăng nhập |
-| Tìm album chỉ đọc 50 album đầu, nên tạo album trùng tên | Đọc hết các trang |
+| Tìm album chỉ đọc 50 album đầu, nên tạo album trùng tên | Đọc hết các trang (sau đó phát hiện bước tìm này không chạy được, xem dòng cuối) |
 | Cache ID thư mục/album gắn với user, không gắn với tài khoản Google | Cache theo OAuth client, và client mới được tạo mỗi lần đăng nhập |
+| **Tìm album trên Google luôn bị từ chối** vì app chỉ có quyền chỉ-ghi, nên cứ hụt cache là tạo album mới. Thêm ảnh lỗi bất kỳ (quá tải, lỗi tạm) cũng tạo album mới, và album mới này thành album đang dùng. Gửi nhiều ảnh cùng lúc thì mỗi ảnh tạo một album. | DB (`channel_storage_links`) là nguồn duy nhất của album; album được ghi DB ngay khi tạo; chỉ thay album khi Google báo chính album không dùng được; các upload đồng thời chờ chung một lần tạo (cả album lẫn thư mục Drive) |
+
+- Các album trùng đã sinh ra trước bản sửa **không tự gộp được**: API Google Photos không có lệnh xoá album, và quyền chỉ-ghi không cho chuyển ảnh giữa các album. Cần gộp/xoá tay trong Google Photos nếu muốn. Upload mới sẽ dính vào album được dùng gần nhất của kênh; các dòng thừa trong hộp "Mở Photos" có thể xoá trên dashboard.
+- Còn tồn tại (chưa sửa): lệnh xem kho lưu trữ trên Zalo và endpoint `GET /api/photos/album-link` vẫn tìm album bằng danh sách album của Google nên luôn báo "chưa có". Chúng không tạo album, chỉ hiện sai link.
 
 ## 4. Vận hành và kiểm tra
 
 - **Đổi tài khoản Google**: admin bấm **Đổi tài khoản** trên trang **Google Drive** (`/google-storage`) (hoặc gõ `/login` trên Zalo), chọn Gmail mới, rồi bấm Cho phép. Không cần khởi động lại API. Media mới sẽ vào Drive/Photos của tài khoản mới; mở dialog Drive/Photos sẽ thấy dòng mới ở trạng thái "Đang dùng", còn dòng cũ vẫn giữ.
 - **Migration** `1724830000000-CreateChannelStorageLinks` và `1724840000000-AddDisplayNameToChannelStorageLinks` tự chạy khi API khởi động (`migrationsRun: true`). Rollback: `migration:revert`, mỗi lần gỡ một migration (lần đầu bỏ cột `display_name`, lần sau bỏ bảng `channel_storage_links` và cột `is_shared`); không đụng dữ liệu tài chính.
-- Test liên quan: `channel-storage-link-update.spec.ts` (kiểm tra dữ liệu + sửa/xoá theo nhóm), `media-storage.service.spec.ts`, `google-photos.service.spec.ts`, `google-auth.service.spec.ts`, `channel-storage-links.mapper.spec.ts`, `receipt-source.spec.ts`, `zca.controller.spec.ts`.
+- Test liên quan: `channel-storage-link-update.spec.ts` (kiểm tra dữ liệu + sửa/xoá theo nhóm), `media-storage.service.spec.ts` (album từ DB, tạo một album cho nhiều upload đồng thời, thay album bị từ chối, thiếu email), `google-photos.service.spec.ts`, `google-drive.service.spec.ts` (tạo thư mục một lần khi upload đồng thời), `google-auth.service.spec.ts`, `channel-storage-links.mapper.spec.ts`, `receipt-source.spec.ts`, `zca.controller.spec.ts`.
+- **Kiểm tra trên production sau khi deploy**: log API không còn dòng `Could not list albums from Google Photos`; mỗi kênh, mỗi tài khoản chỉ có một dòng `Created Google Photos album "<tên>"`. Nếu thấy `Replacing Google Photos album …` thì Google vừa từ chối album cũ (thường do album bị xoá). Nếu thấy `Could not record new Photos album …` (mức error) thì DB ghi lỗi và lần upload sau có thể tạo thêm một album.
 - Không tự động kiểm chứng được upload thật lên Google và việc đổi tài khoản thật; cần thử trên môi trường thật.

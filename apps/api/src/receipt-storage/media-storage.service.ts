@@ -1,6 +1,11 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { GoogleDriveService, DriveUploadResult } from '../google/google-drive.service';
-import { GooglePhotosService, PhotosUploadResult } from '../google/google-photos.service';
+import {
+  GooglePhotosService,
+  type ChannelPhotoOptions,
+  type PhotosAlbum,
+  type PhotosUploadResult,
+} from '../google/google-photos.service';
 import { GoogleAuthService } from '../google/google-auth.service';
 import {
   buildDriveFolderUrl,
@@ -27,16 +32,27 @@ interface MediaUploadOptions {
 
 type PhotosCategory = Extract<ChannelStorageCategory, 'bill' | 'image' | 'video'>;
 
+type ChannelAlbumOptions = Pick<ChannelPhotoOptions, 'album' | 'replaceAlbum'>;
+
 const errorMessage = (err: unknown): string =>
   err instanceof Error ? err.message : typeof err === 'string' ? err : 'unknown error';
+
+const albumKey = (email: string, target: ChannelStorageTarget): string =>
+  [email, target.channelId, target.photosAlbumTitle].join('\u0000');
 
 /**
  * Stores channel media on the shared Google account only (never a member's own token), in the
  * channel's Drive root and its one Photos album, and records both in the channel storage history.
+ *
+ * The album of a channel in an account is the one recorded in `channel_storage_links`: the app
+ * cannot list albums on Google (see `GooglePhotosService.findAppAlbum`), so that row is the only
+ * way to find it again, and an album is created only when the row does not exist yet.
  */
 @Injectable()
 export class MediaStorageService {
   private readonly logger = new Logger(MediaStorageService.name);
+  /** Album resolutions in flight per account + channel + title, so a burst creates one album. */
+  private readonly albumResolutions = new Map<string, Promise<PhotosAlbum>>();
 
   constructor(
     @Optional() private readonly driveService?: GoogleDriveService,
@@ -137,12 +153,13 @@ export class MediaStorageService {
 
     current.drive = (await this.recordDriveRoot(target, email)) ?? undefined;
 
-    if (this.photosService) {
-      const album = await this.photosService.findAlbumInfo(target.photosAlbumTitle);
-      if (album?.url) {
-        current.photos = { resourceId: album.id, url: album.url };
-        await this.recordPhotosAlbum(target, email, album.id, album.url);
-      }
+    if (email && this.linkService) {
+      const album = await this.linkService.findAlbum(
+        target.channelId,
+        email,
+        target.photosAlbumTitle,
+      );
+      if (album) current.photos = { resourceId: album.resourceId, url: album.url };
     }
     return current;
   }
@@ -152,19 +169,16 @@ export class MediaStorageService {
     category: PhotosCategory,
     upload: {
       drive: (folderPath: string) => Promise<DriveUploadResult>;
-      photos: (album: { albumTitle: string; albumId?: string }) => Promise<PhotosUploadResult>;
+      photos: (album: ChannelAlbumOptions) => Promise<PhotosUploadResult>;
     },
   ): Promise<DualUploadResult> {
     const result: DualUploadResult = {};
     const email = await this.getStorageEmail();
-    const knownAlbum = await this.findKnownAlbum(target, email);
 
     // `.then` turns a missing service (sync throw) into a rejection of that side only.
     const [drivePromise, photosPromise] = await Promise.allSettled([
       Promise.resolve().then(() => upload.drive(getChannelUploadFolder(target, category))),
-      Promise.resolve().then(() =>
-        upload.photos({ albumTitle: target.photosAlbumTitle, albumId: knownAlbum?.resourceId }),
-      ),
+      Promise.resolve().then(async () => upload.photos(await this.channelAlbum(target, email))),
     ]);
 
     if (drivePromise.status === 'fulfilled') {
@@ -176,15 +190,9 @@ export class MediaStorageService {
     }
 
     if (photosPromise.status === 'fulfilled') {
-      const photos = photosPromise.value;
-      // A known album id skips the album lookup, so its URL comes from the recorded link.
-      const albumUrl =
-        photos.albumUrl ??
-        (knownAlbum && knownAlbum.resourceId === photos.albumId ? knownAlbum.url : undefined);
-      result.photos = { ...photos, albumUrl };
-      if (photos.albumId && albumUrl) {
-        await this.recordPhotosAlbum(target, email, photos.albumId, albumUrl);
-      }
+      result.photos = photosPromise.value;
+      const { albumId, albumUrl } = result.photos;
+      if (albumUrl) await this.recordPhotosAlbum(target, email, albumId, albumUrl);
     } else {
       result.photosError = errorMessage(photosPromise.reason);
       this.logger.warn(`Failed to upload ${category} to Google Photos: ${result.photosError}`);
@@ -193,17 +201,75 @@ export class MediaStorageService {
     return result;
   }
 
-  /** The channel's album already recorded for this account: skips the album lookup. */
-  private async findKnownAlbum(
+  /** The channel's album in the current account, plus how to replace it if Google refuses it. */
+  private async channelAlbum(
     target: ChannelStorageTarget,
     email: string | null,
-  ): Promise<{ resourceId: string; url: string } | null> {
-    if (!email || !this.linkService) return null;
+  ): Promise<ChannelAlbumOptions> {
+    const photos = this.requirePhotos();
+    const links = this.linkService;
+    // Without the account or the history the album could not be found again: creating one
+    // anyway is exactly how duplicates piled up, so the Photos side fails instead.
+    if (!email) throw new Error('Không xác định được tài khoản Google dùng chung.');
+    if (!links) throw new Error('ChannelStorageLinkService chưa được khởi tạo.');
+
+    const key = albumKey(email, target);
+    const album = await this.singleFlight(key, async () => {
+      const known = await links.findAlbum(target.channelId, email, target.photosAlbumTitle);
+      if (known) return { id: known.resourceId, url: known.url };
+      return this.createChannelAlbum(photos, target, email);
+    });
+
+    return {
+      album: { ...album, title: target.photosAlbumTitle },
+      // Re-reads the history first: when another upload already replaced the refused album,
+      // that one is used instead of creating one more.
+      replaceAlbum: (failedAlbumId) =>
+        this.singleFlight(`${key}\u0000replace`, async () => {
+          const known = await links.findAlbum(target.channelId, email, target.photosAlbumTitle);
+          if (known && known.resourceId !== failedAlbumId) {
+            return { id: known.resourceId, url: known.url };
+          }
+          this.logger.warn(
+            `Replacing Google Photos album ${failedAlbumId} of channel ${target.channelId} (${email}).`,
+          );
+          return this.createChannelAlbum(photos, target, email);
+        }),
+    };
+  }
+
+  /** Creates the album and records it before any media is added, so a failed add reuses it. */
+  private async createChannelAlbum(
+    photos: GooglePhotosService,
+    target: ChannelStorageTarget,
+    email: string,
+  ): Promise<PhotosAlbum> {
+    const album = await photos.createAlbum(target.photosAlbumTitle);
     try {
-      return await this.linkService.findAlbum(target.channelId, email, target.photosAlbumTitle);
-    } catch {
-      return null;
+      if (!album.url) throw new Error('Google Photos returned no album URL');
+      await this.linkService?.record({
+        threadId: target.channelId,
+        kind: 'photos',
+        googleEmail: email,
+        resourceId: album.id,
+        url: album.url,
+        label: target.photosAlbumTitle,
+      });
+    } catch (err) {
+      // Louder than other history writes: without this row the next upload creates another album.
+      this.logger.error(
+        `Could not record new Photos album ${album.id} of channel ${target.channelId}: ${errorMessage(err)}`,
+      );
     }
+    return album;
+  }
+
+  private singleFlight(key: string, run: () => Promise<PhotosAlbum>): Promise<PhotosAlbum> {
+    const inFlight = this.albumResolutions.get(key);
+    if (inFlight !== undefined) return inFlight;
+    const resolving = run().finally(() => this.albumResolutions.delete(key));
+    this.albumResolutions.set(key, resolving);
+    return resolving;
   }
 
   private requireDrive(): GoogleDriveService {
