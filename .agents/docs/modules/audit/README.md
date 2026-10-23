@@ -114,7 +114,7 @@ Các test chính:
 
 ## 6. Xử lý sự cố
 
-- **Người thực hiện hiện "Chưa rõ tên"**: người đó không có trong danh bạ ZCA (chưa kết bạn với bot, hoặc ZCA chưa đăng nhập nên cache trống), dòng nhật ký không có tên đã lưu (ghi trước v1.0.177, hoặc thao tác do người khác duyệt), và `first_name` trống.
+- **Người thực hiện hiện "Chưa rõ tên"**: người đó không có trong danh bạ ZCA (chưa kết bạn với bot, hoặc ZCA chưa đăng nhập nên cache trống), dòng nhật ký không có tên đã lưu (ghi trước v1.0.178, hoặc thao tác do người khác duyệt), và `first_name` trống.
 - **Nhật ký ghi "Không xác định" cho thao tác trên dashboard**: endpoint đó không gọi `getDashboardUserId`/`requireDashboardAdmin` trước khi ghi, ví dụ các endpoint đăng nhập. Mọi endpoint ghi dữ liệu mới phải xác thực qua các hàm này.
 - **Việc chạy ngầm bị ghi tên người của request**: việc bắn đi rồi quên (`void …`) thừa hưởng ngữ cảnh của request. Nếu đó là việc của hệ thống, bọc bằng `AuditContext.runAsSystem(...)`.
 - **Trang trống dù chắc chắn có thay đổi**: kiểm tra công tắc "Hiện bản ghi kỹ thuật", vì token và các lần nhắc mặc định bị ẩn. Cũng kiểm tra khoảng ngày (tính theo giờ máy người xem).

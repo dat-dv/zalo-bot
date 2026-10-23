@@ -2,7 +2,7 @@
 
 - Ngày: 2026-10-23
 - Kế hoạch: [implementation_plan.md](implementation_plan.md), được duyệt với Q1 = làm cả 3B (lưu tên người gửi), Q2 = bộ lọc trên điện thoại áp dụng ngay.
-- Version: `v1.0.177`.
+- Version: `v1.0.178` (commit `b113696`). `v1.0.177` đã được nhánh `fix/reminder-form-layout` dùng làm tag local nên bỏ qua.
 
 ## Đã làm
 
