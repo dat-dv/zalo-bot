@@ -320,7 +320,10 @@ export function RemindersScreen() {
             }
           >
             <RemindersTable
-              id="reminders"
+              // Each tab has its own columns (Done adds "Done at"), so it gets its own table:
+              // a fresh column state and its own saved column choices.
+              key={status}
+              id={status === 'done' ? 'reminders-done' : 'reminders'}
               ariaLabel={t('dashboard.reminders')}
               reminders={filteredReminders}
               loading={isLoading}

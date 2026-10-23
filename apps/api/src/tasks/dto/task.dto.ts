@@ -6,7 +6,7 @@ import {
   type ReminderTargetMode,
   type TaskStatus,
 } from '@zalobot/contracts';
-import { Type } from 'class-transformer';
+import { Transform, type TransformFnParams, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
@@ -23,6 +23,15 @@ import {
 } from 'class-validator';
 
 const TASK_STATUSES: TaskStatus[] = ['needsAction', 'completed'];
+
+/** `remindTimes` exactly as the client sent it (undefined stays undefined). */
+function keepRawRemindTimes({ obj }: TransformFnParams): unknown {
+  return isRecord(obj) ? obj.remindTimes : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
 export class ListTasksQueryDto {
   @ApiPropertyOptional({ enum: TASK_STATUSES })
@@ -73,6 +82,9 @@ export class CreateTaskDto {
     description:
       'Reminder times: ISO strings or { remindAt, repeatType?, repeatWeekdays? }; wins over remindAt',
   })
+  // Items are ISO strings or `{ remindAt, repeatType?, repeatWeekdays? }`; keep them as sent,
+  // because implicit conversion would turn each object into `[]`. parseRemindTimesBody checks them.
+  @Transform(keepRawRemindTimes)
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(REMINDER_TIME_LIMITS.MAX_TIMES)
@@ -140,9 +152,13 @@ export class UpdateTaskDto {
   remindAt?: string;
 
   @ApiPropertyOptional({
-    type: [String],
-    description: 'Replaces the reminder times; [] clears them',
+    type: 'array',
+    description:
+      'Replaces the reminder times: ISO strings or { remindAt, repeatType?, repeatWeekdays? }; [] clears them',
   })
+  // Items are ISO strings or `{ remindAt, repeatType?, repeatWeekdays? }`; keep them as sent,
+  // because implicit conversion would turn each object into `[]`. parseRemindTimesBody checks them.
+  @Transform(keepRawRemindTimes)
   @IsOptional()
   @IsArray()
   @ArrayMaxSize(REMINDER_TIME_LIMITS.MAX_TIMES)
