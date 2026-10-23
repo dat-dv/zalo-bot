@@ -23,6 +23,8 @@ metadata:
       - apps/api/src/finance/receipt-source.ts
       - packages/contracts/src/index.ts
       - apps/web/src/modules/zca/presentation/components/thread-storage-links-dialog.tsx
+      - apps/web/src/modules/zca/presentation/components/thread-storage-link-form.tsx
+      - apps/web/src/modules/zca/api/zca-api.ts
       - apps/web/src/modules/zca/presentation/components/chat-table-row.tsx
       - apps/web/src/modules/zca/view/thread-config-screen.tsx
       - apps/web/src/modules/zca/presentation/components/google-storage-account-panel.tsx
@@ -90,6 +92,7 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 
 - Unique `(thread_id, kind, resource_id)`. `record()` upserts: updates `url`, `label`, `last_used_at = GREATEST(...)`, adopts `google_email` only when NULL.
 - Written after each successful upload (`MediaStorageService`: Drive root id via `ensureFolderPath(driveRoot)`, album id + url) and by `syncCurrentStorage(target)`. Recording is best effort: failures are logged, the upload result is kept.
+- Admins can also add a row by hand (`ChannelStorageLinkService.createLink`, see API): `label = ''`, `first_used_at = last_used_at =` time added (the real usage time is unknown), `resource_id = channelStorageResourceIdFromUrl(kind, url)` (contracts: Drive `/folders/<id>`, Photos `/album/<id>` incl. `/lr/album/<id>`, else the URL). Keying by the real id means a later upload to the same folder/album hits the same row through `record()` instead of adding a second one.
 - Backfill: one Drive row and one Photos row per thread config that had a cached URL.
 - Legacy `driveFolder*` / `photosAlbum*` columns on `zca_thread_configs` stay (still written by existing flows) but are not the source of the dashboard list.
 
@@ -103,6 +106,10 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
   - Validation `validateChannelStorageLinkUpdate(kind, dto)` (contracts, shared with the web form): trim; empty name/email → `null`; email lower-cased; name ≤ `CHANNEL_STORAGE_LINK_LIMITS.DISPLAY_NAME_MAX_LENGTH` (120); URL https on `CHANNEL_STORAGE_LINK_HOSTS[kind]` (Drive `drive.google.com`; Photos `photos.google.com`, `photos.app.goo.gl`). Errors → 400.
   - Link in use (`isCurrentStorageRow`, same rule as the `isCurrent` badge, from `syncCurrentStorage`): DELETE → 400 (it is recorded again on the next upload/open); URL change → 400 (uploads rewrite it). Name and email stay editable.
   - Writes go through `repository.save` / `remove` (not raw SQL), so `AuditLogSubscriber` logs before/after. DELETE removes history rows only; the Drive folder / Photos album on Google is untouched.
+- `POST /api/zca/threads/:threadId/storage-links` (`API_ROUTES.zcaThreadStorageLinks`, body `CreateChannelStorageLinkDto { kind, url, displayName?, googleEmail? }`, admin-only) → fresh `ChannelStorageLinksResponse`.
+  - Why: links from before history was tracked, or from another Google account, could not be listed. It only adds an existing link: nothing is created on Google and it never becomes `isCurrent` unless it is the folder/album uploads already use (changing where media goes stays in the thread config `customFolder` / `photosAlbum`).
+  - `kind` not `drive|photos` → 400. Validation `validateChannelStorageLinkCreate(kind, dto, existingUrls)` (contracts, shared with the web form): edit rules + URL required + `url_duplicate` when a link of the same thread and kind has the same normalized URL or the same folder/album id. Format errors → 400; duplicate → 409; a unique-key race (`23505`) → 409 via the global exception filter.
+  - No thread existence check, same as GET. Insert via `repository.save`, so the audit log records it with the dashboard admin as actor.
 
 ## Receipt proxy
 
@@ -121,3 +128,5 @@ Human guide: [Lưu trữ media theo kênh](../../../docs/modules/zca/channel-sto
 - `/zca` table, row "⋯" menu items open Drive / open Photos open `ThreadStorageLinksDialog` (shared `Modal`, bottom sheet on mobile). The thread config page (`/zca/thread?id=…`) "Mở Google Drive / Photos" banner buttons open the same dialog.
 - The dialog is rendered with `createPortal(…, document.body)`: it is opened from a table cell (`whitespace-nowrap text-right`), and a top-layer `<dialog>` still inherits those styles, which kept the description on one line and broke the layout. Any dialog opened from a table row must portal out of the cell.
 - Dialog: query `useThreadStorageLinksQuery(threadId, enabled)` (key `zcaQueryKeys.storageLinks`, `staleTime: 0`, fetched on open). Rows: title = `displayName` or label (link, new tab; label shown below when renamed), account email or "previous account", used range, `In use` badge on the current row, buttons Edit (inline form: display name, URL — disabled on the row in use, email; client-side validation with the shared validator, field errors, Save/Cancel) and Delete (`window.confirm`; disabled with a tooltip on the row in use). Mutations `useUpdateThreadStorageLinkMutation` / `useDeleteThreadStorageLinkMutation` replace the query cache with the returned list. A Drive link opens the channel root showing `bill`, `image`, `video` (+ `file`). States: skeleton, error + retry, empty, list. Strings `zca.storageLinks.*` (vi/en).
+- Add link (both Drive and Photos dialogs): full-width dashed "➕ Add link" button above the list, also shown on the empty state, hidden while loading/error and while the form is open. It opens an inline form at the top: URL first (required, autofocus, kind placeholder), display name (empty → the URL is shown), email, a hint that nothing is created on Google, Cancel/Add ("Adding…"). Client-side check with `validateChannelStorageLinkCreate` against the URLs already listed; a 409 shows the duplicate error on the URL field, other failures `addError`. `useCreateThreadStorageLinkMutation` replaces the cache with the returned list; the new row sorts right below the row in use.
+- `StorageLinkForm` (`thread-storage-link-form.tsx`) is the controlled form shared by Add and Edit (fields, field errors incl. `url_duplicate`, `aria-invalid`/`aria-describedby`, buttons 40px tall on phones); each caller keeps its own draft/errors and validator.

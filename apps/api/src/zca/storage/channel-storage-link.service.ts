@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import type { NormalizedChannelStorageLinkUpdate } from '@zalobot/contracts';
+import {
+  channelStorageResourceIdFromUrl,
+  type NormalizedChannelStorageLinkCreate,
+  type NormalizedChannelStorageLinkUpdate,
+} from '@zalobot/contracts';
 import {
   ChannelStorageLinkEntity,
   type ChannelStorageLinkKind,
@@ -88,6 +92,33 @@ export class ChannelStorageLinkService {
       if (update.googleEmail !== undefined) row.googleEmail = update.googleEmail;
     }
     await this.linkRepository.save(rows);
+  }
+
+  /**
+   * Adds a link an admin typed in (nothing is created on Google). Keyed by the folder / album id
+   * in the URL, so a later upload to the same place updates this row instead of adding one. The
+   * used range starts at the time it was added: when it was really used is unknown.
+   */
+  public async createLink(input: {
+    threadId: string;
+    kind: ChannelStorageLinkKind;
+    link: NormalizedChannelStorageLinkCreate;
+    createdAt?: Date;
+  }): Promise<void> {
+    const createdAt = input.createdAt ?? new Date();
+    const row = this.linkRepository.create({
+      threadId: input.threadId,
+      kind: input.kind,
+      resourceId: channelStorageResourceIdFromUrl(input.kind, input.link.url),
+      url: input.link.url,
+      label: '',
+      displayName: input.link.displayName,
+      googleEmail: input.link.googleEmail,
+      firstUsedAt: createdAt,
+      lastUsedAt: createdAt,
+    });
+    // Entity save (not raw SQL) so the audit log records the insert with its actor.
+    await this.linkRepository.save(row);
   }
 
   /** Removes history rows only; the Drive folder / Photos album on Google is untouched. */

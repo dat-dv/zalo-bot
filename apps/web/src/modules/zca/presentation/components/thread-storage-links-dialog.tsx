@@ -1,25 +1,31 @@
 'use client';
 
-import { useId, useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import axios from 'axios';
 import {
-  CHANNEL_STORAGE_LINK_HOSTS,
-  CHANNEL_STORAGE_LINK_LIMITS,
   localeTag,
+  validateChannelStorageLinkCreate,
   validateChannelStorageLinkUpdate,
   type ChannelStorageLink,
   type ChannelStorageLinkKind,
-  type ChannelStorageLinkUpdateError,
   type ChannelStorageLinkUpdateErrors,
   type UpdateChannelStorageLinkDto,
 } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { Modal, MODAL_CLOSE_TAP, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
 import {
+  useCreateThreadStorageLinkMutation,
   useDeleteThreadStorageLinkMutation,
   useThreadStorageLinksQuery,
   useUpdateThreadStorageLinkMutation,
 } from '../../api/zca-query';
+import {
+  STORAGE_LINK_ACTION_BUTTON_CLASS,
+  STORAGE_LINK_SECONDARY_BUTTON_CLASS,
+  StorageLinkForm,
+  type StorageLinkDraft,
+} from './thread-storage-link-form';
 
 interface ThreadStorageLinksDialogProps {
   threadId: string;
@@ -101,16 +107,21 @@ export function ThreadStorageLinksDialog({
               {t('zca.storageLinks.retry')}
             </button>
           </div>
-        ) : links.length === 0 ? (
-          <p className="rounded border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            {t('zca.storageLinks.empty')}
-          </p>
         ) : (
-          <ul className="space-y-2">
-            {links.map((link) => (
-              <StorageLinkRow key={link.id} link={link} threadId={threadId} />
-            ))}
-          </ul>
+          <div className="space-y-2">
+            <StorageLinkCreate kind={kind} links={links} threadId={threadId} />
+            {links.length === 0 ? (
+              <p className="rounded border border-dashed border-slate-200 p-4 text-center text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                {t('zca.storageLinks.empty')}
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {links.map((link) => (
+                  <StorageLinkRow key={link.id} link={link} threadId={threadId} />
+                ))}
+              </ul>
+            )}
+          </div>
         )}
       </div>
     </Modal>,
@@ -118,34 +129,102 @@ export function ThreadStorageLinksDialog({
   );
 }
 
-type Translate = ReturnType<typeof useLocale>['t'];
+const EMPTY_DRAFT: StorageLinkDraft = { displayName: '', url: '', googleEmail: '' };
 
-const INPUT_CLASS =
-  'mt-1 w-full rounded border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-blue-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 aria-[invalid=true]:border-red-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:disabled:bg-slate-900 max-sm:h-10';
-const ACTION_BUTTON_CLASS =
-  'inline-flex min-h-8 items-center gap-1 rounded border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 max-sm:min-h-10 max-sm:px-3';
+/** The API answers 409 when the link is already listed (e.g. added meanwhile in another tab). */
+function isDuplicateLinkError(error: unknown): boolean {
+  return axios.isAxiosError(error) && error.response?.status === 409;
+}
 
-function updateErrorMessage(
-  t: Translate,
-  kind: ChannelStorageLinkKind,
-  code: ChannelStorageLinkUpdateError,
-): string {
-  switch (code) {
-    case 'display_name_too_long':
-      return t('zca.storageLinks.errors.displayNameTooLong', {
-        max: CHANNEL_STORAGE_LINK_LIMITS.DISPLAY_NAME_MAX_LENGTH,
-      });
-    case 'url_required':
-      return t('zca.storageLinks.errors.urlRequired');
-    case 'url_invalid':
-      return t('zca.storageLinks.errors.urlInvalid');
-    case 'url_wrong_host':
-      return t('zca.storageLinks.errors.urlWrongHost', {
-        hosts: CHANNEL_STORAGE_LINK_HOSTS[kind].join(', '),
-      });
-    case 'email_invalid':
-      return t('zca.storageLinks.errors.emailInvalid');
+/**
+ * "Add link" button ↔ inline form. Adds an existing folder / album link to the history only:
+ * nothing is created on Google and new media keeps going to the link in use.
+ */
+function StorageLinkCreate({
+  threadId,
+  kind,
+  links,
+}: {
+  threadId: string;
+  kind: ChannelStorageLinkKind;
+  links: readonly ChannelStorageLink[];
+}) {
+  const { t } = useLocale();
+  const mutation = useCreateThreadStorageLinkMutation(threadId);
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(EMPTY_DRAFT);
+  const [errors, setErrors] = useState<ChannelStorageLinkUpdateErrors>({});
+
+  const close = () => {
+    setOpen(false);
+    setDraft(EMPTY_DRAFT);
+    setErrors({});
+    mutation.reset();
+  };
+
+  if (!open) {
+    return (
+      <button
+        className={`${STORAGE_LINK_SECONDARY_BUTTON_CLASS} w-full justify-center border-dashed`}
+        onClick={() => setOpen(true)}
+        type="button"
+      >
+        ➕ {t('zca.storageLinks.add')}
+      </button>
+    );
   }
+
+  const handleSubmit = () => {
+    const result = validateChannelStorageLinkCreate(
+      kind,
+      draft,
+      links.map((link) => link.url),
+    );
+    if ('errors' in result) {
+      setErrors(result.errors);
+      return;
+    }
+    setErrors({});
+    mutation.mutate(
+      { kind, ...result.value },
+      {
+        onSuccess: close,
+        onError: (error) => {
+          if (isDuplicateLinkError(error)) setErrors({ url: 'url_duplicate' });
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="rounded border border-dashed border-blue-300 p-3 dark:border-blue-800">
+      <StorageLinkForm
+        ariaLabel={t('zca.storageLinks.add')}
+        displayNamePlaceholder={t('zca.storageLinks.displayNameAddPlaceholder')}
+        draft={draft}
+        errors={errors}
+        hint={t('zca.storageLinks.addHint')}
+        isPending={mutation.isPending}
+        kind={kind}
+        onCancel={close}
+        onDraftChange={setDraft}
+        onSubmit={handleSubmit}
+        pendingLabel={t('zca.storageLinks.adding')}
+        serverError={
+          mutation.isError && !isDuplicateLinkError(mutation.error)
+            ? t('zca.storageLinks.addError')
+            : undefined
+        }
+        submitLabel={t('zca.storageLinks.addSubmit')}
+        urlFirst
+        urlPlaceholder={t(
+          kind === 'drive'
+            ? 'zca.storageLinks.urlPlaceholderDrive'
+            : 'zca.storageLinks.urlPlaceholderPhotos',
+        )}
+      />
+    </div>
+  );
 }
 
 function StorageLinkRow({ threadId, link }: { threadId: string; link: ChannelStorageLink }) {
@@ -212,7 +291,7 @@ function StorageLinkRow({ threadId, link }: { threadId: string; link: ChannelSto
       </p>
       <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5">
         <button
-          className={`${ACTION_BUTTON_CLASS} border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700`}
+          className={STORAGE_LINK_SECONDARY_BUTTON_CLASS}
           disabled={deleteMutation.isPending}
           onClick={() => setEditing(true)}
           type="button"
@@ -220,7 +299,7 @@ function StorageLinkRow({ threadId, link }: { threadId: string; link: ChannelSto
           ✏️ {t('zca.storageLinks.edit')}
         </button>
         <button
-          className={`${ACTION_BUTTON_CLASS} border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:bg-slate-800 dark:text-red-400 dark:hover:bg-red-950/40`}
+          className={`${STORAGE_LINK_ACTION_BUTTON_CLASS} border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:bg-slate-800 dark:text-red-400 dark:hover:bg-red-950/40`}
           disabled={link.isCurrent || deleteMutation.isPending}
           onClick={handleDelete}
           title={link.isCurrent ? t('zca.storageLinks.deleteCurrentDisabled') : undefined}
@@ -249,17 +328,15 @@ function StorageLinkEditForm({
   onDone: () => void;
 }) {
   const { t } = useLocale();
-  const fieldId = useId();
   const mutation = useUpdateThreadStorageLinkMutation(threadId);
-  const [draft, setDraft] = useState({
+  const [draft, setDraft] = useState<StorageLinkDraft>({
     displayName: link.displayName ?? '',
     url: link.url,
     googleEmail: link.googleEmail ?? '',
   });
   const [errors, setErrors] = useState<ChannelStorageLinkUpdateErrors>({});
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSubmit = () => {
     const dto: UpdateChannelStorageLinkDto = {
       displayName: draft.displayName,
       googleEmail: draft.googleEmail,
@@ -275,100 +352,22 @@ function StorageLinkEditForm({
     mutation.mutate({ linkId: link.id, data: result.value }, { onSuccess: onDone });
   };
 
-  const fields: {
-    key: keyof UpdateChannelStorageLinkDto;
-    label: string;
-    placeholder?: string;
-    hint?: string;
-    type: 'text' | 'url' | 'email';
-    disabled?: boolean;
-  }[] = [
-    {
-      key: 'displayName',
-      label: t('zca.storageLinks.displayNameLabel'),
-      placeholder: t('zca.storageLinks.displayNamePlaceholder', { label: link.label || link.url }),
-      type: 'text',
-    },
-    {
-      key: 'url',
-      label: t('zca.storageLinks.urlLabel'),
-      hint: link.isCurrent ? t('zca.storageLinks.urlLockedHint') : undefined,
-      type: 'url',
-      disabled: link.isCurrent,
-    },
-    {
-      key: 'googleEmail',
-      label: t('zca.storageLinks.emailLabel'),
-      placeholder: t('zca.storageLinks.emailPlaceholder'),
-      type: 'email',
-    },
-  ];
-
   return (
-    <form className="space-y-2.5" noValidate onSubmit={handleSubmit}>
-      {fields.map((field) => {
-        const inputId = `${fieldId}-${field.key}`;
-        const error = errors[field.key];
-        const describedBy = error ? `${inputId}-error` : field.hint ? `${inputId}-hint` : undefined;
-        return (
-          <div key={field.key}>
-            <label
-              className="text-[11px] font-medium text-slate-600 dark:text-slate-400"
-              htmlFor={inputId}
-            >
-              {field.label}
-            </label>
-            <input
-              aria-describedby={describedBy}
-              aria-invalid={Boolean(error)}
-              className={INPUT_CLASS}
-              disabled={field.disabled || mutation.isPending}
-              id={inputId}
-              onChange={(event) => setDraft({ ...draft, [field.key]: event.target.value })}
-              placeholder={field.placeholder}
-              type={field.type}
-              value={draft[field.key]}
-            />
-            {error ? (
-              <p
-                className="mt-0.5 text-[11px] text-red-600 dark:text-red-400"
-                id={`${inputId}-error`}
-              >
-                {updateErrorMessage(t, link.kind, error)}
-              </p>
-            ) : field.hint ? (
-              <p
-                className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400"
-                id={`${inputId}-hint`}
-              >
-                {field.hint}
-              </p>
-            ) : null}
-          </div>
-        );
+    <StorageLinkForm
+      displayNamePlaceholder={t('zca.storageLinks.displayNamePlaceholder', {
+        label: link.label || link.url,
       })}
-      {mutation.isError && (
-        <p className="text-xs text-red-600 dark:text-red-400" role="alert">
-          {t('zca.storageLinks.saveError')}
-        </p>
-      )}
-      <div className="flex flex-wrap items-center justify-end gap-1.5 pt-1">
-        <button
-          className={`${ACTION_BUTTON_CLASS} border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700`}
-          disabled={mutation.isPending}
-          onClick={onDone}
-          type="button"
-        >
-          {t('zca.storageLinks.cancel')}
-        </button>
-        <button
-          className={`${ACTION_BUTTON_CLASS} border-blue-600 bg-blue-600 text-white hover:bg-blue-700 dark:border-blue-500 dark:bg-blue-600 dark:hover:bg-blue-500`}
-          disabled={mutation.isPending}
-          type="submit"
-        >
-          {mutation.isPending ? t('zca.storageLinks.saving') : t('zca.storageLinks.save')}
-        </button>
-      </div>
-    </form>
+      draft={draft}
+      errors={errors}
+      isPending={mutation.isPending}
+      kind={link.kind}
+      onCancel={onDone}
+      onDraftChange={setDraft}
+      onSubmit={handleSubmit}
+      pendingLabel={t('zca.storageLinks.saving')}
+      serverError={mutation.isError ? t('zca.storageLinks.saveError') : undefined}
+      submitLabel={t('zca.storageLinks.save')}
+      urlLocked={link.isCurrent}
+    />
   );
 }

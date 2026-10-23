@@ -39,9 +39,14 @@ import {
   toChannelStorageLinksResponse,
   type CurrentChannelStorage,
 } from './storage/channel-storage-links.mapper';
-import { validateChannelStorageLinkUpdate } from '@zalobot/contracts';
+import {
+  validateChannelStorageLinkCreate,
+  validateChannelStorageLinkUpdate,
+} from '@zalobot/contracts';
 import type {
+  ChannelStorageLinkKind,
   ChannelStorageLinksResponse,
+  CreateChannelStorageLinkDto,
   UpdateChannelStorageLinkDto,
   ThreadBotConfig,
   UpdateThreadBotConfigDto,
@@ -367,6 +372,40 @@ export class ZcaController {
     return { data: await this.storageLinksResponse(linkService, threadId, current) };
   }
 
+  @Post('threads/:threadId/storage-links')
+  @ApiOperation({
+    summary:
+      'Thêm tay link một thư mục Drive / album Photos có sẵn vào lịch sử (không tạo gì trên Google)',
+  })
+  public async createThreadStorageLink(
+    @Req() req: Request,
+    @Param('threadId') threadId: string,
+    @Body() body?: CreateChannelStorageLinkDto,
+  ): Promise<{ data: ChannelStorageLinksResponse }> {
+    this.admin(req);
+    const linkService = this.requireStorageLinkService();
+    const kind: unknown = body?.kind;
+    if (!isStorageLinkKind(kind)) {
+      throw new BadRequestException('Loại link phải là drive hoặc photos.');
+    }
+
+    const rows = await linkService.listForThread(threadId);
+    const existingUrls = rows.filter((row) => row.kind === kind).map((row) => row.url);
+    const validation = validateChannelStorageLinkCreate(kind, body, existingUrls);
+    if ('errors' in validation) {
+      if (validation.errors.url === 'url_duplicate') {
+        throw new ConflictException('Link này đã có trong danh sách của kênh.');
+      }
+      const fields = Object.entries(validation.errors).map(([field, code]) => `${field}: ${code}`);
+      throw new BadRequestException(`Dữ liệu link không hợp lệ (${fields.join(', ')}).`);
+    }
+
+    // A unique-key race with another add or an upload surfaces as 409 (global filter).
+    await linkService.createLink({ threadId, kind, link: validation.value });
+    const current = await this.resolveCurrentStorage(threadId);
+    return { data: await this.storageLinksResponse(linkService, threadId, current) };
+  }
+
   @Patch('threads/:threadId/storage-links/:linkId')
   @ApiOperation({
     summary: 'Sửa tên hiển thị, đường link hoặc email tài khoản của một link Drive/Photos',
@@ -459,4 +498,8 @@ export class ZcaController {
   private admin(req: Request): string | number {
     return requireDashboardAdmin(req, this.tokens, this.usersService);
   }
+}
+
+function isStorageLinkKind(value: unknown): value is ChannelStorageLinkKind {
+  return value === 'drive' || value === 'photos';
 }

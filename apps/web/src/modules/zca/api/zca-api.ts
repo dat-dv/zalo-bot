@@ -1,6 +1,7 @@
 import {
   API_ROUTES,
   type ChannelStorageLinksResponse,
+  type CreateChannelStorageLinkDto,
   type IApiResponse,
   type IGoogleStorageAccountStatus,
   type IGoogleStorageLoginResponse,
@@ -342,12 +343,24 @@ export async function updateThreadStorageLink(
   return response.data.data;
 }
 
-/** Removes the link from the history only; the Drive folder / Photos album stays on Google. */
+/** Adds an existing folder / album link to the history; the API answers 409 for a listed link. */
+export async function createThreadStorageLink(
+  threadId: string,
+  data: CreateChannelStorageLinkDto,
+): Promise<ChannelStorageLinksResponse> {
+  const response = await httpClient.post<IApiResponse<ChannelStorageLinksResponse>>(
+    API_ROUTES.zcaThreadStorageLinks(threadId),
+    data,
+  );
+  return response.data.data;
+}
+
 /** Deletes a chat's config for good; the API refuses (409) chats still in the Zalo directory. */
 export async function deleteZcaThreadConfig(threadId: string): Promise<void> {
   await httpClient.delete<IApiResponse<{ deleted: true }>>(API_ROUTES.zcaThreadConfig(threadId));
 }
 
+/** Removes the link from the history only; the Drive folder / Photos album stays on Google. */
 export async function deleteThreadStorageLink(
   threadId: string,
   linkId: string,

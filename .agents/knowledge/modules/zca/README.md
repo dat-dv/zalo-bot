@@ -118,6 +118,7 @@ Requires `isListened` and `confirmationRules.allowReactions`; same self rules. E
 | DELETE | `/api/zca/thread-configs/:threadId` | Deletes the config of a chat Zalo no longer returns (409 if still in the directory cache, 404 if no config); keeps chat memory and storage-link history. See [Directory Cache](directory-cache.md#deleting-a-placeholder-chat) |
 | POST | `/api/zca/threads/:threadId/sync-media` | Media history sync |
 | GET | `/api/zca/threads/:threadId/storage-links` | Every Drive root / Photos album of the thread across Google accounts (`ChannelStorageLinksResponse`); see [Channel Storage](channel-storage.md) |
+| POST | `/api/zca/threads/:threadId/storage-links` | Add an existing Drive folder / Photos album link to the history by hand (`CreateChannelStorageLinkDto`; 409 if already listed; nothing created on Google) |
 | GET | `/api/zca/threads/:threadId/members` | Group members for the member-access picker (`IZcaGroupMembersResponse`, Redis 10 min, `?refresh=true` forces Zalo); 400 ZCA logged out, 404 group not returned. See [Member Access](member-access.md) |
 | PATCH / DELETE | `/api/zca/threads/:threadId/storage-links/:linkId` | Edit display name / URL / account email, or remove a link from the history (never the link in use, never data on Google) |
 

@@ -1314,10 +1314,20 @@ const messages = {
       'Không xoá được link đang dùng: media mới của kênh đang lưu vào đây.',
     'zca.storageLinks.saveError': 'Không lưu được thay đổi. Vui lòng thử lại.',
     'zca.storageLinks.deleteError': 'Không xoá được link. Vui lòng thử lại.',
+    'zca.storageLinks.add': 'Thêm link',
+    'zca.storageLinks.addSubmit': 'Thêm',
+    'zca.storageLinks.adding': 'Đang thêm…',
+    'zca.storageLinks.addHint':
+      'Chỉ thêm link có sẵn vào danh sách: không tạo thư mục hay album mới trên Google, media mới vẫn lưu vào link đang dùng.',
+    'zca.storageLinks.addError': 'Không thêm được link. Vui lòng thử lại.',
+    'zca.storageLinks.displayNameAddPlaceholder': 'Để trống để hiện đường link',
+    'zca.storageLinks.urlPlaceholderDrive': 'https://drive.google.com/drive/folders/…',
+    'zca.storageLinks.urlPlaceholderPhotos': 'https://photos.google.com/album/…',
     'zca.storageLinks.errors.displayNameTooLong': 'Tên hiển thị tối đa {max} ký tự.',
     'zca.storageLinks.errors.urlRequired': 'Đường link không được để trống.',
     'zca.storageLinks.errors.urlInvalid': 'Đường link phải là địa chỉ https:// hợp lệ.',
     'zca.storageLinks.errors.urlWrongHost': 'Đường link phải thuộc {hosts}.',
+    'zca.storageLinks.errors.urlDuplicate': 'Link này đã có trong danh sách.',
     'zca.storageLinks.errors.emailInvalid': 'Email không hợp lệ.',
     'zca.googleAccount.title': 'Tài khoản Google lưu trữ',
     'zca.googleAccount.description':
@@ -2543,11 +2553,21 @@ const messages = {
       'The link in use cannot be deleted: new media of this chat is stored there.',
     'zca.storageLinks.saveError': 'Could not save the changes. Please try again.',
     'zca.storageLinks.deleteError': 'Could not delete the link. Please try again.',
+    'zca.storageLinks.add': 'Add link',
+    'zca.storageLinks.addSubmit': 'Add',
+    'zca.storageLinks.adding': 'Adding…',
+    'zca.storageLinks.addHint':
+      'Only adds an existing link to the list: nothing is created on Google, and new media still goes to the link in use.',
+    'zca.storageLinks.addError': 'Could not add the link. Please try again.',
+    'zca.storageLinks.displayNameAddPlaceholder': 'Leave empty to show the link',
+    'zca.storageLinks.urlPlaceholderDrive': 'https://drive.google.com/drive/folders/…',
+    'zca.storageLinks.urlPlaceholderPhotos': 'https://photos.google.com/album/…',
     'zca.storageLinks.errors.displayNameTooLong':
       'The display name can have at most {max} characters.',
     'zca.storageLinks.errors.urlRequired': 'The link cannot be empty.',
     'zca.storageLinks.errors.urlInvalid': 'The link must be a valid https:// address.',
     'zca.storageLinks.errors.urlWrongHost': 'The link must be on {hosts}.',
+    'zca.storageLinks.errors.urlDuplicate': 'This link is already in the list.',
     'zca.storageLinks.errors.emailInvalid': 'Invalid email.',
     'zca.googleAccount.title': 'Google storage account',
     'zca.googleAccount.description':
@@ -4182,6 +4202,20 @@ export interface NormalizedChannelStorageLinkUpdate {
   googleEmail?: string | null;
 }
 
+/** An existing Drive folder / Photos album an admin adds to the history; nothing is created on Google. */
+export interface CreateChannelStorageLinkDto {
+  kind: ChannelStorageLinkKind;
+  url: string;
+  displayName?: string | null;
+  googleEmail?: string | null;
+}
+
+export interface NormalizedChannelStorageLinkCreate {
+  url: string;
+  displayName: string | null;
+  googleEmail: string | null;
+}
+
 export const CHANNEL_STORAGE_LINK_LIMITS = {
   DISPLAY_NAME_MAX_LENGTH: 120,
 } as const;
@@ -4192,8 +4226,14 @@ export const CHANNEL_STORAGE_LINK_HOSTS: Record<ChannelStorageLinkKind, readonly
   photos: ['photos.google.com', 'photos.app.goo.gl'],
 };
 
+/** `url_duplicate` only comes from `validateChannelStorageLinkCreate`. */
 export type ChannelStorageLinkUpdateError =
-  'display_name_too_long' | 'url_required' | 'url_invalid' | 'url_wrong_host' | 'email_invalid';
+  | 'display_name_too_long'
+  | 'url_required'
+  | 'url_invalid'
+  | 'url_wrong_host'
+  | 'url_duplicate'
+  | 'email_invalid';
 
 export type ChannelStorageLinkUpdateErrors = Partial<
   Record<keyof UpdateChannelStorageLinkDto, ChannelStorageLinkUpdateError>
@@ -4261,6 +4301,76 @@ export function validateChannelStorageLinkUpdate(
   }
 
   return Object.keys(errors).length > 0 ? { ok: false, errors } : { ok: true, value };
+}
+
+const STORAGE_RESOURCE_ID_PATTERNS: Record<ChannelStorageLinkKind, RegExp> = {
+  drive: /\/folders\/([\w-]+)/,
+  // Photos API album URLs are `/lr/album/<id>`; links copied from the app are `/album/<id>`.
+  photos: /\/album\/([\w-]+)/,
+};
+
+/**
+ * Drive folder id / Photos album id in a link (uploads key history rows by it), or the link
+ * itself when it holds none, e.g. a short `photos.app.goo.gl` link (like backfilled rows).
+ */
+export function channelStorageResourceIdFromUrl(kind: ChannelStorageLinkKind, url: string): string {
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return url;
+  }
+  return STORAGE_RESOURCE_ID_PATTERNS[kind].exec(pathname)?.[1] ?? url;
+}
+
+function normalizeStorageLinkUrl(raw: string): string {
+  try {
+    return new URL(raw.trim()).toString();
+  } catch {
+    return raw.trim();
+  }
+}
+
+/**
+ * Validates and normalizes a link an admin adds by hand: the edit rules, plus a required URL that
+ * the channel does not list yet (`existingUrls`: its links of the same kind). Two URLs are the
+ * same link when they normalize equal or hold the same folder / album id.
+ */
+export function validateChannelStorageLinkCreate(
+  kind: ChannelStorageLinkKind,
+  dto: Omit<CreateChannelStorageLinkDto, 'kind'>,
+  existingUrls: readonly string[],
+):
+  | { ok: true; value: NormalizedChannelStorageLinkCreate }
+  | { ok: false; errors: ChannelStorageLinkUpdateErrors } {
+  const details = validateChannelStorageLinkUpdate(kind, {
+    displayName: dto.displayName ?? null,
+    googleEmail: dto.googleEmail ?? null,
+  });
+  const urlResult = validateStorageLinkUrl(kind, dto.url);
+  const errors: ChannelStorageLinkUpdateErrors = 'errors' in details ? { ...details.errors } : {};
+
+  if ('error' in urlResult) {
+    errors.url = urlResult.error;
+  } else {
+    const resourceId = channelStorageResourceIdFromUrl(kind, urlResult.url);
+    const listed = existingUrls.some(
+      (existing) =>
+        normalizeStorageLinkUrl(existing) === urlResult.url ||
+        channelStorageResourceIdFromUrl(kind, existing) === resourceId,
+    );
+    if (listed) errors.url = 'url_duplicate';
+  }
+
+  if ('errors' in details || 'error' in urlResult || errors.url) return { ok: false, errors };
+  return {
+    ok: true,
+    value: {
+      url: urlResult.url,
+      displayName: details.value.displayName ?? null,
+      googleEmail: details.value.googleEmail ?? null,
+    },
+  };
 }
 
 export type SyncMediaTimeRange = 'all' | '1_month' | '2_months' | '3_months' | '6_months';

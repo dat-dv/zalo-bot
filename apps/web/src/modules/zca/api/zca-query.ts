@@ -19,6 +19,7 @@ import {
   syncThreadMedia,
   getThreadStorageLinks,
   getZcaThreadMembers,
+  createThreadStorageLink,
   updateThreadStorageLink,
   deleteThreadStorageLink,
   deleteZcaThreadConfig,
@@ -30,6 +31,7 @@ import {
 import { isForbiddenError } from '../model/google-storage-account';
 import type {
   ChannelStorageLinksResponse,
+  CreateChannelStorageLinkDto,
   IGoogleStorageAccountStatus,
   IZcaGroupMembersResponse,
   UpdateChannelStorageLinkDto,
@@ -273,6 +275,16 @@ export function useThreadStorageLinksQuery(threadId: string, enabled: boolean) {
 }
 
 /** The API answers with the fresh list, so the dialog cache is replaced without a refetch. */
+export function useCreateThreadStorageLinkMutation(threadId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: CreateChannelStorageLinkDto) => createThreadStorageLink(threadId, data),
+    onSuccess: (links) => {
+      queryClient.setQueryData(zcaQueryKeys.storageLinks(threadId), links);
+    },
+  });
+}
+
 export function useUpdateThreadStorageLinkMutation(threadId: string) {
   const queryClient = useQueryClient();
   return useMutation({

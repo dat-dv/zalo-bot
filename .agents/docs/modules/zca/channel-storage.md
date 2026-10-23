@@ -10,6 +10,7 @@ metadata:
       - apps/api/src/google/google-auth.service.ts
       - apps/api/src/database/migrations/1724830000000-CreateChannelStorageLinks.ts
       - apps/web/src/modules/zca/presentation/components/thread-storage-links-dialog.tsx
+      - apps/web/src/modules/zca/presentation/components/thread-storage-link-form.tsx
       - apps/web/src/modules/zca/presentation/components/google-storage-account-panel.tsx
       - apps/web/src/modules/zca/view/google-storage-screen.tsx
       - apps/api/src/google/google-resources.controller.ts
@@ -67,9 +68,16 @@ Tài liệu canonical tương ứng: [`channel-storage.md`](../../../knowledge/m
 - Trang cấu hình của kênh (`/zca/thread?id=…`) cũng mở cùng hộp thoại này từ banner Drive/Photos.
 - Hộp thoại được render thẳng vào `document.body` qua `createPortal`. Lý do: nó được mở từ một ô trong bảng có `whitespace-nowrap text-right`, và `<dialog>` dù nổi lên trên cùng màn hình vẫn kế thừa các style đó. Trước khi sửa, mô tả bị kéo thành một dòng dài và làm vỡ layout. **Quy tắc:** hộp thoại nào mở từ một dòng của bảng đều phải dùng portal để thoát khỏi ô đó.
 
-### 2.4a. Sửa và xoá link
+### 2.4a. Thêm, sửa và xoá link
 
-Mỗi dòng trong hộp thoại có hai nút **✏️ Sửa** và **🗑️ Xoá**.
+Ở đầu danh sách có nút **➕ Thêm link**. Nút này có ở cả hộp thoại Drive lẫn Photos và vẫn hiện khi kênh chưa có link nào. Mỗi dòng trong danh sách có hai nút **✏️ Sửa** và **🗑️ Xoá**.
+
+- **Thêm link**: dùng để đưa vào danh sách một thư mục Drive hoặc album Photos **đã có sẵn trên Google** mà hệ thống chưa biết. Ví dụ: thư mục cũ từ trước khi có bảng lịch sử, hoặc thư mục nằm ở một tài khoản Google khác.
+  - Form có **Đường link** (bắt buộc, đặt lên đầu), **Tên hiển thị** (để trống thì hiện đường link) và **Email tài khoản**. Quy tắc kiểm tra giống form Sửa.
+  - **Không tạo gì trên Google, cũng không đổi nơi lưu media mới.** Muốn media mới vào thư mục/album khác thì đổi ô "Thư mục Google Drive riêng" / "Tên Album Google Photos riêng" trong cấu hình kênh. Lý do: nếu nút này tạo thư mục mới mà cấu hình kênh không đổi theo, thư mục đó cũng không thành "Đang dùng", dễ gây hiểu nhầm.
+  - **Không cho thêm link trùng.** Hai link được coi là một khi giống nhau sau chuẩn hoá, hoặc cùng id thư mục/album (ví dụ `/drive/u/0/folders/ID` và `/drive/folders/ID`). Web báo lỗi ngay dưới ô link; nếu cùng lúc có người khác vừa thêm, API trả 409 và web hiện cùng thông báo đó.
+  - Dòng thêm tay được lưu theo **id thư mục/album** trong link. Nhờ vậy, nếu sau này media được upload vào đúng chỗ đó thì hệ thống cập nhật luôn dòng này, không sinh thêm dòng thứ hai.
+  - "Dùng từ … đến …" của dòng thêm tay bắt đầu từ **ngày thêm**, vì hệ thống không biết thư mục đó đã thật sự được dùng từ khi nào. Dòng mới nằm ngay dưới dòng "Đang dùng".
 
 - **Sửa** (form ngay tại dòng):
   - **Tên hiển thị**: đặt tên dễ nhớ (ví dụ "Kho nhà 2025"). Tên lưu ở cột riêng `display_name`, upload sau **không ghi đè**. Để trống thì quay về đường dẫn thư mục / tên album.
@@ -78,8 +86,9 @@ Mỗi dòng trong hộp thoại có hai nút **✏️ Sửa** và **🗑️ Xoá
   - Web và API dùng chung một hàm kiểm tra (`validateChannelStorageLinkUpdate` trong contracts), nên lỗi hiện ngay dưới ô nhập mà không cần gọi server.
 - **Xoá**: chỉ gỡ dòng khỏi danh sách trên dashboard. **Thư mục hoặc album trên Google vẫn giữ nguyên**, vì app không có quyền xoá và cũng không nên xoá. Có hỏi xác nhận trước khi xoá. **Dòng đang dùng không xoá được**: mở hộp thoại hoặc upload lần sau là hệ thống ghi lại ngay, nên xoá cũng vô ích.
 - Một mục trong hộp thoại có thể gồm nhiều dòng trong DB có cùng link (dòng backfill + dòng có id thật). Sửa hoặc xoá sẽ áp dụng cho tất cả các dòng đó.
-- Mọi thao tác sửa/xoá đều được ghi vào **nhật ký kiểm toán** (dữ liệu trước/sau).
-- API: `PATCH` và `DELETE /api/zca/threads/:threadId/storage-links/:linkId` (chỉ admin), đều trả về danh sách mới để web cập nhật ngay.
+- Mọi thao tác thêm/sửa/xoá đều được ghi vào **nhật ký kiểm toán** (dữ liệu trước/sau, người thực hiện là admin).
+- Form Thêm và form Sửa dùng chung component `StorageLinkForm` (`thread-storage-link-form.tsx`).
+- API: `POST /api/zca/threads/:threadId/storage-links` (thêm), `PATCH` và `DELETE /api/zca/threads/:threadId/storage-links/:linkId` (chỉ admin), đều trả về danh sách mới để web cập nhật ngay. Thêm dùng hàm kiểm tra `validateChannelStorageLinkCreate` trong contracts, cũng dùng chung cho web và API.
 
 ### 2.5. Ảnh hoá đơn cũ
 
