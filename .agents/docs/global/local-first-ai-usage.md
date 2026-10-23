@@ -7,6 +7,7 @@ metadata:
       - .agents/knowledge/global/local-first-ai-usage.md
       - apps/api/src/ocr/ocr.service.ts
       - apps/api/src/llm/llm.service.ts
+      - apps/api/src/zca/memory/image-text-memory.service.ts
 ---
 
 # Quy tắc xử lý cục bộ trước AI
@@ -25,6 +26,7 @@ Mục tiêu của quy tắc này là tiết kiệm token, giảm dữ liệu g�
 ## Áp dụng thực tế
 
 - **Ảnh hóa đơn**: `OcrService` chuẩn hóa ảnh bằng Sharp (xoay, grayscale, tăng tương phản) rồi chạy Tesseract.js với ngôn ngữ `vie+eng` ngay trên server. `LlmService` chỉ nhận đoạn text OCR kèm ghi chú người dùng, không nhận bytes ảnh hay base64.
+- **Ảnh trong kênh bật trí nhớ hội thoại**: cũng đọc bằng Tesseract trên server, chạy nền. Chỉ phần chữ đã lọc rác được lưu vào trí nhớ; ảnh không bao giờ được gửi cho AI. Admin tắt được cho từng kênh bằng công tắc "Đọc chữ trong ảnh".
 - **Tin nhắn thoại**: không được chuyển thành văn bản; file âm thanh chỉ được sao lưu lên Drive khi kênh bật `mediaBackup.uploadAudios`. Hệ thống không có dịch vụ speech-to-text.
 - Chuyển đổi file, đọc metadata, checksum, parse dữ liệu và trích xuất text không được gọi AI mặc định.
 - Kết quả OCR hoặc AI không được tự ghi dữ liệu: tool call của AI chỉ tạo thao tác chờ duyệt, người dùng vẫn phải xác nhận.
@@ -36,4 +38,4 @@ Mọi ngoại lệ phải ghi rõ: công cụ cục bộ nào thiếu/không đ�
 
 Ngoại lệ đã duyệt:
 - **9router đứng đầu chuỗi LLM** (dự phòng Gemini): mọi prompt `LlmService` gửi đi, gồm tin nhắn gọi bot, chữ OCR hoá đơn và đoạn trí nhớ, đều đi qua 9router tới model phía sau (hiện là DeepSeek bản free); khi 9router lỗi thì đi sang Gemini. Chủ dự án chọn đánh đổi này vì chi phí và độ sẵn sàng. Các quy tắc tối thiểu hoá dữ liệu ở trên giữ nguyên. Muốn giữ dữ liệu nội bộ thì đặt `LLM_PROVIDER=qwen`.
-- **Trí nhớ hội thoại** ([chi tiết](../modules/zca/chat-memory.md)): tìm kiếm full-text chạy hoàn toàn trên Postgres, nhưng để hiểu câu hỏi và viết câu trả lời thì cần LLM. Chỉ gửi các đoạn tin khớp (tối đa 80 dòng, không có link media) khi kênh bật trí nhớ dài hạn, và vài tin gần nhất (tối đa 30, chỉ tin gửi trong số ngày kênh cấu hình, 1–7 ngày, giữ trong Redis) khi kênh bật trí nhớ ngắn hạn; không bao giờ gửi cả lịch sử. Chi phí: thêm 1 lượt gọi LLM cho mỗi câu hỏi về chuyện cũ. Câu trả lời dùng chung chuỗi provider; muốn giữ nội bộ thì đặt `LLM_PROVIDER=qwen`; mỗi kênh mặc định tắt cả hai loại trí nhớ, admin bật riêng từng loại cho kênh cần.
+- **Trí nhớ hội thoại** ([chi tiết](../modules/zca/chat-memory.md)): tìm kiếm full-text chạy hoàn toàn trên Postgres, nhưng để hiểu câu hỏi và viết câu trả lời thì cần LLM. Chỉ gửi các đoạn tin khớp (tối đa 80 dòng, không có link media) khi kênh bật trí nhớ dài hạn, và vài tin gần nhất (tối đa 30, chỉ tin gửi trong số ngày kênh cấu hình, 1–7 ngày, giữ trong Redis) khi kênh bật trí nhớ ngắn hạn; không bao giờ gửi cả lịch sử. Các dòng này có thể chứa chữ đọc được từ ảnh (tối đa 2000 ký tự mỗi ảnh ở dài hạn, 500 ở ngắn hạn), nên ảnh giấy tờ cá nhân có thể lộ ra LLM như tin nhắn chữ; kênh nào không muốn thì tắt "Đọc chữ trong ảnh". Chi phí: thêm 1 lượt gọi LLM cho mỗi câu hỏi về chuyện cũ. Câu trả lời dùng chung chuỗi provider; muốn giữ nội bộ thì đặt `LLM_PROVIDER=qwen`; mỗi kênh mặc định tắt cả hai loại trí nhớ, admin bật riêng từng loại cho kênh cần.

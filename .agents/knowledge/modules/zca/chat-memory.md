@@ -24,13 +24,16 @@ metadata:
       - apps/web/src/modules/zca/presentation/components/thread-config/long-term-memory-section.tsx
       - apps/api/src/zca/memory/short-term-memory.service.ts
       - apps/web/src/modules/zca/model/thread-config-form.ts
+      - apps/api/src/zca/memory/image-text-memory.service.ts
+      - apps/api/src/ocr/ocr.service.ts
+      - apps/web/src/modules/zca/presentation/components/thread-config/image-text-memory-section.tsx
 ---
 
 # ZCA Chat Memory
 
-Owner: Core Engineering Team · Status: active (Step 1: long-term storage + full-text search, short-term window in Redis; two independent per-thread switches)
+Owner: Core Engineering Team · Status: active (Step 1: long-term storage + full-text search, short-term window in Redis; two independent per-thread switches; photo text via local OCR)
 
-Human guide: [Trí nhớ hội thoại](../../../docs/modules/zca/chat-memory.md). Design records: `.agents/artifacts/chat-memory-recall/`, `.agents/artifacts/chat-memory-per-thread-config/`, `.agents/artifacts/chat-memory-short-long-split/`.
+Human guide: [Trí nhớ hội thoại](../../../docs/modules/zca/chat-memory.md). Design records: `.agents/artifacts/chat-memory-recall/`, `.agents/artifacts/chat-memory-per-thread-config/`, `.agents/artifacts/chat-memory-short-long-split/`, `.agents/artifacts/chat-memory-image-text/`.
 
 ## Purpose
 
@@ -57,12 +60,14 @@ Configured per ZCA thread on the dashboard thread config page `/zca/thread?id=�
 | `contextWindow` | `10` | 1–30 | Messages of the short-term window. |
 | `shortTermDays` | `1` | 1–7 | Short-term memory only uses messages sent within this many days (counted per message). Missing in older configs → 1 (the former fixed 24 h). |
 | `searchLimit` | `15` | 1–50 | Ranked hits per search (each expanded with neighbours). |
+| `readImageText` | `true` | | Read the text of the chat's photos (local OCR) into the memories that are on. No effect while both memories are off. |
 
-Both are off for every new thread until an admin enables them.
+Both memories are off for every new thread until an admin enables them; `readImageText` defaults on so it applies as soon as one is.
 
 - `normalizeChatMemoryConfig` (`@zalobot/contracts`, with `CHAT_MEMORY_DEFAULTS`, `CHAT_MEMORY_LIMITS`) fills defaults, rounds and clamps. Applied on default creation, `entityToConfig`, cached Redis/JSON configs, the `updateConfig` merge and the web form. `PUT /api/zca/thread-configs/:id` has no class-validator DTO, so this is the guard.
 - **Configs saved before `shortTermEnabled` existed** (one switch for both, window off via `contextWindow: 0`): `shortTermEnabled = enabled && contextWindow > 0`, and a `0` window becomes the default 10. Each thread keeps the behaviour it had.
-- UI: two `ConfigSectionCard`s (`short-term-memory-section.tsx`, `long-term-memory-section.tsx`), each with its own switch, in the right column of the thread config form. Short-term: fields "Số tin gần đây" and "Nhớ trong (ngày)" side by side (one column on mobile), warning names the configured days. Long-term: a "Cách hoạt động" list (what is stored, how to ask, what the AI sees, scope and recall, limits) so admins know what they enable, then "Số kết quả mỗi lần tra".
+- **Configs saved before `readImageText` existed**: missing or non-boolean → `true` (no migration; `chat_memory` is jsonb).
+- UI: two `ConfigSectionCard`s (`short-term-memory-section.tsx`, `long-term-memory-section.tsx`), each with its own switch, in the right column of the thread config form. Short-term: fields "Số tin gần đây" and "Nhớ trong (ngày)" side by side (one column on mobile), warning names the configured days. Long-term: a "Cách hoạt động" list (what is stored, how to ask, what the AI sees, scope and recall, limits) so admins know what they enable, then "Số kết quả mỗi lần tra". A third card "🖼️ Đọc chữ trong ảnh" (`image-text-memory-section.tsx`) below them holds `readImageText`: a note when both memories are off ("Chưa có tác dụng"), a privacy warning (ID cards, bank statements → turn off), and its own "Cách hoạt động" list.
 - Either memory needs `isListened` (only listened threads receive messages).
 - Turning long-term off stops storing and searching; rows already stored are **kept** and reused if it is turned on again. Turning it on stores from then; buffered Redis messages are imported at the next start.
 - Turning short-term off stops recording and injecting; the Redis list is left to expire.
@@ -72,8 +77,9 @@ Both are off for every new thread until an admin enables them.
 ## Short-term store (`ShortTermMemoryService`)
 
 - Redis list `zca:short_memory:<threadId>` of JSON entries `{ msgId, cliMsgId, senderUid, senderName, isBot, text, sentAt }`; `text` from `buildMemoryText` (same labels as long-term). Entries without an id or text are skipped.
-- `rpush` + `ltrim` to `SHORT_TERM_MEMORY_MAX_ENTRIES` (60 = 2 × max window, because a bot reply can be stored twice: send result and self-listen echo) + `expire` `shortTermTtlSeconds(shortTermDays)` on every write (`record` / `recordBotReply` take the thread's days), so a chat quiet for that long loses its list.
-- `getRecent(threadId, { limit, maxAgeDays, excludeMsgId })`: drops entries whose `sentAt` is older than `maxAgeDays` (age counts per message: a chat that never goes quiet still forgets), merges copies by `msgId` (bot flag wins), sorts by `sentAt`, returns the last `limit` as `MemoryLine[]`.
+- `rpush` + `ltrim` to `SHORT_TERM_MEMORY_MAX_ENTRIES` (90 = 3 × max window, because a message can be stored more than once: a bot reply as send result and self-listen echo, a photo as sent and again with its text) + `expire` `shortTermTtlSeconds(shortTermDays)` on every write (`record` / `recordBotReply` / `recordImageText` take the thread's days), so a chat quiet for that long loses its list.
+- `recordImageText(threadId, data, text, days)`: appends a copy of the photo's entry with the photo text; never rewrites the list (no lost concurrent appends). Skipped when no entry with that `msgId` is listed (recalled while being read).
+- `getRecent(threadId, { limit, maxAgeDays, excludeMsgId })`: drops entries whose `sentAt` is older than `maxAgeDays` (age counts per message: a chat that never goes quiet still forgets), merges copies by `msgId` (bot flag wins, longer text wins), sorts by `sentAt`, returns the last `limit` as `MemoryLine[]`.
 - A recall rewrite does not know the thread's days and sets the expiry to the 7-day maximum; reads still filter by age.
 - `markRecalled`: same matching rule as long-term (`msg_id`, or `cli_msg_id` with the same sender); rewrites the list without the entry.
 - Without Redis: in-process Map with the same cap and expiry (lost on restart). Never throws.
@@ -84,7 +90,7 @@ Both are off for every new thread until an admin enables them.
 - Columns: `channel_id`, `channel_type`, `msg_id` (unique with `channel_id`), `cli_msg_id`, `sender_uid` (= `users.id` on ZCA), `sender_name`, `is_bot`, `msg_type`, `text`, `content` (jsonb), `quote_msg_id`, `sent_at` (from zca `ts`), `recalled_at`, `created_at`, generated `search_vector`.
 - `search_vector = to_tsvector('simple', zalobot_unaccent(coalesce(text,'')))`. `zalobot_unaccent` is an IMMUTABLE wrapper over the `unaccent` extension (created by the migration; needs `CREATE EXTENSION` privilege). Accent-insensitive: "da lat" matches "Đà Lạt".
 - Indexes: `(channel_id, sent_at DESC)`, GIN(`search_vector`).
-- `text` (`buildMemoryText`): plain text, or `[Ảnh] <caption>`, `[Video]`, `[Ghi âm]`, `[Sticker]`, `[File: name]`…; max 2000 chars. `content` keeps only `title/description/text/fileName/name`; media URLs are dropped (Zalo CDN links expire, may be signed).
+- `text` (`buildMemoryText`): plain text, or `[Ảnh] <caption>`, `[Video]`, `[Ghi âm]`, `[Sticker]`, `[File: name]`…; max 2000 chars. A photo whose text was read becomes `[Ảnh] <caption> — chữ trong ảnh: <line / line …>` (still ≤ 2000). `content` keeps only `title/description/text/fileName/name`; media URLs are dropped (Zalo CDN links expire, may be signed).
 - Retention: unlimited (Step 1). Excluded from `AuditLogSubscriber` (`ignoredTables`): chat logs are not business mutations.
 - Schema is migration-owned; `TYPEORM_SYNCHRONIZE` must stay `false` (entity does not declare the generated column / GIN index).
 
@@ -93,12 +99,26 @@ Both are off for every new thread until an admin enables them.
 | Event | Hook | Behavior |
 | --- | --- | --- |
 | Incoming message | `ZcaBotFeatureService.onMessage`, right after the `isListened` gate, before self/trigger filters | `shortTermEnabled` → `ShortTermMemoryService.record`; `enabled` → `ChatMemoryService.record` → `INSERT … ON CONFLICT DO NOTHING`. Includes un-addressed group messages (stored, never sent to LLM unless the bot is addressed). |
+| Photo text | `ZcaBotFeatureService.onMessage`, right after the two record calls: `chat.photo` with a media URL, `readImageText` on, at least one memory on → `ImageTextMemoryService.enqueue` (see below) | Long-term `attachImageText` (after the row insert settles) and/or short-term `recordImageText`, per switch. Every photo, addressed to the bot or not. |
 | Bot reply | `ZcaService.setupApiInstance` wrapper after `sendMessage` returns `msgId` → `recordBotReplyInMemory`: listened thread, per switch of `findStoredConfig(threadId).chatMemory` | Short-term `recordBotReply` (append `isBot`); long-term `recordBotReply` → upsert `is_bot = true` (self-listen echo may arrive first) |
 | Recall (`undo`) by a member | `ZcaBotFeatureService.onUndo`; **always**, both memories, even when the thread has them off now | `markRecalled(threadId, content.globalMsgId, { cliMsgId, senderUid: data.uidFrom })`: matches `msg_id`, or `cli_msg_id` **with** the same `sender_uid` (client ids are not unique across senders); sets `recalled_at`, erases `text` and `content`. Recalled rows never appear in reads. |
 | Recall by the bot account (confirmation cards, owner unsends) | `ZcaService.undo` after `api.undo` succeeds | `markRecalled(threadId, msgId)` on both memories. Needed because zca-js drops the account's own undo events unless `ZCA_SELF_LISTEN` is on, so `onUndo` never sees them. |
 | Startup backfill | `ZcaBotFeatureService.init` (plugin init after listened threads load); listened threads with `chatMemory.enabled` only | Re-imports Redis buffer `zca:buffered_msgs:<threadId>` (≤200 msgs, 7 days); idempotent. No Zalo history API call. |
 
 Owner's own phone messages (`isSelf`, not bot-sent) are stored only when zca-js delivers them (`ZCA_SELF_LISTEN`).
+
+## Photo text (`ImageTextMemoryService`, `ChatMemoryModule`)
+
+Purpose: a photo of a menu, schedule, notice or bill posted without tagging the bot was remembered only as `[Ảnh]`, so later questions about it ("@bot cái menu lúc nãy có món gì") had nothing to work with.
+
+- OCR: `OcrService.recognize(buffer) → { text, confidence }` (Sharp + Tesseract `vie+eng`, local, new worker per call); `extractTextFromBuffer` delegates to it. `ChatMemoryModule` imports `OcrModule`.
+- Queue: in-process, one photo at a time (Tesseract ~1–3 s CPU each), at most `IMAGE_TEXT_QUEUE_MAX_PENDING = 20` waiting; a full queue drops new photos (warn log, photo stays `[Ảnh]`). Lost on restart (best effort). Dedupe key `channelId:msgId` across waiting, running and a result cache (50 entries / 10 min), so self-listen echoes are not read twice.
+- Job: wait `afterStored` (the long-term `record` promise; never rejects) → `fetchImageBuffer(url)` → `recognize` → `cleanOcrTextForMemory(text, confidence)` → store per memory. Fetch/OCR errors are logged and stored nothing; never throws.
+- Cleaning (`chat-memory.mapper.ts`, pure): mean confidence `< IMAGE_TEXT_MIN_CONFIDENCE (40)` → none; keep lines with ≥ 3 letters/digits making ≥ 50 % of their glyphs (drops what Tesseract reads from faces/scenery); whole text < 8 letters/digits → none; lines joined by ` / `.
+- Stored text (`buildImageMemoryText`): `[Ảnh] <caption> — chữ trong ảnh: …`. Long-term row: `UPDATE … SET text WHERE channel_id, msg_id, recalled_at IS NULL, NOT is_bot`; the generated `search_vector` follows, so the history search matches photo text (no migration). Short-term copy: photo text cut to `SHORT_TERM_IMAGE_TEXT_MAX_CHARS = 500`.
+- A photo that addresses the bot (direct photo with caption, flow 6b) is read once: `prepareImageOcrContext` calls `recognizeNow(threadId, messageId, buffer)`, which awaits the running read, pulls a waiting job and runs it at once with the fetched bytes (no waiting behind the queue), or returns a cached result. `null` (no job: switch/memory off, or the background fetch failed) → the caller runs its own OCR as before. The prompt gets the raw OCR text; only memory gets the cleaned text. Quoted photos (5b) are still read separately.
+- Recalled before the read finishes: long-term update matches no row (`recalled_at IS NULL`); short-term `recordImageText` finds no listed entry. A recall in the few ms between that check and the append can leave the copy (accepted).
+- Not read: photos stored before this feature or imported by the startup backfill (URLs are not kept), video, voice, files, quoted photos for memory.
 
 ## Read paths (always filtered by the asking `chat_id`)
 
@@ -114,8 +134,8 @@ Owner's own phone messages (`isSelf`, not bot-sent) are stored only when zca-js 
 
 ## Data disclosure
 
-Approved exception to local-first AI (see `global/local-first-ai-usage.md`): only the ≤80 matched lines (long-term) and the ≤30-message short-term window leave the server, never the full history, and each only for threads where an admin enabled that memory. Memory answers use the shared provider chain (`LLM_PROVIDER` + `LLM_FALLBACK_PROVIDERS`); there is no memory-specific LLM config. To keep them on-prem, run the whole chain on `qwen`. The raw ZCA payload log is DEBUG-level.
+Approved exception to local-first AI (see `global/local-first-ai-usage.md`): only the ≤80 matched lines (long-term) and the ≤30-message short-term window leave the server, never the full history, and each only for threads where an admin enabled that memory. Photo text is read locally (Tesseract) and, once stored, travels like any message text inside those lines; photo bytes never reach an LLM. `readImageText` lets an admin keep photo text (ID cards, bank screenshots) out of a thread's memory. Memory answers use the shared provider chain (`LLM_PROVIDER` + `LLM_FALLBACK_PROVIDERS`); there is no memory-specific LLM config. To keep them on-prem, run the whole chain on `qwen`. The raw ZCA payload log is DEBUG-level.
 
 ## Not in Step 1
 
-Daily/monthly summaries (episodic memory, best for aggregate questions), pgvector semantic search, retention job, purge of a thread's stored messages, dashboard view of stored messages.
+Daily/monthly summaries (episodic memory, best for aggregate questions), pgvector semantic search, retention job, purge of a thread's stored messages, dashboard view of stored messages, re-reading photos stored before photo text existed, reusing remembered photo text when a photo is quoted, a long-lived Tesseract worker.

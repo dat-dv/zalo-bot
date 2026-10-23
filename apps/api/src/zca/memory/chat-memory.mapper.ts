@@ -108,6 +108,60 @@ export function buildMemoryText(msgType: string, content: unknown): string {
   return caption;
 }
 
+/** OCR results below this mean confidence are noise, not text (photos of people or scenery). */
+export const IMAGE_TEXT_MIN_CONFIDENCE = 40;
+
+/** Photo text kept in the short-term window, so one poster cannot fill the prompt. */
+export const SHORT_TERM_IMAGE_TEXT_MAX_CHARS = 500;
+
+/** Fewer letters/digits than this in the whole photo means it has no real text. */
+const IMAGE_TEXT_MIN_ALNUM = 8;
+/** A kept OCR line has at least this many letters/digits, and at least this share of its glyphs. */
+const IMAGE_TEXT_LINE_MIN_ALNUM = 3;
+const IMAGE_TEXT_LINE_MIN_ALNUM_RATIO = 0.5;
+
+function countAlnum(value: string): number {
+  return value.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
+}
+
+function clip(value: string, maxChars: number): string {
+  return value.length > maxChars ? `${value.slice(0, maxChars - 1)}…` : value;
+}
+
+/**
+ * Text read from a chat photo, cleaned for memory: lines made mostly of symbols (what Tesseract
+ * reads from faces and scenery) are dropped, the rest joined on one line. '' when the photo has
+ * no real text.
+ */
+export function cleanOcrTextForMemory(raw: string, confidence: number): string {
+  if (confidence < IMAGE_TEXT_MIN_CONFIDENCE) return '';
+  const lines = raw
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, ' ').trim())
+    .filter((line) => {
+      const alnum = countAlnum(line);
+      const glyphs = line.replace(/\s/g, '').length;
+      return (
+        alnum >= IMAGE_TEXT_LINE_MIN_ALNUM && alnum / glyphs >= IMAGE_TEXT_LINE_MIN_ALNUM_RATIO
+      );
+    });
+  const text = lines.join(' / ');
+  return countAlnum(text) >= IMAGE_TEXT_MIN_ALNUM ? text : '';
+}
+
+/**
+ * The photo's memory text with the text read from it: `[Ảnh] caption — chữ trong ảnh: …`. The
+ * photo text is cut to `maxImageChars`, the whole to `MEMORY_TEXT_MAX_CHARS`.
+ */
+export function buildImageMemoryText(
+  baseText: string,
+  imageText: string,
+  maxImageChars: number = MEMORY_TEXT_MAX_CHARS,
+): string {
+  const full = `${baseText || '[Ảnh]'} — chữ trong ảnh: ${clip(imageText, maxImageChars)}`;
+  return clip(full, MEMORY_TEXT_MAX_CHARS);
+}
+
 export function toSentAt(ts: unknown, fallback: Date = new Date()): Date {
   const millis = typeof ts === 'number' ? ts : Number(asTrimmedString(ts));
   return Number.isFinite(millis) && millis > 0 ? new Date(millis) : fallback;

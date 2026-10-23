@@ -14,10 +14,11 @@ export function shortTermTtlSeconds(days: number): number {
 const REWRITE_TTL_SECONDS = shortTermTtlSeconds(CHAT_MEMORY_LIMITS.SHORT_TERM_DAYS_MAX);
 
 /**
- * Raw entries kept per chat. Twice the largest window, because a bot reply can be stored twice
- * (its send result and its self-listen echo); reads merge those copies.
+ * Raw entries kept per chat. Three times the largest window, because a message can be stored more
+ * than once: a bot reply (send result and self-listen echo) and a photo (as sent, then with the
+ * text read from it). Reads merge those copies.
  */
-export const SHORT_TERM_MEMORY_MAX_ENTRIES = CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MAX * 2;
+export const SHORT_TERM_MEMORY_MAX_ENTRIES = CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MAX * 3;
 
 interface ShortTermEntry {
   msgId: string;
@@ -112,6 +113,24 @@ export class ShortTermMemoryService {
   }
 
   /**
+   * Gives a photo the text read from it. Appended as a copy of the photo's entry (reads keep the
+   * longer text) so the list is never rewritten under concurrent messages; skipped when the photo
+   * is no longer listed, e.g. recalled while it was being read.
+   */
+  public async recordImageText(
+    channelId: string,
+    data: MemorySourceMessage,
+    text: string,
+    days: number,
+  ): Promise<void> {
+    const entry = toEntry(channelId, data, false);
+    if (!entry || !text) return;
+    const listed = await this.read(channelId);
+    if (!listed.some((existing) => existing.msgId === entry.msgId)) return;
+    await this.append(channelId, { ...entry, text }, days);
+  }
+
+  /**
    * The latest `limit` messages sent within the last `maxAgeDays` days, oldest first, without
    * `excludeMsgId`. Age counts from each message, so a chat that never goes quiet still forgets.
    */
@@ -126,8 +145,18 @@ export class ShortTermMemoryService {
     for (const entry of await this.read(channelId)) {
       if (entry.msgId === excludeMsgId || entry.sentAt < oldest) continue;
       const seen = byMsgId.get(entry.msgId);
-      // A self-listen echo of a bot reply arrives as a member message; keep the bot flag.
-      byMsgId.set(entry.msgId, seen ? { ...seen, isBot: seen.isBot || entry.isBot } : entry);
+      // A self-listen echo of a bot reply arrives as a member message; keep the bot flag. A photo's
+      // later copy carries the text read from it; keep the longer text.
+      byMsgId.set(
+        entry.msgId,
+        seen
+          ? {
+              ...seen,
+              isBot: seen.isBot || entry.isBot,
+              text: entry.text.length > seen.text.length ? entry.text : seen.text,
+            }
+          : entry,
+      );
     }
     return [...byMsgId.values()]
       .sort((a, b) => a.sentAt - b.sentAt)

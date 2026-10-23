@@ -13,6 +13,8 @@ import { ThreadConfigService } from './thread-config.service';
 import { ThreadType, type API, type Message, type Reaction, type Undo } from './shapes';
 import type { ChatMemoryService } from './memory/chat-memory.service';
 import { ShortTermMemoryService } from './memory/short-term-memory.service';
+import type { ImageTextJob, ImageTextMemoryService } from './memory/image-text-memory.service';
+import type { OcrService } from '../ocr/ocr.service';
 import type { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
 import type { TextInputService } from './text/text-input.service';
 import type { ZcaService } from './zca.service';
@@ -2055,6 +2057,7 @@ function createServiceWithMemory(
   configService: ThreadConfigService,
   memory: ChatMemoryService,
   shortTermMemory?: ShortTermMemoryService,
+  imageTextMemory?: ImageTextMemoryService,
 ): ZcaBotFeatureService {
   return new ZcaBotFeatureService(
     configService,
@@ -2073,7 +2076,43 @@ function createServiceWithMemory(
     memory,
     undefined,
     shortTermMemory,
+    imageTextMemory,
   );
+}
+
+/** Records queued photos; `recognizeNow` answers with a fixed text, as if it read the photo. */
+function createImageTextMemoryMock(text = 'CƠM GÀ 45.000'): {
+  memory: ImageTextMemoryService;
+  jobs: ImageTextJob[];
+  asked: Array<string | undefined>;
+} {
+  const jobs: ImageTextJob[] = [];
+  const asked: Array<string | undefined> = [];
+  const memory = {
+    enqueue: (job: ImageTextJob) => {
+      jobs.push(job);
+    },
+    recognizeNow: (_channelId: string, msgId: string | undefined) => {
+      asked.push(msgId);
+      return Promise.resolve(text);
+    },
+  } as unknown as ImageTextMemoryService;
+  return { memory, jobs, asked };
+}
+
+function photoMessage(threadId: string, type: ThreadType, msgId: string, caption = ''): Message {
+  return {
+    threadId,
+    isSelf: false,
+    type,
+    data: {
+      msgId,
+      content: { href: 'data:image/jpeg;base64,dGVzdA==', title: caption },
+      uidFrom: 'owner',
+      dName: 'Nam',
+      msgType: 'chat.photo',
+    },
+  } as unknown as Message;
 }
 
 void test('ZcaBotFeatureService stores every message of a listened thread in chat memory', async () => {
@@ -2251,6 +2290,99 @@ void test('ZcaBotFeatureService keeps the short-term memory when the long-term m
     data: { uidFrom: 'owner', content: { globalMsgId: 11, cliMsgId: 0 } },
   } as unknown as Undo);
   assert.deepEqual(await shortTermMemory.getRecent(threadId, { limit: 10, maxAgeDays: 3 }), []);
+});
+
+void test('ZcaBotFeatureService queues every photo of a chat with memory on for its text', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = `memory-photo-${Date.now()}`;
+  await configService.updateConfig(threadId, {
+    isListened: true,
+    chatMemory: { enabled: true, shortTermEnabled: true, shortTermDays: 2 },
+  });
+  const imageText = createImageTextMemoryMock();
+  const service = createServiceWithMemory(
+    configService,
+    createChatMemoryMock([]),
+    undefined,
+    imageText.memory,
+  );
+
+  // A group photo that does not address the bot is still read for the memory.
+  await service.onMessage(photoMessage(threadId, ThreadType.Group, '501', 'menu trưa'), {
+    getOwnId: () => 'bot-id',
+  } as unknown as API);
+
+  assert.equal(imageText.jobs.length, 1);
+  const [job] = imageText.jobs;
+  assert.equal(job.channelId, threadId);
+  assert.equal(job.channelType, 'group');
+  assert.equal(job.imageUrl, 'data:image/jpeg;base64,dGVzdA==');
+  assert.equal(job.longTerm, true);
+  assert.equal(job.shortTermDays, 2);
+  assert.ok(job.afterStored, 'waits for the long-term row');
+});
+
+void test('ZcaBotFeatureService does not read photos when the switch or every memory is off', async () => {
+  const configService = new ThreadConfigService();
+  const switchOff = `memory-photo-switch-off-${Date.now()}`;
+  const memoryOff = `memory-photo-memory-off-${Date.now()}`;
+  await configService.updateConfig(switchOff, {
+    isListened: true,
+    chatMemory: { enabled: true, readImageText: false },
+  });
+  await configService.updateConfig(memoryOff, { isListened: true });
+  const imageText = createImageTextMemoryMock();
+  const service = createServiceWithMemory(
+    configService,
+    createChatMemoryMock([]),
+    undefined,
+    imageText.memory,
+  );
+
+  const api = { getOwnId: () => 'bot-id' } as unknown as API;
+  await service.onMessage(photoMessage(switchOff, ThreadType.Group, '601'), api);
+  await service.onMessage(photoMessage(memoryOff, ThreadType.Group, '602'), api);
+
+  assert.equal(imageText.jobs.length, 0);
+});
+
+void test('ZcaBotFeatureService reads a photo that asks the bot once, through the memory reader', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = `memory-photo-direct-${Date.now()}`;
+  await configService.updateConfig(threadId, {
+    isListened: true,
+    directInteraction: { enabled: true, allowAiChat: true },
+    chatMemory: { enabled: true },
+  });
+  const imageText = createImageTextMemoryMock();
+  const service = createServiceWithMemory(
+    configService,
+    createChatMemoryMock([]),
+    undefined,
+    imageText.memory,
+  );
+  let ocrCalls = 0;
+  service.setOcrService({
+    extractTextFromBuffer: () => {
+      ocrCalls += 1;
+      return Promise.resolve('đọc lần hai');
+    },
+  } as unknown as OcrService);
+  const seen: { input?: AgentInput } = {};
+  service.setTextInputService({
+    process: (input: AgentInput) => {
+      seen.input = input;
+      return Promise.resolve();
+    },
+  } as unknown as TextInputService);
+
+  await service.onMessage(photoMessage(threadId, ThreadType.User, '701', 'món nào rẻ nhất'), {
+    getOwnId: () => 'bot-id',
+  } as unknown as API);
+
+  assert.deepEqual(imageText.asked, ['701']);
+  assert.equal(ocrCalls, 0, 'the photo is not read a second time');
+  assert.match(seen.input?.text ?? '', /CƠM GÀ 45\.000/);
 });
 
 async function createMemberAccessScenario(

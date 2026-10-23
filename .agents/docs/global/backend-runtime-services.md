@@ -12,6 +12,7 @@ metadata:
       - apps/api/src/tasks/task-reminder.processor.ts
       - apps/api/src/queue/queue.module.ts
       - apps/api/src/queue/reminder-job.ts
+      - apps/api/src/zca/memory/image-text-memory.service.ts
 ---
 
 # Dịch vụ nền của Backend
@@ -36,6 +37,9 @@ Tài liệu này ánh xạ với tri thức canonical [`backend-runtime-services
 ## 3. OCR (`ocr/`)
 
 `OcrService` đọc chữ trên ảnh hoá đơn **ngay trên máy chủ** bằng Tesseract (ngôn ngữ `vie` + `eng`), sau khi dùng `sharp` xoay đúng chiều, chuyển xám và tăng tương phản. Lỗi trả về chuỗi rỗng. Chỉ phần chữ trích xuất mới được gửi cho LLM, ảnh gốc thì không — phù hợp nguyên tắc ưu tiên xử lý cục bộ.
+
+- `recognize(buffer)` trả thêm **độ tin cậy** (0–100) của Tesseract. Ảnh chân dung, phong cảnh thường cho độ tin cậy thấp và ra toàn ký tự rác, nên trí nhớ hội thoại dùng con số này để bỏ qua. `extractTextFromBuffer` vẫn chỉ trả chữ cho các luồng cũ (hoá đơn).
+- **Đọc ảnh chạy nền cho trí nhớ hội thoại**: `ImageTextMemoryService` đọc ảnh của kênh đã bật trí nhớ qua một hàng đợi ngay trong tiến trình, mỗi lần một ảnh vì Tesseract tốn CPU (khoảng 1–3 giây mỗi ảnh), tối đa 20 ảnh chờ. Hàng đợi này không dùng BullMQ nên mất khi restart; ảnh chưa đọc kịp chỉ được nhớ là `[Ảnh]`. Chi tiết ở [Trí nhớ hội thoại](../modules/zca/chat-memory.md).
 
 ## 4. Lưu trữ media lên Google (`receipt-storage/`)
 

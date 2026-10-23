@@ -3944,6 +3944,11 @@ export interface ThreadChatMemoryConfig {
   shortTermDays: number;
   /** Best-matching messages fetched per history search. */
   searchLimit: number;
+  /**
+   * Read the text of photos posted in the chat (local OCR) and remember it with the photo. Only
+   * acts while at least one memory is on.
+   */
+  readImageText: boolean;
 }
 
 export const CHAT_MEMORY_DEFAULTS: ThreadChatMemoryConfig = {
@@ -3952,6 +3957,7 @@ export const CHAT_MEMORY_DEFAULTS: ThreadChatMemoryConfig = {
   contextWindow: 10,
   shortTermDays: 1,
   searchLimit: 15,
+  readImageText: true,
 };
 
 export const CHAT_MEMORY_LIMITS = {
@@ -4006,6 +4012,11 @@ export function normalizeChatMemoryConfig(value: unknown): ThreadChatMemoryConfi
       CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MAX,
       CHAT_MEMORY_DEFAULTS.searchLimit,
     ),
+    // Configs saved before the photo switch existed get it on, like new ones.
+    readImageText:
+      typeof raw.readImageText === 'boolean'
+        ? raw.readImageText
+        : CHAT_MEMORY_DEFAULTS.readImageText,
   };
 }
 

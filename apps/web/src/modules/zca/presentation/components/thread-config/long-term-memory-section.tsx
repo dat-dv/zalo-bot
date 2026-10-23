@@ -18,7 +18,7 @@ interface LongTermMemorySectionProps {
 const HOW_IT_WORKS: ReadonlyArray<{ title: string; text: string }> = [
   {
     title: 'Lưu gì',
-    text: 'mọi tin của kênh từ lúc bật, cả tin bot trả lời. Ảnh và file chỉ lưu nhãn và tên, không lưu link. Không tự xoá theo thời gian.',
+    text: 'mọi tin của kênh từ lúc bật, cả tin bot trả lời. Ảnh lưu nhãn, chú thích và chữ trong ảnh (khi bật Đọc chữ trong ảnh); file chỉ lưu tên. Không lưu link, không tự xoá theo thời gian.',
   },
   {
     title: 'Hỏi thế nào',
