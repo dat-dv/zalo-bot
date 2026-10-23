@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateContactProfileUpdate } from '@zalobot/contracts';
 import type { DebtContactEntity } from '../database/entities/debt-contact.entity';
-import { mergeContactProfileFields, summarizeContactProfile } from './contact-profile';
+import {
+  contactProfileTransactionWhere,
+  mergeContactProfileFields,
+  summarizeContactProfile,
+} from './contact-profile';
 
 function contact(overrides: Partial<DebtContactEntity>): DebtContactEntity {
   return {
@@ -36,6 +40,17 @@ void test('summary counts only open root debts and totals transactions by type',
     expenseTotal: 450_000,
     transactionCount: 5,
   });
+});
+
+void test('profile transactions match the contact, plus its linked user as creator', () => {
+  assert.deepEqual(contactProfileTransactionWhere({ id: 'c-1', linkedUserId: 'u-1' }), [
+    { contactId: 'c-1' },
+    { createdByUserId: 'u-1' },
+  ]);
+  assert.deepEqual(contactProfileTransactionWhere({ id: 'c-1', linkedUserId: null }), [
+    { contactId: 'c-1' },
+  ]);
+  assert.deepEqual(contactProfileTransactionWhere({ id: 'c-1' }), [{ contactId: 'c-1' }]);
 });
 
 void test('merge fills empty single fields without overwriting the lead', () => {

@@ -38,7 +38,7 @@ Human guide: [Finance Domain](../../docs/global/finance-domain.md).
 
 - **Rule**: the system has exactly ONE finance store. Every user (any dashboard login, any Zalo ID messaging the bot) reads and writes ALL finance data. There is no per-user ledger and no "ledger owner".
 - Finance tables have **no `user_id`**: `finance_transactions`, `finance_places`, `debt_contacts`, `debts`, `debt_payments`, `debt_payment_allocations`, `user_categories`. `FinanceService` methods take no user argument and never filter by user. `users.is_ledger_owner`, `LedgerService`, `finance-data-mover.ts` and the `/finance/ledger*` admin API were removed.
-- Who did it is display-only: `finance_transactions.created_by_user_id` / `created_by_name` / `source` / `source_chat_id` (see below). Never used as a filter.
+- Who did it is display-only: `finance_transactions.created_by_user_id` / `created_by_name` / `source` / `source_chat_id` (see below). Never used to scope what a user can see; only views the user picks select by it (transactions creator column filter, `getLatestTransaction`, contact profile "recorded by the linked Zalo user", see modules/contacts).
 - The calendar (`calendar_events`) and tasks (`tasks`) follow the same shared model: see `modules/calendar/README.md`, `modules/tasks/README.md`.
 - Still per user (not finance): reminders, Drive/Photos uploads (sender's Google token), pending confirmation cards (`pending.userId` = sender), admin role, audit `actor_id`.
 - Dashboard finance routes still require a signed-in user (`FinanceController.authenticate(req)` → Bearer token, 401 otherwise); authentication only, not scoping.

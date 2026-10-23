@@ -46,6 +46,7 @@ import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { toTransactionItem, type TransactionItemLookups } from './transaction-item.mapper';
 import {
+  contactProfileTransactionWhere,
   mergeContactProfileFields,
   summarizeContactProfile,
   toContactProfile,
@@ -1217,13 +1218,28 @@ export class FinanceService {
     });
   }
 
-  /** Profile page: the contact, its root debts, latest transactions and totals over all of them. */
+  /**
+   * Profile page: the contact, its root debts, latest transactions and totals over all of them.
+   * Transactions follow `contactProfileTransactionWhere` (linked to the contact or recorded by
+   * its linked Zalo user); the totals query below must match the same rows.
+   */
   public async getContactProfile(
     id: string,
     includeAccess: boolean,
   ): Promise<IContactProfileResponse | null> {
     const contact = await this.getContact(id);
     if (!contact) return null;
+    const totalsQuery = this.transactionRepo
+      .createQueryBuilder('t')
+      .select('t.type', 'type')
+      .addSelect('COUNT(*)', 'count')
+      .addSelect('COALESCE(SUM(t.amount), 0)', 'total')
+      .where('t.contact_id = :id', { id });
+    if (contact.linkedUserId) {
+      totalsQuery.orWhere('t.created_by_user_id = :linkedUserId', {
+        linkedUserId: contact.linkedUserId,
+      });
+    }
     const [rootDebts, transactions, transactionTotals] = await Promise.all([
       this.debtRepo.find({
         where: { contactId: id, parentDebtId: IsNull() },
@@ -1231,19 +1247,12 @@ export class FinanceService {
         order: { occurredAt: 'DESC', createdAt: 'DESC', id: 'DESC' },
       }),
       this.transactionRepo.find({
-        where: { contactId: id },
+        where: contactProfileTransactionWhere(contact),
         relations: { place: true },
         order: { occurredAt: 'DESC', createdAt: 'DESC', id: 'DESC' },
         take: CONTACT_PROFILE_LIMITS.RECENT_TRANSACTIONS,
       }),
-      this.transactionRepo
-        .createQueryBuilder('t')
-        .select('t.type', 'type')
-        .addSelect('COUNT(*)', 'count')
-        .addSelect('COALESCE(SUM(t.amount), 0)', 'total')
-        .where('t.contact_id = :id', { id })
-        .groupBy('t.type')
-        .getRawMany<TransactionTypeTotal>(),
+      totalsQuery.groupBy('t.type').getRawMany<TransactionTypeTotal>(),
     ]);
     return {
       contact: toContactProfile(contact, includeAccess),

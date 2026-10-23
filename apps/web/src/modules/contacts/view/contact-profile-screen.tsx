@@ -170,6 +170,7 @@ export function ContactProfileScreen() {
         <div className="flex min-w-0 flex-col gap-3">
           <ProfileDebtsTable debts={debts} />
           <ProfileTransactionsTable
+            includesRecorded={Boolean(contact.linkedUserId)}
             total={summary.transactionCount}
             transactions={recentTransactions}
           />

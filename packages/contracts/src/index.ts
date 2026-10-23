@@ -585,6 +585,8 @@ const messages = {
     'contacts.profile.section.debts': 'Khoản nợ',
     'contacts.profile.section.transactions': 'Giao dịch gần đây',
     'contacts.profile.transactionsLimited': '{shown} / {total} giao dịch gần nhất',
+    'contacts.profile.transactionsScope':
+      'Gồm giao dịch gắn với người này và giao dịch do tài khoản Zalo của họ ghi.',
     'contacts.profile.empty.debts': 'Chưa có khoản nợ nào.',
     'contacts.profile.empty.transactions': 'Chưa có giao dịch nào.',
     'contacts.profile.field.name': 'Tên',
@@ -1821,6 +1823,8 @@ const messages = {
     'contacts.profile.section.debts': 'Debts',
     'contacts.profile.section.transactions': 'Recent transactions',
     'contacts.profile.transactionsLimited': 'Latest {shown} of {total} transactions',
+    'contacts.profile.transactionsScope':
+      'Includes transactions linked to this contact and those recorded by their Zalo account.',
     'contacts.profile.empty.debts': 'No debts yet.',
     'contacts.profile.empty.transactions': 'No transactions yet.',
     'contacts.profile.field.name': 'Name',
@@ -3487,7 +3491,11 @@ export interface IContactProfile
   linkedUser?: IContactProfileLinkedUser;
 }
 
-/** Số liệu tính trên toàn bộ khoản nợ gốc và giao dịch của Người liên quan. */
+/**
+ * Số liệu tính trên toàn bộ khoản nợ gốc và giao dịch của Người liên quan. Giao dịch = gắn với
+ * Người liên quan (`contact_id`) hoặc do tài khoản Zalo đã liên kết ghi (`created_by_user_id`),
+ * mỗi dòng tính một lần.
+ */
 export interface IContactProfileSummary {
   receivableRemaining: number;
   payableRemaining: number;
@@ -3498,7 +3506,10 @@ export interface IContactProfileSummary {
   transactionCount: number;
 }
 
-/** `GET /api/contacts/:id/profile`. `recentTransactions` giới hạn `CONTACT_PROFILE_LIMITS.RECENT_TRANSACTIONS`. */
+/**
+ * `GET /api/contacts/:id/profile`. `recentTransactions` (cùng phạm vi giao dịch với `summary`)
+ * giới hạn `CONTACT_PROFILE_LIMITS.RECENT_TRANSACTIONS`.
+ */
 export interface IContactProfileResponse {
   contact: IContactProfile;
   summary: IContactProfileSummary;

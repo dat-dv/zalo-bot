@@ -10,7 +10,7 @@
 - **Ngày phát sinh**: Thời điểm giao dịch xảy ra. Nếu người dùng không nêu, mặc định là thời điểm họ nhắn bot.
 
 - **Sổ chung**: Toàn hệ thống chỉ có một kho tài chính (thu chi, nơi chốn, danh bạ công nợ, công nợ, danh mục), không thuộc về người dùng nào; ai nhắn bot hay thao tác trên dashboard cũng ghi vào và xem toàn bộ kho này. Không có sổ riêng theo người dùng.
-- **Người tạo**: Người đã ghi giao dịch (người gửi tin Zalo hoặc người dùng dashboard), kèm **nguồn** (nhóm Zalo, chat riêng hoặc dashboard). Chỉ để hiển thị, không dùng để lọc dữ liệu.
+- **Người tạo**: Người đã ghi giao dịch (người gửi tin Zalo hoặc người dùng dashboard), kèm **nguồn** (nhóm Zalo, chat riêng hoặc dashboard). Không dùng để giới hạn ai được xem dữ liệu; chỉ dùng khi người dùng chủ động chọn xem (bộ lọc người tạo ở bảng thu chi, giao dịch do họ ghi trên **hồ sơ**).
 
 ## Công nợ
 
@@ -22,7 +22,7 @@
 - **Liên kết tài khoản**: Gắn một Người liên quan với đúng một người dùng zalo của hệ thống (`users.id`). Chỉ admin được gắn/bỏ gắn; trong danh bạ chung, mỗi người dùng chỉ gắn với tối đa một Người liên quan.
 - **Lưu dự phòng số điện thoại**: Người liên quan và người dùng zalo đã liên kết bù số điện thoại cho nhau, chỉ điền khi bên kia đang trống, không ghi đè.
 - **Số còn lại**: Phần tiền chưa được trả; khoản nợ chỉ hoàn tất khi số này bằng 0.
-- **Hồ sơ**: Trang gom mọi thông tin về một Người liên quan và người dùng zalo đã liên kết với họ (nếu có): SĐT và tài khoản chính/phụ, ngày sinh, quan hệ, địa chỉ, nơi làm việc, ghi chú, cùng các khoản nợ và giao dịch của họ. Gốc của hồ sơ là Người liên quan; người dùng zalo chưa có Người liên quan thì admin tạo hồ sơ để tạo và liên kết.
+- **Hồ sơ**: Trang gom mọi thông tin về một Người liên quan và người dùng zalo đã liên kết với họ (nếu có): SĐT và tài khoản chính/phụ, ngày sinh, quan hệ, địa chỉ, nơi làm việc, ghi chú, cùng các khoản nợ của họ và các giao dịch gắn với họ hoặc do tài khoản Zalo đã liên kết của họ ghi (mỗi giao dịch tính một lần). Gốc của hồ sơ là Người liên quan; người dùng zalo chưa có Người liên quan thì admin tạo hồ sơ để tạo và liên kết.
 
 ## Lịch
 

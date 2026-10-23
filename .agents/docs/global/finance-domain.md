@@ -26,7 +26,7 @@ Tài liệu này ánh xạ với tri thức canonical [`finance-domain.md`](../.
 **Vì sao?** Gia đình/nhóm dùng chung một quỹ chi tiêu. Trước đây mỗi bảng tài chính có cột `user_id` và mọi truy vấn lọc theo người đang thao tác, nên khoản Diệu Hằng ghi không hiện trên dashboard của Văn Đạt; thêm vào đó một người có nhiều ID Zalo (ID webhook dạng hex, UID ZCA dạng số) khiến dữ liệu bị xé ra nhiều "sổ". Phương án "chủ sổ" từng được thử nhưng vẫn để lọt trường hợp chưa chọn chủ sổ, nên đã **bỏ hẳn**.
 
 - Các bảng `finance_transactions`, `finance_places`, `debt_contacts`, `debts`, `debt_payments`, `debt_payment_allocations`, `user_categories` **không còn cột `user_id`**. `FinanceService` không nhận tham số người dùng và không lọc theo người dùng. Không còn cột `users.is_ledger_owner`, không còn khối "Sổ thu chi chung" trên trang "Zalo & Users".
-- **Người tạo** giao dịch chỉ để hiển thị (ai ghi, ghi từ đâu), không bao giờ dùng để lọc.
+- **Người tạo** giao dịch dùng để hiển thị (ai ghi, ghi từ đâu), không bao giờ dùng để giới hạn ai được xem gì. Nó chỉ được dùng để chọn khi người dùng chủ động muốn xem: bộ lọc cột người tạo ở bảng thu chi, và bảng giao dịch trên hồ sơ người liên quan (gồm cả giao dịch do tài khoản Zalo đã liên kết của họ ghi, xem `modules/contacts`).
 - Lịch (`calendar_events`) và việc cần làm (`tasks`) cũng dùng chung theo cùng cách này, xem `modules/calendar/README.md` và `modules/tasks/README.md`.
 - **Vẫn theo từng người** (không phải dữ liệu tài chính): nhắc nhở, upload Drive/Photos (dùng token Google của người gửi), thẻ xác nhận chờ duyệt, quyền admin.
 - API tài chính trên dashboard vẫn **bắt buộc đăng nhập** (thiếu token → 401); đăng nhập chỉ để xác thực, không để giới hạn dữ liệu.

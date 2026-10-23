@@ -7,8 +7,10 @@ import {
   type IContactProfileSummary,
   type IDebtListItem,
 } from '@zalobot/contracts';
+import type { FindOptionsWhere } from 'typeorm';
 import type { DebtContactEntity } from '../database/entities/debt-contact.entity';
 import type { DebtEntity } from '../database/entities/debt.entity';
+import type { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
 
 function toIso(value: Date | string | undefined | null): string | undefined {
   if (!value) return undefined;
@@ -75,6 +77,20 @@ export function toProfileDebtItem(debt: DebtEntity): IDebtListItem {
     updatedAt: toIso(debt.updatedAt),
     childCount: debt.children?.length ?? 0,
   };
+}
+
+/**
+ * Transactions of a profile: linked to the contact, or recorded by the Zalo user linked to it.
+ * The bot and the dashboard set `contact_id` on debts only, so without the creator match a
+ * profile would never show the transactions that person sent to the bot. TypeORM ORs the
+ * entries, so a row matching both is returned once.
+ */
+export function contactProfileTransactionWhere(
+  contact: Pick<DebtContactEntity, 'id' | 'linkedUserId'>,
+): FindOptionsWhere<FinanceTransactionEntity>[] {
+  return contact.linkedUserId
+    ? [{ contactId: contact.id }, { createdByUserId: contact.linkedUserId }]
+    : [{ contactId: contact.id }];
 }
 
 /** One row per transaction type, as returned by the grouped SQL query. */

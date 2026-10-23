@@ -6,6 +6,7 @@ import {
   type IDebtListItem,
   type ITransactionItem,
 } from '@zalobot/contracts';
+import { describeTransactionSource } from '@/modules/dashboard/presentation/components/transaction-receipt';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
@@ -110,12 +111,18 @@ export function ProfileDebtsTable({ debts }: { debts: IDebtListItem[] }) {
   );
 }
 
+/**
+ * `includesRecorded`: the contact has a linked Zalo user, so the API also returned the
+ * transactions that user recorded (not only those linked to the contact).
+ */
 export function ProfileTransactionsTable({
   transactions,
   total,
+  includesRecorded,
 }: {
   transactions: ITransactionItem[];
   total: number;
+  includesRecorded: boolean;
 }) {
   const { t } = useLocale();
   const { money } = useMoneyVisibility();
@@ -160,6 +167,37 @@ export function ProfileTransactionsTable({
       ),
     },
     {
+      id: 'createdBy',
+      header: t('dashboard.columns.createdBy'),
+      minWidth: '140px',
+      mobileSlot: 'secondary',
+      mobileCell: (item) => item.createdByName || describeTransactionSource(item, t) || null,
+      cell: (item) => {
+        const source = describeTransactionSource(item, t);
+        if (!item.createdByName && !source) {
+          return <span className={`select-none ${MUTED}`}>—</span>;
+        }
+        return (
+          <div className="flex min-w-0 flex-col leading-tight">
+            <span
+              className="max-w-[180px] truncate font-medium text-slate-800 dark:text-slate-200"
+              title={item.createdByName || undefined}
+            >
+              {item.createdByName || '—'}
+            </span>
+            {source && (
+              <span
+                className="max-w-[180px] truncate text-[10.5px] text-slate-500 dark:text-slate-400"
+                title={source}
+              >
+                {source}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
       id: 'amount',
       header: t('dashboard.columns.amount'),
       align: 'right',
@@ -179,16 +217,21 @@ export function ProfileTransactionsTable({
     },
   ];
 
+  const description = [
+    includesRecorded ? t('contacts.profile.transactionsScope') : undefined,
+    total > transactions.length
+      ? t('contacts.profile.transactionsLimited', {
+          shown: Math.min(transactions.length, CONTACT_PROFILE_LIMITS.RECENT_TRANSACTIONS),
+          total,
+        })
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
   return (
     <DataPanel
-      description={
-        total > transactions.length
-          ? t('contacts.profile.transactionsLimited', {
-              shown: Math.min(transactions.length, CONTACT_PROFILE_LIMITS.RECENT_TRANSACTIONS),
-              total,
-            })
-          : undefined
-      }
+      description={description || undefined}
       title={t('contacts.profile.section.transactions')}
     >
       <DataTable

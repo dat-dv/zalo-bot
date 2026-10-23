@@ -23,6 +23,8 @@ metadata:
       - apps/web/src/modules/contacts/view/contact-profile-screen.tsx
       - apps/web/src/modules/contacts/view/use-open-contact-profile.ts
       - apps/web/src/modules/contacts/presentation/components/contact-profile/profile-styles.ts
+      - apps/web/src/modules/contacts/presentation/components/contact-profile/profile-tables.tsx
+      - apps/api/src/finance/finance-contact-profile.spec.ts
 ---
 
 # Module danh bạ công nợ (contacts)
@@ -89,7 +91,14 @@ Quy tắc nghiệp vụ:
 
 ### Hồ sơ là gì, vì sao lấy Người liên quan làm gốc
 
-Anh cần một chỗ ghi lại mọi thứ biết về một người: thông tin liên lạc, ghi chú, và xem ngay họ đang nợ bao nhiêu. Trong hệ thống, một người có thể vừa là **Người liên quan** (danh bạ công nợ) vừa là **người dùng Zalo**. Mỗi người dùng Zalo chỉ gắn với tối đa một Người liên quan, nên "hồ sơ chung" chính là một Người liên quan cộng với tài khoản Zalo đã gắn (nếu có). Khoản nợ và giao dịch vốn đã gắn theo Người liên quan, nên lấy lịch sử ra rất tự nhiên.
+Anh cần một chỗ ghi lại mọi thứ biết về một người: thông tin liên lạc, ghi chú, và xem ngay họ đang nợ bao nhiêu. Trong hệ thống, một người có thể vừa là **Người liên quan** (danh bạ công nợ) vừa là **người dùng Zalo**. Mỗi người dùng Zalo chỉ gắn với tối đa một Người liên quan, nên "hồ sơ chung" chính là một Người liên quan cộng với tài khoản Zalo đã gắn (nếu có). Khoản nợ luôn gắn theo Người liên quan (bot và form công nợ đều ghi `contact_id`), nên lấy ra rất tự nhiên.
+
+Giao dịch thì khác: bảng giao dịch có cột `contact_id` nhưng cả bot lẫn form thu chi trên dashboard **chưa bao giờ ghi** cột này. Nếu chỉ lọc theo `contact_id`, hồ sơ sẽ luôn trống phần giao dịch dù người đó đã nhắn bot ghi nhiều khoản (đây là lỗi đã gặp ở hồ sơ Diệu Hằng trên prod). Vì vậy hồ sơ lấy giao dịch theo **một trong hai** điều kiện:
+
+- giao dịch gắn với Người liên quan này (`contact_id`), hoặc
+- giao dịch do **tài khoản Zalo đã liên kết** của họ ghi (`created_by_user_id = linked_user_id`).
+
+Một giao dịch khớp cả hai chỉ hiện và chỉ tính một lần. Người liên quan chưa liên kết tài khoản Zalo thì chỉ có điều kiện đầu. Khoản nợ không lấy theo người ghi.
 
 ### Dữ liệu lưu thêm
 
@@ -101,7 +110,8 @@ Bảng `debt_contacts` có thêm 7 cột (migration `1724850000000-AddProfileFie
 
 ### API
 
-- `GET /api/contacts/:id/profile`: trả thông tin hồ sơ, tài khoản Zalo đã gắn, số liệu tóm tắt, danh sách khoản nợ gốc và 50 giao dịch gần nhất. Vai trò/quyền của tài khoản Zalo chỉ trả cho admin. Số liệu (còn cho vay, còn nợ, tổng thu, tổng chi) tính trên **toàn bộ** nợ gốc và giao dịch, không chỉ 50 dòng đang hiện. Chỉ tính nợ gốc vì khoản nợ đã gom đã chứa số của các khoản con.
+- `GET /api/contacts/:id/profile`: trả thông tin hồ sơ, tài khoản Zalo đã gắn, số liệu tóm tắt, danh sách khoản nợ gốc và 50 giao dịch gần nhất. Vai trò/quyền của tài khoản Zalo chỉ trả cho admin. Số liệu (còn cho vay, còn nợ, tổng thu, tổng chi) tính trên **toàn bộ** nợ gốc và giao dịch, không chỉ 50 dòng đang hiện. Chỉ tính nợ gốc vì khoản nợ đã gom đã chứa số của các khoản con. Danh sách và số liệu giao dịch dùng cùng phạm vi ở trên: danh sách lấy điều kiện từ hàm `contactProfileTransactionWhere` (`apps/api/src/finance/contact-profile.ts`), còn câu SQL tính tổng viết lại cùng điều kiện đó. Sửa một bên thì phải sửa bên kia (`finance-contact-profile.spec.ts` kiểm tra cả hai).
+- Số "Giao dịch" ở bảng **Người liên quan** và trong hộp thoại gộp **vẫn chỉ đếm theo `contact_id`**, nên có thể nhỏ hơn số trên hồ sơ. Lý do: con số đó cho biết bao nhiêu giao dịch sẽ được chuyển sang người chính khi gộp, mà giao dịch do người đó tự ghi thì gắn theo tài khoản Zalo, không chuyển khi gộp.
 - `PATCH /api/contacts/:id/profile`: chỉ sửa các trường hồ sơ mới. Trường không gửi thì giữ nguyên, gửi rỗng thì xoá. Tách riêng khỏi `PATCH /api/contacts/:id` vì API cũ bắt buộc có tên và sẽ xoá biệt danh/mô tả nếu không gửi.
 - Quy tắc kiểm tra dùng chung giữa API và form (`validateContactProfileUpdate` trong contracts): ngày sinh phải là ngày có thật và không ở tương lai; SĐT phụ 8–15 chữ số; số tài khoản 6–20 chữ số; nhãn tối đa 40 ký tự; địa chỉ/nơi làm việc tối đa 200; ghi chú tối đa 5000; tối đa 10 dòng mỗi danh sách; dòng trống và dòng trùng tự bỏ.
 
@@ -109,6 +119,7 @@ Bảng `debt_contacts` có thêm 7 cột (migration `1724850000000-AddProfileFie
 
 - Đầu trang: nút quay lại, avatar vuông, tên (biệt danh), mô tả, tài khoản Zalo đã gắn kèm trạng thái quyền (admin thấy thêm link sang trang Zalo & Người dùng).
 - Dải 4 số liệu: đang cho vay còn lại, đang nợ còn lại, tổng thu, tổng chi (theo nút ẩn/hiện số tiền), kèm dòng "N khoản đang mở · N giao dịch".
+- Bảng **Giao dịch gần đây** có cột **Người tạo** (tên người ghi, dòng nhỏ bên dưới là nguồn: "Nhóm <tên>" / "Chat riêng" / "Dashboard"), giống bảng Thu chi, để phân biệt giao dịch do chính người này ghi với giao dịch người khác ghi nhưng gắn với họ. Khi người liên quan có tài khoản Zalo liên kết, đầu bảng ghi rõ "Gồm giao dịch gắn với người này và giao dịch do tài khoản Zalo của họ ghi.", vì tổng thu/chi trên hồ sơ cũng tính theo phạm vi đó.
 - Máy tính: khối **Thông tin** bên trái, bảng **Khoản nợ** và **Giao dịch gần đây** bên phải. Điện thoại: xếp dọc. Trên điện thoại mọi nút và ô nhập của trang hồ sơ (khai báo chung ở `profile-styles.ts`) cao 40px để bấm chính xác, link quay lại cũng vậy; máy tính giữ cỡ nhỏ gọn cũ.
 - Bấm **Sửa** thì khối Thông tin chuyển thành form ngay tại chỗ: sửa tên, biệt danh, mô tả, SĐT/tài khoản chính, thêm/xoá dòng SĐT và tài khoản phụ, ngày sinh, quan hệ, địa chỉ, nơi làm việc, ghi chú. Lỗi hiện ngay dưới từng ô. Khi lưu, phần tên/SĐT chính đi qua API sửa danh bạ cũ (chỉ khi có đổi), phần hồ sơ đi qua API mới. Hạn chế cũ vẫn còn: để trống SĐT/tài khoản chính thì giữ nguyên số cũ, không xoá được.
 - Trạng thái: thiếu mã trong đường dẫn, đang tải, không tìm thấy (đã xoá hoặc đã gộp vào người khác), lỗi kèm Thử lại.
