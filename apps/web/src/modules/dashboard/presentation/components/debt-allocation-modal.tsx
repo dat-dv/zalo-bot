@@ -3,6 +3,7 @@
 import { useState, useEffect, useId, useMemo } from 'react';
 import { localeTag, type ICandidateDebtItem, type IDebtAllocationItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import {
   Modal,
   MODAL_CLOSE_TAP,
@@ -218,7 +219,7 @@ export function DebtAllocationModal({
           type="button"
           onClick={onClose}
           disabled={allocateMutation.isPending}
-          className={`cursor-pointer rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50 dark:hover:bg-slate-800 dark:hover:text-slate-300 ${MODAL_CLOSE_TAP}`}
+          className={`rounded p-1 ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
           aria-label={t('common.cancel')}
         >
           ✕
@@ -367,7 +368,7 @@ export function DebtAllocationModal({
                       <button
                         type="button"
                         onClick={() => handleQuickAllocateMax(debt)}
-                        className="shrink-0 cursor-pointer rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 max-sm:h-10 max-sm:px-3 max-sm:text-[12px]"
+                        className={`shrink-0 rounded border px-2 py-1 text-[10px] font-medium max-sm:h-10 max-sm:px-3 max-sm:text-[12px] ${BUTTON_TONE.secondary}`}
                       >
                         {t('transactions.allocation.allocateMax')}
                       </button>
@@ -424,7 +425,7 @@ export function DebtAllocationModal({
             type="button"
             onClick={onClose}
             disabled={allocateMutation.isPending}
-            className={`cursor-pointer rounded-[4px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 ${MODAL_FOOTER_TAP}`}
+            className={`rounded-[4px] border px-3 py-1.5 text-xs font-medium ${BUTTON_TONE.secondary} ${MODAL_FOOTER_TAP}`}
           >
             {t('common.cancel')}
           </button>
@@ -435,7 +436,7 @@ export function DebtAllocationModal({
               isLoadingCandidates ||
               totalAllocated > transaction.amount
             }
-            className={`cursor-pointer rounded-[4px] border border-sky-600 bg-sky-600 px-4 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-sky-500 dark:bg-sky-600 dark:hover:bg-sky-500 ${MODAL_FOOTER_TAP}`}
+            className={`rounded-[4px] border px-4 py-1.5 text-xs font-semibold shadow-xs ${BUTTON_TONE.primary} ${MODAL_FOOTER_TAP}`}
           >
             {allocateMutation.isPending ? t('common.saving') : t('transactions.allocation.submit')}
           </button>

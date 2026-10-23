@@ -59,6 +59,7 @@ import { MergeUserDialog } from '@/modules/users/presentation/components/merge-u
 import { LinkedContactsDialog } from '@/modules/users/presentation/components/linked-contacts-dialog';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
 import {
   Modal,
@@ -438,7 +439,7 @@ export function ZcaScreen() {
           )}
           <button
             aria-label={t('zca.refreshDirectory')}
-            className={`inline-flex items-center gap-1.5 rounded-[4px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 max-[640px]:ml-auto max-[640px]:w-10 max-[640px]:shrink-0 max-[640px]:justify-center max-[640px]:px-0 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${TAP_CONTROL}`}
+            className={`inline-flex items-center gap-1.5 rounded-[4px] border px-3 py-1.5 text-xs font-semibold shadow-sm max-[640px]:ml-auto max-[640px]:w-10 max-[640px]:shrink-0 max-[640px]:justify-center max-[640px]:px-0 ${BUTTON_TONE.secondary} ${TAP_CONTROL}`}
             disabled={isRefreshing}
             onClick={() => void handleRefreshAll()}
             title="Làm mới trạng thái và cập nhật lại danh bạ, nhóm từ Zalo"
@@ -452,7 +453,7 @@ export function ZcaScreen() {
           </button>
           {status?.loggedIn ? (
             <button
-              className={`inline-flex items-center gap-1.5 rounded-[4px] border border-rose-200 bg-rose-50 px-3.5 py-1.5 text-xs font-semibold text-rose-700 shadow-sm hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900 max-[640px]:shrink-0 max-[640px]:whitespace-nowrap max-[640px]:px-3 ${TAP_CONTROL}`}
+              className={`inline-flex items-center gap-1.5 rounded-[4px] border px-3.5 py-1.5 text-xs font-semibold shadow-sm max-[640px]:shrink-0 max-[640px]:whitespace-nowrap max-[640px]:px-3 ${BUTTON_TONE.dangerSoft} ${TAP_CONTROL}`}
               disabled={isLoggingOut}
               onClick={() => void handleLogout()}
               type="button"
@@ -470,7 +471,7 @@ export function ZcaScreen() {
           ) : (
             <button
               // Compact screens get this action in the MobileActionBar instead.
-              className="inline-flex items-center gap-1.5 rounded-[4px] bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 focus:outline-none max-[960px]:hidden"
+              className={`inline-flex items-center gap-1.5 rounded-[4px] px-3.5 py-1.5 text-xs font-semibold shadow-sm max-[960px]:hidden ${BUTTON_TONE.primary}`}
               onClick={() => void handleOpenQrLogin(false)}
               type="button"
             >
@@ -535,7 +536,7 @@ export function ZcaScreen() {
 
         {/* Card 3: Quyền tương tác */}
         <button
-          className="rounded-[3px] border border-amber-200 bg-amber-50/50 p-3.5 text-left shadow-sm transition hover:border-amber-300 dark:border-amber-900/40 dark:bg-amber-950/20"
+          className="rounded-[3px] border border-amber-200 bg-amber-50/50 p-3.5 text-left shadow-sm hover:border-amber-300 dark:border-amber-900/40 dark:bg-amber-950/20"
           onClick={() => setFilter('pending')}
           title="Xem những người đang chờ cấp quyền"
           type="button"
@@ -586,7 +587,7 @@ export function ZcaScreen() {
           </span>
           <button
             aria-label="Đóng thông báo"
-            className="text-xs text-slate-400 hover:text-slate-600 max-[640px]:inline-flex max-[640px]:size-10 max-[640px]:shrink-0 max-[640px]:items-center max-[640px]:justify-center dark:hover:text-slate-200"
+            className={`text-xs max-[640px]:inline-flex max-[640px]:size-10 max-[640px]:shrink-0 max-[640px]:items-center max-[640px]:justify-center ${BUTTON_TONE.ghost}`}
             onClick={() => setNotice(null)}
             type="button"
           >
@@ -614,7 +615,7 @@ export function ZcaScreen() {
               className={`flex flex-wrap items-center gap-2 max-[640px]:w-full ${MOBILE_TOOLBAR_ROW}`}
             >
               <button
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-[3px] border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${PHONE_CHIP}`}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-[3px] border px-3 py-1.5 text-xs font-semibold whitespace-nowrap shadow-sm ${BUTTON_TONE.secondary} ${PHONE_CHIP}`}
                 disabled={syncUsersMutation.isPending}
                 onClick={() => void handleSyncUsers()}
                 title="Đồng bộ tên, avatar và SĐT từ danh bạ Zalo cá nhân (ZCA) sang người dùng"
@@ -625,14 +626,14 @@ export function ZcaScreen() {
               </button>
               <button
                 // Compact screens get this action in the MobileActionBar instead.
-                className="inline-flex items-center gap-1.5 rounded-[3px] bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 max-[960px]:hidden dark:bg-indigo-500 dark:hover:bg-indigo-600"
+                className={`inline-flex items-center gap-1.5 rounded-[3px] px-3 py-1.5 text-xs font-semibold shadow-sm max-[960px]:hidden ${BUTTON_TONE.primary}`}
                 onClick={() => setUserDialog({ mode: 'create' })}
                 type="button"
               >
                 {ADD_USER_LABEL}
               </button>
               <a
-                className={`${PHONE_CHIP} inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[3px] border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-50/70 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-blue-500 dark:hover:bg-slate-700 dark:hover:text-blue-400`}
+                className={`${PHONE_CHIP} inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[3px] border px-3 py-1.5 text-xs font-semibold shadow-sm ${BUTTON_TONE.secondary}`}
                 href={driveRootData?.webViewLink || getThreadDriveOpenUrl()}
                 rel="noopener noreferrer"
                 target="_blank"
@@ -660,7 +661,7 @@ export function ZcaScreen() {
               />
             </div>
             <button
-              className="rounded bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 max-[640px]:h-10 max-[640px]:w-full dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+              className={`rounded px-3 py-1.5 text-xs font-medium max-[640px]:h-10 max-[640px]:w-full ${BUTTON_TONE.primary}`}
               type="submit"
             >
               + Bật lắng nghe ID
@@ -685,7 +686,7 @@ export function ZcaScreen() {
                 {search && (
                   <button
                     aria-label="Xóa tìm kiếm"
-                    className="absolute right-2 top-1.5 text-xs text-slate-400 hover:text-slate-600 max-[640px]:top-0.5 max-[640px]:right-0.5 max-[640px]:inline-flex max-[640px]:size-8 max-[640px]:items-center max-[640px]:justify-center dark:hover:text-slate-200"
+                    className={`absolute right-2 top-1.5 text-xs max-[640px]:top-0.5 max-[640px]:right-0.5 max-[640px]:inline-flex max-[640px]:size-8 max-[640px]:items-center max-[640px]:justify-center ${BUTTON_TONE.ghost}`}
                     onClick={() => setSearch('')}
                     title="Xóa tìm kiếm"
                     type="button"
@@ -746,9 +747,8 @@ export function ZcaScreen() {
                   <button
                     className={`rounded px-2.5 py-1 text-xs font-medium max-[640px]:shrink-0 max-[640px]:whitespace-nowrap ${PHONE_CHIP} ${
                       filter === tab.key
-                        ? tab.activeClass ||
-                          'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100'
-                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
+                        ? (tab.activeClass ?? BUTTON_TONE.segmentSelected)
+                        : BUTTON_TONE.segment
                     }`}
                     key={tab.key}
                     onClick={() => setFilter(tab.key)}
@@ -858,7 +858,7 @@ export function ZcaScreen() {
             {totalPages > 1 && (
               <div className="flex items-center gap-1">
                 <button
-                  className={`rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800 ${PHONE_CHIP}`}
+                  className={`rounded border px-2 py-1 ${BUTTON_TONE.secondary} ${PHONE_CHIP}`}
                   disabled={currentPage <= 1}
                   onClick={() => setPage(Math.max(1, currentPage - 1))}
                   type="button"
@@ -869,7 +869,7 @@ export function ZcaScreen() {
                   {currentPage} / {totalPages}
                 </span>
                 <button
-                  className={`rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800 ${PHONE_CHIP}`}
+                  className={`rounded border px-2 py-1 ${BUTTON_TONE.secondary} ${PHONE_CHIP}`}
                   disabled={currentPage >= totalPages}
                   onClick={() => setPage(Math.min(totalPages, currentPage + 1))}
                   type="button"
@@ -885,7 +885,7 @@ export function ZcaScreen() {
       <MobileActionBar>
         {status && !status.loggedIn && (
           <button
-            className={`${MOBILE_ACTION_BUTTON} border-blue-600 bg-blue-600 text-white hover:bg-blue-700`}
+            className={`${MOBILE_ACTION_BUTTON} ${BUTTON_TONE.primary}`}
             onClick={() => void handleOpenQrLogin(false)}
             type="button"
           >
@@ -894,7 +894,7 @@ export function ZcaScreen() {
           </button>
         )}
         <button
-          className={`${MOBILE_ACTION_BUTTON} border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700 dark:border-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-600`}
+          className={`${MOBILE_ACTION_BUTTON} ${BUTTON_TONE.primary}`}
           onClick={() => setUserDialog({ mode: 'create' })}
           type="button"
         >
@@ -918,7 +918,7 @@ export function ZcaScreen() {
           </h3>
           <button
             aria-label={t('common.close')}
-            className={`rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200 ${MODAL_CLOSE_TAP}`}
+            className={`rounded p-1 ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
             onClick={() => setIsQrModalOpen(false)}
             type="button"
           >
@@ -1020,14 +1020,14 @@ export function ZcaScreen() {
           className={`${MODAL_STICKY_FOOTER} flex justify-end gap-2 border-t border-slate-100 bg-white pt-3 pb-5 dark:border-slate-800 dark:bg-slate-900`}
         >
           <button
-            className={`rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 ${MODAL_FOOTER_TAP}`}
+            className={`rounded border px-3 py-1.5 text-xs font-medium ${BUTTON_TONE.secondary} ${MODAL_FOOTER_TAP}`}
             onClick={() => void handleOpenQrLogin(true)}
             type="button"
           >
             Làm mới mã QR
           </button>
           <button
-            className={`rounded bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-sky-600 dark:text-white ${MODAL_FOOTER_TAP}`}
+            className={`rounded px-3.5 py-1.5 text-xs font-semibold ${BUTTON_TONE.primary} ${MODAL_FOOTER_TAP}`}
             onClick={() => setIsQrModalOpen(false)}
             type="button"
           >

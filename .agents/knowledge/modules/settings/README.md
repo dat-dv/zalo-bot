@@ -31,6 +31,6 @@
 - `ReactScanProvider` (`apps/web/src/shared/providers/react-scan-provider.tsx`) only stores a boolean in `localStorage` key `zalobot-react-scan-enabled` (default off) and exposes it via context.
 - Nothing imports `react-scan` (the package is declared in `apps/web/package.json`), so toggling it currently has **no effect** on rendering or profiling.
 
-## Dark-mode buttons
+## Buttons
 
-- Primary actions use the sky tone in dark mode (`dark:bg-sky-600 dark:text-white`), never the near-white inverted `dark:bg-slate-100`: the small primary buttons in `SettingsScreen`; its toast uses the dark toast tone. See [web-ui-direction](../../global/web-ui-direction.md).
+- Colours come from `BUTTON_TONE`; cursor, disabled dimming, focus outline and transitions come from the base layer, so buttons here never re-spell them. `+ Add category` (income and expense) is `primary`; Adjust balance and Install app are `secondary`; the React Scan switch is `chip`/`chipSelected`; row 🗑 delete is `dangerSoft`; Retry is `danger`. The toast uses the dark toast tone. See [web-ui-direction](../../global/web-ui-direction.md#button-interaction-states).

@@ -7,6 +7,7 @@ import { APP_ROUTES, localeTag } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { SessionStateScreen } from '@/modules/auth/view/session-state-screen';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { TransactionsTable, type TransactionTableItem } from './transactions-table';
 import { DebtsTable } from '@/modules/debts/view/debts-table';
@@ -314,51 +315,51 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
       >
         <Link
           href={APP_ROUTES.transactions}
-          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border px-2 text-[11.5px] font-medium transition-colors ${BUTTON_TONE.secondary} ${QUICK_LINK_PHONE}`}
         >
           {t('nav.transactions')}
         </Link>
         <button
           type="button"
           onClick={() => setIsAdjustBalanceOpen(true)}
-          className={`inline-flex h-6 min-h-6 cursor-pointer items-center gap-1 rounded-[3px] border border-indigo-300 bg-indigo-50 px-2 text-[11.5px] font-semibold text-indigo-700 transition-colors hover:border-indigo-400 hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/60 ${QUICK_LINK_PHONE}`}
+          className={`inline-flex h-6 min-h-6 items-center gap-1 rounded-[3px] border px-2 text-[11.5px] font-semibold ${BUTTON_TONE.secondary} ${QUICK_LINK_PHONE}`}
         >
           <span aria-hidden="true">⚖️</span>
           {t('transactions.balanceAdjust.actionButton')}
         </button>
         <Link
           href={APP_ROUTES.debts}
-          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border px-2 text-[11.5px] font-medium transition-colors ${BUTTON_TONE.secondary} ${QUICK_LINK_PHONE}`}
         >
           {t('nav.debts')}
         </Link>
         <Link
           href={APP_ROUTES.analytics}
-          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border px-2 text-[11.5px] font-medium transition-colors ${BUTTON_TONE.secondary} ${QUICK_LINK_PHONE}`}
         >
           {t('nav.analytics')}
         </Link>
         <Link
           href={APP_ROUTES.calendar}
-          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border px-2 text-[11.5px] font-medium transition-colors ${BUTTON_TONE.secondary} ${QUICK_LINK_PHONE}`}
         >
           {t('nav.calendar')}
         </Link>
         <Link
           href={APP_ROUTES.tasks}
-          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border px-2 text-[11.5px] font-medium transition-colors ${BUTTON_TONE.secondary} ${QUICK_LINK_PHONE}`}
         >
           {t('nav.tasks')}
         </Link>
         <Link
           href={APP_ROUTES.reminders}
-          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border px-2 text-[11.5px] font-medium transition-colors ${BUTTON_TONE.secondary} ${QUICK_LINK_PHONE}`}
         >
           {t('nav.reminders')}
         </Link>
         <Link
           href={APP_ROUTES.contacts}
-          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border border-slate-300 bg-slate-50 px-2 text-[11.5px] font-medium text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-700 ${QUICK_LINK_PHONE}`}
+          className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border px-2 text-[11.5px] font-medium transition-colors ${BUTTON_TONE.secondary} ${QUICK_LINK_PHONE}`}
         >
           {t('nav.contacts')}
         </Link>

@@ -67,14 +67,15 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 <button
                   type="button"
                   onClick={this.handleReload}
-                  className="inline-flex min-h-[40px] w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-500"
+                  // Always-dark surface: the dark-mode primary/secondary tones, written out.
+                  className="inline-flex min-h-[40px] w-full items-center justify-center rounded-md border border-sky-600 bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-500"
                 >
                   🔄 Tải lại trang
                 </button>
                 <button
                   type="button"
                   onClick={this.handleClearAndReload}
-                  className="inline-flex min-h-[38px] w-full items-center justify-center rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700"
+                  className="inline-flex min-h-[38px] w-full items-center justify-center rounded-md border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-slate-200 hover:border-slate-600 hover:bg-slate-700 hover:text-slate-100"
                 >
                   Xóa bộ nhớ đệm & Làm mới
                 </button>

@@ -2,6 +2,7 @@
 
 import { type FormEvent, type ReactNode, useId } from 'react';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from './button-styles';
 import {
   MODAL_CLOSE_TAP,
   MODAL_FOOTER_TAP,
@@ -17,9 +18,9 @@ export const FORM_LABEL = 'text-[11px] font-semibold text-slate-600 dark:text-sl
 export const FORM_HINT = 'text-[11px] text-slate-500 dark:text-slate-400';
 export const FORM_ERROR_TEXT = 'text-[11px] text-rose-600 dark:text-rose-400';
 
-const FOOTER_BUTTON = `inline-flex min-h-8 cursor-pointer items-center justify-center rounded-[3px] border px-3 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-50 ${MODAL_FOOTER_TAP}`;
-const PRIMARY = `${FOOTER_BUTTON} border-slate-900 bg-slate-900 font-semibold text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`;
-const SECONDARY = `${FOOTER_BUTTON} border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700`;
+const FOOTER_BUTTON = `inline-flex min-h-8 items-center justify-center rounded-[3px] border px-3 text-xs font-medium ${MODAL_FOOTER_TAP}`;
+const PRIMARY = `${FOOTER_BUTTON} font-semibold ${BUTTON_TONE.primary}`;
+const SECONDARY = `${FOOTER_BUTTON} ${BUTTON_TONE.secondary}`;
 
 interface FormDialogProps {
   open: boolean;
@@ -89,7 +90,7 @@ export function FormDialog({
           </div>
           <button
             type="button"
-            className={`inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-[3px] border-0 !bg-transparent text-lg text-slate-500 hover:!bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:!bg-slate-800 dark:hover:text-slate-100 ${MODAL_CLOSE_TAP}`}
+            className={`inline-flex size-8 shrink-0 items-center justify-center rounded-[3px] border-0 text-lg ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
             onClick={onClose}
             disabled={isPending}
             aria-label={t('common.close')}

@@ -5,6 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { localeTag, type ICalendarEventItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useIsPhone } from '@/shared/hooks/use-media-query';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
 import { TOAST_POSITION } from '@/shared/ui/touch';
 import { calendarQueryKeys, useCalendarEventsQuery } from '@/modules/calendar/api/calendar-query';
@@ -34,10 +35,9 @@ import { CalendarTable } from './calendar-table';
 // The side panel and the summary look this far ahead.
 const UPCOMING_DAYS = 14;
 
-const NAV_BUTTON =
-  'inline-flex h-7 min-w-7 cursor-pointer items-center justify-center rounded-[3px] border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 max-[640px]:h-8 max-[640px]:min-w-8';
+const NAV_BUTTON = `inline-flex h-7 min-w-7 items-center justify-center rounded-[3px] border px-2 text-xs font-medium max-[640px]:h-8 max-[640px]:min-w-8 ${BUTTON_TONE.secondary}`;
 const SEGMENT =
-  'inline-flex h-7 flex-1 cursor-pointer items-center justify-center rounded-[2px] px-3 text-xs font-medium whitespace-nowrap transition-colors max-[640px]:h-7';
+  'inline-flex h-7 flex-1 items-center justify-center rounded-[2px] border px-3 text-xs font-medium whitespace-nowrap max-[640px]:h-7';
 
 /** Ticks once a minute so "happening now" and past styling stay current. */
 function useNow(): Date {
@@ -207,7 +207,7 @@ export function CalendarScreen() {
         <strong>{t('dashboard.error.title')}</strong>
         <button
           type="button"
-          className="cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600"
+          className={`rounded-[2px] px-2 py-0.5 ${BUTTON_TONE.danger}`}
           onClick={refresh}
         >
           {t('common.retry')}
@@ -296,9 +296,7 @@ export function CalendarScreen() {
                   aria-pressed={viewMode === segment.mode}
                   onClick={() => setChosenViewMode(segment.mode)}
                   className={`${SEGMENT} ${
-                    viewMode === segment.mode
-                      ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100'
-                      : 'bg-transparent text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'
+                    viewMode === segment.mode ? BUTTON_TONE.segmentSelected : BUTTON_TONE.segment
                   }`}
                 >
                   {segment.label}
@@ -320,7 +318,7 @@ export function CalendarScreen() {
 
             <button
               type="button"
-              className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-[3px] border border-slate-900 bg-slate-900 px-3 text-xs font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500 max-[960px]:hidden"
+              className={`inline-flex h-7 items-center gap-1 rounded-[3px] border px-3 text-xs font-semibold max-[960px]:hidden ${BUTTON_TONE.primary}`}
               onClick={openCreate}
             >
               + {t('calendar.add')}
@@ -332,7 +330,7 @@ export function CalendarScreen() {
               <span className="min-w-0 flex-1">{t('calendar.filter.unsyncedOnly')}</span>
               <button
                 type="button"
-                className="cursor-pointer rounded-[2px] border-0 !bg-transparent px-1.5 py-0.5 font-semibold underline-offset-2 hover:underline max-[640px]:py-2"
+                className="rounded-[2px] border-0 bg-transparent px-1.5 py-0.5 font-semibold underline-offset-2 hover:underline max-[640px]:py-2"
                 onClick={() => setUnsyncedOnly(false)}
               >
                 {t('calendar.filter.clear')}
@@ -405,7 +403,7 @@ export function CalendarScreen() {
       <MobileActionBar>
         <button
           type="button"
-          className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white dark:border-sky-600 dark:bg-sky-600 dark:text-white`}
+          className={`${MOBILE_ACTION_BUTTON} ${BUTTON_TONE.primary}`}
           onClick={openCreate}
         >
           + {t('calendar.add')}

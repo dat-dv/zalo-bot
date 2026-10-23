@@ -4,6 +4,7 @@ import { useId } from 'react';
 import Link from 'next/link';
 import { APP_ROUTES, type IUserListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import {
   Modal,
   MODAL_CLOSE_TAP,
@@ -47,7 +48,7 @@ export function LinkedContactsDialog({ user, onClose }: LinkedContactsDialogProp
           type="button"
           onClick={onClose}
           aria-label={t('users.linkedContacts.close')}
-          className={`rounded-[3px] p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 ${MODAL_CLOSE_TAP}`}
+          className={`rounded-[3px] p-1 ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
         >
           ✕
         </button>
@@ -118,14 +119,14 @@ export function LinkedContactsDialog({ user, onClose }: LinkedContactsDialogProp
       >
         <Link
           href={APP_ROUTES.contacts}
-          className={`inline-flex items-center rounded-[3px] border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 max-sm:justify-center dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800 ${MODAL_FOOTER_TAP}`}
+          className={`inline-flex items-center rounded-[3px] border px-3 py-1.5 text-sm font-medium max-sm:justify-center ${BUTTON_TONE.secondary} ${MODAL_FOOTER_TAP}`}
         >
           {t('users.linkedContacts.openContacts')}
         </Link>
         <button
           type="button"
           onClick={onClose}
-          className={`rounded-[3px] bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500 ${MODAL_FOOTER_TAP}`}
+          className={`rounded-[3px] px-3 py-1.5 text-sm font-semibold ${BUTTON_TONE.primary} ${MODAL_FOOTER_TAP}`}
         >
           {t('users.linkedContacts.close')}
         </button>

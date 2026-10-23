@@ -64,6 +64,6 @@ Desktop (> 960px) is unchanged. See [Mobile List Mode](../../global/web-ui-direc
 
 - The list is capped at 200 debts (children included) with no pagination.
 
-## Dark-mode buttons
+## Buttons
 
-- Primary actions use the sky tone in dark mode (`dark:bg-sky-600 dark:text-white`), never the near-white inverted `dark:bg-slate-100`: create buttons (toolbar and mobile action bar), the combine-debts submit and the `DebtsTable` row primary; the screen toast uses the dark toast tone. See [web-ui-direction](../../global/web-ui-direction.md).
+- Colours come from `BUTTON_TONE`; cursor, disabled dimming, focus outline and transitions come from the base layer, so buttons here never re-spell them. Create (toolbar and mobile action bar), the combine-debts submit and the `DebtsTable` row primary are `primary`; status/direction filters (`filterChipClass`) and the create-dialog chips are `chip`/`chipSelected`; debt and payment delete are `dangerSoft`; Retry is `danger`. The screen toast uses the dark toast tone. See [web-ui-direction](../../global/web-ui-direction.md#button-interaction-states).

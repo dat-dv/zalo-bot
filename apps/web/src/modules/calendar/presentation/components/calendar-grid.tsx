@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import type { ICalendarEventItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import {
   addDays,
   getEventPhase,
@@ -98,7 +99,7 @@ export function CalendarGrid({
               {/* The whole cell selects the day; event chips sit above it and open the event. */}
               <button
                 type="button"
-                className="absolute inset-0 cursor-pointer border-0 !bg-transparent p-0 outline-offset-[-2px]"
+                className="absolute inset-0 border-0 bg-transparent p-0 outline-offset-[-2px]"
                 onClick={() => onSelectDate(day)}
                 aria-label={`${format.dayTitle(day)}, ${t('table.rowsCount', { count: events.length })}`}
                 aria-pressed={isSelected}
@@ -142,7 +143,7 @@ export function CalendarGrid({
                       type="button"
                       onClick={() => onOpenEvent(event)}
                       title={`${format.range(event)} · ${event.title}`}
-                      className={`flex min-w-0 cursor-pointer items-center gap-1 rounded-[2px] border px-1 py-px text-left text-[11px] leading-4 transition-colors ${
+                      className={`flex min-w-0 items-center gap-1 rounded-[2px] border px-1 py-px text-left text-[11px] leading-4 ${
                         event.allDay
                           ? 'border-sky-600 bg-sky-600 text-white hover:bg-sky-700 dark:border-sky-500 dark:bg-sky-600'
                           : 'border-transparent bg-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-100 dark:text-slate-200 dark:hover:border-slate-700 dark:hover:bg-slate-800'
@@ -167,7 +168,7 @@ export function CalendarGrid({
                   <button
                     type="button"
                     onClick={() => onSelectDate(day)}
-                    className="w-fit cursor-pointer rounded-[2px] border-0 !bg-transparent px-1 text-left text-[10.5px] font-semibold text-slate-500 hover:!bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:!bg-slate-800"
+                    className={`w-fit rounded-[2px] border-0 px-1 text-left text-[10.5px] font-semibold ${BUTTON_TONE.ghost}`}
                   >
                     {t('calendar.moreEvents', { count: extra })}
                   </button>

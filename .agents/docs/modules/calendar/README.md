@@ -90,6 +90,6 @@ Giờ sự kiện nằm trong bảng `calendar_events` của zalobot. Google Cal
 - `npm run typecheck`, `npm run lint`, `npm run build`.
 - Kiểm tra tay: tạo sự kiện khi có và khi không có Google; đổi tài khoản Google rồi xác nhận sự kiện cũ vẫn còn với nhãn "Ở tài khoản Google cũ" và bấm Đồng bộ lại; xoá một sự kiện trên app Google rồi mở lại lịch sau 5 phút.
 
-## Màu nút ở dark mode
+## Nút bấm
 
-- Ở dark mode, nút hành động chính dùng tông xanh sky (`dark:bg-sky-600 dark:text-white`), không dùng kiểu đảo màu `dark:bg-slate-100` vì nó thành khối trắng chói trên nền tối. Trong module này áp dụng cho nút chính trong sheet sự kiện (Lưu/Sửa, hằng `PRIMARY` của `CalendarEventSheet`); nút Xoá giữ tông đỏ `DANGER`. Light mode giữ nút đen như cũ. Xem [web-ui-direction](../../global/web-ui-direction.md).
+- Màu nút lấy từ `BUTTON_TONE`; con trỏ, độ mờ khi khoá, viền focus và hiệu ứng chuyển màu do lớp nền lo, nên nút trong module không tự khai báo lại. `CalendarEventSheet` giữ hình dạng của `PRIMARY`/`SECONDARY`/`DANGER`, màu lấy từ `primary`/`secondary`/`dangerSoft`; Đồng bộ lại dùng `accent`; ‹ › của agenda dùng `secondary`; "+N sự kiện" dùng `ghost`; chip trong form sự kiện dùng `chip`/`chipSelected`. Ngoại lệ giữ màu riêng: ngày đang chọn ở agenda (sky-600, là trạng thái chọn), lớp phủ ngày đang chọn ở lưới tháng, chip sự kiện (màu sky đánh dấu sự kiện cả ngày) và thẻ sự kiện (dạng hàng). Ô thống kê amber "chưa lên Google" bị khoá khi số đếm bằng 0 nhưng vẫn là ô thống kê nên không được mờ, vì vậy ghi rõ `disabled:opacity-100 disabled:cursor-default`. Xem [web-ui-direction](../../global/web-ui-direction.md#trạng-thái-tương-tác-của-nút).

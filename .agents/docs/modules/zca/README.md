@@ -303,6 +303,12 @@ Trí nhớ hội thoại không dùng biến môi trường: bật theo từng k
 - Thử tay trong nhóm test: user chưa cấp quyền gõ `ăn trưa 45k` hoặc `@drive` → bot im lặng; gửi ảnh → vẫn được sao lưu. User đã cấp quyền gõ `ăn trưa 45k` → hiện thẻ xác nhận; `@bot /drive` → trả link và **không** sinh user mới trong bảng người dùng.
 - Chạy `npm run typecheck` và `npm run lint` để kiểm tra an toàn kiểu dữ liệu.
 
+## Nút bấm
+
+- Màu nút lấy từ `BUTTON_TONE`; con trỏ, độ mờ khi khoá, viền focus và hiệu ứng chuyển màu do lớp nền lo, nên nút trong module không tự khai báo lại. Các nút chính đều dùng `primary` (đen slate-900, dark sky-600), thay cho các màu blue-600/indigo-600/emerald-600/amber-600 trước đây: đăng nhập QR (toolbar và thanh hành động mobile), thêm người dùng, nút lưu của `UserFormDialog`, đăng nhập Google lưu trữ, nút thêm link lưu trữ, nút Lưu cấu hình kênh, nút bắt đầu của `SyncMediaModal` cùng các link Drive/Photos ở kết quả, và nút mở Drive/Photos của `storage-link-banner`. Phân trang, Thử lại/Làm mới và chân dialog dùng `secondary`; ✕ và nút icon dùng `ghost`; Đăng xuất (màn hình và panel lưu trữ) và Xoá link lưu trữ dùng `dangerSoft`; mục nguy hiểm trong menu "⋯" của dòng chat dùng `dangerGhost`; nút Thêm tiền tố dùng `accent`; bộ lọc của `group-member-picker` dùng `chip`/`chipSelected`; các tab lọc mặc định của trang ZCA dùng `segment`/`segmentSelected`.
+- `chat-row-parts.tsx` export các tone cho ô trong bảng: `NEUTRAL_TONE` (= `secondary`), `POSITIVE_TONE` (= `positiveSoft`, trạng thái đã cấp quyền) và `REVOKE_TONE` (màu nghỉ như `secondary`, hover chữ đỏ) cho nút thu hồi quyền. `ChatTableRow` và `ChatListRow` dùng chung các tone này.
+- Ngoại lệ giữ màu riêng: dòng của danh sách (`data-press="none"`); thẻ KPI amber "Quyền tương tác" và các tab lọc chờ duyệt/đã cấp/admin (màu amber/emerald/tím thể hiện trạng thái); nút × xanh trong chip tiền tố; nút Thử lại/nút trong thông báo dạng chữ gạch chân, vì chúng lấy màu của khối thông báo. Xem [web-ui-direction](../../global/web-ui-direction.md#trạng-thái-tương-tác-của-nút).
+
 ## Bo góc
 
 - Nút, ô nhập, thẻ/panel và khung dialog trong module này dùng `rounded-[3px]` (tối đa `rounded`, 4px), không dùng `rounded-lg/xl/2xl`. Lý do: giao diện dashboard theo phong cách gọn, sắc cạnh như công cụ quản trị; bo lớn làm các ô trông như app tiêu dùng và lệch với phần còn lại. `rounded-full` chỉ dành cho avatar, chấm trạng thái, công tắc, vòng quay tải và thanh tiến độ. Xem [web-ui-direction](../../global/web-ui-direction.md).

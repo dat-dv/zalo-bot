@@ -15,6 +15,7 @@ import { CashflowTrendChart } from '@/shared/ui/charts/cashflow-trend-chart';
 import { CategoryDonutChart } from '@/shared/ui/charts/category-donut-chart';
 import { DebtStructureChart } from '@/shared/ui/charts/debt-structure-chart';
 import { Button } from '@/shared/ui/button';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { MetricGrid, MetricGridSkeleton, type MetricGridItem } from '@/shared/ui/metric-grid';
 import { PHONE_CHIP } from '@/shared/ui/touch';
 
@@ -384,10 +385,8 @@ export function AnalyticsScreen() {
             <Button
               onClick={() => setCashflowViewMode('chart')}
               aria-pressed={cashflowViewMode === 'chart'}
-              className={`rounded-[3px] px-2 py-0.5 text-[11px] font-medium transition-colors ${PHONE_TOGGLE} ${
-                cashflowViewMode === 'chart'
-                  ? 'bg-slate-900 text-white dark:bg-slate-700 dark:text-white'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+              className={`rounded-[3px] border px-2 py-0.5 text-[11px] font-medium ${PHONE_TOGGLE} ${
+                cashflowViewMode === 'chart' ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
               }`}
             >
               {t('analytics.tab.allCharts')}
@@ -395,10 +394,8 @@ export function AnalyticsScreen() {
             <Button
               onClick={() => setCashflowViewMode('table')}
               aria-pressed={cashflowViewMode === 'table'}
-              className={`rounded-[3px] px-2 py-0.5 text-[11px] font-medium transition-colors ${PHONE_TOGGLE} ${
-                cashflowViewMode === 'table'
-                  ? 'bg-slate-900 text-white dark:bg-slate-700 dark:text-white'
-                  : 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+              className={`rounded-[3px] border px-2 py-0.5 text-[11px] font-medium ${PHONE_TOGGLE} ${
+                cashflowViewMode === 'table' ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
               }`}
             >
               {t('analytics.cashflow.breakdownTitle')}

@@ -3,6 +3,7 @@
 import { useId, useState, type ReactNode } from 'react';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
+import { BUTTON_TONE } from './button-styles';
 import { MicroBarChart, type ChartBucket } from './micro-bar-chart';
 
 interface TrendSummaryStripProps {
@@ -61,7 +62,7 @@ export function TrendSummaryStrip({
         {collapsible ? (
           <button
             type="button"
-            className="flex min-h-11 w-full cursor-pointer items-center gap-2 border-0 !bg-transparent px-2.5 py-1.5 text-left"
+            className="flex min-h-11 w-full items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left"
             onClick={() => setIsPhoneExpanded((prev) => !prev)}
             aria-expanded={isPhoneExpanded}
             aria-controls={phoneChartId}
@@ -149,7 +150,7 @@ export function TrendSummaryStrip({
             {collapsible && (
               <button
                 type="button"
-                className="inline-flex cursor-pointer items-center gap-1 rounded-[2px] border-0 bg-transparent px-1 py-0.5 text-[11px] text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100"
+                className={`inline-flex items-center gap-1 rounded-[2px] border-0 px-1 py-0.5 text-[11px] ${BUTTON_TONE.ghost}`}
                 onClick={() => setIsExpanded((prev) => !prev)}
                 aria-expanded={isExpanded}
               >

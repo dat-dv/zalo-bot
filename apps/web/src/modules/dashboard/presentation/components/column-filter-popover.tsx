@@ -12,6 +12,7 @@ import {
 import { createPortal } from 'react-dom';
 import { useIsPhone } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { MODAL_STICKY_HEADER, Modal } from '@/shared/ui/modal';
 import { PHONE_ICON_CHIP } from '@/shared/ui/touch';
 
@@ -102,7 +103,7 @@ export function ColumnFilterHeader({
         type="button"
         onClick={onClear}
         disabled={!active}
-        className="shrink-0 cursor-pointer text-[11px] font-medium text-sky-700 hover:underline disabled:cursor-default disabled:text-slate-400 disabled:no-underline max-sm:h-10 max-sm:px-2 dark:text-sky-400 dark:disabled:text-slate-600"
+        className="shrink-0 text-[11px] font-medium text-sky-700 not-disabled:hover:underline max-sm:h-10 max-sm:px-2 dark:text-sky-400"
       >
         {t('table.columnFilter.clear')}
       </button>
@@ -126,10 +127,8 @@ export function ColumnFilterHeader({
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-controls={isOpen && !isPhone ? panelId : undefined}
-        className={`relative inline-flex size-5 cursor-pointer items-center ${PHONE_ICON_CHIP} justify-center rounded-[3px] border normal-case transition-colors ${
-          active
-            ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-500 dark:bg-sky-950/60 dark:text-sky-300'
-            : 'border-transparent text-slate-400 hover:border-slate-300 hover:bg-white hover:text-slate-700 dark:text-slate-500 dark:hover:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200'
+        className={`relative inline-flex size-5 items-center ${PHONE_ICON_CHIP} justify-center rounded-[3px] border normal-case ${
+          active ? BUTTON_TONE.chipSelected : BUTTON_TONE.ghost
         }`}
       >
         <svg viewBox="0 0 16 16" className="size-3" fill="currentColor" aria-hidden="true">

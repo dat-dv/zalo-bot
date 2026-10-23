@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { APP_ROUTES } from '@zalobot/contracts';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { ChatRowMenu } from './chat-row-menu';
 import {
   ACCESS_ACTION_LABEL,
@@ -15,6 +16,7 @@ import {
   LISTEN_LABEL,
   NEUTRAL_BUTTON,
   POSITIVE_BUTTON,
+  REVOKE_BUTTON,
   RowAvatar,
   useChatRowModel,
   type ChatRowProps,
@@ -92,7 +94,7 @@ export function ChatTableRow(props: ChatRowProps) {
             {row.id}
           </span>
           <button
-            className="rounded-[2px] p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            className={`rounded-[2px] p-0.5 ${BUTTON_TONE.ghost}`}
             onClick={() => onCopyId(row.id)}
             title={COPY_ID_LABEL}
             type="button"
@@ -139,11 +141,7 @@ export function ChatTableRow(props: ChatRowProps) {
               {ACCESS_STATUS[row.access].dot} {ACCESS_STATUS[row.access].label}
             </span>
             <button
-              className={
-                isGranted
-                  ? `${NEUTRAL_BUTTON} hover:text-rose-600 dark:hover:text-rose-400`
-                  : POSITIVE_BUTTON
-              }
+              className={isGranted ? REVOKE_BUTTON : POSITIVE_BUTTON}
               onClick={() => onToggleAccess(row)}
               type="button"
             >

@@ -10,6 +10,7 @@ import {
   type UserMergeTable,
 } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import {
   Modal,
   MODAL_CLOSE_TAP,
@@ -103,7 +104,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
           onClick={onClose}
           disabled={mergeMutation.isPending}
           aria-label={t('users.merge.close')}
-          className={`rounded-[3px] p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50 dark:hover:bg-slate-800 ${MODAL_CLOSE_TAP}`}
+          className={`rounded-[3px] p-1 ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
         >
           ✕
         </button>
@@ -251,7 +252,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
             type="button"
             onClick={onClose}
             disabled={mergeMutation.isPending}
-            className={`rounded-[3px] px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800 ${MODAL_FOOTER_TAP}`}
+            className={`rounded-[3px] px-4 py-2 text-sm font-medium ${BUTTON_TONE.ghost} ${MODAL_FOOTER_TAP}`}
           >
             {t('users.merge.cancel')}
           </button>
@@ -259,7 +260,7 @@ export function MergeUserDialog({ source, users, onClose, onMerged }: MergeUserD
             type="button"
             onClick={() => void handleMerge()}
             disabled={!canMerge}
-            className={`rounded-[3px] bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 active:scale-95 disabled:opacity-50 ${MODAL_FOOTER_TAP}`}
+            className={`rounded-[3px] px-4 py-2 text-sm font-semibold shadow-sm ${BUTTON_TONE.danger} ${MODAL_FOOTER_TAP}`}
           >
             {mergeMutation.isPending ? t('users.merge.merging') : t('users.merge.confirm')}
           </button>

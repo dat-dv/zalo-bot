@@ -12,6 +12,7 @@ import {
 } from '@zalobot/contracts';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { MOBILE_ACTION_BUTTON, MobileActionBar } from '@/shared/ui/mobile-action-bar';
 import {
@@ -616,7 +617,7 @@ export function ContactsScreen() {
             <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 max-[960px]:h-10 max-[960px]:text-[12.5px] dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+                className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-semibold whitespace-nowrap max-[960px]:h-10 max-[960px]:text-[12.5px] ${BUTTON_TONE.primary}`}
                 onClick={() => void handleSaveEdit(item.id)}
                 disabled={updateMutation.isPending || !editDraft.displayName.trim()}
                 title={t('contacts.actions.save')}
@@ -625,7 +626,7 @@ export function ContactsScreen() {
               </button>
               <button
                 type="button"
-                className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center justify-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 max-[960px]:h-10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center justify-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap max-[960px]:h-10 ${BUTTON_TONE.secondary}`}
                 onClick={handleCancelEdit}
                 disabled={updateMutation.isPending}
                 title={t('contacts.actions.cancel')}
@@ -642,10 +643,8 @@ export function ContactsScreen() {
             {isCompact && (
               <button
                 type="button"
-                className={`inline-flex h-10 min-h-10 shrink-0 cursor-pointer items-center rounded-[2px] border px-3 text-[12.5px] font-medium whitespace-nowrap transition-colors ${
-                  selectedIds.has(item.id)
-                    ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                    : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                className={`inline-flex h-10 min-h-10 shrink-0 items-center rounded-[2px] border px-3 text-[12.5px] font-medium whitespace-nowrap ${
+                  selectedIds.has(item.id) ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
                 }`}
                 onClick={() => handleToggleRow(item.id)}
                 aria-pressed={selectedIds.has(item.id)}
@@ -656,14 +655,14 @@ export function ContactsScreen() {
               </button>
             )}
             <Link
-              className="inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border border-slate-200 bg-white px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:border-slate-300 hover:bg-slate-50 max-[960px]:h-10 max-[960px]:px-3 max-[960px]:text-[12.5px] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+              className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap max-[960px]:h-10 max-[960px]:px-3 max-[960px]:text-[12.5px] ${BUTTON_TONE.secondary}`}
               href={APP_ROUTES.contactProfile(item.id)}
             >
               {t('contacts.actions.profile')}
             </Link>
             <button
               type="button"
-              className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 max-[960px]:h-10 max-[960px]:text-[12.5px] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+              className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap max-[960px]:h-10 max-[960px]:text-[12.5px] ${BUTTON_TONE.secondary}`}
               onClick={() => handleStartEdit(item)}
               title={t('contacts.actions.edit')}
             >
@@ -680,7 +679,7 @@ export function ContactsScreen() {
   const visibleColumns = isCompact
     ? contactColumns.filter((column) => column.id !== 'select')
     : contactColumns;
-  const chipClass = `inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-[3px] border px-2 text-[11px] transition-colors ${PHONE_CHIP}`;
+  const chipClass = `inline-flex h-6 min-h-6 shrink-0 items-center whitespace-nowrap rounded-[3px] border px-2 text-[11px] ${PHONE_CHIP}`;
 
   return (
     <>
@@ -702,7 +701,7 @@ export function ContactsScreen() {
           <strong>{t('dashboard.error.title')}</strong>
           <button
             type="button"
-            className="cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 max-[640px]:h-10 max-[640px]:px-3 dark:bg-rose-700 dark:hover:bg-rose-600"
+            className={`rounded-[2px] px-2 py-0.5 max-[640px]:h-10 max-[640px]:px-3 ${BUTTON_TONE.danger}`}
             onClick={refresh}
           >
             {t('common.retry')}
@@ -726,7 +725,7 @@ export function ContactsScreen() {
                 </div>
                 <button
                   type="button"
-                  className={`shrink-0 cursor-pointer rounded px-1 text-amber-700 hover:bg-amber-100 max-[640px]:inline-flex max-[640px]:items-center max-[640px]:justify-center dark:text-amber-300 dark:hover:bg-amber-900/50 ${PHONE_ICON_CHIP}`}
+                  className={`shrink-0 rounded px-1 text-amber-700 hover:bg-amber-100 max-[640px]:inline-flex max-[640px]:items-center max-[640px]:justify-center dark:text-amber-300 dark:hover:bg-amber-900/50 ${PHONE_ICON_CHIP}`}
                   onClick={() => setSuggestions([])}
                   aria-label={t('contacts.syncUsers.dismiss')}
                   title={t('contacts.syncUsers.dismiss')}
@@ -751,7 +750,7 @@ export function ContactsScreen() {
                       </span>
                       <button
                         type="button"
-                        className="inline-flex h-6 min-h-6 cursor-pointer items-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-default disabled:opacity-60 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+                        className={`inline-flex h-6 min-h-6 items-center rounded-[3px] border px-2 text-[11px] font-semibold max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[12.5px] ${BUTTON_TONE.primary}`}
                         onClick={() => void handleLinkSuggestion(suggestion)}
                         disabled={isLinked || updateMutation.isPending}
                       >
@@ -776,7 +775,7 @@ export function ContactsScreen() {
                   {canLinkUsers && (
                     <button
                       type="button"
-                      className={`${chipClass} border-slate-300 bg-white font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800`}
+                      className={`${chipClass} font-medium ${BUTTON_TONE.secondary}`}
                       onClick={() => void handleSyncUsers()}
                       disabled={syncUsersMutation.isPending}
                     >
@@ -789,7 +788,7 @@ export function ContactsScreen() {
                     <button
                       type="button"
                       // Compact screens get this action in the MobileActionBar instead.
-                      className={`${chipClass} justify-center border-slate-900 bg-slate-900 font-semibold text-white hover:bg-slate-800 max-[960px]:hidden dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`}
+                      className={`${chipClass} justify-center font-semibold max-[960px]:hidden ${BUTTON_TONE.primary}`}
                       onClick={() => setIsCombineOpen(true)}
                     >
                       {t('contacts.actions.combine', { count: selectedIds.size })}
@@ -800,8 +799,8 @@ export function ContactsScreen() {
                       type="button"
                       className={`${chipClass} font-medium ${
                         selectedIds.size === filteredContacts.length
-                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                          : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                          ? BUTTON_TONE.chipSelected
+                          : BUTTON_TONE.chip
                       }`}
                       onClick={handleToggleSelectAll}
                     >
@@ -813,7 +812,7 @@ export function ContactsScreen() {
                   {isPartiallySelected && (
                     <button
                       type="button"
-                      className={`${chipClass} border-sky-500 bg-sky-50 font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300 dark:hover:bg-sky-900/50`}
+                      className={`${chipClass} font-medium ${BUTTON_TONE.chipSelected}`}
                       onClick={() => setSelectedIds(new Set())}
                       title={t('contacts.deselectAll')}
                     >
@@ -850,7 +849,7 @@ export function ContactsScreen() {
           <button
             type="button"
             onClick={() => setIsCombineOpen(true)}
-            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`}
+            className={`${MOBILE_ACTION_BUTTON} ${BUTTON_TONE.primary}`}
           >
             {t('contacts.actions.combine', { count: selectedIds.size })}
           </button>

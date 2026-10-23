@@ -1,5 +1,6 @@
 'use client';
 
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import type { SaveStatus } from './use-thread-config-form';
 
 interface ThreadConfigActionBarProps {
@@ -25,7 +26,7 @@ export function ThreadConfigActionBar({ status, isSaving }: ThreadConfigActionBa
         )}
       </p>
       <button
-        className="shrink-0 rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 max-[640px]:h-10"
+        className={`shrink-0 rounded px-4 py-2 text-sm font-semibold max-[640px]:h-10 ${BUTTON_TONE.primary}`}
         disabled={isSaving}
         type="submit"
       >

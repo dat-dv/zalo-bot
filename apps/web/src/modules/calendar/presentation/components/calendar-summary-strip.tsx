@@ -11,8 +11,10 @@ interface CalendarSummaryStripProps {
   onToggleUnsynced: () => void;
 }
 
-const TILE =
-  'flex min-w-0 flex-col gap-0.5 rounded-[3px] border border-slate-200 bg-white px-3 py-2 text-left dark:border-slate-700 dark:bg-slate-900 max-[640px]:gap-0 max-[640px]:px-2 max-[640px]:py-1.5';
+const TILE_SHAPE =
+  'flex min-w-0 flex-col gap-0.5 rounded-[3px] border px-3 py-2 text-left max-[640px]:gap-0 max-[640px]:px-2 max-[640px]:py-1.5';
+const TILE_COLOURS = 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900';
+const TILE = `${TILE_SHAPE} ${TILE_COLOURS}`;
 const VALUE =
   'text-lg leading-6 font-bold text-slate-900 tabular-nums dark:text-slate-100 max-[640px]:text-base max-[640px]:leading-5';
 // Phones keep all four tiles on one row, so labels may wrap to two short lines.
@@ -48,12 +50,11 @@ export function CalendarSummaryStrip({
         onClick={onToggleUnsynced}
         aria-pressed={unsyncedOnly}
         disabled={unsynced === 0 && !unsyncedOnly}
-        className={`${TILE} cursor-pointer transition-colors disabled:cursor-default ${
+        // A zero count disables the filter but the tile still reads as a stat, so it must not dim.
+        className={`${TILE_SHAPE} disabled:cursor-default disabled:opacity-100 ${
           unsyncedOnly
-            ? '!border-amber-400 !bg-amber-50 dark:!border-amber-700 dark:!bg-amber-950/40'
-            : unsynced > 0
-              ? 'hover:border-amber-300 hover:bg-amber-50/60 dark:hover:border-amber-800'
-              : ''
+            ? 'border-amber-400 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40'
+            : `${TILE_COLOURS} not-disabled:hover:border-amber-300 not-disabled:hover:bg-amber-50/60 dark:not-disabled:hover:border-amber-800`
         }`}
       >
         <span className={`${VALUE} ${unsynced > 0 ? '!text-amber-700 dark:!text-amber-400' : ''}`}>

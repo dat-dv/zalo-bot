@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { TAP_CONTROL } from '@/shared/ui/touch';
 import {
@@ -16,9 +17,9 @@ import {
 } from '../../model/google-storage-account';
 import { ExternalLinkIcon, GoogleDriveIcon, LogoutIcon } from './zca-icons';
 
-const SECONDARY_BUTTON = `inline-flex items-center justify-center gap-1.5 rounded-[4px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${TAP_CONTROL}`;
-const PRIMARY_BUTTON = `inline-flex items-center justify-center gap-1.5 rounded-[4px] bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 ${TAP_CONTROL}`;
-const DANGER_BUTTON = `inline-flex items-center justify-center gap-1.5 rounded-[4px] border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-sm hover:bg-rose-100 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900 ${TAP_CONTROL}`;
+const SECONDARY_BUTTON = `inline-flex items-center justify-center gap-1.5 rounded-[4px] border px-3 py-1.5 text-xs font-semibold shadow-sm ${BUTTON_TONE.secondary} ${TAP_CONTROL}`;
+const PRIMARY_BUTTON = `inline-flex items-center justify-center gap-1.5 rounded-[4px] px-3.5 py-1.5 text-xs font-semibold shadow-sm ${BUTTON_TONE.primary} ${TAP_CONTROL}`;
+const DANGER_BUTTON = `inline-flex items-center justify-center gap-1.5 rounded-[4px] border px-3 py-1.5 text-xs font-semibold shadow-sm ${BUTTON_TONE.dangerSoft} ${TAP_CONTROL}`;
 
 interface GoogleStorageAccountPanelProps {
   /** Root `zalobot` folder of the shared account. */

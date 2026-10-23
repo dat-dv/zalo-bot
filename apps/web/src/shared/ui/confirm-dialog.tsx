@@ -2,6 +2,7 @@
 
 import { useId } from 'react';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from './button-styles';
 import { MODAL_FOOTER_TAP, Modal } from './modal';
 
 interface ConfirmDialogProps {
@@ -55,7 +56,7 @@ export function ConfirmDialog({
       </div>
       <footer className="flex justify-end gap-2 px-4 pb-4">
         <button
-          className={`inline-flex min-h-[30px] items-center justify-center rounded-[3px] border border-slate-300 !bg-white px-3 text-xs font-medium !text-slate-700 hover:!bg-slate-100 disabled:opacity-60 dark:border-slate-600 dark:!bg-slate-800 dark:!text-slate-200 dark:hover:!bg-slate-700 ${MODAL_FOOTER_TAP}`}
+          className={`inline-flex min-h-[30px] items-center justify-center rounded-[3px] border px-3 text-xs font-medium ${BUTTON_TONE.secondary} ${MODAL_FOOTER_TAP}`}
           disabled={isPending}
           onClick={onCancel}
           type="button"
@@ -63,7 +64,7 @@ export function ConfirmDialog({
           {t('common.cancel')}
         </button>
         <button
-          className={`inline-flex min-h-[30px] items-center justify-center rounded-[3px] border border-rose-700 !bg-rose-700 px-3 text-xs font-semibold !text-white hover:!bg-rose-800 disabled:opacity-60 dark:border-rose-600 dark:!bg-rose-600 dark:hover:!bg-rose-700 ${MODAL_FOOTER_TAP}`}
+          className={`inline-flex min-h-[30px] items-center justify-center rounded-[3px] border px-3 text-xs font-semibold ${BUTTON_TONE.danger} ${MODAL_FOOTER_TAP}`}
           disabled={isPending}
           onClick={onConfirm}
           type="button"

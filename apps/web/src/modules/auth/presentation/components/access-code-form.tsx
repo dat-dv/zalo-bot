@@ -14,6 +14,7 @@ import { useAccessCodeSignInMutation } from '@/modules/auth/api/access-code-quer
 import { setAccessToken } from '@/modules/auth/client/auth-storage';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { Button } from '@/shared/ui/button';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 
 const ERROR_MESSAGE_KEYS: Record<AccessCodeErrorKind, TranslationKey> = {
   rejected: 'auth.accessCode.rejected',
@@ -82,7 +83,7 @@ export function AccessCodeForm() {
         <Button
           type="submit"
           disabled={signIn.isPending || !code}
-          className="inline-flex min-h-[42px] shrink-0 items-center justify-center rounded-md bg-slate-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-60 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+          className={`inline-flex min-h-[42px] shrink-0 items-center justify-center rounded-md px-4 text-sm font-semibold ${BUTTON_TONE.primary}`}
         >
           {signIn.isPending ? t('auth.accessCode.submitting') : t('auth.accessCode.submit')}
         </Button>

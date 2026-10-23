@@ -29,11 +29,14 @@ metadata:
       - apps/web/src/shared/hooks/use-swipe-dismiss.ts
       - apps/web/src/shared/hooks/swipe-dismiss.ts
       - apps/web/src/shared/ui/pull-to-refresh.tsx
+      - apps/web/src/shared/ui/button-styles.ts
+      - apps/web/src/shared/ui/button.tsx
+      - apps/web/src/shared/ui/button-states.spec.ts
 ---
 
 # Định hướng UI web dùng chung
 
-Web dashboard là giao diện tác vụ cá nhân, ưu tiên dữ liệu dễ quét và thao tác gọn: một workspace phẳng, viền nhẹ, control nhỏ gọn; tránh card trang trí hoặc shadow nặng. Tailwind CSS v4 là lớp styling duy nhất cho 100% component và màn hình giao diện web: toàn bộ bố cục, data panel, bảng dữ liệu, dialog modal, form inline edit, KPI metrics, biểu đồ và các nút hành động đều dùng trực tiếp utility classes có hỗ trợ tiền tố `dark:` và responsive variants. File `apps/web/src/styles.css` chỉ gồm `@import 'tailwindcss'`, khai báo `@custom-variant dark` và một lớp CSS nền nhỏ: màu chữ/nền/font cho `:root`, màu cho `html[data-theme='dark']`, màu outline `:focus-visible` ở dark mode (`#93c5fd`), `box-sizing` và mặc định của `body`. Không có class BEM hay class component nào.
+Web dashboard là giao diện tác vụ cá nhân, ưu tiên dữ liệu dễ quét và thao tác gọn: một workspace phẳng, viền nhẹ, control nhỏ gọn; tránh card trang trí hoặc shadow nặng. Tailwind CSS v4 là lớp styling duy nhất cho 100% component và màn hình giao diện web: toàn bộ bố cục, data panel, bảng dữ liệu, dialog modal, form inline edit, KPI metrics, biểu đồ và các nút hành động đều dùng trực tiếp utility classes có hỗ trợ tiền tố `dark:` và responsive variants. File `apps/web/src/styles.css` chỉ gồm `@import 'tailwindcss'`, khai báo `@custom-variant dark` và một lớp CSS nền nhỏ: màu chữ/nền/font cho `:root`, màu cho `html[data-theme='dark']`, màu outline `:focus-visible` ở dark mode (`#93c5fd`), trạng thái tương tác chung của nút (xem mục "Trạng thái tương tác của nút"), `box-sizing` và mặc định của `body`. Không có class BEM hay class component nào.
 
 Các primitive dùng chung trong `apps/web/src/shared/ui/` chịu trách nhiệm panel/bảng tái sử dụng. Trên desktop, bảng phải phủ hết chiều ngang bên trong panel; bảng dùng HTML semantic, căn phải số liệu, có trạng thái loading, rỗng và có dữ liệu. Trên màn hình di động hẹp, bảng chưa bật chế độ danh sách (xem mục bên dưới) hỗ trợ cuộn ngang mượt mà (`min-width: max-content` kết hợp `minWidth` của từng cột) để đảm bảo các thông tin quan trọng (Số tiền, Thời gian, Badge trạng thái) không bao giờ bị bóp méo hoặc cắt cụt. Cột thao tác (`id: 'actions'`) bắt buộc khai báo `minWidth` đầy đủ (120px–150px), bọc container bằng `flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap`, và gán `shrink-0 whitespace-nowrap` cho từng nút bấm (`Sửa`, `Xóa`, `Lưu`, `Hủy`, `Trả nợ`, `Hoãn`) cùng các badge phân loại để đảm bảo không bao giờ bị rớt dòng trên mọi kích thước màn hình.
 
@@ -147,14 +150,48 @@ Trên màn hình hẹp (<= 960px), shell trở lại cơ chế cuộn trang bìn
 
 Dark mode được kích hoạt bằng `html[data-theme='dark']`; mọi utility dark của Tailwind phải dùng đúng data attribute này thông qua `@custom-variant dark`. Toàn bộ các bề mặt giao diện — navigation desktop/mobile, workspace header, period toolbar, data panel, form edit, dialog, biểu đồ và trang public/legal — bắt buộc dùng utility classes với tiền tố `dark:` phù hợp (`dark:bg-*`, `dark:border-*`, `dark:text-*`, `dark:hover:*`, `dark:focus:*`). Giữ trạng thái mục đang chọn dễ nhận biết và focus bàn phím màu xanh nhạt, đủ tương phản.
 
-**Màu nút ở dark mode** (light mode vẫn dùng nút đen `bg-slate-900 text-white`):
+## Trạng thái tương tác của nút
 
-- Không dùng kiểu "đảo màu" `dark:bg-slate-100 dark:text-slate-900`. Nền dark rất tối (`#090d16`, panel `slate-900`) nên nút gần trắng thành một khối chói, nhất là trong dialog và bottom sheet.
-- **Nút hành động chính** (Lưu, Tạo, + Thêm, thanh hành động mobile, nút chính nhỏ trong bảng, link "Mở Zalo Bot"): `dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`, cùng màu nhấn xanh mà lịch và viền focus đang dùng.
-- **Trạng thái đang chọn** (link sidebar đang mở, ô menu đang mở trong sheet "Thêm", nút ngôn ngữ đang chọn, toggle phân đoạn): nền trung tính `dark:border-slate-600 dark:bg-slate-700 dark:text-white`, nhẹ hơn nút hành động để điều hướng không tranh với thao tác chính.
-- **Toast**: `dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100`, toast tối tách khỏi nền bằng viền 1px.
-- **Nút outline nguy hiểm** (Đăng xuất trong sheet "Thêm"): thêm nền đỏ rất nhạt `dark:bg-rose-950/40` và viền `dark:border-rose-800`. Chỉ có viền `rose-900` trên nền `slate-900` thì nút bị chìm.
-- Nút phụ (Huỷ) giữ `dark:border-slate-700 dark:bg-slate-800`. Riêng vạch chỉ báo 2px của tab bar được phép giữ màu sáng vì nó chỉ là một đường kẻ mảnh.
+**Vì sao cần thống nhất**: trước đây khoảng một nửa số nút hiện con trỏ mũi tên (Tailwind v4 để `cursor: default` cho button). Nút đang bị khoá vẫn đổi màu khi rê chuột nên trông như bấm được. Vài nút tắt hẳn viền focus, dùng phím Tab thì không biết mình đang ở đâu. Cùng là nút "chính" mà có tới 5 màu (đen, xanh dương, chàm, xanh lá, xanh trời). Giờ mọi nút phản hồi giống nhau ở mọi trang.
+
+**Phần trình duyệt tự lo** (lớp `@layer base` trong `styles.css`, áp cho mọi `button` và `[role=button]`, không cần viết class):
+
+- Nút bấm được: con trỏ bàn tay.
+- Nút bị khoá (`disabled`): mờ 50%, con trỏ cấm (`not-allowed`), không đổi màu khi rê chuột.
+- Focus bằng bàn phím: viền 2px xanh `#0284c7` cách nút 1px; dark mode dùng xanh nhạt `#93c5fd`. Link, `summary` và tab cũng dùng viền này.
+- Đổi màu mượt 120ms. Riêng màu viền focus không chuyển dần, để viền hiện ra ngay khi bấm Tab.
+- Nhấn trên màn cảm ứng: nút co nhẹ, hàng trong danh sách thì mờ đi (xem mục "Phản hồi khi chạm"). Desktop không có hiệu ứng nhấn. Hover chỉ chạy trên thiết bị có chuột, nên không bị "dính" màu hover trên điện thoại.
+
+**Phần mỗi nút chọn**: một tone màu trong `BUTTON_TONE` (`apps/web/src/shared/ui/button-styles.ts`). Tone chỉ chứa màu, hover và dark mode. Kích thước, padding, bo góc, độ đậm chữ vẫn do từng nút tự quyết, ví dụ `` `${FOOTER_BUTTON} ${BUTTON_TONE.primary}` ``.
+
+| Tone | Dùng khi | Ghi chú |
+| --- | --- | --- |
+| `primary` | Lưu, Tạo, + Thêm, Xác nhận, link "Mở Zalo Bot" | Light đen `slate-900`, dark xanh trời `sky-600`. Không "đảo màu" thành nút gần trắng ở dark mode: trên nền `#090d16` nó thành một khối chói |
+| `secondary` | Huỷ, nút trên toolbar, phân trang | Nền trắng viền `slate-300`; dark `slate-800` |
+| `ghost` | Nút icon (✕ đóng, đổi giao diện), thao tác phụ | Không có khung khi đứng yên |
+| `accent` | Thao tác dạng link ("Xem", "Mở", sao chép) | Chữ xanh trời |
+| `danger` | Xác nhận xoá | Đỏ đặc `rose-600` |
+| `dangerSoft` | Nút Xoá phụ, Đăng xuất | Nền đỏ rất nhạt; dark có viền `rose-800`, vì viền `rose-900` chìm vào nền `slate-900` |
+| `dangerGhost` | Xoá dạng chữ trong dòng | |
+| `positiveSoft` | Trạng thái "đã cấp quyền" đồng thời là nút (ZCA) | Xanh lá nhạt |
+| `chip` / `chipSelected` | Chip lọc, toggle đứng riêng | Đang chọn = xanh trời (xanh nghĩa là đang chọn) |
+| `segment` / `segmentSelected` | Lựa chọn trong một nhóm phân đoạn (chu kỳ Tuần/Tháng, chế độ xem lịch, ngôn ngữ trong sheet "Thêm") | Đang chọn = ô trắng nổi; dark trung tính `slate-700`, nhẹ hơn nút chính để không tranh với thao tác chính |
+
+**Không viết lại trên nút**: `cursor-*`, `transition`/`transition-colors`/`transition-all`, `disabled:opacity-*`, `disabled:cursor-*`, `focus:*`, `focus-visible:ring*`, `outline-none`, `active:scale-*`, và `!` trên class màu (`!bg-white`...). Dấu `!` là tàn dư của CSS button global đã bỏ, giờ không còn gì để đè nữa. Nút có thể bị khoá mà tự đặt màu riêng thì dùng `not-disabled:hover:` thay cho `hover:`.
+
+**Được phép**:
+
+- `focus-visible:-outline-offset-2`: kéo viền vào trong khi nút nằm trong khung cắt tràn.
+- `focus-visible:after:*`: thêm dấu hiệu phụ, ví dụ vạch kéo đổi độ rộng cột.
+- Mục "đang chọn" bị `disabled` mà không muốn mờ: ghi rõ `disabled:opacity-100 disabled:cursor-default` kèm comment lý do.
+
+**Ngoại lệ được giữ màu riêng** (vẫn tuân thủ các quy tắc trên): hàng có `data-press="none"` (danh sách mobile, danh sách ZCA, agenda), màu mang ý nghĩa dữ liệu (chip sự kiện lịch, ngày đang chọn màu xanh trời), ô tab bar, link sidebar và ô trong sheet "Thêm", nút ID trong bảng, nút nằm trên nền màu (✕ của thanh cập nhật PWA), và màn hình lỗi `ErrorBoundary` vốn luôn tối nên ghi thẳng màu dark của primary/secondary.
+
+**Chống tái phát**: `apps/web/src/shared/ui/button-states.spec.ts` chạy trong `npm run test`. Spec đọc mọi thẻ mở `<button>`/`<Button>` cùng các hằng số và helper cấp file mà thẻ đó dùng, rồi báo lỗi dạng `file:dòng token (lý do)`. Khi spec báo lỗi, bỏ token đó hoặc chuyển sang tone. Đừng nới rule trong spec.
+
+`Button` (`button.tsx`) chỉ đặt mặc định `type="button"`; dùng `<button>` thường cũng được, trạng thái vẫn đến từ lớp nền.
+
+**Màu khác ở dark mode**: toast dùng `dark:border dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100`, tách khỏi nền bằng viền 1px. Riêng vạch chỉ báo 2px của tab bar được phép giữ màu sáng vì nó chỉ là một đường kẻ mảnh.
 
 ---
 

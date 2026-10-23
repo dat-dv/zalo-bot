@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from './button-styles';
 import type { DataTableColumn } from './data-table';
 import { partitionMobileColumns } from './data-table-mobile';
 import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from './modal';
@@ -110,7 +111,7 @@ export function DataTableMobileList<T extends DataTableRow>({
                 <button
                   type="button"
                   data-press="none"
-                  className="flex min-h-[52px] w-full cursor-pointer flex-col justify-center gap-0.5 border-0 !bg-transparent px-3 py-2.5 text-left transition-colors hover:!bg-slate-50 active:!bg-slate-100 dark:hover:!bg-slate-800/60 dark:active:!bg-slate-800"
+                  className="flex min-h-[52px] w-full flex-col justify-center gap-0.5 border-0 bg-transparent px-3 py-2.5 text-left hover:bg-slate-50 active:bg-slate-100 dark:hover:bg-slate-800/60 dark:active:bg-slate-800"
                   onClick={() => setSelectedKey(getRowKey(row, index))}
                 >
                   <span className="flex w-full min-w-0 items-baseline gap-3">
@@ -160,7 +161,7 @@ export function DataTableMobileList<T extends DataTableRow>({
             </h2>
             <button
               type="button"
-              className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-[3px] border-0 !bg-transparent text-lg text-slate-500 hover:!bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:!bg-slate-800 dark:hover:text-slate-100"
+              className={`inline-flex size-10 shrink-0 items-center justify-center rounded-[3px] border-0 text-lg ${BUTTON_TONE.ghost}`}
               onClick={() => setSelectedKey(null)}
               aria-label={t('common.close')}
             >
@@ -190,7 +191,7 @@ export function DataTableMobileList<T extends DataTableRow>({
               <dd className="m-0 min-w-0">
                 <button
                   type="button"
-                  className="inline-flex min-h-10 max-w-full cursor-pointer items-center rounded-[2px] border border-transparent !bg-transparent px-0 font-mono text-[11px] text-slate-600 hover:text-sky-700 dark:text-slate-400 dark:hover:text-sky-300"
+                  className="inline-flex min-h-10 max-w-full items-center rounded-[2px] border border-transparent bg-transparent px-0 font-mono text-[11px] text-slate-600 hover:text-sky-700 dark:text-slate-400 dark:hover:text-sky-300"
                   onClick={() => onInspectId(selectedRow.id)}
                   title={t('table.idClickToInspect')}
                 >

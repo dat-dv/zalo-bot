@@ -9,6 +9,7 @@ import {
 } from '@zalobot/contracts';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import type { ReminderTargetDraft } from '@/modules/reminders/model/reminder-target';
 import type { ReminderTimeDraft } from '@/modules/reminders/model/reminder-times';
@@ -409,7 +410,7 @@ export function TasksTable({
               <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-semibold whitespace-nowrap ${BUTTON_TONE.primary}`}
                   onClick={() => void onSaveEdit(item.id)}
                   disabled={isPending || !editDraft.title.trim()}
                   title={t('tasks.actions.save')}
@@ -418,7 +419,7 @@ export function TasksTable({
                 </button>
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
                   onClick={onCancelEdit}
                   disabled={isPending}
                   title={t('tasks.actions.cancel')}
@@ -433,7 +434,7 @@ export function TasksTable({
               {onStartEdit && (
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-200 bg-white px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
                   onClick={() => onStartEdit(item)}
                   title={t('tasks.actions.edit')}
                 >
@@ -443,7 +444,7 @@ export function TasksTable({
               {onDelete && (
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-rose-200 bg-rose-50 px-1.5 text-[11px] font-medium text-rose-700 whitespace-nowrap transition-colors hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-950/70"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.dangerSoft}`}
                   onClick={() => void onDelete(item.id)}
                   title={t('tasks.actions.delete')}
                 >

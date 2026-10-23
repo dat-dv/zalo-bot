@@ -6,6 +6,7 @@ import { isIosUserAgent, isZaloInAppUserAgent } from '@/shared/pwa/pwa-environme
 import { usePwaStore } from '@/shared/pwa/pwa-store';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { Button } from '@/shared/ui/button';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 
 const noSubscribe = () => () => {};
 
@@ -67,7 +68,7 @@ export function InstallAppRow() {
       {!installed && installPrompt && (
         <Button
           onClick={() => void install()}
-          className="inline-flex h-6 min-w-[76px] shrink-0 cursor-pointer items-center justify-center rounded-[3px] border border-sky-300 bg-sky-50 px-2 text-[11px] font-semibold text-sky-700 transition-colors hover:border-sky-400 hover:bg-sky-100 max-[640px]:h-10 max-[640px]:px-3 dark:border-sky-800 dark:bg-sky-950/60 dark:text-sky-300 dark:hover:border-sky-700 dark:hover:bg-sky-900/60"
+          className={`inline-flex h-6 min-w-[76px] shrink-0 items-center justify-center rounded-[3px] border px-2 text-[11px] font-semibold max-[640px]:h-10 max-[640px]:px-3 ${BUTTON_TONE.secondary}`}
         >
           {t('settings.app.install')}
         </Button>

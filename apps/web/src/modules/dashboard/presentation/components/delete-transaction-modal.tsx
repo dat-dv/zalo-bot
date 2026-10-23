@@ -3,6 +3,7 @@
 import { useId } from 'react';
 import { localeTag, type ITransactionItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import {
   Modal,
   MODAL_CLOSE_TAP,
@@ -71,7 +72,7 @@ export function DeleteTransactionModal({
         </div>
         <button
           type="button"
-          className={`inline-flex size-7 cursor-pointer items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600 disabled:opacity-50 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300 ${MODAL_CLOSE_TAP}`}
+          className={`inline-flex size-7 items-center justify-center rounded ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
           onClick={onClose}
           disabled={isPending}
           aria-label={t('transactions.actions.cancel')}
@@ -181,7 +182,7 @@ export function DeleteTransactionModal({
       >
         <button
           type="button"
-          className={`cursor-pointer rounded-[2px] border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 ${MODAL_FOOTER_TAP}`}
+          className={`rounded-[2px] border px-3 py-1.5 text-xs font-medium ${BUTTON_TONE.secondary} ${MODAL_FOOTER_TAP}`}
           onClick={onClose}
           disabled={isPending}
         >
@@ -189,7 +190,7 @@ export function DeleteTransactionModal({
         </button>
         <button
           type="button"
-          className={`inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-[2px] border border-rose-600 bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-rose-700 disabled:opacity-50 dark:border-rose-700 dark:bg-rose-700 dark:hover:bg-rose-800 ${MODAL_FOOTER_TAP}`}
+          className={`inline-flex items-center justify-center gap-1.5 rounded-[2px] border px-3 py-1.5 text-xs font-semibold shadow-xs ${BUTTON_TONE.danger} ${MODAL_FOOTER_TAP}`}
           onClick={handleConfirm}
           disabled={isPending}
         >

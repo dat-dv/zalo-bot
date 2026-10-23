@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { localeTag, type IDebtListItem } from '@zalobot/contracts';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 
@@ -259,7 +260,7 @@ export function DebtsTable({
               {hasSubDetails && !isCompact && (
                 <button
                   type="button"
-                  className="inline-flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400 dark:hover:border-slate-600 dark:hover:text-slate-100"
+                  className={`inline-flex size-4.5 shrink-0 items-center justify-center rounded border ${BUTTON_TONE.secondary}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     setExpandedDebtIds((prev) => {
@@ -555,7 +556,7 @@ export function DebtsTable({
               <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-900 bg-slate-900 px-1.5 text-[11px] font-semibold text-white whitespace-nowrap transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-semibold whitespace-nowrap ${BUTTON_TONE.primary}`}
                   onClick={() => void onSaveEdit(item.id)}
                   disabled={
                     isPending ||
@@ -569,7 +570,7 @@ export function DebtsTable({
                 </button>
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-300 bg-slate-100 px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:bg-slate-200 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
                   onClick={onCancelEdit}
                   disabled={isPending}
                   title={t('debts.actions.cancel')}
@@ -588,10 +589,8 @@ export function DebtsTable({
               {hasSheetSelectToggle && onToggleSelect && (
                 <button
                   type="button"
-                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap transition-colors ${
-                    isSelected
-                      ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-                      : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${
+                    isSelected ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
                   }`}
                   onClick={() => onToggleSelect(item.id)}
                   aria-pressed={isSelected}
@@ -602,7 +601,7 @@ export function DebtsTable({
               {!isSettled && onQuickSettle && (
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-emerald-600 bg-emerald-50 px-1.5 text-[11px] font-semibold text-emerald-700 whitespace-nowrap transition-colors hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 dark:hover:bg-emerald-900/60"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-semibold whitespace-nowrap ${BUTTON_TONE.positiveSoft}`}
                   onClick={() => void onQuickSettle(item)}
                   title={t('debts.actions.repay')}
                 >
@@ -612,7 +611,7 @@ export function DebtsTable({
               {onStartEdit && (
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-slate-200 bg-white px-1.5 text-[11px] font-medium text-slate-700 whitespace-nowrap transition-colors hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
                   onClick={() => onStartEdit(item)}
                   title={t('debts.actions.edit')}
                 >
@@ -622,7 +621,7 @@ export function DebtsTable({
               {onDelete && (
                 <button
                   type="button"
-                  className="inline-flex h-[22px] min-h-[22px] shrink-0 cursor-pointer items-center rounded-[2px] border border-rose-200 bg-rose-50 px-1.5 text-[11px] font-medium text-rose-700 whitespace-nowrap transition-colors hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-950/70"
+                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.dangerSoft}`}
                   onClick={() => void onDelete(item.id)}
                   title={t('debts.actions.delete')}
                   aria-label={t('debts.actions.delete')}
@@ -743,7 +742,7 @@ export function DebtsTable({
                     {onDeletePayment && (
                       <button
                         type="button"
-                        className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-[3px] border border-rose-200 bg-white text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-800 dark:bg-slate-900 dark:text-rose-400"
+                        className={`inline-flex size-10 shrink-0 items-center justify-center rounded-[3px] border ${BUTTON_TONE.dangerSoft}`}
                         onClick={() => void onDeletePayment(item.id, p.id)}
                         title={t('common.cancel')}
                         aria-label={t('common.cancel')}
@@ -926,7 +925,7 @@ export function DebtsTable({
                         <td className="px-2.5 py-1.5 text-right">
                           <button
                             type="button"
-                            className="inline-flex size-5 items-center justify-center rounded border border-rose-200 bg-white text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-800 dark:bg-slate-900 dark:text-rose-400"
+                            className={`inline-flex size-5 items-center justify-center rounded border ${BUTTON_TONE.dangerSoft}`}
                             onClick={() => void onDeletePayment(item.id, p.id)}
                             title={t('common.cancel')}
                             aria-label={t('common.cancel')}

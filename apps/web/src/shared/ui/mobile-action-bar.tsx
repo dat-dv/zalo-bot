@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 
-/** Button inside `MobileActionBar`: 40px tall, rows share the width evenly. Add colors per action. */
+/** Button inside `MobileActionBar`: 40px tall, rows share the width evenly. Add a `BUTTON_TONE` per action. */
 export const MOBILE_ACTION_BUTTON =
-  'inline-flex h-10 min-h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[3px] border px-3 text-[12.5px] font-semibold whitespace-nowrap transition-colors disabled:cursor-default disabled:opacity-50';
+  'inline-flex h-10 min-h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-[3px] border px-3 text-[12.5px] font-semibold whitespace-nowrap';
 
 /**
  * Thumb-reachable bar for a screen's primary action, pinned above the bottom tab bar on

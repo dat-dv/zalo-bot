@@ -14,6 +14,7 @@ import {
   MODAL_STICKY_HEADER,
 } from '@/shared/ui/modal';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { useSyncThreadMediaMutation } from '../api/zca-query';
 import {
   getThreadDriveLink,
@@ -134,7 +135,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
         </div>
         <button
           aria-label={t('common.close')}
-          className={`shrink-0 rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:opacity-40 dark:hover:bg-slate-800 dark:hover:text-slate-200 ${MODAL_CLOSE_TAP}`}
+          className={`shrink-0 rounded p-1 ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
           disabled={syncMutation.isPending}
           onClick={handleClose}
           type="button"
@@ -344,7 +345,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
                 </div>
                 <div className="flex flex-col gap-1.5 shrink-0">
                   <a
-                    className="inline-flex items-center justify-center gap-1 rounded-[3px] bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm max-sm:min-h-10 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 transition-colors"
+                    className={`inline-flex items-center justify-center gap-1 rounded-[3px] px-2.5 py-1 text-xs font-semibold shadow-sm max-sm:min-h-10 ${BUTTON_TONE.primary}`}
                     href={driveLink}
                     rel="noopener noreferrer"
                     target="_blank"
@@ -352,7 +353,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
                     📂 Mở Drive
                   </a>
                   <a
-                    className="inline-flex items-center justify-center gap-1 rounded-[3px] bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white shadow-sm max-sm:min-h-10 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 transition-colors"
+                    className={`inline-flex items-center justify-center gap-1 rounded-[3px] px-2.5 py-1 text-xs font-semibold shadow-sm max-sm:min-h-10 ${BUTTON_TONE.primary}`}
                     href={photosLink}
                     rel="noopener noreferrer"
                     target="_blank"
@@ -385,7 +386,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
                 </span>
                 <div className="flex items-center gap-1.5">
                   <a
-                    className="inline-flex items-center gap-1 rounded bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700 max-sm:min-h-10"
+                    className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold max-sm:min-h-10 ${BUTTON_TONE.primary}`}
                     href={driveLink}
                     rel="noopener noreferrer"
                     target="_blank"
@@ -393,7 +394,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
                     📂 Google Drive
                   </a>
                   <a
-                    className="inline-flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-indigo-700 max-sm:min-h-10"
+                    className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold max-sm:min-h-10 ${BUTTON_TONE.primary}`}
                     href={photosLink}
                     rel="noopener noreferrer"
                     target="_blank"
@@ -440,7 +441,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
         className={`${MODAL_STICKY_FOOTER} flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800`}
       >
         <button
-          className={`rounded border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 ${MODAL_FOOTER_TAP}`}
+          className={`rounded border px-3.5 py-1.5 text-xs font-semibold ${BUTTON_TONE.secondary} ${MODAL_FOOTER_TAP}`}
           disabled={syncMutation.isPending}
           onClick={handleClose}
           type="button"
@@ -448,7 +449,7 @@ export function SyncMediaModal({ isOpen, thread, threadConfig, onClose }: SyncMe
           {result ? 'Đóng' : 'Hủy bỏ'}
         </button>
         <button
-          className={`inline-flex items-center justify-center gap-1.5 rounded bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 ${MODAL_FOOTER_TAP}`}
+          className={`inline-flex items-center justify-center gap-1.5 rounded px-4 py-1.5 text-xs font-semibold ${BUTTON_TONE.primary} ${MODAL_FOOTER_TAP}`}
           disabled={
             syncMutation.isPending || (!mediaTypes.image && !mediaTypes.video && !mediaTypes.file)
           }

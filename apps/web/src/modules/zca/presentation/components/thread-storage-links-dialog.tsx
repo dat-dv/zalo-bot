@@ -13,6 +13,7 @@ import {
   type UpdateChannelStorageLinkDto,
 } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { Modal, MODAL_CLOSE_TAP, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
 import {
   useCreateThreadStorageLinkMutation,
@@ -78,7 +79,7 @@ export function ThreadStorageLinksDialog({
         </div>
         <button
           aria-label={t('zca.storageLinks.close')}
-          className={`shrink-0 rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200 ${MODAL_CLOSE_TAP}`}
+          className={`shrink-0 rounded p-1 ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
           onClick={onClose}
           type="button"
         >
@@ -299,7 +300,7 @@ function StorageLinkRow({ threadId, link }: { threadId: string; link: ChannelSto
           ✏️ {t('zca.storageLinks.edit')}
         </button>
         <button
-          className={`${STORAGE_LINK_ACTION_BUTTON_CLASS} border-red-200 bg-white text-red-600 hover:bg-red-50 dark:border-red-900/60 dark:bg-slate-800 dark:text-red-400 dark:hover:bg-red-950/40`}
+          className={`${STORAGE_LINK_ACTION_BUTTON_CLASS} ${BUTTON_TONE.dangerSoft}`}
           disabled={link.isCurrent || deleteMutation.isPending}
           onClick={handleDelete}
           title={link.isCurrent ? t('zca.storageLinks.deleteCurrentDisabled') : undefined}

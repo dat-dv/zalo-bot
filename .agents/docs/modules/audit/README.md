@@ -119,3 +119,7 @@ Các test chính:
 - **Việc chạy ngầm bị ghi tên người của request**: việc bắn đi rồi quên (`void …`) thừa hưởng ngữ cảnh của request. Nếu đó là việc của hệ thống, bọc bằng `AuditContext.runAsSystem(...)`.
 - **Trang trống dù chắc chắn có thay đổi**: kiểm tra công tắc "Hiện bản ghi kỹ thuật", vì token và các lần nhắc mặc định bị ẩn. Cũng kiểm tra khoảng ngày (tính theo giờ máy người xem).
 - **Bảng `audit_logs` phình to**: hiện chưa có job dọn dữ liệu. Index `created_at DESC` giữ cho phân trang vẫn nhanh.
+
+## 7. Nút bấm
+
+- Màu nút lấy từ `BUTTON_TONE`; con trỏ, độ mờ khi khoá, viền focus và hiệu ứng chuyển màu do lớp nền lo. Nút phân trang ← → (`PAGE_BUTTON`) và nút "Xem" trong bảng dùng `secondary`; chân dialog chi tiết và sheet bộ lọc ghép `secondary` (Lịch sử bản ghi, Xoá tất cả) với nút đóng/xong `primary`; ✕ dùng `ghost`; nút mở bộ lọc dùng `chip`/`chipSelected`. Ngoại lệ: nút "Xem bản ghi" ở ô dữ liệu (ô giống ô ID, màu theo `AUDIT_ACTION_TONE`, focus dùng viền chung) và chip bản ghi màu sky có nút bỏ lọc trong `AuditFilters`. Xem [web-ui-direction](../../global/web-ui-direction.md#trạng-thái-tương-tác-của-nút).

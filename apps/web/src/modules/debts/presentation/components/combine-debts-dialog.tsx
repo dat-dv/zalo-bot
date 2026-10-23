@@ -3,6 +3,7 @@
 import { useState, useEffect, useId } from 'react';
 import type { IDebtListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import {
   Modal,
   MODAL_CLOSE_TAP,
@@ -115,7 +116,7 @@ export function CombineDebtsDialog({
         </div>
         <button
           type="button"
-          className={`flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-[3px] border-0 bg-transparent text-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 ${MODAL_CLOSE_TAP}`}
+          className={`flex size-7 shrink-0 items-center justify-center rounded-[3px] border-0 text-lg ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
           onClick={onClose}
           disabled={combineMutation.isPending}
           aria-label={t('common.close')}
@@ -265,7 +266,7 @@ export function CombineDebtsDialog({
         >
           <button
             type="button"
-            className={`inline-flex min-h-8 items-center justify-center rounded border border-slate-300 bg-white px-3.5 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 ${MODAL_FOOTER_TAP}`}
+            className={`inline-flex min-h-8 items-center justify-center rounded border px-3.5 text-xs font-medium ${BUTTON_TONE.secondary} ${MODAL_FOOTER_TAP}`}
             onClick={onClose}
             disabled={combineMutation.isPending}
           >
@@ -273,7 +274,7 @@ export function CombineDebtsDialog({
           </button>
           <button
             type="submit"
-            className={`inline-flex min-h-8 items-center justify-center rounded border border-slate-900 bg-slate-900 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-slate-800 disabled:opacity-50 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500 ${MODAL_FOOTER_TAP}`}
+            className={`inline-flex min-h-8 items-center justify-center rounded border px-3.5 text-xs font-semibold ${BUTTON_TONE.primary} ${MODAL_FOOTER_TAP}`}
             disabled={combineMutation.isPending || isMismatched || isCurrencyMismatched}
           >
             {combineMutation.isPending

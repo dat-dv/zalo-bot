@@ -3,6 +3,7 @@
 import { useId, useState } from 'react';
 import type { ITransactionItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { Modal, MODAL_CLOSE_TAP, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
 import { TAP_CONTROL } from '@/shared/ui/touch';
 import { getTransactionReceiptUrl } from '../../api/transactions-api';
@@ -85,14 +86,14 @@ function ReceiptDialog({ item, onClose }: ReceiptDialogProps) {
             href={getTransactionReceiptUrl(item.id)}
             target="_blank"
             rel="noopener noreferrer"
-            className={`inline-flex h-7 items-center rounded-[3px] border border-slate-300 bg-white px-2 text-[11.5px] font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 ${TAP_CONTROL} max-[640px]:px-3`}
+            className={`inline-flex h-7 items-center rounded-[3px] border px-2 text-[11.5px] font-medium ${BUTTON_TONE.secondary} ${TAP_CONTROL} max-[640px]:px-3`}
           >
             {t('transactions.receipt.open')}
           </a>
           <button
             type="button"
             onClick={onClose}
-            className={`inline-flex size-7 cursor-pointer items-center justify-center rounded-[3px] text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 ${MODAL_CLOSE_TAP}`}
+            className={`inline-flex size-7 items-center justify-center rounded-[3px] ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
             aria-label={t('transactions.actions.cancel')}
           >
             ✕
@@ -133,8 +134,8 @@ export function ReceiptCell({ item, showPreview }: ReceiptCellProps) {
         }}
         className={
           showPreview
-            ? 'inline-flex h-16 max-w-24 cursor-zoom-in items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50 p-0.5 transition-colors hover:border-sky-400 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-sky-500'
-            : `inline-flex size-7 cursor-pointer items-center justify-center rounded border border-slate-200 bg-white text-sm transition-colors hover:border-sky-400 hover:bg-sky-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-sky-500 dark:hover:bg-slate-800 ${TAP_CONTROL}`
+            ? 'inline-flex h-16 max-w-24 cursor-zoom-in items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50 p-0.5 hover:border-sky-400 dark:border-slate-700 dark:bg-slate-800 dark:hover:border-sky-500'
+            : `inline-flex size-7 items-center justify-center rounded border text-sm ${BUTTON_TONE.secondary} ${TAP_CONTROL}`
         }
         title={t('transactions.receipt.view')}
         aria-label={t('transactions.receipt.view')}
@@ -175,10 +176,8 @@ export function ReceiptColumnHeader({ showPreview, onToggle }: ReceiptColumnHead
         aria-pressed={showPreview}
         aria-label={label}
         title={label}
-        className={`inline-flex size-5 cursor-pointer items-center justify-center rounded-[3px] border text-[11px] normal-case transition-colors ${
-          showPreview
-            ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-500 dark:bg-sky-950/60 dark:text-sky-300'
-            : 'border-slate-300 bg-white text-slate-500 hover:border-sky-400 hover:text-sky-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-sky-300'
+        className={`inline-flex size-5 items-center justify-center rounded-[3px] border text-[11px] normal-case ${
+          showPreview ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
         }`}
       >
         <span aria-hidden="true">🖼</span>

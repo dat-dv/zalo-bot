@@ -6,6 +6,7 @@ import { APP_ROUTES } from '@zalobot/contracts';
 import { clearAccessToken } from '@/modules/auth/client/auth-storage';
 import { AccessCodeForm } from './access-code-form';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { handleZaloLinkClick, ZALO_LINKS } from '@/shared/zalo/zalo-app-link';
 
 export type SessionStateReason = 'logged_out' | 'expired' | 'error';
@@ -69,7 +70,7 @@ export function SessionStateScreen({ reason = 'expired', onRetry }: SessionState
               target="_blank"
               rel="noopener noreferrer"
               onClick={handleZaloLinkClick}
-              className="inline-flex w-full min-h-[42px] items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500"
+              className={`inline-flex w-full min-h-[42px] items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-semibold ${BUTTON_TONE.primary}`}
             >
               <span>🤖</span>
               <span>{t('auth.openZaloBot')}</span>
@@ -78,7 +79,7 @@ export function SessionStateScreen({ reason = 'expired', onRetry }: SessionState
             <button
               type="button"
               onClick={handleClearAndRetry}
-              className="inline-flex w-full min-h-[38px] items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              className={`inline-flex w-full min-h-[38px] items-center justify-center rounded-md border px-4 py-2 text-sm font-medium ${BUTTON_TONE.secondary}`}
             >
               {t('auth.clearSessionAndRetry')}
             </button>

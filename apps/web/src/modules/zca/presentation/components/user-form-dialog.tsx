@@ -4,6 +4,7 @@ import { useId, useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { GrantAccessStatus, UserRole, type IUserListItem } from '@zalobot/contracts';
 import { useCreateUserMutation, useUpdateUserMutation } from '@/modules/users/api/users-query';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import {
   Modal,
   MODAL_CLOSE_TAP,
@@ -101,7 +102,7 @@ export function UserFormDialog({ user, initialId, initialName, onClose }: UserFo
         </h3>
         <button
           aria-label="Đóng"
-          className={`rounded-[3px] p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 ${MODAL_CLOSE_TAP}`}
+          className={`rounded-[3px] p-1 ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
           onClick={onClose}
           type="button"
         >
@@ -198,14 +199,14 @@ export function UserFormDialog({ user, initialId, initialName, onClose }: UserFo
           className={`${MODAL_STICKY_FOOTER} mt-2 flex items-center justify-end gap-2 bg-white pt-2 pb-6 dark:bg-slate-900`}
         >
           <button
-            className={`rounded-[3px] px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 ${MODAL_FOOTER_TAP}`}
+            className={`rounded-[3px] px-4 py-2 text-sm font-medium ${BUTTON_TONE.ghost} ${MODAL_FOOTER_TAP}`}
             onClick={onClose}
             type="button"
           >
             Hủy
           </button>
           <button
-            className={`rounded-[3px] bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 active:scale-95 disabled:opacity-50 ${MODAL_FOOTER_TAP}`}
+            className={`rounded-[3px] px-4 py-2 text-sm font-semibold shadow-sm ${BUTTON_TONE.primary} ${MODAL_FOOTER_TAP}`}
             disabled={isPending}
             type="submit"
           >

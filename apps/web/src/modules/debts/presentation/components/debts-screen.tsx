@@ -4,6 +4,7 @@ import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { type IDebtListItem } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { DataPanel } from '@/shared/ui/data-table';
 import { DebtsTable, type DebtEditDraft, getDebtStatus } from './debts-table';
@@ -37,10 +38,8 @@ const FILTER_GROUP =
 const FILTER_SEGMENT = 'max-[640px]:justify-center max-[640px]:px-1';
 
 function filterChipClass(active: boolean): string {
-  return `inline-flex h-6 min-h-6 shrink-0 cursor-pointer items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap transition-colors ${PHONE_CHIP} ${
-    active
-      ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-300'
-      : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'
+  return `inline-flex h-6 min-h-6 shrink-0 items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap ${PHONE_CHIP} ${
+    active ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
   }`;
 }
 
@@ -439,7 +438,7 @@ export function DebtsScreen() {
           <strong>{t('dashboard.error.title')}</strong>
           <button
             type="button"
-            className={`cursor-pointer rounded-[2px] bg-rose-600 px-2 py-0.5 text-white hover:bg-rose-700 dark:bg-rose-700 dark:hover:bg-rose-600 ${TAP_CONTROL}`}
+            className={`rounded-[2px] px-2 py-0.5 ${BUTTON_TONE.danger} ${TAP_CONTROL}`}
             onClick={refresh}
           >
             {t('common.retry')}
@@ -457,7 +456,7 @@ export function DebtsScreen() {
                 <button
                   type="button"
                   // Compact screens get this action in the MobileActionBar instead.
-                  className="inline-flex h-6 min-h-6 max-[960px]:hidden cursor-pointer items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+                  className={`inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border px-2 text-[11px] font-semibold max-[960px]:hidden ${BUTTON_TONE.primary}`}
                   onClick={() => setIsCreateOpen(true)}
                 >
                   + {t('debts.actions.create')}
@@ -465,7 +464,7 @@ export function DebtsScreen() {
                 {selectedIds.size >= 2 && (
                   <button
                     type="button"
-                    className="inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border border-slate-900 bg-slate-900 px-2 max-[960px]:hidden text-[11px] font-semibold text-white transition-colors hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+                    className={`inline-flex h-6 min-h-6 items-center justify-center rounded-[3px] border px-2 text-[11px] font-semibold max-[960px]:hidden ${BUTTON_TONE.primary}`}
                     onClick={() => setIsCombineOpen(true)}
                   >
                     {t('debts.actions.combine', { count: selectedIds.size })}
@@ -587,7 +586,7 @@ export function DebtsScreen() {
         {selectedIds.size >= 2 ? (
           <button
             type="button"
-            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`}
+            className={`${MOBILE_ACTION_BUTTON} ${BUTTON_TONE.primary}`}
             onClick={() => setIsCombineOpen(true)}
           >
             {t('debts.actions.combine', { count: selectedIds.size })}
@@ -595,7 +594,7 @@ export function DebtsScreen() {
         ) : (
           <button
             type="button"
-            className={`${MOBILE_ACTION_BUTTON} border-slate-900 bg-slate-900 text-white hover:bg-slate-800 dark:border-sky-600 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500`}
+            className={`${MOBILE_ACTION_BUTTON} ${BUTTON_TONE.primary}`}
             onClick={() => setIsCreateOpen(true)}
           >
             + {t('debts.actions.create')}

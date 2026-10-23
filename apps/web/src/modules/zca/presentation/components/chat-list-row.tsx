@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import Link from 'next/link';
 import { APP_ROUTES } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { Modal, MODAL_STICKY_FOOTER, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
 import {
   ACCESS_ACTION_LABEL,
@@ -18,6 +19,7 @@ import {
   memberCountLabel,
   NEUTRAL_TONE,
   POSITIVE_TONE,
+  REVOKE_TONE,
   RowAvatar,
   SHEET_BUTTON,
   useChatRowModel,
@@ -62,7 +64,7 @@ export function ChatListRow(props: ChatRowProps) {
     <li className="border-b border-slate-100 last:border-b-0 dark:border-slate-800">
       <button
         data-press="none"
-        className="flex min-h-[52px] w-full cursor-pointer flex-col justify-center gap-0.5 border-0 !bg-transparent px-3 py-2.5 text-left transition-colors hover:!bg-slate-50 active:!bg-slate-100 dark:hover:!bg-slate-800/60 dark:active:!bg-slate-800"
+        className="flex min-h-[52px] w-full flex-col justify-center gap-0.5 border-0 bg-transparent px-3 py-2.5 text-left hover:bg-slate-50 active:bg-slate-100 dark:hover:bg-slate-800/60 dark:active:bg-slate-800"
         onClick={() => setIsSheetOpen(true)}
         type="button"
       >
@@ -131,7 +133,7 @@ export function ChatListRow(props: ChatRowProps) {
           </div>
           <button
             aria-label={t('common.close')}
-            className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-[3px] border-0 !bg-transparent text-lg text-slate-500 hover:!bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:!bg-slate-800 dark:hover:text-slate-100"
+            className={`inline-flex size-10 shrink-0 items-center justify-center rounded-[3px] border-0 text-lg ${BUTTON_TONE.ghost}`}
             onClick={() => setIsSheetOpen(false)}
             type="button"
           >
@@ -154,7 +156,7 @@ export function ChatListRow(props: ChatRowProps) {
               </span>
               <button
                 aria-label={COPY_ID_LABEL}
-                className="inline-flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-[2px] text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                className={`inline-flex size-10 shrink-0 items-center justify-center rounded-[2px] ${BUTTON_TONE.ghost}`}
                 onClick={() => onCopyId(row.id)}
                 title={COPY_ID_LABEL}
                 type="button"
@@ -202,11 +204,7 @@ export function ChatListRow(props: ChatRowProps) {
                     {ACCESS_STATUS[row.access].dot} {ACCESS_STATUS[row.access].label}
                   </span>
                   <button
-                    className={`${SHEET_BUTTON} ${
-                      isGranted
-                        ? `${NEUTRAL_TONE} hover:text-rose-600 dark:hover:text-rose-400`
-                        : POSITIVE_TONE
-                    }`}
+                    className={`${SHEET_BUTTON} ${isGranted ? REVOKE_TONE : POSITIVE_TONE}`}
                     onClick={() => onToggleAccess(row)}
                     type="button"
                   >
@@ -229,10 +227,8 @@ export function ChatListRow(props: ChatRowProps) {
                 key={item.key}
               >
                 <button
-                  className={`flex min-h-10 w-full cursor-pointer items-center px-3 text-left text-[12.5px] font-medium ${
-                    item.tone === 'danger'
-                      ? 'text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40'
-                      : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800'
+                  className={`flex min-h-10 w-full items-center px-3 text-left text-[12.5px] font-medium ${
+                    item.tone === 'danger' ? BUTTON_TONE.dangerGhost : BUTTON_TONE.ghost
                   }`}
                   onClick={item.onSelect}
                   type="button"

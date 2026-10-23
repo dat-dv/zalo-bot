@@ -90,6 +90,10 @@ Finance, calendar and tasks are shared stores: anyone can edit or delete anyone'
 - Labels: `audit-labels.ts` (`describeAuditActor`: name → `session.owner` → `Unnamed (…last4)` → System/Unknown; `describeAuditChannel`: group name / `Zalo group` / `Direct chat`; `describeAuditChange(action, table)`: "Added · Reminders", also used by the home Activity panel). Strings `audit.*`, `nav.activity`.
 - Entry points: home Activity panel "View all" (admins), transaction details "View change history" (admins) — see modules/dashboard.
 
+## Buttons
+
+- Colours come from `BUTTON_TONE`; cursor, disabled dimming, focus outline and transitions come from the base layer. Pagination ← → (`PAGE_BUTTON`) and the table "View" are `secondary`; the detail dialog and filter sheet footers pair `secondary` (Record history, Clear all) with a `primary` close/done; ✕ `ghost`; the open-filters button `chip`/`chipSelected`. Exceptions: the data-cell "View record" button (an ID-like cell, coloured by `AUDIT_ACTION_TONE`, focus from the base outline) and the dismissible sky record chip in `AuditFilters`. See [web-ui-direction](../../global/web-ui-direction.md#button-interaction-states).
+
 ## Tests
 
 - API: `audit-context.spec.ts` (incl. sender name), `audit-log.subscriber.spec.ts` (context actor + name, no row fallback, system default, `zca_messages` skipped), `audit-log-query.spec.ts`, `audit.service.spec.ts` (filters, technical exclusion, legacy source, mapping, facets, name precedence, resolver failure, `listRecent` technical exclusion, 403), `transaction-confirmation.service.spec.ts` (confirmed action credited to requester; name kept only for self-confirmation), `users-session-profile.spec.ts` (`resolveZaloNames`).

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useId, useMemo } from 'react';
 import { useLocale } from '@/shared/providers/locale-provider';
+import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import {
   Modal,
   MODAL_CLOSE_TAP,
@@ -145,7 +146,7 @@ export function AdjustBalanceModal({
         </div>
         <button
           type="button"
-          className={`inline-flex size-7 cursor-pointer items-center justify-center rounded text-slate-400 hover:bg-slate-200 hover:text-slate-600 disabled:opacity-50 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-slate-300 ${MODAL_CLOSE_TAP}`}
+          className={`inline-flex size-7 items-center justify-center rounded ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}
           onClick={onClose}
           disabled={createMutation.isPending}
           aria-label={t('common.close')}
@@ -262,7 +263,7 @@ export function AdjustBalanceModal({
         >
           <button
             type="button"
-            className={`cursor-pointer rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 ${MODAL_FOOTER_TAP}`}
+            className={`rounded border px-3 py-1.5 text-xs font-medium ${BUTTON_TONE.secondary} ${MODAL_FOOTER_TAP}`}
             onClick={onClose}
             disabled={createMutation.isPending}
           >
@@ -270,7 +271,7 @@ export function AdjustBalanceModal({
           </button>
           <button
             type="submit"
-            className={`cursor-pointer rounded bg-indigo-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-600 ${MODAL_FOOTER_TAP}`}
+            className={`rounded px-3.5 py-1.5 text-xs font-medium shadow-xs ${BUTTON_TONE.primary} ${MODAL_FOOTER_TAP}`}
             disabled={createMutation.isPending || parsedTargetAmount === null || diff === 0}
           >
             {createMutation.isPending ? t('common.saving') : t('transactions.balanceAdjust.submit')}
