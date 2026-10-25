@@ -528,8 +528,8 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
         question: {
           type: 'STRING',
           description:
-            'Một câu hỏi ngắn bằng tiếng Việt về đúng thông tin còn thiếu (ví dụ: "Sinh nhật ' +
-            'ngày nào để mình nhắc?").',
+            'Một câu hỏi ngắn bằng tiếng Việt về đúng thông tin còn thiếu, không emoji, không ' +
+            'lời chào hay giải thích thêm (ví dụ: "Sinh nhật ngày nào để mình nhắc?").',
         },
       },
       required: ['question'],

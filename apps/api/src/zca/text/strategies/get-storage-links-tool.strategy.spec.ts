@@ -57,11 +57,14 @@ void test('GetStorageLinksToolStrategy outputs channel-specific links and permis
     input: {} as unknown as AgentInput,
   });
 
-  assert.match(sentMessage, /Thư mục nhóm/);
+  assert.match(sentMessage, /^📦 Kho lưu trữ Google của bot\n/);
+  assert.match(sentMessage, /• Thư mục nhóm: https:\/\/drive\.mock\/zalobot\/g-12345\n/);
+  assert.match(sentMessage, /• Hoá đơn \[zalobot\/g-12345\/bill\]: /);
   assert.match(sentMessage, /zalobot\/g-12345\/bill/);
   assert.match(sentMessage, /zalobot\/g-12345\/image/);
   assert.match(sentMessage, /zalobot\/g-12345\/video/);
   assert.match(sentMessage, /@bot share <gmail của bạn>/);
+  assert.doesNotMatch(sentMessage, /\n\n/, 'no empty lines');
   assert.equal(savedThreadFolder?.threadId, 'g-12345');
   assert.equal(savedThreadFolder?.folderPath, 'zalobot/g-12345');
 });
@@ -121,7 +124,7 @@ void test('GetStorageLinksToolStrategy schedules auto-recall after 5 minutes and
   assert.ok(undoneMessages.some((m) => m.msgId === 'loading-msg-1'));
 
   // Main message should have the 5-minute notice
-  const mainMsg = sentMessages.find((m) => m.includes('KHO LƯU TRỮ GOOGLE'));
+  const mainMsg = sentMessages.find((m) => m.includes('Kho lưu trữ Google'));
   assert.ok(mainMsg);
   assert.match(mainMsg, /5 phút/);
 
@@ -240,7 +243,7 @@ void test('GetStorageLinksToolStrategy shows the channel album recorded for the 
 
   assert.match(
     message,
-    /📸 Google Photos \(Album \[\[Zalo\] Nhà\]\):\n👉 https:\/\/photos\.app\.goo\.gl\/nha/,
+    /• Album Google Photos "\[Zalo\] Nhà": https:\/\/photos\.app\.goo\.gl\/nha\n/,
   );
   assert.doesNotMatch(message, /ZaloBot - /);
 });
@@ -252,7 +255,7 @@ void test('GetStorageLinksToolStrategy says the album comes with the first media
 
   assert.match(
     message,
-    /Album \[\[Zalo\] Nhà\]\):\n⚠️ Chưa có \(album được tạo khi gửi ảnh\/hóa đơn\/video đầu tiên\)/,
+    /• Album Google Photos "\[Zalo\] Nhà": chưa có, album được tạo khi gửi ảnh\/hoá đơn\/video đầu tiên\n/,
   );
 });
 
@@ -262,5 +265,5 @@ void test('GetStorageLinksToolStrategy lists only the custom folder, never categ
   });
 
   assert.deepEqual(drivePaths.sort(), ['Nhà/Chung', 'zalobot']);
-  assert.doesNotMatch(message, /HÓA ĐƠN|zalobot\/g-12345/);
+  assert.doesNotMatch(message, /• Hoá đơn|zalobot\/g-12345/);
 });

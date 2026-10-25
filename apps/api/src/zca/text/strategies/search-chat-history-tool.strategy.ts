@@ -80,7 +80,7 @@ export class SearchChatHistoryToolStrategy implements TextToolStrategy {
       );
       await this.zcaMessenger.sendMessage(
         chatId,
-        '⚠️ Không tra được lịch sử chat lúc này, bạn thử lại sau nhé.',
+        '⚠️ Không tra được lịch sử chat lúc này, thử lại sau.',
       );
       return;
     }
@@ -88,7 +88,7 @@ export class SearchChatHistoryToolStrategy implements TextToolStrategy {
     if (lines.length === 0) {
       await this.zcaMessenger.sendMessage(
         chatId,
-        `🔎 Mình không tìm thấy trong lịch sử chat${describeRange(fromDate, toDate)} nội dung nào khớp với câu hỏi này.`,
+        `🔎 Không thấy tin nào khớp trong lịch sử chat${describeRange(fromDate, toDate)}.`,
       );
       return;
     }
@@ -115,7 +115,7 @@ export class SearchChatHistoryToolStrategy implements TextToolStrategy {
     const answer = response.text?.trim();
     await this.zcaMessenger.sendMessage(
       chatId,
-      answer || '🔎 Mình tìm thấy vài tin nhắn liên quan nhưng chưa tổng hợp được câu trả lời.',
+      answer || '🔎 Có vài tin liên quan nhưng chưa tổng hợp được câu trả lời.',
     );
   }
 }

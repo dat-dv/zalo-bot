@@ -33,12 +33,10 @@ export class InitialAdminBootstrapGuard {
 
       const targetChatId = input.chatId || senderId;
       const welcomeAdminMessage =
-        `👑 CHÀO BẠN, BẠN LÀ QUẢN TRỊ VIÊN (ADMIN) HỆ THỐNG!\n\n` +
-        `Bạn là người đầu tiên kết nối với trợ lý Zalo Bot, hệ thống đã tự động gán quyền Quản trị viên tối cao cho bạn.\n\n` +
-        `✨ Quyền hạn của Quản trị viên:\n` +
-        `• Toàn quyền sử dụng trợ lý và tất cả các tính năng ghi chép, quản lý tài chính, nhắc nhở.\n` +
-        `• Bạn có thể thêm người khác hoặc phê duyệt cấp quyền cho họ thông qua mục "Người dùng" trên trang Dashboard quản trị.\n\n` +
-        `💡 Giờ bạn có thể bắt đầu sử dụng bot, hoặc gõ /help để xem danh sách lệnh nhé!`;
+        `👑 Bạn là người đầu tiên nhắn bot nên đã được đặt làm admin.\n` +
+        `Admin dùng được mọi tính năng: ghi chép, tài chính, nhắc việc.\n` +
+        `Thêm hoặc duyệt quyền cho người khác ở trang "Zalo & Người dùng" trên dashboard.\n` +
+        `Gõ /help để xem các lệnh.`;
 
       await sendChatText(this.zcaService, targetChatId, welcomeAdminMessage);
       return true;

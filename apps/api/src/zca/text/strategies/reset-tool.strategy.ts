@@ -12,7 +12,7 @@ export class ResetToolStrategy implements TextToolStrategy {
   public async execute(context: TextToolContext): Promise<void> {
     await this.zcaMessenger.sendMessage(
       context.chatId,
-      '🧹 Đã làm mới ngữ cảnh hội thoại. Bạn có thể bắt đầu phiên trò chuyện mới!',
+      'Đã làm mới hội thoại, mình bắt đầu lại từ đầu.',
     );
   }
 }

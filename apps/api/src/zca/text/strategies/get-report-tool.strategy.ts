@@ -19,19 +19,14 @@ export class GetReportToolStrategy implements TextToolStrategy {
       const summary = await this.financeService.getSummary();
 
       const reply =
-        `📊 BÁO CÁO TÀI CHÍNH CỦA BẠN:\n\n` +
-        `• Tổng thu: ${summary.income.toLocaleString('vi-VN')} đ\n` +
-        `• Tổng chi: ${summary.expense.toLocaleString('vi-VN')} đ\n` +
-        `• Số dư hiện tại: ${summary.balance.toLocaleString('vi-VN')} đ\n\n` +
-        `💡 Bạn có thể tra cứu chi tiết hơn tại giao diện Dashboard web!`;
+        `📊 Thu ${summary.income.toLocaleString('vi-VN')}đ · ` +
+        `Chi ${summary.expense.toLocaleString('vi-VN')}đ · ` +
+        `Số dư ${summary.balance.toLocaleString('vi-VN')}đ`;
 
       await this.zcaMessenger.sendMessage(context.chatId, reply);
     } catch (err) {
       this.logger.error(`Failed to get report summary: ${(err as Error).message}`);
-      await this.zcaMessenger.sendMessage(
-        context.chatId,
-        '⚠️ Không thể lấy dữ liệu báo cáo lúc này.',
-      );
+      await this.zcaMessenger.sendMessage(context.chatId, '⚠️ Chưa lấy được báo cáo, thử lại sau.');
     }
   }
 }

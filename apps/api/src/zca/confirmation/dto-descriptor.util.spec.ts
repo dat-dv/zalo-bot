@@ -17,7 +17,7 @@ import { CreateReminderDto } from '../../reminders/reminders.service';
 import { CreateTaskOptions } from '../../tasks/task.types';
 import { CreateEventOptions } from '../../google/google-calendar.service';
 
-void test('DtoDescriptor strictly typechecks full DTO shape and displays (trống) for empty fields', () => {
+void test('DtoDescriptor strictly typechecks full DTO shape and drops empty fields', () => {
   // Test 1: Finance Transaction with missing fields
   const txDto: CreateFinanceTransactionDto = {
     type: 'expense',
@@ -26,20 +26,15 @@ void test('DtoDescriptor strictly typechecks full DTO shape and displays (trốn
   };
 
   const txCard = renderDtoConfirmationCard(txDto, FINANCE_TRANSACTION_DESCRIPTOR);
-  assert.match(txCard, /• Phân loại: 🔴 Khoản chi/);
-  assert.match(txCard, /• Số tiền: 15\.000 đ/);
-  assert.match(txCard, /• Danh mục: \(trống\)/);
-  assert.match(txCard, /• Ghi chú: cà phê/);
-  assert.match(txCard, /• Thời gian: \(trống\)/);
-  assert.match(txCard, /• Địa điểm: \(trống\)/);
-  assert.match(txCard, /• Phương thức: \(trống\)/);
-  assert.match(txCard, /• Ảnh hóa đơn: \(trống\)/);
+  // The card header already names the transaction type.
+  assert.equal(txCard, '• Số tiền: 15.000 đ\n• Ghi chú: cà phê');
+  assert.doesNotMatch(txCard, /\(trống\)/);
   // Hidden fields shouldn't be rendered
   assert.doesNotMatch(txCard, /Người dùng/);
   assert.doesNotMatch(txCard, /Địa điểm ID/);
 });
 
-void test('DEBT_DESCRIPTOR renders Vietnamese direction and empty fields appropriately', () => {
+void test('DEBT_DESCRIPTOR renders Vietnamese direction and drops empty fields', () => {
   const debtDto: CreateDebtDto = {
     direction: 'receivable',
     counterparty: 'Nam',
@@ -47,12 +42,10 @@ void test('DEBT_DESCRIPTOR renders Vietnamese direction and empty fields appropr
   };
 
   const card = renderDtoConfirmationCard(debtDto, DEBT_DESCRIPTOR);
-  assert.match(card, /• Phân loại: 👉 Họ nợ bạn \(Phải thu\)/);
-  assert.match(card, /• Người liên quan: Nam/);
-  assert.match(card, /• Tên gợi nhớ: \(trống\)/);
-  assert.match(card, /• Số tiền: 500\.000 đ/);
-  assert.match(card, /• Ghi chú: \(trống\)/);
-  assert.match(card, /• Hạn trả: \(trống\)/);
+  assert.equal(
+    card,
+    '• Phân loại: Họ nợ bạn (phải thu)\n• Người liên quan: Nam\n• Số tiền: 500.000 đ',
+  );
 });
 
 void test('REMINDER_DESCRIPTOR renders notifyType and repeatType correctly', () => {
@@ -66,7 +59,7 @@ void test('REMINDER_DESCRIPTOR renders notifyType and repeatType correctly', () 
 
   const card = renderDtoConfirmationCard(reminderDto, REMINDER_DESCRIPTOR);
   assert.match(card, /• Nội dung nhắc: Uống thuốc/);
-  assert.match(card, /• Hình thức thông báo: 📞 Cuộc gọi/);
+  assert.match(card, /• Hình thức thông báo: Gọi điện/);
   // Each time shows its own repeat.
   assert.match(card, /• Thời gian nhắc: .*\(Hàng ngày\)/);
   assert.doesNotMatch(card, /• Lặp lại:/);
@@ -78,9 +71,30 @@ void test('TASK_DESCRIPTOR renders task fields with missing options', () => {
   };
 
   const card = renderDtoConfirmationCard(taskDto, TASK_DESCRIPTOR);
-  assert.match(card, /• Việc cần làm: Dọn nhà đón Tết/);
-  assert.match(card, /• Hạn chót: \(trống\)/);
-  assert.match(card, /• Ghi chú: \(trống\)/);
+  // Empty due date and notes, no nag and the default "tag in group" mode take no line.
+  assert.equal(card, '• Việc cần làm: Dọn nhà đón Tết\n• Nhắc ai: Không tag ai');
+});
+
+void test('Reminder cards show only the non-default delivery settings', () => {
+  const defaults: CreateReminderDto = {
+    userId: 'u1',
+    title: 'Họp',
+    remindAt: new Date('2026-10-12T08:00:00.000Z'),
+    notifyType: 'text',
+    chatId: 'u1',
+    remindMode: 'mention',
+  };
+  const plain = renderDtoConfirmationCard(defaults, REMINDER_DESCRIPTOR);
+  assert.doesNotMatch(plain, /Hình thức thông báo|Nhắc lại|Cách nhắc/);
+  assert.match(plain, /• Gửi tới: Chat riêng của bạn/);
+
+  const custom = renderDtoConfirmationCard(
+    { ...defaults, chatId: 'group-1', remindMode: 'direct', nagEveryMinutes: 15, nagCount: 3 },
+    REMINDER_DESCRIPTOR,
+  );
+  assert.match(custom, /• Nhắc lại: /);
+  assert.match(custom, /• Gửi tới: Nhóm này/);
+  assert.match(custom, /• Cách nhắc: Nhắn riêng từng người/);
 });
 
 void test('CALENDAR_EVENT_DESCRIPTOR renders Google Calendar event details with reminders', () => {
@@ -95,8 +109,7 @@ void test('CALENDAR_EVENT_DESCRIPTOR renders Google Calendar event details with 
   assert.match(card, /• Tiêu đề sự kiện: Họp ban quản trị/);
   assert.match(card, /• Bắt đầu:/);
   assert.match(card, /• Kết thúc:/);
-  assert.match(card, /• Địa điểm: \(trống\)/);
-  assert.match(card, /• Mô tả: \(trống\)/);
+  assert.doesNotMatch(card, /Địa điểm|Mô tả/);
   assert.match(card, /• Báo chuông trước: 60p, 30p, 10p, 0p/);
 });
 
@@ -111,14 +124,13 @@ void test('DELETE_TRANSACTION_DESCRIPTOR displays target transaction ID and deta
 
   const card = renderDtoConfirmationCard(delDto, DELETE_TRANSACTION_DESCRIPTOR);
   assert.match(card, /• Mã giao dịch: uuid-1234-abcd/);
-  assert.match(card, /• Phân loại: 🔴 Khoản chi/);
+  assert.doesNotMatch(card, /Phân loại|Thời gian/);
   assert.match(card, /• Số tiền: 30\.000 đ/);
   assert.match(card, /• Danh mục: Ăn sáng/);
   assert.match(card, /• Ghi chú: bánh mì/);
-  assert.match(card, /• Thời gian: \(trống\)/);
 });
 
-void test('COMPLETE_TASK_DESCRIPTOR renders task completion card with empty fallbacks', () => {
+void test('COMPLETE_TASK_DESCRIPTOR renders task completion card without empty fields', () => {
   const completeDto = {
     taskId: 'task_complete_123',
     taskTitle: 'Nộp báo cáo thuế',
@@ -126,8 +138,7 @@ void test('COMPLETE_TASK_DESCRIPTOR renders task completion card with empty fall
 
   const card = renderDtoConfirmationCard(completeDto, COMPLETE_TASK_DESCRIPTOR);
   assert.match(card, /• Việc cần làm: Nộp báo cáo thuế/);
-  assert.match(card, /• Hạn chót: \(trống\)/);
-  assert.match(card, /• Ghi chú: \(trống\)/);
+  assert.doesNotMatch(card, /Hạn chót|Ghi chú/);
   assert.match(card, /• Mã công việc \(ID\): task_complete_123/);
 });
 
@@ -145,7 +156,7 @@ void test('DELETE_CALENDAR_EVENT_DESCRIPTOR renders event details for deletion',
   assert.match(card, /• Bắt đầu:/);
   assert.match(card, /• Kết thúc:/);
   assert.match(card, /• Địa điểm: Highlands Coffee/);
-  assert.match(card, /• Mô tả: \(trống\)/);
+  assert.doesNotMatch(card, /Mô tả/);
   assert.match(card, /• Mã sự kiện \(ID\): event_del_456/);
 });
 

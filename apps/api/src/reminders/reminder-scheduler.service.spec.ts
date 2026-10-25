@@ -105,7 +105,9 @@ void test('sends the reminder to the owner private chat once', async () => {
   assert.deepEqual(await tick(), ['sent']);
   assert.equal(sent.length, 1);
   assert.equal(sent[0].chatId, '111');
-  assert.match(sent[0].text, /📌 Nội dung: Nhắc r1/);
+  // Title in the header, the time of the occurrence below; no separator lines.
+  assert.match(sent[0].text, /^⏰ Nhắc: Nhắc r1\n\d{2}:\d{2} /);
+  assert.doesNotMatch(sent[0].text, /━/);
 
   await tick();
   assert.equal(sent.length, 1);
@@ -152,5 +154,5 @@ void test('a reminder again says which one it is', async () => {
     remindAt: NOW.toISOString(),
     nag: { index: 2, total: 3 },
   });
-  assert.match(sent[0].text, /🔁 Nhắc lại 2\/3/);
+  assert.match(sent[0].text, /^⏰ Nhắc: Nhắc r1\nNhắc lại lần 2\/3\n/);
 });

@@ -30,17 +30,28 @@ void test('HelpToolStrategy includes /zalo-login command in help text', async ()
 
   assert.equal(sentMessages.length, 1);
   const helpText = sentMessages[0];
-  assert.match(helpText, /HƯỚNG DẪN SỬ DỤNG TRỢ LÝ ZALO/);
-  assert.match(helpText, /CÁC TÍNH NĂNG AI THÔNG MINH \(TOOLCALLS HỮU ÍCH\)/);
-  assert.match(helpText, /Thu - Chi/);
-  assert.match(helpText, /Google Calendar/);
-  assert.match(helpText, /Việc cần làm/);
+  assert.match(helpText, /^📖 Danh sách lệnh hỗ trợ\n/);
+  assert.match(helpText, /^Thu chi và hoá đơn:$/m);
+  assert.match(helpText, /^Sổ nợ và cho vay:$/m);
+  assert.match(helpText, /^Lịch Google Calendar:$/m);
+  assert.match(helpText, /^Việc cần làm:$/m);
   assert.doesNotMatch(helpText, /Google Tasks/);
-  assert.match(helpText, /Reminders/);
+  assert.match(helpText, /^Hẹn giờ nhắc:$/m);
+  // The only place that still teaches the bulk commands, since no notice mentions them.
+  assert.match(helpText, /"yes all" \/ "cancel all"/);
+  assert.match(helpText, /^Lệnh nhanh:$/m);
+  assert.match(helpText, /^Cho admin:$/m);
+  assert.match(helpText, /\/reminders/);
+  assert.match(helpText, /\/ban <id>/);
   assert.match(helpText, /\/drive/);
   assert.match(helpText, /\/share/);
   assert.match(helpText, /\/zalo-login/);
   assert.match(helpText, /\/zca-login/);
   assert.match(helpText, /\/zalo-logout/);
   assert.match(helpText, /\/zca-logout/);
+  // Short chat style: one emoji at the very top, no separator lines, caps headings or tips.
+  assert.equal(helpText.match(/\p{Extended_Pictographic}/gu)?.length, 1);
+  assert.doesNotMatch(helpText, /━/);
+  assert.doesNotMatch(helpText, /TOOLCALLS|HƯỚNG DẪN|LỆNH NHANH|ADMIN\)/);
+  assert.doesNotMatch(helpText, /Mẹo|!/);
 });

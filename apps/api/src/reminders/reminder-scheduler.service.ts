@@ -89,11 +89,13 @@ export class ReminderSchedulerService {
     }).format(new Date(data.remindAt));
 
     // Calls are not placed yet: a `call` reminder is sent as a message like the others.
-    const header = withNagLine(translate(locale, 'reminder.header.text'), data.nag, locale);
-    const body = `━━━━━━━━━━━━━━━━━━━━
-📌 Nội dung: ${reminder.title}
-⏰ Thời điểm: ${timeStr}
-━━━━━━━━━━━━━━━━━━━━`;
+    const header = withNagLine(
+      translate(locale, 'reminder.header.text', { title: reminder.title }),
+      data.nag,
+      locale,
+    );
+    // The title is in the header; the body is just the time of this occurrence.
+    const body = timeStr;
 
     const target = reminderTarget(reminder);
     const result = await this.targets.deliver(target, { header, body }, locale);

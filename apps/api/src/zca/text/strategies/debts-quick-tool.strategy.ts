@@ -19,10 +19,7 @@ export class DebtsQuickToolStrategy implements TextToolStrategy {
       const debts = await this.financeService.getActiveDebts();
 
       if (debts.length === 0) {
-        await this.zcaMessenger.sendMessage(
-          context.chatId,
-          '💳 SỔ CÔNG NỢ\n\nHiện tại bạn không có khoản công nợ nào chưa tất toán. 🎉',
-        );
+        await this.zcaMessenger.sendMessage(context.chatId, 'Không có khoản nợ nào chưa tất toán.');
         return;
       }
 
@@ -34,32 +31,26 @@ export class DebtsQuickToolStrategy implements TextToolStrategy {
         .reduce((sum, d) => sum + Number(d.remainingAmount || 0), 0);
 
       const debtLines = debts.slice(0, 10).map((d, idx) => {
-        const relation = d.direction === 'receivable' ? '👉 Họ nợ bạn' : '👈 Bạn nợ họ';
         const contactName = d.contact?.displayName || d.counterparty || 'Người quen';
+        const relation =
+          d.direction === 'receivable' ? `${contactName} nợ bạn` : `Bạn nợ ${contactName}`;
         const remaining = Number(d.remainingAmount || 0).toLocaleString('vi-VN');
         const dueText = d.dueAt
-          ? ` (Hạn: ${new Date(d.dueAt).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })})`
+          ? ` · hạn ${new Date(d.dueAt).toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}`
           : '';
-        const note = d.note ? ` - ${d.note}` : '';
-        return `  ${idx + 1}. ${contactName} [${relation}]: ${remaining} đ${dueText}${note}`;
+        const note = d.note ? ` · ${d.note}` : '';
+        return `${idx + 1}. ${relation} ${remaining}đ${dueText}${note}`;
       });
 
       const reply =
-        `💳 SỔ CÔNG NỢ (${debts.length} khoản)\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        `• Cần thu (họ nợ): ${receivable.toLocaleString('vi-VN')} đ\n` +
-        `• Cần trả (bạn nợ): ${payable.toLocaleString('vi-VN')} đ\n\n` +
-        `📋 Danh sách chi tiết:\n` +
-        debtLines.join('\n') +
-        `\n\n💡 Nhắn cho bot: "Cho Nam vay 200k" hoặc "Nam trả 100k" để tự động ghi sổ.`;
+        `Còn ${debts.length} khoản nợ: cần thu ${receivable.toLocaleString('vi-VN')}đ, ` +
+        `cần trả ${payable.toLocaleString('vi-VN')}đ\n` +
+        debtLines.join('\n');
 
       await this.zcaMessenger.sendMessage(context.chatId, reply);
     } catch (err) {
       this.logger.error(`Failed to list debts: ${(err as Error).message}`);
-      await this.zcaMessenger.sendMessage(
-        context.chatId,
-        '⚠️ Có lỗi xảy ra khi tra cứu sổ công nợ.',
-      );
+      await this.zcaMessenger.sendMessage(context.chatId, '⚠️ Chưa xem được sổ nợ, thử lại sau.');
     }
   }
 }

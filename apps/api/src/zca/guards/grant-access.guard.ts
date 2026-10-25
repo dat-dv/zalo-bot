@@ -61,10 +61,9 @@ export class GrantAccessGuard {
 
     const targetChatId = input.chatId || senderId;
     const rejectionMessage =
-      `⛔ BẠN CHƯA ĐƯỢC CẤP QUYỀN TRUY CẬP\n\n` +
-      `Trợ lý Zalo Bot hiện đang ở chế độ bảo mật nội bộ. Vui lòng gửi User ID bên dưới cho Quản trị viên (Admin) để được cấp quyền sử dụng:\n\n` +
-      `🆔 User ID của bạn:\n${senderId}\n\n` +
-      `💡 Sau khi Quản trị viên phê duyệt trên Dashboard, bạn có thể gửi lại tin nhắn để bắt đầu sử dụng nhé!`;
+      `⛔ Bạn chưa được cấp quyền dùng bot. Gửi ID này cho admin để được duyệt:\n` +
+      `${senderId}\n` +
+      `Khi admin duyệt trên dashboard, nhắn lại là dùng được.`;
 
     await sendChatText(this.zcaService, targetChatId, rejectionMessage);
 

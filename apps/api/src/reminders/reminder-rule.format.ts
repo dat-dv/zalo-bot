@@ -47,7 +47,7 @@ export function nagLabel(
   });
 }
 
-/** The header of a reminder again gets a "🔁 Nhắc lại 2/3" line, so it reads as a follow-up. */
+/** The header of a reminder again gets a "Nhắc lại lần 2/3" line, so it reads as a follow-up. */
 export function withNagLine(
   header: string,
   nag: { index: number; total: number } | undefined,

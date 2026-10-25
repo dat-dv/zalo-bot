@@ -113,14 +113,14 @@ Nhắc việc chạy trên hàng đợi BullMQ `task-reminders` (cơ chế chung
 Nội dung tin theo ngôn ngữ của người tạo việc:
 
 ```
-⏰ Nhắc việc cần làm
-━━━━━━━━━━━━━━━━━━━━
-📌 Nộp báo cáo
-⏳ Hạn: 23/10
-📝 Quý 3
-━━━━━━━━━━━━━━━━━━━━
-Nhắn bot "xong Nộp báo cáo" để đánh dấu hoàn thành.
+⏰ Việc: Nộp báo cáo
+@Trí
+Hạn: 23/10
+Quý 3
+Xong thì nhắn "xong Nộp báo cáo".
 ```
+
+Tên việc nằm ngay trên dòng đầu để lướt chat là biết việc gì; dòng tag (nếu có) nằm giữa tiêu đề và phần thân. Không có icon đầu dòng hay dòng gạch `━━━`, theo quy tắc văn phong chung ở [Bố cục phản hồi Zalo](../../global/zalo-response-layout.md).
 
 ## 3. Ai sở hữu code nào
 

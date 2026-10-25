@@ -139,8 +139,8 @@ void test('ZcaBotFeatureService dispatches reaction confirmations', async () => 
   assert.equal(reactionHandledArgs.chatId, threadId);
   assert.equal(reactionHandledArgs.reactionIcon, '/-heart');
   assert.equal(reactionHandledArgs.msgId, 'msg-999');
-  assert.equal(sentReplies.length, 1);
-  assert.match(sentReplies[0], /1\/2 lượt thả tim/);
+  // The heart counter comes from the confirmation service (and is recalled with the card).
+  assert.equal(sentReplies.length, 0);
 });
 
 void test('ZcaBotFeatureService ignores isSelf message when allowSelf is false', async () => {
@@ -1345,7 +1345,7 @@ void test('ZcaBotFeatureService handles quote-reply to an image with @bot lưu �
       drive?: { webViewLink?: string };
       photos?: { productUrl?: string };
     }) =>
-      `☁️ ĐÃ LƯU TRỮ HÌNH ẢNH LÊN GOOGLE:\n📁 Google Drive: ${res.drive?.webViewLink}\n📸 Google Photos: ${res.photos?.productUrl}`,
+      `☁️ Đã lưu ảnh lên Google:\n• Google Drive: zalobot/img\nXem tại: ${res.drive?.webViewLink}\n• Google Photos: album\nXem tại: ${res.photos?.productUrl}`,
   } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
 
   let textInputCalled = false;
@@ -1422,7 +1422,8 @@ void test('ZcaBotFeatureService handles direct image with caption @bot lưu ản
     formatUploadSummary: (res: {
       drive?: { webViewLink?: string };
       photos?: { productUrl?: string };
-    }) => `☁️ ĐÃ LƯU TRỮ HÌNH ẢNH LÊN GOOGLE:\n📁 Google Drive: ${res.drive?.webViewLink}`,
+    }) =>
+      `☁️ Đã lưu ảnh lên Google:\n• Google Drive: zalobot/img\nXem tại: ${res.drive?.webViewLink}`,
   } as unknown as import('../receipt-storage/media-storage.service').MediaStorageService;
 
   let textInputCalled = false;

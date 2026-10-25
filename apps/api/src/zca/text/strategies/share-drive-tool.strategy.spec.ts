@@ -30,7 +30,8 @@ void test('ShareDriveToolStrategy rejects when Google is not connected', async (
     input: {} as unknown as AgentInput,
   });
 
-  assert.match(sentMessage, /CHƯA ĐƯỢC KẾT NỐI/);
+  assert.match(sentMessage, /^⚠️ Google chưa được kết nối hoặc chưa cấp quyền Drive\./);
+  assert.match(sentMessage, /\/login/);
 });
 
 void test('ShareDriveToolStrategy rejects invalid email address', async () => {
@@ -57,7 +58,8 @@ void test('ShareDriveToolStrategy rejects invalid email address', async () => {
     input: {} as unknown as AgentInput,
   });
 
-  assert.match(sentMessage, /Email không hợp lệ/);
+  assert.match(sentMessage, /^⚠️ Email không hợp lệ\./);
+  assert.match(sentMessage, /@bot share <gmail của bạn>/);
 });
 
 void test('ShareDriveToolStrategy shares channel folder with valid email', async () => {
@@ -113,8 +115,9 @@ void test('ShareDriveToolStrategy shares channel folder with valid email', async
 
   assert.equal(sharedEmail, 'myemail@gmail.com');
   assert.equal(sharedFolder, 'zalobot/g-12345');
-  assert.match(sentMessage, /ĐÃ CẤP QUYỀN TRUY CẬP GOOGLE DRIVE/);
-  assert.match(sentMessage, /myemail@gmail.com/);
+  assert.match(sentMessage, /^✅ Đã cấp quyền xem Google Drive cho myemail@gmail\.com\n/);
+  assert.match(sentMessage, /Thư mục zalobot\/g-12345 có hoá đơn, hình ảnh và video của nhóm\./);
+  assert.match(sentMessage, /Link: https:\/\/drive\.mock\/folder$/);
   assert.equal(savedFolderInfo?.threadId, 'g-12345');
   assert.equal(savedFolderInfo?.folderPath, 'zalobot/g-12345');
 });

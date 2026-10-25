@@ -50,7 +50,7 @@ export class CreateCalendarEventToolStrategy implements TextToolStrategy {
       this.logger.error(`Failed to create pending calendar event: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `⚠️ Không thể tạo yêu cầu lịch hẹn: ${(err as Error).message}`,
+        `⚠️ Chưa tạo được yêu cầu thêm lịch hẹn: ${(err as Error).message}`,
       );
     }
   }

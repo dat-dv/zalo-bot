@@ -32,8 +32,7 @@ export class ShareDriveToolStrategy implements TextToolStrategy {
     ) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `❌ TÀI KHOẢN GOOGLE CHƯA ĐƯỢC KẾT NỐI HOẶC CHƯA CẤP QUYỀN DRIVE\n\n` +
-          `Vui lòng liên hệ Quản trị viên gõ /login để kích hoạt kết nối Google Drive trước nhé!`,
+        `⚠️ Google chưa được kết nối hoặc chưa cấp quyền Drive. Nhờ admin gõ /login để kết nối trước.`,
       );
       return;
     }
@@ -41,7 +40,7 @@ export class ShareDriveToolStrategy implements TextToolStrategy {
     if (!this.driveService) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `⚠️ Dịch vụ Google Drive chưa sẵn sàng. Vui lòng thử lại sau.`,
+        `⚠️ Google Drive chưa sẵn sàng, thử lại sau.`,
       );
       return;
     }
@@ -53,16 +52,14 @@ export class ShareDriveToolStrategy implements TextToolStrategy {
     if (!email || !isValidEmail(email)) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `⚠️ Email không hợp lệ!\n\n` +
-          `👉 Vui lòng sử dụng cú pháp: @bot share <gmail của bạn>\n` +
-          `Ví dụ: @bot share nguyenvana@gmail.com`,
+        `⚠️ Email không hợp lệ. Gõ theo mẫu @bot share <gmail của bạn>, ví dụ: @bot share nguyenvana@gmail.com`,
       );
       return;
     }
 
     await this.zcaMessenger.sendMessage(
       context.chatId,
-      `⏳ Đang thiết lập quyền truy cập Google Drive cho tài khoản ${email}...`,
+      `⏳ Đang mở quyền Google Drive cho ${email}...`,
     );
 
     try {
@@ -97,17 +94,15 @@ export class ShareDriveToolStrategy implements TextToolStrategy {
 
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `✅ ĐÃ CẤP QUYỀN TRUY CẬP GOOGLE DRIVE THÀNH CÔNG!\n\n` +
-          `👤 Tài khoản: ${email}\n` +
-          `📁 Thư mục nhóm: ${channelDrivePath}\n` +
-          (webViewLink ? `👉 Mở thư mục: ${webViewLink}\n\n` : `\n`) +
-          `Bây giờ bạn đã có quyền xem toàn bộ hóa đơn, hình ảnh và video của nhóm này trên Google Drive rồi nhé! 🎉`,
+        `✅ Đã cấp quyền xem Google Drive cho ${email}\n` +
+          `Thư mục ${channelDrivePath} có hoá đơn, hình ảnh và video của nhóm.` +
+          (webViewLink ? `\nLink: ${webViewLink}` : ''),
       );
     } catch (err) {
       this.logger.error(`Failed to share Google Drive folder: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `❌ Không thể chia sẻ thư mục: ${(err as Error).message}`,
+        `⚠️ Chưa chia sẻ được thư mục: ${(err as Error).message}`,
       );
     }
   }
