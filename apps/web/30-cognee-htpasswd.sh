@@ -81,7 +81,10 @@ echo "30-cognee-htpasswd: /cognee/ enabled behind Basic Auth"
 
 cat > "$UI_SERVER" <<'NGINX'
 server {
+  # Port 80: the UI host routed to the web like the main domain. Port 8081 (published as
+  # COGNEE_UI_PORT, 3006): a tunnel pointed straight at the UI, whatever Host it sends.
   listen 80;
+  listen 8081 default_server;
   server_name __UI_HOST__;
   absolute_redirect off;
   port_in_redirect off;
