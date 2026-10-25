@@ -34,6 +34,7 @@ import { ZaloLoginToolStrategy } from './strategies/zalo-login-tool.strategy';
 import { ZaloLogoutToolStrategy } from './strategies/zalo-logout-tool.strategy';
 import { ShareDriveToolStrategy } from './strategies/share-drive-tool.strategy';
 import { SearchChatHistoryToolStrategy } from './strategies/search-chat-history-tool.strategy';
+import { AskClarificationToolStrategy } from './strategies/ask-clarification-tool.strategy';
 
 export const TEXT_TOOL_STRATEGY_PROVIDERS = [
   WelcomeToolStrategy,
@@ -71,4 +72,5 @@ export const TEXT_TOOL_STRATEGY_PROVIDERS = [
   ZaloLogoutToolStrategy,
   ShareDriveToolStrategy,
   SearchChatHistoryToolStrategy,
+  AskClarificationToolStrategy,
 ];

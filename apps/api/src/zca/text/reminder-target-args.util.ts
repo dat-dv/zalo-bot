@@ -9,6 +9,7 @@ import {
   type ReminderRepeat,
   checkReminderRules,
   normalizeRepeat,
+  upcomingTime,
 } from '../../reminders/reminder-schedule';
 import type { TextToolContext } from './text-tool.interface';
 
@@ -78,9 +79,13 @@ export interface ArgsReminderTime {
 /**
  * Reminder times with their repeats: `remindTimes` / `remindAt` are sent once, and each
  * `repeatingTimes` entry `{ at, repeatType, repeatWeekdays? }` adds (or sets the repeat of) its
- * time. Invalid values are dropped; earliest first.
+ * time. A repeating time already past (20/10 asked on 25/10) starts at its next occurrence.
+ * Invalid values are dropped; earliest first.
  */
-export function requestedTimesFromArgs(args: Record<string, unknown>): ArgsReminderTime[] {
+export function requestedTimesFromArgs(
+  args: Record<string, unknown>,
+  now: Date = new Date(),
+): ArgsReminderTime[] {
   const byAt = new Map<number, ArgsReminderTime>();
   for (const at of reminderTimesFromArgs(args)) byAt.set(new Date(at).getTime(), { at });
   const repeating: unknown[] = Array.isArray(args.repeatingTimes) ? args.repeatingTimes : [];
@@ -97,7 +102,12 @@ export function requestedTimesFromArgs(args: Record<string, unknown>): ArgsRemin
         )
       : [];
     const repeat = normalizeRepeat({ repeatType: item.repeatType, repeatWeekdays: weekdays });
-    byAt.set(ms, { at, ...(repeat.repeatType !== 'none' ? { repeat } : {}) });
+    if (repeat.repeatType === 'none') {
+      byAt.set(ms, { at });
+      continue;
+    }
+    const start = upcomingTime(new Date(ms), repeat, now).getTime();
+    byAt.set(start, { at: start === ms ? at : new Date(start).toISOString(), repeat });
   }
   return [...byAt.entries()].sort(([a], [b]) => a - b).map(([, time]) => time);
 }

@@ -5,6 +5,7 @@ import {
   isSameRepeat,
   normalizeRepeat,
   repeatOf,
+  upcomingTime,
 } from './reminder-schedule';
 
 /** The dashboard picks reminder times by the minute, so the current minute is not "past". */
@@ -68,6 +69,16 @@ export function asRequestedTimes(
     const requested = time instanceof Date ? { at: time } : time;
     return requested.repeat || !repeat ? requested : { ...requested, repeat };
   });
+}
+
+/** The times with each repeating one already past moved to its next occurrence. */
+export function withUpcomingRepeats(
+  times: readonly RequestedReminderTime[],
+  now: Date,
+): RequestedReminderTime[] {
+  return times.map((time) =>
+    time.repeat ? { ...time, at: upcomingTime(time.at, time.repeat, now) } : time,
+  );
 }
 
 /** Valid, distinct times (the first one of an instant wins), earliest first. */

@@ -65,11 +65,17 @@ function repeatDays(repeat: ReminderRepeat, anchor: Date): readonly number[] {
   return [];
 }
 
+/** `day` of a Vietnam month at `timeOfDay`, on the last day when the month is shorter. */
+function vnDayInMonth(year: number, month: number, day: number, timeOfDay: number): number {
+  return Date.UTC(year, month, Math.min(day, daysInMonth(year, month))) + timeOfDay - VN_OFFSET_MS;
+}
+
 /**
  * The next occurrence of a repeating time strictly after `now` and after `current`, at the same
  * Vietnam time of day; occurrences missed meanwhile are skipped, not sent late. `anchor` is the
  * time as first set: its weekday for a plain weekly repeat, its day of the month for a monthly
- * one (the last day in shorter months, back to the anchor day afterwards). Null without repeat.
+ * one (the last day in shorter months, back to the anchor day afterwards), its day and month
+ * for a yearly one (28 February outside leap years for 29 February). Null without repeat.
  */
 export function nextOccurrence(
   current: Date,
@@ -91,8 +97,17 @@ export function nextOccurrence(
         month = 0;
         year += 1;
       }
-      const day = Math.min(anchorDay, daysInMonth(year, month));
-      const at = Date.UTC(year, month, day) + timeOfDay - VN_OFFSET_MS;
+      const at = vnDayInMonth(year, month, anchorDay, timeOfDay);
+      if (at > after) return new Date(at);
+    }
+  }
+
+  if (type === 'yearly') {
+    const { month, day } = vnDate(anchor);
+    const timeOfDay = vnTimeOfDay(anchor);
+    // From the current year: a time moved off its anchor date may still fall later this year.
+    for (let year = vnDate(current).year; ; year += 1) {
+      const at = vnDayInMonth(year, month, day, timeOfDay);
       if (at > after) return new Date(at);
     }
   }
@@ -107,6 +122,16 @@ export function nextOccurrence(
   return null;
 }
 
+/**
+ * Where a requested time starts: a repeating time already past starts at its next occurrence
+ * (missed occurrences are not sent late), any other time as given. The moved time is the new
+ * anchor, so a monthly 31st moved into a shorter month keeps that shorter day afterwards.
+ */
+export function upcomingTime(at: Date, repeat: ReminderRepeat, now: Date): Date {
+  if (at.getTime() > now.getTime()) return at;
+  return nextOccurrence(at, at, repeat, now) ?? at;
+}
+
 /** The remind-again part of a rule, shared by all times of a task or a reminder. */
 export interface NagRule {
   nagEveryMinutes: number | null;
@@ -116,7 +141,7 @@ export interface NagRule {
 export const NO_NAG_RULE: NagRule = { nagEveryMinutes: null, nagCount: null };
 export const NO_REPEAT: ReminderRepeat = { repeatType: 'none', repeatWeekdays: [] };
 
-const REPEATING_TYPES = ['daily', 'weekdays', 'weekly', 'monthly'] as const;
+const REPEATING_TYPES = ['daily', 'weekdays', 'weekly', 'monthly', 'yearly'] as const;
 
 /** A repeat with weekdays sorted and distinct, kept only for a weekly repeat. */
 export function normalizeRepeat(repeat: ReminderRepeat): ReminderRepeat {

@@ -122,8 +122,10 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
     name: TextToolType.SET_REMINDER,
     description:
       'Đặt lịch hẹn hoặc lời nhắc cá nhân trong tương lai (không thêm vào danh sách việc). ' +
-      'Ví dụ: "mai 9h nhắc đi họp", "nhắc tôi 3h chiều đón con". ' +
-      'Nếu người dùng thêm một việc cần làm và muốn được nhắc, dùng CREATE_TASK kèm remindAt.',
+      'Ví dụ: "mai 9h nhắc đi họp", "nhắc tôi 3h chiều đón con", "mỗi dịp 14/2 nhắc mua hoa". ' +
+      'Nếu người dùng thêm một việc cần làm và muốn được nhắc, dùng CREATE_TASK kèm remindAt. ' +
+      'Dịp lặp hằng năm (14/2, 8/3, 20/10, sinh nhật, kỷ niệm) dùng tool này với repeatingTimes ' +
+      'yearly, trừ khi người dùng nói rõ là thêm việc.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -147,13 +149,20 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           items: {
             type: 'OBJECT',
             properties: {
-              at: { type: 'STRING', description: 'Lần đầu của giờ lặp, dạng ISO.' },
+              at: {
+                type: 'STRING',
+                description:
+                  'Lần gần nhất TRONG TƯƠNG LAI của giờ lặp, dạng ISO (dịp hằng năm đã qua ' +
+                  'trong năm nay thì là năm sau).',
+              },
               repeatType: {
                 type: 'STRING',
-                enum: ['daily', 'weekdays', 'weekly', 'monthly'],
+                enum: ['daily', 'weekdays', 'weekly', 'monthly', 'yearly'],
                 description:
                   'daily = hằng ngày; weekdays = thứ 2 đến thứ 6; weekly = hằng tuần; ' +
-                  'monthly = hằng tháng (cùng ngày trong tháng).',
+                  'monthly = hằng tháng (cùng ngày trong tháng); yearly = hằng năm (cùng ngày ' +
+                  'và tháng: ngày lễ 14/2, 8/3, 20/10, sinh nhật, ngày kỷ niệm). Dịp hằng năm ' +
+                  'KHÔNG dùng monthly.',
               },
               repeatWeekdays: {
                 type: 'ARRAY',
@@ -167,8 +176,8 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           },
           description:
             'Các giờ nhắc có lặp lại, mỗi giờ một kiểu lặp riêng ("8h hằng ngày", "7h thứ 3 và ' +
-            'thứ 5 hằng tuần", "ngày 5 hằng tháng"). Giờ chỉ nhắc một lần thì để ở remindTimes / ' +
-            'remindAt, không lặp lại ở đây.',
+            'thứ 5 hằng tuần", "ngày 5 hằng tháng", "mỗi dịp 14/2 hằng năm"). Giờ chỉ nhắc một ' +
+            'lần thì để ở remindTimes / remindAt, không lặp lại ở đây.',
         },
         nagEveryMinutes: {
           type: 'NUMBER',
@@ -330,13 +339,20 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           items: {
             type: 'OBJECT',
             properties: {
-              at: { type: 'STRING', description: 'Lần đầu của giờ lặp, dạng ISO.' },
+              at: {
+                type: 'STRING',
+                description:
+                  'Lần gần nhất TRONG TƯƠNG LAI của giờ lặp, dạng ISO (dịp hằng năm đã qua ' +
+                  'trong năm nay thì là năm sau).',
+              },
               repeatType: {
                 type: 'STRING',
-                enum: ['daily', 'weekdays', 'weekly', 'monthly'],
+                enum: ['daily', 'weekdays', 'weekly', 'monthly', 'yearly'],
                 description:
                   'daily = hằng ngày; weekdays = thứ 2 đến thứ 6; weekly = hằng tuần; ' +
-                  'monthly = hằng tháng (cùng ngày trong tháng).',
+                  'monthly = hằng tháng (cùng ngày trong tháng); yearly = hằng năm (cùng ngày ' +
+                  'và tháng: ngày lễ 14/2, 8/3, 20/10, sinh nhật, ngày kỷ niệm). Dịp hằng năm ' +
+                  'KHÔNG dùng monthly.',
               },
               repeatWeekdays: {
                 type: 'ARRAY',
@@ -350,8 +366,8 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           },
           description:
             'Các giờ nhắc có lặp lại, mỗi giờ một kiểu lặp riêng ("8h hằng ngày", "7h thứ 3 và ' +
-            'thứ 5 hằng tuần", "ngày 5 hằng tháng"). Giờ chỉ nhắc một lần thì để ở remindTimes / ' +
-            'remindAt, không lặp lại ở đây.',
+            'thứ 5 hằng tuần", "ngày 5 hằng tháng", "mỗi dịp 14/2 hằng năm"). Giờ chỉ nhắc một ' +
+            'lần thì để ở remindTimes / remindAt, không lặp lại ở đây.',
         },
         nagEveryMinutes: {
           type: 'NUMBER',
@@ -497,6 +513,26 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
         },
       },
       required: ['keywords'],
+    },
+  },
+  {
+    name: TextToolType.ASK_CLARIFICATION,
+    description:
+      'Hỏi lại người dùng khi một yêu cầu cần dùng công cụ nhưng thiếu thông tin bắt buộc mà ' +
+      'không suy ra được (ví dụ: nhờ nhắc sinh nhật mà không nói ngày nào, nói "âm lịch"). ' +
+      'Gọi CÙNG LÚC với các tool cho phần đã đủ thông tin. Không dùng để trò chuyện, không hỏi ' +
+      'lại điều đã rõ.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        question: {
+          type: 'STRING',
+          description:
+            'Một câu hỏi ngắn bằng tiếng Việt về đúng thông tin còn thiếu, không emoji, không ' +
+            'lời chào hay giải thích thêm (ví dụ: "Sinh nhật ngày nào để mình nhắc?").',
+        },
+      },
+      required: ['question'],
     },
   },
 ];

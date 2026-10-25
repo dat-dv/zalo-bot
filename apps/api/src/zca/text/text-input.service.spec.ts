@@ -24,6 +24,7 @@ import { LlmService } from '../../llm/llm.service';
 import { LlmResponse } from '../../llm/types/llm.types';
 import { TransactionConfirmationService } from '../confirmation/transaction-confirmation.service';
 import { CreatePlaceToolStrategy } from './strategies/create-place-tool.strategy';
+import { AskClarificationToolStrategy } from './strategies/ask-clarification-tool.strategy';
 
 import { PendingImageActionService } from '../pending-image/pending-image-action.service';
 import { OcrService } from '../../ocr/ocr.service';
@@ -204,6 +205,7 @@ function createTextInputService(options?: SetupOptions) {
     confirmationService,
     mockFinanceService,
   );
+  const askClarificationStrategy = new AskClarificationToolStrategy(mockZaloService);
 
   const factory = new TextToolFactory(
     welcomeStrategy,
@@ -236,6 +238,13 @@ function createTextInputService(options?: SetupOptions) {
     undefined,
     undefined,
     createPlaceStrategy,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    askClarificationStrategy,
   );
 
   const service = new TextInputService(
@@ -1556,4 +1565,40 @@ void test('TextInputService edit that tags nobody keeps the people reminded', as
   assert.deepEqual(card.people, [DAT]);
 
   confirmationService.clearAll();
+});
+
+void test('TextInputService asks for a missing detail after the cards, even without free chat', async () => {
+  const { service, sentMessages, chitChatCalls } = createTextInputService({
+    llmResponse: {
+      toolCalls: [
+        {
+          name: TextToolType.ASK_CLARIFICATION,
+          args: { question: '  Sinh nhật ngày nào để mình nhắc?  ' },
+        },
+        {
+          name: TextToolType.SET_REMINDER,
+          args: {
+            title: 'Mua hoa',
+            remindAt: '2999-02-14T08:00:00+07:00',
+            repeatingTimes: [{ at: '2999-02-14T08:00:00+07:00', repeatType: 'yearly' }],
+          },
+        },
+      ],
+    },
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'User',
+    text: 'mỗi dịp 14/2 và sinh nhật nhắc mua hoa',
+    allowAiChat: false,
+  });
+
+  assert.ok(sentMessages.length >= 2, 'the reminder card and the question are both sent');
+  assert.match(sentMessages[0].text, /Mua hoa/);
+  assert.match(sentMessages[0].text, /hàng năm/i);
+  assert.equal(sentMessages[sentMessages.length - 1].text, 'Sinh nhật ngày nào để mình nhắc?');
+  assert.equal(chitChatCalls.length, 0);
 });

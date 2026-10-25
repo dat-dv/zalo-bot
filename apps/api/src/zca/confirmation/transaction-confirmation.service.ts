@@ -18,7 +18,11 @@ import {
 } from '../../reminders/reminders.service';
 import { isReminderTargetMode, parseTargetUsers } from '../../reminders/reminder-target';
 import { REMINDER_REPEAT_TYPES, REMINDER_TARGET_MODES } from '@zalobot/contracts';
-import { type RequestedReminderTime, revivePayloadTimes } from '../../reminders/reminder-times';
+import {
+  type RequestedReminderTime,
+  revivePayloadTimes,
+  withUpcomingRepeats,
+} from '../../reminders/reminder-times';
 import { CreateTaskOptions } from '../../tasks/task.types';
 import { TasksService } from '../../tasks/tasks.service';
 import { CreateEventOptions } from '../../google/google-calendar.service';
@@ -199,16 +203,16 @@ function toValidTaskDue(value: unknown): Date | null {
 }
 
 /**
- * Task reminder times from an LLM payload, each with its repeat. Unparseable or past times
- * (the card may have waited minutes for approval) are dropped rather than failing the whole
- * task.
+ * Task reminder times from an LLM payload, each with its repeat. The card may have waited
+ * minutes for approval: a repeating time passed meanwhile starts at its next occurrence, other
+ * past or unparseable times are dropped rather than failing the whole task.
  */
 export function toValidRemindTimes(
   remindTimes: unknown,
   remindAt: unknown,
   now: Date = new Date(),
 ): RequestedReminderTime[] {
-  return revivePayloadTimes(remindTimes, remindAt).filter(
+  return withUpcomingRepeats(revivePayloadTimes(remindTimes, remindAt), now).filter(
     (time) => time.at.getTime() > now.getTime(),
   );
 }
@@ -235,7 +239,10 @@ function pickOption<T extends string>(value: unknown, allowed: readonly T[]): T 
  * Rebuilds a CreateReminderDto from a pending payload. Payloads read back from Redis are
  * plain JSON, so `remindAt` arrives as an ISO string and must be revived into a Date.
  */
-export function parseReminderPayload(payload: Record<string, unknown>): CreateReminderDto {
+export function parseReminderPayload(
+  payload: Record<string, unknown>,
+  now: Date = new Date(),
+): CreateReminderDto {
   const { userId, title } = payload;
   if (typeof userId !== 'string' && typeof userId !== 'number') {
     throw new Error('Thiếu người dùng cho lịch nhắc.');
@@ -244,8 +251,12 @@ export function parseReminderPayload(payload: Record<string, unknown>): CreateRe
     throw new Error('Thiếu nội dung lịch nhắc.');
   }
   const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : undefined);
-  // Past times are kept: they go out on the next tick, as a reminder always did.
-  const remindTimes = revivePayloadTimes(payload.remindTimes, payload.remindAt);
+  // Past one-off times are kept: they go out on the next tick, as a reminder always did. A
+  // repeating time passed meanwhile starts at its next occurrence instead (not sent late).
+  const remindTimes = withUpcomingRepeats(
+    revivePayloadTimes(payload.remindTimes, payload.remindAt),
+    now,
+  );
   if (remindTimes.length === 0) remindTimes.push({ at: toValidReminderDate(payload.remindAt) });
   return {
     userId,

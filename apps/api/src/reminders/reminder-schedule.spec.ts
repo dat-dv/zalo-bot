@@ -16,6 +16,7 @@ import {
   nextOccurrence,
   type ReminderTimeState,
   releasedState,
+  upcomingTime,
 } from './reminder-schedule';
 
 /** An instant given in Vietnam time (UTC+7). */
@@ -78,6 +79,53 @@ void test('monthly keeps the day of the month, using the last day of shorter mon
   );
 });
 
+void test('yearly keeps the day and month, using 28 February outside leap years', () => {
+  const yearly = { repeatType: 'yearly', repeatWeekdays: [] } as const;
+  const valentine = vn('2027-02-14T08:00:00');
+  assert.equal(
+    iso(nextOccurrence(valentine, valentine, yearly, valentine)),
+    iso(vn('2028-02-14T08:00:00')),
+  );
+  // Down for years: the missed ones are not sent late.
+  assert.equal(
+    iso(nextOccurrence(valentine, valentine, yearly, vn('2030-03-01T00:00:00'))),
+    iso(vn('2031-02-14T08:00:00')),
+  );
+  // 29 February: the 28th in common years, back to the 29th in the next leap year.
+  const leapDay = vn('2028-02-29T07:30:00');
+  const feb28 = nextOccurrence(leapDay, leapDay, yearly, leapDay);
+  assert.equal(iso(feb28), iso(vn('2029-02-28T07:30:00')));
+  assert.ok(feb28);
+  assert.equal(
+    iso(nextOccurrence(feb28, leapDay, yearly, vn('2031-03-01T00:00:00'))),
+    iso(vn('2032-02-29T07:30:00')),
+  );
+  // Near midnight the Vietnam date counts: 00:15 on 8 March is still 7 March in UTC.
+  const womensDay = vn('2027-03-08T00:15:00');
+  assert.equal(
+    iso(nextOccurrence(womensDay, womensDay, yearly, womensDay)),
+    iso(vn('2028-03-08T00:15:00')),
+  );
+});
+
+void test('upcomingTime starts a repeating time already past at its next occurrence', () => {
+  const now = vn('2026-10-25T10:00:00');
+  const yearly = { repeatType: 'yearly', repeatWeekdays: [] } as const;
+  // 20/10 asked on 25/10: next year's.
+  assert.equal(
+    iso(upcomingTime(vn('2026-10-20T08:00:00'), yearly, now)),
+    iso(vn('2027-10-20T08:00:00')),
+  );
+  // A future time and a one-off time stay as given.
+  const valentine = vn('2027-02-14T08:00:00');
+  assert.equal(iso(upcomingTime(valentine, yearly, now)), iso(valentine));
+  const past = vn('2026-10-25T09:00:00');
+  assert.equal(iso(upcomingTime(past, NO_REPEAT, now)), iso(past));
+  // Daily at 9:00 asked at 10:00: tomorrow, not now.
+  const daily = { repeatType: 'daily', repeatWeekdays: [] } as const;
+  assert.equal(iso(upcomingTime(past, daily, now)), iso(vn('2026-10-26T09:00:00')));
+});
+
 void test('the Vietnam day is used near midnight', () => {
   // 00:30 Saturday in Vietnam is still Friday in UTC.
   const sat0030 = vn('2026-10-24T00:30:00');
@@ -138,6 +186,10 @@ void test('rows saved before repeats existed do not repeat', () => {
     repeatType: 'weekly',
     repeatWeekdays: [3],
   });
+  assert.deepEqual(repeatOf({ repeatType: 'yearly', repeatWeekdays: [3] }), {
+    repeatType: 'yearly',
+    repeatWeekdays: [],
+  });
 });
 
 void test('reminding again is checked against every time it applies to', () => {
@@ -157,6 +209,14 @@ void test('reminding again is checked against every time it applies to', () => {
   assert.equal(
     checkReminderRules([{ repeatType: 'weekly', repeatWeekdays: [9] }], NO_NAG_RULE),
     'weekdays',
+  );
+  // The longest remind-again (24 h × 10) fits a year.
+  assert.equal(
+    checkReminderRules([{ repeatType: 'yearly', repeatWeekdays: [] }], {
+      nagEveryMinutes: 1440,
+      nagCount: 10,
+    }),
+    null,
   );
 });
 
@@ -225,4 +285,16 @@ void test('a repeating time moves on and keeps its anchor; giving it back restor
     nagAt: jan31,
     nagLeft: 2,
   });
+});
+
+void test('a yearly time moves to next year and keeps its anchor', () => {
+  const rule = { ...NO_REMINDER_RULE, repeatType: 'yearly' as const };
+  const leapDay = vn('2028-02-29T08:00:00');
+  const time: ReminderTimeState = { remindAt: leapDay, sentAt: null, anchorAt: null };
+  const occurrence = dueOccurrence(time, rule, leapDay);
+  assert.ok(occurrence);
+  const claimed = claimedState(time, rule, occurrence, leapDay);
+  assert.equal(claimed.remindAt?.toISOString(), vn('2029-02-28T08:00:00').toISOString());
+  assert.equal(claimed.anchorAt?.toISOString(), leapDay.toISOString());
+  assert.equal(claimed.sentAt, undefined);
 });

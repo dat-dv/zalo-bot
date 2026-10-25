@@ -1727,6 +1727,32 @@ void test("TransactionConfirmationService amendPending re-issues only its owner'
   service.clearAll();
 });
 
+void test('a repeating time that passed while the card waited starts at its next occurrence', () => {
+  // Approved on 20/10 09:05 (Vietnam time) for a yearly 20/10 08:00 and a one-off 09:00.
+  const now = new Date('2026-10-20T09:05:00+07:00');
+  const yearly = { repeatType: 'yearly', repeatWeekdays: [] as number[] };
+  const payloadTimes = JSON.parse(
+    JSON.stringify([
+      { at: '2026-10-20T08:00:00+07:00', repeat: yearly },
+      '2026-10-20T09:00:00+07:00',
+    ]),
+  ) as unknown;
+  const nextYear = new Date('2027-10-20T08:00:00+07:00');
+  // A task drops the past one-off time and keeps the yearly one, moved to next year.
+  assert.deepEqual(toValidRemindTimes(payloadTimes, undefined, now), [
+    { at: nextYear, repeat: yearly },
+  ]);
+  // A reminder still sends the past one-off time at once, but not the yearly one.
+  const parsed = parseReminderPayload(
+    { userId: 'u1', title: 'Mua hoa', remindTimes: payloadTimes },
+    now,
+  );
+  assert.deepEqual(parsed.remindTimes, [
+    { at: nextYear, repeat: yearly },
+    { at: new Date('2026-10-20T09:00:00+07:00') },
+  ]);
+});
+
 void test('TransactionConfirmationService cancel without a code sends no remaining-requests notice', async () => {
   const { service, sentMessages } = createTestContext();
 
