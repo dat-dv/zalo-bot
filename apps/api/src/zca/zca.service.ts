@@ -16,7 +16,7 @@ import { ThreadConfigService, hasLegacyGroupPrefix } from './thread-config.servi
 import { ZcaBotFeatureService } from './zca-bot-feature.service';
 import { RedisService } from '../redis/redis.service';
 import { ChatMemoryService } from './memory/chat-memory.service';
-import { ShortTermMemoryService } from './memory/short-term-memory.service';
+import { OutgoingMemoryKind, type MemoryKind } from './memory/memory-kind';
 import { toZaloPlainMessage } from './text/zalo-plain-text.util';
 import {
   Zalo,
@@ -202,8 +202,6 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     private readonly redisService?: RedisService,
     @Optional()
     private readonly chatMemoryService?: ChatMemoryService,
-    @Optional()
-    private readonly shortTermMemoryService?: ShortTermMemoryService,
   ) {
     const configuredDataDir =
       this.moduleOptions?.dataDir ??
@@ -643,28 +641,28 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     }
   }
 
-  /** Stores a bot reply in each memory (short-term, long-term) the thread has on. */
+  /**
+   * Stores a bot message once for the memories the thread has on, tagged with the kind it was
+   * sent as (`OutgoingMemoryKind`, default `bot_chat`), so cards and notices stay out of them.
+   */
   private async recordBotReplyInMemory(
     threadId: string,
     type: ThreadType,
     msgId: string,
     text: string,
+    kind: MemoryKind,
   ): Promise<void> {
-    if (!this.chatMemoryService && !this.shortTermMemoryService) return;
+    if (!this.chatMemoryService) return;
     const memory = (await this.threadConfigService?.findStoredConfig(threadId))?.chatMemory;
-    await Promise.all([
-      memory?.shortTermEnabled
-        ? this.shortTermMemoryService?.recordBotReply(threadId, msgId, text, memory.shortTermDays)
-        : undefined,
-      memory?.enabled
-        ? this.chatMemoryService?.recordBotReply(
-            threadId,
-            type === ThreadType.Group ? 'group' : 'user',
-            msgId,
-            text,
-          )
-        : undefined,
-    ]);
+    if (!memory?.enabled && !memory?.shortTermEnabled) return;
+    await this.chatMemoryService.recordBotReply(
+      threadId,
+      type === ThreadType.Group ? 'group' : 'user',
+      msgId,
+      text,
+      kind,
+      { longTerm: memory.enabled },
+    );
   }
 
   private setupApiInstance(api: API): API {
@@ -676,6 +674,8 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     ) => {
       const resolvedType = type ?? this.resolveThreadType(threadId);
       const text = typeof message === 'string' ? message : message.msg || '';
+      // Read before awaiting: the sender's async context is still the caller's here.
+      const memoryKind = OutgoingMemoryKind.current() ?? 'bot_chat';
       if (text) {
         this.trackBotOutgoingMessage(threadId, text);
       }
@@ -684,7 +684,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
         const msgId = String(response.message.msgId);
         this.trackBotMsgId(msgId);
         if (text && this.listenedThreadIds.has(threadId)) {
-          void this.recordBotReplyInMemory(threadId, resolvedType, msgId, text);
+          void this.recordBotReplyInMemory(threadId, resolvedType, msgId, text, memoryKind);
         }
       }
       return response;
@@ -1972,7 +1972,6 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     // zca-js drops our own undo events unless self-listen is on, so onUndo never sees them:
     // forget the recalled message here.
     void this.chatMemoryService?.markRecalled(threadId, String(payload.msgId));
-    void this.shortTermMemoryService?.markRecalled(threadId, String(payload.msgId));
     return response;
   }
 

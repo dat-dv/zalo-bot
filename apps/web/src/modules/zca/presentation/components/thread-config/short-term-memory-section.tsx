@@ -31,11 +31,12 @@ export function ShortTermMemorySection({
       onEnabledChange={(shortTermEnabled) =>
         onChange({ ...form, chatMemory: { ...memory, shortTermEnabled } })
       }
-      title="Trí nhớ ngắn hạn"
+      title="Nhớ đoạn chat gần đây"
     >
       <p className="text-xs text-amber-700 dark:text-amber-400">
-        Các tin gần nhất của mọi người trong kênh được gửi cho AI ở mỗi lượt bot trả lời. Bot chỉ
-        dùng tin gửi trong {memory.shortTermDays} ngày gần đây, tin cũ hơn tự bị quên.
+        Các tin gần nhất của mọi người trong kênh được gửi cho AI ở mỗi lượt bot trả lời (không tính
+        thẻ xác nhận và thông báo của bot). Bot chỉ dùng tin gửi trong {memory.shortTermDays} ngày
+        gần đây, tin cũ hơn tự bị quên. Điều cần nhớ mãi thì đưa vào Ghi nhớ.
       </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <ConfigField

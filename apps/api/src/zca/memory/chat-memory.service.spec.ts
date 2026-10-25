@@ -28,6 +28,9 @@ function createRepositoryStub(queryResults: unknown[][] = []): {
     'set',
     'where',
     'andWhere',
+    'returning',
+    'delete',
+    'from',
   ]) {
     builder[method] = (...args: unknown[]) => {
       calls.push({ method, args });
@@ -54,25 +57,165 @@ function createService(queryResults: unknown[][] = []) {
   return { service: new ChatMemoryService(stub.repository), ...stub };
 }
 
-void test('record inserts with ON CONFLICT DO NOTHING', async () => {
+interface InsertedRow {
+  text: string | null;
+  channelId: string;
+  memoryKind: string;
+  expiresAt: Date | null;
+  senderName: string | null;
+  isBot: boolean;
+}
+
+function insertedRows(calls: RecordedCall[]): InsertedRow[] {
+  const values = calls.find((call) => call.method === 'values');
+  return (values?.args[0] as InsertedRow[] | InsertedRow | undefined) instanceof Array
+    ? (values?.args[0] as InsertedRow[])
+    : [values?.args[0] as InsertedRow];
+}
+
+void test('record inserts one row for both memories with ON CONFLICT DO NOTHING', async () => {
   const { service, calls } = createService();
 
-  await service.record('g-1', 'group', { msgId: '1', content: 'đi Đà Lạt', ts: '1720785780000' });
+  await service.record(
+    'g-1',
+    'group',
+    { msgId: '1', content: 'đi Đà Lạt', ts: '1720785780000' },
+    { longTerm: true },
+  );
 
   const methods = calls.map((call) => call.method);
   assert.deepEqual(methods, ['insert', 'into', 'values', 'orIgnore', 'execute']);
-  const [values] = calls[2].args as [Array<{ text: string; channelId: string }>];
-  assert.equal(values[0].text, 'đi Đà Lạt');
-  assert.equal(values[0].channelId, 'g-1');
+  const [row] = insertedRows(calls);
+  assert.equal(row.text, 'đi Đà Lạt');
+  assert.equal(row.channelId, 'g-1');
+  assert.equal(row.memoryKind, 'chat');
+  assert.equal(row.expiresAt, null);
 });
 
-void test('recordBotReply upserts the bot flag', async () => {
+void test('record without long-term memory keeps the row only for the short-term window', async () => {
   const { service, calls } = createService();
 
-  await service.recordBotReply('g-1', 'group', '99', 'Đã ghi nhận');
+  await service.record(
+    'g-1',
+    'group',
+    { msgId: '1', content: 'hi', ts: '1720785780000' },
+    { longTerm: false },
+  );
+
+  const [row] = insertedRows(calls);
+  assert.equal(
+    row.expiresAt?.toISOString(),
+    new Date(1720785780000 + 7 * 86_400_000).toISOString(),
+  );
+});
+
+void test('recordBotReply upserts the bot flag and the kind it was sent as', async () => {
+  const { service, calls } = createService();
+
+  await service.recordBotReply('g-1', 'group', '99', 'Thêm việc [302]?', 'card', {
+    longTerm: true,
+  });
 
   const upsert = calls.find((call) => call.method === 'orUpdate');
-  assert.deepEqual(upsert?.args, [['is_bot'], ['channel_id', 'msg_id']]);
+  assert.deepEqual(upsert?.args, [
+    ['is_bot', 'memory_kind', 'text', 'content'],
+    ['channel_id', 'msg_id'],
+  ]);
+  const [row] = insertedRows(calls);
+  assert.equal(row.memoryKind, 'card');
+  assert.equal(row.isBot, true);
+});
+
+void test('recordBotReply never keeps the text of a secret message', async () => {
+  const { service, calls } = createService();
+
+  await service.recordBotReply(
+    'g-1',
+    'group',
+    '99',
+    'Dashboard: https://x/api/access?token=abc',
+    'secret',
+    {
+      longTerm: true,
+    },
+  );
+
+  const [row] = insertedRows(calls);
+  assert.equal(row.text, '[Link đăng nhập dashboard]');
+});
+
+void test('recordAction stores a confirmed action from the requester, falling back to their last name', async () => {
+  const { service, calls, rawQueries } = createService([[{ sender_name: 'Văn Đạt' }]]);
+
+  await service.recordAction(
+    'g-1',
+    'group',
+    {
+      actionId: 'action:358:1',
+      requesterUid: 'u-1',
+      requesterName: null,
+      text: '(đã duyệt) Chi 5.000đ',
+    },
+    { longTerm: true },
+  );
+
+  assert.match(rawQueries[0].sql, /sender_uid = \$2/);
+  const [row] = insertedRows(calls);
+  assert.equal(row.memoryKind, 'action');
+  assert.equal(row.senderName, 'Văn Đạt');
+  assert.equal(row.isBot, false);
+});
+
+void test('getRecent reads only conversation kinds, newest window first, returned oldest first', async () => {
+  const longPhoto = `[Ảnh] — chữ trong ảnh: ${'A'.repeat(700)}`;
+  const { service, rawQueries } = createService([
+    [
+      {
+        sender_uid: 'u-2',
+        sender_name: 'Hằng',
+        is_bot: false,
+        text: longPhoto,
+        msg_type: 'chat.photo',
+        sent_at: new Date('2026-10-25T10:02:00Z'),
+      },
+      {
+        sender_uid: 'u-1',
+        sender_name: 'Đạt',
+        is_bot: false,
+        text: 'mày là mèo đen',
+        msg_type: 'webchat',
+        sent_at: new Date('2026-10-25T10:01:00Z'),
+      },
+    ],
+  ]);
+
+  const lines = await service.getRecent('g-1', { limit: 15, maxAgeDays: 7, excludeMsgId: 'm-9' });
+
+  assert.deepEqual(rawQueries[0].params, [
+    'g-1',
+    ['chat', 'request', 'action', 'bot_chat', 'tool', 'reminder'],
+    7,
+    'm-9',
+    15,
+  ]);
+  assert.deepEqual(
+    lines.map((line) => line.senderUid),
+    ['u-1', 'u-2'],
+  );
+  assert.equal(lines[1].text.length, 501);
+});
+
+void test('purgeExpired deletes only rows past their short-term expiry', async () => {
+  const { service, calls } = createService();
+
+  await service.purgeExpired(new Date('2026-10-25T00:00:00Z'));
+
+  assert.deepEqual(
+    calls
+      .filter((call) => call.method === 'where' || call.method === 'andWhere')
+      .map((call) => call.args[0]),
+    ['expires_at IS NOT NULL', 'expires_at < :now'],
+  );
 });
 
 void test('markRecalled erases the content of the recalled message only in its channel', async () => {

@@ -35,6 +35,8 @@ import { ZaloLogoutToolStrategy } from './strategies/zalo-logout-tool.strategy';
 import { ShareDriveToolStrategy } from './strategies/share-drive-tool.strategy';
 import { SearchChatHistoryToolStrategy } from './strategies/search-chat-history-tool.strategy';
 import { AskClarificationToolStrategy } from './strategies/ask-clarification-tool.strategy';
+import { RememberNoteToolStrategy } from './strategies/remember-note-tool.strategy';
+import { ForgetMemoryToolStrategy } from './strategies/forget-memory-tool.strategy';
 
 export const TEXT_TOOL_STRATEGY_PROVIDERS = [
   WelcomeToolStrategy,
@@ -73,4 +75,6 @@ export const TEXT_TOOL_STRATEGY_PROVIDERS = [
   ShareDriveToolStrategy,
   SearchChatHistoryToolStrategy,
   AskClarificationToolStrategy,
+  RememberNoteToolStrategy,
+  ForgetMemoryToolStrategy,
 ];

@@ -2,6 +2,7 @@
 
 import type { ThreadBotConfig } from '@zalobot/contracts';
 import type { ThreadKind } from '../../../model/thread-config-form';
+import { ChannelNotesSection } from './channel-notes-section';
 import { ConfirmationRulesSection } from './confirmation-rules-section';
 import { DirectInteractionSection } from './direct-interaction-section';
 import { ImageTextMemorySection } from './image-text-memory-section';
@@ -51,6 +52,10 @@ export function ThreadConfigForm({
             threadId={threadId}
             threadName={threadName}
           />
+          <h2 className="mt-2 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
+            🧠 Trí nhớ
+          </h2>
+          <ChannelNotesSection threadId={threadId} />
           <ShortTermMemorySection
             draft={draft}
             form={form}
@@ -59,6 +64,7 @@ export function ThreadConfigForm({
             onDraftCommit={commitDraft}
           />
           <LongTermMemorySection
+            threadId={threadId}
             draft={draft}
             form={form}
             onChange={setForm}

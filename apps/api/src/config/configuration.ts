@@ -64,6 +64,16 @@ export interface AppConfig {
       apiKey?: string;
     };
   };
+  /**
+   * Cognee memory server (long-term chat memory graph). Off unless both `COGNEE_URL` and
+   * `COGNEE_USER_PASSWORD` are set; questions then use the keyword search only.
+   */
+  cognee: {
+    url: string;
+    userEmail: string;
+    userPassword: string;
+    timeoutMs: number;
+  };
 }
 
 function readEnv(name: string, fallback = ''): string {
@@ -161,6 +171,13 @@ export default (): AppConfig => {
         model: readEnv('QWEN_MODEL', 'qwen2.5:14b'),
         apiKey: readOptionalEnv('QWEN_API_KEY') || '',
       },
+    },
+    cognee: {
+      url: readEnv('COGNEE_URL').replace(/\/+$/, ''),
+      userEmail: readEnv('COGNEE_USER_EMAIL', 'zalobot@example.com'),
+      userPassword: readOptionalEnv('COGNEE_USER_PASSWORD') || '',
+      // Building the graph of one chat day calls the LLM per chunk and can take minutes.
+      timeoutMs: readNumberEnv('COGNEE_TIMEOUT_MS', 600000),
     },
   };
 };

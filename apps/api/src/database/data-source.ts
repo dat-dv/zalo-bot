@@ -15,6 +15,9 @@ import { UserCategoryEntity } from './entities/user-category.entity';
 import { FinancePlaceEntity } from './entities/finance-place.entity';
 import { ZcaThreadConfigEntity } from './entities/zca-thread-config.entity';
 import { ZcaMessageEntity } from './entities/zca-message.entity';
+import { ZcaChannelNoteEntity } from './entities/zca-channel-note.entity';
+import { ZcaLearnedFactEntity } from './entities/zca-learned-fact.entity';
+import { ZcaMemoryIngestionEntity } from './entities/zca-memory-ingestion.entity';
 import { ChannelStorageLinkEntity } from './entities/channel-storage-link.entity';
 import { CalendarEventEntity } from './entities/calendar-event.entity';
 import { TaskEntity } from './entities/task.entity';
@@ -53,6 +56,7 @@ import { CreateReminderTimes1724940000000 } from './migrations/1724940000000-Cre
 import { AddAuditLogActorSource1724950000000 } from './migrations/1724950000000-AddAuditLogActorSource';
 import { AddReminderRepeatAndNag1724960000000 } from './migrations/1724960000000-AddReminderRepeatAndNag';
 import { AddAuditLogActorName1724970000000 } from './migrations/1724970000000-AddAuditLogActorName';
+import { AddChatMemoryV21724980000000 } from './migrations/1724980000000-AddChatMemoryV2';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -82,6 +86,9 @@ export const AppDataSource = new DataSource({
     FinancePlaceEntity,
     ZcaThreadConfigEntity,
     ZcaMessageEntity,
+    ZcaChannelNoteEntity,
+    ZcaLearnedFactEntity,
+    ZcaMemoryIngestionEntity,
     ChannelStorageLinkEntity,
     CalendarEventEntity,
     TaskEntity,
@@ -122,6 +129,7 @@ export const AppDataSource = new DataSource({
     AddAuditLogActorSource1724950000000,
     AddReminderRepeatAndNag1724960000000,
     AddAuditLogActorName1724970000000,
+    AddChatMemoryV21724980000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

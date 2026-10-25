@@ -23,6 +23,7 @@ import { isLegacyZaloBotId } from '../users/legacy-zalo-bot-id';
 import { ZcaMessengerService } from '../zca/zca-messenger.service';
 import { ZcaService } from '../zca/zca.service';
 import { type ReminderTarget, buildReminderMessage, normalizeTargetUsers } from './reminder-target';
+import { OutgoingMemoryKind } from '../zca/memory/memory-kind';
 
 /** Who sets the reminder: the dashboard user, or the sender and chat of a bot message. */
 export interface ReminderTargetActor {
@@ -210,7 +211,16 @@ export class ReminderTargetService {
    * `direct` sends each person a private copy; whoever cannot be reached privately is tagged
    * in one group message instead, so nobody misses it.
    */
-  public async deliver(
+  public deliver(
+    target: ReminderTarget,
+    message: { header: string; body: string },
+    locale: SupportedLocale,
+  ): Promise<ReminderDeliveryResult> {
+    // Tagged `reminder`: in the short-term window (for "ok mua rồi"), not in the long-term memory.
+    return OutgoingMemoryKind.run('reminder', () => this.deliverTagged(target, message, locale));
+  }
+
+  private async deliverTagged(
     target: ReminderTarget,
     message: { header: string; body: string },
     locale: SupportedLocale,

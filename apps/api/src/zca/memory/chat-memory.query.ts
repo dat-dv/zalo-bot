@@ -1,3 +1,5 @@
+import type { MemoryKind } from './memory-kind';
+
 /**
  * SQL builders for chat-memory search. Every query is scoped to one channel: a question asked in
  * one Zalo thread never reads another thread's messages.
@@ -27,6 +29,15 @@ export const NEIGHBOURS_BEFORE = 3;
 export const NEIGHBOURS_AFTER = 4;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** What people said or did; matched by the keyword search. */
+const SEARCH_HIT_KINDS: readonly MemoryKind[] = ['chat', 'request', 'action'];
+const NEIGHBOUR_SKIPPED_KINDS: readonly MemoryKind[] = ['card', 'system', 'secret', 'result'];
+
+/** Kinds are fixed constants, never user input, so they are inlined as literals. */
+function sqlList(kinds: readonly MemoryKind[]): string {
+  return kinds.map((kind) => `'${kind}'`).join(', ');
+}
 
 export function parseKeywords(raw: string): string[] {
   const seen = new Set<string>();
@@ -60,11 +71,14 @@ export function buildHitQuery(channelId: string, search: ChatMemorySearchParams)
   });
 
   // Bot replies never count as hits (an earlier, maybe wrong answer is not evidence); they can
-  // still appear as neighbours of a real hit.
+  // still appear as neighbours of a real hit. Rows kept only for the short-term memory
+  // (`expires_at`) were stored while long-term memory was off and are never searched.
   const conditions = [
     'm.channel_id = $1',
     'm.recalled_at IS NULL',
+    'm.expires_at IS NULL',
     'NOT m.is_bot',
+    `m.memory_kind IN (${sqlList(SEARCH_HIT_KINDS)})`,
     'm.search_vector @@ q.query',
   ];
   if (search.excludeMsgId) {
@@ -101,16 +115,18 @@ export function buildHitQuery(channelId: string, search: ChatMemorySearchParams)
 /** Each hit with its surrounding messages, tagged with the hit's rank (`hit_rank`, 1 = best). */
 export function buildNeighbourQuery(channelId: string, hitIds: readonly string[]): SqlQuery {
   const columns = 'id, sender_name, is_bot, text, sent_at';
+  // Confirmation cards and notices are noise around a hit; the confirmed action row says it.
+  const kept = `AND memory_kind NOT IN (${sqlList(NEIGHBOUR_SKIPPED_KINDS)}) AND expires_at IS NULL`;
   const sql =
     `SELECT w.id, w.sender_name, w.is_bot, w.text, w.sent_at, h.hit_rank ` +
     `FROM unnest($2::uuid[]) WITH ORDINALITY AS h(hit_id, hit_rank) ` +
     `JOIN zca_messages hit ON hit.id = h.hit_id AND hit.channel_id = $1 ` +
     `CROSS JOIN LATERAL (` +
     `(SELECT ${columns} FROM zca_messages p WHERE p.channel_id = $1 AND p.recalled_at IS NULL ` +
-    `AND p.text IS NOT NULL AND p.sent_at < hit.sent_at ORDER BY p.sent_at DESC LIMIT ${NEIGHBOURS_BEFORE}) ` +
+    `AND p.text IS NOT NULL ${kept} AND p.sent_at < hit.sent_at ORDER BY p.sent_at DESC LIMIT ${NEIGHBOURS_BEFORE}) ` +
     `UNION ALL ` +
     `(SELECT ${columns} FROM zca_messages n WHERE n.channel_id = $1 AND n.recalled_at IS NULL ` +
-    `AND n.text IS NOT NULL AND n.sent_at >= hit.sent_at ORDER BY n.sent_at ASC LIMIT ${NEIGHBOURS_AFTER})` +
+    `AND n.text IS NOT NULL ${kept} AND n.sent_at >= hit.sent_at ORDER BY n.sent_at ASC LIMIT ${NEIGHBOURS_AFTER})` +
     `) w ` +
     `ORDER BY h.hit_rank ASC, w.sent_at ASC`;
   return { sql, params: [channelId, [...hitIds]] };

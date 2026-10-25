@@ -47,7 +47,6 @@ import type { ImageBatchHandler } from './pending-image/image-batch-handler.serv
 import type { OcrService } from '../ocr/ocr.service';
 import { cleanBotMention } from './text/bot-mention.util';
 import { ChatMemoryService } from './memory/chat-memory.service';
-import { ShortTermMemoryService } from './memory/short-term-memory.service';
 import { ImageTextMemoryService } from './memory/image-text-memory.service';
 
 /** Per-thread memory settings for the text pipeline; each part only when the thread has it on. */
@@ -355,7 +354,6 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     @Optional() ocrService?: OcrService,
     @Optional() private readonly chatMemoryService?: ChatMemoryService,
     @Optional() threadAccessService?: ThreadAccessService,
-    @Optional() private readonly shortTermMemoryService?: ShortTermMemoryService,
     @Optional() private readonly imageTextMemoryService?: ImageTextMemoryService,
   ) {
     this.threadAccessService = threadAccessService ?? new ThreadAccessService();
@@ -933,14 +931,17 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     const memory = toAgentMemory(config);
     const messageId = message.data?.msgId ? String(message.data.msgId) : undefined;
     const channelType = message.type === ThreadType.Group ? 'group' : 'user';
-    if (memory.shortTermMemory) {
-      void this.shortTermMemoryService?.record(threadId, message.data, memory.shortTermMemory.days);
-    }
+    // One row serves both memories. The bot's own messages echoed back by self-listen are stored
+    // by the send wrapper with the kind they were sent as, so they are skipped here.
+    const isBotEcho = Boolean(message.isSelf && this.zcaService?.isBotSentMessage(message));
     // Never rejects; the photo reader waits for the row before adding the photo's text to it.
-    const longTermStored = memory.longTermMemory
-      ? this.chatMemoryService?.record(threadId, channelType, message.data)
-      : undefined;
-    this.rememberImageText(message, config, channelType, longTermStored);
+    const stored =
+      (memory.shortTermMemory || memory.longTermMemory) && !isBotEcho
+        ? this.chatMemoryService?.record(threadId, channelType, message.data, {
+            longTerm: Boolean(memory.longTermMemory),
+          })
+        : undefined;
+    this.rememberImageText(message, config, channelType, stored);
 
     const directConfig: ThreadDirectInteractionConfig = config.directInteraction ?? {
       enabled: true,
@@ -998,6 +999,10 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         this.logger.log(
           `[ZcaBotFeature] Handled pending confirmation text command: "${text}" in thread ${threadId}`,
         );
+        // "yes 302" is a command, not conversation: kept out of the long-term memory.
+        if (messageId) {
+          void stored?.then(() => this.chatMemoryService?.setKind(threadId, messageId, 'request'));
+        }
         return;
       }
     }
@@ -1336,8 +1341,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
   }
 
   /**
-   * A message recalled in Zalo is also forgotten by both memories, even when the thread has
-   * since turned them off (stored long-term messages are kept).
+   * A message recalled in Zalo is also forgotten by both memories (and its day is sent to Cognee
+   * again without it), even when the thread has since turned them off.
    */
   public async onUndo(undo: Undo): Promise<void> {
     const recalledMsgId = undo.data?.content?.globalMsgId;
@@ -1348,10 +1353,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       recalledCliMsgId && senderUid
         ? { cliMsgId: String(recalledCliMsgId), senderUid: String(senderUid) }
         : undefined;
-    await Promise.all([
-      this.chatMemoryService?.markRecalled(undo.threadId, String(recalledMsgId), byClient),
-      this.shortTermMemoryService?.markRecalled(undo.threadId, String(recalledMsgId), byClient),
-    ]);
+    await this.chatMemoryService?.markRecalled(undo.threadId, String(recalledMsgId), byClient);
   }
 
   /**

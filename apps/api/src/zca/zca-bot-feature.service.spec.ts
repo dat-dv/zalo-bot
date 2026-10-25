@@ -12,7 +12,6 @@ import {
 import { ThreadConfigService } from './thread-config.service';
 import { ThreadType, type API, type Message, type Reaction, type Undo } from './shapes';
 import type { ChatMemoryService } from './memory/chat-memory.service';
-import { ShortTermMemoryService } from './memory/short-term-memory.service';
 import type { ImageTextJob, ImageTextMemoryService } from './memory/image-text-memory.service';
 import type { OcrService } from '../ocr/ocr.service';
 import type { TransactionConfirmationService } from './confirmation/transaction-confirmation.service';
@@ -2115,7 +2114,6 @@ function createChatMemoryMock(calls: RecordedMemoryCall[]): ChatMemoryService {
 function createServiceWithMemory(
   configService: ThreadConfigService,
   memory: ChatMemoryService,
-  shortTermMemory?: ShortTermMemoryService,
   imageTextMemory?: ImageTextMemoryService,
 ): ZcaBotFeatureService {
   return new ZcaBotFeatureService(
@@ -2134,7 +2132,6 @@ function createServiceWithMemory(
     undefined,
     memory,
     undefined,
-    shortTermMemory,
     imageTextMemory,
   );
 }
@@ -2309,13 +2306,8 @@ void test('ZcaBotFeatureService keeps the short-term memory when the long-term m
     chatMemory: { enabled: false, shortTermEnabled: true, contextWindow: 6, shortTermDays: 3 },
   });
   const calls: RecordedMemoryCall[] = [];
-  const shortTermMemory = new ShortTermMemoryService();
   const seen: { input?: AgentInput } = {};
-  const service = createServiceWithMemory(
-    configService,
-    createChatMemoryMock(calls),
-    shortTermMemory,
-  );
+  const service = createServiceWithMemory(configService, createChatMemoryMock(calls));
   service.setTextInputService({
     process: (input: AgentInput) => {
       seen.input = input;
@@ -2331,24 +2323,20 @@ void test('ZcaBotFeatureService keeps the short-term memory when the long-term m
   } as unknown as Message;
   await service.onMessage(message, { getOwnId: () => 'bot-id' } as unknown as API);
 
-  assert.equal(calls.length, 0, 'nothing is stored in Postgres');
+  // One row serves both memories; without the long-term memory it only lives for the window.
+  const record = calls.find((call) => call.method === 'record');
+  assert.deepEqual(record?.args[3], { longTerm: false });
   assert.deepEqual(seen.input?.shortTermMemory, { contextWindow: 6, days: 3 });
   assert.equal(seen.input?.longTermMemory, undefined);
-  assert.deepEqual(
-    (await shortTermMemory.getRecent(threadId, { limit: 10, maxAgeDays: 3 })).map(
-      (line) => line.text,
-    ),
-    ['ăn trưa 45k'],
-  );
 
-  // A recall reaches the short-term memory too.
+  // A recall forgets the row, so it leaves the short-term window too.
   await service.onUndo({
     threadId,
     isSelf: false,
     isGroup: false,
     data: { uidFrom: 'owner', content: { globalMsgId: 11, cliMsgId: 0 } },
   } as unknown as Undo);
-  assert.deepEqual(await shortTermMemory.getRecent(threadId, { limit: 10, maxAgeDays: 3 }), []);
+  assert.ok(calls.some((call) => call.method === 'markRecalled'));
 });
 
 void test('ZcaBotFeatureService queues every photo of a chat with memory on for its text', async () => {
@@ -2362,7 +2350,6 @@ void test('ZcaBotFeatureService queues every photo of a chat with memory on for 
   const service = createServiceWithMemory(
     configService,
     createChatMemoryMock([]),
-    undefined,
     imageText.memory,
   );
 
@@ -2394,7 +2381,6 @@ void test('ZcaBotFeatureService does not read photos when the switch or every me
   const service = createServiceWithMemory(
     configService,
     createChatMemoryMock([]),
-    undefined,
     imageText.memory,
   );
 
@@ -2417,7 +2403,6 @@ void test('ZcaBotFeatureService reads a photo that asks the bot once, through th
   const service = createServiceWithMemory(
     configService,
     createChatMemoryMock([]),
-    undefined,
     imageText.memory,
   );
   let ocrCalls = 0;

@@ -2,7 +2,6 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { fetchImageBuffer } from '../../common/utils/image-fetcher.util';
 import { OcrService, type OcrResult } from '../../ocr/ocr.service';
 import {
-  SHORT_TERM_IMAGE_TEXT_MAX_CHARS,
   buildImageMemoryText,
   cleanOcrTextForMemory,
   toMemoryRecord,
@@ -10,7 +9,6 @@ import {
   type MemorySourceMessage,
 } from './chat-memory.mapper';
 import { ChatMemoryService } from './chat-memory.service';
-import { ShortTermMemoryService } from './short-term-memory.service';
 
 /** Photos waiting to be read; a chat posting a big album beyond this loses the text of the rest. */
 export const IMAGE_TEXT_QUEUE_MAX_PENDING = 20;
@@ -29,7 +27,7 @@ export interface ImageTextJob {
   shortTermDays?: number;
   /** Whether the chat's long-term memory is on. */
   longTerm: boolean;
-  /** Settles once the photo's long-term row is written, so the update finds it. */
+  /** Settles once the photo's row is written, so the update finds it. */
   afterStored?: Promise<unknown>;
 }
 
@@ -44,7 +42,6 @@ interface QueuedImage {
 /** The calls this service makes; structural types so tests can pass plain fakes. */
 export type ImageTextOcr = Pick<OcrService, 'recognize'>;
 export type ImageTextLongTermMemory = Pick<ChatMemoryService, 'attachImageText'>;
-export type ImageTextShortTermMemory = Pick<ShortTermMemoryService, 'recordImageText'>;
 
 function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : JSON.stringify(err);
@@ -52,7 +49,7 @@ function errorMessage(err: unknown): string {
 
 /**
  * Reads the text of photos posted in chats with chat memory on (local Tesseract OCR) and adds it
- * to the photo's entry in each memory the chat has on. Photos are read one at a time in the
+ * to the photo's stored row, which both memories read (the short-term window cuts it). Photos are read one at a time in the
  * background, because OCR is CPU-heavy; the queue is in-process and lost on restart. A photo that
  * addresses the bot is read at once through `recognizeNow`, so it is never read twice. Never throws.
  */
@@ -67,8 +64,7 @@ export class ImageTextMemoryService {
 
   constructor(
     @Inject(OcrService) private readonly ocr: ImageTextOcr,
-    @Inject(ChatMemoryService) private readonly longTermMemory: ImageTextLongTermMemory,
-    @Inject(ShortTermMemoryService) private readonly shortTermMemory: ImageTextShortTermMemory,
+    @Inject(ChatMemoryService) private readonly chatMemory: ImageTextLongTermMemory,
   ) {}
 
   /** Queues a photo for reading; skipped when no memory is on, already known, or the queue is full. */
@@ -151,22 +147,12 @@ export class ImageTextMemoryService {
     if (!imageText) return;
     const { job } = item;
     try {
-      if (job.longTerm) {
-        await job.afterStored?.catch((): void => undefined);
-        await this.longTermMemory.attachImageText(
-          job.channelId,
-          item.msgId,
-          buildImageMemoryText(item.baseText, imageText),
-        );
-      }
-      if (job.shortTermDays !== undefined) {
-        await this.shortTermMemory.recordImageText(
-          job.channelId,
-          job.data,
-          buildImageMemoryText(item.baseText, imageText, SHORT_TERM_IMAGE_TEXT_MAX_CHARS),
-          job.shortTermDays,
-        );
-      }
+      await job.afterStored?.catch((): void => undefined);
+      await this.chatMemory.attachImageText(
+        job.channelId,
+        item.msgId,
+        buildImageMemoryText(item.baseText, imageText),
+      );
       this.logger.log(
         `[ImageTextMemory] Remembered ${imageText.length} chars of text from photo ${item.msgId} in ${job.channelId}`,
       );

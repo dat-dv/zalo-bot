@@ -56,6 +56,7 @@ services:
       REDIS_URL: redis://redis:6379
       TYPEORM_SYNCHRONIZE: 'false'
       DATA_DIR: /app/data
+      COGNEE_URL: http://cognee:8000
     volumes:
       - ./data:/app/data
     extra_hosts:
@@ -72,6 +73,44 @@ services:
       retries: 5
       start_period: 15s
 
+  # Long-term chat memory graph (one dataset per chat). Internal only: no published port. The
+  # API leaves it unused while COGNEE_USER_PASSWORD is empty. Its own SQLite/LanceDB/Kuzu stores
+  # live in the volume, so the main Postgres image stays untouched.
+  cognee:
+    image: cognee/cognee:1.6.5
+    restart: unless-stopped
+    environment:
+      # Per-dataset isolation: without it Cognee ignores the dataset filter of recall.
+      ENABLE_BACKEND_ACCESS_CONTROL: 'true'
+      TELEMETRY_DISABLED: 'true'
+      # One LLM call per chunk (graph extraction) instead of two.
+      SUMMARY_METHOD: from_extraction
+      LLM_PROVIDER: ${COGNEE_LLM_PROVIDER:-custom}
+      LLM_ENDPOINT: ${COGNEE_LLM_ENDPOINT:-}
+      LLM_MODEL: ${COGNEE_LLM_MODEL:-}
+      LLM_API_KEY: ${COGNEE_LLM_API_KEY:-}
+      # Multilingual embeddings computed inside the container (no key, chat text stays here).
+      EMBEDDING_PROVIDER: fastembed
+      EMBEDDING_MODEL: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+      EMBEDDING_DIMENSIONS: '384'
+      FASTAPI_USERS_JWT_SECRET: ${COGNEE_JWT_SECRET:-}
+      DEFAULT_USER_EMAIL: zalobot@example.com
+      DEFAULT_USER_PASSWORD: ${COGNEE_USER_PASSWORD:-}
+    volumes:
+      - zalobot-cognee:/cognee-storage
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
   web:
     build:
       context: .
@@ -79,6 +118,9 @@ services:
       dockerfile: apps/web/Dockerfile
     environment:
       - BE_PORT=${BE_PORT:-3005}
+      # Remote access to Cognee at /cognee/ (Basic Auth); empty = /cognee/ answers 404.
+      - COGNEE_PROXY_USER=${COGNEE_PROXY_USER:-}
+      - COGNEE_PROXY_PASSWORD=${COGNEE_PROXY_PASSWORD:-}
     restart: unless-stopped
     ports:
       - '${NGINX_PORT:-3009}:80'
@@ -95,3 +137,4 @@ services:
 volumes:
   zalobot-postgres:
   zalobot-redis:
+  zalobot-cognee:

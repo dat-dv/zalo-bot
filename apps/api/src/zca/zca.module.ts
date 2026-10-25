@@ -1,3 +1,4 @@
+import { BullModule } from '@nestjs/bullmq';
 import { DynamicModule, Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ZcaService } from './zca.service';
@@ -21,6 +22,13 @@ import { LlmModule } from '../llm/llm.module';
 import { OcrModule } from '../ocr/ocr.module';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 import { ChatMemoryModule } from './memory/chat-memory.module';
+import { MemoryIngestService } from './memory/long-term/memory-ingest.service';
+import { ChannelMemoryController } from './memory/channel-memory.controller';
+import {
+  CHAT_MEMORY_QUEUE,
+  MemoryIngestProcessor,
+} from './memory/long-term/memory-ingest.processor';
+import { ZcaMemoryIngestionEntity } from '../database/entities/zca-memory-ingestion.entity';
 import { ChannelStorageLinkModule } from './storage/channel-storage-link.module';
 
 // Chat pipeline: messenger, text input and tool strategies
@@ -45,7 +53,8 @@ import { StorageUploadPendingImageStrategy } from './pending-image/strategies/st
 import { CreateBillPendingImageStrategy } from './pending-image/strategies/create-bill-pending-image.strategy';
 
 const COMMON_IMPORTS = [
-  TypeOrmModule.forFeature([ZcaThreadConfigEntity]),
+  TypeOrmModule.forFeature([ZcaThreadConfigEntity, ZcaMemoryIngestionEntity]),
+  BullModule.registerQueue({ name: CHAT_MEMORY_QUEUE }),
   AuditModule,
   forwardRef(() => ReceiptStorageModule),
   forwardRef(() => UsersModule),
@@ -81,6 +90,8 @@ const COMMON_PROVIDERS = [
   CancelPendingImageStrategy,
   StorageUploadPendingImageStrategy,
   CreateBillPendingImageStrategy,
+  MemoryIngestService,
+  MemoryIngestProcessor,
 ];
 
 const COMMON_EXPORTS = [
@@ -103,11 +114,12 @@ const COMMON_EXPORTS = [
   CancelPendingImageStrategy,
   StorageUploadPendingImageStrategy,
   CreateBillPendingImageStrategy,
+  MemoryIngestService,
 ];
 
 @Module({
   imports: COMMON_IMPORTS,
-  controllers: [ZcaController],
+  controllers: [ZcaController, ChannelMemoryController],
   providers: COMMON_PROVIDERS,
   exports: COMMON_EXPORTS,
 })
@@ -116,7 +128,7 @@ export class ZcaModule {
     return {
       module: ZcaModule,
       imports: COMMON_IMPORTS,
-      controllers: [ZcaController],
+      controllers: [ZcaController, ChannelMemoryController],
       providers: [
         {
           provide: ZCA_MODULE_OPTIONS,
@@ -133,7 +145,7 @@ export class ZcaModule {
       global: true,
       module: ZcaModule,
       imports: COMMON_IMPORTS,
-      controllers: [ZcaController],
+      controllers: [ZcaController, ChannelMemoryController],
       providers: [
         {
           provide: ZCA_MODULE_OPTIONS,

@@ -1,3 +1,6 @@
+import { CHAT_MEMORY_LIMITS } from '@zalobot/contracts';
+import type { MemoryKind } from './memory-kind';
+
 /**
  * Pure mapping between ZCA message payloads and chat-memory rows, plus the prompt line format.
  * Kept free of `zca-bot-feature.service` imports so the memory service has no import cycle with it.
@@ -30,11 +33,16 @@ export interface ChatMemoryRecord {
   content: Record<string, unknown> | null;
   quoteMsgId: string | null;
   sentAt: Date;
+  memoryKind: MemoryKind;
+  /** Null when the long-term memory keeps the row; otherwise when it is purged. */
+  expiresAt: Date | null;
 }
 
 /** One remembered message as shown to the LLM. */
 export interface MemoryLine {
   sentAt: Date;
+  /** `users.id` of the sender when known (short-term window). */
+  senderUid?: string | null;
   senderName: string | null;
   isBot: boolean;
   text: string;
@@ -178,7 +186,7 @@ export function toMemoryRecord(
   channelId: string,
   channelType: MemoryChannelType,
   data: MemorySourceMessage,
-  options: { isBot?: boolean; now?: Date } = {},
+  options: { isBot?: boolean; now?: Date; memoryKind?: MemoryKind; longTerm?: boolean } = {},
 ): ChatMemoryRecord | null {
   const msgId = asTrimmedString(data.msgId) || asTrimmedString(data.cliMsgId);
   if (!channelId || !msgId) return null;
@@ -186,6 +194,7 @@ export function toMemoryRecord(
   const msgType = asTrimmedString(data.msgType) || 'webchat';
   const text = buildMemoryText(msgType, data.content).slice(0, MEMORY_TEXT_MAX_CHARS);
   const obj = parseObjectContent(data.content);
+  const sentAt = toSentAt(data.ts, options.now);
 
   return {
     channelId,
@@ -199,8 +208,20 @@ export function toMemoryRecord(
     text: text || null,
     content: obj ? pickKeptContent(obj) : null,
     quoteMsgId: readQuoteMsgId(data.quote),
-    sentAt: toSentAt(data.ts, options.now),
+    sentAt,
+    memoryKind: options.memoryKind ?? (options.isBot ? 'bot_chat' : 'chat'),
+    expiresAt: options.longTerm === false ? shortTermExpiry(sentAt) : null,
   };
+}
+
+/**
+ * Rows of a thread without long-term memory live only as long as the longest short-term window,
+ * so turning long-term memory on later never exposes messages sent while it was off.
+ */
+export const SHORT_TERM_ONLY_RETENTION_DAYS = CHAT_MEMORY_LIMITS.SHORT_TERM_DAYS_MAX;
+
+export function shortTermExpiry(sentAt: Date): Date {
+  return new Date(sentAt.getTime() + SHORT_TERM_ONLY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 }
 
 /** `[2025-07-12 19:03] Đạt: …` in the given IANA time zone. */

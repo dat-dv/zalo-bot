@@ -551,3 +551,49 @@ export function renderDtoConfirmationCard<T extends object>(
 
   return lines.join('\n');
 }
+
+/**
+ * DTO của yêu cầu ghi nhớ (Ghi nhớ) một điều cho cuộc chat. `replaceNoteId` thay một điều đã có.
+ */
+export interface RememberNoteDto {
+  text: string;
+  replaceNoteId?: string;
+  replaceNoteText?: string;
+}
+
+export const REMEMBER_NOTE_DESCRIPTOR: DtoDescriptor<RememberNoteDto> = {
+  text: {
+    label: 'Ghi nhớ',
+    order: 1,
+    format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
+  },
+  replaceNoteText: {
+    label: 'Thay cho',
+    order: 2,
+    format: (v) => (typeof v === 'string' && v.trim() ? v.trim() : '(trống)'),
+  },
+  replaceNoteId: { label: 'Mã ghi nhớ', order: 3, hidden: true },
+};
+
+/**
+ * DTO của yêu cầu quên: các điều ghi nhớ và điều bot tự học khớp với `query`. `items` là danh
+ * sách hiện trên thẻ, đúng những gì sẽ bị xoá.
+ */
+export interface ForgetMemoryDto {
+  query: string;
+  noteIds: string[];
+  factIds: string[];
+  items: string[];
+}
+
+export const FORGET_MEMORY_DESCRIPTOR: DtoDescriptor<ForgetMemoryDto> = {
+  items: {
+    label: 'Sẽ quên',
+    order: 1,
+    format: (v) =>
+      Array.isArray(v) && v.length > 0 ? v.map((item) => `"${item}"`).join('; ') : '(trống)',
+  },
+  query: { label: 'Tìm theo', order: 2, hidden: true },
+  noteIds: { label: 'Mã ghi nhớ', order: 3, hidden: true },
+  factIds: { label: 'Mã điều đã học', order: 4, hidden: true },
+};

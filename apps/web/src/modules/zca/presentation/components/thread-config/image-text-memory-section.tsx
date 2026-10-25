@@ -20,7 +20,7 @@ const HOW_IT_WORKS: ReadonlyArray<{ title: string; text: string }> = [
   },
   {
     title: 'Nhớ gì',
-    text: 'chữ đọc được, đã bỏ ký tự rác, gắn vào đúng tin ảnh. Ảnh không có chữ chỉ nhớ nhãn [Ảnh]. Trí nhớ ngắn hạn giữ tối đa 500 ký tự mỗi ảnh.',
+    text: 'chữ đọc được, đã bỏ ký tự rác, gắn vào đúng tin ảnh. Ảnh không có chữ chỉ nhớ nhãn [Ảnh]. Đoạn chat gần đây chỉ dùng 500 ký tự đầu mỗi ảnh.',
   },
   {
     title: 'Hạn chế',

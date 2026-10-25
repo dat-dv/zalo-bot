@@ -516,6 +516,49 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
     },
   },
   {
+    name: TextToolType.REMEMBER_NOTE,
+    description:
+      'Ghi nhớ lâu dài một điều người dùng DẶN bot cho cuộc chat này: tính cách, cách xưng hô, ' +
+      'tên gọi của bot, quy ước của nhóm, thông tin cố định cần luôn nhớ. Gọi khi người dùng nói ' +
+      '"nhớ nhé", "nhớ là", "tao dặn", "từ giờ mày là / hãy...", "lần sau nhớ...". ' +
+      'Ví dụ: "tao dặn rồi mày là con mèo đen 2 mái", "từ giờ xưng em gọi anh", "nhớ là Hằng ăn chay". ' +
+      'Không dùng cho việc cần làm, lời nhắc hay câu đùa, chửi.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        text: {
+          type: 'STRING',
+          description:
+            'Điều cần nhớ, viết lại thành một câu ngắn, rõ chủ ngữ, tối đa 200 ký tự ' +
+            '(ví dụ: "Bot là con mèo đen 2 mái", "Hằng ăn chay").',
+        },
+        replaceNoteId: {
+          type: 'STRING',
+          description:
+            'Mã [nX] của điều đã ghi nhớ mà điều mới thay thế (cùng chủ đề, nội dung khác), lấy từ ' +
+            'khối ĐIỀU ĐƯỢC DẶN. Bỏ trống nếu là điều mới.',
+        },
+      },
+      required: ['text'],
+    },
+  },
+  {
+    name: TextToolType.FORGET_MEMORY,
+    description:
+      'Quên một điều đã ghi nhớ hoặc điều bot tự rút ra trong cuộc chat này. Gọi khi người dùng nói ' +
+      '"quên vụ ... đi", "đừng nhớ ... nữa", "bỏ ghi nhớ ...". Ví dụ: "quên vụ mèo đen đi".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        query: {
+          type: 'STRING',
+          description: 'Vài từ khoá của điều cần quên (ví dụ: "mèo đen").',
+        },
+      },
+      required: ['query'],
+    },
+  },
+  {
     name: TextToolType.ASK_CLARIFICATION,
     description:
       'Hỏi lại người dùng khi một yêu cầu cần dùng công cụ nhưng thiếu thông tin bắt buộc mà ' +

@@ -142,7 +142,7 @@ function featureItems(row: ChatRow, config: ThreadBotConfig): InlineItem[] {
     items.push({
       key: 'short-term-memory',
       node: (
-        <span title="Trí nhớ ngắn hạn đang bật: bot nhớ vài tin gần nhất để hiểu câu nối tiếp">
+        <span title="Nhớ đoạn chat gần đây đang bật: bot nhớ vài tin gần nhất để hiểu câu nối tiếp">
           Ngữ cảnh
         </span>
       ),
@@ -152,7 +152,7 @@ function featureItems(row: ChatRow, config: ThreadBotConfig): InlineItem[] {
     items.push({
       key: 'memory',
       node: (
-        <span title="Trí nhớ dài hạn đang bật: bot lưu tin nhắn của kênh để tra lại chuyện cũ">
+        <span title="Nhớ lâu dài đang bật: bot lưu tin nhắn của kênh để tra lại chuyện cũ và tự học">
           Nhớ
         </span>
       ),

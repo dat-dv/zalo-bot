@@ -27,7 +27,16 @@ import { StorageUploadPendingImageStrategy } from '../pending-image/strategies/s
 import { CreateBillPendingImageStrategy } from '../pending-image/strategies/create-bill-pending-image.strategy';
 import { getVietnamDateTimeContext } from '../../common/utils/datetime.util';
 import { ShortTermMemoryService } from '../memory/short-term-memory.service';
-import { formatMemoryLine } from '../memory/chat-memory.mapper';
+import { formatMemoryLine, type MemoryLine } from '../memory/chat-memory.mapper';
+import { ChatMemoryService } from '../memory/chat-memory.service';
+import { ChannelNotesService } from '../memory/channel-notes.service';
+import { LearnedFactsService } from '../memory/learned-facts.service';
+import { OutgoingMemoryKind } from '../memory/memory-kind';
+import {
+  BOT_IDENTITY_LINE,
+  CURRENT_DATA_RULE,
+  buildMemoryProfileBlock,
+} from '../memory/memory-profile.util';
 import { ZALO_PLAIN_TEXT_INSTRUCTION } from './zalo-plain-text.util';
 import {
   AMEND_PENDING_TOOL,
@@ -47,6 +56,30 @@ const CHIT_CHAT_INSTRUCTION =
   '- KHÔNG từ chối với lý do bạn "chỉ là trợ lý tài chính / lịch hẹn / công việc".\n' +
   '- Với câu hỏi cần dữ liệu thời gian thực (lịch chiếu, giá cả, thời tiết, tin tức): trả lời bằng kiến thức bạn có, nói ngắn gọn rằng thông tin có thể chưa cập nhật và gợi ý nguồn để kiểm tra.\n' +
   '- Chỉ gọi công cụ khi người dùng thực sự yêu cầu một thao tác có công cụ tương ứng.';
+
+/** Tools that only read data; their answers stay out of the long-term memory. */
+const READ_ONLY_TOOLS = new Set<string>([
+  TextToolType.GET_REPORT,
+  TextToolType.LIST_TASKS,
+  TextToolType.LIST_CALENDAR_EVENTS,
+  TextToolType.GET_STORAGE_LINKS,
+  TextToolType.SEARCH_CHAT_HISTORY,
+]);
+
+/**
+ * The recent messages for the prompt, under a header forbidding tool calls for them (they were
+ * handled already, so old transactions are never recorded twice) while instructions given in them
+ * still apply.
+ */
+export function formatRecentContextBlock(lines: readonly MemoryLine[], timeZone: string): string {
+  if (lines.length === 0) return '';
+  return (
+    '\n\nNGỮ CẢNH GẦN ĐÂY CỦA CUỘC CHAT (để hiểu câu hỏi hiện tại; TUYỆT ĐỐI KHÔNG gọi tool ' +
+    'cho các yêu cầu nằm trong khối này, chúng đã được xử lý trước đó; lời dặn về cách bạn trả ' +
+    'lời trong khối này vẫn có hiệu lực):\n' +
+    lines.map((line) => formatMemoryLine(line, timeZone)).join('\n')
+  );
+}
 
 /** An edit sends only the args it changes, so none of them may be required. */
 function withoutRequiredArgs(definition: LlmToolDefinition): LlmToolDefinition {
@@ -72,6 +105,9 @@ export class TextInputService {
     @Optional() private readonly mediaStorageService?: MediaStorageService,
     @Optional() private pendingImageDispatcher?: PendingImageActionDispatcher,
     @Optional() private readonly shortTermMemoryService?: ShortTermMemoryService,
+    @Optional() private readonly channelNotesService?: ChannelNotesService,
+    @Optional() private readonly learnedFactsService?: LearnedFactsService,
+    @Optional() private readonly chatMemoryService?: ChatMemoryService,
   ) {
     if (!this.pendingImageDispatcher && this.pendingImageActionService) {
       // Auto-wire default strategies when dispatcher is not injected (e.g. in standalone tests)
@@ -185,10 +221,13 @@ export class TextInputService {
       process.env.DEFAULT_TIMEZONE ||
       'Asia/Ho_Chi_Minh';
     const dtContext = getVietnamDateTimeContext(new Date(), timeZone);
-    const recentContext = await this.buildRecentContextBlock(chatId, input, timeZone);
+    const recentLines = await this.loadRecentLines(chatId, input);
+    const recentContext = formatRecentContextBlock(recentLines, timeZone);
+    const profile = await this.buildProfileBlock(chatId, input, recentLines);
     const amendable = await this.amendablePending(senderId, chatId);
     const systemInstruction =
-      `Bạn là trợ lý cá nhân thông minh trên Zalo.\n\n` +
+      `${BOT_IDENTITY_LINE}\n\n` +
+      (profile ? `${profile}\n\n` : '') +
       `${dtContext.systemInstructionSnippet}\n\n` +
       'Nhiệm vụ của bạn:\n' +
       '- Phân tích yêu cầu của người dùng để gọi công cụ (tool call) phù hợp nhất.\n' +
@@ -209,6 +248,8 @@ export class TextInputService {
         ? '- Về chuyện đã trao đổi trong cuộc chat này trước đây ("năm ngoái mình đi đâu", "hôm trước Nam nói gì", "tháng 5 nhóm hẹn ở đâu"): gọi SEARCH_CHAT_HISTORY, sinh keywords gồm từ khóa và từ đồng nghĩa, tính fromDate/toDate (YYYY-MM-DD) nếu câu hỏi có mốc thời gian.\n'
         : '') +
       '- Về kho lưu trữ hình ảnh/hóa đơn/video của bot: Bot tự động lưu tất cả ảnh/hóa đơn/video người dùng gửi lên Google Drive (thư mục zalobot/bill, zalobot/image, zalobot/video) và Google Photos (album "ZaloBot - Hóa đơn", "ZaloBot - Hình ảnh", "ZaloBot - Video"). Khi người dùng hỏi nơi lưu ảnh, link xem ảnh/hóa đơn/video, đường dẫn folder, link drive, link album: gọi GET_STORAGE_LINKS, xác định type (bill/image/video/all).\n' +
+      '- Về ghi nhớ ("nhớ nhé", "tao dặn", "từ giờ mày là..."): gọi REMEMBER_NOTE; muốn bot quên điều đã nhớ ("quên vụ ... đi"): gọi FORGET_MEMORY.\n' +
+      `${CURRENT_DATA_RULE}\n` +
       '- Nếu người dùng chỉ chào hỏi hoặc trò chuyện, hãy trả lời tự nhiên, ngắn gọn, thân thiện bằng tiếng Việt.\n\n' +
       'QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n' +
       '- TÁCH CÁC HÀNH ĐỘNG ĐỘC LẬP: Khi người dùng đưa ra một câu chứa NHIỀU YÊU CẦU / NHIỀU HÀNH ĐỘNG ĐỘC LẬP (ví dụ: "tối nay đi ăn tối hết 80k ở bến thành sau đó đi uống nước 90k ở aeon", hoặc vừa ăn uống vừa tạo lịch, nhiều khoản chi tiêu trong cùng 1 câu), bạn PHẢI gọi đồng thời NHIỀU TOOL CALLS tương ứng cho từng hành động riêng biệt. Tuyệt đối không gộp chung vào 1 tool hay bỏ sót bất kỳ hành động nào.\n' +
@@ -238,6 +279,11 @@ export class TextInputService {
             : [];
 
       if (toolCalls.length > 0) {
+        // A request to the bot, not conversation: it reaches the long-term memory only as the
+        // confirmed action, if it is approved and succeeds.
+        if (input.messageId) {
+          void this.chatMemoryService?.setKind(chatId, input.messageId, 'request');
+        }
         this.propagateSharedTransactionContext(toolCalls);
         const amendedTypes = await this.amendFromToolCalls(toolCalls, amendable, input, text);
         // A question about a missing detail goes out after the cards of what could be done.
@@ -272,14 +318,12 @@ export class TextInputService {
             strategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
           }
 
-          await strategy.execute({
-            input,
-            chatId,
-            senderId,
-            displayName,
-            text,
-            toolArgs: toolCall.args,
-          });
+          const context = { input, chatId, senderId, displayName, text, toolArgs: toolCall.args };
+          // Answers of read-only tools are fine for follow-ups but go stale, so they stay out of
+          // the long-term memory.
+          await (READ_ONLY_TOOLS.has(toolCall.name)
+            ? OutgoingMemoryKind.run('tool', () => strategy.execute(context))
+            : strategy.execute(context));
         }
         return;
       }
@@ -309,7 +353,11 @@ export class TextInputService {
       // A tool-free second pass answers without the tool catalog biasing the reply toward refusals;
       // the first pass text stays as fallback.
       const chitChatReply = await this.zcaMessenger.withTyping(chatId, () =>
-        this.generateChitChatReply(text, dtContext.systemInstructionSnippet + recentContext),
+        this.generateChitChatReply(
+          text,
+          dtContext.systemInstructionSnippet + recentContext,
+          profile,
+        ),
       );
 
       const conversationStrategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
@@ -571,36 +619,53 @@ export class TextInputService {
   /**
    * Short-term chat memory: the latest messages of this chat, so follow-ups ("thế tháng 5 thì
    * sao?") make sense. Empty unless the ZCA thread has it on (`input.shortTermMemory`).
-   * The block forbids tool calls on its content, so old messages are never recorded twice.
    */
-  private async buildRecentContextBlock(
-    chatId: string,
-    input: AgentInput,
-    timeZone: string,
-  ): Promise<string> {
+  private async loadRecentLines(chatId: string, input: AgentInput): Promise<MemoryLine[]> {
     const memory = this.shortTermMemoryService;
     const settings = input.shortTermMemory;
-    if (!memory || !settings || settings.contextWindow <= 0) return '';
-    const lines = await memory.getRecent(chatId, {
+    if (!memory || !settings || settings.contextWindow <= 0) return [];
+    return memory.getRecent(chatId, {
       limit: settings.contextWindow,
       maxAgeDays: settings.days,
       excludeMsgId: input.messageId,
     });
-    if (lines.length === 0) return '';
-    return (
-      '\n\nNGỮ CẢNH GẦN ĐÂY CỦA CUỘC CHAT (chỉ để hiểu câu hỏi hiện tại; TUYỆT ĐỐI KHÔNG gọi tool ' +
-      'cho các yêu cầu nằm trong khối này, chúng đã được xử lý trước đó):\n' +
-      lines.map((line) => formatMemoryLine(line, timeZone)).join('\n')
-    );
+  }
+
+  /**
+   * What the chat told the bot to remember, plus learned facts about the bot, the sender, the
+   * people tagged and the people in the recent window. Built whatever the memory switches are:
+   * notes are independent of them.
+   */
+  private async buildProfileBlock(
+    chatId: string,
+    input: AgentInput,
+    recentLines: readonly MemoryLine[],
+  ): Promise<string> {
+    const memberIds = [
+      ...new Set(
+        [
+          input.senderId,
+          ...(input.taggedUsers ?? []).map((user) => user.id),
+          ...[...recentLines].reverse().map((line) => (line.isBot ? '' : (line.senderUid ?? ''))),
+        ].filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const [notes, facts] = await Promise.all([
+      this.channelNotesService?.list(chatId) ?? [],
+      input.longTermMemory ? (this.learnedFactsService?.forPrompt(chatId, memberIds) ?? []) : [],
+    ]);
+    return buildMemoryProfileBlock(notes, facts);
   }
 
   /** Tool-free free-chat reply; `undefined` when empty or failed so the caller can fall back. */
   private async generateChitChatReply(
     text: string,
     dateTimeSnippet: string,
+    profile = '',
   ): Promise<string | undefined> {
     const systemInstruction =
-      `Bạn là trợ lý cá nhân thông minh trên Zalo.\n\n` +
+      `${BOT_IDENTITY_LINE}\n\n` +
+      (profile ? `${profile}\n\n` : '') +
       `${dateTimeSnippet}\n\n` +
       'Hãy trả lời tin nhắn của người dùng một cách tự nhiên, thân thiện, ngắn gọn bằng tiếng Việt.\n\n' +
       `${CHIT_CHAT_INSTRUCTION}\n\n` +
