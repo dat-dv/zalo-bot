@@ -459,6 +459,64 @@ void test('ZcaBotFeatureService strips leading bot mention before pending comman
   assert.equal(llmCalled, false, 'edit command must not fall through to the LLM');
 });
 
+void test('ZcaBotFeatureService gives an edit command the people it tags ("@Đen edit 125 tag @Nam")', async () => {
+  const configService = new ThreadConfigService();
+  const threadId = 'group-edit-tag-test';
+  await configService.updateConfig(threadId, {
+    threadType: 'group',
+    isListened: true,
+    directInteraction: { enabled: true, allowAiChat: true },
+  });
+
+  let editInput: AgentInput | undefined;
+  const mockConfirmationService = {
+    handleReaction: () => Promise.resolve({ handled: false }),
+    handleCommand: async (
+      _senderId: string,
+      _chatId: string,
+      text: string,
+      onEdit?: (pending: unknown, instruction: string) => Promise<boolean>,
+    ) => {
+      if (!onEdit || !text.startsWith('edit 125')) return false;
+      await onEdit({ code: '125' }, 'tag @Nam');
+      return true;
+    },
+  } as unknown as TransactionConfirmationService;
+
+  const service = new ZcaBotFeatureService(configService, mockConfirmationService);
+  service.setTextInputService({
+    handleEditPendingAction: (input: AgentInput) => {
+      editInput = input;
+      return Promise.resolve(true);
+    },
+    process: () => Promise.resolve(),
+  } as unknown as TextInputService);
+
+  await service.onMessage(
+    {
+      threadId,
+      isSelf: false,
+      type: ThreadType.Group,
+      data: {
+        msgId: 'm-edit-tag',
+        content: '@Đen edit 125 tag @Nam',
+        uidFrom: 'u-1',
+        dName: 'Diệu Hằng',
+        msgType: 'webchat',
+        mentions: [
+          { uid: 'bot-uid', pos: 0, len: 4, type: 0 },
+          { uid: 'u-nam', pos: 18, len: 4, type: 0 },
+        ],
+      },
+    } as unknown as Message,
+    { getOwnId: () => 'bot-uid' } as unknown as API,
+  );
+
+  assert.equal(editInput?.text, 'edit 125 tag @Nam');
+  assert.deepEqual(editInput?.taggedUsers, [{ id: 'u-nam', name: 'Nam' }]);
+  assert.equal(editInput?.messageId, 'm-edit-tag');
+});
+
 void test('ZcaBotFeatureService passes onEdit handler to confirmationService.handleCommand', async () => {
   const configService = new ThreadConfigService();
   const threadId = 'thread-edit-test';

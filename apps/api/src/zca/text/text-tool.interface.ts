@@ -9,6 +9,8 @@ export interface TextToolContext {
   text: string;
   toolArgs?: Record<string, unknown>;
   aiReplyText?: string;
+  /** Payload of the pending card this call re-issues; only set on an edit. */
+  previousPayload?: Record<string, unknown>;
 }
 
 export interface TextToolStrategy {

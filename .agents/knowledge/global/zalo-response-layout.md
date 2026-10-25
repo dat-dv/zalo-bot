@@ -11,6 +11,9 @@ metadata:
       - apps/api/src/zca/zca.service.ts
       - apps/api/src/zca/thread-config.service.ts
       - apps/api/src/zca/text/zalo-plain-text.util.ts
+      - apps/api/src/zca/text/text-input.service.ts
+      - apps/api/src/zca/text/pending-edit-args.util.ts
+      - apps/api/src/zca/text/reminder-target-args.util.ts
 ---
 
 # Zalo Response Layout
@@ -52,6 +55,13 @@ Sensitive mutations (transactions, transaction delete, debts, places, reminders,
 - Text commands: `yes|y|ok|xác nhận [code]`, `cancel|no|hủy|huỷ|bỏ qua [code]`, `yes all`, `cancel all`, `edit|sửa|chỉnh sửa|sửa lại <code> <instruction>`. Without a code, `yes` takes the oldest pending action of the sender; `cancel` and `edit` take the newest.
 - Reactions (ZCA): heart (`/-heart`, `HEART`, `❤️`) adds the reactor to `heartUsers`; confirm when `heartUsers.length >= requiredHearts`. Angry (`:-h`, `ANGRY`, `😡`) cancels. `createPendingAction` takes `requiredHearts` from the chat's saved thread config `confirmationRules.requiredHearts` (group default 5) via `ThreadConfigService.findStoredConfig` (read-only, never creates a config); an explicit `requiredHearts` param wins; chats without a saved config (e.g. official webhook) need 1.
 - Authorization: confirm/cancel/edit by code is allowed when the sender owns the action or the command comes from the action's chat.
+- Follow-up message (no `edit` prefix): when the sender has unexpired pending cards in this chat, the main LLM pass lists them and gets the extra tool `AMEND_PENDING { code }` (see [Zalo Command Intake](zalo-command-intake.md)). A message that amends a card ("tag @Nam nha", "đổi sang 10h") re-issues it through the edit flow via `TransactionConfirmationService.amendPending`, allowed only for the card owner in the card's chat. Why: users correct a card by replying naturally; before this, the reply created a second, lossy card and the first one hung until timeout.
+- Edit flow (`TextInputService.handleEditPendingAction`, used by `edit <code>` and follow-ups):
+  - The edit input carries the message's tags, memory and settings (`ZcaBotFeatureService.buildTextAgentInput`, shared with the AI path).
+  - Patch edit for `CREATE_TASK` / `SET_REMINDER` (`pending-edit-args.util.ts`): the LLM sees the card as tool args (`pendingToolArgs`: once times in `remindTimes`, repeats in `repeatingTimes`, no people) with `required` dropped, sends only changed args, and `mergeEditedToolArgs` keeps everything it leaves out (null = left out; `""`/`[]`/`false` clears; any reminder-time key replaces the whole time group, same for the `nagEveryMinutes`/`nagCount` pair). No tool call = re-issue unchanged (new tags still apply). Other types keep the full re-issue from the payload.
+  - People on edit (`reminderUsersForRequest`): tags in the edit message replace the people (plus the sender with `remindSelf`); an untagged edit keeps the card's `remindUsers`.
+  - Returns `true` only when a new card was issued; otherwise the old card stays pending (unsupported type, other tool, no tool call outside patch mode, error).
+- Tool args `remindAt` and `remindTimes` are merged (`reminderTimesFromArgs`), so a first time given only in `remindAt` is not dropped.
 
 ## Success messages (compact)
 
@@ -107,9 +117,9 @@ Principle: interaction messages are ephemeral; after resolution only the outcome
 4. Confirmed: recall, execute, post one compact result message (same for hearts and text). If more actions remain, post the remaining notice as an interim message.
 5. Companion place: confirming a `RECORD_TRANSACTION` with `placeName` recalls and deletes a matching pending `CREATE_PLACE` card.
 6. Cancelled: recall, post cancel notice. Timeout: recall, post `⏰ … (mã: xxx) đã hết hạn 5 phút và chưa được xác nhận.`
-7. Edited: recall the old card, re-run the same tool via LLM to issue a new card, then delete the old pending action.
+7. Edited (`edit <code>` or a follow-up message): re-run the same tool via LLM to issue a new card; only when it is out, recall the old card and delete its pending action. A failed edit keeps the old card to approve.
 8. Resolution deletes `pending:tx:code`, `pending:tx:user`, the code from `pending:tx:user-codes`, and `pending:tx:msg`; `recallTempMessages` deletes the `pending:tx:temp` / `pending:tx:chat-temp` lists it recalls.
 
 ## Tests
 
-`apps/api/src/zca/confirmation/transaction-confirmation.service.spec.ts`, `dto-descriptor.util.spec.ts`, `compact-summary.util.spec.ts`; markdown cleanup: `apps/api/src/zca/text/zalo-plain-text.util.spec.ts`, `zca.service.spec.ts` (`sendMessage`).
+`apps/api/src/zca/confirmation/transaction-confirmation.service.spec.ts`, `dto-descriptor.util.spec.ts`, `compact-summary.util.spec.ts`; edits and follow-ups: `apps/api/src/zca/text/text-input.service.spec.ts`, `pending-edit-args.util.spec.ts`, `reminder-target-args.util.spec.ts`; markdown cleanup: `apps/api/src/zca/text/zalo-plain-text.util.spec.ts`, `zca.service.spec.ts` (`sendMessage`).

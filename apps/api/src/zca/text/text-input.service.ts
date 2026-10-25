@@ -9,6 +9,8 @@ import {
   textToolDefinitionsFor,
 } from './text-tool.definitions';
 import { LlmService } from '../../llm/llm.service';
+import type { LlmToolCall, LlmToolDefinition } from '../../llm/types/llm.types';
+import { parseTargetUsers } from '../../reminders/reminder-target';
 import { ZcaMessengerService } from '../zca-messenger.service';
 import {
   TransactionConfirmationService,
@@ -27,6 +29,13 @@ import { getVietnamDateTimeContext } from '../../common/utils/datetime.util';
 import { ShortTermMemoryService } from '../memory/short-term-memory.service';
 import { formatMemoryLine } from '../memory/chat-memory.mapper';
 import { ZALO_PLAIN_TEXT_INSTRUCTION } from './zalo-plain-text.util';
+import {
+  AMEND_PENDING_TOOL,
+  AMEND_PENDING_TOOL_NAME,
+  amendablePendingBlock,
+  pickAmendTarget,
+} from './amend-pending.tool';
+import { mergeEditedToolArgs, pendingToolArgs } from './pending-edit-args.util';
 
 /**
  * Appended to the prompt when free chat is allowed. Without it the tool-heavy prompt makes the
@@ -38,6 +47,15 @@ const CHIT_CHAT_INSTRUCTION =
   '- KHÔNG từ chối với lý do bạn "chỉ là trợ lý tài chính / lịch hẹn / công việc".\n' +
   '- Với câu hỏi cần dữ liệu thời gian thực (lịch chiếu, giá cả, thời tiết, tin tức): trả lời bằng kiến thức bạn có, nói ngắn gọn rằng thông tin có thể chưa cập nhật và gợi ý nguồn để kiểm tra.\n' +
   '- Chỉ gọi công cụ khi người dùng thực sự yêu cầu một thao tác có công cụ tương ứng.';
+
+/** An edit sends only the args it changes, so none of them may be required. */
+function withoutRequiredArgs(definition: LlmToolDefinition): LlmToolDefinition {
+  if (!definition.parameters) return definition;
+  return {
+    ...definition,
+    parameters: { type: definition.parameters.type, properties: definition.parameters.properties },
+  };
+}
 
 @Injectable()
 export class TextInputService {
@@ -118,9 +136,7 @@ export class TextInputService {
       senderId,
       chatId,
       text,
-      async (pending, instruction) => {
-        await this.handleEditPendingAction(input, pending, instruction);
-      },
+      (pending, instruction) => this.handleEditPendingAction(input, pending, instruction),
     );
     if (handledConfirmation) {
       return;
@@ -170,6 +186,7 @@ export class TextInputService {
       'Asia/Ho_Chi_Minh';
     const dtContext = getVietnamDateTimeContext(new Date(), timeZone);
     const recentContext = await this.buildRecentContextBlock(chatId, input, timeZone);
+    const amendable = await this.amendablePending(senderId, chatId);
     const systemInstruction =
       `Bạn là trợ lý cá nhân thông minh trên Zalo.\n\n` +
       `${dtContext.systemInstructionSnippet}\n\n` +
@@ -199,13 +216,15 @@ export class TextInputService {
       '- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object (ví dụ đúng: {"amount": 15000, "category": "Ăn uống", "type": "expense", "note": "uống cà phê"}, KHÔNG ĐƯỢC: {"amount": {"amount": 15000}}).' +
       (input.allowAiChat !== false ? `\n\n${CHIT_CHAT_INSTRUCTION}` : '') +
       `\n\n${ZALO_PLAIN_TEXT_INSTRUCTION}` +
+      amendablePendingBlock(amendable) +
       recentContext;
+    const tools = textToolDefinitionsFor({ longTermMemory: Boolean(input.longTermMemory) });
 
     try {
       const response = await this.zcaMessenger.withTyping(chatId, () =>
         this.llmService.generate(
           text,
-          textToolDefinitionsFor({ longTermMemory: Boolean(input.longTermMemory) }),
+          amendable.length > 0 ? [...tools, AMEND_PENDING_TOOL] : tools,
           systemInstruction,
         ),
       );
@@ -219,7 +238,15 @@ export class TextInputService {
 
       if (toolCalls.length > 0) {
         this.propagateSharedTransactionContext(toolCalls);
+        const amendedTypes = await this.amendFromToolCalls(toolCalls, amendable, input, text);
         for (const toolCall of toolCalls) {
+          if (toolCall.name === AMEND_PENDING_TOOL_NAME) continue;
+          if (amendedTypes.has(toolCall.name)) {
+            this.logger.log(
+              `Skipping "${toolCall.name}": this message already amended a pending card of that type.`,
+            );
+            continue;
+          }
           this.logger.log(
             `LLM resolved tool "${toolCall.name}" with args: ${JSON.stringify(toolCall.args)}`,
           );
@@ -303,11 +330,12 @@ export class TextInputService {
     }
   }
 
+  /** Re-issues a pending card from an edit; `true` once its new card is out. */
   public async handleEditPendingAction(
     input: AgentInput,
     pending: PendingAction,
     instruction: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const chatId = input.chatId || input.senderId;
     const senderId = input.senderId;
     const displayName = input.displayName;
@@ -320,7 +348,7 @@ export class TextInputService {
         chatId,
         `⚠️ Yêu cầu mã "${pending.code}" không hỗ trợ chỉnh sửa. Vui lòng gõ "cancel ${pending.code}" và tạo lại yêu cầu mới.`,
       );
-      return;
+      return false;
     }
 
     const timeZone =
@@ -329,6 +357,10 @@ export class TextInputService {
       'Asia/Ho_Chi_Minh';
     const dtContext = getVietnamDateTimeContext(new Date(), timeZone);
 
+    // A card with an args mapping is edited as a patch on its own args, so whatever the edit
+    // leaves out (other reminder times, the people reminded) is kept instead of re-derived.
+    const previousArgs = pendingToolArgs(pending.actionType, pending.payload);
+
     const previousInfoLines: string[] = [
       `- Loại thao tác (Tool Call trước đó): ${pending.actionType}`,
       `- Tiêu đề: ${pending.title}`,
@@ -336,7 +368,35 @@ export class TextInputService {
     if (pending.rawPrompt) {
       previousInfoLines.push(`- Yêu cầu ban đầu của người dùng: "${pending.rawPrompt}"`);
     }
-    previousInfoLines.push(`- Dữ liệu tham số hiện tại:`, JSON.stringify(pending.payload, null, 2));
+    if (previousArgs) {
+      previousInfoLines.push(
+        `- Tham số hiện tại (đúng dạng tham số của công cụ ${editTool}):`,
+        JSON.stringify(previousArgs, null, 2),
+      );
+      const people = parseTargetUsers(pending.payload.remindUsers) ?? [];
+      if (people.length > 0) {
+        previousInfoLines.push(`- Đang nhắc: ${people.map((user) => `@${user.name}`).join(', ')}`);
+      }
+    } else {
+      previousInfoLines.push(
+        `- Dữ liệu tham số hiện tại:`,
+        JSON.stringify(pending.payload, null, 2),
+      );
+    }
+
+    const taskLines = previousArgs
+      ? [
+          `- CHỈ điền các tham số cần thay đổi; tham số giữ nguyên thì bỏ trống.`,
+          `- Nếu đổi giờ nhắc: điền ĐẦY ĐỦ danh sách giờ sau khi đổi (remindTimes cho giờ nhắc một lần, repeatingTimes cho giờ lặp).`,
+          `- Người được nhắc lấy từ người được tag trong tin nhắn, không ghi vào tham số.`,
+          `- Luôn gọi lại công cụ ${editTool}, kể cả khi không có tham số nào cần đổi (khi đó gọi với tham số rỗng).`,
+        ]
+      : [
+          `- Phân tích kỹ yêu cầu điều chỉnh của người dùng dựa trên ngữ cảnh và dữ liệu tham số hiện tại.`,
+          `- Giữ nguyên các thông tin cũ nếu người dùng không yêu cầu thay đổi.`,
+          `- Cập nhật, thay đổi hoặc bổ sung các trường thông tin theo đúng yêu cầu mới của người dùng.`,
+          `- Gọi lại công cụ ${editTool} với các tham số đã cập nhật hoàn chỉnh để tạo yêu cầu xác nhận mới.`,
+        ];
 
     const prompt =
       `Người dùng đang chỉnh sửa / cung cấp lại ngữ cảnh cho yêu cầu thao tác đang chờ xác nhận (mã: ${pending.code}).\n\n` +
@@ -345,10 +405,7 @@ export class TextInputService {
       `[YÊU CẦU ĐIỀU CHỈNH / CONTEXT MỚI TỪ NGƯỜI DÙNG]\n` +
       `"${instruction}"\n\n` +
       `Nhiệm vụ của bạn:\n` +
-      `- Phân tích kỹ yêu cầu điều chỉnh của người dùng dựa trên ngữ cảnh và dữ liệu tham số hiện tại.\n` +
-      `- Giữ nguyên các thông tin cũ nếu người dùng không yêu cầu thay đổi.\n` +
-      `- Cập nhật, thay đổi hoặc bổ sung các trường thông tin theo đúng yêu cầu mới của người dùng.\n` +
-      `- Gọi lại công cụ ${editTool} với các tham số đã cập nhật hoàn chỉnh để tạo yêu cầu xác nhận mới.\n\n` +
+      `${taskLines.join('\n')}\n\n` +
       `QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n` +
       `- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object.`;
 
@@ -360,9 +417,15 @@ export class TextInputService {
       `- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object.\n\n` +
       ZALO_PLAIN_TEXT_INSTRUCTION;
 
+    const editTools = selectToolDefinitions([editTool]);
+
     try {
       const response = await this.zcaMessenger.withTyping(chatId, () =>
-        this.llmService.generate(prompt, selectToolDefinitions([editTool]), systemInstruction),
+        this.llmService.generate(
+          prompt,
+          previousArgs ? editTools.map(withoutRequiredArgs) : editTools,
+          systemInstruction,
+        ),
       );
 
       const toolCall = response.toolCall;
@@ -370,24 +433,33 @@ export class TextInputService {
         this.logger.warn(
           `[TextInputService] Edit of "${pending.code}" resolved tool "${toolCall.name}" instead of "${editTool}". Skipping.`,
         );
-        return;
+        return false;
       }
-      if (toolCall) {
+      // A patch edit without a tool call changes no args, but is still re-issued: the people
+      // tagged in the edit message apply to the new card.
+      const toolArgs = previousArgs
+        ? mergeEditedToolArgs(previousArgs, toolCall?.args ?? {})
+        : toolCall?.args;
+      if (toolArgs) {
         this.logger.log(
-          `LLM resolved updated tool "${toolCall.name}" with args: ${JSON.stringify(toolCall.args)}`,
+          toolCall
+            ? `LLM resolved updated tool "${toolCall.name}" with args: ${JSON.stringify(toolCall.args)}`
+            : `Edit of "${pending.code}" got no tool call; re-issuing "${editTool}" with its previous args.`,
         );
 
         let strategy;
+        let reissued = true;
         try {
-          strategy = this.toolFactory.getStrategy(toolCall.name as TextToolType);
+          strategy = this.toolFactory.getStrategy(editTool);
         } catch {
           this.logger.warn(
-            `Strategy for tool "${toolCall.name}" not found. Falling back to CONVERSATION.`,
+            `Strategy for tool "${editTool}" not found. Falling back to CONVERSATION.`,
           );
           if (input.allowAiChat === false) {
-            return;
+            return false;
           }
           strategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
+          reissued = false;
         }
 
         await strategy.execute({
@@ -396,14 +468,15 @@ export class TextInputService {
           senderId,
           displayName,
           text: instruction,
-          toolArgs: toolCall.args,
+          toolArgs,
+          previousPayload: pending.payload,
         });
-        return;
+        return reissued;
       }
 
       // Plain AI conversational reply if LLM didn't return a tool call
       if (input.allowAiChat === false) {
-        return;
+        return false;
       }
       const conversationStrategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
       await conversationStrategy.execute({
@@ -414,13 +487,77 @@ export class TextInputService {
         text: instruction,
         aiReplyText: response.text,
       });
+      return false;
     } catch (err) {
       this.logger.error(`Failed to handle edit pending action: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         chatId,
         `⚠️ Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu: ${(err as Error).message}`,
       );
+      return false;
     }
+  }
+
+  /**
+   * The sender's pending cards in this chat that a follow-up message may amend. A failed lookup
+   * means none: the message then goes the usual way rather than failing.
+   */
+  private async amendablePending(senderId: string, chatId: string): Promise<PendingAction[]> {
+    try {
+      const now = Date.now();
+      const pendings = await this.confirmationService.getPendingListForUser(senderId);
+      return pendings.filter(
+        (pending) =>
+          pending.chatId === chatId &&
+          pending.expiresAt > now &&
+          isTextToolType(pending.actionType),
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : JSON.stringify(err);
+      this.logger.warn(
+        `[TextInputService] Could not list pending cards of ${senderId}: ${message}`,
+      );
+      return [];
+    }
+  }
+
+  /**
+   * Runs the amend calls of a message: each re-issues one of the sender's pending cards through
+   * the edit flow, with the whole message as the instruction. Returns the amended action types;
+   * other tool calls of those types in the message are dropped so a follow-up never asks for a
+   * second card.
+   */
+  private async amendFromToolCalls(
+    toolCalls: readonly LlmToolCall[],
+    amendable: readonly PendingAction[],
+    input: AgentInput,
+    text: string,
+  ): Promise<Set<string>> {
+    const chatId = input.chatId || input.senderId;
+    const amendedTypes = new Set<string>();
+    const amendedCodes = new Set<string>();
+    for (const toolCall of toolCalls) {
+      if (toolCall.name !== AMEND_PENDING_TOOL_NAME) continue;
+      const target = pickAmendTarget(amendable, toolCall.args?.code);
+      if (!target) {
+        this.logger.warn(
+          `[TextInputService] Amend call matches no pending card: ${JSON.stringify(toolCall.args)}`,
+        );
+        continue;
+      }
+      if (amendedCodes.has(target.code)) continue;
+      amendedCodes.add(target.code);
+      amendedTypes.add(target.actionType);
+      this.logger.log(`Follow-up message amends pending "${target.code}" (${target.actionType}).`);
+      await this.confirmationService.amendPending(
+        input.senderId,
+        chatId,
+        target.code,
+        text,
+        (pending, instruction) => this.handleEditPendingAction(input, pending, instruction),
+      );
+    }
+    return amendedTypes;
   }
 
   /**

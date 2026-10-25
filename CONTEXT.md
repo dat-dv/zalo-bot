@@ -56,6 +56,7 @@
 
 - **Thao tác chờ duyệt (Pending Action)**: Yêu cầu thay đổi dữ liệu nhạy cảm được cấp mã 3 số ngẫu nhiên (`code`), gắn thời hạn 5 phút và lưu vào Redis.
 - **Xác nhận đa chiều**: Duyệt thao tác bằng tin nhắn (`yes <code>`), thả tim (❤️) đạt ngưỡng quy định, hoặc hủy bỏ bằng `cancel <code>` hay thả phẫn nộ (😡).
+- **Tin bổ sung**: Tin của chủ thẻ, nhắn trong đúng cuộc trò chuyện chứa thẻ khi thẻ còn hạn, để sửa thẻ đó (ví dụ "tag @Nam nha") mà không gõ `edit <code>`. Bot phát thẻ mới thay thẻ cũ; điều không được nhắc tới (các giờ nhắc khác, người đang được nhắc) giữ nguyên. Tin của người khác, hoặc yêu cầu mới độc lập, không phải tin bổ sung.
 - **Thu hồi tin nhắn (Message Recall / Undo)**: Cơ chế gọi API ZCA `undo({ msgId, cliMsgId })` để thu hồi tin nhắn thẻ xác nhận chờ đối với tất cả mọi người trong phòng chat ngay khi hành động được duyệt, hủy, hết hạn hoặc chỉnh sửa.
 - **Hành động đi kèm (Companion Action)**: Thao tác phụ được sinh đồng thời trong cùng một luồng (như tạo nơi chốn mới khi ghi thu chi). Khi thao tác chính được duyệt, hành động phụ được tự động cam kết và thu hồi thẻ chờ tương ứng.
 

@@ -703,7 +703,7 @@ void test('TransactionConfirmationService edits transaction with "edit <mã> <n�
     (p, instruction) => {
       calledWithPending = p;
       calledWithInstruction = instruction;
-      return Promise.resolve();
+      return Promise.resolve(true);
     },
   );
 
@@ -764,7 +764,7 @@ void test('TransactionConfirmationService edits without code using user latest p
     'edit đổi thành cà phê 30k',
     (_p, instruction) => {
       calledWithInstruction = instruction;
-      return Promise.resolve();
+      return Promise.resolve(true);
     },
   );
 
@@ -1204,7 +1204,7 @@ void test('TransactionConfirmationService recalls previous message when action i
   let onEditCalled = false;
   await service.handleCommand('u1', 'c1', `edit ${pending.code} đổi thành 400k`, () => {
     onEditCalled = true;
-    return Promise.resolve();
+    return Promise.resolve(true);
   });
 
   assert.equal(onEditCalled, true);
@@ -1538,7 +1538,7 @@ void test('TransactionConfirmationService keeps pending intact when canEdit reje
     `edit ${pending.code} cho link drive`,
     () => {
       onEditCalled = true;
-      return Promise.resolve();
+      return Promise.resolve(true);
     },
     () => Promise.resolve(false),
   );
@@ -1660,4 +1660,66 @@ void test('parseReminderPayload keeps the repeat of each time and the remind-aga
   ]);
   assert.equal(parsed.nagEveryMinutes, 15);
   assert.equal(parsed.nagCount, 3);
+});
+
+void test('TransactionConfirmationService keeps the card when an edit issues no new one', async () => {
+  let recalled = false;
+  const mockZaloService = {
+    sendMessage: () => Promise.resolve(true),
+    sendMessageWithResult: () =>
+      Promise.resolve({ success: true, msgId: 'msg-keep-1', cliMsgId: 'cli-keep-1' }),
+    undoMessage: () => {
+      recalled = true;
+      return Promise.resolve(true);
+    },
+  } as unknown as ZcaService;
+  const service = new TransactionConfirmationService(
+    mockZaloService,
+    {} as unknown as FinanceService,
+  );
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: { type: 'expense', amount: 450000, category: 'Mua sắm', note: 'kính' },
+  });
+
+  const handled = await service.handleCommand(
+    'u1',
+    'c1',
+    `edit ${pending.code} đổi thành 400k`,
+    () => Promise.resolve(false),
+  );
+
+  assert.equal(handled, true);
+  assert.equal(recalled, false, 'The card must not be recalled');
+  assert.ok(await service.getPendingByCode(pending.code), 'The card must stay pending');
+
+  service.clearAll();
+});
+
+void test("TransactionConfirmationService amendPending re-issues only its owner's card in its chat", async () => {
+  const { service, sentMessages } = createTestContext();
+  const pending = await service.createPending({
+    userId: 'u1',
+    chatId: 'g1',
+    payload: { type: 'expense', amount: 45000, category: 'Ăn uống', note: 'ăn trưa' },
+  });
+  const sentBefore = sentMessages.length;
+  let edits = 0;
+  const onEdit = () => {
+    edits++;
+    return Promise.resolve(true);
+  };
+
+  assert.equal(await service.amendPending('u2', 'g1', pending.code, 'tag @Nam', onEdit), true);
+  assert.equal(await service.amendPending('u1', 'g2', pending.code, 'tag @Nam', onEdit), true);
+  assert.equal(edits, 0, 'Only the owner, in the card chat, amends without "edit"');
+  assert.equal(sentMessages.length, sentBefore, 'Refused amends stay silent');
+  assert.ok(await service.getPendingByCode(pending.code));
+
+  await service.amendPending('u1', 'g1', pending.code, 'tag @Nam', onEdit);
+  assert.equal(edits, 1);
+  assert.equal(await service.getPendingByCode(pending.code), undefined);
+
+  service.clearAll();
 });

@@ -8,6 +8,8 @@ metadata:
       - apps/api/src/zca/zca-messenger.service.ts
       - apps/api/src/users/users.service.ts
       - apps/api/src/zca/text/text-input.service.ts
+      - apps/api/src/zca/text/amend-pending.tool.ts
+      - apps/api/src/zca/text/pending-edit-args.util.ts
       - apps/api/src/zca/text/text-tool.factory.ts
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
       - apps/api/src/zca/zca-bot-feature.service.ts
@@ -29,10 +31,11 @@ The bot has one channel: the bot's **personal Zalo account (ZCA, `zca-js`)** —
 ## TextInputService order
 
 1. Clean bot mention / trigger prefix.
-2. Pending confirmation commands (`TransactionConfirmationService.handleCommand`, in `apps/api/src/zca/confirmation/`): `yes|y|ok|xác nhận [code]`, `cancel|no|hủy|bỏ qua [code]`, `yes all` / `cancel all`, `edit|sửa <code> <instruction>`.
+2. Pending confirmation commands (`TransactionConfirmationService.handleCommand`, in `apps/api/src/zca/confirmation/`): `yes|y|ok|xác nhận [code]`, `cancel|no|hủy|bỏ qua [code]`, `yes all` / `cancel all`, `edit|sửa <code> <instruction>`. Edit rules (patch edit, people, old card kept on failure): see [Zalo Response Layout](zalo-response-layout.md).
 3. Pending image choices (`1`, `2`, `hủy`) via `PendingImageActionDispatcher`; a lone `1`/`2` with nothing pending gets a hint.
 4. Fast-path commands (`TextToolFactory.resolveFastPathToolType`).
 5. LLM tool calling (`LlmService`, see [LLM Providers](llm-providers.md)); no tool -> conversation reply unless `allowAiChat === false`. When free chat is allowed (`allowAiChat !== false`, `undefined` = on), the tool prompt gets `CHIT_CHAT_INSTRUCTION` (answer general questions, never refuse as "only a finance assistant", flag possibly stale real-time info) and a no-tool reply triggers a second tool-free `generate` (`generateChitChatReply`); its text is sent, falling back to the first-pass text when empty or failed. Not applied to `edit <code>` or the LLM-error fallback.
+   - Pending cards (`amend-pending.tool.ts`): when the sender has unexpired pending cards in this chat whose type has a text tool, the prompt gets `amendablePendingBlock` (code, type, title, args, people, and the rule "amend vs new request") and the tools get `AMEND_PENDING { code }` (not a `TextToolType`, no strategy). An `AMEND_PENDING` call (code, or the only card when the code is missing or wrong) runs `amendPending` with the whole message as the instruction; other tool calls of the amended type in that message are dropped, so a follow-up never yields a second card. Other types still run. A failed card lookup means no cards.
 
 ## Fast-path commands
 

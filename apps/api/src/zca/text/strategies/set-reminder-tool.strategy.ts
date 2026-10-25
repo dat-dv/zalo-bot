@@ -7,8 +7,8 @@ import {
   nagRuleFromArgs,
   reminderModeFromArgs,
   requestedTimesFromArgs,
+  reminderUsersForRequest,
   reminderUsersFromContext,
-  reminderUsersOrSender,
 } from '../reminder-target-args.util';
 
 @Injectable()
@@ -40,8 +40,9 @@ export class SetReminderToolStrategy implements TextToolStrategy {
     // A personal reminder stays private unless the message tags people or asks for the group.
     const tagged = reminderUsersFromContext(context, false);
     const inGroup = args.remindInGroup === true || tagged.length > 0;
-    // In the group someone is always tagged: the sender when nobody else is.
-    const remindUsers = inGroup ? reminderUsersOrSender(context, args.remindSelf === true) : [];
+    // In the group someone is always tagged: the sender when nobody else is, or on an edit the
+    // people of the card it replaces (`remindInGroup` comes back with that card's args).
+    const remindUsers = inGroup ? reminderUsersForRequest(context, args.remindSelf === true) : [];
 
     try {
       await this.confirmationService.createPendingReminder({

@@ -3,7 +3,7 @@ import {
   type ReminderTargetMode,
   isReminderRepeatType,
 } from '@zalobot/contracts';
-import { isReminderTargetMode } from '../../reminders/reminder-target';
+import { isReminderTargetMode, parseTargetUsers } from '../../reminders/reminder-target';
 import {
   type NagRuleInput,
   type ReminderRepeat,
@@ -42,11 +42,26 @@ export function reminderUsersOrSender(
 }
 
 /**
- * Reminder times from LLM args: the `remindTimes` list, else the single `remindAt`; invalid
- * values are dropped. Empty when the message gave no time.
+ * People to remind for a new or edited request: an edit that tags nobody (and does not ask to
+ * remind the sender) keeps the people of the card it replaces; otherwise `reminderUsersOrSender`.
+ */
+export function reminderUsersForRequest(
+  context: TextToolContext,
+  includeSender: boolean,
+): IReminderTargetUser[] {
+  const previous = parseTargetUsers(context.previousPayload?.remindUsers);
+  if (previous?.length && !context.input.taggedUsers?.length && !includeSender) return previous;
+  return reminderUsersOrSender(context, includeSender);
+}
+
+/**
+ * Reminder times from LLM args: `remindAt` together with the `remindTimes` list (the LLM may
+ * give the first time only in `remindAt`); invalid values are dropped. Empty when the message
+ * gave no time.
  */
 export function reminderTimesFromArgs(args: Record<string, unknown>): string[] {
-  const values: unknown[] = Array.isArray(args.remindTimes) ? args.remindTimes : [args.remindAt];
+  const list: unknown[] = Array.isArray(args.remindTimes) ? args.remindTimes : [];
+  const values: unknown[] = [args.remindAt, ...list];
   const times = values
     .filter((value): value is string => typeof value === 'string' && !!value.trim())
     .map((value) => value.trim())

@@ -8,7 +8,7 @@ import {
   nagRuleFromArgs,
   reminderModeFromArgs,
   requestedTimesFromArgs,
-  reminderUsersOrSender,
+  reminderUsersForRequest,
 } from '../reminder-target-args.util';
 
 @Injectable()
@@ -55,10 +55,10 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
 
       const remindTimes = requestedTimesFromArgs(context.toolArgs ?? {});
       // People only matter with a reminder; the task reminder goes to this chat, and in a
-      // group it tags someone (the sender when nobody is tagged).
+      // group it tags someone (the sender when nobody is tagged, the card's people on an edit).
       const remindUsers =
         remindTimes.length > 0
-          ? reminderUsersOrSender(context, context.toolArgs?.remindSelf === true)
+          ? reminderUsersForRequest(context, context.toolArgs?.remindSelf === true)
           : [];
       await this.confirmationService.createPendingTask({
         userId: context.senderId,

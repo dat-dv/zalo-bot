@@ -14,6 +14,8 @@ import { ManageDebtToolStrategy } from './strategies/manage-debt-tool.strategy';
 import { RecordTransactionToolStrategy } from './strategies/record-transaction-tool.strategy';
 import { SetReminderToolStrategy } from './strategies/set-reminder-tool.strategy';
 import { GetReportToolStrategy } from './strategies/get-report-tool.strategy';
+import { CreateTaskToolStrategy } from './strategies/create-task-tool.strategy';
+import { TasksService } from '../../tasks/tasks.service';
 import { ZcaMessengerService } from '../zca-messenger.service';
 import { UsersService } from '../../users/users.service';
 import { FinanceService } from '../../finance/finance.service';
@@ -33,6 +35,8 @@ interface SetupOptions {
   isAllowed?: boolean;
   cooldownAllowed?: boolean;
   llmResponse?: LlmResponse;
+  /** Replies of the tool-calling passes, taken in order (filled later is fine); then `llmResponse`. */
+  llmResponses?: LlmResponse[];
   /** Reply of the tool-free chit-chat pass; an Error makes that pass throw. */
   chitChatResponse?: LlmResponse | Error;
   pendingImageActionService?: PendingImageActionService;
@@ -137,6 +141,7 @@ function createTextInputService(options?: SetupOptions) {
   let lastLlmPrompt = '';
   let lastLlmInstruction = '';
   let lastLlmToolNames: string[] = [];
+  const llmCalls: Array<{ prompt: string; systemInstruction: string; toolNames: string[] }> = [];
   // Tool-free calls are the chit-chat pass; tracked apart so the counters above keep measuring
   // the tool-calling pass only.
   const chitChatCalls: Array<{ prompt: string; systemInstruction: string }> = [];
@@ -154,10 +159,12 @@ function createTextInputService(options?: SetupOptions) {
       lastLlmPrompt = prompt;
       lastLlmToolNames = (tools ?? []).map((t) => t.name);
       lastLlmInstruction = systemInstruction || '';
+      llmCalls.push({ prompt, systemInstruction: lastLlmInstruction, toolNames: lastLlmToolNames });
       return Promise.resolve(
-        options?.llmResponse || {
-          text: 'Xin chào, tôi có thể giúp gì cho bạn?',
-        },
+        options?.llmResponses?.shift() ||
+          options?.llmResponse || {
+            text: 'Xin chào, tôi có thể giúp gì cho bạn?',
+          },
       );
     },
   } as unknown as LlmService;
@@ -184,6 +191,14 @@ function createTextInputService(options?: SetupOptions) {
   );
   const setReminderStrategy = new SetReminderToolStrategy(mockZaloService, confirmationService);
   const getReportStrategy = new GetReportToolStrategy(mockZaloService, mockFinanceService);
+  const mockTasksService = {
+    findPotentialDuplicateTasks: () => Promise.resolve([]),
+  } as unknown as TasksService;
+  const createTaskStrategy = new CreateTaskToolStrategy(
+    mockZaloService,
+    mockTasksService,
+    confirmationService,
+  );
   const createPlaceStrategy = new CreatePlaceToolStrategy(
     mockZaloService,
     confirmationService,
@@ -215,7 +230,7 @@ function createTextInputService(options?: SetupOptions) {
     undefined,
     undefined,
     undefined,
-    undefined,
+    createTaskStrategy,
     undefined,
     undefined,
     undefined,
@@ -245,6 +260,7 @@ function createTextInputService(options?: SetupOptions) {
     getLastLlmPrompt: () => lastLlmPrompt,
     getLastLlmInstruction: () => lastLlmInstruction,
     getLastLlmToolNames: () => lastLlmToolNames,
+    llmCalls,
     chitChatCalls,
   };
 }
@@ -1255,12 +1271,13 @@ void test('TextInputService edit only exposes the pending action tool and ignore
   });
   assert.equal(sentMessages.length, 1);
 
-  await service.handleEditPendingAction(
+  const reissued = await service.handleEditPendingAction(
     { type: 'text', senderId: 'u2', chatId: 'g1', displayName: 'Khách', text: '' },
     pending,
     'cho link drive',
   );
 
+  assert.equal(reissued, false, 'A skipped edit keeps the old card');
   assert.deepEqual(getLastLlmToolNames(), [TextToolType.RECORD_TRANSACTION]);
   assert.equal(sentMessages.length, 1, 'Tool other than the pending action type must not run');
 
@@ -1277,12 +1294,13 @@ void test('TextInputService edit refuses pending actions without a matching tool
   });
   const callsBefore = getLlmCallCount();
 
-  await service.handleEditPendingAction(
+  const reissued = await service.handleEditPendingAction(
     { type: 'text', senderId: 'u1', chatId: 'g1', displayName: 'Đạt', text: '' },
     { ...pending, actionType: 'create' },
     'đổi thành 50k',
   );
 
+  assert.equal(reissued, false);
   assert.equal(getLlmCallCount(), callsBefore);
   assert.match(sentMessages[sentMessages.length - 1].text, /không hỗ trợ chỉnh sửa/);
 
@@ -1361,4 +1379,178 @@ void test('TextInputService reports a failed provider chain once, without the ch
   assert.equal(chitChatCalls.length, 0);
   assert.equal(sentMessages.length, 1);
   assert.equal(sentMessages[0].text, 'Có lỗi khi kết nối tới mô hình AI.');
+});
+
+const FEB_14 = '2027-02-14T02:00:00.000Z';
+const MAR_8 = '2027-03-08T02:00:00.000Z';
+const OCT_20 = '2027-10-20T02:00:00.000Z';
+const HANG = { id: 'hang', name: 'Diệu Hằng' };
+const DAT = { id: 'dat', name: 'Văn Đạt' };
+
+/** The [446] card of the incident: three reminder times in group g1, reminding its sender. */
+function seedFlowerTask(
+  confirmationService: TransactionConfirmationService,
+  remindUsers: Array<{ id: string; name: string }> = [HANG],
+) {
+  return confirmationService.createPendingTask({
+    userId: HANG.id,
+    chatId: 'g1',
+    rawPrompt: 'Đạt hứa các ngày lễ 14/2 8/3 20/10 đều mua hoa tươi tặng Hằng',
+    payload: {
+      title: 'Đạt mua hoa tươi tặng Hằng',
+      remindAt: FEB_14,
+      remindTimes: [
+        { at: FEB_14, repeat: { repeatType: 'monthly', repeatWeekdays: [] } },
+        { at: MAR_8 },
+        { at: OCT_20 },
+      ],
+      remindUsers,
+    },
+  });
+}
+
+function hangSays(text: string, taggedUsers: Array<{ id: string; name: string }> = []) {
+  return {
+    type: 'text' as const,
+    senderId: HANG.id,
+    chatId: 'g1',
+    displayName: HANG.name,
+    text,
+    taggedUsers,
+  };
+}
+
+/** The reminder times and people of the sender's only pending card. */
+async function onlyPendingTask(confirmationService: TransactionConfirmationService) {
+  const list = await confirmationService.getPendingListForUser(HANG.id);
+  assert.equal(list.length, 1, 'Exactly one pending card is left');
+  const payload = list[0].payload as {
+    remindTimes?: Array<{ at: string; repeat?: { repeatType: string } }>;
+    remindUsers?: Array<{ id: string; name: string }>;
+  };
+  return {
+    code: list[0].code,
+    times: (payload.remindTimes ?? []).map((time) => time.at),
+    firstRepeat: payload.remindTimes?.[0]?.repeat?.repeatType,
+    people: payload.remindUsers,
+  };
+}
+
+void test('TextInputService turns a follow-up of the card owner into an edit that keeps every reminder time', async () => {
+  const llmResponses: LlmResponse[] = [];
+  const { service, confirmationService, llmCalls } = createTextInputService({ llmResponses });
+  const old = await seedFlowerTask(confirmationService);
+  llmResponses.push(
+    { toolCall: { name: 'AMEND_PENDING', args: { code: old.code } } },
+    // Patch edit: the people come from the tag, nothing else changes.
+    { toolCall: { name: TextToolType.CREATE_TASK, args: {} } },
+  );
+
+  await service.process(hangSays('tag @Văn Đạt nha', [DAT]));
+
+  assert.ok(llmCalls[0].toolNames.includes('AMEND_PENDING'));
+  assert.match(llmCalls[0].systemInstruction, new RegExp(`Mã ${old.code} · CREATE_TASK`));
+  const card = await onlyPendingTask(confirmationService);
+  assert.notEqual(card.code, old.code, 'The old card is replaced by a new one');
+  assert.deepEqual(card.times, [FEB_14, MAR_8, OCT_20]);
+  assert.equal(card.firstRepeat, 'monthly');
+  assert.deepEqual(card.people, [DAT]);
+
+  confirmationService.clearAll();
+});
+
+void test('TextInputService drops a second card of the amended type asked in the same message', async () => {
+  const llmResponses: LlmResponse[] = [];
+  const { service, confirmationService } = createTextInputService({ llmResponses });
+  const old = await seedFlowerTask(confirmationService);
+  llmResponses.push(
+    {
+      toolCalls: [
+        { name: 'AMEND_PENDING', args: { code: old.code } },
+        { name: TextToolType.CREATE_TASK, args: { title: 'Mua hoa', remindAt: FEB_14 } },
+      ],
+    },
+    { toolCall: { name: TextToolType.CREATE_TASK, args: {} } },
+  );
+
+  await service.process(hangSays('tag @Văn Đạt nha', [DAT]));
+
+  const card = await onlyPendingTask(confirmationService);
+  assert.deepEqual(card.times, [FEB_14, MAR_8, OCT_20]);
+
+  confirmationService.clearAll();
+});
+
+void test('TextInputService offers the amend tool only for the sender cards in this chat', async () => {
+  const { service, confirmationService, llmCalls } = createTextInputService({
+    llmResponse: { text: 'ok' },
+  });
+  await seedFlowerTask(confirmationService);
+
+  await service.process({ ...hangSays('hôm nay trời đẹp'), senderId: DAT.id });
+  await service.process({ ...hangSays('hôm nay trời đẹp'), chatId: 'g2' });
+
+  assert.equal(llmCalls.length, 2);
+  for (const call of llmCalls) {
+    assert.ok(!call.toolNames.includes('AMEND_PENDING'));
+    assert.doesNotMatch(call.systemInstruction, /THẺ ĐANG CHỜ XÁC NHẬN/);
+  }
+
+  confirmationService.clearAll();
+});
+
+void test('TextInputService keeps the pending card when the message asks for something new', async () => {
+  const { service, confirmationService } = createTextInputService({
+    llmResponses: [
+      {
+        toolCall: {
+          name: TextToolType.RECORD_TRANSACTION,
+          args: { type: 'expense', amount: 45000, category: 'Ăn uống', note: 'ăn trưa' },
+        },
+      },
+    ],
+  });
+  const old = await seedFlowerTask(confirmationService);
+
+  await service.process(hangSays('ăn trưa 45k'));
+
+  const codes = (await confirmationService.getPendingListForUser(HANG.id)).map((p) => p.code);
+  assert.equal(codes.length, 2);
+  assert.ok(codes.includes(old.code));
+
+  confirmationService.clearAll();
+});
+
+void test('TextInputService re-issues a patch edit even when the LLM sends no tool call', async () => {
+  const { service, confirmationService } = createTextInputService({
+    llmResponses: [{ text: 'Đã tag Văn Đạt' }],
+  });
+  const old = await seedFlowerTask(confirmationService);
+
+  await service.process(hangSays(`edit ${old.code} tag @Văn Đạt`, [DAT]));
+
+  const card = await onlyPendingTask(confirmationService);
+  assert.notEqual(card.code, old.code);
+  assert.deepEqual(card.times, [FEB_14, MAR_8, OCT_20]);
+  assert.deepEqual(card.people, [DAT]);
+
+  confirmationService.clearAll();
+});
+
+void test('TextInputService edit that tags nobody keeps the people reminded', async () => {
+  const { service, confirmationService } = createTextInputService({
+    llmResponses: [
+      { toolCall: { name: TextToolType.CREATE_TASK, args: { title: 'Mua hoa hồng tặng Hằng' } } },
+    ],
+  });
+  // The card reminds Văn Đạt, not its sender: an untagged edit must not fall back to the sender.
+  const old = await seedFlowerTask(confirmationService, [DAT]);
+
+  await service.process(hangSays(`edit ${old.code} đổi thành mua hoa hồng`));
+
+  const card = await onlyPendingTask(confirmationService);
+  assert.deepEqual(card.times, [FEB_14, MAR_8, OCT_20]);
+  assert.deepEqual(card.people, [DAT]);
+
+  confirmationService.clearAll();
 });
