@@ -49,7 +49,7 @@ metadata:
       - packages/contracts/src/index.ts
       - docker-compose.yml
       - apps/web/nginx.conf
-      - apps/web/30-cognee-htpasswd.sh
+      - apps/web/30-cognee-proxy.sh
       - apps/web/Dockerfile
       - apps/web/src/modules/zca/view/thread-config-screen.tsx
       - apps/web/src/modules/zca/api/zca-api.ts
@@ -147,7 +147,7 @@ Migration `1724980000000-AddChatMemoryV2` added `memory_kind varchar default 'ch
 - API config `cognee`: `COGNEE_URL` (compose fixes `http://cognee:8000`), `COGNEE_USER_EMAIL` (default `zalobot@example.com`), `COGNEE_USER_PASSWORD`, `COGNEE_TIMEOUT_MS` (600000). Off unless URL and password are set.
 - `CogneeClient` (REST `/api/v1`, verified on 1.6.5): login `POST /auth/login` (form) → JWT reused 50 min, re-login once on 401; `remember` (multipart `data`, `datasetName`, `run_in_background=false`) → `{ dataset_id, items[0].id }`; `forget` (`{ datasetId, dataId }` → `status: success`); `recallContext(dataset, query, { temporal })` → `POST /recall` with `only_context: true`, `search_type` `TEMPORAL` or `GRAPH_COMPLETION`, 404 (unknown dataset) → `[]`. Never throws.
 - Dataset per chat: `zca-<channelId>` (`cogneeDatasetName`).
-- Remote access (all through the `web` nginx, written at start by `apps/web/30-cognee-htpasswd.sh`; closed unless `COGNEE_PROXY_USER` + `COGNEE_PROXY_PASSWORD` are set, then HTTP Basic Auth (`{PLAIN}` htpasswd) in front of Cognee's login, and `…/api/v1/auth/register` always 403 so nobody can sign up and spend the LLM key):
+- Remote access (all through the `web` nginx, written at start by `apps/web/30-cognee-proxy.sh`; closed unless `COGNEE_UI_HOST` is set (then `/cognee/…` without it answers 404); protected by Cognee's own login only (owner's choice, 2026-10-26: no Basic Auth), and `…/api/v1/auth/register` always 403 so nobody can sign up and spend the LLM key):
   - API on the main domain: `https://<domain>/cognee/…` → `http://cognee:8000/…` (prefix stripped, Docker DNS resolver so the web starts while cognee is down → 502, 600 s timeouts, 20 MB body). Swagger does not work under the prefix.
   - UI (`cognee-ui` service, image `cognee/cognee-ui:1.6.5`, internal): on its own host `COGNEE_UI_HOST` (prod `cognee-zalobot.datintech.site`; server block `/etc/nginx/conf.d/zz-cognee-ui.conf`): `/` → `cognee-ui:3000`, `/api/` and `/health` → `cognee:8000`, so the UI's host-scoped login cookie and CORS stay on one origin (`COGNEE_BACKEND_URL` and Cognee `UI_APP_URL` = `https://<COGNEE_UI_HOST>`). The UI has no basePath, so it cannot live under `/cognee/`; `/cognee` and `/cognee/` on the main domain answer 302 to the UI host. Sign in with `zalobot@example.com` + `COGNEE_USER_PASSWORD` (superuser: sees every chat's dataset). The UI server also listens on container port 8081, published as `COGNEE_UI_PORT` (3006) as its default server, so a tunnel can point the UI host straight at that port (one-level subdomain so Cloudflare's free certificate covers it).
 
