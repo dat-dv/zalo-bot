@@ -137,6 +137,8 @@ services:
     restart: unless-stopped
     ports:
       - '${NGINX_PORT:-3009}:80'
+      # Cognee UI (only answers when COGNEE_UI_HOST and the proxy credentials are set).
+      - '${COGNEE_UI_PORT:-3006}:8081'
     depends_on:
       api:
         condition: service_healthy
