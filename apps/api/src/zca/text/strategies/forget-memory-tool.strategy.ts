@@ -1,27 +1,27 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZcaMessengerService } from '../../zca-messenger.service';
-import { TransactionConfirmationService } from '../../confirmation/transaction-confirmation.service';
 import { ChannelNotesService } from '../../memory/channel-notes.service';
 import { LearnedFactsService } from '../../memory/learned-facts.service';
 import { collapseWhitespace } from '../../memory/memory-text.util';
+import { toolReply } from './remember-note-tool.strategy';
 
-/** Most items one card offers to forget; a vaguer request should be narrowed first. */
+/** Most items forgotten at once; a vaguer request is asked to be narrowed instead. */
 export const FORGET_MAX_ITEMS = 5;
 
 /**
- * `FORGET_MEMORY`: "quên vụ mèo đen đi". Finds the chat's notes and learned facts containing
- * every keyword and asks for confirmation on a card listing exactly what will be forgotten.
+ * `FORGET_MEMORY`: "quên vụ mèo đen đi". Forgets at once the chat's notes and learned facts that
+ * contain every keyword (deleted learned facts are not learned again), then answers with the
+ * LLM's in-character `reply` or a line listing what was forgotten. Not written to memory: the
+ * forgotten words would be learned again from it.
  */
 @Injectable()
 export class ForgetMemoryToolStrategy implements TextToolStrategy {
   public readonly type = TextToolType.FORGET_MEMORY;
-  private readonly logger = new Logger(ForgetMemoryToolStrategy.name);
 
   constructor(
     private readonly zcaMessenger: ZcaMessengerService,
-    private readonly confirmationService: TransactionConfirmationService,
     @Optional() private readonly channelNotesService?: ChannelNotesService,
     @Optional() private readonly learnedFactsService?: LearnedFactsService,
   ) {}
@@ -39,39 +39,40 @@ export class ForgetMemoryToolStrategy implements TextToolStrategy {
     const facts = this.learnedFactsService
       ? await this.learnedFactsService.findMatching(context.chatId, query)
       : [];
-    const items = [
-      ...notes.map((note) => ({ kind: 'note' as const, id: note.id, text: note.text })),
-      ...facts.map((fact) => ({
-        kind: 'fact' as const,
-        id: fact.id,
-        text: fact.subjectKind === 'bot' ? fact.fact : `${fact.subjectName}: ${fact.fact}`,
-      })),
-    ].slice(0, FORGET_MAX_ITEMS);
-    if (items.length === 0) {
+    const total = notes.length + facts.length;
+    if (total === 0) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
         `Mình không nhớ điều gì khớp với "${query}".`,
       );
       return;
     }
-
-    try {
-      await this.confirmationService.createPendingForgetMemory({
-        userId: context.senderId,
-        chatId: context.chatId,
-        payload: {
-          query,
-          noteIds: items.filter((item) => item.kind === 'note').map((item) => item.id),
-          factIds: items.filter((item) => item.kind === 'fact').map((item) => item.id),
-          items: items.map((item) => item.text),
-        },
-        rawPrompt: context.text,
-      });
-    } catch (err: unknown) {
-      this.logger.error(
-        `Failed to create pending forget: ${err instanceof Error ? err.message : JSON.stringify(err)}`,
+    if (total > FORGET_MAX_ITEMS) {
+      await this.zcaMessenger.sendMessage(
+        context.chatId,
+        `Có ${total} điều khớp với "${query}", nói rõ hơn điều nào cần quên nhé.`,
       );
-      await this.zcaMessenger.sendMessage(context.chatId, '⚠️ Chưa quên được, thử lại sau.');
+      return;
     }
+
+    await this.channelNotesService?.remove(
+      context.chatId,
+      notes.map((note) => note.id),
+    );
+    await this.learnedFactsService?.remove(
+      context.chatId,
+      facts.map((fact) => fact.id),
+      context.senderId,
+    );
+    const items = [
+      ...notes.map((note) => note.text),
+      ...facts.map((fact) =>
+        fact.subjectKind === 'bot' ? fact.fact : `${fact.subjectName}: ${fact.fact}`,
+      ),
+    ];
+    await this.zcaMessenger.sendMessage(
+      context.chatId,
+      toolReply(context.toolArgs, `Dạ em quên rồi: ${items.map((item) => `"${item}"`).join('; ')}`),
+    );
   }
 }

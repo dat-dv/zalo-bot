@@ -3,10 +3,15 @@ import { CHANNEL_NOTES_LIMITS } from '@zalobot/contracts';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZcaMessengerService } from '../../zca-messenger.service';
-import { TransactionConfirmationService } from '../../confirmation/transaction-confirmation.service';
+import { ThreadConfigService } from '../../thread-config.service';
 import { ChannelNotesService, channelNoteRejectionText } from '../../memory/channel-notes.service';
+import { ChatMemoryService } from '../../memory/chat-memory.service';
+import { recordDoneAction } from '../../memory/action-memory';
 import { collapseWhitespace, foldVietnamese } from '../../memory/memory-text.util';
 import type { ZcaChannelNoteEntity } from '../../../database/entities/zca-channel-note.entity';
+
+/** Longest reply sent; the LLM is asked for one short sentence. */
+export const NOTE_REPLY_MAX_LENGTH = 500;
 
 /** `n2`, `[n2]` → the second note of the chat (the prompt lists notes oldest first). */
 export function noteByShortId(
@@ -19,10 +24,18 @@ export function noteByShortId(
   return notes[Number(match[1]) - 1];
 }
 
+/** The LLM's in-character reply, or `fallback` when it wrote none. */
+export function toolReply(args: Record<string, unknown> | undefined, fallback: string): string {
+  const reply = args?.reply;
+  const text = typeof reply === 'string' ? reply.trim() : '';
+  return (text || fallback).slice(0, NOTE_REPLY_MAX_LENGTH);
+}
+
 /**
- * `REMEMBER_NOTE`: a member tells the bot to always remember something in this chat ("từ giờ
- * mày là con mèo đen 2 mái"). Like every change it waits for confirmation on a card; once
- * approved the note is part of every prompt of the chat.
+ * `REMEMBER_NOTE`: a member tells the bot to always remember something in this chat ("mày là con
+ * mèo đen 2 mái"). Saved at once, no confirmation card: a note only changes how the bot talks and
+ * can be removed with "quên vụ … đi" or on the dashboard. The bot answers with the LLM's
+ * in-character `reply`, so it reads like conversation ("dạ em nhớ rồi…").
  */
 @Injectable()
 export class RememberNoteToolStrategy implements TextToolStrategy {
@@ -31,8 +44,9 @@ export class RememberNoteToolStrategy implements TextToolStrategy {
 
   constructor(
     private readonly zcaMessenger: ZcaMessengerService,
-    private readonly confirmationService: TransactionConfirmationService,
     @Optional() private readonly channelNotesService?: ChannelNotesService,
+    @Optional() private readonly threadConfigService?: ThreadConfigService,
+    @Optional() private readonly chatMemoryService?: ChatMemoryService,
   ) {}
 
   public async execute(context: TextToolContext): Promise<void> {
@@ -47,35 +61,40 @@ export class RememberNoteToolStrategy implements TextToolStrategy {
       await this.zcaMessenger.sendMessage(context.chatId, channelNoteRejectionText('too_long'));
       return;
     }
+    const reply = toolReply(context.toolArgs, `Dạ em nhớ rồi: ${text}`);
 
     const notes = await this.channelNotesService.list(context.chatId);
+    // Already remembered: nothing to save, but the member still gets the answer they expect.
     if (notes.some((note) => foldVietnamese(note.text) === foldVietnamese(text))) {
-      await this.zcaMessenger.sendMessage(context.chatId, `Mình nhớ điều này rồi: "${text}".`);
+      await this.zcaMessenger.sendMessage(context.chatId, reply);
       return;
     }
     const replaced = noteByShortId(notes, context.toolArgs?.replaceNoteId);
-    if (!replaced && notes.length >= CHANNEL_NOTES_LIMITS.MAX_NOTES) {
-      await this.zcaMessenger.sendMessage(context.chatId, channelNoteRejectionText('limit'));
+    const result = replaced
+      ? await this.channelNotesService.update(context.chatId, replaced.id, text)
+      : await this.channelNotesService.add(context.chatId, text, {
+          createdBy: context.senderId,
+          sourceMsgId: context.input.messageId ?? null,
+        });
+    if ('reason' in result) {
+      await this.zcaMessenger.sendMessage(context.chatId, channelNoteRejectionText(result.reason));
       return;
     }
 
-    try {
-      await this.confirmationService.createPendingRememberNote({
-        userId: context.senderId,
+    await this.zcaMessenger.sendMessage(context.chatId, reply);
+    await recordDoneAction(
+      { threadConfigs: this.threadConfigService, chatMemory: this.chatMemoryService },
+      {
         chatId: context.chatId,
-        payload: {
-          text,
-          replaceNoteId: replaced?.id,
-          replaceNoteText: replaced?.text,
-        },
-        rawPrompt: context.text,
-        messageId: context.input.messageId,
-      });
-    } catch (err: unknown) {
-      this.logger.error(
-        `Failed to create pending note: ${err instanceof Error ? err.message : JSON.stringify(err)}`,
+        actionId: `action:note:${result.note.id}:${result.note.updatedAt.getTime()}`,
+        requesterUid: context.senderId,
+        requesterName: context.displayName || null,
+        text: `(đã duyệt) Đã ghi nhớ: ${result.note.text}`,
+      },
+    ).catch((err: unknown) => {
+      this.logger.warn(
+        `Could not record note in memory: ${err instanceof Error ? err.message : JSON.stringify(err)}`,
       );
-      await this.zcaMessenger.sendMessage(context.chatId, '⚠️ Chưa ghi nhớ được, thử lại sau.');
-    }
+    });
   }
 }

@@ -33,10 +33,9 @@ import { RedisService } from '../../redis/redis.service';
 import { AuditContext, zaloAuditContext } from '../../audit/audit-context';
 import { ThreadConfigService } from '../thread-config.service';
 import { ChatMemoryService } from '../memory/chat-memory.service';
-import { ChannelNotesService, channelNoteRejectionText } from '../memory/channel-notes.service';
-import { LearnedFactsService } from '../memory/learned-facts.service';
 import { OutgoingMemoryKind } from '../memory/memory-kind';
 import { confirmedActionText } from '../memory/memory-text.util';
+import { recordDoneAction } from '../memory/action-memory';
 import {
   DtoDescriptor,
   renderDtoConfirmationCard,
@@ -55,10 +54,6 @@ import {
   BanUserDto,
   CreatePlaceDto,
   PLACE_DESCRIPTOR,
-  FORGET_MEMORY_DESCRIPTOR,
-  ForgetMemoryDto,
-  REMEMBER_NOTE_DESCRIPTOR,
-  RememberNoteDto,
 } from './dto-descriptor.util';
 import {
   summarizeBannedUser,
@@ -67,8 +62,6 @@ import {
   summarizeDebt,
   summarizeDeletedCalendarEvent,
   summarizeDeletedTransaction,
-  summarizeForgotten,
-  summarizeRememberedNote,
   summarizeGeneric,
   summarizePlace,
   summarizeReminder,
@@ -87,8 +80,6 @@ export type PendingActionType =
   | 'DELETE_CALENDAR_EVENT'
   | 'BAN_USER'
   | 'CREATE_PLACE'
-  | 'REMEMBER_NOTE'
-  | 'FORGET_MEMORY'
   | 'create'
   | 'delete';
 
@@ -169,10 +160,6 @@ export function pendingActionLabel(
       return 'khoá tài khoản';
     case 'CREATE_PLACE':
       return 'tạo nơi chốn';
-    case 'REMEMBER_NOTE':
-      return 'ghi nhớ';
-    case 'FORGET_MEMORY':
-      return 'quên';
   }
 }
 
@@ -185,10 +172,6 @@ function pendingSubject(pending: Pick<PendingAction, 'actionType' | 'payload'>):
       return payloadText(payload, 'targetName') || payloadText(payload, 'targetUserId');
     case 'CREATE_PLACE':
       return payloadText(payload, 'name');
-    case 'REMEMBER_NOTE':
-      return payloadText(payload, 'text');
-    case 'FORGET_MEMORY':
-      return payloadText(payload, 'query');
     default:
       return (
         payloadText(payload, 'note') ||
@@ -327,8 +310,6 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     @Optional() private readonly redisService?: RedisService,
     @Optional() private readonly threadConfigService?: ThreadConfigService,
     @Optional() private readonly chatMemoryService?: ChatMemoryService,
-    @Optional() private readonly channelNotesService?: ChannelNotesService,
-    @Optional() private readonly learnedFactsService?: LearnedFactsService,
   ) {
     // ZcaService in the app; ZcaMessengerService or a test double elsewhere. Messages of this
     // service are confirmation noise (`system`) unless the caller tagged them as a card or result,
@@ -1066,44 +1047,6 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     });
   }
 
-  /** Card to remember something for this chat (Ghi nhớ), or to replace one remembered note. */
-  public async createPendingRememberNote(params: {
-    userId: string;
-    chatId: string;
-    payload: RememberNoteDto;
-    rawPrompt?: string;
-    messageId?: string;
-  }): Promise<PendingAction> {
-    return this.createPendingAction({
-      userId: params.userId,
-      chatId: params.chatId,
-      actionType: 'REMEMBER_NOTE',
-      title: pendingActionLabel('REMEMBER_NOTE'),
-      payload: params.payload,
-      descriptor: REMEMBER_NOTE_DESCRIPTOR,
-      rawPrompt: params.rawPrompt,
-      messageId: params.messageId,
-    });
-  }
-
-  /** Card to forget the listed notes and learned facts of this chat. */
-  public async createPendingForgetMemory(params: {
-    userId: string;
-    chatId: string;
-    payload: ForgetMemoryDto;
-    rawPrompt?: string;
-  }): Promise<PendingAction> {
-    return this.createPendingAction({
-      userId: params.userId,
-      chatId: params.chatId,
-      actionType: 'FORGET_MEMORY',
-      title: pendingActionLabel('FORGET_MEMORY'),
-      payload: params.payload,
-      descriptor: FORGET_MEMORY_DESCRIPTOR,
-      rawPrompt: params.rawPrompt,
-    });
-  }
-
   public async handleTimeout(code: string): Promise<void> {
     const pending = await this.getPendingByCode(code);
     if (!pending) return;
@@ -1382,7 +1325,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   /**
    * Runs a confirmed action and posts its result. Only an action that ran without error is then
    * written to the chat memory (`recordConfirmedAction`); cancelled, expired or failed actions
-   * never are. `BAN_USER` and forgetting are left out on purpose.
+   * never are. `BAN_USER` is left out on purpose.
    */
   private async executeConfirmed(
     pending: PendingAction,
@@ -1576,37 +1519,6 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           }
           break;
         }
-        case 'REMEMBER_NOTE': {
-          if (!this.channelNotesService) {
-            throw new Error('Ghi nhớ chưa được cấu hình.');
-          }
-          const payload = pending.payload as unknown as RememberNoteDto;
-          const result = payload.replaceNoteId
-            ? await this.channelNotesService.update(
-                pending.chatId,
-                payload.replaceNoteId,
-                payload.text,
-              )
-            : await this.channelNotesService.add(pending.chatId, payload.text, {
-                createdBy: pending.userId,
-                sourceMsgId: pending.messageId ?? null,
-              });
-          if ('reason' in result) throw new Error(channelNoteRejectionText(result.reason));
-          await post(summarizeRememberedNote(pending.code, result.note.text));
-          break;
-        }
-        case 'FORGET_MEMORY': {
-          const payload = pending.payload as unknown as ForgetMemoryDto;
-          await this.channelNotesService?.remove(pending.chatId, payload.noteIds ?? []);
-          await this.learnedFactsService?.remove(
-            pending.chatId,
-            payload.factIds ?? [],
-            pending.userId,
-          );
-          // Not remembered: the forgotten words would be learned again from it.
-          await post(summarizeForgotten(pending.code, payload.items ?? []), false);
-          break;
-        }
         default: {
           const payload = pending.payload as unknown as CreateFinanceTransactionDto;
           await this.financeService.createTransaction(payload);
@@ -1632,26 +1544,19 @@ export class TransactionConfirmationService implements OnModuleDestroy {
    * asked for it, when the chat has a memory on. Never throws.
    */
   private async recordConfirmedAction(pending: PendingAction, summary: string): Promise<void> {
-    if (!this.chatMemoryService || !this.threadConfigService) return;
     try {
-      const config = await this.threadConfigService.findStoredConfig(pending.chatId);
-      const memory = config?.chatMemory;
-      if (!config?.isListened || (!memory?.enabled && !memory?.shortTermEnabled)) return;
-      const text = confirmedActionText(summary);
-      if (!text) return;
       const names = await this.usersService
         ?.resolveZaloNames([pending.userId])
         .catch(() => new Map<string, string>());
-      await this.chatMemoryService.recordAction(
-        pending.chatId,
-        config.threadType === 'group' ? 'group' : 'user',
+      await recordDoneAction(
+        { threadConfigs: this.threadConfigService, chatMemory: this.chatMemoryService },
         {
+          chatId: pending.chatId,
           actionId: `action:${pending.code}:${pending.createdAt}`,
           requesterUid: pending.userId,
           requesterName: names?.get(pending.userId) ?? null,
-          text,
+          text: confirmedActionText(summary),
         },
-        { longTerm: memory.enabled },
       );
     } catch (err: unknown) {
       this.logger.warn(

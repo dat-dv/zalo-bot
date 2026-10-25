@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { FinanceService } from '../../finance/finance.service';
 import type { UsersService } from '../../users/users.service';
-import type { ChannelNotesService } from '../memory/channel-notes.service';
 import type { ChatMemoryService, ConfirmedActionMemory } from '../memory/chat-memory.service';
 import { OutgoingMemoryKind, type MemoryKind } from '../memory/memory-kind';
 import type { ThreadConfigService } from '../thread-config.service';
@@ -18,7 +17,6 @@ interface Setup {
 function createService(setup: Setup = {}) {
   const sent: Array<{ text: string; kind: MemoryKind | undefined }> = [];
   const actions: ConfirmedActionMemory[] = [];
-  const notes: string[] = [];
   const messenger = {
     sendMessage: (_chatId: string, text: string) => {
       sent.push({ text, kind: OutgoingMemoryKind.current() });
@@ -53,12 +51,6 @@ function createService(setup: Setup = {}) {
       return Promise.resolve();
     },
   } as unknown as ChatMemoryService;
-  const channelNotes = {
-    add: (_channelId: string, text: string) => {
-      notes.push(text);
-      return Promise.resolve({ note: { text } });
-    },
-  } as unknown as ChannelNotesService;
   const service = new TransactionConfirmationService(
     messenger,
     finance,
@@ -70,9 +62,8 @@ function createService(setup: Setup = {}) {
     undefined,
     threadConfig,
     chatMemory,
-    channelNotes,
   );
-  return { service, sent, actions, notes };
+  return { service, sent, actions };
 }
 
 const EXPENSE = { type: 'expense' as const, amount: 70000, category: 'Khác', note: 'đi bơi' };
@@ -148,20 +139,5 @@ void test('banning a user is not remembered', async () => {
   await service.handleCommand('u1', 'c1', `yes ${pending.code}`);
 
   assert.equal(actions.length, 0);
-  service.clearAll();
-});
-
-void test('an approved note is saved for the chat and remembered as done', async () => {
-  const { service, notes, actions } = createService();
-  const pending = await service.createPendingRememberNote({
-    userId: 'u1',
-    chatId: 'c1',
-    payload: { text: 'Bot là con mèo đen 2 mái' },
-  });
-
-  await service.handleCommand('u1', 'c1', `yes ${pending.code}`);
-
-  assert.deepEqual(notes, ['Bot là con mèo đen 2 mái']);
-  assert.match(actions[0]?.text ?? '', /Đã ghi nhớ: Bot là con mèo đen 2 mái/);
   service.clearAll();
 });
