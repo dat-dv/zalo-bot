@@ -15,7 +15,7 @@
   - `getAvailableThreads(forceRefresh)` lists groups/friends from the Redis directory cache `zca:directory:<ownId>` (7-day stale-while-revalidate; Zalo is called only when empty, stale, or on `forceRefresh`). See [Directory Cache](directory-cache.md). `setListenedThreadIds` / `toggleListenedThread` sync listening state to `ThreadConfigService`.
   - Event dispatch: `dispatchMessage`, `dispatchReaction`, `dispatchGroupEvent` (→ `GroupEventDispatcher`), friend/undo/typing/seen/delivered events to registered plugins.
 - **`ZcaBotFeatureService`**: `onMessage`, `onReaction`, `onUndo` (chat-memory recall), `init` (chat-memory backfill), `syncThreadMediaHistory` (see below).
-- **`ChatMemoryService`** (`memory/`, own `ChatMemoryModule`) + `ZcaMessageEntity` (table `zca_messages`): stores listened-thread messages and serves `SEARCH_CHAT_HISTORY`. See [Chat Memory](chat-memory.md).
+- **`ChatMemoryService`** (`memory/`, own `ChatMemoryModule` with `ChannelNotesService`, `LearnedFactsService`, `CogneeClient`) + `ZcaMessageEntity` (table `zca_messages`, `memory_kind`): one store for the short-term window, keyword search and the nightly Cognee ingest (`MemoryIngestService` + `MemoryIngestProcessor`, queue `chat-memory`, in `ZcaModule`); `ChannelMemoryController` serves notes, learned facts and ingest status. See [Chat Memory](chat-memory.md).
 - **`ChannelStorageLinkService`** (`storage/`, own `ChannelStorageLinkModule`) + `ChannelStorageLinkEntity` (table `channel_storage_links`): history of every Drive root / Photos album a channel used, across Google accounts. See [Channel Storage](channel-storage.md).
 - **`ThreadConfigService`** + `ZcaThreadConfigEntity` (table `zca_thread_configs`): memory → Redis `zca:thread_config:<id>` (TTL 24h) → DB. Listened set in Redis `zca:listened_threads`.
 - **`TransactionConfirmationService`** (`confirmation/`): pending actions (`yes/cancel/edit <code>`, reactions), message recall.
@@ -42,7 +42,7 @@
 | `confirmationRules.allowReactions` | `false` | ❤️/😡 reactions confirm/cancel |
 | `confirmationRules.requiredHearts` | group `5`, user `1` | Hearts needed |
 | `confirmationRules.timeoutMinutes` | `5` | Pending timeout |
-| `chatMemory.enabled` / `contextWindow` / `searchLimit` | `false` / `10` / `15` | Chat memory of this thread (store, search, prompt context); clamped by `normalizeChatMemoryConfig`. See [Chat Memory](chat-memory.md) |
+| `chatMemory.enabled` / `shortTermEnabled` / `contextWindow` / `shortTermDays` / `searchLimit` / `readImageText` / `learnPeople` | `false` / `false` / `10` / `1` / `15` / `true` / `true` | Chat memory of this thread (long-term + Cognee, short-term window, photo text, learned facts); clamped by `normalizeChatMemoryConfig`. Notes (Ghi nhớ) need no switch. See [Chat Memory](chat-memory.md) |
 | `memberAccess.mode` / `memberIds` | `granted-users` / `[]` | Who may call the bot in this group besides admins and globally granted users: `granted-users` (nobody extra), `all-members`, `selected-members` (`memberIds`); groups only, normalized by `normalizeMemberAccessConfig`. See [Member Access](member-access.md) |
 | `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | unset | Legacy cached link to the channel storage root / album; the dashboard lists `channel_storage_links` instead (see [Channel Storage](channel-storage.md)) |
 

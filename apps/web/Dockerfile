@@ -46,5 +46,6 @@ RUN npm run build --workspace @zalobot/contracts && npm run build --workspace @z
 FROM nginx:1.27-alpine AS runner
 
 COPY apps/web/nginx.conf /etc/nginx/templates/default.conf.template
+COPY --chmod=755 apps/web/30-cognee-htpasswd.sh /docker-entrypoint.d/30-cognee-htpasswd.sh
 COPY --from=builder /app/apps/web/out /usr/share/nginx/html
 EXPOSE 80

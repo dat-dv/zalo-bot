@@ -39,6 +39,8 @@ import { ZaloLogoutToolStrategy } from './strategies/zalo-logout-tool.strategy';
 import { ShareDriveToolStrategy } from './strategies/share-drive-tool.strategy';
 import { SearchChatHistoryToolStrategy } from './strategies/search-chat-history-tool.strategy';
 import { AskClarificationToolStrategy } from './strategies/ask-clarification-tool.strategy';
+import { RememberNoteToolStrategy } from './strategies/remember-note-tool.strategy';
+import { ForgetMemoryToolStrategy } from './strategies/forget-memory-tool.strategy';
 
 @Injectable()
 export class TextToolFactory {
@@ -82,6 +84,8 @@ export class TextToolFactory {
     private readonly configService?: ConfigService,
     searchChatHistoryStrategy?: SearchChatHistoryToolStrategy,
     askClarificationStrategy?: AskClarificationToolStrategy,
+    rememberNoteStrategy?: RememberNoteToolStrategy,
+    forgetMemoryStrategy?: ForgetMemoryToolStrategy,
   ) {
     if (welcomeStrategy) this.strategyMap.set(TextToolType.WELCOME, welcomeStrategy);
     if (helpStrategy) this.strategyMap.set(TextToolType.HELP, helpStrategy);
@@ -129,6 +133,10 @@ export class TextToolFactory {
       this.strategyMap.set(TextToolType.SEARCH_CHAT_HISTORY, searchChatHistoryStrategy);
     if (askClarificationStrategy)
       this.strategyMap.set(TextToolType.ASK_CLARIFICATION, askClarificationStrategy);
+    if (rememberNoteStrategy)
+      this.strategyMap.set(TextToolType.REMEMBER_NOTE, rememberNoteStrategy);
+    if (forgetMemoryStrategy)
+      this.strategyMap.set(TextToolType.FORGET_MEMORY, forgetMemoryStrategy);
   }
 
   public resolveFastPathToolType(text: string, customBotName?: string): TextToolType | null {

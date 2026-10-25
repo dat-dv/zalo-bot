@@ -8,6 +8,7 @@ import { ReportsTokenService } from '../../../reports/reports-token.service';
 import { formatDashboardAccessCode } from '../../../reports/dashboard-access-code';
 
 import * as fs from 'fs';
+import { OutgoingMemoryKind } from '../../memory/memory-kind';
 import { fromProjectRoot } from '../../../config/project-root';
 
 @Injectable()
@@ -52,7 +53,10 @@ export class DashboardToolStrategy implements TextToolStrategy {
         `Mã đăng nhập app: ${formatDashboardAccessCode(code)}\n` +
         `Link và mã chỉ dùng 1 lần, hết hạn sau 20 phút. Đừng chia sẻ.`;
 
-      await this.zcaMessenger.sendMessage(context.chatId, reply);
+      // Sign-in link and code: memories keep only a placeholder (`secret`).
+      await OutgoingMemoryKind.run('secret', () =>
+        this.zcaMessenger.sendMessage(context.chatId, reply),
+      );
     } catch (err) {
       this.logger.error(`Failed to generate dashboard link: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(

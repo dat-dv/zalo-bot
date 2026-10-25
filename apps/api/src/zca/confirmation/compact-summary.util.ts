@@ -289,3 +289,11 @@ export function summarizePlace(code: string, name: string): string {
 export function summarizeGeneric(code: string): string {
   return `✅ [${code}] Đã xác nhận`;
 }
+
+export function summarizeRememberedNote(code: string, text: string): string {
+  return `🧠 [${code}] Đã ghi nhớ: ${clean(text)}`;
+}
+
+export function summarizeForgotten(code: string, items: readonly string[]): string {
+  return `🧹 [${code}] Đã quên: ${items.map((item) => `"${clean(item)}"`).join('; ')}`;
+}

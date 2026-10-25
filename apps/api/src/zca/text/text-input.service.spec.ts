@@ -30,6 +30,9 @@ import { PendingImageActionService } from '../pending-image/pending-image-action
 import { OcrService } from '../../ocr/ocr.service';
 import { MediaStorageService } from '../../receipt-storage/media-storage.service';
 import { ShortTermMemoryService } from '../memory/short-term-memory.service';
+import type { ChatMemoryService } from '../memory/chat-memory.service';
+import type { MemoryLine } from '../memory/chat-memory.mapper';
+import type { ChannelNotesService } from '../memory/channel-notes.service';
 
 interface SetupOptions {
   allowedUserIds?: string[];
@@ -44,6 +47,7 @@ interface SetupOptions {
   ocrService?: OcrService;
   mediaStorageService?: MediaStorageService;
   shortTermMemoryService?: ShortTermMemoryService;
+  channelNotesService?: ChannelNotesService;
   enablePlaceCheck?: boolean;
   existingPlaces?: string[];
 }
@@ -258,6 +262,7 @@ function createTextInputService(options?: SetupOptions) {
     options?.mediaStorageService,
     undefined,
     options?.shortTermMemoryService,
+    options?.channelNotesService,
   );
 
   return {
@@ -1341,19 +1346,33 @@ void test('TextInputService offers the history search tool only to threads with 
   assert.ok(getLastLlmToolNames().includes('SEARCH_CHAT_HISTORY'));
 });
 
+/** Short-term memory over fixed lines; honours `excludeMsgId` like the SQL window. */
+function shortTermOver(lines: Array<MemoryLine & { msgId: string }>): ShortTermMemoryService {
+  const chatMemory: Pick<ChatMemoryService, 'getRecent'> = {
+    getRecent: (_channelId, options) =>
+      Promise.resolve(lines.filter((line) => line.msgId !== options.excludeMsgId)),
+  };
+  return new ShortTermMemoryService(chatMemory as ChatMemoryService);
+}
+
 void test('TextInputService adds the short-term memory to the prompt without the long-term memory', async () => {
-  const shortTermMemoryService = new ShortTermMemoryService();
   const now = Date.now();
-  await shortTermMemoryService.record(
-    'c1',
-    { msgId: 'm1', content: 'ăn trưa 45k', ts: now - 60_000, dName: 'Nam' },
-    1,
-  );
-  await shortTermMemoryService.record(
-    'c1',
-    { msgId: 'm2', content: 'ghi giúp cái đó', ts: now },
-    1,
-  );
+  const shortTermMemoryService = shortTermOver([
+    {
+      msgId: 'm1',
+      sentAt: new Date(now - 60_000),
+      senderName: 'Nam',
+      isBot: false,
+      text: 'ăn trưa 45k',
+    },
+    {
+      msgId: 'm2',
+      sentAt: new Date(now),
+      senderName: 'Đạt',
+      isBot: false,
+      text: 'ghi giúp cái đó',
+    },
+  ]);
   const { service, getLastLlmInstruction } = createTextInputService({
     llmResponse: { text: 'ok' },
     shortTermMemoryService,
@@ -1373,6 +1392,31 @@ void test('TextInputService adds the short-term memory to the prompt without the
   assert.match(getLastLlmInstruction(), /Nam: ăn trưa 45k/);
   // The message being processed is not repeated as context.
   assert.doesNotMatch(getLastLlmInstruction(), /: ghi giúp cái đó/);
+});
+
+void test('TextInputService puts the chat notes right after the identity line, whatever the memory switches', async () => {
+  const channelNotesService = {
+    list: () => Promise.resolve([{ text: 'Bot là con mèo đen 2 mái' }]),
+  } as unknown as ChannelNotesService;
+  const { service, getLastLlmInstruction } = createTextInputService({
+    llmResponse: { text: 'ok' },
+    channelNotesService,
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'c1',
+    displayName: 'Đạt',
+    text: 'mày là con gì',
+  });
+
+  const instruction = getLastLlmInstruction();
+  assert.match(instruction, /^Bạn là trợ lý cá nhân thông minh trên Zalo\. Nếu phần ĐIỀU ĐƯỢC DẶN/);
+  assert.match(
+    instruction,
+    /ĐIỀU ĐƯỢC DẶN TRONG CUỘC CHAT NÀY[^\n]*\n\[n1\] Bot là con mèo đen 2 mái/,
+  );
 });
 
 void test('TextInputService reports a failed provider chain once, without the chit-chat pass', async () => {

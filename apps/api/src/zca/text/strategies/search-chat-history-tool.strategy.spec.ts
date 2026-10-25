@@ -7,8 +7,9 @@ import type { ChatMemoryService } from '../../memory/chat-memory.service';
 import type { ChatMemorySearchParams } from '../../memory/chat-memory.query';
 import type { MemoryLine } from '../../memory/chat-memory.mapper';
 import type { AgentInput } from '../../../types/agent-input.type';
+import type { CogneeClient } from '../../memory/long-term/cognee.client';
 
-function createHarness(options: { lines?: MemoryLine[]; answer?: string }) {
+function createHarness(options: { lines?: MemoryLine[]; answer?: string; graph?: string[] }) {
   const sent: string[] = [];
   const searches: Array<{ channelId: string; params: ChatMemorySearchParams }> = [];
   const prompts: string[] = [];
@@ -33,8 +34,25 @@ function createHarness(options: { lines?: MemoryLine[]; answer?: string }) {
     },
   } as unknown as ChatMemoryService;
 
-  const strategy = new SearchChatHistoryToolStrategy(zcaMessenger, llmService, chatMemoryService);
-  return { strategy, sent, searches, prompts };
+  const recalls: Array<{ dataset: string; query: string; temporal?: boolean }> = [];
+  const cognee = options.graph
+    ? ({
+        isEnabled: () => true,
+        recallContext: (dataset: string, query: string, opts: { temporal?: boolean } = {}) => {
+          recalls.push({ dataset, query, temporal: opts.temporal });
+          return Promise.resolve(options.graph ?? []);
+        },
+      } as unknown as CogneeClient)
+    : undefined;
+
+  const strategy = new SearchChatHistoryToolStrategy(
+    zcaMessenger,
+    llmService,
+    chatMemoryService,
+    undefined,
+    cognee,
+  );
+  return { strategy, sent, searches, prompts, recalls };
 }
 
 const memoryOff: AgentInput = {
@@ -120,4 +138,27 @@ void test('SearchChatHistoryToolStrategy answers from the matched lines only', a
   assert.match(prompts[0], /Câu hỏi: năm ngoái mình đi đâu/);
   assert.match(prompts[0], /\[2025-07-12 19:00\] Nam: Chốt đi Đà Lạt 3 ngày/);
   assert.equal(sent[0], 'Năm ngoái nhóm đi Đà Lạt (12/07/2025, Nam chốt).');
+});
+
+void test('SearchChatHistoryToolStrategy adds the Cognee graph context of the chat dataset', async () => {
+  const { strategy, sent, prompts, recalls } = createHarness({
+    lines: [],
+    graph: ['Nhóm -- went_to -- Đà Lạt (05/2026)'],
+    answer: 'Tháng 5 nhóm đi Đà Lạt.',
+  });
+
+  await strategy.execute({
+    input,
+    chatId: 'g-1',
+    senderId: 'u-1',
+    displayName: 'Đạt',
+    text: input.text ?? '',
+    toolArgs: { keywords: 'đi, du lịch', fromDate: '2026-05-01', toDate: '2026-05-31' },
+  });
+
+  assert.deepEqual(recalls, [
+    { dataset: 'zca-g-1', query: 'năm ngoái mình đi đâu', temporal: true },
+  ]);
+  assert.match(prompts[0], /Ngữ cảnh trí nhớ của cuộc trò chuyện[^\n]*\nNhóm -- went_to -- Đà Lạt/);
+  assert.deepEqual(sent, ['Tháng 5 nhóm đi Đà Lạt.']);
 });

@@ -18,6 +18,8 @@ import { ReminderEntity } from '../database/entities/reminder.entity';
 import { TaskEntity } from '../database/entities/task.entity';
 import { UserTokenEntity } from '../database/entities/user-token.entity';
 import { UserEntity } from '../database/entities/user.entity';
+import { ZcaChannelNoteEntity } from '../database/entities/zca-channel-note.entity';
+import { ZcaLearnedFactEntity } from '../database/entities/zca-learned-fact.entity';
 import {
   USER_MERGE_UNIT_OF_WORK,
   USER_MERGE_USERS_PORT,
@@ -140,6 +142,14 @@ export class UserMergeService {
       await manager.update(ReminderEntity, { chatId: sourceId }, { chatId: targetId });
       await manager.update(TaskEntity, { remindChatId: sourceId }, { remindChatId: targetId });
       await this.moveRemindUsers(manager, sourceId, targetId);
+      // Chat memory: who asked for a note, and whom learned facts are about.
+      await manager.update(ZcaChannelNoteEntity, { createdBy: sourceId }, { createdBy: targetId });
+      await manager.update(
+        ZcaLearnedFactEntity,
+        { subjectUserId: sourceId },
+        { subjectUserId: targetId },
+      );
+      await manager.update(ZcaLearnedFactEntity, { deletedBy: sourceId }, { deletedBy: targetId });
 
       await this.mergeGoogleToken(manager, sourceId, targetId, snapshot.conflicts.googleToken);
       await manager.delete(DashboardExchangeTokenEntity, { userId: sourceId });

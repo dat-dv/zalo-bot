@@ -72,7 +72,7 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
 | Quy tắc xác nhận | `allowReactions` | tắt | Cho phép duyệt/huỷ bằng ❤️/😡 |
 | | `requiredHearts` | nhóm `5`, cá nhân `1` | Số tim cần để duyệt |
 | | `timeoutMinutes` | `5` | Thời hạn thẻ chờ |
-| Trí nhớ hội thoại | `chatMemory.enabled` | tắt | Lưu và tra lại tin của kênh ([chi tiết](chat-memory.md)) |
+| Trí nhớ hội thoại | `chatMemory.enabled`, `shortTermEnabled`, `learnPeople` | tắt, tắt, bật | Nhớ đoạn chat gần đây, nhớ lâu dài (Cognee) và tự học về mọi người; Ghi nhớ không cần công tắc ([chi tiết](chat-memory.md)) |
 | Ai được gọi bot (chỉ nhóm) | `memberAccess.mode` / `memberIds` | `granted-users` / trống | Cấp quyền gọi bot trong riêng nhóm này, cộng thêm vào quyền toàn cục: không ai thêm, mọi thành viên, hoặc thành viên được chọn ([chi tiết](member-access.md)) |
 | | `chatMemory.contextWindow` | `10` (0–30) | Số tin gần nhất đưa vào prompt |
 | | `chatMemory.searchLimit` | `15` (1–50) | Số kết quả mỗi lần tra |
@@ -119,7 +119,7 @@ Giờ nguyên tắc là **người dùng chủ động gọi thì bot mới làm
 - **Video có `@bot`**: tải lên Drive/Photos và trả lời tóm tắt.
 - Mọi tin của kênh đang lắng nghe được đệm lại (200 tin gần nhất, Redis `zca:buffered_msgs:<threadId>`, 7 ngày) để dùng khi API lịch sử của Zalo không khả dụng.
 
-**Bộ tool đầy đủ ở L1** (`ZALO_TOOL_DEFINITIONS`, gọi qua `LlmService`) gồm 16 tool: `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`, `SEARCH_CHAT_HISTORY`, `ASK_CLARIFICATION`. `SEARCH_CHAT_HISTORY` tra lại chuyện cũ trong chính kênh đang hỏi, xem [Trí nhớ hội thoại](chat-memory.md).
+**Bộ tool đầy đủ ở L1** (`ZALO_TOOL_DEFINITIONS`, gọi qua `LlmService`) gồm 18 tool: `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`, `SEARCH_CHAT_HISTORY`, `REMEMBER_NOTE`, `FORGET_MEMORY`, `ASK_CLARIFICATION`. `SEARCH_CHAT_HISTORY` tra lại chuyện cũ trong chính kênh đang hỏi; `REMEMBER_NOTE`/`FORGET_MEMORY` thêm hoặc quên Ghi nhớ qua thẻ xác nhận, xem [Trí nhớ hội thoại](chat-memory.md).
 
 **Bot hỏi lại khi thiếu thông tin (`ASK_CLARIFICATION`).** Khi một phần yêu cầu thiếu thông tin bắt buộc mà AI không suy ra được (nhờ nhắc sinh nhật mà không nói ngày, hoặc nói ngày âm lịch), AI gọi tool này với một câu hỏi ngắn, đồng thời vẫn gọi tool cho phần đã đủ. Ví dụ "mỗi dịp 14/2, 8/3, 20/10 và sinh nhật nhắc mua hoa" ⇒ một thẻ xác nhận lời nhắc hằng năm, rồi tin "Sinh nhật ngày nào để mình nhắc?".
 - Câu hỏi luôn được gửi **sau** các thẻ xác nhận, kể cả ở kênh tắt `allowAiChat` (vì đây là tool, không phải trò chuyện tự do). Câu hỏi rỗng thì không gửi, dài quá 500 ký tự thì bị cắt.
@@ -219,7 +219,7 @@ Bảng này phục vụ việc lướt nhanh hàng trăm dòng, nên giữ cùng
     - Tương tác trực tiếp: bật/tắt, ghi chú quy tắc gọi bot (nhóm cần @mention/tiền tố, chat riêng thì không), cho phép trò chuyện AI, xử lý tin của chính bot, ô nhập nhiều tiền tố dạng chip (`presentation/components/trigger-prefix-input.tsx`).
     - Sao lưu media: banner thư mục Drive và album Photos (mở hộp thoại lịch sử link), chọn loại (ảnh, video, file, âm thanh), thông báo trong nhóm, thư mục Drive tuỳ chỉnh, tên album Photos, hậu tố file.
     - Quy tắc xác nhận: thả tim, số tim tối thiểu (1–50), thời gian chờ (1–60 phút).
-    - Trí nhớ hội thoại: bật/tắt, số tin ngữ cảnh, số kết quả mỗi lần tra. Ô số giữ nguyên chữ đang gõ và chỉ chuẩn hoá khi rời ô hoặc khi lưu.
+    - Nhóm "🧠 Trí nhớ": Ghi nhớ (lưu ngay, không cần bấm Lưu), Nhớ đoạn chat gần đây (số tin, số ngày), Nhớ lâu dài (tự học, trạng thái nạp, Bot đã học, Nâng cao: số kết quả mỗi lần tra), Đọc chữ trong ảnh. Ô số giữ nguyên chữ đang gõ và chỉ chuẩn hoá khi rời ô hoặc khi lưu.
     - Ai được gọi bot trong nhóm (chỉ nhóm, mục mới): chọn 1 trong 3 chế độ; chế độ "Thành viên được chọn" có danh sách thành viên lấy từ Zalo với ô tìm, bộ lọc và công tắc từng người. Xem [Quyền tương tác theo kênh](member-access.md).
   - **Cách code tổ chức** (`presentation/components/thread-config/`, mỗi file dưới khoảng 100 dòng): `ConfigSectionCard` (khung một mục có nút bật mục), `ConfigToggleRow` và `ConfigSwitch` (một component nút gạt dùng chung, có `role="switch"` và viền focus khi dùng bàn phím; thay cho 8 khối markup lặp lại trước đây), `ConfigField` (nhãn gắn với ô nhập). Logic chuyển dữ liệu form ↔ API là hàm thuần ở `model/thread-config-form.ts`, có test; ví dụ cấu hình cũ chưa có quy tắc xác nhận thì mặc định 5 tim cho nhóm, 1 tim cho chat riêng.
   - **Không tràn ngang**: khung trang cuộn dọc nên chỉ cần một phần tử rộng quá là hiện thanh cuộn ngang, nhất là khi tên hoặc ID nhóm dài trên mobile. Vì vậy tên ở header bị cắt bằng `…` (rê chuột để xem đủ); ID và nhãn thư mục/album ngắt dòng ở bất kỳ ký tự nào (`break-all`); banner Drive/Photos dùng `flex-wrap`; mỗi hàng bật/tắt cho khối chữ `min-w-0` và nút gạt `shrink-0`. Khi thêm mục mới, giữ đúng mẫu này.
@@ -298,7 +298,7 @@ Contracts liên quan trong `packages/contracts`: `ThreadBotConfig`, `UpdateThrea
 
 ## 4. Biến Môi Trường ZCA
 
-Trí nhớ hội thoại không dùng biến môi trường: bật theo từng kênh trong "Cấu hình kênh", xem [Trí nhớ hội thoại](chat-memory.md).
+Trí nhớ hội thoại bật theo từng kênh trong "Cấu hình kênh"; riêng Cognee (nạp nhật ký mỗi đêm) cần các biến `COGNEE_*`, xem [Trí nhớ hội thoại](chat-memory.md).
 
 `DATA_DIR` (nơi lưu file phiên), `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN`, `ZCA_CHECK_UPDATE` (mặc định false), `ZCA_LOGGING`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH` (đọc trong `apps/api/src/config/configuration.ts`). Chỉ khai báo khi muốn khác mặc định; xem [Biến môi trường](../../global/environment-guard.md).
 

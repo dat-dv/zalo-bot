@@ -22,6 +22,7 @@ function makeConfig(overrides: Partial<ThreadBotConfig> = {}): ThreadBotConfig {
       shortTermDays: 2,
       searchLimit: 12,
       readImageText: false,
+      learnPeople: true,
     },
     memberAccess: { mode: 'selected-members', memberIds: ['u1'] },
     ...overrides,
@@ -63,6 +64,7 @@ test('resolveChatMemory falls back to defaults for empty fields and clamps typed
       shortTermDays: CHAT_MEMORY_DEFAULTS.shortTermDays,
       searchLimit: CHAT_MEMORY_DEFAULTS.searchLimit,
       readImageText: false,
+      learnPeople: true,
     },
   );
   assert.equal(
@@ -93,6 +95,7 @@ test('formToPayload sends identity, every section and the resolved chat memory',
     shortTermDays: 2,
     searchLimit: 12,
     readImageText: false,
+    learnPeople: true,
   });
 });
 
@@ -106,6 +109,7 @@ test('formToPayload keeps the short-term memory on while the long-term memory is
         shortTermDays: 3,
         searchLimit: 15,
         readImageText: true,
+        learnPeople: true,
       },
     }),
     'group',

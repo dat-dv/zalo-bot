@@ -56,6 +56,13 @@ export const API_ROUTES = {
   zcaThreadStorageLink: (threadId: string, linkId: string) =>
     `/api/zca/threads/${threadId}/storage-links/${linkId}`,
   zcaThreadMembers: (threadId: string) => `/api/zca/threads/${threadId}/members`,
+  zcaThreadNotes: (threadId: string) => `/api/zca/threads/${threadId}/notes`,
+  zcaThreadNote: (threadId: string, noteId: string) =>
+    `/api/zca/threads/${threadId}/notes/${noteId}`,
+  zcaThreadFacts: (threadId: string) => `/api/zca/threads/${threadId}/learned-facts`,
+  zcaThreadFact: (threadId: string, factId: string) =>
+    `/api/zca/threads/${threadId}/learned-facts/${factId}`,
+  zcaThreadMemoryStatus: (threadId: string) => `/api/zca/threads/${threadId}/memory-status`,
   driveFolderLink: '/api/drive/folder-link',
   driveOpen: '/api/drive/open',
   photosAlbumLink: '/api/photos/album-link',
@@ -3956,6 +3963,11 @@ export interface ThreadChatMemoryConfig {
    * acts while at least one memory is on.
    */
   readImageText: boolean;
+  /**
+   * Learn facts about the bot and the members from the chat each night (needs the long-term
+   * memory). Learned facts are used at once and can be deleted.
+   */
+  learnPeople: boolean;
 }
 
 export const CHAT_MEMORY_DEFAULTS: ThreadChatMemoryConfig = {
@@ -3965,6 +3977,7 @@ export const CHAT_MEMORY_DEFAULTS: ThreadChatMemoryConfig = {
   shortTermDays: 1,
   searchLimit: 15,
   readImageText: true,
+  learnPeople: true,
 };
 
 export const CHAT_MEMORY_LIMITS = {
@@ -4024,7 +4037,62 @@ export function normalizeChatMemoryConfig(value: unknown): ThreadChatMemoryConfi
       typeof raw.readImageText === 'boolean'
         ? raw.readImageText
         : CHAT_MEMORY_DEFAULTS.readImageText,
+    learnPeople:
+      typeof raw.learnPeople === 'boolean' ? raw.learnPeople : CHAT_MEMORY_DEFAULTS.learnPeople,
   };
+}
+
+/** Limits of the notes a chat asks the bot to always remember (all go into every prompt). */
+export const CHANNEL_NOTES_LIMITS = {
+  MAX_NOTES: 20,
+  MAX_CHARS: 200,
+} as const;
+
+/** Limits of the facts the bot learns about the bot and each member of a chat. */
+export const LEARNED_FACTS_LIMITS = {
+  MAX_PER_SUBJECT: 5,
+  MAX_IN_PROMPT: 15,
+  MAX_CHARS: 300,
+} as const;
+
+/** One thing a chat asked the bot to always remember (Ghi nhớ). */
+export interface IChannelNote {
+  id: string;
+  channelId: string;
+  text: string;
+  /** `users.id` of whoever added it; null when added by the system owner on the dashboard. */
+  createdBy: string | null;
+  createdByName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IUpsertChannelNoteRequest {
+  text: string;
+}
+
+export type LearnedFactSubjectKind = 'bot' | 'member';
+
+/** One fact the bot learned from a chat about itself or a member. */
+export interface IChannelLearnedFact {
+  id: string;
+  channelId: string;
+  subjectKind: LearnedFactSubjectKind;
+  subjectUserId: string | null;
+  subjectName: string;
+  fact: string;
+  learnedAt: string;
+}
+
+/** Where the nightly long-term memory job stands for one chat. */
+export interface IChannelMemoryStatus {
+  /** Cognee is configured on the server; without it questions use keyword search only. */
+  cogneeEnabled: boolean;
+  /** Last chat day sent to Cognee (`YYYY-MM-DD`), or null. */
+  lastIngestedDay: string | null;
+  /** Days waiting for a retry after an error. */
+  failedDays: number;
+  lastError: string | null;
 }
 
 /**

@@ -49,6 +49,14 @@ export class ZcaMessageEntity {
   @Column({ name: 'recalled_at', type: 'timestamptz', nullable: true })
   recalledAt?: Date | null;
 
+  /** `MemoryKind` (see `zca/memory/memory-kind.ts`): which memories may use this row. */
+  @Column({ name: 'memory_kind', type: 'varchar', default: 'chat' })
+  memoryKind: string;
+
+  /** Set for rows kept only for the short-term memory (long-term off); purged once past. */
+  @Column({ name: 'expires_at', type: 'timestamptz', nullable: true })
+  expiresAt?: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 }

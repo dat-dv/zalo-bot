@@ -46,6 +46,8 @@ function createFactory(): TextToolFactory {
     undefined,
     createDummyStrategy(TextToolType.SEARCH_CHAT_HISTORY),
     createDummyStrategy(TextToolType.ASK_CLARIFICATION),
+    createDummyStrategy(TextToolType.REMEMBER_NOTE),
+    createDummyStrategy(TextToolType.FORGET_MEMORY),
   );
 }
 

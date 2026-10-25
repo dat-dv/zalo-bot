@@ -7,7 +7,6 @@ import {
   type ImageTextJob,
   type ImageTextLongTermMemory,
   type ImageTextOcr,
-  type ImageTextShortTermMemory,
 } from './image-text-memory.service';
 
 const MENU: OcrResult = { text: 'CƠM GÀ 45.000\nBÚN BÒ 50.000', confidence: 85 };
@@ -59,25 +58,18 @@ function createService(
     },
   };
   const longTerm: Array<{ channelId: string; msgId: string; text: string }> = [];
-  const shortTerm: Array<{ channelId: string; msgId: unknown; text: string; days: number }> = [];
   const longTermMemory: ImageTextLongTermMemory = {
     attachImageText: (channelId, msgId, text) => {
       longTerm.push({ channelId, msgId, text });
       return Promise.resolve();
     },
   };
-  const shortTermMemory: ImageTextShortTermMemory = {
-    recordImageText: (channelId, data, text, days) => {
-      shortTerm.push({ channelId, msgId: data.msgId, text, days });
-      return Promise.resolve();
-    },
-  };
-  const service = new ImageTextMemoryService(ocr, longTermMemory, shortTermMemory);
-  return { service, read, longTerm, shortTerm, maxActive: () => maxActive };
+  const service = new ImageTextMemoryService(ocr, longTermMemory);
+  return { service, read, longTerm, maxActive: () => maxActive };
 }
 
-void test('ImageTextMemoryService reads photos one at a time into both memories', async () => {
-  const { service, read, longTerm, shortTerm, maxActive } = createService();
+void test('ImageTextMemoryService reads photos one at a time into the stored row', async () => {
+  const { service, read, longTerm, maxActive } = createService();
 
   service.enqueue(job('p1'));
   service.enqueue(job('p2'));
@@ -91,20 +83,17 @@ void test('ImageTextMemoryService reads photos one at a time into both memories'
     text: '[Ảnh] menu — chữ trong ảnh: CƠM GÀ 45.000 / BÚN BÒ 50.000',
   });
   assert.deepEqual(
-    shortTerm.map((entry) => [entry.msgId, entry.days]),
-    [
-      ['p1', 1],
-      ['p2', 1],
-    ],
+    longTerm.map((entry) => entry.msgId),
+    ['p1', 'p2'],
   );
 });
 
-void test('ImageTextMemoryService only writes the memories the chat has on', async () => {
+void test('ImageTextMemoryService reads photos while either memory is on', async () => {
+  // One row serves both memories, so a chat with only the short-term memory still gets the text.
   const shortOnly = createService();
   shortOnly.service.enqueue(job('p1', { longTerm: false }));
   await settle();
-  assert.equal(shortOnly.longTerm.length, 0);
-  assert.equal(shortOnly.shortTerm.length, 1);
+  assert.equal(shortOnly.longTerm.length, 1);
 
   const none = createService();
   none.service.enqueue(job('p1', { longTerm: false, shortTermDays: undefined }));
@@ -159,7 +148,7 @@ void test('ImageTextMemoryService drops photos beyond the queue limit', async ()
 });
 
 void test('ImageTextMemoryService stores nothing for photos without real text', async () => {
-  const { service, longTerm, shortTerm } = createService(() =>
+  const { service, longTerm } = createService(() =>
     Promise.resolve({ text: '| ~ ee', confidence: 30 }),
   );
 
@@ -167,7 +156,6 @@ void test('ImageTextMemoryService stores nothing for photos without real text', 
   await settle();
 
   assert.equal(longTerm.length, 0);
-  assert.equal(shortTerm.length, 0);
 });
 
 void test('ImageTextMemoryService.recognizeNow reads a waiting photo at once, only once', async () => {

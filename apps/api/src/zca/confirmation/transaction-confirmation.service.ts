@@ -32,6 +32,11 @@ import { GoogleAuthService } from '../../google/google-auth.service';
 import { RedisService } from '../../redis/redis.service';
 import { AuditContext, zaloAuditContext } from '../../audit/audit-context';
 import { ThreadConfigService } from '../thread-config.service';
+import { ChatMemoryService } from '../memory/chat-memory.service';
+import { ChannelNotesService, channelNoteRejectionText } from '../memory/channel-notes.service';
+import { LearnedFactsService } from '../memory/learned-facts.service';
+import { OutgoingMemoryKind } from '../memory/memory-kind';
+import { confirmedActionText } from '../memory/memory-text.util';
 import {
   DtoDescriptor,
   renderDtoConfirmationCard,
@@ -50,6 +55,10 @@ import {
   BanUserDto,
   CreatePlaceDto,
   PLACE_DESCRIPTOR,
+  FORGET_MEMORY_DESCRIPTOR,
+  ForgetMemoryDto,
+  REMEMBER_NOTE_DESCRIPTOR,
+  RememberNoteDto,
 } from './dto-descriptor.util';
 import {
   summarizeBannedUser,
@@ -58,6 +67,8 @@ import {
   summarizeDebt,
   summarizeDeletedCalendarEvent,
   summarizeDeletedTransaction,
+  summarizeForgotten,
+  summarizeRememberedNote,
   summarizeGeneric,
   summarizePlace,
   summarizeReminder,
@@ -76,6 +87,8 @@ export type PendingActionType =
   | 'DELETE_CALENDAR_EVENT'
   | 'BAN_USER'
   | 'CREATE_PLACE'
+  | 'REMEMBER_NOTE'
+  | 'FORGET_MEMORY'
   | 'create'
   | 'delete';
 
@@ -156,6 +169,10 @@ export function pendingActionLabel(
       return 'khoá tài khoản';
     case 'CREATE_PLACE':
       return 'tạo nơi chốn';
+    case 'REMEMBER_NOTE':
+      return 'ghi nhớ';
+    case 'FORGET_MEMORY':
+      return 'quên';
   }
 }
 
@@ -168,6 +185,10 @@ function pendingSubject(pending: Pick<PendingAction, 'actionType' | 'payload'>):
       return payloadText(payload, 'targetName') || payloadText(payload, 'targetUserId');
     case 'CREATE_PLACE':
       return payloadText(payload, 'name');
+    case 'REMEMBER_NOTE':
+      return payloadText(payload, 'text');
+    case 'FORGET_MEMORY':
+      return payloadText(payload, 'query');
     default:
       return (
         payloadText(payload, 'note') ||
@@ -305,11 +326,19 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     @Optional() private readonly googleAuthService?: GoogleAuthService,
     @Optional() private readonly redisService?: RedisService,
     @Optional() private readonly threadConfigService?: ThreadConfigService,
+    @Optional() private readonly chatMemoryService?: ChatMemoryService,
+    @Optional() private readonly channelNotesService?: ChannelNotesService,
+    @Optional() private readonly learnedFactsService?: LearnedFactsService,
   ) {
-    // ZcaService in the app; ZcaMessengerService or a test double elsewhere.
+    // ZcaService in the app; ZcaMessengerService or a test double elsewhere. Messages of this
+    // service are confirmation noise (`system`) unless the caller tagged them as a card or result,
+    // so they never fill the short-term window or reach the long-term memory.
+    const tagged = <T>(send: () => Promise<T>): Promise<T> =>
+      OutgoingMemoryKind.run(OutgoingMemoryKind.current() ?? 'system', send);
     this.zcaMessenger = {
-      sendMessage: (chatId, text) => sendChatText(rawMessenger, chatId, text),
-      sendMessageWithResult: (chatId, text) => sendChatTextWithResult(rawMessenger, chatId, text),
+      sendMessage: (chatId, text) => tagged(() => sendChatText(rawMessenger, chatId, text)),
+      sendMessageWithResult: (chatId, text) =>
+        tagged(() => sendChatTextWithResult(rawMessenger, chatId, text)),
       undoMessage: (chatId, msgId, cliMsgId) =>
         undoChatMessage(rawMessenger, chatId, msgId, cliMsgId),
     };
@@ -559,7 +588,9 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       .join('\n');
 
     if (this.zcaMessenger.sendMessageWithResult) {
-      const sendResult = await this.zcaMessenger.sendMessageWithResult(params.chatId, msg);
+      const sendResult = await OutgoingMemoryKind.run('card', () =>
+        this.zcaMessenger.sendMessageWithResult?.(params.chatId, msg),
+      );
       if (sendResult?.msgId) {
         pending.messageId = sendResult.msgId;
         if (sendResult.cliMsgId) {
@@ -568,7 +599,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         await this.setMessageId(code, sendResult.msgId, sendResult.cliMsgId);
       }
     } else {
-      await this.zcaMessenger.sendMessage(params.chatId, msg);
+      await OutgoingMemoryKind.run('card', () => this.zcaMessenger.sendMessage(params.chatId, msg));
     }
     return pending;
   }
@@ -1035,6 +1066,44 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     });
   }
 
+  /** Card to remember something for this chat (Ghi nhớ), or to replace one remembered note. */
+  public async createPendingRememberNote(params: {
+    userId: string;
+    chatId: string;
+    payload: RememberNoteDto;
+    rawPrompt?: string;
+    messageId?: string;
+  }): Promise<PendingAction> {
+    return this.createPendingAction({
+      userId: params.userId,
+      chatId: params.chatId,
+      actionType: 'REMEMBER_NOTE',
+      title: pendingActionLabel('REMEMBER_NOTE'),
+      payload: params.payload,
+      descriptor: REMEMBER_NOTE_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
+      messageId: params.messageId,
+    });
+  }
+
+  /** Card to forget the listed notes and learned facts of this chat. */
+  public async createPendingForgetMemory(params: {
+    userId: string;
+    chatId: string;
+    payload: ForgetMemoryDto;
+    rawPrompt?: string;
+  }): Promise<PendingAction> {
+    return this.createPendingAction({
+      userId: params.userId,
+      chatId: params.chatId,
+      actionType: 'FORGET_MEMORY',
+      title: pendingActionLabel('FORGET_MEMORY'),
+      payload: params.payload,
+      descriptor: FORGET_MEMORY_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
+    });
+  }
+
   public async handleTimeout(code: string): Promise<void> {
     const pending = await this.getPendingByCode(code);
     if (!pending) return;
@@ -1303,16 +1372,30 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       current?.actorId === String(confirmed.userId) ? current.actorName : undefined;
     return AuditContext.run(
       zaloAuditContext(confirmed.userId, confirmed.chatId, requesterName),
-      () => this.executeConfirmed(confirmed, userId, chatId, silent),
+      () =>
+        OutgoingMemoryKind.run('result', () =>
+          this.executeConfirmed(confirmed, userId, chatId, silent),
+        ),
     );
   }
 
+  /**
+   * Runs a confirmed action and posts its result. Only an action that ran without error is then
+   * written to the chat memory (`recordConfirmedAction`); cancelled, expired or failed actions
+   * never are. `BAN_USER` and forgetting are left out on purpose.
+   */
   private async executeConfirmed(
     pending: PendingAction,
     userId: string,
     chatId: string,
     silent: boolean,
   ): Promise<boolean> {
+    // The summary of what was done, kept for the memory; unset when nothing was done.
+    let done: string | undefined;
+    const post = async (summary: string, remember = true): Promise<void> => {
+      if (remember) done = summary;
+      if (!silent) await this.zcaMessenger.sendMessage(chatId, summary);
+    };
     try {
       switch (pending.actionType) {
         case 'RECORD_TRANSACTION':
@@ -1345,9 +1428,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             }
           }
 
-          if (!silent) {
-            await this.zcaMessenger.sendMessage(chatId, summary);
-          }
+          await post(summary);
           break;
         }
         case 'DELETE_TRANSACTION':
@@ -1356,44 +1437,32 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             pending.deletePayload) as unknown as DeleteTransactionDto;
           const success = await this.financeService.deleteTransaction(payload.transactionId);
           if (success) {
-            if (!silent) {
-              await this.zcaMessenger.sendMessage(
-                chatId,
-                summarizeDeletedTransaction(pending.code, payload),
-              );
-            }
+            await post(summarizeDeletedTransaction(pending.code, payload));
           } else {
-            if (!silent) {
-              await this.zcaMessenger.sendMessage(
-                chatId,
-                `⚠️ Không tìm thấy giao dịch, hoặc bạn không có quyền xoá nó.`,
-              );
-            }
+            await post(`⚠️ Không tìm thấy giao dịch, hoặc bạn không có quyền xoá nó.`, false);
           }
           break;
         }
         case 'MANAGE_DEBT': {
           const payload = pending.payload as unknown as CreateDebtDto;
           const debt = await this.financeService.createDebt(payload);
-          if (!silent) {
-            const summary = summarizeDebt(pending.code, {
-              ...payload,
-              amount: debt?.originalAmount ?? payload.amount,
-              counterparty: debt?.counterparty ?? payload.counterparty,
-              note: debt?.note ?? payload.note,
-              occurredAt: debt?.occurredAt
-                ? debt.occurredAt instanceof Date
-                  ? debt.occurredAt.toISOString()
-                  : String(debt.occurredAt)
-                : payload.occurredAt,
-              dueAt: debt?.dueAt
-                ? debt.dueAt instanceof Date
-                  ? debt.dueAt.toISOString()
-                  : String(debt.dueAt)
-                : payload.dueAt,
-            });
-            await this.zcaMessenger.sendMessage(chatId, summary);
-          }
+          const summary = summarizeDebt(pending.code, {
+            ...payload,
+            amount: debt?.originalAmount ?? payload.amount,
+            counterparty: debt?.counterparty ?? payload.counterparty,
+            note: debt?.note ?? payload.note,
+            occurredAt: debt?.occurredAt
+              ? debt.occurredAt instanceof Date
+                ? debt.occurredAt.toISOString()
+                : String(debt.occurredAt)
+              : payload.occurredAt,
+            dueAt: debt?.dueAt
+              ? debt.dueAt instanceof Date
+                ? debt.dueAt.toISOString()
+                : String(debt.dueAt)
+              : payload.dueAt,
+          });
+          await post(summary);
           break;
         }
         case 'SET_REMINDER': {
@@ -1402,14 +1471,13 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           }
           const payload = parseReminderPayload(pending.payload);
           const reminder = await this.remindersService.createReminder(payload);
-          if (!silent) {
-            const summary = summarizeReminder(pending.code, {
+          await post(
+            summarizeReminder(pending.code, {
               ...payload,
               title: reminder?.title ?? payload.title,
               remindAt: reminder?.remindAt ?? payload.remindAt,
-            });
-            await this.zcaMessenger.sendMessage(chatId, summary);
-          }
+            }),
+          );
           break;
         }
         case 'CREATE_TASK': {
@@ -1431,13 +1499,12 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             },
             { userId: pending.userId, chatId: pending.chatId, source: 'zalo' },
           );
-          if (!silent) {
-            const summary = summarizeTask(pending.code, {
+          await post(
+            summarizeTask(pending.code, {
               ...payload,
               title: task?.title ?? payload.title,
-            });
-            await this.zcaMessenger.sendMessage(chatId, summary);
-          }
+            }),
+          );
           break;
         }
         case 'COMPLETE_TASK': {
@@ -1446,12 +1513,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           }
           const payload = pending.payload as unknown as CompleteTaskDto;
           await this.tasksService.completeTask(payload.taskId);
-          if (!silent) {
-            await this.zcaMessenger.sendMessage(
-              chatId,
-              summarizeCompletedTask(pending.code, payload),
-            );
-          }
+          await post(summarizeCompletedTask(pending.code, payload));
           break;
         }
         case 'CREATE_CALENDAR_EVENT': {
@@ -1472,12 +1534,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             },
             { userId: pending.userId, chatId: pending.chatId, source: 'zalo' },
           );
-          if (!silent) {
-            await this.zcaMessenger.sendMessage(
-              chatId,
-              summarizeCalendarEvent(pending.code, payload),
-            );
-          }
+          await post(summarizeCalendarEvent(pending.code, payload));
           break;
         }
         case 'DELETE_CALENDAR_EVENT': {
@@ -1486,12 +1543,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           }
           const payload = pending.payload as unknown as DeleteCalendarEventDto;
           await this.calendarService.deleteEvent(payload.eventId, pending.userId);
-          if (!silent) {
-            await this.zcaMessenger.sendMessage(
-              chatId,
-              summarizeDeletedCalendarEvent(pending.code, payload),
-            );
-          }
+          await post(summarizeDeletedCalendarEvent(pending.code, payload));
           break;
         }
         case 'BAN_USER': {
@@ -1502,16 +1554,16 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           if (this.googleAuthService) {
             await this.googleAuthService.revokeUserTokens(payload.targetUserId);
           }
-          if (!silent) {
-            await this.zcaMessenger.sendMessage(chatId, summarizeBannedUser(pending.code, payload));
-          }
+          // An admin action, not something the chat should remember.
+          await post(summarizeBannedUser(pending.code, payload), false);
           break;
         }
         case 'CREATE_PLACE': {
           const payload = pending.payload as unknown as CreatePlaceDto;
           const place = await this.financeService.resolveOrCreatePlace(payload.name);
+          const reply = summarizePlace(pending.code, place?.name || payload.name);
+          done = reply;
           if (!silent) {
-            const reply = summarizePlace(pending.code, place?.name || payload.name);
             const remainingList = await this.getPendingListForUser(userId);
             if (this.zcaMessenger.sendMessageWithResult) {
               const sendRes = await this.zcaMessenger.sendMessageWithResult(chatId, reply);
@@ -1524,16 +1576,46 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           }
           break;
         }
+        case 'REMEMBER_NOTE': {
+          if (!this.channelNotesService) {
+            throw new Error('Ghi nhớ chưa được cấu hình.');
+          }
+          const payload = pending.payload as unknown as RememberNoteDto;
+          const result = payload.replaceNoteId
+            ? await this.channelNotesService.update(
+                pending.chatId,
+                payload.replaceNoteId,
+                payload.text,
+              )
+            : await this.channelNotesService.add(pending.chatId, payload.text, {
+                createdBy: pending.userId,
+                sourceMsgId: pending.messageId ?? null,
+              });
+          if ('reason' in result) throw new Error(channelNoteRejectionText(result.reason));
+          await post(summarizeRememberedNote(pending.code, result.note.text));
+          break;
+        }
+        case 'FORGET_MEMORY': {
+          const payload = pending.payload as unknown as ForgetMemoryDto;
+          await this.channelNotesService?.remove(pending.chatId, payload.noteIds ?? []);
+          await this.learnedFactsService?.remove(
+            pending.chatId,
+            payload.factIds ?? [],
+            pending.userId,
+          );
+          // Not remembered: the forgotten words would be learned again from it.
+          await post(summarizeForgotten(pending.code, payload.items ?? []), false);
+          break;
+        }
         default: {
           const payload = pending.payload as unknown as CreateFinanceTransactionDto;
           await this.financeService.createTransaction(payload);
-          if (!silent) {
-            await this.zcaMessenger.sendMessage(chatId, summarizeGeneric(pending.code));
-          }
+          await post(summarizeGeneric(pending.code), false);
           break;
         }
       }
 
+      if (done) await this.recordConfirmedAction(pending, done);
       return true;
     } catch (err) {
       this.logger.error(`Failed to execute confirmed action: ${(err as Error).message}`);
@@ -1542,6 +1624,39 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         `⚠️ Chưa thực hiện được: ${(err as Error).message}`,
       );
       return true;
+    }
+  }
+
+  /**
+   * Writes a confirmed, successful action to the chat memory as one `action` row from whoever
+   * asked for it, when the chat has a memory on. Never throws.
+   */
+  private async recordConfirmedAction(pending: PendingAction, summary: string): Promise<void> {
+    if (!this.chatMemoryService || !this.threadConfigService) return;
+    try {
+      const config = await this.threadConfigService.findStoredConfig(pending.chatId);
+      const memory = config?.chatMemory;
+      if (!config?.isListened || (!memory?.enabled && !memory?.shortTermEnabled)) return;
+      const text = confirmedActionText(summary);
+      if (!text) return;
+      const names = await this.usersService
+        ?.resolveZaloNames([pending.userId])
+        .catch(() => new Map<string, string>());
+      await this.chatMemoryService.recordAction(
+        pending.chatId,
+        config.threadType === 'group' ? 'group' : 'user',
+        {
+          actionId: `action:${pending.code}:${pending.createdAt}`,
+          requesterUid: pending.userId,
+          requesterName: names?.get(pending.userId) ?? null,
+          text,
+        },
+        { longTerm: memory.enabled },
+      );
+    } catch (err: unknown) {
+      this.logger.warn(
+        `Không ghi được thao tác [${pending.code}] vào trí nhớ: ${err instanceof Error ? err.message : JSON.stringify(err)}`,
+      );
     }
   }
 

@@ -45,6 +45,7 @@ void test('createDefaultThreadConfig creates sensible defaults for group vs user
     shortTermDays: 1,
     searchLimit: 15,
     readImageText: true,
+    learnPeople: true,
   });
 
   const userConfig = createDefaultThreadConfig('u-789', {
@@ -504,6 +505,7 @@ void test('ThreadConfigService merges and clamps chat memory updates', async () 
     shortTermDays: 1,
     searchLimit: 15,
     readImageText: true,
+    learnPeople: true,
   });
 
   const tuned = await service.updateConfig(threadId, {
@@ -516,6 +518,7 @@ void test('ThreadConfigService merges and clamps chat memory updates', async () 
     shortTermDays: 1,
     searchLimit: 1,
     readImageText: true,
+    learnPeople: true,
   });
 
   // Long-term off keeps the short-term memory on.
@@ -531,6 +534,7 @@ void test('normalizeChatMemoryConfig fills defaults and rejects junk values', ()
     shortTermDays: 1,
     searchLimit: 15,
     readImageText: true,
+    learnPeople: true,
   });
   assert.deepEqual(
     normalizeChatMemoryConfig({
@@ -546,6 +550,7 @@ void test('normalizeChatMemoryConfig fills defaults and rejects junk values', ()
       shortTermDays: 1,
       searchLimit: 15,
       readImageText: true,
+      learnPeople: true,
     },
   );
   assert.deepEqual(
@@ -555,6 +560,7 @@ void test('normalizeChatMemoryConfig fills defaults and rejects junk values', ()
       contextWindow: 7.6,
       searchLimit: 80,
       readImageText: true,
+      learnPeople: true,
     }),
     {
       enabled: false,
@@ -563,6 +569,7 @@ void test('normalizeChatMemoryConfig fills defaults and rejects junk values', ()
       shortTermDays: 1,
       searchLimit: 50,
       readImageText: true,
+      learnPeople: true,
     },
   );
 });
@@ -584,6 +591,7 @@ void test('normalizeChatMemoryConfig keeps the behaviour of configs saved before
       shortTermDays: 1,
       searchLimit: 15,
       readImageText: true,
+      learnPeople: true,
     },
   );
   // Memory off turned the window off too.
