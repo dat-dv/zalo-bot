@@ -102,16 +102,17 @@ Khi có người hỏi chuyện cũ, `SEARCH_CHAT_HISTORY` chạy song song tìm
   - `COGNEE_LLM_PROVIDER` (mặc định `custom`), `COGNEE_LLM_ENDPOINT` (`…/v1`), `COGNEE_LLM_MODEL` (`openai/<model>`), `COGNEE_LLM_API_KEY`: LLM Cognee dùng để dựng graph. Toàn bộ chat từng ngày của kênh bật "Nhớ lâu dài" được gửi tới đây.
   - `COGNEE_URL` do compose đặt cố định là `http://cognee:8000`; chạy API ngoài Docker thì tự khai báo.
 - Trạng thái nạp hiện trên thẻ "Nhớ lâu dài": ngày đã nạp gần nhất, số ngày lỗi.
-- **Truy cập Cognee từ xa**: `https://<domain>/cognee/api/v1/...` đi qua nginx của service `web` tới `http://cognee:8000/api/v1/...`.
-  - Có hai lớp bảo vệ: Basic Auth của nginx (`COGNEE_PROXY_USER` / `COGNEE_PROXY_PASSWORD`), rồi tới đăng nhập của Cognee (`zalobot@example.com` + `COGNEE_USER_PASSWORD`).
-  - Thiếu một trong hai biến proxy thì `/cognee/` trả 404, tức là mặc định đóng.
-  - `POST /cognee/api/v1/auth/register` luôn trả 403: Cognee cho ai cũng tự tạo tài khoản, người lạ có thể nạp dữ liệu và đốt key LLM.
-  - Cognee tắt thì `/cognee/` trả 502, trang web vẫn chạy.
-  - Swagger `/cognee/docs` không dùng được dưới đường dẫn con (nó tải `/openapi.json` từ gốc site); gọi thẳng API.
-  - Ví dụ:
+- **Giao diện Cognee**: vào `https://zalobot.datintech.site/cognee`, trang này chuyển sang `https://cognee.datintech.site` (biến `COGNEE_UI_HOST`).
+  - Nhập Basic Auth (`COGNEE_PROXY_USER` / `COGNEE_PROXY_PASSWORD`), rồi đăng nhập UI bằng `zalobot@example.com` + `COGNEE_USER_PASSWORD`.
+  - UI là service `cognee-ui` (image chính thức `cognee/cognee-ui:1.6.5`). Nó không chạy được dưới đường dẫn `/cognee/` vì không có basePath, và đăng nhập bằng cookie gắn theo host, nên UI và API Cognee cùng nằm trên subdomain riêng: `/` là UI, `/api/` là API, cùng một origin nên không vướng CORS.
+  - Tài khoản này là superuser: ai đăng nhập được là xem và xoá được trí nhớ của mọi kênh.
+  - Cần tạo DNS cho subdomain và thêm domain đó vào service `web` trên Coolify.
+  - Các trang Activity, Analytics, Memory Coverage chỉ có trên Cognee Cloud; Datasets, Search, Graph dùng được.
+- **API Cognee trên domain chính**: `https://zalobot.datintech.site/cognee/api/v1/...` (Basic Auth), ví dụ:
     ```bash
-    curl -u zalobot:<COGNEE_PROXY_PASSWORD> https://<domain>/cognee/health
+    curl -u zalobot:<COGNEE_PROXY_PASSWORD> https://zalobot.datintech.site/cognee/health
     ```
+- Bảo vệ chung: thiếu biến proxy thì mọi đường vào Cognee đều trả 404 (mặc định đóng); `/api/v1/auth/register` luôn trả 403, vì người lạ tự đăng ký được thì sẽ đốt key LLM; Cognee hoặc UI tắt thì trả 502, trang web vẫn chạy.
 
 ## 6. Trang cấu hình kênh
 
