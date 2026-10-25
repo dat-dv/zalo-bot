@@ -43,7 +43,10 @@ void test('LoginToolStrategy blocks non-admin user and informs admin requirement
   });
 
   assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0], /Chỉ Quản trị viên \(Admin\) mới có quyền/);
+  assert.equal(
+    sentMessages[0],
+    '⛔ Chỉ admin mới kết nối được tài khoản Google dùng chung. Gõ /status để xem trạng thái.',
+  );
 
   // 2. Admin user
   sentMessages.length = 0;
@@ -61,7 +64,8 @@ void test('LoginToolStrategy blocks non-admin user and informs admin requirement
   });
 
   assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0], /KẾT NỐI TÀI KHOẢN GOOGLE HỆ THỐNG/);
+  assert.match(sentMessages[0], /^🔐 Kết nối tài khoản Google dùng chung\n/);
+  assert.match(sentMessages[0], /Hệ thống chưa kết nối tài khoản Google dùng chung\./);
   assert.match(sentMessages[0], /https:\/\/accounts\.google\.com/);
 });
 
@@ -103,10 +107,8 @@ void test('StatusToolStrategy displays shared workspace status properly', async 
   });
 
   assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0], /Thành viên \(Member\)/);
-  assert.match(sentMessages[0], /GOOGLE WORKSPACE HỆ THỐNG/);
-  assert.match(sentMessages[0], /Đã kết nối \(Dùng chung\)/);
-  assert.match(sentMessages[0], /shared-admin@gmail\.com/);
+  assert.match(sentMessages[0], /Vai trò: thành viên/);
+  assert.match(sentMessages[0], /Google: đã kết nối bằng shared-admin@gmail\.com, dùng chung/);
   assert.match(sentMessages[0], /Google Drive/);
   assert.match(sentMessages[0], /Google Photos/);
 });

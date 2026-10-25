@@ -10,6 +10,6 @@ export class PingToolStrategy implements TextToolStrategy {
   constructor(private readonly zcaMessenger: ZcaMessengerService) {}
 
   public async execute(context: TextToolContext): Promise<void> {
-    await this.zcaMessenger.sendMessage(context.chatId, '🏓 Pong! Bot đang hoạt động bình thường.');
+    await this.zcaMessenger.sendMessage(context.chatId, 'Pong, bot vẫn chạy.');
   }
 }

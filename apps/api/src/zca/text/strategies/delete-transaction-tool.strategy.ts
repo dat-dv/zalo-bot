@@ -74,7 +74,7 @@ export class DeleteTransactionToolStrategy implements TextToolStrategy {
     if (!transaction) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Không tìm thấy giao dịch thu–chi nào phù hợp để xóa. Vui lòng kiểm tra lại mã ID hoặc nội dung giao dịch.',
+        '⚠️ Không tìm thấy giao dịch nào để xoá. Kiểm tra lại mã hoặc nội dung giao dịch.',
       );
       return;
     }
@@ -100,7 +100,7 @@ export class DeleteTransactionToolStrategy implements TextToolStrategy {
       this.logger.error(`Failed to create pending delete transaction: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Có lỗi xảy ra khi tạo yêu cầu xác nhận xóa giao dịch.',
+        '⚠️ Chưa tạo được yêu cầu xoá giao dịch, thử lại sau.',
       );
     }
   }

@@ -64,7 +64,7 @@ export class SetReminderToolStrategy implements TextToolStrategy {
       this.logger.error(`Failed to create pending reminder: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Có lỗi xảy ra khi tạo yêu cầu xác nhận lịch nhắc.',
+        '⚠️ Chưa tạo được yêu cầu đặt lời nhắc, thử lại sau.',
       );
     }
   }

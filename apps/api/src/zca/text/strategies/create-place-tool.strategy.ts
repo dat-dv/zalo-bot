@@ -29,7 +29,7 @@ export class CreatePlaceToolStrategy implements TextToolStrategy {
     if (!name) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Tên nơi chốn / địa điểm không được để trống.',
+        '⚠️ Thiếu tên nơi chốn, nhắn lại kèm tên.',
       );
       return;
     }
@@ -39,7 +39,7 @@ export class CreatePlaceToolStrategy implements TextToolStrategy {
       if (existing.length > 0) {
         await this.zcaMessenger.sendMessage(
           context.chatId,
-          `ℹ️ Nơi chốn "${name}" đã tồn tại trong danh bạ nơi chốn của bạn.`,
+          `Nơi chốn "${name}" đã có trong danh sách rồi.`,
         );
         return;
       }
@@ -66,7 +66,7 @@ export class CreatePlaceToolStrategy implements TextToolStrategy {
       this.logger.error(`Failed to create pending place: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Có lỗi xảy ra khi tạo yêu cầu xác nhận nơi chốn.',
+        '⚠️ Chưa tạo được yêu cầu thêm nơi chốn, thử lại sau.',
       );
     }
   }

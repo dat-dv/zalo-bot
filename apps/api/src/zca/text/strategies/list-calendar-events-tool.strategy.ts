@@ -36,28 +36,27 @@ export class ListCalendarEventsToolStrategy implements TextToolStrategy {
       if (events.length === 0) {
         await this.zcaMessenger.sendMessage(
           context.chatId,
-          '📅 Không tìm thấy sự kiện nào trong khoảng thời gian này.',
+          'Không có lịch hẹn nào trong khoảng này.',
         );
         return;
       }
 
       const eventLines = events.map((e, idx) => {
-        const loc = e.location ? ` (tại ${e.location})` : '';
-        return `  ${idx + 1}. [${formatEventStartVN(e, true)}] ${e.title}${loc}`;
+        const loc = e.location ? ` · ${e.location}` : '';
+        return `${idx + 1}. ${formatEventStartVN(e, true)} · ${e.title}${loc}`;
       });
 
       const reply =
-        `📅 KẾT QUẢ TRA CỨU LỊCH TRÌNH (${events.length})\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Lịch hẹn (${events.length}):\n` +
         eventLines.join('\n') +
-        `\n\n💡 Nhắn "xóa lịch <tên>" nếu bạn muốn hủy sự kiện.`;
+        `\nMuốn huỷ thì nhắn "xoá lịch <tên>".`;
 
       await this.zcaMessenger.sendMessage(context.chatId, reply);
     } catch (err) {
       this.logger.error(`Failed to list calendar events: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `⚠️ Không thể lấy danh sách lịch hẹn: ${(err as Error).message}`,
+        `⚠️ Chưa lấy được lịch hẹn: ${(err as Error).message}`,
       );
     }
   }

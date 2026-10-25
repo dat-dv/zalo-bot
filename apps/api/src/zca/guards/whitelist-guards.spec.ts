@@ -47,7 +47,7 @@ void test('InitialAdminBootstrapGuard promotes first user to admin when system h
   assert.equal(res1, true);
   assert.equal(bootstrappedUser, 'user_first_123');
   assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0].text, /QUẢN TRỊ VIÊN/);
+  assert.match(sentMessages[0].text, /đã được đặt làm admin/);
 
   // Second user when system already has admin
   const secondInput: AgentInput = {
@@ -100,7 +100,7 @@ void test('GrantAccessGuard saves pending user and rejects ungranted users with 
   assert.equal(res1, false);
   assert.equal(registeredUsers.includes('stranger_999'), true);
   assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0].text, /CHƯA ĐƯỢC CẤP QUYỀN/);
+  assert.match(sentMessages[0].text, /chưa được cấp quyền dùng bot/);
   assert.match(sentMessages[0].text, /stranger_999/);
 
   // 2. Granted user

@@ -20,11 +20,7 @@ export class LoginToolStrategy implements TextToolStrategy {
     const isAdmin = Boolean(this.usersService?.isAdmin(context.senderId));
 
     if (!isAdmin) {
-      const reply =
-        `⛔ QUYỀN TRUY CẬP BỊ GIỚI HẠN\n\n` +
-        `Chỉ Quản trị viên (Admin) mới có quyền kết nối tài khoản Google cho hệ thống.\n\n` +
-        `Tài khoản Google sau khi Quản trị viên kết nối sẽ được kích hoạt dùng chung cho toàn bộ thành viên (Calendar, Tasks, Google Drive & Google Photos).\n\n` +
-        `💡 Vui lòng liên hệ Quản trị viên để kết nối tài khoản. Bạn có thể gõ /status để kiểm tra trạng thái hệ thống.`;
+      const reply = `⛔ Chỉ admin mới kết nối được tài khoản Google dùng chung. Gõ /status để xem trạng thái.`;
       await this.zcaMessenger.sendMessage(context.chatId, reply);
       return;
     }
@@ -39,35 +35,31 @@ export class LoginToolStrategy implements TextToolStrategy {
 
       let statusNote = '';
       if (!isConnected) {
-        statusNote = '⚠️ (Hệ thống CHƯA kết nối tài khoản Google dùng chung)';
+        statusNote = 'Hệ thống chưa kết nối tài khoản Google dùng chung.';
       } else if (!hasStorage) {
         statusNote =
-          '⚠️ TÀI KHOẢN GOOGLE HIỆN TẠI THIẾU QUYỀN LƯU TRỮ DRIVE & PHOTOS!\n' +
-          '(Tài khoản đã kết nối Lịch & Tasks nhưng CHƯA có quyền lưu ảnh/video lên Drive và Photos. Vui lòng cấp quyền bổ sung)';
+          'Tài khoản hiện tại đã kết nối nhưng chưa có quyền lưu ảnh, video lên Drive và Photos, cần cấp thêm quyền.';
       } else {
-        statusNote =
-          '💡 (Hệ thống ĐÃ kết nối Google dùng chung đầy đủ quyền. Bạn có thể cấp quyền lại nếu muốn đổi sang tài khoản Gmail mới)';
+        statusNote = 'Đã kết nối đủ quyền. Cấp lại nếu muốn đổi sang Gmail khác.';
       }
 
       const reply =
-        `🔐 KẾT NỐI TÀI KHOẢN GOOGLE HỆ THỐNG (DÙNG CHUNG)\n\n` +
-        `${statusNote}\n\n` +
-        `Tài khoản này sẽ được dùng chung cho toàn bộ thành viên trong bot để:\n` +
-        `• 📅 Quản lý Lịch trình (Google Calendar)\n` +
-        `• 📁 Lưu trữ hóa đơn, ảnh & video (Google Drive: zalobot/bills, images, videos)\n` +
-        `• 📸 Tự động tạo Album & đẩy ảnh (Google Photos: ZaloBot)\n\n` +
-        `Các bước thực hiện:\n` +
-        `1️⃣ Mở đường dẫn sau trên trình duyệt:\n` +
-        `👉 ${authUrl}\n\n` +
-        `2️⃣ Đăng nhập Gmail và bấm "Cho phép" (Allow) các quyền.\n\n` +
-        `Sau khi cấp quyền thành công, hệ thống sẽ tự động kích hoạt kết nối và gửi thông báo xác nhận tới bạn!`;
+        `🔐 Kết nối tài khoản Google dùng chung\n` +
+        `${statusNote}\n` +
+        `Mọi thành viên dùng chung tài khoản này cho:\n` +
+        `• Lịch trên Google Calendar\n` +
+        `• Hoá đơn, ảnh, video trên Google Drive, thư mục zalobot\n` +
+        `• Album ảnh trên Google Photos\n` +
+        `Mở link này trên trình duyệt, đăng nhập Gmail rồi bấm "Cho phép":\n` +
+        `${authUrl}\n` +
+        `Cấp quyền xong bot tự kết nối và nhắn báo cho bạn.`;
 
       await this.zcaMessenger.sendMessage(context.chatId, reply);
     } catch (err) {
       this.logger.error(`Failed to generate Google Auth URL: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `⚠️ Không thể tạo link đăng nhập Google: ${(err as Error).message}`,
+        `⚠️ Chưa tạo được link đăng nhập Google: ${(err as Error).message}`,
       );
     }
   }

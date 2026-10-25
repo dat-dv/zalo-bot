@@ -98,6 +98,7 @@ void test('MANAGE_DEBT stops and asks for an alias when several contacts share t
   assert.equal(sentMessages.length, 1);
   assert.match(sentMessages[0], /Trí \(Trí Đen\)/);
   assert.match(sentMessages[0], /Trí \(Trí Trắng\)/);
+  assert.match(sentMessages[0], /\nNhắn lại kèm biệt danh để mình ghi đúng người\.$/);
 });
 
 void test('MANAGE_DEBT passes the alias from tool args to the contact lookup', async () => {

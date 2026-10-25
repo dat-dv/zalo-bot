@@ -20,19 +20,13 @@ export class ZaloLogoutToolStrategy implements TextToolStrategy {
     const isAdmin = Boolean(this.usersService?.isAdmin(context.senderId));
 
     if (!isAdmin) {
-      const reply =
-        `⛔ QUYỀN TRUY CẬP BỊ GIỚI HẠN\n\n` +
-        `Chỉ Quản trị viên (Admin) mới có quyền đăng xuất và ngắt kết nối tài khoản Zalo cá nhân (ZCA).\n\n` +
-        `💡 Bạn có thể gõ /status để kiểm tra trạng thái hoạt động của hệ thống.`;
+      const reply = `⛔ Chỉ admin mới đăng xuất được Zalo cá nhân của bot. Gõ /status để xem trạng thái.`;
       await this.zcaMessenger.sendMessage(context.chatId, reply);
       return;
     }
 
     if (!this.zcaService.isLoggedIn()) {
-      const reply =
-        `ℹ️ TRẠNG THÁI ZCA HIỆN TẠI\n\n` +
-        `Tài khoản Zalo cá nhân (ZCA) hiện đang ở trạng thái CHƯA ĐĂNG NHẬP.\n\n` +
-        `💡 Để kết nối tài khoản, bạn có thể gõ lệnh /zalo-login (hoặc /zca-login).`;
+      const reply = `Zalo cá nhân của bot đang chưa đăng nhập. Gõ /zalo-login hoặc /zca-login để kết nối.`;
       await this.zcaMessenger.sendMessage(context.chatId, reply);
       return;
     }
@@ -40,16 +34,17 @@ export class ZaloLogoutToolStrategy implements TextToolStrategy {
     try {
       await this.zcaService.logout();
       const reply =
-        `✅ ĐÃ ĐĂNG XUẤT TÀI KHOẢN ZCA THÀNH CÔNG!\n\n` +
-        `• Bot đã dừng lắng nghe tin nhắn cá nhân & sự kiện nhóm.\n` +
-        `• Phiên làm việc và cookies đã được xóa sạch an toàn khỏi hệ thống.\n\n` +
-        `💡 Để kết nối lại tài khoản Zalo cá nhân, bạn có thể gõ /zalo-login bất cứ lúc nào.`;
+        `✅ Đã đăng xuất Zalo cá nhân. Bot ngừng nhận tin nhắn và sự kiện nhóm, phiên đăng nhập và cookie đã xoá khỏi hệ thống.\n` +
+        `Gõ /zalo-login khi cần kết nối lại.`;
       await this.zcaMessenger.sendMessage(context.chatId, reply);
     } catch (err: unknown) {
       const errMsg =
         err instanceof Error ? err.message : typeof err === 'string' ? err : JSON.stringify(err);
       this.logger.error(`Failed to logout ZCA: ${errMsg}`);
-      await this.zcaMessenger.sendMessage(context.chatId, `⚠️ Không thể đăng xuất ZCA: ${errMsg}`);
+      await this.zcaMessenger.sendMessage(
+        context.chatId,
+        `⚠️ Chưa đăng xuất được Zalo cá nhân: ${errMsg}`,
+      );
     }
   }
 }

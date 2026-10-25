@@ -22,39 +22,26 @@ export class StatusToolStrategy implements TextToolStrategy {
       ? await this.googleAuthService.getSharedAccountEmail()
       : null;
 
-    const roleText = isAdmin ? '👑 Quản trị viên (Admin)' : '👤 Thành viên (Member)';
+    const roleText = isAdmin ? 'admin' : 'thành viên';
 
     let googleSection = '';
     if (isGoogleConnected) {
-      const emailLine = sharedEmail ? `\n• Tài khoản: ${sharedEmail}` : '';
+      const account = sharedEmail ? ` bằng ${sharedEmail}` : '';
       googleSection =
-        `🌐 GOOGLE WORKSPACE HỆ THỐNG:\n` +
-        `• Trạng thái: ✅ Đã kết nối (Dùng chung)${emailLine}\n` +
-        `• Dịch vụ sẵn sàng:\n` +
-        `  - 📅 Google Calendar (Lịch trình & cuộc họp)\n` +
-        `  - 📁 Google Drive (Lưu trữ: zalobot/bills, images, videos)\n` +
-        `  - 📸 Google Photos (Album ZaloBot)`;
+        `Google: đã kết nối${account}, dùng chung cho cả hệ thống.\n` +
+        `Dùng được Google Calendar, Google Drive (thư mục zalobot/bills, images, videos) và Google Photos (album ZaloBot).`;
+    } else if (isAdmin) {
+      googleSection =
+        'Google: chưa kết nối. Bạn là admin, gõ /login để kết nối tài khoản Google dùng chung.';
     } else {
-      if (isAdmin) {
-        googleSection =
-          `🌐 GOOGLE WORKSPACE HỆ THỐNG:\n` +
-          `• Trạng thái: ❌ Chưa kết nối\n` +
-          `👉 Bạn là Quản trị viên, vui lòng gõ /login để kết nối tài khoản Google dùng chung cho hệ thống.`;
-      } else {
-        googleSection =
-          `🌐 GOOGLE WORKSPACE HỆ THỐNG:\n` +
-          `• Trạng thái: ❌ Chưa kết nối\n` +
-          `💡 Vui lòng nhờ Quản trị viên gõ /login để kích hoạt Google Workspace cho toàn bộ người dùng.`;
-      }
+      googleSection = 'Google: chưa kết nối. Nhờ admin gõ /login để bật Google cho mọi người.';
     }
 
     const reply =
-      `📊 TRẠNG THÁI TÀI KHOẢN TRỢ LÝ\n\n` +
-      `• Tên hiển thị: ${context.displayName || 'Người dùng'}\n` +
-      `• Zalo ID: ${context.senderId}\n` +
-      `• Vai trò: ${roleText}\n\n` +
-      `${googleSection}\n\n` +
-      `💡 Gõ /help để xem toàn bộ danh sách lệnh hỗ trợ.`;
+      `Tên: ${context.displayName || 'Người dùng'}\n` +
+      `Zalo ID: ${context.senderId}\n` +
+      `Vai trò: ${roleText}\n` +
+      googleSection;
 
     await this.zcaMessenger.sendMessage(context.chatId, reply);
   }

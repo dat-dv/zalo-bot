@@ -35,7 +35,7 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
     if (!title) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Vui lòng cung cấp nội dung việc cần làm.',
+        '⚠️ Chưa rõ việc cần làm là gì, nhắn lại kèm nội dung việc.',
       );
       return;
     }
@@ -47,7 +47,7 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
         const dupes = await this.tasksService.findPotentialDuplicateTasks([title]);
         if (dupes.length > 0 && dupes[0].matches.length > 0) {
           const matchedTitles = dupes[0].matches.map((m) => `"${m.title}"`).join(', ');
-          duplicateWarning = `⚠️ Lưu ý: Bạn đã có việc tương tự trong danh sách: ${matchedTitles}.`;
+          duplicateWarning = `⚠️ Đã có việc tương tự trong danh sách: ${matchedTitles}.`;
         }
       } catch {
         // ignore duplicate check errors
@@ -84,7 +84,7 @@ export class CreateTaskToolStrategy implements TextToolStrategy {
       this.logger.error(`Failed to create pending task: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `⚠️ Không thể tạo yêu cầu việc cần làm: ${(err as Error).message}`,
+        `⚠️ Chưa tạo được yêu cầu thêm việc: ${(err as Error).message}`,
       );
     }
   }

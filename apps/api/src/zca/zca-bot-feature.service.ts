@@ -685,7 +685,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     if (this.usersService && typeof this.usersService.checkCooldown === 'function') {
       const cooldown = this.usersService.checkCooldown(senderId);
       if (!cooldown.allowed) {
-        const msg = cooldown.reason || 'Vui lòng gửi chậm lại.';
+        const msg = cooldown.reason || 'Bạn nhắn nhanh quá, chờ chút rồi gửi tiếp.';
         await api.sendMessage(msg, chatId, threadType);
         return false;
       }
@@ -774,7 +774,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
 
     if (!this.mediaStorageService) {
       await api.sendMessage(
-        '☁️ Tính năng lưu trữ ảnh lên Google Drive đang được phát triển.',
+        '☁️ Tính năng lưu ảnh lên Google Drive đang được phát triển.',
         threadId,
         messageType,
       );
@@ -784,8 +784,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     try {
       await api.sendMessage(
         isVideo
-          ? '⏳ Đang tải video lên Google Drive & Google Photos dùng chung...'
-          : '⏳ Đang tải ảnh lên Google Drive & Google Photos dùng chung...',
+          ? '⏳ Đang tải video lên Google Drive và Photos dùng chung...'
+          : '⏳ Đang tải ảnh lên Google Drive và Photos dùng chung...',
         threadId,
         messageType,
       );
@@ -817,7 +817,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     } catch (err) {
       this.logger.error(`[ZcaBotFeature] Failed to upload media to Drive: ${String(err)}`);
       await api.sendMessage(
-        `⚠️ Không thể lưu trữ ${isVideo ? 'video' : 'ảnh'} lên Google: ${err instanceof Error ? err.message : String(err)}`,
+        `⚠️ Không lưu được ${isVideo ? 'video' : 'ảnh'} lên Google: ${err instanceof Error ? err.message : String(err)}`,
         threadId,
         messageType,
       );
@@ -1026,8 +1026,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
               : isVideo
                 ? 'video'
                 : isFile
-                  ? 'tài liệu/tệp tin'
-                  : 'tin nhắn thoại/âm thanh';
+                  ? 'tệp'
+                  : 'tin nhắn thoại';
 
             this.logger.log(
               `[ZcaBotFeature] Auto uploading ${mediaLabel} to Google Drive with suffix "${config.mediaBackup.fileSuffix || ''}" and folder "${config.mediaBackup.customFolder || ''}"...`,
@@ -1082,13 +1082,13 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
             if (config.mediaBackup.notifyInThread) {
               const links: string[] = [];
               if (dualResult.drive?.webViewLink) {
-                links.push(`📁 Google Drive: ${dualResult.drive.webViewLink}`);
+                links.push(`Google Drive: ${dualResult.drive.webViewLink}`);
               }
               if (dualResult.photos?.albumUrl) {
-                links.push(`📸 Google Photos: ${dualResult.photos.albumUrl}`);
+                links.push(`Google Photos: ${dualResult.photos.albumUrl}`);
               }
               if (links.length > 0) {
-                const summary = `📁 Đã tự động lưu trữ ${mediaLabel}!\n${links.join('\n')}`;
+                const summary = `☁️ Đã tự động lưu ${mediaLabel} lên Google:\n${links.join('\n')}`;
                 await api.sendMessage(summary, threadId, message.type);
               }
             }
@@ -1138,7 +1138,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     // Single number "1" or "2" fast-path hint when no image is pending
     if (text && /^[12]$/.test(text.trim())) {
       await api.sendMessage(
-        '💡 Hiện không có hình ảnh hoặc giao dịch nào đang chờ xử lý. Bạn có thể gửi ảnh mới hoặc nhập yêu cầu cụ thể (Ví dụ: "ăn trưa 45k", "mai 9h họp").',
+        'Không có ảnh hay giao dịch nào đang chờ. Gửi ảnh mới hoặc nhắn yêu cầu, vd "ăn trưa 45k", "mai 9h họp".',
         threadId,
         message.type,
       );
@@ -1265,7 +1265,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       if (videoUrl && this.mediaStorageService) {
         try {
           await api.sendMessage(
-            '⏳ Đang tải video lên Google Drive & Google Photos dùng chung...',
+            '⏳ Đang tải video lên Google Drive và Photos dùng chung...',
             threadId,
             message.type,
           );
@@ -1281,7 +1281,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         } catch (err) {
           this.logger.error(`[ZcaBotFeature] Failed to upload direct video: ${String(err)}`);
           await api.sendMessage(
-            `⚠️ Không thể lưu trữ video lên Google: ${err instanceof Error ? err.message : String(err)}`,
+            `⚠️ Không lưu được video lên Google: ${err instanceof Error ? err.message : String(err)}`,
             threadId,
             message.type,
           );
@@ -1369,7 +1369,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     });
   }
 
-  public async onReaction(reaction: Reaction, api: API): Promise<void> {
+  public async onReaction(reaction: Reaction, _api: API): Promise<void> {
     const threadId = reaction.threadId;
     const isGroup = reaction.isGroup;
     const config: ThreadBotConfig = await this.threadConfigService.getConfig(threadId, {
@@ -1393,30 +1393,20 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     const targetMsgId = rMsg?.[0]?.gMsgID || rMsg?.[0]?.cMsgID || reaction.data?.msgId;
     const targetCliMsgId = rMsg?.[0]?.cMsgID;
     const senderId = reaction.data?.uidFrom || '';
-    const threadType = isGroup ? ThreadType.Group : ThreadType.User;
 
     this.logger.log(
       `[ZcaBotFeature] Reaction received in thread ${threadId}: icon="${icon}", sender="${senderId}", targetMsgId="${targetMsgId || ''}", targetCliMsgId="${targetCliMsgId || ''}"`,
     );
 
-    const result = await this.confirmationService.handleReaction({
+    // The confirmation service sends every outcome itself: the result, the cancel notice and the
+    // "❤️ 1/2 [code]" heart counter (recalled with the card). Nothing more to send from here.
+    await this.confirmationService.handleReaction({
       chatId: threadId,
       userId: senderId,
       reactionIcon: icon,
       msgId: targetMsgId ? String(targetMsgId) : undefined,
       cliMsgId: targetCliMsgId ? String(targetCliMsgId) : undefined,
     });
-
-    if (result.handled) {
-      if (result.status === 'confirmed') {
-        // Confirmation message with heart celebration and full DTO details is already sent by confirmationService.processConfirm!
-      } else if (result.status === 'cancelled') {
-        // Cancellation message is already sent by confirmationService.processCancel!
-      } else if (result.status === 'heart_added') {
-        const msg = `❤️ Đã nhận ${result.currentHearts}/${result.requiredHearts} lượt thả tim cho yêu cầu [${result.code}].`;
-        await api.sendMessage(msg, threadId, threadType);
-      }
-    }
   }
 
   /**

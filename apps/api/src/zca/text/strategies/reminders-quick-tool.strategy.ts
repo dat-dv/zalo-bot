@@ -3,6 +3,7 @@ import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZcaMessengerService } from '../../zca-messenger.service';
 import { RemindersService } from '../../../reminders/reminders.service';
+import { repeatLabel } from '../../../reminders/reminder-rule.format';
 
 @Injectable()
 export class RemindersQuickToolStrategy implements TextToolStrategy {
@@ -19,10 +20,7 @@ export class RemindersQuickToolStrategy implements TextToolStrategy {
       const upcoming = await this.remindersService.getUserUpcomingReminders(context.senderId);
 
       if (upcoming.length === 0) {
-        await this.zcaMessenger.sendMessage(
-          context.chatId,
-          '⏰ LỜI NHẮC HẸN\n\nHiện tại bạn không có lời nhắc nào sắp tới.',
-        );
+        await this.zcaMessenger.sendMessage(context.chatId, 'Bạn không có lời nhắc nào sắp tới.');
         return;
       }
 
@@ -35,22 +33,21 @@ export class RemindersQuickToolStrategy implements TextToolStrategy {
           hour: '2-digit',
           minute: '2-digit',
         });
-        const repeat = r.repeatType !== 'none' ? ` (Lặp: ${r.repeatType})` : '';
-        return `  ${idx + 1}. ⏰ [${timeStr}] ${r.title}${repeat}`;
+        const repeat =
+          r.repeatType !== 'none'
+            ? ` · ${repeatLabel({ repeatType: r.repeatType, repeatWeekdays: [] }).toLocaleLowerCase('vi')}`
+            : '';
+        return `${idx + 1}. ${timeStr} · ${r.title}${repeat}`;
       });
 
-      const reply =
-        `⏰ DANH SÁCH LỜI NHẮC SẮP TỚI (${upcoming.length})\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
-        reminderLines.join('\n') +
-        `\n\n💡 Nhắn cho bot tự nhiên: "Mai 9h sáng nhắc đi họp" để tạo lời nhắc mới!`;
+      const reply = `Lời nhắc sắp tới (${upcoming.length}):\n` + reminderLines.join('\n');
 
       await this.zcaMessenger.sendMessage(context.chatId, reply);
     } catch (err) {
       this.logger.error(`Failed to list reminders: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Có lỗi xảy ra khi tra cứu danh sách lời nhắc.',
+        '⚠️ Chưa xem được lời nhắc, thử lại sau.',
       );
     }
   }
