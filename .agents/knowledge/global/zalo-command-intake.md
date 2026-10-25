@@ -8,6 +8,11 @@ metadata:
       - apps/api/src/zca/zca-messenger.service.ts
       - apps/api/src/users/users.service.ts
       - apps/api/src/zca/text/text-input.service.ts
+      - apps/api/src/zca/text/text-system-prompt.ts
+      - apps/api/src/zca/text/text-tool.definitions.ts
+      - apps/api/src/zca/text/intent-eval/intent-eval.cases.ts
+      - apps/api/src/zca/text/intent-eval/intent-eval.ts
+      - apps/api/scripts/eval-intent.ts
       - apps/api/src/zca/text/amend-pending.tool.ts
       - apps/api/src/zca/text/pending-edit-args.util.ts
       - apps/api/src/zca/text/text-tool.factory.ts
@@ -36,6 +41,20 @@ The bot has one channel: the bot's **personal Zalo account (ZCA, `zca-js`)** —
 4. Fast-path commands (`TextToolFactory.resolveFastPathToolType`).
 5. LLM tool calling (`LlmService`, see [LLM Providers](llm-providers.md)); no tool -> conversation reply unless `allowAiChat === false`. When free chat is allowed (`allowAiChat !== false`, `undefined` = on), the tool prompt gets `CHIT_CHAT_INSTRUCTION` (answer general questions, never refuse as "only a finance assistant", flag possibly stale real-time info) and a no-tool reply triggers a second tool-free `generate` (`generateChitChatReply`); its text is sent, falling back to the first-pass text when empty or failed. Not applied to `edit <code>` or the LLM-error fallback. With tool calls, they run in order except `ASK_CLARIFICATION` (question about a missing detail), which runs last so it lands below the cards; it is sent regardless of `allowAiChat`.
    - Pending cards (`amend-pending.tool.ts`): when the sender has unexpired pending cards in this chat whose type has a text tool, the prompt gets `amendablePendingBlock` (code, type, title, args, people, and the rule "amend vs new request") and the tools get `AMEND_PENDING { code }` (not a `TextToolType`, no strategy). An `AMEND_PENDING` call (code, or the only card when the code is missing or wrong) runs `amendPending` with the whole message as the instruction; other tool calls of the amended type in that message are dropped, so a follow-up never yields a second card. Other types still run. A failed card lookup means no cards.
+
+## Intent classification (tool prompt)
+
+`buildToolSystemInstruction` (`text/text-system-prompt.ts`, pure, shared with the eval script) opens with `INTENT_CLASSIFICATION_RULES`: one ordered table, first match wins, plus contrasting pairs, because "nhớ" alone appears in all of them. No separate classifier LLM call (same model, double latency, compounding errors); the chosen tool is the label.
+
+1. Reminder → `SET_REMINDER`: be told at a moment (a time, or "nhắc/báo/gọi dậy"); "7h tối nhớ mua sữa", "mai 9h họp".
+2. Calendar → `CREATE_CALENDAR_EVENT`: only when a calendar entry is asked for ("thêm/đặt lịch …").
+3. Task → `CREATE_TASK`: something to get done, at most a due day ("thêm việc…", "nhớ mua sữa"); `remindAt` only when a task is added and a reminder time is stated.
+4. Note → `REMEMBER_NOTE`/`FORGET_MEMORY`: lasting fact about the bot or group, no time, no task ("mày là con mèo đen", "từ giờ xưng em", "Hằng ăn chay"); "X là Y" about the bot or a member counts even without "nhớ".
+5. Chat → no tool: questions to the bot ("mày là con gì"), jokes, insults, passing orders ("cút lên mái nhà"); never a note.
+
+Tool descriptions of these tools repeat the same boundaries.
+
+Evaluation: `npm run eval:intent --workspace @zalobot/api` (`ENV_FILE=.env.production` to use the prod chain) sends each `INTENT_EVAL_CASES` message (≈40, incl. the real chats of 25–26/10/2026) to the real `LlmService` chain with the bot's prompt and tools, spaced 4 s (`EVAL_GAP_MS`) with 3 retries after 30 s on provider failure; prints right/wrong; exits 1 below 95% of answered cases. Sends no Zalo message, writes nothing. Run after any prompt or tool-description change.
 
 ## Fast-path commands
 

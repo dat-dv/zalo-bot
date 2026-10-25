@@ -5,6 +5,10 @@ metadata:
     type: documentation
     depends_on:
       - .agents/knowledge/global/zalo-command-intake.md
+      - apps/api/src/zca/text/text-system-prompt.ts
+      - apps/api/src/zca/text/intent-eval/intent-eval.cases.ts
+      - apps/api/scripts/eval-intent.ts
+      - .agents/knowledge/global/zalo-command-intake.md
       - apps/api/src/zca/text/text-tool.factory.ts
       - apps/api/src/zca/text/amend-pending.tool.ts
       - apps/api/src/zca/zca-bot-feature.service.ts
@@ -41,6 +45,26 @@ Bot chỉ còn **một kênh** là tài khoản Zalo cá nhân của bot qua ZCA
    - Nếu LLM có gọi tool: các tool chạy lần lượt, riêng `ASK_CLARIFICATION` (câu hỏi lại khi thiếu thông tin, ví dụ sinh nhật ngày nào) chạy sau cùng để câu hỏi nằm dưới các thẻ xác nhận. Câu hỏi này được gửi kể cả khi `allowAiChat === false`, vì nó thuộc một yêu cầu có tool chứ không phải trò chuyện tự do.
 
 Ý nghĩa của thứ tự: lệnh xác nhận phải được bắt trước để "yes 123" không bị LLM hiểu nhầm; lệnh nhanh đứng trước LLM để tiết kiệm chi phí và chạy được kể cả khi LLM lỗi.
+
+## 2b. Bot phân biệt loại tin nhắn thế nào
+
+Trước khi gọi tool, prompt có một bảng **"PHÂN LOẠI TIN NHẮN"** (`text/text-system-prompt.ts`). AI xét theo thứ tự và chọn loại đầu tiên khớp:
+
+| Loại | Khi nào | Ví dụ |
+| --- | --- | --- |
+| Lời nhắc (`SET_REMINDER`) | Muốn được báo vào một thời điểm | "8h nhắc tắt bếp", "7h tối nhớ mua sữa", "mai 9h họp" |
+| Lịch hẹn (`CREATE_CALENDAR_EVENT`) | Nói rõ thêm/đặt lịch | "thêm lịch họp 14h mai" |
+| Việc cần làm (`CREATE_TASK`) | Việc phải làm xong, cùng lắm có hạn theo ngày | "thêm việc nộp báo cáo", "nhớ mua sữa" |
+| Ghi nhớ (`REMEMBER_NOTE`) | Mô tả lâu dài về bot hoặc nhóm, không có giờ, không có việc | "mày là con mèo đen", "từ giờ xưng em", "Hằng ăn chay" |
+| Trò chuyện | Còn lại: hỏi bot, đùa, chửi, ra lệnh nhất thời | "mày là con gì", "cút lên mái nhà" |
+
+Vì sao cần bảng này: chữ "nhớ" xuất hiện ở cả ba loại đầu ("nhớ nhắc…", "nhớ mua…", "nhớ là…"), nên trước đây bot dễ nhầm. Bảng có thêm các cặp câu dễ nhầm đặt cạnh nhau. Không có lượt gọi AI riêng để phân loại: như vậy chậm và tốn gấp đôi mà vẫn là cùng một model.
+
+**Kiểm tra độ chính xác:** sau mỗi lần sửa prompt hoặc mô tả tool, chạy
+```bash
+npm run eval:intent --workspace @zalobot/api
+```
+Lệnh này gửi khoảng 40 câu mẫu tiếng Việt (gồm cả đoạn chat thật 25–26/10) tới đúng chuỗi LLM của bot với đúng prompt của bot, in đúng/sai từng câu và tỉ lệ; dưới 95% thì báo lỗi. Muốn dùng chuỗi LLM của production thì thêm `ENV_FILE=.env.production` trước lệnh. Lệnh không gửi tin Zalo, không ghi DB. Free tier hay chặn tần suất, nên script giãn 4 giây giữa các câu và thử lại sau 30 giây khi lỗi.
 
 ## 3. Bảng lệnh nhanh
 

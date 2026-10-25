@@ -76,7 +76,7 @@ LLM calls are stateless. The bot keeps four memory layers per Zalo chat (`channe
 
 | Layer | What | In the prompt | Written by | Switch |
 | --- | --- | --- | --- | --- |
-| **Notes (Ghi nhớ)** | What the chat told the bot to always remember (persona, conventions), ≤20 × 200 chars | Every turn, right after the identity line | Members via `REMEMBER_NOTE` card; admins on the dashboard | none (always on) |
+| **Notes (Ghi nhớ)** | What the chat told the bot to always remember (persona, conventions), ≤20 × 200 chars | Every turn, right after the identity line | Members via `REMEMBER_NOTE` (saved at once); admins on the dashboard | none (always on) |
 | **Short-term window** | Latest conversation messages | Every turn | Every listened message | `chatMemory.shortTermEnabled` |
 | **Learned facts** | Stable facts about the bot and members, ≤5 per subject | Every turn: bot + sender + tagged + people in the window, ≤15 lines | Nightly job (Cognee + LLM) | `chatMemory.enabled` + `learnPeople` |
 | **Long-term** | Every message (Postgres) + one Cognee document per chat day | Only via `SEARCH_CHAT_HISTORY` | Every listened message; nightly job | `chatMemory.enabled` |
@@ -125,15 +125,15 @@ Migration `1724980000000-AddChatMemoryV2` added `memory_kind varchar default 'ch
 
 - Pending cards stay in Redis (`TransactionConfirmationService`, unchanged keys `pending:tx:*`).
 - `executeConfirmed`: each branch posts its summary via `post(summary, remember)`; after the switch, only when no exception was thrown, `recordConfirmedAction` writes one `action` row: `msg_id = action:<code>:<createdAt>`, sender = requester (`pending.userId`, name from `UsersService.resolveZaloNames` or the requester's last `sender_name` in the chat), text = `confirmedActionText(summary)` (emoji and `[code]` removed, lines joined with ` · `, prefixed `(đã duyệt)`). Only when the chat is listened with a memory on.
-- Not written: cancel, timeout, edit intermediates, failed execution, delete-not-found, `BAN_USER`, `FORGET_MEMORY`, the generic fallback.
+- Not written: cancel, timeout, edit intermediates, failed execution, delete-not-found, `BAN_USER`, the generic fallback. Notes are done at once (no card) and recorded by their strategy through the same `recordDoneAction` (`memory/action-memory.ts`).
 - Companion place: the transaction summary already names the place.
 - Prompt rule `CURRENT_DATA_RULE`: current money/debt/calendar/task/reminder data must come from tools, never from memory.
 
 ## Notes (Ghi nhớ)
 
 - Table `zca_channel_notes` (`channel_id`, `text varchar(200)`, `created_by`, `source_msg_id`); `ChannelNotesService` (list oldest first, add/update/remove, `findMatching` accent-insensitive all-words). Limits `CHANNEL_NOTES_LIMITS` (20, 200).
-- Tool `REMEMBER_NOTE { text, replaceNoteId? }` ("nhớ nhé", "tao dặn", "từ giờ mày là…"): strategy rejects empty/too long/duplicate (folded)/limit, maps `n2` to the 2nd note, then `createPendingRememberNote` (card "Ghi nhớ [code]?", `REMEMBER_NOTE_DESCRIPTOR`). Approved → add or update; the action row says `Đã ghi nhớ: …`.
-- Tool `FORGET_MEMORY { query }`: matches notes and active learned facts (≤5), card lists them (`FORGET_MEMORY_DESCRIPTOR`); approved → notes deleted, facts soft-deleted with `deleted_by` = requester. Not written to memory.
+- Tool `REMEMBER_NOTE { text, reply?, replaceNoteId? }` (routing: see `global/zalo-command-intake.md`, lasting facts about the bot or group with no time and no task): **saved at once, no confirmation card** (owner's decision 2026-10-26: a pending card nobody approved dropped "mày là con mèo đen"). The strategy rejects empty/too long, maps `n2` to the 2nd note and updates it, else adds (limit → refusal text); a duplicate (folded) is not saved again. It then sends the LLM's in-character `reply` (≤500 chars; fallback `Dạ em nhớ rồi: <text>`) as `bot_chat`, and writes the `action` row `(đã duyệt) Đã ghi nhớ: …` via `recordDoneAction`.
+- Tool `FORGET_MEMORY { query, reply? }`: forgets at once the notes and active learned facts containing every word (≤5; more → asks to narrow; none → "không nhớ điều gì khớp"); facts are soft-deleted with `deleted_by` = sender so they are not learned again; answers with `reply` or a line listing what was forgotten. Not written to memory.
 - Prompt (`TextInputService`, both the tool pass and the chit-chat pass): `BOT_IDENTITY_LINE` ("…nếu phần ĐIỀU ĐƯỢC DẶN mô tả bạn khác đi… thì luôn theo phần đó") + `buildMemoryProfileBlock` (notes as `[n1] …`, then learned facts) before the date context. Built whatever the memory switches; learned facts only when long-term is on.
 - The recent-context header still forbids tool calls for old requests but says instructions in it still apply.
 

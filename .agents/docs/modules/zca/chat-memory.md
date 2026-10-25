@@ -71,9 +71,12 @@ Bản v2 giải quyết bằng bốn tầng trí nhớ, tất cả chia theo kê
 
 ## 3. Ghi nhớ (📌)
 
-- Trong chat: "tao dặn rồi mày là con mèo đen 2 mái", "từ giờ xưng em", "nhớ là Hằng ăn chay" → bot hiện thẻ "Ghi nhớ [123]?". Duyệt (❤️ hoặc `yes 123`) thì điều đó nằm trong prompt ở **mọi lượt** của kênh, ưu tiên hơn mô tả mặc định của bot.
-- Dặn điều mới cùng chủ đề (ví dụ đổi "mèo trắng" thành "mèo đen"): AI chỉ ra mã `[n2]` của dòng cũ, thẻ ghi "Thay cho …".
-- "Quên vụ mèo đen đi" → thẻ "Quên [456]?" liệt kê đúng những gì sẽ quên (tối đa 5), gồm cả điều bot tự học.
+- Trong chat: "mày là con mèo đen 2 mái 10 tuổi", "từ giờ xưng em", "nhớ là Hằng ăn chay" → bot **lưu ngay** và trả lời theo đúng giọng vừa được dặn, ví dụ "dạ em nhớ rồi, em là mèo đen 2 mái 10 tuổi nè 🐈‍⬛". Từ lượt sau, điều đó nằm trong prompt ở **mọi lượt** của kênh, ưu tiên hơn mô tả mặc định của bot.
+- Vì sao không bắt duyệt nữa: bản đầu bắt duyệt thẻ 5 phút, không ai duyệt nên lời dặn bị bỏ (đoạn chat 26/10). Ghi nhớ chỉ đổi cách bot nói chuyện, không đụng tiền hay dữ liệu chung, và xoá được bất cứ lúc nào.
+- Dặn điều mới cùng chủ đề (ví dụ đổi "mèo trắng" thành "mèo đen"): AI chỉ ra mã `[n2]` của dòng cũ và bot thay dòng đó.
+- "Quên vụ mèo đen đi" → bot quên ngay (tối đa 5 điều khớp, gồm cả điều bot tự học; khớp nhiều hơn thì hỏi lại cho rõ).
+- Câu trả lời do AI viết qua trường `reply` của tool; AI không viết thì bot dùng câu mặc định "Dạ em nhớ rồi: …".
+- Cách bot phân biệt Ghi nhớ với lời nhắc, việc cần làm và trò chuyện: xem [Nhận lệnh Zalo](../../global/zalo-command-intake.md).
 - Giới hạn 20 điều, mỗi điều 200 ký tự, vì tất cả đều được gửi cho AI ở mọi lượt.
 - Ghi nhớ **không phụ thuộc** công tắc trí nhớ nào: kênh tắt hết vẫn dùng được.
 - Admin thêm, sửa, xoá trên trang cấu hình kênh; lưu ngay, không cần bấm "Lưu cấu hình".

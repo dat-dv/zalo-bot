@@ -121,9 +121,10 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
   {
     name: TextToolType.SET_REMINDER,
     description:
-      'Đặt lịch hẹn hoặc lời nhắc cá nhân trong tương lai (không thêm vào danh sách việc). ' +
-      'Ví dụ: "mai 9h nhắc đi họp", "nhắc tôi 3h chiều đón con", "mỗi dịp 14/2 nhắc mua hoa". ' +
-      'Nếu người dùng thêm một việc cần làm và muốn được nhắc, dùng CREATE_TASK kèm remindAt. ' +
+      'LỜI NHẮC: người dùng muốn ĐƯỢC BÁO vào một thời điểm (có giờ, hoặc "nhắc", "báo", "gọi dậy"); ' +
+      'không thêm vào danh sách việc. Ví dụ: "mai 9h nhắc đi họp", "nhắc tôi 3h chiều đón con", ' +
+      '"7h tối nhớ mua sữa", "nhớ nhắc chồng mua bánh tráng lúc 6h", "mỗi dịp 14/2 nhắc mua hoa". ' +
+      'Người dùng thêm một việc cần làm VÀ nói rõ giờ muốn được nhắc thì dùng CREATE_TASK kèm remindAt. ' +
       'Dịp lặp hằng năm (14/2, 8/3, 20/10, sinh nhật, kỷ niệm) dùng tool này với repeatingTimes ' +
       'yearly, trừ khi người dùng nói rõ là thêm việc.',
     parameters: {
@@ -304,9 +305,10 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
   {
     name: TextToolType.CREATE_TASK,
     description:
-      'Thêm một việc cần làm mới vào danh sách việc chung của zalobot, có thể kèm giờ nhắc. ' +
-      'Ví dụ: "thêm việc nộp báo cáo trước 17h", "cần mua sữa chua", ' +
-      '"thêm việc làm slide, 3h chiều mai nhắc tôi".',
+      'VIỆC CẦN LÀM: thêm một việc phải làm cho xong vào danh sách việc chung (hạn tính theo ngày). ' +
+      'Ví dụ: "thêm việc nộp báo cáo", "cần mua sữa chua", "nhớ mua sữa", "mai nhớ nộp hồ sơ". ' +
+      'Chỉ kèm giờ nhắc khi người dùng vừa thêm việc vừa nói rõ giờ muốn được nhắc ' +
+      '("thêm việc làm slide, 3h chiều mai nhắc tôi"); chỉ muốn được báo lúc mấy giờ thì dùng SET_REMINDER.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -518,11 +520,11 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
   {
     name: TextToolType.REMEMBER_NOTE,
     description:
-      'Ghi nhớ lâu dài một điều người dùng DẶN bot cho cuộc chat này: tính cách, cách xưng hô, ' +
-      'tên gọi của bot, quy ước của nhóm, thông tin cố định cần luôn nhớ. Gọi khi người dùng nói ' +
-      '"nhớ nhé", "nhớ là", "tao dặn", "từ giờ mày là / hãy...", "lần sau nhớ...". ' +
-      'Ví dụ: "tao dặn rồi mày là con mèo đen 2 mái", "từ giờ xưng em gọi anh", "nhớ là Hằng ăn chay". ' +
-      'Không dùng cho việc cần làm, lời nhắc hay câu đùa, chửi.',
+      'GHI NHỚ (lưu ngay, không cần duyệt): điều mô tả LÂU DÀI về bot hoặc về nhóm, KHÔNG có thời ' +
+      'điểm và KHÔNG có việc phải làm: tên gọi, tính cách, là con gì, tuổi, cách xưng hô của bot; sở ' +
+      'thích, quan hệ, thói quen của thành viên. Ví dụ: "mày là con mèo đen 2 mái 10 tuổi", ' +
+      '"từ giờ xưng em gọi anh chị", "nhớ là Hằng ăn chay", "chồng Hằng là anh Đạt". KHÔNG dùng cho ' +
+      'lời nhắc, việc cần làm, câu hỏi "mày là con gì", câu đùa, chửi hay ra lệnh nhất thời.',
     parameters: {
       type: 'OBJECT',
       properties: {
@@ -531,6 +533,12 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           description:
             'Điều cần nhớ, viết lại thành một câu ngắn, rõ chủ ngữ, tối đa 200 ký tự ' +
             '(ví dụ: "Bot là con mèo đen 2 mái", "Hằng ăn chay").',
+        },
+        reply: {
+          type: 'STRING',
+          description:
+            'Một câu ngắn trả lời người dùng, đúng tính cách và cách xưng hô vừa được dặn, xác nhận ' +
+            'đã nhớ (ví dụ: "dạ em nhớ rồi, em là mèo đen 2 mái 10 tuổi nè").',
         },
         replaceNoteId: {
           type: 'STRING',
@@ -545,14 +553,19 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
   {
     name: TextToolType.FORGET_MEMORY,
     description:
-      'Quên một điều đã ghi nhớ hoặc điều bot tự rút ra trong cuộc chat này. Gọi khi người dùng nói ' +
-      '"quên vụ ... đi", "đừng nhớ ... nữa", "bỏ ghi nhớ ...". Ví dụ: "quên vụ mèo đen đi".',
+      'Quên ngay một điều đã ghi nhớ hoặc điều bot tự rút ra trong cuộc chat này. Gọi khi người ' +
+      'dùng nói "quên vụ ... đi", "đừng nhớ ... nữa", "bỏ ghi nhớ ...". Ví dụ: "quên vụ mèo đen đi".',
     parameters: {
       type: 'OBJECT',
       properties: {
         query: {
           type: 'STRING',
           description: 'Vài từ khoá của điều cần quên (ví dụ: "mèo đen").',
+        },
+        reply: {
+          type: 'STRING',
+          description:
+            'Một câu ngắn trả lời người dùng theo đúng tính cách của bot, xác nhận đã quên.',
         },
       },
       required: ['query'],
