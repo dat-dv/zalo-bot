@@ -96,6 +96,8 @@ services:
       FASTAPI_USERS_JWT_SECRET: ${COGNEE_JWT_SECRET:-}
       DEFAULT_USER_EMAIL: zalobot@example.com
       DEFAULT_USER_PASSWORD: ${COGNEE_USER_PASSWORD:-}
+      # Browser origin of the Cognee UI (CORS); UI and API share that host behind the web nginx.
+      UI_APP_URL: https://${COGNEE_UI_HOST:-cognee.localhost}
     volumes:
       - zalobot-cognee:/cognee-storage
     healthcheck:
@@ -111,6 +113,15 @@ services:
       retries: 5
       start_period: 60s
 
+  # Cognee web UI, served at https://${COGNEE_UI_HOST} by the web nginx (Basic Auth) together with
+  # the Cognee API, so the login cookie and CORS stay on one origin. Internal only.
+  cognee-ui:
+    image: cognee/cognee-ui:1.6.5
+    restart: unless-stopped
+    environment:
+      # Read by the browser: the public origin, never an internal hostname.
+      COGNEE_BACKEND_URL: https://${COGNEE_UI_HOST:-cognee.localhost}
+
   web:
     build:
       context: .
@@ -121,6 +132,8 @@ services:
       # Remote access to Cognee at /cognee/ (Basic Auth); empty = /cognee/ answers 404.
       - COGNEE_PROXY_USER=${COGNEE_PROXY_USER:-}
       - COGNEE_PROXY_PASSWORD=${COGNEE_PROXY_PASSWORD:-}
+      # Host of the Cognee UI (e.g. cognee.datintech.site); empty = no UI, /cognee answers 404.
+      - COGNEE_UI_HOST=${COGNEE_UI_HOST:-}
     restart: unless-stopped
     ports:
       - '${NGINX_PORT:-3009}:80'
