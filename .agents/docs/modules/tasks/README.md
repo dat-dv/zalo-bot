@@ -91,6 +91,7 @@ Phần đích nhắc dùng chung với lời nhắc cá nhân, giải thích đ�
 - Sửa các trường khác (tiêu đề, ghi chú, hoàn thành...) **không** đụng tới nhắc. Một nhắc đã qua giờ không bị kiểm tra lại, nên vẫn sửa tiêu đề hay đánh dấu xong được bình thường.
 - Giờ nhắc mới phải ở tương lai; phút hiện tại vẫn được chấp nhận vì dashboard chọn giờ theo phút.
 - Mở lại việc đã xong: những giờ nhắc **đã qua trong lúc việc đang xong** bị bỏ qua (không gửi dồn), các giờ còn ở tương lai vẫn nhắc bình thường.
+- Tạo việc qua Zalo: lúc duyệt thẻ, giờ nhắc không lặp đã qua thì bị bỏ (việc vẫn được tạo); giờ **có lặp** đã qua (thẻ chờ lâu, hoặc AI ghi dịp 20/10 khi đã sang 25/10) thì dời sang lần kế tiếp thay vì bị bỏ.
 
 ### Bot gửi nhắc thế nào
 

@@ -1074,6 +1074,7 @@ const messages = {
     'reminders.repeatType.weekly': 'Hàng tuần',
     'reminders.repeatType.weekdays': 'Ngày thường (T2–T6)',
     'reminders.repeatType.monthly': 'Hàng tháng',
+    'reminders.repeatType.yearly': 'Hàng năm',
     'reminderRule.repeat': 'Lặp lại',
     'reminderRule.weekdays': 'Vào các thứ',
     'reminderRule.weekdaysHint': 'Không chọn thì lặp đúng thứ của giờ nhắc.',
@@ -2314,6 +2315,7 @@ const messages = {
     'reminders.repeatType.weekly': 'Weekly',
     'reminders.repeatType.weekdays': 'Weekdays (Mon–Fri)',
     'reminders.repeatType.monthly': 'Monthly',
+    'reminders.repeatType.yearly': 'Yearly',
     'reminderRule.repeat': 'Repeat',
     'reminderRule.weekdays': 'On',
     'reminderRule.weekdaysHint': 'None picked: repeats on the weekday of the time.',
@@ -3219,15 +3221,18 @@ export type ReminderNotifyType = 'text' | 'call';
 /**
  * How each time of a task or a reminder repeats: `weekdays` = Monday to Friday, `weekly` = on
  * `repeatWeekdays` (or the weekday of the time), `monthly` = on the day of the month of the
- * time (the last day in shorter months). Missed occurrences are not sent late.
+ * time (the last day in shorter months), `yearly` = on the day and month of the time (28
+ * February for 29 February outside leap years; solar calendar only). Missed occurrences are
+ * not sent late.
  */
-export type ReminderRepeatType = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly';
+export type ReminderRepeatType = 'none' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'yearly';
 export const REMINDER_REPEAT_TYPES: readonly ReminderRepeatType[] = [
   'none',
   'daily',
   'weekdays',
   'weekly',
   'monthly',
+  'yearly',
 ];
 
 export function isReminderRepeatType(value: unknown): value is ReminderRepeatType {
@@ -3272,6 +3277,8 @@ export function shortestRepeatGapMinutes(
       return DAY_MINUTES;
     case 'monthly':
       return 28 * DAY_MINUTES;
+    case 'yearly':
+      return 365 * DAY_MINUTES;
     case 'weekly': {
       const days = [...new Set(weekdays)].sort((a, b) => a - b);
       if (days.length <= 1) return 7 * DAY_MINUTES;

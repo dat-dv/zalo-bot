@@ -97,9 +97,13 @@ Một lời nhắc (giống việc cần làm) có thể nhắc **nhiều lần*
 | Ngày thường (T2–T6) | Bỏ thứ 7, Chủ nhật |
 | Hằng tuần | Vào các thứ được chọn (T2 … CN); không chọn thì lặp đúng thứ của giờ đó |
 | Hằng tháng | Cùng ngày trong tháng; tháng không có ngày đó (31, 30, 29) thì dùng ngày cuối tháng, tháng sau quay lại ngày gốc |
+| Hằng năm | Cùng ngày và tháng mỗi năm (14/2, 8/3, 20/10, sinh nhật, ngày kỷ niệm); 29/2 thì năm không nhuận nhắc 28/2, năm nhuận quay lại 29/2. Chỉ tính dương lịch |
 
 - Lý do để riêng từng giờ: một việc thường có giờ cố định hằng ngày và vài giờ nhắc một lần (ví dụ "uống thuốc 8h mỗi ngày, riêng thứ 7 này nhắc thêm 14h").
 - Ngày và thứ tính theo **giờ Việt Nam**. Giờ lặp không bao giờ bị đánh dấu "đã gửi": gửi xong thì dòng đó tự dời sang lần kế tiếp.
+- Vì sao có "Hằng năm": ngày 25/10/2026 có người nhờ bot "mỗi dịp 14/2, 8/3, 20/10 nhắc Đạt mua hoa". Khi chưa có kiểu này, AI chọn "Hằng tháng" nên bot sẽ nhắc ngày 14 mọi tháng. Thêm kiểu lặp không cần migration vì cột `repeat_type` là `varchar` không ràng buộc giá trị.
+- Giờ lặp mà bot nhận ở thời điểm **đã qua** (ví dụ hỏi ngày 25/10 về dịp 20/10, hoặc thẻ xác nhận chờ duyệt quá giờ) thì bắt đầu từ lần kế tiếp (20/10 năm sau), không gửi ngay và không bị bỏ. Đúng quy tắc "lần bị lỡ không gửi bù". Giờ không lặp đã qua vẫn như cũ: lời nhắc gửi ngay, việc cần làm bỏ giờ đó. Form dashboard không đổi: vẫn báo lỗi khi chọn giờ mới ở quá khứ.
+- Trên Zalo, AI được dặn: dịp hằng năm thì tạo **lời nhắc** với kiểu "Hằng năm", không tạo việc cần làm (trừ khi người dùng nói rõ "thêm việc"), vì bấm xong một việc là dừng nhắc mọi năm sau. Thiếu ngày (sinh nhật không nói ngày nào, ngày âm lịch) thì bot hỏi lại bằng tool `ASK_CLARIFICATION`, xem [ZCA](../zca/README.md).
 - Dữ liệu cũ: lời nhắc trước đây lặp "hằng ngày/hằng tuần" cho cả lời nhắc, migration `1724960000000-AddReminderRepeatAndNag` chép kiểu lặp đó xuống từng giờ, nên vẫn chạy y như trước. Cột `reminders.repeat_type` chỉ còn để tương thích (ghi kiểu lặp của giờ sớm nhất).
 
 **Nhắc lại — dùng chung cho cả lời nhắc / việc.** Bật "Nhắc lại", chọn "Mỗi" (5, 10, 15, 30 phút, 1 hoặc 2 giờ) và "Tối đa" (1–10 lần).

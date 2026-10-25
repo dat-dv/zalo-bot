@@ -178,7 +178,7 @@ export class TextInputService {
       '- Về công nợ ("nợ a 100k", "cho Nam vay 200k", "mai trả nợ"): gọi MANAGE_DEBT, xác định chính xác direction (receivable: người ta nợ mình, payable: mình nợ người ta), counterparty, amount, occurredAt (nếu có) và dueAt (nếu có).\n' +
       '- Về thu chi ("ăn trưa 45k", "tiền lương 15tr", "tối qua cà phê 15k"): gọi RECORD_TRANSACTION, xác định type (income, expense), category, amount, occurredAt (thời gian nếu có đề cập trong quá khứ/tương lai, tính chuẩn ISO theo giờ hiện tại), placeName (địa điểm/nơi chốn nếu có), paymentMethod (phương thức thanh toán nếu có).\n' +
       '- Về xóa giao dịch thu chi ("xóa giao dịch có ID...", "hủy khoản chi ăn sáng", "xóa giao dịch gần nhất"): gọi DELETE_TRANSACTION, trích xuất transactionId (UUID nếu có) hoặc query.\n' +
-      '- Về nhắc nhở ("mai 9h họp", "15 phút nữa nhắc tắt bếp"): gọi SET_REMINDER, tính toán thời điểm ISO chính xác dựa trên giờ hiện tại; "nhắc cả nhóm" thì remindInGroup = true; muốn nhắn riêng/inbox thì remindMode = direct. Người được tag @ tự được nhắc, không đoán người theo tên. Giờ có lặp ("8h hằng ngày", "thứ 2 đến thứ 6", "thứ 3 và thứ 5 hằng tuần", "ngày 5 hằng tháng") đưa vào repeatingTimes, mỗi giờ một kiểu lặp riêng; "nhắc lại mỗi 15 phút, 3 lần" thì nagEveryMinutes = 15, nagCount = 3.\n' +
+      '- Về nhắc nhở ("mai 9h họp", "15 phút nữa nhắc tắt bếp"): gọi SET_REMINDER, tính toán thời điểm ISO chính xác dựa trên giờ hiện tại; "nhắc cả nhóm" thì remindInGroup = true; muốn nhắn riêng/inbox thì remindMode = direct. Người được tag @ tự được nhắc, không đoán người theo tên. Giờ có lặp ("8h hằng ngày", "thứ 2 đến thứ 6", "thứ 3 và thứ 5 hằng tuần", "ngày 5 hằng tháng") đưa vào repeatingTimes, mỗi giờ một kiểu lặp riêng; "nhắc lại mỗi 15 phút, 3 lần" thì nagEveryMinutes = 15, nagCount = 3. Dịp hằng năm ("mỗi dịp 14/2, 8/3, 20/10", "hằng năm", "mỗi năm", sinh nhật, ngày kỷ niệm): mỗi ngày một mục repeatingTimes với repeatType = yearly và at = lần gần nhất trong tương lai (đã qua trong năm nay thì là năm sau); TUYỆT ĐỐI KHÔNG dùng monthly cho dịp hằng năm; dùng SET_REMINDER chứ không CREATE_TASK, trừ khi người dùng nói rõ là thêm việc (đánh dấu việc đã xong sẽ dừng nhắc mọi năm sau). Bot chỉ tính dương lịch.\n' +
       '- Về báo cáo chi tiêu ("hôm nay tiêu bao nhiêu", "báo cáo tài chính"): gọi GET_REPORT.\n' +
       '- Về lịch hẹn Google Calendar ("mai 14h họp dự án", "hẹn cà phê thứ 6 lúc 19h"): gọi CREATE_CALENDAR_EVENT, tính toán startDateTime và endDateTime theo chuẩn ISO 8601.\n' +
       '- Về tra cứu lịch hẹn ("lịch hôm nay", "ngày mai có lịch gì không", "xem lịch tuần này"): gọi LIST_CALENDAR_EVENTS.\n' +
@@ -195,6 +195,7 @@ export class TextInputService {
       '- Nếu người dùng chỉ chào hỏi hoặc trò chuyện, hãy trả lời tự nhiên, ngắn gọn, thân thiện bằng tiếng Việt.\n\n' +
       'QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n' +
       '- TÁCH CÁC HÀNH ĐỘNG ĐỘC LẬP: Khi người dùng đưa ra một câu chứa NHIỀU YÊU CẦU / NHIỀU HÀNH ĐỘNG ĐỘC LẬP (ví dụ: "tối nay đi ăn tối hết 80k ở bến thành sau đó đi uống nước 90k ở aeon", hoặc vừa ăn uống vừa tạo lịch, nhiều khoản chi tiêu trong cùng 1 câu), bạn PHẢI gọi đồng thời NHIỀU TOOL CALLS tương ứng cho từng hành động riêng biệt. Tuyệt đối không gộp chung vào 1 tool hay bỏ sót bất kỳ hành động nào.\n' +
+      '- THIẾU THÔNG TIN: Khi một phần của yêu cầu thiếu thông tin bắt buộc mà không suy ra được (ví dụ: nhờ nhắc sinh nhật mà không nói ngày nào, hoặc nói ngày âm lịch), KHÔNG đoán và KHÔNG bỏ qua phần đó: gọi ASK_CLARIFICATION với một câu hỏi ngắn về đúng thông tin còn thiếu, đồng thời vẫn gọi tool cho các phần đã đủ thông tin.\n' +
       '- KẾ THỪA NGỮ CẢNH DÙNG CHUNG: Khi câu chứa nhiều hành động/giao dịch cùng chia sẻ ngữ cảnh chung (như địa điểm "ở...", thời gian "hôm nay...", hoặc phương thức thanh toán "chuyển khoản/tiền mặt..."), ví dụ: "hôm nay mua cà phê 13k và mua nước cam 20k ở đối diện ctgroup", bạn PHẢI điền đầy đủ các thông tin dùng chung đó (thời gian occurredAt, địa điểm placeName: "đối diện ctgroup", phương thức paymentMethod) cho TẤT CẢ các tool call tương ứng của các giao dịch đó, không được bỏ sót ở bất kỳ giao dịch nào. Nếu từng hành động có địa điểm hoặc thời gian riêng (ví dụ: "ở bến thành... sau đó ở aeon...") thì giữ đúng thông tin riêng của từng hành động.\n' +
       '- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object (ví dụ đúng: {"amount": 15000, "category": "Ăn uống", "type": "expense", "note": "uống cà phê"}, KHÔNG ĐƯỢC: {"amount": {"amount": 15000}}).' +
       (input.allowAiChat !== false ? `\n\n${CHIT_CHAT_INSTRUCTION}` : '') +
@@ -219,7 +220,14 @@ export class TextInputService {
 
       if (toolCalls.length > 0) {
         this.propagateSharedTransactionContext(toolCalls);
-        for (const toolCall of toolCalls) {
+        // A question about a missing detail goes out after the cards of what could be done.
+        const isQuestion = (call: { name: string }) =>
+          call.name === (TextToolType.ASK_CLARIFICATION as string);
+        const ordered = [
+          ...toolCalls.filter((call) => !isQuestion(call)),
+          ...toolCalls.filter(isQuestion),
+        ];
+        for (const toolCall of ordered) {
           this.logger.log(
             `LLM resolved tool "${toolCall.name}" with args: ${JSON.stringify(toolCall.args)}`,
           );

@@ -8,6 +8,7 @@ metadata:
       - apps/api/src/llm/llm.service.ts
       - apps/api/src/llm/providers/router.provider.ts
       - apps/api/src/zca/text/text-tool.definitions.ts
+      - apps/api/src/zca/text/strategies/ask-clarification-tool.strategy.ts
 ---
 
 # Nhà cung cấp LLM
@@ -64,14 +65,14 @@ Provider `router` có biến môi trường riêng, tách khỏi `OPENAI_*`, đ�
 
 Model nhỏ hay trả tham số bị lồng (`{"amount": {"amount": 15000}}`). `cleanToolArguments` tự gỡ lớp bọc cho mọi tool call. `parseAmount` đổi "45k", "2tr", "15.000" thành số nguyên VND dương. `normalizeSchemaTypes` chuyển kiểu schema (`OBJECT` → `object`) cho OpenAI/Ollama.
 
-## 4. Danh sách tool (`ZALO_TOOL_DEFINITIONS` — 15 tool)
+## 4. Danh sách tool (`ZALO_TOOL_DEFINITIONS` — 16 tool)
 
 | Tool | Mục đích |
 | --- | --- |
 | `MANAGE_DEBT` | Ghi khoản cho vay / đi vay |
 | `RECORD_TRANSACTION` | Ghi khoản thu / chi |
 | `DELETE_TRANSACTION` | Xoá giao dịch theo ID hoặc mô tả |
-| `SET_REMINDER` | Đặt lời nhắc |
+| `SET_REMINDER` | Đặt lời nhắc; giờ lặp có thể là hằng ngày, ngày thường, hằng tuần, hằng tháng hoặc hằng năm (dịp lễ, sinh nhật dùng hằng năm, không dùng hằng tháng) |
 | `GET_REPORT` | Báo cáo chi tiêu (day/month/year) |
 | `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT` | Google Calendar |
 | `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK` | Việc cần làm (DB zalobot) |
@@ -79,6 +80,7 @@ Model nhỏ hay trả tham số bị lồng (`{"amount": {"amount": 15000}}`). `
 | `CREATE_PLACE` | Tạo nơi chốn |
 | `GET_STORAGE_LINKS` | Link thư mục Drive / album Photos |
 | `SEARCH_CHAT_HISTORY` | Tra lại chuyện đã chat trong kênh hiện tại (chỉ đọc, không cần xác nhận) |
+| `ASK_CLARIFICATION` | Hỏi lại người dùng khi thiếu thông tin bắt buộc (ví dụ sinh nhật không nói ngày); gửi sau các thẻ xác nhận, kể cả khi tắt trò chuyện tự do. Chi tiết ở [ZCA](../modules/zca/README.md) |
 
 Quy tắc an toàn:
 - **Nhóm chat thụ động** (không ai nhắc bot): LLM chỉ thấy tool thu–chi (`RECORD_TRANSACTION`, `MANAGE_DEBT`) và/hoặc lịch (`CREATE_CALENDAR_EVENT`, `SET_REMINDER`) theo cấu hình thread; không có tool nào được bật thì bỏ qua LLM. Nhờ vậy người lạ trong nhóm không thể gọi tool quản trị hay lấy link lưu trữ.

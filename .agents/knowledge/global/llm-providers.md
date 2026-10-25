@@ -17,6 +17,7 @@ metadata:
       - apps/api/src/zca/text/text-tool.definitions.ts
       - apps/api/src/zca/text/text-input.service.ts
       - apps/api/src/zca/text/strategies/search-chat-history-tool.strategy.ts
+      - apps/api/src/zca/text/strategies/ask-clarification-tool.strategy.ts
 ---
 
 # LLM Providers
@@ -64,9 +65,12 @@ Failure contract: providers never throw to callers; they return `{ text, failed:
 - `parseAmount`: number or string -> positive integer VND; supports `15k`/`ng`/`nghìn`/`ngàn` (x1000), `15tr`/`triệu`/`m` (x1,000,000), commas stripped; invalid -> 0.
 - `normalizeSchemaTypes`: recursive lower-casing of `type` (`OBJECT` -> `object`) for OpenAI/Ollama.
 
-## Tool catalog (`ZALO_TOOL_DEFINITIONS`, 15 tools)
+## Tool catalog (`ZALO_TOOL_DEFINITIONS`, 16 tools)
 
-`MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`, `SEARCH_CHAT_HISTORY`.
+`MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`, `SEARCH_CHAT_HISTORY`, `ASK_CLARIFICATION`.
+
+- `ASK_CLARIFICATION { question }`: asks for a required detail the LLM cannot infer, called next to the tools for the parts it could do (system prompt rule "THIẾU THÔNG TIN"). `TextInputService` runs these calls after the other calls of the same reply; sent even when `allowAiChat === false`. See [zca](../modules/zca/README.md).
+- Reminder tools: `repeatingTimes[].repeatType` enum `daily|weekdays|weekly|monthly|yearly`; the prompt maps annual occasions to `SET_REMINDER` + `yearly` (never `monthly`), `at` = nearest future occurrence.
 
 - Names are `TextToolType` enum values; `TextToolFactory.getStrategy(name)` maps each to a strategy. Unknown name -> `CONVERSATION` (or silence when `allowAiChat === false`).
 - `selectToolDefinitions(allowed)` returns an ordered subset; used by `edit <code>` to expose only the pending action's tool. Un-mentioned ZCA group messages never reach the LLM.

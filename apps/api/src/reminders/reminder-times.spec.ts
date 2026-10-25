@@ -134,7 +134,7 @@ void test('API bodies give times as strings or with their repeat; empty remindAt
   assert.equal(parseRemindTimesBody(undefined, undefined), undefined);
   assert.throws(() => parseRemindTimesBody([{ remindAt: 'x' }], undefined));
   assert.throws(() =>
-    parseRemindTimesBody([{ remindAt: NOW.toISOString(), repeatType: 'yearly' }], undefined),
+    parseRemindTimesBody([{ remindAt: NOW.toISOString(), repeatType: 'hourly' }], undefined),
   );
 });
 

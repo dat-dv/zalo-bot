@@ -36,6 +36,7 @@ Bot chỉ còn **một kênh** là tài khoản Zalo cá nhân của bot qua ZCA
    - Chế độ thụ động hoặc `allowAiChat === false`: bot im lặng.
    - Được phép trò chuyện tự do (`allowAiChat` khác `false`, chưa đặt cũng tính là bật): prompt gọi tool đã có sẵn đoạn "TRÒ CHUYỆN TỰ DO", và bot gọi LLM thêm một lần **không kèm tool** để trả lời. Lý do: khi prompt đầy mô tả tool tài chính/lịch, LLM có xu hướng từ chối câu hỏi ngoài lề ("em chỉ là trợ lý tài chính"); lần gọi không có tool giúp câu trả lời tự nhiên hơn. Nếu lần thứ hai lỗi hoặc rỗng, bot gửi câu trả lời của lần đầu.
    - Đánh đổi: mỗi tin trò chuyện tốn 2 lần gọi LLM. Bot không có tra cứu web, nên câu hỏi cần dữ liệu thời gian thực (lịch chiếu, giá, thời tiết) chỉ được trả lời bằng kiến thức sẵn có, kèm lưu ý có thể chưa cập nhật.
+   - Nếu LLM có gọi tool: các tool chạy lần lượt, riêng `ASK_CLARIFICATION` (câu hỏi lại khi thiếu thông tin, ví dụ sinh nhật ngày nào) chạy sau cùng để câu hỏi nằm dưới các thẻ xác nhận. Câu hỏi này được gửi kể cả khi `allowAiChat === false`, vì nó thuộc một yêu cầu có tool chứ không phải trò chuyện tự do.
 
 Ý nghĩa của thứ tự: lệnh xác nhận phải được bắt trước để "yes 123" không bị LLM hiểu nhầm; lệnh nhanh đứng trước LLM để tiết kiệm chi phí và chạy được kể cả khi LLM lỗi.
 

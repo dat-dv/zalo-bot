@@ -18,6 +18,7 @@ metadata:
       - .agents/docs/modules/zca/directory-cache.md
       - apps/api/src/zca/zca-directory-cache.ts
       - apps/api/src/zca/text/text-tool.definitions.ts
+      - apps/api/src/zca/text/strategies/ask-clarification-tool.strategy.ts
       - apps/api/src/google/google-resources.controller.ts
       - apps/api/src/dashboard-auth/dashboard-user.ts
       - apps/web/src/modules/zca/view/zca-screen.tsx
@@ -118,7 +119,12 @@ Giờ nguyên tắc là **người dùng chủ động gọi thì bot mới làm
 - **Video có `@bot`**: tải lên Drive/Photos và trả lời tóm tắt.
 - Mọi tin của kênh đang lắng nghe được đệm lại (200 tin gần nhất, Redis `zca:buffered_msgs:<threadId>`, 7 ngày) để dùng khi API lịch sử của Zalo không khả dụng.
 
-**Bộ tool đầy đủ ở L1** (`ZALO_TOOL_DEFINITIONS`, gọi qua `LlmService`) gồm 15 tool: `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`, `SEARCH_CHAT_HISTORY`. `SEARCH_CHAT_HISTORY` tra lại chuyện cũ trong chính kênh đang hỏi, xem [Trí nhớ hội thoại](chat-memory.md).
+**Bộ tool đầy đủ ở L1** (`ZALO_TOOL_DEFINITIONS`, gọi qua `LlmService`) gồm 16 tool: `MANAGE_DEBT`, `RECORD_TRANSACTION`, `DELETE_TRANSACTION`, `SET_REMINDER`, `GET_REPORT`, `CREATE_CALENDAR_EVENT`, `LIST_CALENDAR_EVENTS`, `DELETE_CALENDAR_EVENT`, `CREATE_TASK`, `LIST_TASKS`, `COMPLETE_TASK`, `LOGIN_GOOGLE`, `CREATE_PLACE`, `GET_STORAGE_LINKS`, `SEARCH_CHAT_HISTORY`, `ASK_CLARIFICATION`. `SEARCH_CHAT_HISTORY` tra lại chuyện cũ trong chính kênh đang hỏi, xem [Trí nhớ hội thoại](chat-memory.md).
+
+**Bot hỏi lại khi thiếu thông tin (`ASK_CLARIFICATION`).** Khi một phần yêu cầu thiếu thông tin bắt buộc mà AI không suy ra được (nhờ nhắc sinh nhật mà không nói ngày, hoặc nói ngày âm lịch), AI gọi tool này với một câu hỏi ngắn, đồng thời vẫn gọi tool cho phần đã đủ. Ví dụ "mỗi dịp 14/2, 8/3, 20/10 và sinh nhật nhắc mua hoa" ⇒ một thẻ xác nhận lời nhắc hằng năm, rồi tin "Sinh nhật ngày nào để mình nhắc?".
+- Câu hỏi luôn được gửi **sau** các thẻ xác nhận, kể cả ở kênh tắt `allowAiChat` (vì đây là tool, không phải trò chuyện tự do). Câu hỏi rỗng thì không gửi, dài quá 500 ký tự thì bị cắt.
+- Vì sao phải là tool: chữ AI trả về ở lượt đầu bị bỏ khi có tool call; còn nếu AI chỉ trả chữ thì bot gọi lại lượt trò chuyện không tool (lượt này không biết ngữ cảnh tool) hoặc im lặng khi tắt `allowAiChat`. Nên dặn AI "hãy hỏi lại" trong prompt không bao giờ tới được người dùng.
+- Luồng ảnh hoá đơn không dùng tool này: nếu AI gọi nó ở đó, bot vẫn gửi câu nhắc "nhắn lại thông tin chi tiêu" như cũ.
 
 **Vì sao `edit <mã>` bị giới hạn?** Lệnh `edit` chạy trước mọi guard. Trước đây nó còn gửi đủ tool cho AI, nên ai trong nhóm cũng có thể "sửa" một thẻ chờ thành yêu cầu khác (ví dụ lấy link Drive). Giờ:
 - Người không có quyền gõ `edit` thì bị bỏ qua im lặng; thẻ chờ **không** bị thu hồi hay xoá.

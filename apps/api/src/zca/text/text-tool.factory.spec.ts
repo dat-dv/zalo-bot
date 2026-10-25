@@ -45,6 +45,7 @@ function createFactory(): TextToolFactory {
     createDummyStrategy(TextToolType.SHARE_DRIVE),
     undefined,
     createDummyStrategy(TextToolType.SEARCH_CHAT_HISTORY),
+    createDummyStrategy(TextToolType.ASK_CLARIFICATION),
   );
 }
 

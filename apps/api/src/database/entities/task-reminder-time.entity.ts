@@ -35,7 +35,7 @@ export class TaskReminderTimeEntity {
   @Column({ name: 'sent_at', type: 'timestamptz', nullable: true })
   sentAt?: Date | null;
 
-  /** How this time repeats (`none`, `daily`, `weekdays`, `weekly`, `monthly`). */
+  /** How this time repeats (`none`, `daily`, `weekdays`, `weekly`, `monthly`, `yearly`). */
   @Column({ name: 'repeat_type', type: 'varchar', default: 'none' })
   repeatType?: ReminderRepeatType;
 
@@ -43,7 +43,10 @@ export class TaskReminderTimeEntity {
   @Column({ name: 'repeat_weekdays', type: 'smallint', array: true, default: () => "'{}'" })
   repeatWeekdays?: number[];
 
-  /** The time as first set (null = `remind_at`); a monthly repeat keeps its day of the month. */
+  /**
+   * The time as first set (null = `remind_at`): a monthly repeat keeps its day of the month, a
+   * yearly one its day and month.
+   */
   @Column({ name: 'anchor_at', type: 'timestamptz', nullable: true })
   anchorAt?: Date | null;
 
