@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   TransactionConfirmationService,
+  describePendingAction,
   parseReminderPayload,
   toValidRemindTimes,
 } from './transaction-confirmation.service';
@@ -189,11 +190,15 @@ void test('TransactionConfirmationService creates pending transaction with 3-dig
   assert.equal(pending.code.length, 3);
   assert.equal(createdTransactions.length, 0); // Not created yet
   assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0].text, /Xác nhận lưu/i);
-  assert.match(sentMessages[0].text, /15\.000 đ/);
-  assert.match(sentMessages[0].text, /uống cà phê/);
-  assert.match(sentMessages[0].text, new RegExp(`yes ${pending.code}`));
-  assert.match(sentMessages[0].text, new RegExp(`cancel ${pending.code}`));
+  assert.equal(
+    sentMessages[0].text,
+    `Lưu khoản chi [${pending.code}]?\n` +
+      '• Số tiền: 15.000 đ\n' +
+      '• Danh mục: Ăn uống\n' +
+      '• Ghi chú: uống cà phê\n' +
+      `❤️ hoặc yes ${pending.code}: duyệt · 😡 hoặc cancel ${pending.code}: huỷ\n` +
+      `edit ${pending.code} <nội dung>: sửa · tự huỷ sau 5 phút`,
+  );
 
   service.clearAll();
 });
@@ -284,7 +289,7 @@ void test('TransactionConfirmationService cancels transaction with "cancel <mã>
   assert.equal(handled, true);
   assert.equal(createdTransactions.length, 0); // Not created!
   assert.equal(sentMessages.length, 2);
-  assert.match(sentMessages[1].text, /Đã hủy giao dịch/);
+  assert.equal(sentMessages[1].text, `[${pending.code}] Đã huỷ: lưu khoản chi "ăn phở"`);
 
   service.clearAll();
 });
@@ -307,7 +312,7 @@ void test('TransactionConfirmationService notifies when timeout expires', async 
   await new Promise((resolve) => setTimeout(resolve, 80));
 
   assert.equal(sentMessages.length, 2);
-  assert.match(sentMessages[1].text, /đã hết hạn/);
+  assert.match(sentMessages[1].text, /^\[\d{3}\] Hết hạn, chưa lưu: lưu khoản chi/);
   assert.match(sentMessages[1].text, new RegExp(pending.code));
 
   service.clearAll();
@@ -332,7 +337,7 @@ void test('TransactionConfirmationService creates pending delete with 3-digit co
   assert.equal(pending.actionType, 'DELETE_TRANSACTION');
   assert.equal(deletedTransactions.length, 0); // Not deleted yet
   assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0].text, /Xác nhận XÓA/i);
+  assert.match(sentMessages[0].text, /^Xoá khoản (thu|chi) \[\d{3}\]\?/);
   assert.match(sentMessages[0].text, /45\.000 đ/);
   assert.match(sentMessages[0].text, /tx_delete_123/);
   assert.match(sentMessages[0].text, new RegExp(`yes ${pending.code}`));
@@ -366,7 +371,7 @@ void test('TransactionConfirmationService cancels delete with "cancel <mã>"', a
   assert.equal(handled, true);
   assert.equal(deletedTransactions.length, 0); // Not deleted!
   assert.equal(sentMessages.length, 2);
-  assert.match(sentMessages[1].text, /Đã hủy/);
+  assert.match(sentMessages[1].text, /^\[\d{3}\] Đã huỷ: /);
 
   service.clearAll();
 });
@@ -388,8 +393,7 @@ void test('TransactionConfirmationService notifies when delete timeout expires',
   await new Promise((resolve) => setTimeout(resolve, 80));
 
   assert.equal(sentMessages.length, 2);
-  assert.match(sentMessages[1].text, /Yêu cầu xóa/i);
-  assert.match(sentMessages[1].text, /đã hết hạn 5 phút/);
+  assert.match(sentMessages[1].text, /^\[\d{3}\] Hết hạn, chưa lưu: xoá khoản chi/);
 
   service.clearAll();
 });
@@ -410,7 +414,7 @@ void test('TransactionConfirmationService creates and confirms debt with strict 
 
   assert.equal(pending.code.length, 3);
   assert.equal(createdDebts.length, 0);
-  assert.match(sentMessages[0].text, /Xác nhận ghi nhận/i);
+  assert.match(sentMessages[0].text, /^Ghi công nợ \[\d{3}\]\?/);
   assert.match(sentMessages[0].text, /Họ nợ bạn/);
   assert.match(sentMessages[0].text, /Người liên quan: Huy/);
   assert.match(sentMessages[0].text, /200\.000 đ/);
@@ -439,7 +443,7 @@ void test('TransactionConfirmationService creates and confirms reminder with str
 
   assert.equal(pending.code.length, 3);
   assert.equal(createdReminders.length, 0);
-  assert.match(sentMessages[0].text, /Xác nhận đặt lịch nhắc nhở/i);
+  assert.match(sentMessages[0].text, /^Đặt lời nhắc \[\d{3}\]\?/);
   assert.match(sentMessages[0].text, /Đi mua quà sinh nhật/);
 
   // Confirm
@@ -538,7 +542,7 @@ void test('TransactionConfirmationService creates and confirms a task with stric
 
   assert.equal(pending.code.length, 3);
   assert.equal(createdTasks.length, 0);
-  assert.match(sentMessages[0].text, /Xác nhận thêm việc cần làm/i);
+  assert.match(sentMessages[0].text, /^Thêm việc \[\d{3}\]\?/);
   assert.match(sentMessages[0].text, /Hoàn thành báo cáo quý 4/);
 
   // Confirm
@@ -568,7 +572,7 @@ void test('TransactionConfirmationService creates and confirms calendar event wi
 
   assert.equal(pending.code.length, 3);
   assert.equal(createdEvents.length, 0);
-  assert.match(sentMessages[0].text, /Xác nhận tạo sự kiện lịch/i);
+  assert.match(sentMessages[0].text, /^Thêm lịch \[\d{3}\]\?/);
   assert.match(sentMessages[0].text, /Gặp gỡ đối tác/);
   assert.match(sentMessages[0].text, /The Coffee House/);
 
@@ -580,7 +584,7 @@ void test('TransactionConfirmationService creates and confirms calendar event wi
   assert.deepEqual(createdEvents[0].actor, { userId: 'u1', chatId: 'c1', source: 'zalo' });
   assert.equal(
     sentMessages[1].text,
-    `📅 [${pending.code}] Gặp gỡ đối tác · 14:00–15:30 16/10\n📍 The Coffee House`,
+    `📅 [${pending.code}] Gặp gỡ đối tác · 14:00–15:30 16/10\nThe Coffee House`,
   );
 
   service.clearAll();
@@ -600,7 +604,7 @@ void test('TransactionConfirmationService creates and confirms task completion w
 
   assert.equal(pending.code.length, 3);
   assert.equal(completedTasks.length, 0);
-  assert.match(sentMessages[0].text, /Xác nhận hoàn thành việc cần làm/i);
+  assert.match(sentMessages[0].text, /^Đánh dấu xong việc \[\d{3}\]\?/);
   assert.match(sentMessages[0].text, /Gửi email báo giá/);
   assert.match(sentMessages[0].text, /task_complete_999/);
 
@@ -628,7 +632,7 @@ void test('TransactionConfirmationService creates and confirms calendar event de
 
   assert.equal(pending.code.length, 3);
   assert.equal(deletedCalendarEvents.length, 0);
-  assert.match(sentMessages[0].text, /Xác nhận XÓA sự kiện lịch/i);
+  assert.match(sentMessages[0].text, /^Xoá lịch \[\d{3}\]\?/);
   assert.match(sentMessages[0].text, /Họp giao ban sáng/);
   assert.match(sentMessages[0].text, /Phòng họp A/);
 
@@ -657,7 +661,7 @@ void test('TransactionConfirmationService creates and confirms user ban with str
 
   assert.equal(pending.code.length, 3);
   assert.equal(bannedUsers.length, 0);
-  assert.match(sentMessages[0].text, /Xác nhận KHÓA tài khoản người dùng/i);
+  assert.match(sentMessages[0].text, /^Khoá tài khoản \[\d{3}\]\?/);
   assert.match(sentMessages[0].text, /bad_user_456/);
   assert.match(sentMessages[0].text, /Hacker/);
   assert.match(sentMessages[0].text, /Spam hệ thống/);
@@ -670,7 +674,7 @@ void test('TransactionConfirmationService creates and confirms user ban with str
   assert.equal(revokedTokens[0], 'bad_user_456');
   assert.equal(
     sentMessages[1].text,
-    `⛔ [${pending.code}] Đã khoá Hacker (id bad_user_456) · đã thu hồi quyền và token Google\n📝 Spam hệ thống`,
+    `⛔ [${pending.code}] Đã khoá Hacker (id bad_user_456) · đã thu hồi quyền và token Google\nLý do: Spam hệ thống`,
   );
 
   service.clearAll();
@@ -734,7 +738,7 @@ void test('TransactionConfirmationService prompts for content when "edit <mã>" 
   const handled = await service.handleCommand('u1', 'c1', `edit ${pending.code}`);
   assert.equal(handled, true);
   assert.equal(sentMessages.length, 2);
-  assert.match(sentMessages[1].text, /Vui lòng cung cấp nội dung bạn muốn chỉnh sửa/);
+  assert.match(sentMessages[1].text, /^Muốn sửa gì\? Ví dụ: edit \d{3} /);
 
   // Pending is NOT cleared when user forgets to provide instruction
   const lookup = await service.getPendingByCode(pending.code);
@@ -793,12 +797,12 @@ void test('TransactionConfirmationService rejects edit from another user or wron
   // Unauthorized user
   const handledOtherUser = await service.handleCommand('u2', 'c2', `edit ${pending.code} đổi 60k`);
   assert.equal(handledOtherUser, true);
-  assert.match(sentMessages[1].text, /Bạn không có quyền chỉnh sửa yêu cầu/);
+  assert.match(sentMessages[1].text, /Bạn không sửa được yêu cầu \[\d{3}\]/);
 
   // Wrong code
   const handledWrongCode = await service.handleCommand('u1', 'c1', 'edit 999 đổi 60k');
   assert.equal(handledWrongCode, true);
-  assert.match(sentMessages[2].text, /Không tìm thấy yêu cầu chờ xác nhận với mã "999"/);
+  assert.equal(sentMessages[2].text, '⚠️ Không có yêu cầu [999] đang chờ.');
 
   service.clearAll();
 });
@@ -834,7 +838,7 @@ void test('TransactionConfirmationService cancels pending action via ANGRY react
 
   const lookup = await service.getPendingByCode(pending.code);
   assert.equal(lookup, undefined);
-  assert.match(sentMessages[1].text, /Đã hủy/);
+  assert.match(sentMessages[1].text, /^\[\d{3}\] Đã huỷ: /);
 
   service.clearAll();
 });
@@ -1013,7 +1017,7 @@ void test('TransactionConfirmationService preserves pending action if edit is ca
   assert.equal(lookup.code, pending.code);
 
   const lastMsg = sentMessages[sentMessages.length - 1];
-  assert.match(lastMsg.text, new RegExp(`chưa hỗ trợ tự động điều chỉnh.*${pending.code}`));
+  assert.match(lastMsg.text, new RegExp(`Yêu cầu \\[${pending.code}\\] chưa sửa tự động được`));
 
   service.clearAll();
 });
@@ -1045,7 +1049,7 @@ void test('TransactionConfirmationService preserves pending action if onEdit thr
   assert.ok(lookup, 'Pending action must be preserved when onEdit throws');
 
   const lastMsg = sentMessages[sentMessages.length - 1];
-  assert.match(lastMsg.text, /Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu.*AI parsing failed/);
+  assert.equal(lastMsg.text, '⚠️ Chưa sửa được yêu cầu: AI parsing failed');
 
   service.clearAll();
 });
@@ -1278,7 +1282,7 @@ void test('processConfirm recalls pending confirmation message and formats heart
   assert.equal(
     resultMessage,
     `✅ [${pending.code}] Chi 450.000đ · Mua sắm · mua tròng kính subin cho vợ\n` +
-      `📍 Mắt kính Subin Hồ Xuân Hương quận 3 · 💳 MoMo`,
+      `Mắt kính Subin Hồ Xuân Hương quận 3 · MoMo`,
   );
   assert.doesNotMatch(resultMessage, /Đã nhận đủ|\(trống\)/);
 
@@ -1329,7 +1333,7 @@ void test('handleTimeout recalls pending card message and sends only timeout not
   const timeoutMsg = sentMessages[sentMessages.length - 1].text;
   assert.match(
     timeoutMsg,
-    /⏰ Yêu cầu tạo nơi chốn "tiệm bánh tráng đầu đường gò xoài" \(mã: \d+\) đã hết hạn 5 phút và chưa được xác nhận\./,
+    /^\[\d{3}\] Hết hạn, chưa lưu: tạo nơi chốn "tiệm bánh tráng đầu đường gò xoài"$/,
   );
 
   service.clearAll();
@@ -1379,7 +1383,7 @@ void test('processCancel recalls pending card message and sends cancellation not
   assert.equal(recalledMsgId, 'msg-cancel-333');
   assert.equal(recalledCliMsgId, 'cli-cancel-333');
   const cancelMsg = sentMessages[sentMessages.length - 1].text;
-  assert.match(cancelMsg, /❌ Đã hủy giao dịch khoản chi/);
+  assert.match(cancelMsg, /^\[\d{3}\] Đã huỷ: lưu khoản chi/);
 
   service.clearAll();
 });
@@ -1488,9 +1492,8 @@ void test('Multi-card confirmation flow cleans up all temporary cards and interi
   // Place card should be recalled immediately
   assert.ok(recalled.some((m) => m.msgId === placeMsgId && m.cliMsgId === placeCliId));
 
-  // Intermediate notice "💡 Bạn còn 1 yêu cầu..." was sent
-  const noticeMsg = sentMessages.find((m) => m.text.includes('Bạn còn 1 yêu cầu'));
-  assert.ok(noticeMsg);
+  // No "you still have N pending" notice: the other card is still on screen.
+  assert.ok(!sentMessages.some((m) => m.text.includes('Bạn còn')));
 
   // User confirms Expense (363) via ❤️ reaction
   const res2 = await service.handleReaction({
@@ -1505,7 +1508,7 @@ void test('Multi-card confirmation flow cleans up all temporary cards and interi
   // Expense card should be recalled
   assert.ok(recalled.some((m) => m.msgId === txMsgId && m.cliMsgId === txCliId));
 
-  // The intermediate notice ("Bạn còn 1 yêu cầu...") and interim place confirmation were recalled!
+  // Both cards and the interim place confirmation were recalled.
   assert.ok(recalled.length >= 3);
 
   // The final message is the successful expense confirmation
@@ -1722,4 +1725,48 @@ void test("TransactionConfirmationService amendPending re-issues only its owner'
   assert.equal(await service.getPendingByCode(pending.code), undefined);
 
   service.clearAll();
+});
+
+void test('TransactionConfirmationService cancel without a code sends no remaining-requests notice', async () => {
+  const { service, sentMessages } = createTestContext();
+
+  await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: { type: 'expense', amount: 10000, note: 'trà đá' },
+  });
+  const newest = await service.createPending({
+    userId: 'u1',
+    chatId: 'c1',
+    payload: { type: 'expense', amount: 20000, note: 'bánh mì' },
+  });
+  sentMessages.length = 0;
+
+  await service.handleCommand('u1', 'c1', 'cancel');
+
+  // The other card is still on screen, so only the cancel notice goes out.
+  assert.deepEqual(
+    sentMessages.map((m) => m.text),
+    [`[${newest.code}] Đã huỷ: lưu khoản chi "bánh mì"`],
+  );
+
+  service.clearAll();
+});
+
+void test('describePendingAction names the action from its type and shortens long subjects', () => {
+  const title = 'Đạt mua hoa tươi tặng Hằng nhân các dịp lễ 14/2, 8/3, 20/10 và sinh nhật của Hằng';
+  assert.equal(
+    describePendingAction({ actionType: 'CREATE_TASK', payload: { title } }),
+    `thêm việc "${title.slice(0, 60).trimEnd()}…"`,
+  );
+  // Legacy action types from cards saved by older builds read the same.
+  assert.equal(
+    describePendingAction({ actionType: 'delete', payload: { type: 'income', note: 'thưởng' } }),
+    'xoá khoản thu "thưởng"',
+  );
+  assert.equal(
+    describePendingAction({ actionType: 'BAN_USER', payload: { targetUserId: 'u9' } }),
+    'khoá tài khoản "u9"',
+  );
+  assert.equal(describePendingAction({ actionType: 'MANAGE_DEBT', payload: {} }), 'ghi công nợ');
 });

@@ -104,7 +104,7 @@ Một lời nhắc (giống việc cần làm) có thể nhắc **nhiều lần*
 
 **Nhắc lại — dùng chung cho cả lời nhắc / việc.** Bật "Nhắc lại", chọn "Mỗi" (5, 10, 15, 30 phút, 1 hoặc 2 giờ) và "Tối đa" (1–10 lần).
 
-- Sau mỗi lần nhắc (của bất kỳ giờ nào), bot nhắc thêm theo chu kỳ đó cho tới khi đủ số lần. Tin nhắc lại có thêm dòng "🔁 Nhắc lại 2/3".
+- Sau mỗi lần nhắc (của bất kỳ giờ nào), bot nhắc thêm theo chu kỳ đó cho tới khi đủ số lần. Tin nhắc lại có thêm dòng "Nhắc lại lần 2/3".
 - Dừng ngay khi: việc được đánh dấu **xong** (hoặc bị xoá); lời nhắc được bấm **Đã xong** (hoặc bị xoá); hoặc tắt "Nhắc lại".
 - Tổng thời gian nhắc lại phải ngắn hơn khoảng cách tới lần lặp kế tiếp của mọi giờ có lặp (ví dụ lặp hằng ngày thì "mỗi 3 giờ × 10 lần" = 30 giờ là không được). Lý do: nếu không, các lần nhắc lại sẽ chồng lên lần nhắc của ngày hôm sau. Vi phạm thì form báo lỗi, API trả 400.
 - Nhắc lại tính từ lúc tin thật sự được gửi, nên bot có trễ vài phút cũng không gửi dồn.

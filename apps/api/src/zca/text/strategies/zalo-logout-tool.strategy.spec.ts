@@ -37,7 +37,7 @@ void test('ZaloLogoutToolStrategy rejects non-admin users', async () => {
     input: {} as unknown as AgentInput,
   });
 
-  assert.match(sentMessage, /QUYỀN TRUY CẬP BỊ GIỚI HẠN/);
+  assert.match(sentMessage, /^⛔ Chỉ admin mới đăng xuất được Zalo cá nhân/);
   assert.strictEqual(logoutCalled, false);
 });
 
@@ -72,7 +72,8 @@ void test('ZaloLogoutToolStrategy notifies if ZCA is not currently logged in', a
     input: {} as unknown as AgentInput,
   });
 
-  assert.match(sentMessage, /CHƯA ĐĂNG NHẬP/);
+  assert.match(sentMessage, /đang chưa đăng nhập/);
+  assert.match(sentMessage, /\/zalo-login hoặc \/zca-login/);
   assert.strictEqual(logoutCalled, false);
 });
 
@@ -108,5 +109,6 @@ void test('ZaloLogoutToolStrategy executes logout when admin requests and ZCA is
   });
 
   assert.strictEqual(logoutCalled, true);
-  assert.match(sentMessage, /ĐÃ ĐĂNG XUẤT TÀI KHOẢN ZCA THÀNH CÔNG/);
+  assert.match(sentMessage, /^✅ Đã đăng xuất Zalo cá nhân\./);
+  assert.match(sentMessage, /\/zalo-login/);
 });

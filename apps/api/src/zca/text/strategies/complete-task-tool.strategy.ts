@@ -47,7 +47,7 @@ export class CompleteTaskToolStrategy implements TextToolStrategy {
         if (!queryTitle) {
           await this.zcaMessenger.sendMessage(
             context.chatId,
-            '⚠️ Vui lòng cung cấp tên việc cần hoàn thành (ví dụ: "đã xong việc nộp báo cáo").',
+            '⚠️ Chưa rõ việc nào đã xong. Nhắn kèm tên việc, ví dụ: "đã xong việc nộp báo cáo".',
           );
           return;
         }
@@ -57,7 +57,7 @@ export class CompleteTaskToolStrategy implements TextToolStrategy {
         if (!matched) {
           await this.zcaMessenger.sendMessage(
             context.chatId,
-            `⚠️ Không tìm thấy công việc nào khớp với "${queryTitle}" trong danh sách chưa hoàn thành.`,
+            `⚠️ Không có việc nào đang cần làm khớp với "${queryTitle}".`,
           );
           return;
         }
@@ -83,7 +83,7 @@ export class CompleteTaskToolStrategy implements TextToolStrategy {
       this.logger.error(`Failed to create pending complete task: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `⚠️ Không thể tạo yêu cầu hoàn thành việc: ${(err as Error).message}`,
+        `⚠️ Chưa tạo được yêu cầu đánh dấu xong việc: ${(err as Error).message}`,
       );
     }
   }

@@ -20,10 +20,7 @@ export class ZaloLoginToolStrategy implements TextToolStrategy {
     const isAdmin = Boolean(this.usersService?.isAdmin(context.senderId));
 
     if (!isAdmin) {
-      const reply =
-        `⛔ QUYỀN TRUY CẬP BỊ GIỚI HẠN\n\n` +
-        `Chỉ Quản trị viên (Admin) mới có quyền khởi tạo đăng nhập Zalo cá nhân (ZCA).\n\n` +
-        `💡 Vui lòng liên hệ Quản trị viên nếu cần kết nối tài khoản. Bạn có thể gõ /status để kiểm tra trạng thái hệ thống.`;
+      const reply = `⛔ Chỉ admin mới đăng nhập được Zalo cá nhân cho bot. Gõ /status để xem trạng thái.`;
       await this.zcaMessenger.sendMessage(context.chatId, reply);
       return;
     }
@@ -31,50 +28,48 @@ export class ZaloLoginToolStrategy implements TextToolStrategy {
     try {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⏳ Đang khởi tạo mã QR đăng nhập Zalo cá nhân, vui lòng chờ trong giây lát...',
+        '⏳ Đang tạo mã QR đăng nhập Zalo cá nhân...',
       );
 
       void this.zcaService.startQrLogin({
         onQrGenerated: (qrUrl, code) => {
           const reply =
-            `🔐 MÃ QR ĐĂNG NHẬP ZALO CÁ NHÂN (ZCA)\n\n` +
-            `Vui lòng mở liên kết sau trên trình duyệt hoặc điện thoại để quét mã QR:\n` +
-            `👉 Xem ảnh mã QR: ${qrUrl}\n\n` +
-            (code ? `Hoặc quét trực tiếp URL: ${code}\n\n` : '') +
-            `⏳ Mã có hiệu lực trong 2 phút. Sau khi bạn xác nhận trên điện thoại, bot sẽ tự động bắt đầu lắng nghe tin nhắn!`;
+            `🔐 Mã QR đăng nhập Zalo cá nhân\n` +
+            `Mở link này trên trình duyệt hoặc điện thoại để quét:\n` +
+            `${qrUrl}\n` +
+            (code ? `Hoặc quét trực tiếp URL: ${code}\n` : '') +
+            `Mã hết hạn sau 2 phút. Xác nhận trên điện thoại xong là bot bắt đầu nhận tin nhắn.`;
 
           void this.zcaMessenger.sendMessage(context.chatId, reply);
         },
         onScanned: (name) => {
           void this.zcaMessenger.sendMessage(
             context.chatId,
-            `📱 Đã quét mã QR bởi "${name}". Vui lòng bấm "Xác nhận đăng nhập" trên ứng dụng Zalo điện thoại của bạn.`,
+            `📱 ${name} đã quét mã. Bấm "Xác nhận đăng nhập" trong app Zalo trên điện thoại.`,
           );
         },
         onExpired: () => {
           void this.zcaMessenger.sendMessage(
             context.chatId,
-            '⏰ Mã QR đã hết hạn. Hệ thống đang tự động tạo lại mã mới...',
+            '⏰ Mã QR hết hạn, đang tạo mã mới...',
           );
         },
         onDeclined: () => {
           void this.zcaMessenger.sendMessage(
             context.chatId,
-            '❌ Yêu cầu đăng nhập Zalo cá nhân đã bị từ chối trên thiết bị.',
+            '⚠️ Đăng nhập Zalo cá nhân bị từ chối trên thiết bị.',
           );
         },
         onSuccess: (ownId) => {
           const successMsg =
-            `✅ ĐĂNG NHẬP ZALO CÁ NHÂN THÀNH CÔNG!\n\n` +
-            `• ID tài khoản kết nối: ${ownId}\n` +
-            `• Trạng thái: Đã bắt đầu lắng nghe tin nhắn & sự kiện nhóm.\n\n` +
-            `💡 Bạn có thể vào Web Dashboard để cấu hình danh sách ID người dùng / nhóm cần lắng nghe.`;
+            `✅ Đã đăng nhập Zalo cá nhân, ID ${ownId}. Bot bắt đầu nhận tin nhắn và sự kiện nhóm.\n` +
+            `Chọn người dùng và nhóm cần nghe trên dashboard.`;
           void this.zcaMessenger.sendMessage(context.chatId, successMsg);
         },
         onError: (errMsg) => {
           void this.zcaMessenger.sendMessage(
             context.chatId,
-            `⚠️ Đăng nhập Zalo cá nhân thất bại: ${errMsg}`,
+            `⚠️ Chưa đăng nhập được Zalo cá nhân: ${errMsg}`,
           );
         },
       });
@@ -84,7 +79,7 @@ export class ZaloLoginToolStrategy implements TextToolStrategy {
       this.logger.error(`Failed to initiate ZCA login: ${errMsg}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `⚠️ Không thể khởi tạo đăng nhập ZCA: ${errMsg}`,
+        `⚠️ Không tạo được mã đăng nhập Zalo cá nhân: ${errMsg}`,
       );
     }
   }

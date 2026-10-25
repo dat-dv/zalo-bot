@@ -277,7 +277,7 @@ void test('TextInputService routes commands to tool strategies without calling L
     text: '/gioithieu',
   });
   assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0].text, /Chào Đạt!/);
+  assert.match(sentMessages[0].text, /^👋 Chào Đạt, /);
   assert.equal(getLlmCallCount(), 0);
 
   // 2. /help
@@ -359,7 +359,7 @@ void test('TextInputService routes natural text to LLM and executes MANAGE_DEBT 
   });
 
   assert.equal(getLlmCallCount(), 1);
-  assert.match(sentMessages[0].text, /Xác nhận/);
+  assert.match(sentMessages[0].text, /^Ghi công nợ \[\d{3}\]\?/);
   assert.match(sentMessages[0].text, /Người liên quan: a/);
   assert.match(sentMessages[0].text, /100\.000 đ/);
   assert.match(sentMessages[0].text, /yes\s+\d{3}/);
@@ -556,10 +556,10 @@ void test('TextInputService handles pending image action option 1: OCR -> LLM RE
   });
 
   // 1st message: Scanning status
-  assert.ok(sentMessages.some((m) => m.text.includes('Tesseract OCR')));
+  assert.ok(sentMessages.some((m) => m.text.includes('Đang đọc hoá đơn')));
 
   // 2nd message: Confirmation card
-  const confirmCard = sentMessages.find((m) => m.text.includes('xác nhận'));
+  const confirmCard = sentMessages.find((m) => m.text.startsWith('Lưu khoản chi ['));
   assert.ok(confirmCard, 'Must send confirmation card to user');
   assert.match(confirmCard.text, /85\.000 đ/);
   assert.match(confirmCard.text, /Highlands Coffee/);
@@ -632,7 +632,7 @@ void test('TextInputService handles pending image action cancel command', async 
   });
 
   assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0].text, /Đã hủy yêu cầu xử lý hình ảnh/);
+  assert.match(sentMessages[0].text, /Đã huỷ, bỏ qua ảnh vừa gửi/);
 
   const pendingAfter = await pendingImageService.getPending('u1');
   assert.strictEqual(pendingAfter, undefined);
@@ -691,7 +691,7 @@ void test('TextInputService handles pending image action cancel with huỷ and m
   });
 
   assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0].text, /Đã hủy yêu cầu xử lý hình ảnh/);
+  assert.match(sentMessages[0].text, /Đã huỷ, bỏ qua ảnh vừa gửi/);
 
   const pendingAfter = await pendingImageService.getPending('u1');
   assert.strictEqual(pendingAfter, undefined);
@@ -793,20 +793,20 @@ void test('TextInputService handles compound request with 2 expenses and 2 new p
   assert.equal(sentMessages.length, 4);
 
   // Message 1: Nơi chốn Bến Thành
-  assert.match(sentMessages[0].text, /tạo nơi chốn/);
+  assert.match(sentMessages[0].text, /^Tạo nơi chốn \[\d{3}\]\?/);
   assert.match(sentMessages[0].text, /Bến Thành/);
 
   // Message 2: Khoản chi ăn tối 80k
-  assert.match(sentMessages[1].text, /Khoản chi/);
+  assert.match(sentMessages[1].text, /^Lưu khoản chi \[\d{3}\]\?/);
   assert.match(sentMessages[1].text, /80\.000 đ/);
   assert.match(sentMessages[1].text, /ăn tối/);
 
   // Message 3: Nơi chốn Aeon
-  assert.match(sentMessages[2].text, /tạo nơi chốn/);
+  assert.match(sentMessages[2].text, /^Tạo nơi chốn \[\d{3}\]\?/);
   assert.match(sentMessages[2].text, /Aeon/);
 
   // Message 4: Khoản chi uống nước 90k
-  assert.match(sentMessages[3].text, /Khoản chi/);
+  assert.match(sentMessages[3].text, /^Lưu khoản chi \[\d{3}\]\?/);
   assert.match(sentMessages[3].text, /90\.000 đ/);
   assert.match(sentMessages[3].text, /uống nước/);
 
@@ -820,7 +820,7 @@ void test('TextInputService handles compound request with 2 expenses and 2 new p
   });
 
   assert.equal(sentMessages.length, 5);
-  assert.match(sentMessages[4].text, /Đã xác nhận thành công tất cả \(4\/4\) yêu cầu/);
+  assert.match(sentMessages[4].text, /^✅ Đã duyệt 4\/4 yêu cầu$/);
 
   const pendingRemaining = await confirmationService.getPendingListForUser('u1');
   assert.equal(pendingRemaining.length, 0);
@@ -915,7 +915,7 @@ void test('TextInputService sends 3 confirmation messages when 1 place exists an
   // Exactly 3 confirmation messages sent: 1 place (Aeon) + 2 transactions (80k, 90k)
   assert.equal(sentMessages.length, 3);
   assert.match(sentMessages[0].text, /80\.000 đ/); // Bến Thành tx (no place card for Bến Thành)
-  assert.match(sentMessages[1].text, /tạo nơi chốn/); // Aeon place card
+  assert.match(sentMessages[1].text, /^Tạo nơi chốn \[\d{3}\]\?/); // Aeon place card
   assert.match(sentMessages[1].text, /Aeon/);
   assert.match(sentMessages[2].text, /90\.000 đ/); // Aeon tx
 
@@ -961,7 +961,7 @@ void test('TextInputService cancels all pending actions when user sends "cancel 
   });
 
   assert.equal(sentMessages.length, 3);
-  assert.match(sentMessages[2].text, /Đã hủy tất cả \(2\) yêu cầu/);
+  assert.equal(sentMessages[2].text, 'Đã huỷ 2 yêu cầu');
 
   const pendingRemaining = await confirmationService.getPendingListForUser('u1');
   assert.equal(pendingRemaining.length, 0);
@@ -1168,7 +1168,7 @@ void test('TextInputService propagates shared placeName to all sibling transacti
   assert.equal(sentMessages.length, 3);
 
   // Message 0: Place card for 'đối diện ctgroup'
-  assert.match(sentMessages[0].text, /tạo nơi chốn/);
+  assert.match(sentMessages[0].text, /^Tạo nơi chốn \[\d{3}\]\?/);
   assert.match(sentMessages[0].text, /đối diện ctgroup/);
 
   // Message 1: First transaction card (13k) MUST have location 'đối diện ctgroup'
@@ -1234,8 +1234,8 @@ void test('TextInputService does NOT propagate placeName across different timest
   // Exactly 2 transactions
   assert.equal(sentMessages.length, 2);
   assert.match(sentMessages[0].text, /quán cô Tư/);
-  // Transaction 2 should have (trống) for placeName, not quán cô Tư
-  assert.match(sentMessages[1].text, /Địa điểm: \(trống\)/);
+  // Transaction 2 has no place, so the card has no place line (and never quán cô Tư)
+  assert.doesNotMatch(sentMessages[1].text, /Địa điểm|quán cô Tư/);
 
   confirmationService.clearAll();
 });
@@ -1302,7 +1302,10 @@ void test('TextInputService edit refuses pending actions without a matching tool
 
   assert.equal(reissued, false);
   assert.equal(getLlmCallCount(), callsBefore);
-  assert.match(sentMessages[sentMessages.length - 1].text, /không hỗ trợ chỉnh sửa/);
+  assert.equal(
+    sentMessages[sentMessages.length - 1].text,
+    `⚠️ Yêu cầu [${pending.code}] không sửa được. Gõ "cancel ${pending.code}" rồi tạo yêu cầu mới.`,
+  );
 
   confirmationService.clearAll();
 });

@@ -36,10 +36,7 @@ void test('summarizeTransaction prints only filled fields on at most two lines',
     },
     NOW,
   );
-  assert.equal(
-    text,
-    '✅ [230] Chi 15.000đ · Ăn uống · bánh mỳ\n📍 đối diện ctgroup · 🕗 08:30 21/10',
-  );
+  assert.equal(text, '✅ [230] Chi 15.000đ · Ăn uống · bánh mỳ\nđối diện ctgroup · 08:30 21/10');
   assert.doesNotMatch(text, /\(trống\)/);
 });
 
@@ -56,7 +53,7 @@ void test('summarizeTransaction keeps the receipt URL on its own line', () => {
     { type: 'expense', amount: 85000, note: 'cà phê', receiptUrl: 'https://drive/x' },
     NOW,
   );
-  assert.equal(text, '✅ [232] Chi 85.000đ · cà phê\n🧾 https://drive/x');
+  assert.equal(text, '✅ [232] Chi 85.000đ · cà phê\nHoá đơn: https://drive/x');
 });
 
 void test('summarizeDebt covers both directions, alias and due date', () => {
@@ -73,7 +70,7 @@ void test('summarizeDebt covers both directions, alias and due date', () => {
       },
       NOW,
     ),
-    '✅ [300] Nam (Nam Béo) nợ bạn 100.000đ · tiền ăn\n⏳ hạn 30/10',
+    '✅ [300] Nam (Nam Béo) nợ bạn 100.000đ · tiền ăn\nhạn 30/10',
   );
   assert.equal(
     summarizeDebt('301', { direction: 'payable', counterparty: 'Huy', amount: 50000 }, NOW),
@@ -97,7 +94,7 @@ void test('summarizeReminder adds a second line only for repeat or call', () => 
       },
       NOW,
     ),
-    '⏰ [401] Nhắc "uống thuốc" lúc 20:00 21/10 (hàng ngày)\n📞 gọi điện',
+    '⏰ [401] Nhắc "uống thuốc" lúc 20:00 21/10 (hàng ngày)\ngọi điện',
   );
   assert.equal(
     summarizeReminder(
@@ -114,21 +111,21 @@ void test('summarizeReminder adds a second line only for repeat or call', () => 
       },
       NOW,
     ),
-    '⏰ [402] Nhắc "uống thuốc" lúc 08:00 21/10 (hàng ngày), 14:00 21/10\n🔁 nhắc lại mỗi 15 phút ×3',
+    '⏰ [402] Nhắc "uống thuốc" lúc 08:00 21/10 (hàng ngày), 14:00 21/10\nnhắc lại mỗi 15 phút ×3',
   );
 });
 
 void test('summarizeTask shows due date inline', () => {
   assert.equal(
     summarizeTask('500', { title: 'nộp báo cáo', due: '2026-10-22T10:00:00Z' }, NOW),
-    '✅ [500] Thêm việc: nộp báo cáo · ⏳ hạn 22/10',
+    '✅ [500] Thêm việc: nộp báo cáo · hạn 22/10',
   );
 });
 
 void test('summarizeTask shows the reminder time inline', () => {
   assert.equal(
     summarizeTask('501', { title: 'họp', remindAt: '2026-10-22T08:00:00Z' }, NOW),
-    '✅ [501] Thêm việc: họp · ⏰ nhắc 15:00 22/10',
+    '✅ [501] Thêm việc: họp · nhắc 15:00 22/10',
   );
 });
 
@@ -145,7 +142,7 @@ void test('summarizeCalendarEvent collapses same-day ranges', () => {
       },
       NOW,
     ),
-    '📅 [600] Họp dự án · 14:00–15:00 22/10\n📍 Phòng A · 🔔 trước 10p',
+    '📅 [600] Họp dự án · 14:00–15:00 22/10\nPhòng A · báo trước 10p',
   );
   assert.equal(
     summarizeCalendarEvent(

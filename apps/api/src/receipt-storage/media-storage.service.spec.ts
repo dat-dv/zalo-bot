@@ -101,6 +101,7 @@ void test('MediaStorageService dual uploads bill to both Drive and Photos', asyn
   assert.equal(result.photosError, undefined);
 
   const summary = service.formatUploadSummary(result, 'bill');
+  assert.match(summary, /^☁️ Đã lưu hoá đơn lên Google:/);
   assert.match(summary, /Google Drive/);
   assert.match(summary, /Google Photos/);
   assert.match(summary, /https:\/\/drive\.google\.com/);
@@ -147,7 +148,8 @@ void test('MediaStorageService keeps the album and reports the error when Photos
 
   const summary = service.formatUploadSummary(result, 'image');
   assert.match(summary, /Google Drive/);
-  assert.match(summary, /Lỗi lưu trữ/);
+  assert.match(summary, /^☁️ Đã lưu ảnh lên Google:/);
+  assert.match(summary, /Google Photos lỗi: Google Photos API quota exceeded/);
 });
 
 void test('MediaStorageService routes uploads to the channel target folders', async () => {

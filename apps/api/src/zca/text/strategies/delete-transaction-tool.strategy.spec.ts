@@ -152,5 +152,5 @@ void test('DeleteTransactionToolStrategy sends warning message when transaction 
 
   assert.equal(pendingDeletes.length, 0);
   assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0].text, /Không tìm thấy giao dịch/);
+  assert.match(sentMessages[0].text, /^⚠️ Không tìm thấy giao dịch nào để xoá\./);
 });

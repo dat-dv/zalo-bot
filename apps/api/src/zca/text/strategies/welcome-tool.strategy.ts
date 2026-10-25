@@ -21,29 +21,24 @@ export class WelcomeToolStrategy implements TextToolStrategy {
     const isAdmin = Boolean(this.usersService?.isAdmin(context.senderId));
 
     const googleStatus = isGoogleConnected
-      ? '✅ Tài khoản Google: Đã kết nối (Lịch & Việc sẵn sàng)'
-      : '⚠️ Tài khoản Google: Chưa kết nối (Gõ /login để liên kết)';
+      ? 'Google: đã kết nối.'
+      : 'Google: chưa kết nối. Gõ /login để kết nối.';
 
-    const roleBadge = isAdmin ? ' [👑 Admin]' : '';
+    const roleLine = isAdmin ? 'Bạn đang là admin.\n' : '';
 
     const welcomeMessage =
-      `👋 Chào ${context.displayName || 'bạn'}${roleBadge}!\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `Tôi là Trợ lý AI cá nhân toàn năng trên Zalo của bạn:\n` +
-      `📅 Google Calendar & 📝 Việc cần làm\n` +
-      `💰 Quản lý Thu–Chi & 🧾 Hóa đơn\n` +
-      `💳 Sổ nợ & Cho vay & ⏰ Nhắc việc hẹn giờ\n` +
-      `📊 Web Dashboard trực quan\n\n` +
-      `${googleStatus}\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
-      `💡 Bạn có thể nhắn tin tự nhiên bất cứ lúc nào:\n` +
-      `• ⏰ "15 phút nữa nhắc anh tắt bếp"\n` +
-      `• 📅 "Chiều mai 14h họp dự án với sếp"\n` +
-      `• 📝 "Thêm việc chuẩn bị slide báo cáo"\n` +
-      `• 💰 "Ăn trưa bún bò 45k" hoặc "Tiền lương 15tr"\n` +
-      `• 💳 "Cho Nam vay 500k hẹn cuối tháng trả"\n` +
-      `• 📊 "Hôm nay có lịch gì và đã tiêu bao nhiêu?"\n\n` +
-      `Gõ /help để xem toàn bộ danh sách lệnh hỗ trợ.`;
+      `👋 Chào ${context.displayName || 'bạn'}, mình là trợ lý của bạn trên Zalo.\n` +
+      `Mình lo lịch Google Calendar, việc cần làm, thu chi, hoá đơn, sổ nợ, cho vay, nhắc giờ và có dashboard web để xem lại.\n` +
+      roleLine +
+      `${googleStatus}\n\n` +
+      `Cứ nhắn bình thường, ví dụ:\n` +
+      `• "15 phút nữa nhắc anh tắt bếp"\n` +
+      `• "Chiều mai 14h họp dự án với sếp"\n` +
+      `• "Thêm việc chuẩn bị slide báo cáo"\n` +
+      `• "Ăn trưa bún bò 45k" hoặc "Tiền lương 15tr"\n` +
+      `• "Cho Nam vay 500k hẹn cuối tháng trả"\n` +
+      `• "Hôm nay có lịch gì và đã tiêu bao nhiêu?"\n\n` +
+      `Gõ /help để xem hết các lệnh.`;
 
     await this.zcaMessenger.sendMessage(context.chatId, welcomeMessage);
   }

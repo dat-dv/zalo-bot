@@ -48,19 +48,16 @@ export class DashboardToolStrategy implements TextToolStrategy {
       const accessUrl = `${appUrl}${API_ROUTES.access}?token=${encodeURIComponent(token)}`;
 
       const reply =
-        `📊 BẢNG ĐIỀU KHIỂN TRỰC QUAN (WEB DASHBOARD)\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n\n` +
-        `Xem biểu đồ Thu–Chi, Danh sách Việc, Lịch Google, Nhắc việc & Công nợ tại:\n\n` +
-        `👉 ${accessUrl}\n\n` +
-        `🔑 Mã đăng nhập trong ứng dụng đã cài: ${formatDashboardAccessCode(code)}\n\n` +
-        `🔒 Đường dẫn và mã chỉ dùng được một lần, có hạn trong 20 phút. Vui lòng không chia sẻ cho người khác.`;
+        `Dashboard: ${accessUrl}\n` +
+        `Mã đăng nhập app: ${formatDashboardAccessCode(code)}\n` +
+        `Link và mã chỉ dùng 1 lần, hết hạn sau 20 phút. Đừng chia sẻ.`;
 
       await this.zcaMessenger.sendMessage(context.chatId, reply);
     } catch (err) {
       this.logger.error(`Failed to generate dashboard link: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Chưa thể tạo đường dẫn Dashboard. Vui lòng kiểm tra lại cấu hình hệ thống.',
+        '⚠️ Chưa tạo được link dashboard. Kiểm tra lại cấu hình hệ thống.',
       );
     }
   }

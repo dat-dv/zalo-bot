@@ -15,15 +15,10 @@ import {
 
 type StorageType = 'all' | 'bill' | 'image' | 'video';
 
-interface StorageCategoryMeta {
-  emoji: string;
-  label: string;
-}
-
-const CATEGORY_META: Record<Exclude<StorageType, 'all'>, StorageCategoryMeta> = {
-  bill: { emoji: '🧾', label: 'Hóa đơn' },
-  image: { emoji: '🖼️', label: 'Hình ảnh' },
-  video: { emoji: '🎬', label: 'Video' },
+const CATEGORY_LABELS: Record<Exclude<StorageType, 'all'>, string> = {
+  bill: 'Hoá đơn',
+  image: 'Hình ảnh',
+  video: 'Video',
 };
 
 @Injectable()
@@ -49,31 +44,26 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
     if (!this.googleAuthService.isSharedAuthorized()) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `❌ GOOGLE CHƯA ĐƯỢC KẾT NỐI\n\n` +
-          `Hệ thống chưa liên kết với Google nên chưa có thư mục/album lưu trữ.\n\n` +
-          `👉 Quản trị viên vui lòng gõ /login để kết nối tài khoản Google dùng chung.`,
+        `⚠️ Google chưa được kết nối nên chưa có thư mục hay album lưu trữ. Admin gõ /login để kết nối tài khoản Google dùng chung.`,
       );
       return;
     }
 
     // Kiểm tra quyền lưu trữ Google Drive & Photos
     if (!this.googleAuthService.hasStorageScopes()) {
-      let loginLinkNote = '👉 Quản trị viên vui lòng gõ /login để cấp quyền bổ sung.';
+      let loginLinkNote = 'Admin gõ /login để cấp thêm quyền.';
       try {
         const authUrl = this.googleAuthService.generateAuthUrl(context.senderId);
         loginLinkNote =
-          `👉 Quản trị viên vui lòng mở liên kết sau để cấp quyền bổ sung:\n` +
-          `🔗 ${authUrl}\n\n` +
-          `(Hoặc gõ /login để nhận link cấp quyền)`;
+          `Admin mở link này để cấp thêm quyền, hoặc gõ /login để nhận link:\n` + authUrl;
       } catch {
         // fallback
       }
 
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `⚠️ TÀI KHOẢN GOOGLE CHƯA CẤP QUYỀN LƯU TRỮ (DRIVE & PHOTOS)\n\n` +
-          `Tài khoản Google của Bot hiện đã kết nối (Lịch & Tasks) nhưng CHƯA ĐƯỢC CẤP QUYỀN truy cập Google Drive & Google Photos để tạo kho lưu trữ file.\n\n` +
-          `${loginLinkNote}`,
+        `⚠️ Tài khoản Google đã kết nối nhưng chưa có quyền Google Drive và Google Photos để lưu file.\n` +
+          loginLinkNote,
       );
       return;
     }
@@ -81,7 +71,7 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
     if (!this.driveService && !this.storageLinks) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `⚠️ Dịch vụ lưu trữ chưa sẵn sàng. Vui lòng thử lại sau.`,
+        `⚠️ Dịch vụ lưu trữ chưa sẵn sàng, thử lại sau.`,
       );
       return;
     }
@@ -90,13 +80,10 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
     if (this.zcaMessenger.sendMessageWithResult) {
       progressResult = await this.zcaMessenger.sendMessageWithResult(
         context.chatId,
-        `⏳ Đang lấy đường dẫn kho lưu trữ Google...`,
+        `⏳ Đang lấy link kho lưu trữ Google...`,
       );
     } else {
-      await this.zcaMessenger.sendMessage(
-        context.chatId,
-        `⏳ Đang lấy đường dẫn kho lưu trữ Google...`,
-      );
+      await this.zcaMessenger.sendMessage(context.chatId, `⏳ Đang lấy link kho lưu trữ Google...`);
     }
 
     try {
@@ -131,19 +118,12 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
       }
 
       const lines: string[] = [
-        `📦 KHO LƯU TRỮ GOOGLE CỦA BOT`,
-        ``,
-        `📁 Google Drive (Thư mục nhóm):`,
-        channelDriveLink ? `👉 ${channelDriveLink}` : `⚠️ Chưa có dữ liệu (chưa upload file nào)`,
-        ``,
-        `📁 Google Drive (Thư mục gốc hệ thống):`,
-        rootDriveLink ? `👉 ${rootDriveLink}` : `⚠️ Chưa có dữ liệu`,
-        ``,
-        `📸 Google Photos (Album [${target.photosAlbumTitle}]):`,
-        album
-          ? `👉 ${album.url}`
-          : `⚠️ Chưa có (album được tạo khi gửi ảnh/hóa đơn/video đầu tiên)`,
-        ``,
+        `📦 Kho lưu trữ Google của bot`,
+        `• Thư mục nhóm: ${channelDriveLink ? channelDriveLink : 'chưa có, chưa upload file nào'}`,
+        `• Thư mục gốc: ${rootDriveLink ? rootDriveLink : 'chưa có'}`,
+        `• Album Google Photos "${target.photosAlbumTitle}": ${
+          album ? album.url : 'chưa có, album được tạo khi gửi ảnh/hoá đơn/video đầu tiên'
+        }`,
       ];
 
       // A custom folder takes every upload directly (by month), so it has no category folders:
@@ -152,32 +132,24 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
         const entriesToFetch =
           storageType === 'all' ? (['bill', 'image', 'video'] as const) : [storageType];
         for (const category of entriesToFetch) {
-          const meta = CATEGORY_META[category];
+          const label = CATEGORY_LABELS[category];
           const driveFolder = getChannelUploadFolder(target, category);
           const driveLink = this.driveService
             ? await this.driveService.getFolderWebLink(driveFolder)
             : null;
 
-          lines.push(`${meta.emoji} ${meta.label.toUpperCase()}:`);
           lines.push(
-            `• 📁 Drive [${driveFolder}]:`,
-            driveLink
-              ? `  👉 ${driveLink}`
-              : `  ⚠️ Chưa có (chưa upload ${meta.label.toLowerCase()} nào)`,
+            `• ${label} [${driveFolder}]: ${
+              driveLink ? driveLink : `chưa có, chưa upload ${label.toLowerCase()} nào`
+            }`,
           );
-          lines.push(``);
         }
       }
 
-      lines.push(`💡 Các thư mục/album được tạo tự động khi bạn gửi ảnh/hóa đơn/video lên bot.`);
-      lines.push(``);
-      lines.push(`🔒 Chưa có quyền truy cập Google Drive?`);
-      lines.push(`👉 Hãy gửi: @bot share <gmail của bạn>`);
       lines.push(
-        `(Ví dụ: @bot share nguyenvana@gmail.com) để bot tự động bật quyền truy cập thư mục của nhóm này cho bạn nhé!`,
+        `Chưa xem được thư mục thì nhắn @bot share <gmail của bạn> để bot mở quyền thư mục nhóm này cho bạn, ví dụ: @bot share nguyenvana@gmail.com`,
       );
-      lines.push(``);
-      lines.push(`⏱️ Tin nhắn này sẽ tự động thu hồi sau 5 phút vì lý do bảo mật.`);
+      lines.push(`Tin này tự thu hồi sau 5 phút.`);
 
       let sendResult: { success: boolean; msgId?: string; cliMsgId?: string } | undefined;
       if (this.zcaMessenger.sendMessageWithResult) {
@@ -230,7 +202,7 @@ export class GetStorageLinksToolStrategy implements TextToolStrategy {
       }
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `⚠️ Không thể lấy đường dẫn lưu trữ: ${(err as Error).message}`,
+        `⚠️ Chưa lấy được link lưu trữ: ${(err as Error).message}`,
       );
     }
   }

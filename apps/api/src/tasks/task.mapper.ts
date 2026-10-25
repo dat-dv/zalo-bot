@@ -82,10 +82,12 @@ function formatTaskDueDay(row: Pick<TaskEntity, 'dueAt'>): string {
   return `${pad(row.dueAt.getUTCDate())}/${pad(row.dueAt.getUTCMonth() + 1)}`;
 }
 
-const REMINDER_RULE = '━━━━━━━━━━━━━━━━━━━━';
 const REMINDER_NOTES_LENGTH = 200;
 
-/** The message the bot posts into the reminder chat when a task's reminder time comes. */
+/**
+ * The message the bot posts into the reminder chat when a task's reminder time comes: the title
+ * in the header, then due date, notes and how to mark it done, one plain line each.
+ */
 export function formatTaskReminderMessage(
   row: Pick<TaskEntity, 'title' | 'notes' | 'dueAt'>,
   locale: SupportedLocale,
@@ -94,16 +96,15 @@ export function formatTaskReminderMessage(
   const due = formatTaskDueDay(row);
   // The tag line of the people to remind goes between the header and the body.
   const body = [
-    REMINDER_RULE,
-    `📌 ${row.title}`,
-    due ? `⏳ ${translate(locale, 'task.reminder.due')}: ${due}` : '',
+    due ? `${translate(locale, 'task.reminder.due')}: ${due}` : '',
     notes
-      ? `📝 ${notes.length > REMINDER_NOTES_LENGTH ? `${notes.slice(0, REMINDER_NOTES_LENGTH)}…` : notes}`
+      ? notes.length > REMINDER_NOTES_LENGTH
+        ? `${notes.slice(0, REMINDER_NOTES_LENGTH)}…`
+        : notes
       : '',
-    REMINDER_RULE,
     translate(locale, 'task.reminder.completeHint', { title: row.title }),
   ]
     .filter(Boolean)
     .join('\n');
-  return { header: translate(locale, 'task.reminder.header'), body };
+  return { header: translate(locale, 'task.reminder.header', { title: row.title }), body };
 }

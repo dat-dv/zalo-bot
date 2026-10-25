@@ -348,49 +348,45 @@ export class MediaStorageService {
   ): string {
     const typeLabel =
       type === 'bill'
-        ? 'Hóa đơn'
+        ? 'hoá đơn'
         : type === 'video'
-          ? 'Video'
+          ? 'video'
           : type === 'file'
-            ? 'Tệp tin'
+            ? 'tệp'
             : type === 'audio'
-              ? 'Âm thanh'
-              : 'Hình ảnh';
+              ? 'âm thanh'
+              : 'ảnh';
 
-    const lines: string[] = [`☁️ ĐÃ LƯU TRỮ ${typeLabel.toUpperCase()} LÊN GOOGLE:`];
+    // Nothing saved on either side: say so instead of a "saved" title over two error rows.
+    const lines: string[] = [
+      result.drive || result.photos
+        ? `☁️ Đã lưu ${typeLabel} lên Google:`
+        : `⚠️ Chưa lưu được ${typeLabel} lên Google:`,
+    ];
+    const missingScopeHint = 'chưa cấp quyền, admin gõ /login để cấp thêm quyền';
 
     if (result.drive) {
-      lines.push(
-        `• 📁 Google Drive: [${result.drive.folderPath || 'zalobot'}/${result.drive.name}]\n` +
-          `  👉 Xem tại: ${result.drive.webViewLink || 'Đã lưu trên Drive'}`,
-      );
+      lines.push(`• Google Drive: ${result.drive.folderPath || 'zalobot'}/${result.drive.name}`);
+      if (result.drive.webViewLink) lines.push(`Xem tại: ${result.drive.webViewLink}`);
     } else if (result.driveError) {
       const isPermError =
         result.driveError.includes('Insufficient Permission') ||
         result.driveError.includes('insufficient');
-      const errDetail = isPermError
-        ? 'Chưa cấp quyền Google Drive (Quản trị viên vui lòng gõ /login để cấp quyền bổ sung)'
-        : result.driveError;
-      lines.push(`• 📁 Google Drive: ⚠️ Lỗi lưu trữ (${errDetail})`);
+      lines.push(`• Google Drive lỗi: ${isPermError ? missingScopeHint : result.driveError}`);
     }
 
     if (result.photos) {
-      lines.push(
-        `• 📸 Google Photos: [Album: ${result.photos.albumTitle}]\n` +
-          `  👉 Xem tại: ${result.photos.productUrl || 'Đã thêm vào Google Photos'}`,
-      );
+      lines.push(`• Google Photos: album ${result.photos.albumTitle}`);
+      if (result.photos.productUrl) lines.push(`Xem tại: ${result.photos.productUrl}`);
     } else if (result.photosError) {
       const isPermError =
         result.photosError.includes('401') ||
         result.photosError.includes('Authentication session') ||
         result.photosError.includes('permission');
-      const errDetail = isPermError
-        ? 'Chưa cấp quyền Google Photos (Quản trị viên vui lòng gõ /login để cấp quyền bổ sung)'
-        : result.photosError;
-      lines.push(`• 📸 Google Photos: ⚠️ Lỗi lưu trữ (${errDetail})`);
+      lines.push(`• Google Photos lỗi: ${isPermError ? missingScopeHint : result.photosError}`);
     }
 
-    return lines.join('\n\n');
+    return lines.join('\n');
   }
 
   public hasStorageScopes(userId?: number | string): boolean {

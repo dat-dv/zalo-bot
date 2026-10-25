@@ -20,7 +20,7 @@ import {
 
 /**
  * Tin nhắn "đã xác nhận thành công" dạng gọn (1–2 dòng) cho điện thoại.
- * Thẻ chờ duyệt vẫn dùng renderDtoConfirmationCard (đủ trường); ở đây chỉ in trường có giá trị.
+ * Chỉ một icon ở đầu tin; các phần phụ là chữ, nối bằng ` · `, bỏ phần rỗng.
  */
 
 const TIME_ZONE = 'Asia/Ho_Chi_Minh';
@@ -117,11 +117,11 @@ export function summarizeTransaction(
     clean(dto.note),
   ])}`;
   const second = joinParts([
-    withPrefix('📍', clean(dto.placeName)),
-    withPrefix('🕗', formatShortDateTimeVN(dto.occurredAt, now)),
-    withPrefix('💳', clean(dto.paymentMethod)),
+    clean(dto.placeName),
+    formatShortDateTimeVN(dto.occurredAt, now),
+    clean(dto.paymentMethod),
   ]);
-  return joinLines([first, second, withPrefix('🧾', clean(dto.receiptUrl))]);
+  return joinLines([first, second, withPrefix('Hoá đơn:', clean(dto.receiptUrl))]);
 }
 
 export function summarizeDeletedTransaction(
@@ -135,7 +135,7 @@ export function summarizeDeletedTransaction(
     clean(dto.category),
     clean(dto.note),
   ])}`;
-  return joinLines([first, withPrefix('🕗', formatShortDateTimeVN(dto.occurredAt, now))]);
+  return joinLines([first, formatShortDateTimeVN(dto.occurredAt, now)]);
 }
 
 export function summarizeDebt(code: string, dto: CreateDebtDto, now: Date = new Date()): string {
@@ -148,8 +148,8 @@ export function summarizeDebt(code: string, dto: CreateDebtDto, now: Date = new 
     dto.direction === 'receivable' ? `${person} nợ bạn ${amount}` : `Bạn nợ ${person} ${amount}`;
   const first = `✅ [${code}] ${joinParts([relation.trim(), clean(dto.note)])}`;
   const second = joinParts([
-    withPrefix('🕗', formatShortDateTimeVN(dto.occurredAt, now)),
-    withPrefix('⏳ hạn', formatShortDateVN(dto.dueAt, now)),
+    formatShortDateTimeVN(dto.occurredAt, now),
+    withPrefix('hạn', formatShortDateVN(dto.dueAt, now)),
   ]);
   return joinLines([first, second]);
 }
@@ -174,8 +174,8 @@ export function summarizeReminder(
   const when = formatShortTimesVN(dto.remindTimes, dto.remindAt, now, dto.repeatType);
   const first = `⏰ [${code}] Nhắc "${clean(dto.title)}"${when ? ` lúc ${when}` : ''}`;
   const second = joinParts([
-    withPrefix('🔁', nagLabel(dto)),
-    dto.notifyType === 'call' ? '📞 gọi điện' : '',
+    nagLabel(dto),
+    dto.notifyType === 'call' ? 'gọi điện' : '',
     remindPeople(dto),
   ]);
   return joinLines([first, second]);
@@ -208,11 +208,11 @@ function formatShortTimesVN(
     .join(', ');
 }
 
-/** "👤 @Trí, @Đạt (nhắn riêng)", or "" when nobody is tagged. */
+/** "@Trí, @Đạt (nhắn riêng)", or "" when nobody is tagged. */
 function remindPeople(dto: Pick<CreateTaskOptions, 'remindUsers' | 'remindMode'>): string {
   if (!dto.remindUsers?.length) return '';
   const names = dto.remindUsers.map((user) => `@${user.name}`).join(', ');
-  return `👤 ${names}${dto.remindMode === 'direct' ? ' (nhắn riêng)' : ''}`;
+  return `${names}${dto.remindMode === 'direct' ? ' (nhắn riêng)' : ''}`;
 }
 
 export function summarizeTask(
@@ -222,12 +222,12 @@ export function summarizeTask(
 ): string {
   const first = `✅ [${code}] ${joinParts([
     `Thêm việc: ${clean(dto.title)}`,
-    withPrefix('⏳ hạn', formatShortDateVN(dto.due, now)),
-    withPrefix('⏰ nhắc', formatShortTimesVN(dto.remindTimes, dto.remindAt, now)),
-    withPrefix('🔁', nagLabel(dto)),
+    withPrefix('hạn', formatShortDateVN(dto.due, now)),
+    withPrefix('nhắc', formatShortTimesVN(dto.remindTimes, dto.remindAt, now)),
+    nagLabel(dto),
     remindPeople(dto),
   ])}`;
-  return joinLines([first, withPrefix('📝', clean(dto.notes))]);
+  return joinLines([first, withPrefix('Ghi chú:', clean(dto.notes))]);
 }
 
 export function summarizeCompletedTask(code: string, dto: CompleteTaskDto): string {
@@ -258,9 +258,9 @@ export function summarizeCalendarEvent(
   ])}`;
   const reminders =
     dto.reminderMinutes && dto.reminderMinutes.length > 0
-      ? `trước ${dto.reminderMinutes.map((m) => `${m}p`).join(', ')}`
+      ? `báo trước ${dto.reminderMinutes.map((m) => `${m}p`).join(', ')}`
       : '';
-  const second = joinParts([withPrefix('📍', clean(dto.location)), withPrefix('🔔', reminders)]);
+  const second = joinParts([clean(dto.location), reminders]);
   return joinLines([first, second]);
 }
 
@@ -279,7 +279,7 @@ export function summarizeBannedUser(code: string, dto: BanUserDto): string {
   const name = clean(dto.targetName);
   const who = name ? `${name} (id ${dto.targetUserId})` : `id ${dto.targetUserId}`;
   const first = `⛔ [${code}] ${joinParts([`Đã khoá ${who}`, 'đã thu hồi quyền và token Google'])}`;
-  return joinLines([first, withPrefix('📝', clean(dto.reason))]);
+  return joinLines([first, withPrefix('Lý do:', clean(dto.reason))]);
 }
 
 export function summarizePlace(code: string, name: string): string {

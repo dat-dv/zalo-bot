@@ -385,7 +385,7 @@ export class UsersService implements OnModuleInit {
       const waitSeconds = Math.ceil(this.cooldownSeconds - timeSinceLast);
       return {
         allowed: false,
-        reason: `⏳ Bạn đang gửi tin nhắn quá nhanh. Vui lòng chờ ${waitSeconds} giây trước khi gửi tiếp nhé!`,
+        reason: `Bạn nhắn nhanh quá, chờ ${waitSeconds} giây rồi gửi tiếp.`,
         waitSeconds,
       };
     }

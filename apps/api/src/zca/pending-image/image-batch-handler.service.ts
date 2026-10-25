@@ -68,10 +68,7 @@ export class ImageBatchHandler implements OnModuleDestroy {
    */
   public async handle(input: AgentInput, targetChatId: string): Promise<void> {
     if (!this.pendingImageActionService) {
-      await this.notify(
-        targetChatId,
-        '📸 Đã nhận ảnh từ bạn. Bạn có thể tiếp tục trò chuyện hoặc gửi thêm yêu cầu!',
-      );
+      await this.notify(targetChatId, '📸 Đã nhận ảnh.');
       return;
     }
 
@@ -86,20 +83,16 @@ export class ImageBatchHandler implements OnModuleDestroy {
       if (!pending) return;
 
       const count = pending.receiptUrls?.length || 1;
-      const countText = count > 1 ? ` (${count} ảnh)` : '';
+      const countText = count > 1 ? `${count} ảnh` : 'ảnh';
 
       this.logger.log(`Debounce fired: notifying user ${input.senderId} for ${count} image(s).`);
 
       await this.notify(
         targetChatId,
-        `📸 Tôi đã nhận được hình ảnh${countText} của bạn! Bạn muốn xử lý ảnh như thế nào?
-
-1️⃣ Tạo bill / Ghi nhận chi tiêu (nếu đây là hóa đơn)
-   👉 Trả lời: "1" hoặc "1 <ghi chú>" (Ví dụ: "1 Ăn trưa Highlands")
-2️⃣ Lưu trữ ảnh lên Google Drive & Google Photos
-   👉 Trả lời: "2"
-
-💡 Bạn có thể tiếp tục trò chuyện bình thường hoặc gõ "hủy" để bỏ qua ảnh.`,
+        `Đã nhận ${countText}. Làm gì với ảnh?\n` +
+          `1 hoặc "1 <ghi chú>": ghi hoá đơn (vd "1 Ăn trưa Highlands")\n` +
+          `2: lưu lên Google Drive và Google Photos\n` +
+          `Nhắn "huỷ" để bỏ qua ảnh.`,
       );
     }, this.debounceDelayMs);
 

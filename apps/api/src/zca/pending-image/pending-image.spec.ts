@@ -114,7 +114,7 @@ void test('CancelPendingImageStrategy handles cancel phrases and clears pending'
   assert.equal(handled, true);
   assert.equal(pendingStore.has('u1'), false);
   assert.equal(sentMessages.length, 1);
-  assert.match(sentMessages[0].text, /Đã hủy/);
+  assert.match(sentMessages[0].text, /Đã huỷ, bỏ qua ảnh/);
 });
 
 void test('StorageUploadPendingImageStrategy handles option 2 upload and messaging', async () => {
@@ -126,7 +126,7 @@ void test('StorageUploadPendingImageStrategy handles option 2 upload and messagi
         drive: { name: 'img1.jpg', webViewLink: 'https://drive.google.com/img1' },
         photos: { id: 'p1', productUrl: 'https://photos.google.com/p1' },
       }),
-    formatUploadSummary: () => 'ĐÃ LƯU TRỮ HÌNH ẢNH LÊN GOOGLE',
+    formatUploadSummary: () => '☁️ Đã lưu ảnh lên Google:',
   } as unknown as MediaStorageService;
 
   const strategy = new StorageUploadPendingImageStrategy(
@@ -171,7 +171,7 @@ void test('StorageUploadPendingImageStrategy handles option 2 upload and messagi
   assert.equal(pendingStore.has('u1'), false);
   assert.equal(sentMessages.length, 2);
   assert.match(sentMessages[0].text, /Đang tải ảnh lên Google Drive/);
-  assert.match(sentMessages[1].text, /ĐÃ LƯU TRỮ HÌNH ẢNH/);
+  assert.match(sentMessages[1].text, /Đã lưu ảnh lên Google/);
 });
 
 void test('CreateBillPendingImageStrategy handles option 1 OCR and LLM tool execution', async () => {
@@ -251,7 +251,7 @@ void test('CreateBillPendingImageStrategy handles option 1 OCR and LLM tool exec
   assert.equal(handled, true);
   assert.equal(toolExecuted, true);
   assert.equal(pendingStore.has('u1'), false);
-  assert.match(sentMessages[0].text, /Tesseract OCR/);
+  assert.match(sentMessages[0].text, /Đang đọc hoá đơn/);
 });
 
 void test('PendingImageActionDispatcher routes to matching strategy or clears pending on unrelated message', async () => {
@@ -365,8 +365,9 @@ void test('ImageBatchHandler debounces multi-image uploads and sends a single no
 
   assert.equal(sentMessages.length, 1);
   assert.match(sentMessages[0].text, /3 ảnh/);
-  assert.match(sentMessages[0].text, /1️⃣ Tạo bill/);
-  assert.match(sentMessages[0].text, /2️⃣ Lưu trữ ảnh/);
+  assert.match(sentMessages[0].text, /Đã nhận 3 ảnh\. Làm gì với ảnh\?/);
+  assert.match(sentMessages[0].text, /1 hoặc "1 <ghi chú>": ghi hoá đơn/);
+  assert.match(sentMessages[0].text, /2: lưu lên Google Drive và Google Photos/);
 
   batchHandler.onModuleDestroy();
 });

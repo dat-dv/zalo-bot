@@ -20,10 +20,7 @@ export class BanToolStrategy implements TextToolStrategy {
     const isAdmin = this.usersService.isAdmin(context.senderId);
 
     if (!isAdmin) {
-      await this.zcaMessenger.sendMessage(
-        context.chatId,
-        '⛔ Chỉ Quản trị viên (Admin) mới có quyền khóa tài khoản.',
-      );
+      await this.zcaMessenger.sendMessage(context.chatId, '⛔ Chỉ admin mới khoá được tài khoản.');
       return;
     }
 
@@ -33,7 +30,7 @@ export class BanToolStrategy implements TextToolStrategy {
     if (!targetId) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        'ℹ️ Cú pháp: /ban <zalo_user_id>\n\nVí dụ: /ban 123456789',
+        'Cú pháp: /ban <zalo_user_id>\nVí dụ: /ban 123456789',
       );
       return;
     }
@@ -41,7 +38,7 @@ export class BanToolStrategy implements TextToolStrategy {
     if (targetId === context.senderId) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Bạn không thể tự khóa tài khoản của chính mình.',
+        '⚠️ Không tự khoá tài khoản của mình được.',
       );
       return;
     }
@@ -49,7 +46,7 @@ export class BanToolStrategy implements TextToolStrategy {
     if (this.usersService.isAdmin(targetId)) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Không thể khóa tài khoản của Quản trị viên khác.',
+        '⚠️ Không khoá được tài khoản admin khác.',
       );
       return;
     }
@@ -74,7 +71,7 @@ export class BanToolStrategy implements TextToolStrategy {
       this.logger.error(`Failed to create pending ban user ${targetId}: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Có lỗi xảy ra khi tạo yêu cầu khóa tài khoản người dùng.',
+        '⚠️ Chưa tạo được yêu cầu khoá tài khoản, thử lại sau.',
       );
     }
   }
