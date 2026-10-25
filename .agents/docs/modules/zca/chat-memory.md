@@ -24,7 +24,7 @@ metadata:
       - apps/api/src/ocr/ocr.service.ts
       - docker-compose.yml
       - apps/web/nginx.conf
-      - apps/web/30-cognee-htpasswd.sh
+      - apps/web/30-cognee-proxy.sh
       - apps/web/src/modules/zca/view/thread-config-screen.tsx
       - apps/web/src/modules/zca/presentation/components/thread-config/channel-notes-section.tsx
       - apps/web/src/modules/zca/presentation/components/thread-config/long-term-memory-section.tsx
@@ -103,16 +103,16 @@ Khi có người hỏi chuyện cũ, `SEARCH_CHAT_HISTORY` chạy song song tìm
   - `COGNEE_URL` do compose đặt cố định là `http://cognee:8000`; chạy API ngoài Docker thì tự khai báo.
 - Trạng thái nạp hiện trên thẻ "Nhớ lâu dài": ngày đã nạp gần nhất, số ngày lỗi.
 - **Giao diện Cognee**: vào `https://zalobot.datintech.site/cognee`, trang này chuyển sang `https://cognee-zalobot.datintech.site` (biến `COGNEE_UI_HOST`).
-  - Nhập Basic Auth (`COGNEE_PROXY_USER` / `COGNEE_PROXY_PASSWORD`), rồi đăng nhập UI bằng `zalobot@example.com` + `COGNEE_USER_PASSWORD`.
+  - Đăng nhập UI bằng `zalobot@example.com` + `COGNEE_USER_PASSWORD`. Đây là lớp bảo vệ duy nhất: theo quyết định của anh Đạt ngày 26/10/2026, nginx không có Basic Auth.
   - UI là service `cognee-ui` (image chính thức `cognee/cognee-ui:1.6.5`). Nó không chạy được dưới đường dẫn `/cognee/` vì không có basePath, và đăng nhập bằng cookie gắn theo host, nên UI và API Cognee cùng nằm trên subdomain riêng: `/` là UI, `/api/` là API, cùng một origin nên không vướng CORS.
   - Tài khoản này là superuser: ai đăng nhập được là xem và xoá được trí nhớ của mọi kênh.
-  - Tunnel trỏ `cognee-zalobot.datintech.site` vào cổng **3006** của máy chủ (`COGNEE_UI_PORT`). Nginx của `web` nghe riêng cổng này cho UI Cognee, vẫn có Basic Auth. Tên host chỉ một cấp để chứng chỉ SSL miễn phí của Cloudflare (`*.datintech.site`) phủ được; `cognee.zalobot.datintech.site` là hai cấp nên không được phủ.
+  - Tunnel trỏ `cognee-zalobot.datintech.site` vào cổng **3006** của máy chủ (`COGNEE_UI_PORT`). Nginx của `web` nghe riêng cổng này cho UI Cognee. Tên host chỉ một cấp để chứng chỉ SSL miễn phí của Cloudflare (`*.datintech.site`) phủ được; `cognee.zalobot.datintech.site` là hai cấp nên không được phủ.
   - Các trang Activity, Analytics, Memory Coverage chỉ có trên Cognee Cloud; Datasets, Search, Graph dùng được.
-- **API Cognee trên domain chính**: `https://zalobot.datintech.site/cognee/api/v1/...` (Basic Auth), ví dụ:
+- **API Cognee trên domain chính**: `https://zalobot.datintech.site/cognee/api/v1/...` (cần đăng nhập Cognee), ví dụ:
     ```bash
-    curl -u zalobot:<COGNEE_PROXY_PASSWORD> https://zalobot.datintech.site/cognee/health
+    curl https://zalobot.datintech.site/cognee/api/v1/auth/login -d 'username=zalobot@example.com&password=<COGNEE_USER_PASSWORD>'
     ```
-- Bảo vệ chung: thiếu biến proxy thì mọi đường vào Cognee đều trả 404 (mặc định đóng); `/api/v1/auth/register` luôn trả 403, vì người lạ tự đăng ký được thì sẽ đốt key LLM; Cognee hoặc UI tắt thì trả 502, trang web vẫn chạy.
+- Bảo vệ chung: thiếu `COGNEE_UI_HOST` thì mọi đường vào Cognee đều trả 404 (mặc định đóng); `/api/v1/auth/register` luôn trả 403, vì người lạ tự đăng ký được thì sẽ đốt key LLM; Cognee hoặc UI tắt thì trả 502, trang web vẫn chạy.
 
 ## 6. Trang cấu hình kênh
 

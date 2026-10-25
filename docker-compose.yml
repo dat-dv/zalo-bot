@@ -113,7 +113,7 @@ services:
       retries: 5
       start_period: 60s
 
-  # Cognee web UI, served at https://${COGNEE_UI_HOST} by the web nginx (Basic Auth) together with
+  # Cognee web UI, served at https://${COGNEE_UI_HOST} by the web nginx together with
   # the Cognee API, so the login cookie and CORS stay on one origin. Internal only.
   cognee-ui:
     image: cognee/cognee-ui:1.6.5
@@ -129,15 +129,12 @@ services:
       dockerfile: apps/web/Dockerfile
     environment:
       - BE_PORT=${BE_PORT:-3005}
-      # Remote access to Cognee at /cognee/ (Basic Auth); empty = /cognee/ answers 404.
-      - COGNEE_PROXY_USER=${COGNEE_PROXY_USER:-}
-      - COGNEE_PROXY_PASSWORD=${COGNEE_PROXY_PASSWORD:-}
       # Host of the Cognee UI (e.g. cognee.datintech.site); empty = no UI, /cognee answers 404.
       - COGNEE_UI_HOST=${COGNEE_UI_HOST:-}
     restart: unless-stopped
     ports:
       - '${NGINX_PORT:-3009}:80'
-      # Cognee UI (only answers when COGNEE_UI_HOST and the proxy credentials are set).
+      # Cognee UI (only answers when COGNEE_UI_HOST is set); Cognee's own login protects it.
       - '${COGNEE_UI_PORT:-3006}:8081'
     depends_on:
       api:
