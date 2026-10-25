@@ -6,6 +6,7 @@ metadata:
     depends_on:
       - .agents/knowledge/global/zalo-command-intake.md
       - apps/api/src/zca/text/text-tool.factory.ts
+      - apps/api/src/zca/text/amend-pending.tool.ts
       - apps/api/src/zca/zca-bot-feature.service.ts
 ---
 
@@ -29,13 +30,14 @@ Bot chỉ còn **một kênh** là tài khoản Zalo cá nhân của bot qua ZCA
 ## 2. Thứ tự xử lý trong `TextInputService`
 
 1. Làm sạch phần nhắc tên bot / tiền tố.
-2. Lệnh xác nhận thẻ chờ (`TransactionConfirmationService`, nằm ở `apps/api/src/zca/confirmation/`): `yes <mã>`, `cancel <mã>`, `edit <mã> <nội dung>`, `yes all`, `cancel all` (và các biến thể tiếng Việt như `xác nhận`, `hủy`, `sửa`).
+2. Lệnh xác nhận thẻ chờ (`TransactionConfirmationService`, nằm ở `apps/api/src/zca/confirmation/`): `yes <mã>`, `cancel <mã>`, `edit <mã> <nội dung>`, `yes all`, `cancel all` (và các biến thể tiếng Việt như `xác nhận`, `hủy`, `sửa`). Không gõ `edit` mà nhắn bổ sung cho thẻ của mình thì được xử lý ở bước 5 (xem dưới).
 3. Lựa chọn cho ảnh đang chờ (`1`, `2`, `hủy`).
 4. Lệnh nhanh (bảng dưới) — không tốn token LLM, phản hồi tức thì.
 5. Còn lại: gửi cho LLM để gọi tool (xem [Nhà cung cấp LLM](llm-providers.md)). Nếu LLM không gọi tool nào:
    - Chế độ thụ động hoặc `allowAiChat === false`: bot im lặng.
    - Được phép trò chuyện tự do (`allowAiChat` khác `false`, chưa đặt cũng tính là bật): prompt gọi tool đã có sẵn đoạn "TRÒ CHUYỆN TỰ DO", và bot gọi LLM thêm một lần **không kèm tool** để trả lời. Lý do: khi prompt đầy mô tả tool tài chính/lịch, LLM có xu hướng từ chối câu hỏi ngoài lề ("em chỉ là trợ lý tài chính"); lần gọi không có tool giúp câu trả lời tự nhiên hơn. Nếu lần thứ hai lỗi hoặc rỗng, bot gửi câu trả lời của lần đầu.
    - Đánh đổi: mỗi tin trò chuyện tốn 2 lần gọi LLM. Bot không có tra cứu web, nên câu hỏi cần dữ liệu thời gian thực (lịch chiếu, giá, thời tiết) chỉ được trả lời bằng kiến thức sẵn có, kèm lưu ý có thể chưa cập nhật.
+   - **Người gửi đang có thẻ chờ trong cuộc trò chuyện này:** prompt liệt kê các thẻ đó (mã, loại, tham số, người đang được nhắc), và LLM có thêm công cụ `AMEND_PENDING`. Tin bổ sung như "tag @Nam nha" hay "đổi sang 10h" sẽ sửa đúng thẻ đó qua luồng `edit`, thay vì sinh thẻ thứ hai. Yêu cầu mới, độc lập vẫn chạy như thường. Nếu LLM vừa sửa thẻ vừa gọi công cụ tạo mới cùng loại trong một tin, bot bỏ lệnh tạo mới. Đánh đổi: tin sửa tốn 2 lần gọi LLM (một lần phân loại, một lần sửa). Chi tiết quy tắc sửa xem [Bố cục phản hồi Zalo](zalo-response-layout.md).
 
 Ý nghĩa của thứ tự: lệnh xác nhận phải được bắt trước để "yes 123" không bị LLM hiểu nhầm; lệnh nhanh đứng trước LLM để tiết kiệm chi phí và chạy được kể cả khi LLM lỗi.
 

@@ -854,6 +854,41 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     return this.configService?.get<string>('zalo.botName') || process.env.BOT_NAME || 'Bot';
   }
 
+  /**
+   * The text pipeline's input for a message. `text` may be a cleaned copy (bot mention
+   * stripped); the people tagged are read from the raw message, whose mention offsets they use.
+   */
+  private buildTextAgentInput(
+    message: Message,
+    api: API,
+    fields: {
+      text: string;
+      directConfig: ThreadDirectInteractionConfig;
+      memory: Pick<AgentInput, 'shortTermMemory' | 'longTermMemory'>;
+    },
+  ): AgentInput {
+    const { text, directConfig, memory } = fields;
+    return {
+      type: 'text',
+      senderId: message.data?.uidFrom || '',
+      chatId: message.threadId,
+      displayName: message.data?.dName || '',
+      text,
+      isBot: false,
+      allowAiChat: directConfig.allowAiChat ?? true,
+      triggerPrefixes: directConfig.triggerPrefixes ?? [],
+      messageId: message.data?.msgId ? String(message.data.msgId) : undefined,
+      taggedUsers: isGroupMessage(message)
+        ? extractTaggedUsers(
+            getCaptionOrText(message),
+            message.data.mentions,
+            typeof api?.getOwnId === 'function' ? api.getOwnId() : '',
+          )
+        : [],
+      ...memory,
+    };
+  }
+
   private isOwnerSender(message: Message, api: API): boolean {
     const ownId = typeof api?.getOwnId === 'function' ? api.getOwnId() : '';
     const senderId = message.data?.uidFrom || '';
@@ -949,17 +984,13 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         threadId,
         commandText,
         this.textInputService
-          ? async (pending, instruction) => {
-              const agentInput: AgentInput = {
-                type: 'text',
-                senderId,
-                chatId: threadId,
-                displayName,
-                text: commandText,
-                isBot: false,
-              };
-              await this.textInputService.handleEditPendingAction(agentInput, pending, instruction);
-            }
+          ? (pending, instruction) =>
+              // Same input as the AI path (tags, memory...): an edit that tags people reminds them.
+              this.textInputService.handleEditPendingAction(
+                this.buildTextAgentInput(message, api, { text: commandText, directConfig, memory }),
+                pending,
+                instruction,
+              )
           : undefined,
         (pending) => this.canEditPending(pending, senderId, this.isOwnerSender(message, api)),
       );
@@ -1292,25 +1323,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
 
     // 8. Text Message Processing: only text that addresses the bot reaches the AI.
     if (text && this.textInputService) {
-      const agentInput: AgentInput = {
-        type: 'text',
-        senderId,
-        chatId: threadId,
-        displayName,
-        text,
-        isBot: false,
-        allowAiChat: directConfig.allowAiChat ?? true,
-        triggerPrefixes,
-        messageId,
-        taggedUsers: isGroupMessage(message)
-          ? extractTaggedUsers(
-              text,
-              message.data.mentions,
-              typeof api?.getOwnId === 'function' ? api.getOwnId() : '',
-            )
-          : [],
-        ...memory,
-      };
+      const agentInput = this.buildTextAgentInput(message, api, { text, directConfig, memory });
 
       try {
         await this.textInputService.process(agentInput);

@@ -98,6 +98,9 @@ export interface PendingAction {
 /** Alias to maintain backward compatibility */
 export type PendingTransaction = PendingAction;
 
+/** Re-issues an edited pending action; `true` once its new card is out. */
+export type PendingEditHandler = (pending: PendingAction, instruction: string) => Promise<boolean>;
+
 export function normalizePlaceName(val: string): string {
   return (val || '')
     .normalize('NFD')
@@ -1035,7 +1038,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     userId: string,
     chatId: string,
     text: string,
-    onEdit?: (pending: PendingAction, instruction: string) => Promise<void>,
+    onEdit?: PendingEditHandler,
     canEdit?: (pending: PendingAction) => Promise<boolean>,
   ): Promise<boolean> {
     const trimmed = text.trim();
@@ -1108,12 +1111,25 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     return false;
   }
 
+  /** Re-issues a pending action from a follow-up message of its owner in its chat (no `edit` prefix). */
+  public async amendPending(
+    userId: string,
+    chatId: string,
+    code: string,
+    instruction: string,
+    onEdit: PendingEditHandler,
+  ): Promise<boolean> {
+    return this.processEdit(userId, chatId, code, instruction, onEdit, (pending) =>
+      Promise.resolve(pending.userId === userId && pending.chatId === chatId),
+    );
+  }
+
   private async processEdit(
     userId: string,
     chatId: string,
     code?: string,
     instruction?: string,
-    onEdit?: (pending: PendingAction, instruction: string) => Promise<void>,
+    onEdit?: PendingEditHandler,
     canEdit?: (pending: PendingAction) => Promise<boolean>,
   ): Promise<boolean> {
     let pending: PendingAction | undefined;
@@ -1167,9 +1183,11 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     }
 
     try {
-      await this.recallTempMessages(chatId, pending.code);
-      await onEdit(pending, trimmedInstruction);
-      await this.deletePending(pending.code, pending.userId);
+      // The old card goes only once the new one is out: a failed edit keeps it to approve.
+      if (await onEdit(pending, trimmedInstruction)) {
+        await this.recallTempMessages(chatId, pending.code);
+        await this.deletePending(pending.code, pending.userId);
+      }
     } catch (err) {
       this.logger.error(`Lỗi khi xử lý edit pending action: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(

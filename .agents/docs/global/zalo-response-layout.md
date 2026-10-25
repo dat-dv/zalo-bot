@@ -8,6 +8,8 @@ metadata:
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
       - apps/api/src/zca/confirmation/compact-summary.util.ts
       - apps/api/src/zca/text/zalo-plain-text.util.ts
+      - apps/api/src/zca/text/text-input.service.ts
+      - apps/api/src/zca/text/pending-edit-args.util.ts
       - apps/api/src/zca/confirmation/dto-descriptor.util.ts
       - apps/api/src/zca/zca-bot-feature.service.ts
 ---
@@ -98,6 +100,29 @@ Cách duyệt:
 - **Số tim cần duyệt** lấy từ cấu hình kênh `confirmationRules.requiredHearts` (nhóm mặc định 5, cá nhân 1) tại thời điểm tạo thẻ; thẻ ghi rõ "Thả tim (❤️) N lần". Chat chưa có cấu hình lưu sẵn chỉ cần 1 tim, và việc tra cứu không tự tạo cấu hình mới. Mục đích: trong nhóm, một người không thể tự duyệt thao tác nhạy cảm bằng một tim.
 - Người gửi được duyệt/huỷ/sửa khi là chủ thẻ hoặc đang nhắn trong đúng cuộc trò chuyện chứa thẻ.
 
+### 2.0. Sửa thẻ bằng tin bổ sung (không cần gõ `edit`)
+
+Người dùng thường sửa thẻ bằng cách nhắn tiếp tự nhiên, ví dụ "@Đen tag @Văn Đạt nha", chứ ít khi gõ `edit 446 ...`. Trước đây tin như vậy đi thẳng vào LLM như một yêu cầu mới. LLM phải tự dựng lại cả việc từ văn bản thẻ cũ, nên dễ mất dữ liệu (sự cố 25/10/2026: thẻ 3 giờ nhắc thành thẻ 1 giờ nhắc), còn thẻ cũ thì treo tới khi hết hạn.
+
+Hiện nay:
+
+- Nếu người gửi đang có thẻ chờ **của chính mình, trong đúng cuộc trò chuyện này**, bot liệt kê các thẻ đó cho LLM và cho thêm công cụ `AMEND_PENDING`. LLM tự phân biệt "đang sửa thẻ" với "yêu cầu mới" (ví dụ đang chờ thẻ "mua sữa" mà nhắn "thêm việc mua bánh" thì vẫn là việc mới).
+- Khi LLM chọn sửa, bot chạy đúng luồng `edit` với cả tin nhắn làm nội dung sửa, phát thẻ mới, rồi thu hồi thẻ cũ. Trong cùng tin đó, bot không tạo thêm thẻ cùng loại.
+- Người khác trong nhóm không sửa ngầm được thẻ của bạn; họ vẫn phải gõ `edit <mã>` như trước.
+
+### 2.0.1. Sửa thẻ không làm mất dữ liệu
+
+Áp dụng cho cả `edit <mã>` lẫn tin bổ sung:
+
+- **Việc cần làm và lời nhắc** được sửa theo kiểu "chỉ đổi phần được nhắc tới". LLM thấy thẻ dưới đúng dạng tham số của công cụ và chỉ trả các trường cần đổi; bot gộp với thẻ cũ.
+  - Trường không nhắc tới thì giữ nguyên.
+  - Đổi giờ thì thay cả danh sách giờ.
+  - Đổi "nhắc lại" thì thay cả cặp số phút và số lần.
+  - Ví dụ: "tag @Văn Đạt" giữ đủ 3 giờ nhắc.
+- **Người được nhắc:** tin sửa có tag ai thì nhắc đúng những người đó, thay người cũ (muốn thêm chính mình thì nói "nhắc cả tôi"). Tin sửa không tag ai thì giữ người đang được nhắc, không quay về người gửi.
+- **Sửa thất bại thì thẻ cũ được giữ** để vẫn duyệt được, ví dụ khi LLM lỗi, trả nhầm công cụ, hoặc loại thẻ không hỗ trợ sửa. Trước đây thẻ cũ bị thu hồi luôn dù không có thẻ mới.
+- Các loại thẻ khác (thu chi, công nợ, lịch, nơi chốn) vẫn để LLM phát lại đầy đủ như cũ, vì dữ liệu của chúng không có danh sách dễ bị rơi.
+
 ### 2.1. Tin xác nhận thành công (dạng gọn)
 
 Trước đây, duyệt xong bot gửi lại câu "🎉 Đã nhận đủ N lượt thả tim… đã được xác nhận thành công!" kèm toàn bộ các dòng `• Nhãn: giá trị`, kể cả trường `(trống)`. Mỗi tin khoảng 10 dòng, nên trong nhóm ghi nhiều khoản cùng lúc thì vài tin đã chiếm cả màn hình điện thoại. Người dùng đã xem kỹ thẻ chờ trước khi duyệt, và thẻ đó đã bị thu hồi, nên tin kết quả chỉ cần xác nhận ngắn gọn **đã lưu cái gì**.
@@ -173,7 +198,7 @@ Nguyên tắc: **tin nhắn trong quá trình tương tác là tạm thời; khi
 3. **Xác nhận:** thu hồi thẻ + tin trung gian, thực thi, gửi một tin kết quả dạng gọn (mục 2.1). Còn thẻ khác thì cũng không gửi thêm gì (mục 2.2).
 4. **Thẻ đi kèm:** duyệt giao dịch có nơi chốn mới sẽ tự thu hồi và bỏ thẻ `CREATE_PLACE` tương ứng.
 5. **Huỷ / hết hạn:** thu hồi thẻ và tin trung gian, gửi một tin thông báo một dòng (`[mã] Đã huỷ: …` / `[mã] Hết hạn, chưa lưu: …`).
-6. **Sửa:** thu hồi thẻ cũ, LLM gọi lại đúng tool đó để sinh thẻ mới với mã mới, rồi xoá thẻ cũ.
+6. **Sửa** (`edit <mã>` hoặc tin bổ sung): LLM gọi lại đúng tool đó để sinh thẻ mới với mã mới. Chỉ khi thẻ mới đã ra, bot mới thu hồi và xoá thẻ cũ.
 7. **An toàn:** thu hồi chạy bằng `Promise.allSettled`; lỗi chỉ ghi log, không ảnh hưởng việc lưu dữ liệu.
 
 ## 5. Danh mục kiểm tra
@@ -182,6 +207,6 @@ Nguyên tắc: **tin nhắn trong quá trình tương tác là tạm thời; khi
 1. Duyệt một thẻ khi còn thẻ khác: không có tin "Bạn còn N yêu cầu".
 2. Duyệt xong chỉ còn một tin kết quả trong cuộc trò chuyện, tối đa 2 dòng (thêm dòng link hoá đơn nếu có), không có `(trống)`.
 3. Huỷ hoặc hết hạn chỉ còn một tin thông báo.
-4. Sửa thì thẻ cũ biến mất trước khi thẻ mới xuất hiện.
+4. Sửa thì thẻ mới xuất hiện rồi thẻ cũ biến mất. Nhắn bổ sung kiểu "tag @ai đó nha" khi đang có thẻ chờ cũng ra kết quả như `edit`, giữ đủ giờ nhắc.
 5. Hỏi bot một câu cần liệt kê (ví dụ "gợi ý 3 món ăn sáng"): câu trả lời không còn `**`, `#` hay dấu `` ` ``.
 6. Test `apps/api/src/zca/confirmation/transaction-confirmation.service.spec.ts`, `dto-descriptor.util.spec.ts`, `compact-summary.util.spec.ts`, `apps/api/src/zca/text/zalo-plain-text.util.spec.ts` và `zca.service.spec.ts` pass.
