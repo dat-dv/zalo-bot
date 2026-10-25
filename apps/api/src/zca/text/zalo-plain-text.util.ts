@@ -3,11 +3,13 @@ import type { MessageContent } from '../shapes';
 /**
  * Zalo renders chat text as is, so markdown the LLM writes by habit (`**bold**`, `# heading`)
  * reaches people as raw symbols. Appended to every prompt whose text may be sent to a chat.
+ * Also sets the tone: LLM replies pile on emoji and pleasantries, which reads as a bot.
  */
 export const ZALO_PLAIN_TEXT_INSTRUCTION =
   'ĐỊNH DẠNG TIN NHẮN:\n' +
   '- Zalo không hiển thị markdown. Chỉ viết văn bản thuần: KHÔNG dùng **, __, #, dấu `, bảng hay [chữ](link).\n' +
-  '- Gạch đầu dòng dùng "•" hoặc "-"; muốn nhấn mạnh thì dùng emoji hoặc viết hoa.';
+  '- Viết như người thật nhắn tin: câu ngắn, vào thẳng ý, không mở đầu hay kết thúc bằng câu xã giao, không nhắc lại yêu cầu của người dùng.\n' +
+  '- Tối đa 1 emoji mỗi tin, không viết hoa cả câu. Gạch đầu dòng dùng "•" hoặc "-".';
 
 const MARKDOWN_LINK = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
 const URL = /https?:\/\/[^\s<>"'`]+/g;

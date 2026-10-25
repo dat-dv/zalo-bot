@@ -27,7 +27,7 @@ export class CancelPendingImageStrategy implements PendingImageStrategy {
     if (this.pendingImageActionService) {
       await this.pendingImageActionService.clearPending(context.senderId);
     }
-    await sendChatText(this.zcaService, context.chatId, '❌ Đã hủy yêu cầu xử lý hình ảnh.');
+    await sendChatText(this.zcaService, context.chatId, 'Đã huỷ, bỏ qua ảnh vừa gửi.');
     return true;
   }
 }

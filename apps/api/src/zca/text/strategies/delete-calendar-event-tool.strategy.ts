@@ -42,7 +42,7 @@ export class DeleteCalendarEventToolStrategy implements TextToolStrategy {
         if (events.length === 0) {
           await this.zcaMessenger.sendMessage(
             context.chatId,
-            `⚠️ Không tìm thấy sự kiện sắp tới nào khớp với từ khóa "${args.query}".`,
+            `⚠️ Không có sự kiện sắp tới nào khớp với "${args.query}".`,
           );
           return;
         }
@@ -58,7 +58,7 @@ export class DeleteCalendarEventToolStrategy implements TextToolStrategy {
       if (!targetEventId) {
         await this.zcaMessenger.sendMessage(
           context.chatId,
-          '⚠️ Vui lòng cung cấp tên hoặc ID sự kiện cần xóa.',
+          '⚠️ Chưa rõ sự kiện nào cần xoá, nhắn kèm tên hoặc ID sự kiện.',
         );
         return;
       }
@@ -82,7 +82,7 @@ export class DeleteCalendarEventToolStrategy implements TextToolStrategy {
       );
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        `⚠️ Không thể tạo yêu cầu xóa sự kiện: ${(err as Error).message}`,
+        `⚠️ Chưa tạo được yêu cầu xoá sự kiện: ${(err as Error).message}`,
       );
     }
   }

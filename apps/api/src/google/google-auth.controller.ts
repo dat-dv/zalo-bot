@@ -63,7 +63,7 @@ export class GoogleAuthController {
         try {
           await this.zcaMessenger.sendMessage(
             userId,
-            '🎉 KẾT NỐI GOOGLE THÀNH CÔNG!\n\nTài khoản Google (Calendar, Drive, Photos) của bạn đã được liên kết hoàn tất. Bây giờ bạn có thể bắt đầu sử dụng trợ lý rồi nhé! 🚀',
+            '✅ Đã kết nối Google (Calendar, Drive, Photos).',
           );
         } catch (sendErr) {
           this.logger.warn(

@@ -84,7 +84,10 @@ void test('SearchChatHistoryToolStrategy searches the current chat and reports n
   assert.equal(searches[0].params.limit, 7, 'uses the thread search limit');
   assert.equal(searches[0].params.excludeMsgId, 'm-question', 'skips the asking message');
   assert.equal(prompts.length, 0);
-  assert.match(sent[0], /từ 01\/01\/2025 đến 31\/12\/2025/);
+  assert.equal(
+    sent[0],
+    '🔎 Không thấy tin nào khớp trong lịch sử chat từ 01/01/2025 đến 31/12/2025.',
+  );
 });
 
 void test('SearchChatHistoryToolStrategy answers from the matched lines only', async () => {

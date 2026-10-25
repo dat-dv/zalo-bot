@@ -79,10 +79,7 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
       await this.pendingImageActionService.clearPending(context.senderId);
     }
 
-    await this.notify(
-      context.chatId,
-      '🔍 Đang quét và bóc tách thông tin hóa đơn bằng Tesseract OCR...',
-    );
+    await this.notify(context.chatId, '🔍 Đang đọc hoá đơn...');
 
     let ocrText = '';
     let activeReceiptUrl = context.pending.receiptUrl;
@@ -141,7 +138,7 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
       ZALO_PLAIN_TEXT_INSTRUCTION;
 
     if (!this.llmService || !this.toolFactory) {
-      await this.notify(context.chatId, '⚠️ Dịch vụ AI hoặc công cụ xử lý hiện chưa sẵn sàng.');
+      await this.notify(context.chatId, '⚠️ AI chưa sẵn sàng nên chưa ghi được hoá đơn.');
       return true;
     }
 
@@ -175,15 +172,12 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
       await this.notify(
         context.chatId,
         response.text ||
-          '⚠️ Không thể trích xuất chính xác số tiền từ hóa đơn. Bạn vui lòng nhắn lại thông tin chi tiêu (Ví dụ: "Ăn trưa 85k").',
+          '⚠️ Không đọc được số tiền trên hoá đơn. Nhắn lại khoản chi, vd "Ăn trưa 85k".',
       );
       return true;
     } catch (err) {
       this.logger.error(`Failed to process bill image via LLM: ${(err as Error).message}`);
-      await this.notify(
-        context.chatId,
-        '⚠️ Có lỗi xảy ra trong quá trình phân tích hóa đơn. Vui lòng thử lại.',
-      );
+      await this.notify(context.chatId, '⚠️ Lỗi khi đọc hoá đơn. Gửi lại ảnh để thử lại.');
       return true;
     }
   }

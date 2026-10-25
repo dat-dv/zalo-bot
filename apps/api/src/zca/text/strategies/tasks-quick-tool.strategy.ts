@@ -31,17 +31,11 @@ export class TasksQuickToolStrategy implements TextToolStrategy {
             source: 'zalo',
           },
         );
-        await this.zcaMessenger.sendMessage(
-          context.chatId,
-          `✅ Đã thêm việc cần làm!\n\n• Tiêu đề: ${created.title}`,
-        );
+        await this.zcaMessenger.sendMessage(context.chatId, `✅ Đã thêm việc: ${created.title}`);
         return;
       } catch (err) {
         this.logger.error(`Failed to create quick task: ${(err as Error).message}`);
-        await this.zcaMessenger.sendMessage(
-          context.chatId,
-          '⚠️ Có lỗi xảy ra khi tạo việc cần làm.',
-        );
+        await this.zcaMessenger.sendMessage(context.chatId, '⚠️ Chưa thêm được việc, thử lại sau.');
         return;
       }
     }
@@ -54,30 +48,26 @@ export class TasksQuickToolStrategy implements TextToolStrategy {
       });
 
       if (tasks.length === 0) {
-        await this.zcaMessenger.sendMessage(
-          context.chatId,
-          '📝 DANH SÁCH VIỆC CẦN LÀM\n\n🎉 Hiện tại không có việc nào chưa hoàn thành!',
-        );
+        await this.zcaMessenger.sendMessage(context.chatId, 'Không còn việc nào cần làm.');
         return;
       }
 
       const taskLines = tasks.map((t, idx) => {
         const notes = t.notes ? ` - ${t.notes}` : '';
-        return `  ${idx + 1}. ▫️ ${t.title}${formatTaskDueVN(t)}${notes}`;
+        return `${idx + 1}. ${t.title}${formatTaskDueVN(t)}${notes}`;
       });
 
       const reply =
-        `📝 VIỆC CẦN LÀM (${tasks.length})\n` +
-        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `Việc cần làm (${tasks.length}):\n` +
         taskLines.join('\n') +
-        `\n\n💡 Nhắn "xong việc <tên>" để đánh dấu hoàn thành, hoặc "/task <nội dung>" để thêm việc mới.`;
+        `\nXong thì nhắn "xong việc <tên>", thêm việc thì gõ "/task <nội dung>".`;
 
       await this.zcaMessenger.sendMessage(context.chatId, reply);
     } catch (err) {
       this.logger.error(`Failed to list tasks: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Có lỗi xảy ra khi tra cứu danh sách việc cần làm.',
+        '⚠️ Chưa xem được việc cần làm, thử lại sau.',
       );
     }
   }

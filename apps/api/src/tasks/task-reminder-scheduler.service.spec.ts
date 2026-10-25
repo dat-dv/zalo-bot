@@ -118,7 +118,7 @@ void test('sends each due reminder once, into its reminder chat', async () => {
     sent.map((m) => m.chatId),
     ['g1', '111'],
   );
-  assert.match(sent[0].text, /📌 Việc a/);
+  assert.match(sent[0].text, /^⏰ Việc: Việc a\n/);
 
   // A second scan over the same rows (an overlapping tick) queues and sends nothing new.
   await tick();
@@ -133,7 +133,7 @@ void test('tags the chosen people in the group', async () => {
   });
   await tick();
   assert.deepEqual(sent[0].tagged, ['222']);
-  assert.match(sent[0].text, /^⏰ Nhắc việc cần làm\n@Trí\n/);
+  assert.match(sent[0].text, /^⏰ Việc: Việc a\n@Trí\n/);
 });
 
 void test('waits while ZCA is logged out, without marking anything', async () => {

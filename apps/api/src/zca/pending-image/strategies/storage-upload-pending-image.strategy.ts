@@ -50,7 +50,7 @@ export class StorageUploadPendingImageStrategy implements PendingImageStrategy {
     if (!this.mediaStorageService) {
       await this.notify(
         context.chatId,
-        '☁️ Tính năng lưu trữ ảnh lên Google Drive đang được phát triển.',
+        '☁️ Tính năng lưu ảnh lên Google Drive đang được phát triển.',
       );
       return true;
     }
@@ -64,8 +64,8 @@ export class StorageUploadPendingImageStrategy implements PendingImageStrategy {
       await this.notify(
         context.chatId,
         total > 1
-          ? `⏳ Đang tải ${total} ảnh lên Google Drive & Google Photos dùng chung...`
-          : '⏳ Đang tải ảnh lên Google Drive & Google Photos dùng chung...',
+          ? `⏳ Đang tải ${total} ảnh lên Google Drive và Photos dùng chung...`
+          : '⏳ Đang tải ảnh lên Google Drive và Photos dùng chung...',
       );
 
       const target = await this.storageTarget(context.chatId);
@@ -78,15 +78,19 @@ export class StorageUploadPendingImageStrategy implements PendingImageStrategy {
           target,
         );
         const summary = this.mediaStorageService.formatUploadSummary(dualResult, 'image');
-        const prefix = total > 1 ? `[Ảnh ${i + 1}/${total}]\n` : '';
-        await this.notify(context.chatId, `${prefix}${summary}`);
+        // Number each photo in the summary's title line ("... lên Google (2/3):") so the
+        // single leading emoji stays first.
+        await this.notify(
+          context.chatId,
+          total > 1 ? summary.replace(/^([^\n]*):/, `$1 (${i + 1}/${total}):`) : summary,
+        );
       }
       return true;
     } catch (err) {
       this.logger.error(`Failed to dual upload image: ${(err as Error).message}`);
       await this.notify(
         context.chatId,
-        `⚠️ Không thể lưu trữ ảnh lên Google: ${(err as Error).message}`,
+        `⚠️ Không lưu được ảnh lên Google: ${(err as Error).message}`,
       );
       return true;
     }

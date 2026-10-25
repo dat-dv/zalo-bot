@@ -37,20 +37,20 @@ export class TodayToolStrategy implements TextToolStrategy {
       });
 
       if (events.length === 0) {
-        calendarSection = '📅 Lịch hẹn: Hôm nay bạn không có lịch hẹn nào.';
+        calendarSection = 'Hôm nay không có lịch hẹn.';
       } else {
         calendarSection =
-          `📅 Lịch hẹn hôm nay (${events.length}):\n` +
+          `Lịch hẹn (${events.length}):\n` +
           events
             .map((e, idx) => {
-              const loc = e.location ? ` (tại ${e.location})` : '';
-              return `  ${idx + 1}. [${formatEventStartVN(e, false)}] ${e.title}${loc}`;
+              const loc = e.location ? ` · ${e.location}` : '';
+              return `${idx + 1}. ${formatEventStartVN(e, false)} · ${e.title}${loc}`;
             })
             .join('\n');
       }
     } catch (err) {
       this.logger.error(`Failed to fetch today events: ${(err as Error).message}`);
-      calendarSection = '📅 Lịch hẹn: Không thể tra cứu lúc này.';
+      calendarSection = 'Lịch hẹn: chưa xem được, thử lại sau.';
     }
 
     // Events live in zalobot with a Google copy; tasks live only in zalobot.
@@ -61,15 +61,15 @@ export class TodayToolStrategy implements TextToolStrategy {
       });
 
       if (tasks.length === 0) {
-        tasksSection = '📝 Việc cần làm: Tuyệt vời! Không còn việc nào tồn đọng.';
+        tasksSection = 'Không còn việc nào cần làm.';
       } else {
         tasksSection =
-          `📝 Việc cần làm (${tasks.length}):\n` +
-          tasks.map((t, idx) => `  ${idx + 1}. ▫️ ${t.title}${formatTaskDueVN(t)}`).join('\n');
+          `Việc cần làm (${tasks.length}):\n` +
+          tasks.map((t, idx) => `${idx + 1}. ${t.title}${formatTaskDueVN(t)}`).join('\n');
       }
     } catch (err) {
       this.logger.error(`Failed to fetch tasks: ${(err as Error).message}`);
-      tasksSection = '📝 Việc cần làm: Không thể tra cứu lúc này.';
+      tasksSection = 'Việc cần làm: chưa xem được, thử lại sau.';
     }
 
     let financeSection = '';
@@ -79,20 +79,18 @@ export class TodayToolStrategy implements TextToolStrategy {
         endOfDay.toISOString(),
       );
       financeSection =
-        `💰 Thu chi hôm nay:\n` +
-        `• Thu: ${summary.income.toLocaleString('vi-VN')} đ | Chi: ${summary.expense.toLocaleString('vi-VN')} đ\n` +
-        `• Chênh lệch: ${summary.balance.toLocaleString('vi-VN')} đ`;
+        `Thu ${summary.income.toLocaleString('vi-VN')}đ · ` +
+        `Chi ${summary.expense.toLocaleString('vi-VN')}đ · ` +
+        `Chênh lệch ${summary.balance.toLocaleString('vi-VN')}đ`;
     } catch {
-      financeSection = '💰 Thu chi: Không thể lấy dữ liệu thu chi.';
+      financeSection = 'Thu chi: chưa lấy được số liệu, thử lại sau.';
     }
 
     const reply =
-      `🌅 TỔNG QUAN HÔM NAY (${now.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', weekday: 'long', day: '2-digit', month: '2-digit' })})\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n\n` +
+      `Hôm nay, ${now.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', weekday: 'long', day: '2-digit', month: '2-digit' })}\n\n` +
       `${calendarSection}\n\n` +
       `${tasksSection}\n\n` +
-      `${financeSection}\n\n` +
-      `💡 Nhắn tin tự nhiên cho bot nếu bạn muốn thêm lịch, việc cần làm hoặc ghi chép chi tiêu!`;
+      financeSection;
 
     await this.zcaMessenger.sendMessage(context.chatId, reply);
   }

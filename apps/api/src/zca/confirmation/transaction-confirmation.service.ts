@@ -108,6 +108,86 @@ export function normalizePlaceName(val: string): string {
     .replace(/\s+/g, ' ');
 }
 
+/** Longer subjects are cut in the cancel/timeout notices; the card already showed them in full. */
+const SUBJECT_MAX_LENGTH = 60;
+
+function payloadText(payload: Record<string, unknown>, key: string): string {
+  const value = payload[key];
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+/**
+ * What a pending action does, in the words of its card header and notices ("thêm việc").
+ * Derived from the action type, not the stored title, so cards saved by an older build read the same.
+ * `transactionType` is the payload's `type` (income/expense) for transaction actions.
+ */
+export function pendingActionLabel(
+  actionType: PendingActionType,
+  transactionType?: unknown,
+): string {
+  const kind = transactionType === 'income' ? 'khoản thu' : 'khoản chi';
+  switch (actionType) {
+    case 'RECORD_TRANSACTION':
+    case 'create':
+      return `lưu ${kind}`;
+    case 'DELETE_TRANSACTION':
+    case 'delete':
+      return `xoá ${kind}`;
+    case 'MANAGE_DEBT':
+      return 'ghi công nợ';
+    case 'SET_REMINDER':
+      return 'đặt lời nhắc';
+    case 'CREATE_TASK':
+      return 'thêm việc';
+    case 'COMPLETE_TASK':
+      return 'đánh dấu xong việc';
+    case 'CREATE_CALENDAR_EVENT':
+      return 'thêm lịch';
+    case 'DELETE_CALENDAR_EVENT':
+      return 'xoá lịch';
+    case 'BAN_USER':
+      return 'khoá tài khoản';
+    case 'CREATE_PLACE':
+      return 'tạo nơi chốn';
+  }
+}
+
+function pendingSubject(pending: Pick<PendingAction, 'actionType' | 'payload'>): string {
+  const { payload } = pending;
+  switch (pending.actionType) {
+    case 'COMPLETE_TASK':
+      return payloadText(payload, 'taskTitle');
+    case 'BAN_USER':
+      return payloadText(payload, 'targetName') || payloadText(payload, 'targetUserId');
+    case 'CREATE_PLACE':
+      return payloadText(payload, 'name');
+    default:
+      return (
+        payloadText(payload, 'note') ||
+        payloadText(payload, 'title') ||
+        payloadText(payload, 'summary')
+      );
+  }
+}
+
+/** The action and its subject for the cancel and timeout notices: `thêm việc "Mua hoa…"`. */
+export function describePendingAction(
+  pending: Pick<PendingAction, 'actionType' | 'payload'>,
+): string {
+  const label = pendingActionLabel(pending.actionType, pending.payload.type);
+  const subject = pendingSubject(pending);
+  if (!subject) return label;
+  const short =
+    subject.length > SUBJECT_MAX_LENGTH
+      ? `${subject.slice(0, SUBJECT_MAX_LENGTH).trimEnd()}…`
+      : subject;
+  return `${label} "${short}"`;
+}
+
+function expiredNotice(pending: Pick<PendingAction, 'code' | 'actionType' | 'payload'>): string {
+  return `[${pending.code}] Hết hạn, chưa lưu: ${describePendingAction(pending)}`;
+}
+
 /** A task due date from an LLM payload; unparseable values mean "no due date". */
 function toValidTaskDue(value: unknown): Date | null {
   if (typeof value !== 'string' || !value.trim()) return null;
@@ -451,15 +531,18 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
     const cardContent = renderDtoConfirmationCard(params.payload, params.descriptor);
     const reqHearts = pending.requiredHearts || 1;
-    const heartPrompt = reqHearts > 1 ? `Thả tim (❤️) ${reqHearts} lần` : `Thả tim (❤️)`;
+    const heart = reqHearts > 1 ? `❤️ x${reqHearts}` : '❤️';
+    const header = params.title.charAt(0).toLocaleUpperCase('vi') + params.title.slice(1);
 
-    const msg =
-      `⏳ Xác nhận ${params.title.toLowerCase()}?\n\n` +
-      cardContent +
-      `\n\n👉 ${heartPrompt} hoặc soạn: yes ${code} (để xác nhận)` +
-      `\n👉 Thả phẫn nộ (😡) hoặc soạn: cancel ${code} (để hủy bỏ)` +
-      `\n👉 Soạn: edit ${code} <nội dung sửa> (để điều chỉnh)` +
-      `\n⏱️ Tự động hết hạn sau 5 phút.`;
+    // ❤️ and 😡 stay: they are the reactions to tap, not decoration.
+    const msg = [
+      `${header} [${code}]?`,
+      cardContent,
+      `${heart} hoặc yes ${code}: duyệt · 😡 hoặc cancel ${code}: huỷ`,
+      `edit ${code} <nội dung>: sửa · tự huỷ sau 5 phút`,
+    ]
+      .filter(Boolean)
+      .join('\n');
 
     if (this.zcaMessenger.sendMessageWithResult) {
       const sendResult = await this.zcaMessenger.sendMessageWithResult(params.chatId, msg);
@@ -715,7 +798,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         };
       }
 
-      const heartNotice = `❤️ Đã nhận ${pending.heartUsers.length}/${req} lượt thả tim để duyệt yêu cầu [${pending.code}]!`;
+      const heartNotice = `❤️ ${pending.heartUsers.length}/${req} [${pending.code}]`;
       if (this.zcaMessenger.sendMessageWithResult) {
         const sendRes = await this.zcaMessenger.sendMessageWithResult(params.chatId, heartNotice);
         if (sendRes?.msgId) {
@@ -745,12 +828,11 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     payload: CreateFinanceTransactionDto;
     rawPrompt?: string;
   }): Promise<PendingAction> {
-    const typeLabel = params.payload.type === 'income' ? '🟢 Khoản thu' : '🔴 Khoản chi';
     return this.createPendingAction({
       userId: params.userId,
       chatId: params.chatId,
       actionType: 'RECORD_TRANSACTION',
-      title: `lưu ${typeLabel}`,
+      title: pendingActionLabel('RECORD_TRANSACTION', params.payload.type),
       payload: params.payload,
       descriptor: FINANCE_TRANSACTION_DESCRIPTOR,
       rawPrompt: params.rawPrompt,
@@ -768,12 +850,11 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     rawPrompt?: string;
   }): Promise<PendingAction> {
     const data = params.deletePayload || params.payload;
-    const typeLabel = data.type === 'income' ? 'khoản thu' : 'khoản chi';
     return this.createPendingAction({
       userId: params.userId,
       chatId: params.chatId,
       actionType: 'DELETE_TRANSACTION',
-      title: `XÓA ${typeLabel}`,
+      title: pendingActionLabel('DELETE_TRANSACTION', data.type),
       payload: data,
       descriptor: DELETE_TRANSACTION_DESCRIPTOR,
       rawPrompt: params.rawPrompt,
@@ -789,13 +870,11 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     payload: CreateDebtDto;
     rawPrompt?: string;
   }): Promise<PendingAction> {
-    const directionLabel =
-      params.payload.direction === 'receivable' ? 'khoản cho vay (họ nợ)' : 'khoản nợ (bạn nợ)';
     return this.createPendingAction({
       userId: params.userId,
       chatId: params.chatId,
       actionType: 'MANAGE_DEBT',
-      title: `ghi nhận ${directionLabel}`,
+      title: pendingActionLabel('MANAGE_DEBT'),
       payload: params.payload,
       descriptor: DEBT_DESCRIPTOR,
       rawPrompt: params.rawPrompt,
@@ -815,7 +894,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       userId: params.userId,
       chatId: params.chatId,
       actionType: 'SET_REMINDER',
-      title: 'đặt lịch nhắc nhở',
+      title: pendingActionLabel('SET_REMINDER'),
       payload: params.payload,
       descriptor: REMINDER_DESCRIPTOR,
       rawPrompt: params.rawPrompt,
@@ -835,7 +914,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       userId: params.userId,
       chatId: params.chatId,
       actionType: 'CREATE_TASK',
-      title: 'thêm việc cần làm',
+      title: pendingActionLabel('CREATE_TASK'),
       payload: params.payload,
       descriptor: TASK_DESCRIPTOR,
       rawPrompt: params.rawPrompt,
@@ -855,7 +934,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       userId: params.userId,
       chatId: params.chatId,
       actionType: 'COMPLETE_TASK',
-      title: 'hoàn thành việc cần làm',
+      title: pendingActionLabel('COMPLETE_TASK'),
       payload: params.payload,
       descriptor: COMPLETE_TASK_DESCRIPTOR,
       rawPrompt: params.rawPrompt,
@@ -875,7 +954,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       userId: params.userId,
       chatId: params.chatId,
       actionType: 'CREATE_CALENDAR_EVENT',
-      title: 'tạo sự kiện lịch',
+      title: pendingActionLabel('CREATE_CALENDAR_EVENT'),
       payload: params.payload,
       descriptor: CALENDAR_EVENT_DESCRIPTOR,
       rawPrompt: params.rawPrompt,
@@ -895,7 +974,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       userId: params.userId,
       chatId: params.chatId,
       actionType: 'DELETE_CALENDAR_EVENT',
-      title: 'XÓA sự kiện lịch',
+      title: pendingActionLabel('DELETE_CALENDAR_EVENT'),
       payload: params.payload,
       descriptor: DELETE_CALENDAR_EVENT_DESCRIPTOR,
       rawPrompt: params.rawPrompt,
@@ -915,7 +994,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       userId: params.userId,
       chatId: params.chatId,
       actionType: 'BAN_USER',
-      title: 'KHÓA tài khoản người dùng',
+      title: pendingActionLabel('BAN_USER'),
       payload: params.payload,
       descriptor: BAN_USER_DESCRIPTOR,
       rawPrompt: params.rawPrompt,
@@ -935,7 +1014,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       userId: params.userId,
       chatId: params.chatId,
       actionType: 'CREATE_PLACE',
-      title: `tạo nơi chốn "${params.payload.name}"`,
+      title: pendingActionLabel('CREATE_PLACE'),
       payload: params.payload,
       descriptor: PLACE_DESCRIPTOR,
       rawPrompt: params.rawPrompt,
@@ -949,37 +1028,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     await this.recallTempMessages(pending.chatId, pending.code);
     await this.deletePending(code, pending.userId);
 
-    let title = pending.title || 'Thao tác';
-    const payload = pending.payload;
-    const rawType = typeof payload.type === 'string' ? payload.type : undefined;
-    if (pending.actionType === 'DELETE_TRANSACTION' || pending.actionType === 'delete') {
-      const typeLabel = rawType === 'income' ? 'khoản thu' : 'khoản chi';
-      title = `Yêu cầu xóa ${typeLabel}`;
-    } else if (pending.actionType === 'COMPLETE_TASK') {
-      const taskTitle = typeof payload.taskTitle === 'string' ? payload.taskTitle : '';
-      title = `Yêu cầu hoàn thành việc "${taskTitle}"`;
-    } else if (pending.actionType === 'DELETE_CALENDAR_EVENT') {
-      const summary = typeof payload.summary === 'string' ? payload.summary : '';
-      title = `Yêu cầu xóa sự kiện "${summary}"`;
-    } else if (pending.actionType === 'BAN_USER') {
-      const targetUserId = typeof payload.targetUserId === 'string' ? payload.targetUserId : '';
-      title = `Yêu cầu khóa tài khoản "${targetUserId}"`;
-    } else if (pending.actionType === 'CREATE_PLACE') {
-      const placeName = typeof payload.name === 'string' ? payload.name : '';
-      title = `Yêu cầu tạo nơi chốn "${placeName}"`;
-    }
-
-    const note =
-      (typeof payload.note === 'string' && payload.note) ||
-      (typeof payload.title === 'string' && payload.title) ||
-      (typeof payload.summary === 'string' && payload.summary) ||
-      '';
-    const noteSuffix = note ? ` "${note}"` : '';
-
-    await this.zcaMessenger.sendMessage(
-      pending.chatId,
-      `⏰ ${title}${noteSuffix} (mã: ${code}) đã hết hạn 5 phút và chưa được xác nhận.`,
-    );
+    await this.zcaMessenger.sendMessage(pending.chatId, expiredNotice(pending));
   }
 
   public async handleCommand(
@@ -1072,17 +1121,11 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     if (code) {
       pending = await this.getPendingByCode(code);
       if (!pending) {
-        await this.zcaMessenger.sendMessage(
-          chatId,
-          `⚠️ Không tìm thấy yêu cầu chờ xác nhận với mã "${code}". Vui lòng kiểm tra lại.`,
-        );
+        await this.zcaMessenger.sendMessage(chatId, `⚠️ Không có yêu cầu [${code}] đang chờ.`);
         return true;
       }
       if (pending.userId !== userId && pending.chatId !== chatId) {
-        await this.zcaMessenger.sendMessage(
-          chatId,
-          `⚠️ Bạn không có quyền chỉnh sửa yêu cầu mã "${code}".`,
-        );
+        await this.zcaMessenger.sendMessage(chatId, `⚠️ Bạn không sửa được yêu cầu [${code}].`);
         return true;
       }
     } else {
@@ -1102,10 +1145,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
     if (Date.now() > pending.expiresAt) {
       await this.deletePending(pending.code, pending.userId);
-      await this.zcaMessenger.sendMessage(
-        chatId,
-        `⏰ Yêu cầu mã "${pending.code}" đã hết hạn xác nhận (quá 5 phút) và chưa được thực hiện.`,
-      );
+      await this.zcaMessenger.sendMessage(chatId, expiredNotice(pending));
       return true;
     }
 
@@ -1113,7 +1153,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     if (!trimmedInstruction) {
       await this.zcaMessenger.sendMessage(
         chatId,
-        `✏️ Vui lòng cung cấp nội dung bạn muốn chỉnh sửa cho yêu cầu (mã: ${pending.code}).\nVí dụ: edit ${pending.code} đổi số tiền thành 60k`,
+        `Muốn sửa gì? Ví dụ: edit ${pending.code} đổi số tiền thành 60k`,
       );
       return true;
     }
@@ -1121,7 +1161,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     if (!onEdit) {
       await this.zcaMessenger.sendMessage(
         chatId,
-        `⚠️ Hệ thống hiện chưa hỗ trợ tự động điều chỉnh cho yêu cầu mã "${pending.code}". Bạn có thể soạn: yes ${pending.code} (để xác nhận) hoặc: cancel ${pending.code} (để hủy bỏ và tạo lại).`,
+        `⚠️ Yêu cầu [${pending.code}] chưa sửa tự động được. Gõ yes ${pending.code} để duyệt, hoặc cancel ${pending.code} rồi tạo lại.`,
       );
       return true;
     }
@@ -1134,7 +1174,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       this.logger.error(`Lỗi khi xử lý edit pending action: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         chatId,
-        `⚠️ Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu: ${(err as Error).message}`,
+        `⚠️ Chưa sửa được yêu cầu: ${(err as Error).message}`,
       );
     }
     return true;
@@ -1143,7 +1183,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   public async processConfirmAll(userId: string, chatId: string): Promise<boolean> {
     const list = await this.getPendingListForUser(userId);
     if (list.length === 0) {
-      await this.zcaMessenger.sendMessage(chatId, 'ℹ️ Không có yêu cầu nào đang chờ xác nhận.');
+      await this.zcaMessenger.sendMessage(chatId, 'Không có yêu cầu nào đang chờ.');
       return true;
     }
 
@@ -1157,7 +1197,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
     await this.zcaMessenger.sendMessage(
       chatId,
-      `🎉 Đã xác nhận thành công tất cả (${successCount}/${list.length}) yêu cầu!`,
+      `✅ Đã duyệt ${successCount}/${list.length} yêu cầu`,
     );
     return true;
   }
@@ -1165,10 +1205,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   public async processCancelAll(userId: string, chatId: string): Promise<boolean> {
     const list = await this.getPendingListForUser(userId);
     if (list.length === 0) {
-      await this.zcaMessenger.sendMessage(
-        chatId,
-        'ℹ️ Không có yêu cầu nào đang chờ xác nhận để hủy.',
-      );
+      await this.zcaMessenger.sendMessage(chatId, 'Không có yêu cầu nào đang chờ.');
       return true;
     }
 
@@ -1179,10 +1216,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
 
     await this.recallTempMessages(chatId);
 
-    await this.zcaMessenger.sendMessage(
-      chatId,
-      `🚫 Đã hủy tất cả (${list.length}) yêu cầu chờ xác nhận của bạn.`,
-    );
+    await this.zcaMessenger.sendMessage(chatId, `Đã huỷ ${list.length} yêu cầu`);
     return true;
   }
 
@@ -1203,19 +1237,13 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       pending = await this.getPendingByCode(code);
       if (!pending) {
         if (!silent) {
-          await this.zcaMessenger.sendMessage(
-            chatId,
-            `⚠️ Không tìm thấy yêu cầu chờ xác nhận với mã "${code}". Vui lòng kiểm tra lại.`,
-          );
+          await this.zcaMessenger.sendMessage(chatId, `⚠️ Không có yêu cầu [${code}] đang chờ.`);
         }
         return true;
       }
       if (pending.userId !== userId && pending.chatId !== chatId) {
         if (!silent) {
-          await this.zcaMessenger.sendMessage(
-            chatId,
-            `⚠️ Bạn không có quyền xác nhận yêu cầu mã "${code}".`,
-          );
+          await this.zcaMessenger.sendMessage(chatId, `⚠️ Bạn không duyệt được yêu cầu [${code}].`);
         }
         return true;
       }
@@ -1230,10 +1258,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     if (Date.now() > pending.expiresAt) {
       await this.deletePending(pending.code, pending.userId);
       await this.recallTempMessages(chatId, pending.code);
-      await this.zcaMessenger.sendMessage(
-        chatId,
-        `⏰ Yêu cầu mã "${pending.code}" đã hết hạn xác nhận (quá 5 phút) và chưa được thực hiện.`,
-      );
+      await this.zcaMessenger.sendMessage(chatId, expiredNotice(pending));
       return true;
     }
 
@@ -1312,7 +1337,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
             if (!silent) {
               await this.zcaMessenger.sendMessage(
                 chatId,
-                `⚠️ Không tìm thấy giao dịch hoặc bạn không có quyền xóa giao dịch này.`,
+                `⚠️ Không tìm thấy giao dịch, hoặc bạn không có quyền xoá nó.`,
               );
             }
           }
@@ -1480,27 +1505,12 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         }
       }
 
-      if (!silent) {
-        const remainingList = await this.getPendingListForUser(userId);
-        if (remainingList.length > 0) {
-          const notice = `💡 Bạn còn ${remainingList.length} yêu cầu chờ xác nhận. Soạn "yes all" để duyệt tất cả hoặc "yes <mã>".`;
-          if (this.zcaMessenger.sendMessageWithResult) {
-            const res = await this.zcaMessenger.sendMessageWithResult(chatId, notice);
-            if (res?.msgId) {
-              await this.addTempMessage(chatId, res.msgId, res.cliMsgId);
-            }
-          } else {
-            await this.zcaMessenger.sendMessage(chatId, notice);
-          }
-        }
-      }
-
       return true;
     } catch (err) {
       this.logger.error(`Failed to execute confirmed action: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         chatId,
-        `⚠️ Có lỗi xảy ra khi thực hiện thao tác: ${(err as Error).message}`,
+        `⚠️ Chưa thực hiện được: ${(err as Error).message}`,
       );
       return true;
     }
@@ -1512,17 +1522,11 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     if (code) {
       pending = await this.getPendingByCode(code);
       if (!pending) {
-        await this.zcaMessenger.sendMessage(
-          chatId,
-          `⚠️ Không tìm thấy yêu cầu chờ xác nhận với mã "${code}".`,
-        );
+        await this.zcaMessenger.sendMessage(chatId, `⚠️ Không có yêu cầu [${code}] đang chờ.`);
         return true;
       }
       if (pending.userId !== userId && pending.chatId !== chatId) {
-        await this.zcaMessenger.sendMessage(
-          chatId,
-          `⚠️ Bạn không có quyền hủy yêu cầu mã "${code}".`,
-        );
+        await this.zcaMessenger.sendMessage(chatId, `⚠️ Bạn không huỷ được yêu cầu [${code}].`);
         return true;
       }
     } else {
@@ -1535,55 +1539,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     await this.deletePending(pending.code, pending.userId);
     await this.recallTempMessages(chatId, pending.code);
 
-    let actionDesc = pending.title || 'thao tác';
-    const payload = pending.payload;
-    const rawType = typeof payload.type === 'string' ? payload.type : undefined;
-    if (pending.actionType === 'RECORD_TRANSACTION' || pending.actionType === 'create') {
-      const typeLabel = rawType === 'income' ? 'khoản thu' : 'khoản chi';
-      actionDesc = `giao dịch ${typeLabel}`;
-    } else if (pending.actionType === 'DELETE_TRANSACTION' || pending.actionType === 'delete') {
-      const typeLabel = rawType === 'income' ? 'khoản thu' : 'khoản chi';
-      actionDesc = `yêu cầu xóa ${typeLabel}`;
-    } else if (pending.actionType === 'COMPLETE_TASK') {
-      const taskTitle = typeof payload.taskTitle === 'string' ? payload.taskTitle : '';
-      actionDesc = `hoàn thành việc "${taskTitle}"`;
-    } else if (pending.actionType === 'DELETE_CALENDAR_EVENT') {
-      const summary = typeof payload.summary === 'string' ? payload.summary : '';
-      actionDesc = `xóa sự kiện "${summary}"`;
-    } else if (pending.actionType === 'BAN_USER') {
-      const targetUserId = typeof payload.targetUserId === 'string' ? payload.targetUserId : '';
-      actionDesc = `khóa tài khoản "${targetUserId}"`;
-    } else if (pending.actionType === 'CREATE_PLACE') {
-      const placeName = typeof payload.name === 'string' ? payload.name : '';
-      actionDesc = `tạo nơi chốn "${placeName}"`;
-    }
-
-    const note =
-      (typeof payload.note === 'string' && payload.note) ||
-      (typeof payload.title === 'string' && payload.title) ||
-      (typeof payload.summary === 'string' && payload.summary) ||
-      '';
-    const noteSuffix = note ? ` "${note}"` : '';
-
     await this.zcaMessenger.sendMessage(
       chatId,
-      `❌ Đã hủy ${actionDesc.toLowerCase()}${noteSuffix} (mã: ${pending.code}). Yêu cầu chưa được lưu.`,
+      `[${pending.code}] Đã huỷ: ${describePendingAction(pending)}`,
     );
-
-    if (!code) {
-      const remainingList = await this.getPendingListForUser(userId);
-      if (remainingList.length > 0) {
-        const notice = `💡 Bạn còn ${remainingList.length} yêu cầu chờ xác nhận. Soạn "cancel all" để hủy tất cả hoặc "cancel <mã>".`;
-        if (this.zcaMessenger.sendMessageWithResult) {
-          const res = await this.zcaMessenger.sendMessageWithResult(chatId, notice);
-          if (res?.msgId) {
-            await this.addTempMessage(chatId, res.msgId, res.cliMsgId);
-          }
-        } else {
-          await this.zcaMessenger.sendMessage(chatId, notice);
-        }
-      }
-    }
     return true;
   }
 }

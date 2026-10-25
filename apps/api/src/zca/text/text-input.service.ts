@@ -144,7 +144,7 @@ export class TextInputService {
     if (/^[12]$/.test(text.trim())) {
       await this.zcaMessenger.sendMessage(
         chatId,
-        '💡 Hiện không có hình ảnh hoặc giao dịch nào đang chờ xử lý. Bạn có thể gửi ảnh mới hoặc nhập yêu cầu cụ thể (Ví dụ: "ăn trưa 45k", "mai 9h họp").',
+        'Không có ảnh hay giao dịch nào đang chờ. Gửi ảnh mới hoặc nhắn yêu cầu, vd "ăn trưa 45k", "mai 9h họp".',
       );
       return;
     }
@@ -318,7 +318,7 @@ export class TextInputService {
     if (!editTool) {
       await this.zcaMessenger.sendMessage(
         chatId,
-        `⚠️ Yêu cầu mã "${pending.code}" không hỗ trợ chỉnh sửa. Vui lòng gõ "cancel ${pending.code}" và tạo lại yêu cầu mới.`,
+        `⚠️ Yêu cầu [${pending.code}] không sửa được. Gõ "cancel ${pending.code}" rồi tạo yêu cầu mới.`,
       );
       return;
     }
@@ -418,7 +418,7 @@ export class TextInputService {
       this.logger.error(`Failed to handle edit pending action: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         chatId,
-        `⚠️ Có lỗi xảy ra khi xử lý điều chỉnh yêu cầu: ${(err as Error).message}`,
+        `⚠️ Chưa sửa được yêu cầu: ${(err as Error).message}`,
       );
     }
   }

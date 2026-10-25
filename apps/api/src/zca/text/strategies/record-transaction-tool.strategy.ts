@@ -91,7 +91,7 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
     if (amount <= 0) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Không thể ghi nhận giao dịch với số tiền không hợp lệ.',
+        '⚠️ Số tiền không hợp lệ nên chưa ghi giao dịch.',
       );
       return;
     }
@@ -146,7 +146,7 @@ export class RecordTransactionToolStrategy implements TextToolStrategy {
       this.logger.error(`Failed to create pending transaction: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Có lỗi xảy ra khi tạo yêu cầu xác nhận giao dịch.',
+        '⚠️ Chưa tạo được yêu cầu ghi giao dịch, thử lại sau.',
       );
     }
   }

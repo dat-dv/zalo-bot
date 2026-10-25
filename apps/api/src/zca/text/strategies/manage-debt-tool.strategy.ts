@@ -85,7 +85,7 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
     if (amount <= 0) {
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Không thể ghi nhận khoản nợ với số tiền không hợp lệ.',
+        '⚠️ Số tiền không hợp lệ nên chưa ghi khoản nợ.',
       );
       return;
     }
@@ -100,8 +100,8 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
           .join('\n');
         await this.zcaMessenger.sendMessage(
           context.chatId,
-          `🤔 Có ${matches.length} người tên "${counterparty}" trong danh bạ công nợ:\n${options}\n\n` +
-            'Vui lòng nhắn lại kèm biệt danh để mình ghi đúng người.',
+          `🤔 Có ${matches.length} người tên "${counterparty}" trong danh bạ công nợ:\n${options}\n` +
+            'Nhắn lại kèm biệt danh để mình ghi đúng người.',
         );
         return;
       }
@@ -127,7 +127,7 @@ export class ManageDebtToolStrategy implements TextToolStrategy {
       this.logger.error(`Failed to create pending debt: ${(err as Error).message}`);
       await this.zcaMessenger.sendMessage(
         context.chatId,
-        '⚠️ Có lỗi xảy ra khi tạo yêu cầu xác nhận khoản nợ.',
+        '⚠️ Chưa tạo được yêu cầu ghi khoản nợ, thử lại sau.',
       );
     }
   }

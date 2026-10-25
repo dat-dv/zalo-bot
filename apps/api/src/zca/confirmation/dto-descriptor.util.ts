@@ -30,7 +30,7 @@ export interface DtoFieldConfig<T, K extends keyof T> {
   hidden?: boolean;
   /**
    * Tùy biến format giá trị sang tiếng Việt.
-   * Nếu trả về rỗng, null hoặc undefined, hệ thống sẽ tự động hiển thị "(trống)".
+   * Trả về rỗng, null, undefined hoặc "(trống)" thì dòng đó không hiện trên thẻ.
    */
   format?: (value: T[K], dto: T) => string | undefined | null;
 }
@@ -73,8 +73,9 @@ export function formatRemindUsers(users?: readonly IReminderTargetUser[]): strin
   return users?.length ? users.map((user) => `@${user.name}`).join(', ') : 'Không tag ai';
 }
 
+/** Only the non-default mode is worth a line; tagging in the group is what people expect. */
 export function formatRemindMode(mode?: ReminderTargetMode): string {
-  return mode === 'direct' ? '✉️ Nhắn riêng từng người' : '👥 Tag trong nhóm';
+  return mode === 'direct' ? 'Nhắn riêng từng người' : '';
 }
 
 /**
@@ -110,11 +111,8 @@ export function formatCurrencyVN(amount?: number | null, currency?: string): str
  * Mọi field thay đổi trong CreateFinanceTransactionDto sẽ được TypeScript typecheck kiểm tra chặt chẽ.
  */
 export const FINANCE_TRANSACTION_DESCRIPTOR: DtoDescriptor<CreateFinanceTransactionDto> = {
-  type: {
-    label: 'Phân loại',
-    order: 1,
-    format: (v) => (v === 'income' ? '🟢 Khoản thu' : '🔴 Khoản chi'),
-  },
+  // The header already says "khoản thu" or "khoản chi".
+  type: { label: 'Phân loại', hidden: true },
   amount: {
     label: 'Số tiền',
     order: 2,
@@ -178,11 +176,8 @@ export interface DeleteTransactionDto {
  */
 export const DELETE_TRANSACTION_DESCRIPTOR: DtoDescriptor<DeleteTransactionDto> = {
   transactionId: { label: 'Mã giao dịch', hidden: false, order: 6 },
-  type: {
-    label: 'Phân loại',
-    order: 1,
-    format: (v) => (v === 'income' ? '🟢 Khoản thu' : '🔴 Khoản chi'),
-  },
+  // The header already says "khoản thu" or "khoản chi".
+  type: { label: 'Phân loại', hidden: true },
   amount: {
     label: 'Số tiền',
     order: 2,
@@ -213,7 +208,7 @@ export const DEBT_DESCRIPTOR: DtoDescriptor<CreateDebtDto> = {
   direction: {
     label: 'Phân loại',
     order: 1,
-    format: (v) => (v === 'receivable' ? '👉 Họ nợ bạn (Phải thu)' : '👈 Bạn nợ họ (Phải trả)'),
+    format: (v) => (v === 'receivable' ? 'Họ nợ bạn (phải thu)' : 'Bạn nợ họ (phải trả)'),
   },
   counterparty: {
     label: 'Người liên quan',
@@ -269,20 +264,20 @@ export const REMINDER_DESCRIPTOR: DtoDescriptor<CreateReminderDto> = {
   notifyType: {
     label: 'Hình thức thông báo',
     order: 3,
-    format: (v) => (v === 'call' ? '📞 Cuộc gọi' : '💬 Tin nhắn'),
+    format: (v) => (v === 'call' ? 'Gọi điện' : ''),
   },
   // Each time shows its own repeat (with `remindAt`).
   repeatType: { label: 'Lặp lại', hidden: true },
   nagEveryMinutes: {
     label: 'Nhắc lại',
     order: 5,
-    format: (_v, dto) => nagLabel(dto) || 'Không',
+    format: (_v, dto) => nagLabel(dto),
   },
   nagCount: { label: 'Số lần nhắc lại', hidden: true },
   chatId: {
     label: 'Gửi tới',
     order: 6,
-    format: (v, dto) => (v && v !== String(dto.userId) ? '👥 Nhóm này' : '👤 Chat riêng của bạn'),
+    format: (v, dto) => (v && v !== String(dto.userId) ? 'Nhóm này' : 'Chat riêng của bạn'),
   },
   remindUsers: { label: 'Nhắc ai', order: 7, format: (v) => formatRemindUsers(v) },
   remindMode: { label: 'Cách nhắc', order: 8, format: (v) => formatRemindMode(v) },
@@ -314,7 +309,7 @@ export const TASK_DESCRIPTOR: DtoDescriptor<CreateTaskOptions> = {
   nagEveryMinutes: {
     label: 'Nhắc lại',
     order: 3,
-    format: (_v, dto) => nagLabel(dto) || 'Không',
+    format: (_v, dto) => nagLabel(dto),
   },
   nagCount: { label: 'Số lần nhắc lại', hidden: true },
   remindUsers: { label: 'Nhắc ai', order: 4, format: (v) => formatRemindUsers(v) },
@@ -502,9 +497,12 @@ export const PLACE_DESCRIPTOR: DtoDescriptor<CreatePlaceDto> = {
   },
 };
 
+/** Formatters return it for a missing value; the card drops such lines instead of printing it. */
+const EMPTY_VALUE = '(trống)';
+
 /**
  * Render thẻ xác nhận dựa trên DTO và Descriptor tương ứng.
- * Mọi field hiển thị nếu không có giá trị sẽ tự động điền "(trống)".
+ * Trường không có giá trị thì bỏ dòng, để thẻ gọn trên điện thoại.
  */
 export function renderDtoConfirmationCard<T extends object>(
   dto: T,
@@ -546,9 +544,7 @@ export function renderDtoConfirmationCard<T extends object>(
       }
     }
 
-    if (!formatted || !formatted.trim()) {
-      formatted = '(trống)';
-    }
+    if (!formatted || !formatted.trim() || formatted === EMPTY_VALUE) continue;
 
     lines.push(`• ${config.label}: ${formatted}`);
   }
