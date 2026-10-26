@@ -19,7 +19,7 @@ export interface DoneAction {
 
 /**
  * Writes something the bot really did to the chat's memory as one `action` row, only when the chat
- * is listened with a memory on. Shared by confirmed tool calls and the actions done at once
+ * is listened with the long-term memory on. Shared by confirmed tool calls and the actions done at once
  * (notes). Returns quietly when it cannot write; memory must never block the action itself.
  */
 export async function recordDoneAction(
@@ -29,7 +29,7 @@ export async function recordDoneAction(
   if (!deps.threadConfigs || !deps.chatMemory || !action.text) return;
   const config = await deps.threadConfigs.findStoredConfig(action.chatId);
   const memory = config?.chatMemory;
-  if (!config?.isListened || (!memory?.enabled && !memory?.shortTermEnabled)) return;
+  if (!config?.isListened || !memory?.enabled) return;
   await deps.chatMemory.recordAction(
     action.chatId,
     config.threadType === 'group' ? 'group' : 'user',
@@ -39,6 +39,5 @@ export async function recordDoneAction(
       requesterName: action.requesterName,
       text: action.text,
     },
-    { longTerm: memory.enabled },
   );
 }

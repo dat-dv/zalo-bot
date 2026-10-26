@@ -2,7 +2,6 @@
 
 import type { ThreadBotConfig } from '@zalobot/contracts';
 import type { ThreadKind } from '../../../model/thread-config-form';
-import { ChannelNotesSection } from './channel-notes-section';
 import { ConfirmationRulesSection } from './confirmation-rules-section';
 import { DirectInteractionSection } from './direct-interaction-section';
 import { ImageTextMemorySection } from './image-text-memory-section';
@@ -10,7 +9,6 @@ import { ListenToggleCard } from './listen-toggle-card';
 import { LongTermMemorySection } from './long-term-memory-section';
 import { MediaBackupSection } from './media-backup-section';
 import { MemberAccessSection } from './member-access-section';
-import { ShortTermMemorySection } from './short-term-memory-section';
 import { ThreadConfigActionBar } from './thread-config-action-bar';
 import { useThreadConfigForm } from './use-thread-config-form';
 
@@ -28,8 +26,11 @@ export function ThreadConfigForm({
   threadName,
   threadType,
 }: ThreadConfigFormProps) {
-  const { form, setForm, draft, setDraft, commitDraft, save, status, isSaving } =
-    useThreadConfigForm(config, { threadId, threadName, threadType });
+  const { form, setForm, save, status, isSaving } = useThreadConfigForm(config, {
+    threadId,
+    threadName,
+    threadType,
+  });
 
   return (
     <form className="flex flex-col gap-4" onSubmit={(e) => void save(e)}>
@@ -55,22 +56,7 @@ export function ThreadConfigForm({
           <h2 className="mt-2 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
             🧠 Trí nhớ
           </h2>
-          <ChannelNotesSection threadId={threadId} />
-          <ShortTermMemorySection
-            draft={draft}
-            form={form}
-            onChange={setForm}
-            onDraftChange={setDraft}
-            onDraftCommit={commitDraft}
-          />
-          <LongTermMemorySection
-            threadId={threadId}
-            draft={draft}
-            form={form}
-            onChange={setForm}
-            onDraftChange={setDraft}
-            onDraftCommit={commitDraft}
-          />
+          <LongTermMemorySection threadId={threadId} form={form} onChange={setForm} />
           <ImageTextMemorySection form={form} onChange={setForm} />
         </div>
       </div>

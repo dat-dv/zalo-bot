@@ -71,8 +71,8 @@ export function buildHitQuery(channelId: string, search: ChatMemorySearchParams)
   });
 
   // Bot replies never count as hits (an earlier, maybe wrong answer is not evidence); they can
-  // still appear as neighbours of a real hit. Rows kept only for the short-term memory
-  // (`expires_at`) were stored while long-term memory was off and are never searched.
+  // still appear as neighbours of a real hit. Rows with `expires_at` were kept for the
+  // removed short-term memory while long-term memory was off and are never searched.
   const conditions = [
     'm.channel_id = $1',
     'm.recalled_at IS NULL',

@@ -1,8 +1,6 @@
 'use client';
 
-import { CHAT_MEMORY_LIMITS, type ThreadBotConfig } from '@zalobot/contracts';
-import type { ChatMemoryDraft } from '../../../model/thread-config-form';
-import { ConfigField } from './config-field';
+import type { ThreadBotConfig } from '@zalobot/contracts';
 import { ConfigSectionCard } from './config-section-card';
 import { ConfigToggleRow } from './config-toggle-row';
 import { LearnedFactsPanel } from './learned-facts-panel';
@@ -10,11 +8,7 @@ import { LearnedFactsPanel } from './learned-facts-panel';
 interface LongTermMemorySectionProps {
   threadId: string;
   form: ThreadBotConfig;
-  draft: ChatMemoryDraft;
   onChange: (form: ThreadBotConfig) => void;
-  onDraftChange: (draft: ChatMemoryDraft) => void;
-  /** Normalizes the typed numbers once the user leaves a field. */
-  onDraftCommit: () => void;
 }
 
 /** What the long-term memory keeps and shows the AI, so admins know before turning it on. */
@@ -43,16 +37,9 @@ const HOW_IT_WORKS: ReadonlyArray<{ title: string; text: string }> = [
 
 /**
  * Every message stored for questions about the past, the nightly Cognee memory and what the bot
- * learned; independent of the short-term memory.
+ * learned. How many past messages a question looks at is the agent's choice, not a setting.
  */
-export function LongTermMemorySection({
-  threadId,
-  form,
-  draft,
-  onChange,
-  onDraftChange,
-  onDraftCommit,
-}: LongTermMemorySectionProps) {
+export function LongTermMemorySection({ threadId, form, onChange }: LongTermMemorySectionProps) {
   const memory = form.chatMemory;
   return (
     <ConfigSectionCard
@@ -85,24 +72,6 @@ export function LongTermMemorySection({
         title="Tự học về mọi người"
       />
       <LearnedFactsPanel threadId={threadId} />
-      <details className="text-xs text-slate-600 dark:text-slate-300">
-        <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-300">
-          Nâng cao
-        </summary>
-        <div className="mt-3">
-          <ConfigField
-            className="sm:max-w-[50%]"
-            hint="Tăng lên nếu bot hay trả lời thiếu. Mỗi kết quả kèm vài tin xung quanh, tối đa 80 dòng gửi cho AI"
-            label="Số kết quả mỗi lần tra"
-            max={CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MAX}
-            min={CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MIN}
-            onBlur={onDraftCommit}
-            onChange={(e) => onDraftChange({ ...draft, searchLimit: e.target.value })}
-            type="number"
-            value={draft.searchLimit}
-          />
-        </div>
-      </details>
     </ConfigSectionCard>
   );
 }

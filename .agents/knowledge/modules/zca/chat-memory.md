@@ -14,7 +14,6 @@ metadata:
       - apps/api/src/zca/memory/channel-notes.service.ts
       - apps/api/src/zca/memory/learned-facts.service.ts
       - apps/api/src/zca/memory/channel-memory.controller.ts
-      - apps/api/src/zca/memory/short-term-memory.service.ts
       - apps/api/src/zca/memory/image-text-memory.service.ts
       - apps/api/src/zca/memory/long-term/cognee.client.ts
       - apps/api/src/zca/memory/long-term/chat-day-document.ts
@@ -57,8 +56,6 @@ metadata:
       - apps/web/src/modules/zca/model/thread-config-form.ts
       - apps/web/src/modules/zca/model/channel-memory.ts
       - apps/web/src/modules/zca/presentation/components/thread-config/thread-config-form.tsx
-      - apps/web/src/modules/zca/presentation/components/thread-config/channel-notes-section.tsx
-      - apps/web/src/modules/zca/presentation/components/thread-config/short-term-memory-section.tsx
       - apps/web/src/modules/zca/presentation/components/thread-config/long-term-memory-section.tsx
       - apps/web/src/modules/zca/presentation/components/thread-config/learned-facts-panel.tsx
       - apps/web/src/modules/zca/presentation/components/thread-config/image-text-memory-section.tsx
@@ -68,55 +65,52 @@ metadata:
 
 Owner: Core Engineering Team · Status: active (v2: one Postgres store with message kinds, per-chat notes, nightly Cognee graph, learned facts)
 
-Human guide: [Trí nhớ hội thoại](../../../docs/modules/zca/chat-memory.md). Design records: `.agents/artifacts/chat-memory-recall/`, `chat-memory-per-thread-config/`, `chat-memory-short-long-split/`, `chat-memory-image-text/`, `chat-memory-persona-forgetting/`, `chat-memory-cognee/`, `chat-memory-long-term-v2/`.
+Human guide: [Trí nhớ hội thoại](../../../docs/modules/zca/chat-memory.md). Design records: `.agents/artifacts/chat-memory-recall/`, `chat-memory-per-thread-config/`, `chat-memory-short-long-split/`, `chat-memory-image-text/`, `chat-memory-persona-forgetting/`, `chat-memory-cognee/`, `chat-memory-long-term-v2/`, `memory-config-cleanup/`.
 
 ## Purpose
 
-LLM calls are stateless. The bot keeps four memory layers per Zalo chat (`channelId`); a chat never reads another chat's memory.
+LLM calls are stateless. The bot keeps three memory layers per Zalo chat (`channelId`); a chat never reads another chat's memory.
 
 | Layer | What | In the prompt | Written by | Switch |
 | --- | --- | --- | --- | --- |
-| **Notes (Ghi nhớ)** | What the chat told the bot to always remember (persona, conventions), ≤20 × 200 chars | Every turn, right after the identity line | Members via `REMEMBER_NOTE` (saved at once); admins on the dashboard | none (always on) |
-| **Short-term window** | Latest conversation messages | Every turn | Every listened message | `chatMemory.shortTermEnabled` |
-| **Learned facts** | Stable facts about the bot and members, ≤5 per subject | Every turn: bot + sender + tagged + people in the window, ≤15 lines | Nightly job (Cognee + LLM) | `chatMemory.enabled` + `learnPeople` |
+| **Notes (Ghi nhớ)** | What the chat told the bot to always remember (persona, conventions), ≤20 × 200 chars | Every turn, right after the identity line | Members via `REMEMBER_NOTE` / `FORGET_MEMORY` in the chat, saved at once (no dashboard UI) | none (always on) |
+| **Learned facts** | Stable facts about the bot and members, ≤5 per subject | Every turn: bot + sender + tagged, ≤15 lines | Nightly job (Cognee + LLM) | `chatMemory.enabled` + `learnPeople` |
 | **Long-term** | Every message (Postgres) + one Cognee document per chat day | Only via `SEARCH_CHAT_HISTORY` | Every listened message; nightly job | `chatMemory.enabled` |
 
 Redis keeps only transient state (pending cards, temp messages to recall, ZCA session, rate limits, cache, BullMQ). The former Redis list `zca:short_memory:<threadId>` is no longer written and expires.
+
+**No short-term window** (removed 2026-10-26, owner's decision): no recent messages go into the prompt, so each message is handled on its own. Follow-ups that amend a pending card ("tag @Nam nha", `yes/cancel/edit <code>`) do not need it: they use the sender's pending cards in Redis (5-minute TTL, `AMEND_PENDING`). Configs saved with `shortTermEnabled`/`contextWindow`/`shortTermDays` are cleaned by the normalizer.
 
 ## Per-thread config (`ThreadBotConfig.chatMemory`, jsonb `zca_thread_configs.chat_memory`)
 
 | Field | Default | Range | Meaning |
 | --- | --- | --- | --- |
 | `enabled` | `false` | | Long-term memory: keep rows, nightly Cognee ingest, history search. |
-| `shortTermEnabled` | `false` | | Short-term window in the prompt. |
-| `contextWindow` | `10` | 1–30 | Messages in the window. |
-| `shortTermDays` | `1` | 1–7 | Window only uses messages sent within this many days. |
-| `searchLimit` | `15` | 1–50 | Keyword hits per search (each expanded with neighbours). |
-| `readImageText` | `true` | | Local OCR of photos into the stored row. |
+| `readImageText` | `true` | | Local OCR of photos into the stored row (needs `enabled`). |
 | `learnPeople` | `true` | | Nightly learned facts (needs `enabled`). |
 
-`normalizeChatMemoryConfig` (`@zalobot/contracts`) fills defaults/clamps (also legacy: `shortTermEnabled = enabled && contextWindow > 0`; missing `readImageText`/`learnPeople` → `true`). Either memory needs `isListened`. Notes need neither switch.
+`normalizeChatMemoryConfig` (`@zalobot/contracts`) fills defaults (missing `readImageText`/`learnPeople` → `true`) and drops keys of removed options (`shortTermEnabled`, `contextWindow`, `shortTermDays`, `searchLimit`). The memory needs `isListened`. Notes need neither. Hits per history search are not a setting: the agent picks them (see History search).
 
 ## One store: `zca_messages` with `memory_kind`
 
 Migration `1724980000000-AddChatMemoryV2` added `memory_kind varchar default 'chat'` (existing bot rows → `bot_chat`) and `expires_at`.
 
-| Kind | Set by | Short-term window | Sent to Cognee | Keyword-search hit |
-| --- | --- | --- | --- | --- |
-| `chat` | Member message (default) | ✅ | ✅ | ✅ |
-| `request` | Member message that became a tool call (`TextInputService`) or a `yes/cancel/edit <code>` command | ✅ | ❌ | ✅ |
-| `action` | Row written after a confirmed tool call **ran successfully** | ✅ | ✅ | ✅ |
-| `bot_chat` | Bot message (default) | ✅ | ❌ | neighbour only |
-| `tool` | Answers of read-only tools (`GET_REPORT`, `LIST_TASKS`, `LIST_CALENDAR_EVENTS`, `GET_STORAGE_LINKS`, `SEARCH_CHAT_HISTORY`) | ✅ | ❌ | neighbour only |
-| `reminder` | Reminder deliveries (`ReminderTargetService.deliver`) | ✅ | ❌ | neighbour only |
-| `result` | "✅ [358] …" success notices | ❌ | ❌ | ❌ |
-| `card` | Confirmation cards | ❌ | ❌ | ❌ |
-| `system` | Timeout / cancel / heart notices and any other message of `TransactionConfirmationService` | ❌ | ❌ | ❌ |
-| `secret` | Dashboard sign-in link + code; text stored as `[Link đăng nhập dashboard]` | ❌ | ❌ | ❌ |
+| Kind | Set by | Sent to Cognee | Keyword-search hit |
+| --- | --- | --- | --- |
+| `chat` | Member message (default) | ✅ | ✅ |
+| `request` | Member message that became a tool call (`TextInputService`) or a `yes/cancel/edit <code>` command | ❌ | ✅ |
+| `action` | Row written after a confirmed tool call **ran successfully** | ✅ | ✅ |
+| `bot_chat` | Bot message (default) | ❌ | neighbour only |
+| `tool` | Answers of read-only tools (`GET_REPORT`, `LIST_TASKS`, `LIST_CALENDAR_EVENTS`, `GET_STORAGE_LINKS`, `SEARCH_CHAT_HISTORY`) | ❌ | neighbour only |
+| `reminder` | Reminder deliveries (`ReminderTargetService.deliver`) | ❌ | neighbour only |
+| `result` | "✅ [358] …" success notices | ❌ | ❌ |
+| `card` | Confirmation cards | ❌ | ❌ |
+| `system` | Timeout / cancel / heart notices and any other message of `TransactionConfirmationService` | ❌ | ❌ |
+| `secret` | Dashboard sign-in link + code; text stored as `[Link đăng nhập dashboard]` | ❌ | ❌ |
 
 - Bot kinds are tagged with `OutgoingMemoryKind.run(kind, fn)` (`memory-kind.ts`, AsyncLocalStorage, like `AuditContext`). The `api.sendMessage` wrapper in `ZcaService.setupApiInstance` reads it before awaiting; `TransactionConfirmationService` wraps its messenger so its sends default to `system` (cards run under `card`, `executeConfirmed` under `result`).
 - `recordBotReply` upserts `is_bot`, `memory_kind`, `text`, `content` (self-listen echo stored first is overwritten; a `secret` echo loses its text). `onMessage` skips the bot's own echo when `isBotSentMessage`.
-- Retention: one row is stored while either memory is on. Long-term off → `expires_at = sent_at + 7 days` (`SHORT_TERM_ONLY_RETENTION_DAYS` = `SHORT_TERM_DAYS_MAX`); the nightly job deletes expired rows (`purgeExpired`). Long-term search and Cognee ignore rows with `expires_at` (turning long-term on later never exposes them).
+- Retention: rows are stored only while the long-term memory is on (messages, bot replies, done actions, photo text); new rows never get `expires_at`. Rows with `expires_at` are leftovers of the removed short-term memory: the nightly job deletes them once expired (`purgeExpired`), and long-term search and Cognee ignore them.
 - `content` keeps only `title/description/text/fileName/name`; `text` ≤2000 chars (`buildMemoryText`); photo with OCR text → `[Ảnh] <caption> — chữ trong ảnh: …`.
 - Recall (`onUndo`, `ZcaService.undo`): `markRecalled` erases `text`/`content`, sets `recalled_at`, and marks that local day `stale` in `zca_memory_ingestions` (resent to Cognee without it next night).
 - Excluded from `AuditLogSubscriber`: `zca_messages`, `zca_learned_facts`, `zca_memory_ingestions`. `zca_channel_notes` is audited.
@@ -124,7 +118,7 @@ Migration `1724980000000-AddChatMemoryV2` added `memory_kind varchar default 'ch
 ## Tool calls reach memory only after success (D6)
 
 - Pending cards stay in Redis (`TransactionConfirmationService`, unchanged keys `pending:tx:*`).
-- `executeConfirmed`: each branch posts its summary via `post(summary, remember)`; after the switch, only when no exception was thrown, `recordConfirmedAction` writes one `action` row: `msg_id = action:<code>:<createdAt>`, sender = requester (`pending.userId`, name from `UsersService.resolveZaloNames` or the requester's last `sender_name` in the chat), text = `confirmedActionText(summary)` (emoji and `[code]` removed, lines joined with ` · `, prefixed `(đã duyệt)`). Only when the chat is listened with a memory on.
+- `executeConfirmed`: each branch posts its summary via `post(summary, remember)`; after the switch, only when no exception was thrown, `recordConfirmedAction` writes one `action` row: `msg_id = action:<code>:<createdAt>`, sender = requester (`pending.userId`, name from `UsersService.resolveZaloNames` or the requester's last `sender_name` in the chat), text = `confirmedActionText(summary)` (emoji and `[code]` removed, lines joined with ` · `, prefixed `(đã duyệt)`). Only when the chat is listened with the long-term memory on.
 - Not written: cancel, timeout, edit intermediates, failed execution, delete-not-found, `BAN_USER`, the generic fallback. Notes are done at once (no card) and recorded by their strategy through the same `recordDoneAction` (`memory/action-memory.ts`).
 - Companion place: the transaction summary already names the place.
 - Prompt rule `CURRENT_DATA_RULE`: current money/debt/calendar/task/reminder data must come from tools, never from memory.
@@ -135,11 +129,7 @@ Migration `1724980000000-AddChatMemoryV2` added `memory_kind varchar default 'ch
 - Tool `REMEMBER_NOTE { text, reply?, replaceNoteId? }` (routing: see `global/zalo-command-intake.md`, lasting facts about the bot or group with no time and no task): **saved at once, no confirmation card** (owner's decision 2026-10-26: a pending card nobody approved dropped "mày là con mèo đen"). The strategy rejects empty/too long, maps `n2` to the 2nd note and updates it, else adds (limit → refusal text); a duplicate (folded) is not saved again. It then sends the LLM's in-character `reply` (≤500 chars; fallback `Dạ em nhớ rồi: <text>`) as `bot_chat`, and writes the `action` row `(đã duyệt) Đã ghi nhớ: …` via `recordDoneAction`.
 - Tool `FORGET_MEMORY { query, reply? }`: forgets at once the notes and active learned facts containing every word (≤5; more → asks to narrow; none → "không nhớ điều gì khớp"); facts are soft-deleted with `deleted_by` = sender so they are not learned again; answers with `reply` or a line listing what was forgotten. Not written to memory.
 - Prompt (`TextInputService`, both the tool pass and the chit-chat pass): `BOT_IDENTITY_LINE` ("…nếu phần ĐIỀU ĐƯỢC DẶN mô tả bạn khác đi… thì luôn theo phần đó") + `buildMemoryProfileBlock` (notes as `[n1] …`, then learned facts) before the date context. Built whatever the memory switches; learned facts only when long-term is on.
-- The recent-context header still forbids tool calls for old requests but says instructions in it still apply.
-
-## Short-term window
-
-`ShortTermMemoryService.getRecent` → `ChatMemoryService.getRecent(channelId, { limit, maxAgeDays, excludeMsgId })`: SQL on `zca_messages`, kinds `SHORT_TERM_KINDS`, `recalled_at IS NULL`, `sent_at >= now() - days`, newest `limit` then oldest first; returns `senderUid` (used to pick learned facts); photo text cut to 500 chars. Fed from `AgentInput.shortTermMemory = { contextWindow, days }` (absent when off).
+- Notes are managed only in the chat; the dashboard has no notes UI (removed 2026-10-26). The notes API below is kept without a web caller.
 
 ## Cognee (long-term graph)
 
@@ -163,13 +153,13 @@ Migration `1724980000000-AddChatMemoryV2` added `memory_kind varchar default 'ch
 
 ## History search (`SEARCH_CHAT_HISTORY`)
 
-- Offered only with `input.longTermMemory`. Runs in parallel: keyword search (`ChatMemoryService.search`: hits `chat|request|action`, not bot, `expires_at IS NULL`, ranked `ts_rank`, `searchLimit`; neighbours ±3/4 skip `card|system|secret|result`; ≤80 lines) and, when Cognee is on, `recallContext` (temporal when a date range is given). Both go into one `LlmService` prompt (graph context ≤6000 chars, original lines win on conflict). Neither → "không thấy". Cognee failing → keyword search only.
+- Offered only with `input.longTermMemory` (boolean). Tool args `keywords`, `fromDate`, `toDate`, `question`, `limit`: the agent picks `limit` per question (more for broad/listing questions, fewer for one detail); `readSearchLimit` clamps it to `CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MIN..MAX` (1–50), default `SEARCH_LIMIT_DEFAULT` (15). Runs in parallel: keyword search (`ChatMemoryService.search`: hits `chat|request|action`, not bot, `expires_at IS NULL`, ranked `ts_rank`, `limit` hits; neighbours ±3/4 skip `card|system|secret|result`; ≤80 lines) and, when Cognee is on, `recallContext` (temporal when a date range is given). Both go into one `LlmService` prompt (graph context ≤6000 chars, original lines win on conflict). Neither → "không thấy". Cognee failing → keyword search only.
 
 ## Dashboard (admin only)
 
-- API (`ChannelMemoryController`, `/api/zca/threads/:threadId/…`): `GET|POST notes`, `PATCH|DELETE notes/:noteId`, `GET learned-facts`, `DELETE learned-facts/:factId` (soft delete, `deleted_by` = admin), `GET memory-status`. Routes in `API_ROUTES` (`zcaThreadNotes`, `zcaThreadNote`, `zcaThreadFacts`, `zcaThreadFact`, `zcaThreadMemoryStatus`); DTOs `IChannelNote`, `IUpsertChannelNoteRequest`, `IChannelLearnedFact`, `IChannelMemoryStatus`. Mutations answer with the fresh list (cache replaced).
-- Thread config page, right column, group "🧠 Trí nhớ": **📌 Ghi nhớ** (list `nX`, edit/delete with confirm dialog, add input, `x/20`; saved at once, not with the form), **💬 Nhớ đoạn chat gần đây** (switch, messages, days), **🧠 Nhớ lâu dài** (switch, privacy warning that each night's whole chat goes to the Cognee LLM, how-it-works list, "Tự học về mọi người" toggle, nightly status line, "Bot đã học" grouped by subject with delete, "Nâng cao" → results per search), **🖼️ Đọc chữ trong ảnh**. Phone: one column; small radius.
-- Chat table Features column: `Ngữ cảnh` (short-term on), `Nhớ` (long-term on).
+- API (`ChannelMemoryController`, `/api/zca/threads/:threadId/…`): `GET|POST notes`, `PATCH|DELETE notes/:noteId` (no web caller since the notes UI was removed), `GET learned-facts`, `DELETE learned-facts/:factId` (soft delete, `deleted_by` = admin), `GET memory-status`. Routes in `API_ROUTES` (`zcaThreadNotes`, `zcaThreadNote`, `zcaThreadFacts`, `zcaThreadFact`, `zcaThreadMemoryStatus`); DTOs `IChannelNote`, `IUpsertChannelNoteRequest`, `IChannelLearnedFact`, `IChannelMemoryStatus`. Mutations answer with the fresh list (cache replaced).
+- Thread config page, right column, group "🧠 Trí nhớ": **🧠 Nhớ lâu dài** (switch, privacy warning that each night's whole chat goes to the Cognee LLM, how-it-works list, "Tự học về mọi người" toggle, nightly status line, "Bot đã học" grouped by subject with delete; no number settings), **🖼️ Đọc chữ trong ảnh** (hint when long-term is off). Phone: one column; small radius.
+- Chat table Features column: `Nhớ` (long-term on).
 
 ## User merge
 

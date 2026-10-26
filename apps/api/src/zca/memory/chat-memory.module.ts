@@ -9,7 +9,6 @@ import { ChannelNotesService } from './channel-notes.service';
 import { ChatMemoryService } from './chat-memory.service';
 import { ImageTextMemoryService } from './image-text-memory.service';
 import { LearnedFactsService } from './learned-facts.service';
-import { ShortTermMemoryService } from './short-term-memory.service';
 import { CogneeClient } from './long-term/cognee.client';
 
 /** Standalone so modules outside ZcaModule can use it without a module cycle. */
@@ -25,7 +24,6 @@ import { CogneeClient } from './long-term/cognee.client';
   ],
   providers: [
     ChatMemoryService,
-    ShortTermMemoryService,
     ImageTextMemoryService,
     ChannelNotesService,
     LearnedFactsService,
@@ -33,7 +31,6 @@ import { CogneeClient } from './long-term/cognee.client';
   ],
   exports: [
     ChatMemoryService,
-    ShortTermMemoryService,
     ImageTextMemoryService,
     ChannelNotesService,
     LearnedFactsService,

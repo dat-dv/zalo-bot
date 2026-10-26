@@ -66,7 +66,7 @@ function harness(notes: ZcaChannelNoteEntity[], facts: ZcaLearnedFactEntity[] = 
       Promise.resolve({
         isListened: true,
         threadType: 'group',
-        chatMemory: { enabled: true, shortTermEnabled: true },
+        chatMemory: { enabled: true },
       }),
   } as unknown as ThreadConfigService;
   const chatMemory = {

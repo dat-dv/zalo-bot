@@ -26,8 +26,6 @@ import { CancelPendingImageStrategy } from '../pending-image/strategies/cancel-p
 import { StorageUploadPendingImageStrategy } from '../pending-image/strategies/storage-upload-pending-image.strategy';
 import { CreateBillPendingImageStrategy } from '../pending-image/strategies/create-bill-pending-image.strategy';
 import { getVietnamDateTimeContext } from '../../common/utils/datetime.util';
-import { ShortTermMemoryService } from '../memory/short-term-memory.service';
-import { formatMemoryLine, type MemoryLine } from '../memory/chat-memory.mapper';
 import { ChatMemoryService } from '../memory/chat-memory.service';
 import { ChannelNotesService } from '../memory/channel-notes.service';
 import { LearnedFactsService } from '../memory/learned-facts.service';
@@ -52,21 +50,6 @@ const READ_ONLY_TOOLS = new Set<string>([
   TextToolType.SEARCH_CHAT_HISTORY,
 ]);
 
-/**
- * The recent messages for the prompt, under a header forbidding tool calls for them (they were
- * handled already, so old transactions are never recorded twice) while instructions given in them
- * still apply.
- */
-export function formatRecentContextBlock(lines: readonly MemoryLine[], timeZone: string): string {
-  if (lines.length === 0) return '';
-  return (
-    '\n\nNGỮ CẢNH GẦN ĐÂY CỦA CUỘC CHAT (để hiểu câu hỏi hiện tại; TUYỆT ĐỐI KHÔNG gọi tool ' +
-    'cho các yêu cầu nằm trong khối này, chúng đã được xử lý trước đó; lời dặn về cách bạn trả ' +
-    'lời trong khối này vẫn có hiệu lực):\n' +
-    lines.map((line) => formatMemoryLine(line, timeZone)).join('\n')
-  );
-}
-
 /** An edit sends only the args it changes, so none of them may be required. */
 function withoutRequiredArgs(definition: LlmToolDefinition): LlmToolDefinition {
   if (!definition.parameters) return definition;
@@ -90,7 +73,6 @@ export class TextInputService {
     @Optional() private readonly ocrService?: OcrService,
     @Optional() private readonly mediaStorageService?: MediaStorageService,
     @Optional() private pendingImageDispatcher?: PendingImageActionDispatcher,
-    @Optional() private readonly shortTermMemoryService?: ShortTermMemoryService,
     @Optional() private readonly channelNotesService?: ChannelNotesService,
     @Optional() private readonly learnedFactsService?: LearnedFactsService,
     @Optional() private readonly chatMemoryService?: ChatMemoryService,
@@ -207,9 +189,7 @@ export class TextInputService {
       process.env.DEFAULT_TIMEZONE ||
       'Asia/Ho_Chi_Minh';
     const dtContext = getVietnamDateTimeContext(new Date(), timeZone);
-    const recentLines = await this.loadRecentLines(chatId, input);
-    const recentContext = formatRecentContextBlock(recentLines, timeZone);
-    const profile = await this.buildProfileBlock(chatId, input, recentLines);
+    const profile = await this.buildProfileBlock(chatId, input);
     const amendable = await this.amendablePending(senderId, chatId);
     const systemInstruction = buildToolSystemInstruction({
       profile,
@@ -217,7 +197,6 @@ export class TextInputService {
       longTermMemory: Boolean(input.longTermMemory),
       allowAiChat: input.allowAiChat !== false,
       amendableBlock: amendablePendingBlock(amendable),
-      recentContext,
     });
     const tools = textToolDefinitionsFor({ longTermMemory: Boolean(input.longTermMemory) });
 
@@ -312,11 +291,7 @@ export class TextInputService {
       // A tool-free second pass answers without the tool catalog biasing the reply toward refusals;
       // the first pass text stays as fallback.
       const chitChatReply = await this.zcaMessenger.withTyping(chatId, () =>
-        this.generateChitChatReply(
-          text,
-          dtContext.systemInstructionSnippet + recentContext,
-          profile,
-        ),
+        this.generateChitChatReply(text, dtContext.systemInstructionSnippet, profile),
       );
 
       const conversationStrategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
@@ -576,37 +551,16 @@ export class TextInputService {
   }
 
   /**
-   * Short-term chat memory: the latest messages of this chat, so follow-ups ("thế tháng 5 thì
-   * sao?") make sense. Empty unless the ZCA thread has it on (`input.shortTermMemory`).
-   */
-  private async loadRecentLines(chatId: string, input: AgentInput): Promise<MemoryLine[]> {
-    const memory = this.shortTermMemoryService;
-    const settings = input.shortTermMemory;
-    if (!memory || !settings || settings.contextWindow <= 0) return [];
-    return memory.getRecent(chatId, {
-      limit: settings.contextWindow,
-      maxAgeDays: settings.days,
-      excludeMsgId: input.messageId,
-    });
-  }
-
-  /**
    * What the chat told the bot to remember, plus learned facts about the bot, the sender, the
-   * people tagged and the people in the recent window. Built whatever the memory switches are:
+   * people tagged. Built whatever the memory switch is:
    * notes are independent of them.
    */
-  private async buildProfileBlock(
-    chatId: string,
-    input: AgentInput,
-    recentLines: readonly MemoryLine[],
-  ): Promise<string> {
+  private async buildProfileBlock(chatId: string, input: AgentInput): Promise<string> {
     const memberIds = [
       ...new Set(
-        [
-          input.senderId,
-          ...(input.taggedUsers ?? []).map((user) => user.id),
-          ...[...recentLines].reverse().map((line) => (line.isBot ? '' : (line.senderUid ?? ''))),
-        ].filter((id): id is string => Boolean(id)),
+        [input.senderId, ...(input.taggedUsers ?? []).map((user) => user.id)].filter(
+          (id): id is string => Boolean(id),
+        ),
       ),
     ];
     const [notes, facts] = await Promise.all([

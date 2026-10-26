@@ -513,6 +513,12 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
           type: 'STRING',
           description: 'Câu hỏi gốc của người dùng.',
         },
+        limit: {
+          type: 'NUMBER',
+          description:
+            'Số tin khớp nhất cần lấy (1-50, mặc định 15). Tăng (30-50) khi cần liệt kê nhiều hoặc ' +
+            'câu hỏi chung chung ("nhóm đã đi những đâu"); giảm (5-10) khi hỏi một chi tiết cụ thể.',
+        },
       },
       required: ['keywords'],
     },

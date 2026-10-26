@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SearchChatHistoryToolStrategy } from './search-chat-history-tool.strategy';
+import {
+  SearchChatHistoryToolStrategy,
+  readSearchLimit,
+} from './search-chat-history-tool.strategy';
 import type { ZcaMessengerService } from '../../zca-messenger.service';
 import type { LlmService } from '../../../llm/llm.service';
 import type { ChatMemoryService } from '../../memory/chat-memory.service';
@@ -66,7 +69,7 @@ const memoryOff: AgentInput = {
 const input: AgentInput = {
   ...memoryOff,
   messageId: 'm-question',
-  longTermMemory: { searchLimit: 7 },
+  longTermMemory: true,
 };
 
 void test('SearchChatHistoryToolStrategy explains when chat memory is off', async () => {
@@ -93,13 +96,18 @@ void test('SearchChatHistoryToolStrategy searches the current chat and reports n
     senderId: 'u-1',
     displayName: 'Đạt',
     text: input.text ?? '',
-    toolArgs: { keywords: 'đi, du lịch', fromDate: '2025-01-01', toDate: '2025-12-31' },
+    toolArgs: {
+      keywords: 'đi, du lịch',
+      fromDate: '2025-01-01',
+      toDate: '2025-12-31',
+      limit: 7,
+    },
   });
 
   assert.equal(searches[0].channelId, 'g-1');
   assert.equal(searches[0].params.keywords, 'đi, du lịch');
   assert.equal(searches[0].params.fromDate, '2025-01-01');
-  assert.equal(searches[0].params.limit, 7, 'uses the thread search limit');
+  assert.equal(searches[0].params.limit, 7, 'uses the limit the agent chose');
   assert.equal(searches[0].params.excludeMsgId, 'm-question', 'skips the asking message');
   assert.equal(prompts.length, 0);
   assert.equal(
@@ -161,4 +169,13 @@ void test('SearchChatHistoryToolStrategy adds the Cognee graph context of the ch
   ]);
   assert.match(prompts[0], /Ngữ cảnh trí nhớ của cuộc trò chuyện[^\n]*\nNhóm -- went_to -- Đà Lạt/);
   assert.deepEqual(sent, ['Tháng 5 nhóm đi Đà Lạt.']);
+});
+
+void test('readSearchLimit keeps the agent limit within bounds, default when missing', () => {
+  assert.equal(readSearchLimit(undefined), 15);
+  assert.equal(readSearchLimit({ limit: 'abc' }), 15);
+  assert.equal(readSearchLimit({ limit: 30 }), 30);
+  assert.equal(readSearchLimit({ limit: '8' }), 8);
+  assert.equal(readSearchLimit({ limit: 999 }), 50);
+  assert.equal(readSearchLimit({ limit: 0 }), 1);
 });

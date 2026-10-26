@@ -36,7 +36,6 @@ export function evalRequest(now: Date = new Date()): {
       longTermMemory: true,
       allowAiChat: true,
       amendableBlock: '',
-      recentContext: '',
     }),
     tools: textToolDefinitionsFor({ longTermMemory: true }),
   };

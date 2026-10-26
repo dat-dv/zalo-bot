@@ -2176,7 +2176,7 @@ void test('ZcaBotFeatureService stores every message of a listened thread in cha
   const threadId = `memory-thread-${Date.now()}`;
   await configService.updateConfig(threadId, {
     isListened: true,
-    chatMemory: { enabled: true, contextWindow: 5, searchLimit: 20 },
+    chatMemory: { enabled: true },
   });
   const calls: RecordedMemoryCall[] = [];
   const service = createServiceWithMemory(configService, createChatMemoryMock(calls));
@@ -2259,8 +2259,7 @@ void test('ZcaBotFeatureService does not store messages of a listened thread wit
 
   assert.equal(calls.length, 0);
   assert.ok(seen.input, 'the text still reaches the bot');
-  assert.equal(seen.input.shortTermMemory, undefined);
-  assert.equal(seen.input.longTermMemory, undefined);
+  assert.equal(seen.input.longTermMemory, false);
 });
 
 void test('ZcaBotFeatureService passes the thread memory settings to the text pipeline', async () => {
@@ -2269,7 +2268,7 @@ void test('ZcaBotFeatureService passes the thread memory settings to the text pi
   await configService.updateConfig(threadId, {
     isListened: true,
     directInteraction: { enabled: true, allowAiChat: true },
-    chatMemory: { enabled: true, shortTermEnabled: true, contextWindow: 4, searchLimit: 9 },
+    chatMemory: { enabled: true },
   });
   const seen: { input?: AgentInput } = {};
   const service = createServiceWithMemory(configService, createChatMemoryMock([]));
@@ -2293,50 +2292,7 @@ void test('ZcaBotFeatureService passes the thread memory settings to the text pi
   } as unknown as Message;
   await service.onMessage(message, { getOwnId: () => 'bot-id' } as unknown as API);
 
-  assert.deepEqual(seen.input?.shortTermMemory, { contextWindow: 4, days: 1 });
-  assert.deepEqual(seen.input?.longTermMemory, { searchLimit: 9 });
-});
-
-void test('ZcaBotFeatureService keeps the short-term memory when the long-term memory is off', async () => {
-  const configService = new ThreadConfigService();
-  const threadId = `memory-short-only-${Date.now()}`;
-  await configService.updateConfig(threadId, {
-    isListened: true,
-    directInteraction: { enabled: true, allowAiChat: true },
-    chatMemory: { enabled: false, shortTermEnabled: true, contextWindow: 6, shortTermDays: 3 },
-  });
-  const calls: RecordedMemoryCall[] = [];
-  const seen: { input?: AgentInput } = {};
-  const service = createServiceWithMemory(configService, createChatMemoryMock(calls));
-  service.setTextInputService({
-    process: (input: AgentInput) => {
-      seen.input = input;
-      return Promise.resolve();
-    },
-  } as unknown as TextInputService);
-
-  const message = {
-    threadId,
-    isSelf: false,
-    type: ThreadType.User,
-    data: { msgId: '11', content: 'ăn trưa 45k', uidFrom: 'owner', msgType: 'webchat' },
-  } as unknown as Message;
-  await service.onMessage(message, { getOwnId: () => 'bot-id' } as unknown as API);
-
-  // One row serves both memories; without the long-term memory it only lives for the window.
-  const record = calls.find((call) => call.method === 'record');
-  assert.deepEqual(record?.args[3], { longTerm: false });
-  assert.deepEqual(seen.input?.shortTermMemory, { contextWindow: 6, days: 3 });
-  assert.equal(seen.input?.longTermMemory, undefined);
-
-  // A recall forgets the row, so it leaves the short-term window too.
-  await service.onUndo({
-    threadId,
-    isSelf: false,
-    isGroup: false,
-    data: { uidFrom: 'owner', content: { globalMsgId: 11, cliMsgId: 0 } },
-  } as unknown as Undo);
-  assert.ok(calls.some((call) => call.method === 'markRecalled'));
+  assert.equal(seen.input?.longTermMemory, true);
 });
 
 void test('ZcaBotFeatureService queues every photo of a chat with memory on for its text', async () => {
@@ -2344,7 +2300,7 @@ void test('ZcaBotFeatureService queues every photo of a chat with memory on for 
   const threadId = `memory-photo-${Date.now()}`;
   await configService.updateConfig(threadId, {
     isListened: true,
-    chatMemory: { enabled: true, shortTermEnabled: true, shortTermDays: 2 },
+    chatMemory: { enabled: true },
   });
   const imageText = createImageTextMemoryMock();
   const service = createServiceWithMemory(
@@ -2363,8 +2319,6 @@ void test('ZcaBotFeatureService queues every photo of a chat with memory on for 
   assert.equal(job.channelId, threadId);
   assert.equal(job.channelType, 'group');
   assert.equal(job.imageUrl, 'data:image/jpeg;base64,dGVzdA==');
-  assert.equal(job.longTerm, true);
-  assert.equal(job.shortTermDays, 2);
   assert.ok(job.afterStored, 'waits for the long-term row');
 });
 

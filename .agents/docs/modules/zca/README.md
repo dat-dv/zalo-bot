@@ -72,10 +72,8 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
 | Quy tắc xác nhận | `allowReactions` | tắt | Cho phép duyệt/huỷ bằng ❤️/😡 |
 | | `requiredHearts` | nhóm `5`, cá nhân `1` | Số tim cần để duyệt |
 | | `timeoutMinutes` | `5` | Thời hạn thẻ chờ |
-| Trí nhớ hội thoại | `chatMemory.enabled`, `shortTermEnabled`, `learnPeople` | tắt, tắt, bật | Nhớ đoạn chat gần đây, nhớ lâu dài (Cognee) và tự học về mọi người; Ghi nhớ không cần công tắc ([chi tiết](chat-memory.md)) |
+| Trí nhớ hội thoại | `chatMemory.enabled`, `readImageText`, `learnPeople` | tắt, bật, bật | Nhớ lâu dài (Cognee), đọc chữ trong ảnh và tự học về mọi người; Ghi nhớ không cần công tắc và chỉ quản lý trong chat ([chi tiết](chat-memory.md)) |
 | Ai được gọi bot (chỉ nhóm) | `memberAccess.mode` / `memberIds` | `granted-users` / trống | Cấp quyền gọi bot trong riêng nhóm này, cộng thêm vào quyền toàn cục: không ai thêm, mọi thành viên, hoặc thành viên được chọn ([chi tiết](member-access.md)) |
-| | `chatMemory.contextWindow` | `10` (0–30) | Số tin gần nhất đưa vào prompt |
-| | `chatMemory.searchLimit` | `15` (1–50) | Số kết quả mỗi lần tra |
 | Lưu trữ | `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | trống | Link cũ tới **thư mục gốc** Drive và album Photos của kênh. Dashboard giờ liệt kê từ bảng lịch sử `channel_storage_links` (xem [Lưu trữ media theo kênh](channel-storage.md)) |
 
 Lưu ý:
@@ -219,7 +217,7 @@ Bảng này phục vụ việc lướt nhanh hàng trăm dòng, nên giữ cùng
     - Tương tác trực tiếp: bật/tắt, ghi chú quy tắc gọi bot (nhóm cần @mention/tiền tố, chat riêng thì không), cho phép trò chuyện AI, xử lý tin của chính bot, ô nhập nhiều tiền tố dạng chip (`presentation/components/trigger-prefix-input.tsx`).
     - Sao lưu media: banner thư mục Drive và album Photos (mở hộp thoại lịch sử link), chọn loại (ảnh, video, file, âm thanh), thông báo trong nhóm, thư mục Drive tuỳ chỉnh, tên album Photos, hậu tố file.
     - Quy tắc xác nhận: thả tim, số tim tối thiểu (1–50), thời gian chờ (1–60 phút).
-    - Nhóm "🧠 Trí nhớ": Ghi nhớ (lưu ngay, không cần bấm Lưu), Nhớ đoạn chat gần đây (số tin, số ngày), Nhớ lâu dài (tự học, trạng thái nạp, Bot đã học, Nâng cao: số kết quả mỗi lần tra), Đọc chữ trong ảnh. Ô số giữ nguyên chữ đang gõ và chỉ chuẩn hoá khi rời ô hoặc khi lưu.
+    - Nhóm "🧠 Trí nhớ": Nhớ lâu dài (tự học, trạng thái nạp, Bot đã học) và Đọc chữ trong ảnh. Không còn mục Ghi nhớ, Nhớ đoạn chat gần đây hay ô "Số kết quả mỗi lần tra" (bỏ ngày 26/10/2026, xem [Trí nhớ hội thoại](chat-memory.md)).
     - Ai được gọi bot trong nhóm (chỉ nhóm, mục mới): chọn 1 trong 3 chế độ; chế độ "Thành viên được chọn" có danh sách thành viên lấy từ Zalo với ô tìm, bộ lọc và công tắc từng người. Xem [Quyền tương tác theo kênh](member-access.md).
   - **Cách code tổ chức** (`presentation/components/thread-config/`, mỗi file dưới khoảng 100 dòng): `ConfigSectionCard` (khung một mục có nút bật mục), `ConfigToggleRow` và `ConfigSwitch` (một component nút gạt dùng chung, có `role="switch"` và viền focus khi dùng bàn phím; thay cho 8 khối markup lặp lại trước đây), `ConfigField` (nhãn gắn với ô nhập). Logic chuyển dữ liệu form ↔ API là hàm thuần ở `model/thread-config-form.ts`, có test; ví dụ cấu hình cũ chưa có quy tắc xác nhận thì mặc định 5 tim cho nhóm, 1 tim cho chat riêng.
   - **Không tràn ngang**: khung trang cuộn dọc nên chỉ cần một phần tử rộng quá là hiện thanh cuộn ngang, nhất là khi tên hoặc ID nhóm dài trên mobile. Vì vậy tên ở header bị cắt bằng `…` (rê chuột để xem đủ); ID và nhãn thư mục/album ngắt dòng ở bất kỳ ký tự nào (`break-all`); banner Drive/Photos dùng `flex-wrap`; mỗi hàng bật/tắt cho khối chữ `min-w-0` và nút gạt `shrink-0`. Khi thêm mục mới, giữ đúng mẫu này.

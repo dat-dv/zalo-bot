@@ -9,7 +9,6 @@ metadata:
       - apps/api/src/zca/memory/memory-kind.ts
       - apps/api/src/zca/memory/channel-notes.service.ts
       - apps/api/src/zca/memory/learned-facts.service.ts
-      - apps/api/src/zca/memory/short-term-memory.service.ts
       - apps/api/src/zca/memory/long-term/cognee.client.ts
       - apps/api/src/zca/memory/long-term/memory-ingest.service.ts
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
@@ -44,29 +43,30 @@ LLM không tự nhớ: mỗi lần gọi là độc lập. Bản trước chỉ 
 2. Trí nhớ dài hạn chỉ chạy khi AI tự quyết định tra, mà câu "mày là con gì" không giống câu hỏi chuyện cũ.
 3. Câu "Bạn là trợ lý cá nhân thông minh trên Zalo" được viết cứng trong prompt, nên lời dặn trôi đi là câu này thắng.
 
-Bản v2 giải quyết bằng bốn tầng trí nhớ, tất cả chia theo kênh:
+Bản v2 giải quyết bằng các tầng trí nhớ chia theo kênh. Hiện còn ba tầng:
 
 | Tầng | Ví dụ | Bot thấy khi nào | Ai ghi |
 | --- | --- | --- | --- |
-| 📌 **Ghi nhớ** | "Bot là con mèo đen 2 mái" | Mọi lượt, ngay sau câu danh tính | Người trong kênh (qua thẻ xác nhận), admin trên dashboard |
-| 💬 **Nhớ đoạn chat gần đây** | 15 tin gần nhất | Mọi lượt | Tự động |
+| 📌 **Ghi nhớ** | "Bot là con mèo đen 2 mái" | Mọi lượt, ngay sau câu danh tính | Người trong kênh, lưu ngay khi dặn trong chat |
 | 🤖 **Bot đã học** | "Diệu Hằng: Ăn chay" | Mọi lượt, chỉ về bot và những người đang nói chuyện | Job chạy đêm |
 | 🧠 **Nhớ lâu dài** | Toàn bộ tin + nhật ký từng ngày trong Cognee | Khi có người hỏi chuyện cũ | Tự động + job chạy đêm |
+
+**Đã bỏ "Nhớ đoạn chat gần đây"** (26/10/2026, quyết định của anh Đạt). Trí nhớ ngắn hạn chủ yếu dùng cho lúc người dùng xác nhận yes/no hay bổ sung một thẻ đang chờ. Việc đó đã có danh sách thẻ chờ trong Redis (hạn 5 phút) lo: bot đưa các thẻ chờ của chính người nhắn vào prompt, nên "tag @Nam nha" hay `yes 358` vẫn đúng mà không cần đọc lại tin cũ. Bỏ đi thì prompt gọn hơn, bot không còn bị tin cũ (gồm cả yêu cầu đã xử lý) làm nhiễu. Đổi lại, câu nối tiếp không gắn với thẻ nào (ví dụ "còn cái kia?") sẽ không hiểu được; khi đó người dùng nói đầy đủ một câu. Cấu hình cũ còn `shortTermEnabled`, `contextWindow`, `shortTermDays` được tự bỏ khi đọc.
 
 ## 2. Quy tắc nghiệp vụ
 
 - **Theo từng kênh**: nhóm A không bao giờ đọc được trí nhớ của nhóm B. Trong Cognee mỗi kênh là một dataset riêng (`zca-<channelId>`), và Cognee phải bật access control thì bộ lọc dataset mới có hiệu lực.
 - **Một kho tin duy nhất** (`zca_messages`): mỗi tin lưu một lần, kèm **loại tin** (`memory_kind`) quyết định tin đó được dùng ở đâu:
-  - `chat`: tin người nói chuyện bình thường → vào cửa sổ gần đây và vào Cognee.
-  - `request`: tin người nhờ bot làm việc (đã thành tool call) hoặc gõ `yes/cancel/edit <mã>` → vào cửa sổ gần đây để hiểu câu nối tiếp, **không** vào Cognee.
+  - `chat`: tin người nói chuyện bình thường → tìm theo từ khoá và vào Cognee.
+  - `request`: tin người nhờ bot làm việc (đã thành tool call) hoặc gõ `yes/cancel/edit <mã>` → tìm theo từ khoá được, **không** vào Cognee.
   - `action`: dòng "(đã duyệt) Chi 70.000đ · …" chỉ được tạo **sau khi thao tác được duyệt và chạy thành công** → vào cả hai.
-  - `bot_chat`, `tool`, `reminder`: tin bot trò chuyện, kết quả tra cứu, tin nhắc → chỉ vào cửa sổ gần đây. Không vào Cognee, để câu bot bịa hay số liệu cũ không thành "ký ức".
+  - `bot_chat`, `tool`, `reminder`: tin bot trò chuyện, kết quả tra cứu, tin nhắc → chỉ hiện làm tin xung quanh khi tìm theo từ khoá. Không vào Cognee, để câu bot bịa hay số liệu cũ không thành "ký ức".
   - `card`, `system`, `result`: thẻ xác nhận, thông báo hết hạn/huỷ/tim, tin "✅ [358] …" → không vào đâu cả.
   - `secret`: link và mã đăng nhập dashboard → chỉ lưu chữ "[Link đăng nhập dashboard]".
 - **Thẻ xác nhận vẫn ở Redis**: mã 3 số, hạn 5 phút, duyệt đúng một lần. Redis làm việc này tốt hơn mọi kho trí nhớ. Huỷ, hết hạn, sửa giữa chừng hay chạy lỗi thì không có gì vào trí nhớ.
 - **Số liệu hiện tại luôn tra bằng tool**: prompt có luật riêng, vì khoản chi có thể đã bị sửa hoặc xoá trên dashboard sau đó.
 - **Thu hồi là quên**: tin bị thu hồi trên Zalo bị xoá nội dung ngay. Nếu ngày đó đã nạp vào Cognee thì ngày đó bị đánh dấu `stale` và được nạp lại vào đêm sau, không còn tin đó. Điều tự học từ tin đó có thể còn tối đa tới đêm sau.
-- **Kênh chỉ bật "Nhớ đoạn chat gần đây"**: tin vẫn lưu vào `zca_messages` nhưng có hạn (`expires_at` = lúc gửi + 7 ngày) và bị xoá mỗi đêm. Bật "Nhớ lâu dài" sau đó cũng không làm lộ các tin này, nên lời hứa "chỉ nhớ từ lúc bật" vẫn đúng.
+- **Chỉ lưu khi bật "Nhớ lâu dài"**: tắt thì không lưu tin, không ghi thao tác đã duyệt, không đọc chữ trong ảnh. Các dòng có `expires_at` là dữ liệu còn sót từ thời có trí nhớ ngắn hạn: job đêm xoá khi hết hạn, tìm kiếm và Cognee bỏ qua chúng, nên lời hứa "chỉ nhớ từ lúc bật" vẫn đúng.
 - Bot tự gửi tin thì zca-js có thể trả lại bản echo; bản echo không bị lưu thành tin của người, và tin `secret` không giữ chữ.
 
 ## 3. Ghi nhớ (📌)
@@ -79,7 +79,7 @@ Bản v2 giải quyết bằng bốn tầng trí nhớ, tất cả chia theo kê
 - Cách bot phân biệt Ghi nhớ với lời nhắc, việc cần làm và trò chuyện: xem [Nhận lệnh Zalo](../../global/zalo-command-intake.md).
 - Giới hạn 20 điều, mỗi điều 200 ký tự, vì tất cả đều được gửi cho AI ở mọi lượt.
 - Ghi nhớ **không phụ thuộc** công tắc trí nhớ nào: kênh tắt hết vẫn dùng được.
-- Admin thêm, sửa, xoá trên trang cấu hình kênh; lưu ngay, không cần bấm "Lưu cấu hình".
+- Ghi nhớ chỉ quản lý trong chat: dặn để thêm, "quên vụ … đi" để xoá. Trang cấu hình kênh không còn mục Ghi nhớ (bỏ ngày 26/10/2026). API ghi nhớ ở backend vẫn giữ để sau cần thì làm lại giao diện.
 
 ## 4. Nhớ lâu dài và Cognee (🧠)
 
@@ -87,13 +87,15 @@ Bản v2 giải quyết bằng bốn tầng trí nhớ, tất cả chia theo kê
 
 Mỗi đêm lúc 03:00 (giờ Việt Nam, BullMQ queue `chat-memory`):
 
-1. Xoá các tin hết hạn của kênh chỉ bật ngắn hạn.
+1. Xoá các dòng hết hạn còn sót từ trí nhớ ngắn hạn đã bỏ.
 2. Với mỗi kênh bật "Nhớ lâu dài", lần lượt từng kênh: lấy tối đa 8 ngày chưa nạp (hôm qua trước, rồi tới ngày cũ chưa nạp, ngày `stale`, ngày lỗi còn lượt thử).
 3. Mỗi ngày thành một tài liệu: tiêu đề `Nhật ký cuộc trò chuyện "<tên kênh>" ngày 25/10/2026 (Chủ Nhật)`, mỗi dòng `HH:mm Tên: nội dung`. Chỉ gồm tin `chat` và `action`; số dài từ 12 chữ số (thẻ, tài khoản) bị che còn `***1234`. Ngày có tiêu đề ngày tháng trong chữ thì Cognee mới hiểu được thời gian.
 4. Gửi vào Cognee. Lỗi thì ghi `failed` kèm lý do, đêm sau thử lại (tối đa 5 lần).
 5. Nếu bật "Tự học về mọi người": hỏi Cognee về bot và 10 người hay nói nhất trong các ngày vừa nạp, rồi nhờ LLM rút tối đa 5 điều **ổn định** mỗi người (bỏ câu đùa, chửi, đe doạ, lịch hẹn, số tiền). Kết quả thay cho các điều cũ của người đó, trừ những điều admin hoặc người dùng đã xoá.
 
 Khi có người hỏi chuyện cũ, `SEARCH_CHAT_HISTORY` chạy song song tìm theo từ khoá (để có câu gốc và tin hôm nay chưa nạp) và hỏi ngữ cảnh từ Cognee, rồi đưa cả hai cho LLM trả lời, kèm ngày và người nói. Cognee tắt hoặc lỗi thì chỉ còn tìm theo từ khoá như bản cũ.
+
+**Số kết quả mỗi lần tra do agent tự chọn** (tham số `limit` của tool, 1–50, không truyền thì 15): câu hỏi chung chung hoặc cần liệt kê ("nhóm đã đi những đâu") thì lấy nhiều, hỏi một chi tiết thì lấy ít. Trước đây đây là ô "Số kết quả mỗi lần tra" trong mục Nâng cao, nhưng admin không biết nên đặt bao nhiêu, mà Cognee đã bổ sung ngữ cảnh rồi. Trần 80 dòng gửi cho AI vẫn giữ.
 
 ## 5. Cài đặt và vận hành
 
@@ -119,32 +121,32 @@ Khi có người hỏi chuyện cũ, `SEARCH_CHAT_HISTORY` chạy song song tìm
 
 ## 6. Trang cấu hình kênh
 
-Cột phải có nhóm "🧠 Trí nhớ" gồm: 📌 Ghi nhớ, 💬 Nhớ đoạn chat gần đây (công tắc, số tin, số ngày), 🧠 Nhớ lâu dài (công tắc, cảnh báo quyền riêng tư, cách hoạt động, công tắc "Tự học về mọi người", trạng thái nạp, danh sách "Bot đã học" có nút xoá, mục "Nâng cao" chứa số kết quả mỗi lần tra), 🖼️ Đọc chữ trong ảnh. Trên điện thoại hiển thị một cột.
+Cột phải có nhóm "🧠 Trí nhớ" gồm: 🧠 Nhớ lâu dài (công tắc, cảnh báo quyền riêng tư, cách hoạt động, công tắc "Tự học về mọi người", trạng thái nạp, danh sách "Bot đã học" có nút xoá) và 🖼️ Đọc chữ trong ảnh. Không còn ô số nào để chỉnh. Trên điện thoại hiển thị một cột.
 
-Cấu hình kênh (`chatMemory`): `enabled`, `shortTermEnabled`, `contextWindow` (1–30, mặc định 10), `shortTermDays` (1–7, mặc định 1), `searchLimit` (1–50, mặc định 15), `readImageText` (mặc định bật), `learnPeople` (mặc định bật). Cấu hình cũ chưa có `learnPeople` được coi là bật.
+Cấu hình kênh (`chatMemory`): `enabled`, `readImageText` (mặc định bật), `learnPeople` (mặc định bật). Cấu hình cũ chưa có `readImageText`/`learnPeople` được coi là bật; các key cũ `shortTermEnabled`, `contextWindow`, `shortTermDays`, `searchLimit` bị bỏ khi đọc.
 
 ## 7. Đọc chữ trong ảnh
 
-Không đổi cách đọc: OCR Tesseract chạy trên server, lần lượt từng ảnh, tối đa 20 ảnh chờ, có lọc rác. Khác ở chỗ chữ đọc được giờ ghi vào **đúng một dòng** của tin ảnh, nên cả hai trí nhớ cùng dùng (cửa sổ gần đây chỉ lấy 500 ký tự đầu). Ảnh không bao giờ được gửi cho AI. Kênh hay gửi giấy tờ cá nhân thì tắt công tắc này.
+Không đổi cách đọc: OCR Tesseract chạy trên server, lần lượt từng ảnh, tối đa 20 ảnh chờ, có lọc rác. Chữ đọc được ghi vào **đúng một dòng** của tin ảnh trong trí nhớ lâu dài, nên chỉ có tác dụng khi kênh bật "Nhớ lâu dài". Ảnh không bao giờ được gửi cho AI. Kênh hay gửi giấy tờ cá nhân thì tắt công tắc này.
 
 ## 8. Quyền riêng tư
 
 - Bot lưu tin của **mọi thành viên** kênh đang listen, kể cả người không dùng bot.
-- Mỗi lượt trả lời: Ghi nhớ, điều tự học (tối đa 15 dòng), vài tin gần nhất (tối đa 30) được gửi cho LLM.
-- Khi hỏi chuyện cũ: tối đa 80 dòng tìm được và ngữ cảnh Cognee.
+- Mỗi lượt trả lời: Ghi nhớ và điều tự học (tối đa 15 dòng) được gửi cho LLM. Không gửi kèm tin nhắn gần đây.
+- Khi hỏi chuyện cũ: tối đa 80 dòng tìm được (agent chọn 1–50 kết quả, mỗi kết quả kèm vài tin xung quanh) và ngữ cảnh Cognee.
 - **Mỗi đêm**: toàn bộ chat trong ngày của kênh bật "Nhớ lâu dài" được gửi tới LLM của Cognee. Anh Đạt đã chấp nhận dùng 9router cho việc này (có thể là model miễn phí của bên thứ ba). Muốn giữ dữ liệu nội bộ thì trỏ `COGNEE_LLM_*` vào Qwen/Ollama local.
 
 ## 9. Kiểm thử
 
 - Unit test: `npm run test --workspace @zalobot/api`. Các file chính:
-  - `zca/memory/chat-memory.service.spec.ts`, `memory-text.util.spec.ts`, `short-term-memory.service.spec.ts`, `image-text-memory.service.spec.ts`
+  - `zca/memory/chat-memory.service.spec.ts`, `memory-text.util.spec.ts`, `image-text-memory.service.spec.ts`
   - `zca/memory/long-term/cognee.client.spec.ts`, `memory-ingest.service.spec.ts`
   - `zca/confirmation/confirmed-action-memory.spec.ts` (chỉ ghi khi thành công)
-  - `zca/text/strategies/remember-note-tool.strategy.spec.ts`, `search-chat-history-tool.strategy.spec.ts`
+  - `zca/text/strategies/remember-note-tool.strategy.spec.ts`, `search-chat-history-tool.strategy.spec.ts` (agent chọn `limit`, giới hạn 1–50)
   - `zca/text/text-input.service.spec.ts` (Ghi nhớ nằm ngay sau câu danh tính)
-- Web: `apps/web/src/modules/zca/model/channel-memory.spec.ts`.
+- Web: `apps/web/src/modules/zca/model/channel-memory.spec.ts`, `thread-config-form.spec.ts`.
 - Thử tay:
-  1. Trong nhóm: "@bot tao dặn rồi mày là con mèo đen 2 mái" → duyệt thẻ → hỏi "@bot mày là con gì" sau vài chục tin.
+  1. Trong nhóm: "@bot tao dặn rồi mày là con mèo đen 2 mái" → bot lưu ngay → hỏi "@bot mày là con gì" sau vài chục tin.
   2. Ghi một khoản chi rồi huỷ thẻ: `SELECT memory_kind, text FROM zca_messages WHERE channel_id = '<id>' ORDER BY sent_at DESC LIMIT 10;` không có dòng `action`. Duyệt một khoản khác thì có dòng `action` "(đã duyệt) …".
   3. Có Cognee: chạy job thủ công (đợi 03:00 hoặc thêm job `nightly` vào queue `chat-memory`), xem bảng `zca_memory_ingestions` và danh sách "Bot đã học".
 
@@ -152,10 +154,10 @@ Không đổi cách đọc: OCR Tesseract chạy trên server, lần lượt t�
 
 | Triệu chứng | Nguyên nhân thường gặp |
 | --- | --- |
-| Bot vẫn quên lời dặn | Lời dặn chưa được duyệt thành Ghi nhớ (xem danh sách 📌), hoặc đã bị xoá |
+| Bot vẫn quên lời dặn | AI không nhận ra đó là lời dặn (không gọi `REMEMBER_NOTE`), hoặc ghi nhớ đã bị quên. Kiểm tra bảng `zca_channel_notes` của kênh |
 | Thẻ "Nhớ lâu dài" ghi "Máy chủ chưa bật Cognee" | Chưa đặt `COGNEE_USER_PASSWORD` cho API, hoặc thiếu `COGNEE_URL` khi chạy ngoài Docker |
 | `zca_memory_ingestions` toàn `failed` | LLM của Cognee không gọi được (sai endpoint/model/key). Log API `[Cognee] POST /remember failed …`; log container `cognee` ghi lỗi chi tiết |
 | Cognee báo `LLM connection test timed out` | Endpoint LLM không truy cập được từ container, hoặc model đã ngừng phục vụ |
 | "Bot đã học" có điều sai | Xoá điều đó trên dashboard hoặc nói "@bot quên vụ … đi"; điều đã xoá không được học lại |
-| Bot không hiểu câu nối tiếp | Chưa bật "Nhớ đoạn chat gần đây", hoặc tin trước đã cũ hơn số ngày cấu hình |
+| Bot không hiểu câu nối tiếp | Bình thường: bot không còn đọc tin gần đây. Chỉ tin bổ sung cho thẻ đang chờ của chính người nhắn mới được hiểu; còn lại hãy nói đầy đủ một câu |
 | Câu hỏi chuyện cũ chỉ trò chuyện | Chưa bật "Nhớ lâu dài" (tool tra cứu không được đưa cho AI) |

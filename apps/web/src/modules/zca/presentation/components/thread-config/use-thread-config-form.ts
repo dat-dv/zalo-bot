@@ -3,13 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import type { ThreadBotConfig } from '@zalobot/contracts';
 import { useUpdateZcaThreadConfigMutation } from '../../../api/zca-query';
-import {
-  configToForm,
-  formToPayload,
-  memoryDraftFrom,
-  resolveChatMemory,
-  type ThreadKind,
-} from '../../../model/thread-config-form';
+import { configToForm, formToPayload, type ThreadKind } from '../../../model/thread-config-form';
 
 const SAVED_NOTICE_MS = 3000;
 
@@ -26,16 +20,7 @@ export function useThreadConfigForm(config: ThreadBotConfig, identity: ThreadIde
   const { threadId, threadName, threadType } = identity;
   const updateMutation = useUpdateZcaThreadConfigMutation();
   const [form, setForm] = useState(() => configToForm(config, threadType));
-  const [draft, setDraft] = useState(() =>
-    memoryDraftFrom(configToForm(config, threadType).chatMemory),
-  );
   const [status, setStatus] = useState<SaveStatus>('idle');
-
-  const commitDraft = () => {
-    const chatMemory = resolveChatMemory(form, draft);
-    setForm({ ...form, chatMemory });
-    setDraft(memoryDraftFrom(chatMemory));
-  };
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -43,7 +28,7 @@ export function useThreadConfigForm(config: ThreadBotConfig, identity: ThreadIde
     try {
       await updateMutation.mutateAsync({
         threadId,
-        data: formToPayload(form, draft, threadName, threadType),
+        data: formToPayload(form, threadName, threadType),
       });
       setStatus('saved');
       setTimeout(
@@ -58,9 +43,6 @@ export function useThreadConfigForm(config: ThreadBotConfig, identity: ThreadIde
   return {
     form,
     setForm,
-    draft,
-    setDraft,
-    commitDraft,
     save,
     status,
     isSaving: updateMutation.isPending,

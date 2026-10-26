@@ -1,5 +1,6 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { CHAT_MEMORY_LIMITS } from '@zalobot/contracts';
 import { TextToolStrategy, TextToolContext } from '../text-tool.interface';
 import { TextToolType } from '../text-tool.enum';
 import { ZcaMessengerService } from '../../zca-messenger.service';
@@ -17,6 +18,18 @@ const COGNEE_CONTEXT_MAX_CHARS = 6000;
 function readStringArg(args: Record<string, unknown> | undefined, key: string): string {
   const value = args?.[key];
   return typeof value === 'string' ? value.trim() : '';
+}
+
+/** Messages to fetch: the agent's `limit` within the bounds, the default when it gave none. */
+export function readSearchLimit(args: Record<string, unknown> | undefined): number {
+  const value = args?.limit;
+  const number =
+    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+  if (!Number.isFinite(number)) return CHAT_MEMORY_LIMITS.SEARCH_LIMIT_DEFAULT;
+  return Math.min(
+    CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MAX,
+    Math.max(CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MIN, Math.round(number)),
+  );
 }
 
 /** `dd/mm/yyyy` for replies; the tool arguments use ISO dates. */
@@ -54,8 +67,7 @@ export class SearchChatHistoryToolStrategy implements TextToolStrategy {
   public async execute(context: TextToolContext): Promise<void> {
     const { chatId } = context;
     const memory = this.chatMemoryService;
-    const settings = context.input.longTermMemory;
-    if (!memory || !settings) {
+    if (!memory || !context.input.longTermMemory) {
       await this.zcaMessenger.sendMessage(
         chatId,
         '🧠 Kênh này chưa bật ghi nhớ hội thoại nên chưa tra lại được chuyện cũ. Admin bật trong "Cấu hình kênh" trên dashboard.',
@@ -78,7 +90,7 @@ export class SearchChatHistoryToolStrategy implements TextToolStrategy {
             keywords: keywords || question,
             fromDate,
             toDate,
-            limit: settings.searchLimit,
+            limit: readSearchLimit(context.toolArgs),
             timeZone,
             excludeMsgId: context.input.messageId,
           }),

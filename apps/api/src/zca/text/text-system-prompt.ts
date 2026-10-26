@@ -48,8 +48,6 @@ export interface ToolSystemInstructionOptions {
   allowAiChat: boolean;
   /** Pending cards the sender may amend (`amendablePendingBlock`); empty when none. */
   amendableBlock: string;
-  /** Short-term window (`formatRecentContextBlock`); empty when off. */
-  recentContext: string;
 }
 
 /** System prompt of the tool-calling pass. */
@@ -74,7 +72,7 @@ export function buildToolSystemInstruction(options: ToolSystemInstructionOptions
     '- Về tạo địa điểm / nơi chốn ("tạo nơi chốn Landmark 81", "thêm địa điểm aeon", "lưu nơi chốn Bến Thành"): gọi CREATE_PLACE, xác định name.\n' +
     '- Về KẾT NỐI / ĐĂNG NHẬP tài khoản Google (chỉ khi người dùng nói rõ muốn "kết nối google", "đăng nhập google", "liên kết tài khoản google", "đổi tài khoản gmail"): gọi LOGIN_GOOGLE. KHÔNG dùng LOGIN_GOOGLE khi người dùng hỏi đường dẫn, link, folder.\n' +
     (options.longTermMemory
-      ? '- Về chuyện đã trao đổi trong cuộc chat này trước đây ("năm ngoái mình đi đâu", "hôm trước Nam nói gì", "tháng 5 nhóm hẹn ở đâu"): gọi SEARCH_CHAT_HISTORY, sinh keywords gồm từ khóa và từ đồng nghĩa, tính fromDate/toDate (YYYY-MM-DD) nếu câu hỏi có mốc thời gian.\n'
+      ? '- Về chuyện đã trao đổi trong cuộc chat này trước đây ("năm ngoái mình đi đâu", "hôm trước Nam nói gì", "tháng 5 nhóm hẹn ở đâu"): gọi SEARCH_CHAT_HISTORY, sinh keywords gồm từ khóa và từ đồng nghĩa, tính fromDate/toDate (YYYY-MM-DD) nếu câu hỏi có mốc thời gian; limit lớn khi cần liệt kê nhiều hoặc hỏi chung chung, nhỏ khi hỏi một chi tiết cụ thể.\n'
       : '') +
     '- Về kho lưu trữ hình ảnh/hóa đơn/video của bot: Bot tự động lưu tất cả ảnh/hóa đơn/video người dùng gửi lên Google Drive (thư mục zalobot/bill, zalobot/image, zalobot/video) và Google Photos (album "ZaloBot - Hóa đơn", "ZaloBot - Hình ảnh", "ZaloBot - Video"). Khi người dùng hỏi nơi lưu ảnh, link xem ảnh/hóa đơn/video, đường dẫn folder, link drive, link album: gọi GET_STORAGE_LINKS, xác định type (bill/image/video/all).\n' +
     '- REMEMBER_NOTE: text là điều cần nhớ viết lại thành một câu ngắn rõ chủ ngữ ("Bot là con mèo đen 2 mái 10 tuổi"); reply là một câu ngắn trả lời người dùng, đúng tính cách và cách xưng hô vừa được dặn, xác nhận đã nhớ ("dạ em nhớ rồi, em là mèo đen 2 mái 10 tuổi nè"). Lưu ngay, không cần ai duyệt, không hỏi lại. FORGET_MEMORY: query là vài từ khoá của điều cần quên, reply xác nhận đã quên.\n' +
@@ -87,7 +85,6 @@ export function buildToolSystemInstruction(options: ToolSystemInstructionOptions
     '- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object (ví dụ đúng: {"amount": 15000, "category": "Ăn uống", "type": "expense", "note": "uống cà phê"}, KHÔNG ĐƯỢC: {"amount": {"amount": 15000}}).' +
     (options.allowAiChat ? `\n\n${CHIT_CHAT_INSTRUCTION}` : '') +
     `\n\n${ZALO_PLAIN_TEXT_INSTRUCTION}` +
-    options.amendableBlock +
-    options.recentContext
+    options.amendableBlock
   );
 }

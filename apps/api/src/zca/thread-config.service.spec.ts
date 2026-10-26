@@ -40,10 +40,6 @@ void test('createDefaultThreadConfig creates sensible defaults for group vs user
   assert.equal(groupConfig.confirmationRules.requiredHearts, 5);
   assert.deepEqual(groupConfig.chatMemory, {
     enabled: false,
-    shortTermEnabled: false,
-    contextWindow: 10,
-    shortTermDays: 1,
-    searchLimit: 15,
     readImageText: true,
     learnPeople: true,
   });
@@ -490,115 +486,44 @@ void test('updateConfig clears stored links when customFolder or photosAlbum cha
   assert.equal(updated.photosAlbumUrl, undefined);
 });
 
-void test('ThreadConfigService merges and clamps chat memory updates', async () => {
+void test('ThreadConfigService merges chat memory updates', async () => {
   const service = new ThreadConfigService();
   const threadId = `memory-config-${Date.now()}`;
   await service.getConfig(threadId, { threadType: 'group' });
 
-  const enabled = await service.updateConfig(threadId, {
-    chatMemory: { enabled: true, contextWindow: 99 },
-  });
-  assert.deepEqual(enabled.chatMemory, {
-    enabled: true,
-    shortTermEnabled: false,
-    contextWindow: 30,
-    shortTermDays: 1,
-    searchLimit: 15,
-    readImageText: true,
-    learnPeople: true,
-  });
+  const enabled = await service.updateConfig(threadId, { chatMemory: { enabled: true } });
+  assert.deepEqual(enabled.chatMemory, { enabled: true, readImageText: true, learnPeople: true });
 
-  const tuned = await service.updateConfig(threadId, {
-    chatMemory: { shortTermEnabled: true, searchLimit: 0 },
-  });
-  assert.deepEqual(tuned.chatMemory, {
-    enabled: true,
-    shortTermEnabled: true,
-    contextWindow: 30,
-    shortTermDays: 1,
-    searchLimit: 1,
-    readImageText: true,
-    learnPeople: true,
-  });
-
-  // Long-term off keeps the short-term memory on.
-  const longTermOff = await service.updateConfig(threadId, { chatMemory: { enabled: false } });
-  assert.equal(longTermOff.chatMemory.shortTermEnabled, true);
+  const tuned = await service.updateConfig(threadId, { chatMemory: { learnPeople: false } });
+  assert.deepEqual(tuned.chatMemory, { enabled: true, readImageText: true, learnPeople: false });
 });
 
 void test('normalizeChatMemoryConfig fills defaults and rejects junk values', () => {
   assert.deepEqual(normalizeChatMemoryConfig(undefined), {
     enabled: false,
-    shortTermEnabled: false,
-    contextWindow: 10,
-    shortTermDays: 1,
-    searchLimit: 15,
     readImageText: true,
     learnPeople: true,
   });
-  assert.deepEqual(
-    normalizeChatMemoryConfig({
-      enabled: 'yes',
-      shortTermEnabled: 'yes',
-      contextWindow: '-3',
-      searchLimit: 'abc',
-    }),
-    {
-      enabled: false,
-      shortTermEnabled: false,
-      contextWindow: 10,
-      shortTermDays: 1,
-      searchLimit: 15,
-      readImageText: true,
-      learnPeople: true,
-    },
-  );
-  assert.deepEqual(
-    normalizeChatMemoryConfig({
-      enabled: false,
-      shortTermEnabled: true,
-      contextWindow: 7.6,
-      searchLimit: 80,
-      readImageText: true,
-      learnPeople: true,
-    }),
-    {
-      enabled: false,
-      shortTermEnabled: true,
-      contextWindow: 8,
-      shortTermDays: 1,
-      searchLimit: 50,
-      readImageText: true,
-      learnPeople: true,
-    },
-  );
+  assert.deepEqual(normalizeChatMemoryConfig({ enabled: 'yes', learnPeople: 'no' }), {
+    enabled: false,
+    readImageText: true,
+    learnPeople: true,
+  });
 });
 
-void test('normalizeChatMemoryConfig keeps the behaviour of configs saved before the short-term switch', () => {
-  // Memory on with a window: the window kept working, so short-term stays on.
-  assert.equal(
-    normalizeChatMemoryConfig({ enabled: true, contextWindow: 5, searchLimit: 15 })
-      .shortTermEnabled,
-    true,
-  );
-  // `contextWindow: 0` was the only way to turn the window off.
+void test('normalizeChatMemoryConfig drops the keys of removed options', () => {
+  // Saved before the short-term window and the search limit setting were removed.
   assert.deepEqual(
-    normalizeChatMemoryConfig({ enabled: true, contextWindow: 0, searchLimit: 15 }),
-    {
+    normalizeChatMemoryConfig({
       enabled: true,
-      shortTermEnabled: false,
+      shortTermEnabled: true,
       contextWindow: 10,
-      shortTermDays: 1,
-      searchLimit: 15,
-      readImageText: true,
+      shortTermDays: 3,
+      searchLimit: 20,
+      readImageText: false,
       learnPeople: true,
-    },
-  );
-  // Memory off turned the window off too.
-  assert.equal(
-    normalizeChatMemoryConfig({ enabled: false, contextWindow: 10, searchLimit: 15 })
-      .shortTermEnabled,
-    false,
+    }),
+    { enabled: true, readImageText: false, learnPeople: true },
   );
 });
 
@@ -609,15 +534,6 @@ void test('normalizeChatMemoryConfig keeps the photo switch and turns it on for 
     false,
   );
   assert.equal(normalizeChatMemoryConfig({ readImageText: 'no' }).readImageText, true);
-});
-
-void test('normalizeChatMemoryConfig clamps the short-term days to 1–7', () => {
-  const days = (value: unknown) =>
-    normalizeChatMemoryConfig({ shortTermDays: value }).shortTermDays;
-  assert.equal(days(3), 3);
-  assert.equal(days(99), 7);
-  assert.equal(days('0'), 1);
-  assert.equal(days('abc'), 1);
 });
 
 void test('deleteConfig removes the row via remove(), the Redis cache and the listened state', async () => {

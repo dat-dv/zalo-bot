@@ -41,7 +41,7 @@ function createService(setup: Setup = {}) {
       Promise.resolve({
         isListened: true,
         threadType: 'group',
-        chatMemory: { enabled: memoryOn, shortTermEnabled: memoryOn },
+        chatMemory: { enabled: memoryOn },
         confirmationRules: { requiredHearts: 1 },
       }),
   } as unknown as ThreadConfigService;

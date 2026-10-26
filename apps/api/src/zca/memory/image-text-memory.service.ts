@@ -23,10 +23,6 @@ export interface ImageTextJob {
   /** The photo message as received: id, sender, caption. */
   data: MemorySourceMessage;
   imageUrl: string;
-  /** The chat's `shortTermDays` when its short-term memory is on. */
-  shortTermDays?: number;
-  /** Whether the chat's long-term memory is on. */
-  longTerm: boolean;
   /** Settles once the photo's row is written, so the update finds it. */
   afterStored?: Promise<unknown>;
 }
@@ -48,8 +44,8 @@ function errorMessage(err: unknown): string {
 }
 
 /**
- * Reads the text of photos posted in chats with chat memory on (local Tesseract OCR) and adds it
- * to the photo's stored row, which both memories read (the short-term window cuts it). Photos are read one at a time in the
+ * Reads the text of photos posted in chats with long-term memory on (local Tesseract OCR) and adds
+ * it to the photo's stored row. Photos are read one at a time in the
  * background, because OCR is CPU-heavy; the queue is in-process and lost on restart. A photo that
  * addresses the bot is read at once through `recognizeNow`, so it is never read twice. Never throws.
  */
@@ -69,7 +65,6 @@ export class ImageTextMemoryService {
 
   /** Queues a photo for reading; skipped when no memory is on, already known, or the queue is full. */
   public enqueue(job: ImageTextJob): void {
-    if (!job.longTerm && job.shortTermDays === undefined) return;
     const record = toMemoryRecord(job.channelId, job.channelType, job.data);
     if (!record || !job.imageUrl) return;
 

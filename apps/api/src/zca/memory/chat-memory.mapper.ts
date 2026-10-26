@@ -1,4 +1,3 @@
-import { CHAT_MEMORY_LIMITS } from '@zalobot/contracts';
 import type { MemoryKind } from './memory-kind';
 
 /**
@@ -34,15 +33,11 @@ export interface ChatMemoryRecord {
   quoteMsgId: string | null;
   sentAt: Date;
   memoryKind: MemoryKind;
-  /** Null when the long-term memory keeps the row; otherwise when it is purged. */
-  expiresAt: Date | null;
 }
 
 /** One remembered message as shown to the LLM. */
 export interface MemoryLine {
   sentAt: Date;
-  /** `users.id` of the sender when known (short-term window). */
-  senderUid?: string | null;
   senderName: string | null;
   isBot: boolean;
   text: string;
@@ -119,9 +114,6 @@ export function buildMemoryText(msgType: string, content: unknown): string {
 /** OCR results below this mean confidence are noise, not text (photos of people or scenery). */
 export const IMAGE_TEXT_MIN_CONFIDENCE = 40;
 
-/** Photo text kept in the short-term window, so one poster cannot fill the prompt. */
-export const SHORT_TERM_IMAGE_TEXT_MAX_CHARS = 500;
-
 /** Fewer letters/digits than this in the whole photo means it has no real text. */
 const IMAGE_TEXT_MIN_ALNUM = 8;
 /** A kept OCR line has at least this many letters/digits, and at least this share of its glyphs. */
@@ -186,7 +178,7 @@ export function toMemoryRecord(
   channelId: string,
   channelType: MemoryChannelType,
   data: MemorySourceMessage,
-  options: { isBot?: boolean; now?: Date; memoryKind?: MemoryKind; longTerm?: boolean } = {},
+  options: { isBot?: boolean; now?: Date; memoryKind?: MemoryKind } = {},
 ): ChatMemoryRecord | null {
   const msgId = asTrimmedString(data.msgId) || asTrimmedString(data.cliMsgId);
   if (!channelId || !msgId) return null;
@@ -210,18 +202,7 @@ export function toMemoryRecord(
     quoteMsgId: readQuoteMsgId(data.quote),
     sentAt,
     memoryKind: options.memoryKind ?? (options.isBot ? 'bot_chat' : 'chat'),
-    expiresAt: options.longTerm === false ? shortTermExpiry(sentAt) : null,
   };
-}
-
-/**
- * Rows of a thread without long-term memory live only as long as the longest short-term window,
- * so turning long-term memory on later never exposes messages sent while it was off.
- */
-export const SHORT_TERM_ONLY_RETENTION_DAYS = CHAT_MEMORY_LIMITS.SHORT_TERM_DAYS_MAX;
-
-export function shortTermExpiry(sentAt: Date): Date {
-  return new Date(sentAt.getTime() + SHORT_TERM_ONLY_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 }
 
 /** `[2025-07-12 19:03] Đạt: …` in the given IANA time zone. */
