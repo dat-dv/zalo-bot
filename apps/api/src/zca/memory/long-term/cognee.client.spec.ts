@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ConfigService } from '@nestjs/config';
-import { CogneeClient, cogneeDatasetName } from './cognee.client';
+import { CogneeClient, cogneeDatasetName, parseExistingDocument } from './cognee.client';
 
 interface SeenRequest {
   url: string;
@@ -127,5 +127,72 @@ void test('CogneeClient signs in again once when its token is refused', async ()
     assert.equal(seen.filter((request) => request.url.endsWith('/auth/login')).length, 2);
   } finally {
     restore();
+  }
+});
+
+const STALE =
+  "add() does not update documents. '7120342145544273834_2026-10-25.txt' (data_id " +
+  '16464fe0-ebb1-467f-93ff-5b46d317da25) already exists in dataset ' +
+  '685503bb-9e2d-54a8-90df-a3b615ad9940 with different content. To replace the stored version, ' +
+  'call cognee.update(...)';
+
+void test('parseExistingDocument reads the stored item of a refused re-send', () => {
+  assert.deepEqual(parseExistingDocument(JSON.stringify({ detail: STALE })), {
+    dataId: '16464fe0-ebb1-467f-93ff-5b46d317da25',
+    datasetId: '685503bb-9e2d-54a8-90df-a3b615ad9940',
+  });
+  assert.equal(parseExistingDocument('LLM connection test timed out after 30s'), null);
+});
+
+void test('CogneeClient forgets a stale copy once and sends the file again', async () => {
+  let remembers = 0;
+  const { seen, restore } = stubFetch({
+    '/auth/login': () => json({ access_token: 'tok' }),
+    '/forget': () => json({ status: 'success' }),
+    '/remember': () => {
+      remembers += 1;
+      return remembers === 1
+        ? json({ detail: STALE }, 409)
+        : json({ dataset_id: '685503bb-9e2d-54a8-90df-a3b615ad9940', items: [{ id: 'new-item' }] });
+    },
+  });
+  try {
+    assert.deepEqual(await client().remember('zca-1', '1_2026-10-25.txt', 'x'), {
+      datasetId: '685503bb-9e2d-54a8-90df-a3b615ad9940',
+      dataId: 'new-item',
+    });
+    const forget = seen.find((request) => request.url.endsWith('/forget'));
+    assert.deepEqual(JSON.parse(forget?.body ?? ''), {
+      datasetId: '685503bb-9e2d-54a8-90df-a3b615ad9940',
+      dataId: '16464fe0-ebb1-467f-93ff-5b46d317da25',
+    });
+    assert.equal(remembers, 2);
+  } finally {
+    restore();
+  }
+});
+
+void test('CogneeClient gives up on a 409 that names no stored item, or after one retry', async () => {
+  const llmDown = stubFetch({
+    '/auth/login': () => json({ access_token: 'tok' }),
+    '/remember': () => json({ error: 'LLM connection test timed out after 30s' }, 409),
+  });
+  try {
+    assert.equal(await client().remember('zca-1', 'a.txt', 'x'), null);
+    assert.equal(llmDown.seen.filter((request) => request.url.endsWith('/remember')).length, 1);
+  } finally {
+    llmDown.restore();
+  }
+
+  const stuck = stubFetch({
+    '/auth/login': () => json({ access_token: 'tok' }),
+    '/forget': () => json({ status: 'success' }),
+    '/remember': () => json({ detail: STALE }, 409),
+  });
+  try {
+    assert.equal(await client().remember('zca-1', 'a.txt', 'x'), null);
+    assert.equal(stuck.seen.filter((request) => request.url.endsWith('/remember')).length, 2);
+  } finally {
+    stuck.restore();
   }
 });

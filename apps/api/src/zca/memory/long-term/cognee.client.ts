@@ -36,6 +36,26 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : JSON.stringify(err);
 }
 
+/** A 409 answer kept for the caller (remember of a name already stored). */
+class CogneeConflict {
+  constructor(public readonly detail: string) {}
+}
+
+/**
+ * Cognee refuses to store a file name again with other content ("add() does not update
+ * documents. '<name>' (data_id <id>) already exists in dataset <id> with different content").
+ * That happens when an earlier remember stored the file but failed later (e.g. the LLM was down),
+ * so its id was never kept. Returns the stored item, which is then forgotten and sent again.
+ */
+export function parseExistingDocument(
+  detail: string,
+): { datasetId: string; dataId: string } | null {
+  const match = /\(data_id ([0-9a-f-]{36})\) already exists in dataset ([0-9a-f-]{36})/i.exec(
+    detail,
+  );
+  return match ? { dataId: match[1], datasetId: match[2] } : null;
+}
+
 /** Cognee dataset of one ZCA chat; datasets are the isolation boundary between chats. */
 export function cogneeDatasetName(channelId: string): string {
   return `zca-${channelId}`;
@@ -64,12 +84,24 @@ export class CogneeClient {
     datasetName: string,
     fileName: string,
     text: string,
+    retried = false,
   ): Promise<CogneeRememberResult | null> {
     const form = new FormData();
     form.append('data', new Blob([text], { type: 'text/plain' }), fileName);
     form.append('datasetName', datasetName);
     form.append('run_in_background', 'false');
-    const body = await this.request('POST', '/remember', { form });
+    const body = await this.request('POST', '/remember', { form, keepConflict: true });
+    if (body instanceof CogneeConflict) {
+      const stale = parseExistingDocument(body.detail);
+      if (stale && !retried && (await this.forget(stale.datasetId, stale.dataId))) {
+        this.logger.log(`[Cognee] Replaced a stale copy of ${fileName} in ${datasetName}`);
+        return this.remember(datasetName, fileName, text, true);
+      }
+      this.logger.warn(
+        `[Cognee] POST /remember failed with HTTP 409: ${body.detail.slice(0, 300)}`,
+      );
+      return null;
+    }
     const datasetId = stringField(body, 'dataset_id');
     const items = isRecord(body) && Array.isArray(body.items) ? body.items : [];
     const dataId = stringField(items[0], 'id');
@@ -150,7 +182,7 @@ export class CogneeClient {
   private async request(
     method: 'POST' | 'GET',
     path: string,
-    options: { json?: unknown; form?: FormData; notFoundIsEmpty?: boolean },
+    options: { json?: unknown; form?: FormData; notFoundIsEmpty?: boolean; keepConflict?: boolean },
     retried = false,
   ): Promise<unknown> {
     const settings = this.settings();
@@ -173,6 +205,9 @@ export class CogneeClient {
         return this.request(method, path, options, true);
       }
       if (response.status === 404 && options.notFoundIsEmpty) return [];
+      if (response.status === 409 && options.keepConflict) {
+        return new CogneeConflict(await response.text().catch(() => ''));
+      }
       if (!response.ok) {
         const detail = (await response.text().catch(() => '')).slice(0, 300);
         this.logger.warn(

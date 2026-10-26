@@ -185,7 +185,10 @@ Không đổi cách đọc: OCR Tesseract chạy trên server, lần lượt t�
 | Bot vẫn quên lời dặn | AI không nhận ra đó là lời dặn (không gọi `REMEMBER_NOTE`), hoặc ghi nhớ đã bị quên. Kiểm tra bảng `zca_channel_notes` của kênh |
 | Thẻ "Nhớ lâu dài" ghi "Máy chủ chưa bật Cognee" | Chưa đặt `COGNEE_USER_PASSWORD` cho API, hoặc thiếu `COGNEE_URL` khi chạy ngoài Docker |
 | `zca_memory_ingestions` toàn `failed` | LLM của Cognee không gọi được (sai endpoint/model/key). Log API `[Cognee] POST /remember failed …`; log container `cognee` ghi lỗi chi tiết |
-| Cognee báo `LLM connection test timed out` | Endpoint LLM không truy cập được từ container, hoặc model đã ngừng phục vụ |
+| Cognee báo `LLM connection test timed out` (log có `ConnectionTimeoutError`) | Container `cognee` không mở được kết nối tới endpoint LLM. 9router chạy trên máy chủ thì `COGNEE_LLM_ENDPOINT` phải là `http://host.docker.internal:<cổng>/v1` (service `cognee` có `extra_hosts` như `api`), không dùng `localhost`. Kết nối được mà nhận lỗi HTTP (như 410) là model đã ngừng phục vụ |
+| Log API có `POST /remember failed with HTTP 409 … already exists … with different content` | Lần nạp trước lưu file nhưng chết ở bước dựng graph. Từ bản sửa này bot tự xoá bản cũ và gửi lại một lần; vẫn còn thì xem lỗi LLM ở dòng trên |
+| UI Cognee trả 500 khi bấm nút, log `cognee-ui` có `Invalid Server Actions request` | Nginx không gửi đúng `Host`/`X-Forwarded-Host` sang UI; đã sửa trong `30-cognee-proxy.sh` |
+| Container `web` báo `unhealthy` (`wget: can't connect … Connection refused`) | Healthcheck gọi `localhost` (IPv6), nginx chỉ nghe IPv4; đã đổi sang `127.0.0.1` |
 | "Bot đã học" có điều sai | Xoá điều đó trên dashboard hoặc nói "@bot quên vụ … đi"; điều đã xoá không được học lại |
 | Bot không hiểu câu nối tiếp | Bình thường: bot không còn đọc tin gần đây. Chỉ tin bổ sung cho thẻ đang chờ của chính người nhắn mới được hiểu; còn lại hãy nói đầy đủ một câu |
 | Câu hỏi chuyện cũ chỉ trò chuyện | Chưa bật "Nhớ lâu dài" (tool tra cứu không được đưa cho AI) |
