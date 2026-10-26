@@ -194,7 +194,7 @@ Thẻ chờ cũng được giữ trong bộ nhớ kèm bộ hẹn giờ; Redis l
 Nguyên tắc: **tin nhắn trong quá trình tương tác là tạm thời; khi xong chỉ còn lại tin kết quả.**
 
 1. **Tin trung gian** được ghi nhận để thu hồi: đếm tim `❤️ X/Y [mã]` và kết quả tạo nơi chốn khi vẫn còn thẻ khác đang chờ.
-2. **`cliMsgId`:** API `undo` của Zalo cần mã phía client (`cliMsgId`), truyền nhầm `msgId` sẽ bị từ chối. `ZcaService` bắt cặp `msgId ↔ cliMsgId` và lưu Redis 24 giờ. Nếu `undo` thất bại, bot xoá tin ở phía mình (`deleteMessage(onlyMe: true)`). Thu hồi chỉ hoạt động khi ZCA đang đăng nhập.
+2. **`cliMsgId`:** API `undo` của Zalo cần mã phía client (`cliMsgId`), truyền nhầm `msgId` sẽ bị từ chối. `ZcaService` bắt cặp `msgId ↔ cliMsgId` ngay lúc bot gửi tin chữ (và từ echo, reaction), lưu Redis 24 giờ. Nếu `undo` thất bại, bot ghi log và báo thất bại; không xoá tin chỉ ở phía bot nữa, vì người khác vẫn thấy tin mà lỗi lại bị che. Thu hồi chỉ hoạt động khi ZCA đang đăng nhập.
 3. **Xác nhận:** thu hồi thẻ + tin trung gian, thực thi, gửi một tin kết quả dạng gọn (mục 2.1). Còn thẻ khác thì cũng không gửi thêm gì (mục 2.2).
 4. **Thẻ đi kèm:** duyệt giao dịch có nơi chốn mới sẽ tự thu hồi và bỏ thẻ `CREATE_PLACE` tương ứng.
 5. **Huỷ / hết hạn:** thu hồi thẻ và tin trung gian, gửi một tin thông báo một dòng (`[mã] Đã huỷ: …` / `[mã] Hết hạn, chưa lưu: …`).

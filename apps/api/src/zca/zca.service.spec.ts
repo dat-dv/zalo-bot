@@ -686,3 +686,57 @@ void test('ZcaService.undo also forgets the recalled message in chat memory', as
 
   assert.deepEqual(recalls, [['g-1', '7001']]);
 });
+
+/** zca-js `SendMessageResponse` for one text message. */
+type FakeSendResponse = { message: { msgId: number }; attachment: Array<{ msgId: number }> };
+
+/** A logged-in service over a fake zca-js API, wrapped like the real one at login. */
+function serviceWithFakeApi(fake: Record<string, unknown>): ZcaService {
+  const service = new ZcaService({ get: (): undefined => undefined } as unknown as ConfigService);
+  const internals = service as unknown as {
+    api: unknown;
+    setupApiInstance(api: unknown): unknown;
+  };
+  internals.api = internals.setupApiInstance(fake);
+  return service;
+}
+
+void test('ZcaService returns the cliMsgId of a sent text, caught from the zca-js clientId', async () => {
+  let clientId: number | undefined;
+  const undos: Array<{ msgId: unknown; cliMsgId: unknown }> = [];
+  const service = serviceWithFakeApi({
+    // Like zca-js: the clientId is read from the clock before the first await.
+    sendMessage: async (): Promise<FakeSendResponse> => {
+      clientId = Date.now();
+      await Promise.resolve();
+      return { message: { msgId: 900 }, attachment: [] };
+    },
+    undo: (payload: { msgId: unknown; cliMsgId: unknown }) => {
+      undos.push(payload);
+      return Promise.resolve({ status: 0 });
+    },
+  });
+
+  const sent = await service.sendMessageWithResult('g1', 'Đặt lời nhắc [123]?');
+  assert.deepEqual(sent, { success: true, msgId: '900', cliMsgId: String(clientId) });
+
+  // A recall without the cliMsgId (timeout path before the fix) finds it in the cache.
+  assert.equal(await service.undoMessage('g1', '900'), true);
+  assert.deepEqual(undos, [{ msgId: '900', cliMsgId: String(clientId) }]);
+});
+
+void test('ZcaService reports a refused recall instead of deleting the message for the bot only', async () => {
+  let deleted = false;
+  const service = serviceWithFakeApi({
+    sendMessage: (): Promise<FakeSendResponse> =>
+      Promise.resolve({ message: { msgId: 901 }, attachment: [] }),
+    undo: () => Promise.reject(new Error('Tham số không hợp lệ')),
+    deleteMessage: () => {
+      deleted = true;
+      return Promise.resolve({ status: 0 });
+    },
+  });
+
+  assert.equal(await service.undoMessage('g1', '901', 'cli-901'), false);
+  assert.equal(deleted, false);
+});

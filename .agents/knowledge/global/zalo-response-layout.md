@@ -135,7 +135,7 @@ Principle: interaction messages are ephemeral; after resolution only the outcome
 
 1. Interim messages tracked via `addTempMessage`: heart counter `❤️ X/Y [code]` and a place confirmation sent while other actions are still pending.
 2. `recallTempMessages(chatId, code?)` recalls the card and tracked messages (`Promise.allSettled`, errors logged only).
-3. ZCA `undo` needs the client `cliMsgId`; `ZcaService` caches `msgId -> cliMsgId` from echoes/reactions. If `undo` fails, fall back to `deleteMessage(onlyMe: true)`. Recall requires ZCA to be logged in.
+3. ZCA `undo` needs the client `cliMsgId`; `ZcaService` caches `msgId -> cliMsgId` from the bot's own text sends (clientId caught at send, see `modules/zca/README.md`), echoes and reactions. If `undo` fails it logs and returns `false` (no delete-for-me fallback). Recall requires ZCA to be logged in.
 4. Confirmed: recall, execute, post one compact result message (same for hearts and text). Nothing else is posted, even when more actions remain.
 5. Companion place: confirming a `RECORD_TRANSACTION` with `placeName` recalls and deletes a matching pending `CREATE_PLACE` card.
 6. Cancelled: recall, post `[code] Đã huỷ: …`. Timeout: recall, post `[code] Hết hạn, chưa lưu: …`.

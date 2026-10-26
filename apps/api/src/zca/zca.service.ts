@@ -94,6 +94,13 @@ import {
   WelcomeGroupEventStrategy,
   type WelcomeStrategyOptions,
 } from './strategies/welcome-group-event.strategy';
+import { captureClientId } from './zca-client-id.util';
+
+/** Messages with files take another zca-js path, whose first clock read is not the clientId. */
+function hasAttachments(message: MessageContent): boolean {
+  const { attachments } = message;
+  return Array.isArray(attachments) ? attachments.length > 0 : Boolean(attachments);
+}
 
 function formatErrorMessage(err: unknown): string {
   if (err instanceof Error) {
@@ -678,10 +685,17 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       if (text) {
         this.trackBotOutgoingMessage(threadId, text);
       }
-      const response = await originalSendMessage(message, threadId, resolvedType);
+      // Right around the zca-js call: the clock reads above must not be taken for its clientId.
+      const isText = typeof message === 'string' || !hasAttachments(message);
+      const sent = isText
+        ? captureClientId(() => originalSendMessage(message, threadId, resolvedType))
+        : { result: originalSendMessage(message, threadId, resolvedType), clientId: undefined };
+      const response = await sent.result;
       if (response?.message?.msgId) {
         const msgId = String(response.message.msgId);
         this.trackBotMsgId(msgId);
+        // The cliMsgId a recall needs (`undoMessage`); zca-js does not return it.
+        if (sent.clientId) this.trackMsgCliId(msgId, sent.clientId);
         if (text && this.listenedThreadIds.has(threadId)) {
           void this.recordBotReplyInMemory(threadId, resolvedType, msgId, text, memoryKind);
         }
@@ -1760,7 +1774,13 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       const rawMsg = res?.message as unknown as
         { msgId?: string | number; cliMsgId?: string | number } | undefined;
       const msgId = rawMsg?.msgId !== undefined ? String(rawMsg.msgId) : undefined;
-      const cliMsgId = rawMsg?.cliMsgId !== undefined ? String(rawMsg.cliMsgId) : undefined;
+      // Zalo answers with the msgId only; the send wrapper caught the cliMsgId as it went out.
+      const cliMsgId =
+        rawMsg?.cliMsgId !== undefined
+          ? String(rawMsg.cliMsgId)
+          : msgId
+            ? await this.getCliMsgId(msgId)
+            : undefined;
       return { success: true, msgId, cliMsgId };
     } catch (zcaErr) {
       this.logger.error(
@@ -1779,7 +1799,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   }
 
   /**
-   * Helper to recall/undo a message cleanly.
+   * Recalls a message for everyone; `false` when Zalo refused (the message stays visible).
    */
   public async undoMessage(
     chatId: string | number,
@@ -1795,6 +1815,11 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     if (!resolvedCliMsgId || resolvedCliMsgId === msgId) {
       resolvedCliMsgId = await this.getCliMsgId(msgId);
     }
+    if (!resolvedCliMsgId) {
+      this.logger.warn(
+        `[ZcaService] No cliMsgId for message ${msgId}; Zalo will likely refuse the recall.`,
+      );
+    }
     try {
       await this.undo(
         {
@@ -1808,27 +1833,10 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       );
       return true;
     } catch (err) {
+      // No delete-for-me fallback: it only hid the message from the bot and reported a recall.
       this.logger.warn(
-        `[ZcaService] Could not undo message ${msgId}: ${err instanceof Error ? err.message : String(err)}`,
+        `[ZcaService] Could not recall message ${msgId} (cliMsgId: ${resolvedCliMsgId || 'n/a'}): ${err instanceof Error ? err.message : String(err)}`,
       );
-      try {
-        if (this.api?.deleteMessage) {
-          await this.deleteMessage(
-            {
-              threadId: targetChatId,
-              data: {
-                msgId,
-                cliMsgId: resolvedCliMsgId || msgId,
-                uidFrom: this.getOwnId() || '0',
-              },
-            },
-            true,
-          );
-          return true;
-        }
-      } catch {
-        // ignore fallback errors
-      }
       return false;
     }
   }
