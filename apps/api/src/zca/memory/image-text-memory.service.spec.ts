@@ -28,8 +28,6 @@ function job(msgId: string, extra: Partial<ImageTextJob> = {}): ImageTextJob {
       ts: Date.now(),
     },
     imageUrl: photoUrl(msgId),
-    shortTermDays: 1,
-    longTerm: true,
     ...extra,
   };
 }
@@ -86,19 +84,6 @@ void test('ImageTextMemoryService reads photos one at a time into the stored row
     longTerm.map((entry) => entry.msgId),
     ['p1', 'p2'],
   );
-});
-
-void test('ImageTextMemoryService reads photos while either memory is on', async () => {
-  // One row serves both memories, so a chat with only the short-term memory still gets the text.
-  const shortOnly = createService();
-  shortOnly.service.enqueue(job('p1', { longTerm: false }));
-  await settle();
-  assert.equal(shortOnly.longTerm.length, 1);
-
-  const none = createService();
-  none.service.enqueue(job('p1', { longTerm: false, shortTermDays: undefined }));
-  await settle();
-  assert.deepEqual(none.read, []);
 });
 
 void test('ImageTextMemoryService waits for the long-term row before updating it', async () => {

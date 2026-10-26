@@ -1,6 +1,5 @@
 import axios from 'axios';
 import {
-  CHANNEL_NOTES_LIMITS,
   type IApiErrorResponse,
   type IChannelLearnedFact,
   type IChannelMemoryStatus,
@@ -36,16 +35,6 @@ export function apiErrorText(error: unknown, fallback: string): string {
   const message = error.response?.data?.message;
   if (Array.isArray(message)) return message.join(' ') || fallback;
   return message || fallback;
-}
-
-/** Client-side check before saving a note; the API checks the same limits. */
-export function noteTextError(text: string): string | null {
-  const clean = text.replace(/\s+/g, ' ').trim();
-  if (!clean) return 'Nhập điều cần bot nhớ.';
-  if (clean.length > CHANNEL_NOTES_LIMITS.MAX_CHARS) {
-    return `Tối đa ${CHANNEL_NOTES_LIMITS.MAX_CHARS} ký tự.`;
-  }
-  return null;
 }
 
 /** One line about the nightly job for the long-term memory card. */

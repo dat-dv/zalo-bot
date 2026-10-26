@@ -23,10 +23,6 @@ import {
   updateThreadStorageLink,
   deleteThreadStorageLink,
   deleteZcaThreadConfig,
-  getThreadNotes,
-  createThreadNote,
-  updateThreadNote,
-  deleteThreadNote,
   getThreadLearnedFacts,
   deleteThreadLearnedFact,
   getThreadMemoryStatus,
@@ -41,7 +37,6 @@ import type {
   CreateChannelStorageLinkDto,
   IChannelLearnedFact,
   IChannelMemoryStatus,
-  IChannelNote,
   IGoogleStorageAccountStatus,
   IZcaGroupMembersResponse,
   UpdateChannelStorageLinkDto,
@@ -61,7 +56,6 @@ export const zcaQueryKeys = {
     ['zca', 'drive-link', channelId || 'root', threadName || ''] as const,
   storageLinks: (threadId: string) => ['zca', 'storage-links', threadId] as const,
   members: (threadId: string) => ['zca', 'members', threadId] as const,
-  notes: (threadId: string) => ['zca', 'notes', threadId] as const,
   facts: (threadId: string) => ['zca', 'learned-facts', threadId] as const,
   memoryStatus: (threadId: string) => ['zca', 'memory-status', threadId] as const,
   googleAccount: () => ['zca', 'google-account'] as const,
@@ -317,36 +311,6 @@ export function useDeleteThreadStorageLinkMutation(threadId: string) {
       queryClient.setQueryData(zcaQueryKeys.storageLinks(threadId), links);
     },
   });
-}
-
-export function useThreadNotesQuery(threadId: string) {
-  return useQuery<IChannelNote[]>({
-    queryKey: zcaQueryKeys.notes(threadId),
-    queryFn: ({ signal }) => getThreadNotes(threadId, signal),
-    enabled: Boolean(threadId),
-  });
-}
-
-/** Note mutations answer with the fresh list, so the cache is replaced without a refetch. */
-export function useThreadNoteMutations(threadId: string) {
-  const queryClient = useQueryClient();
-  const replace = (notes: IChannelNote[]) =>
-    queryClient.setQueryData(zcaQueryKeys.notes(threadId), notes);
-  return {
-    create: useMutation({
-      mutationFn: (text: string) => createThreadNote(threadId, { text }),
-      onSuccess: replace,
-    }),
-    update: useMutation({
-      mutationFn: ({ noteId, text }: { noteId: string; text: string }) =>
-        updateThreadNote(threadId, noteId, { text }),
-      onSuccess: replace,
-    }),
-    remove: useMutation({
-      mutationFn: (noteId: string) => deleteThreadNote(threadId, noteId),
-      onSuccess: replace,
-    }),
-  };
 }
 
 export function useThreadLearnedFactsQuery(threadId: string, enabled: boolean) {

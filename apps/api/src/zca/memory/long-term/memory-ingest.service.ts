@@ -32,7 +32,7 @@ function errorMessage(err: unknown): string {
  * Nightly long-term memory job. For each listened chat with long-term memory on it sends every
  * chat day not yet in Cognee as one dated document (dataset `zca-<channelId>`), resends days
  * marked `stale` after a recall, then re-learns the facts about the bot and the most active
- * members. Also purges rows kept only for a short-term memory. Chats are processed one after the
+ * members. Also purges the rows left by the removed short-term memory. Chats are processed one after the
  * other so a free LLM behind the router is not flooded. Never throws per chat.
  */
 @Injectable()

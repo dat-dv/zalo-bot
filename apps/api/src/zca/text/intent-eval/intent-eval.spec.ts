@@ -30,7 +30,6 @@ void test('the tool prompt carries the classification table with the confusing p
     longTermMemory: false,
     allowAiChat: true,
     amendableBlock: '',
-    recentContext: '',
   });
   assert.ok(prompt.includes(INTENT_CLASSIFICATION_RULES));
   assert.match(

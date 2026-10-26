@@ -642,7 +642,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   }
 
   /**
-   * Stores a bot message once for the memories the thread has on, tagged with the kind it was
+   * Stores a bot message in the thread's long-term memory when it is on, tagged with the kind it was
    * sent as (`OutgoingMemoryKind`, default `bot_chat`), so cards and notices stay out of them.
    */
   private async recordBotReplyInMemory(
@@ -654,14 +654,13 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   ): Promise<void> {
     if (!this.chatMemoryService) return;
     const memory = (await this.threadConfigService?.findStoredConfig(threadId))?.chatMemory;
-    if (!memory?.enabled && !memory?.shortTermEnabled) return;
+    if (!memory?.enabled) return;
     await this.chatMemoryService.recordBotReply(
       threadId,
       type === ThreadType.Group ? 'group' : 'user',
       msgId,
       text,
       kind,
-      { longTerm: memory.enabled },
     );
   }
 

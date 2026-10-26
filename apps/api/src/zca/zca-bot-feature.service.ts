@@ -49,17 +49,9 @@ import { cleanBotMention } from './text/bot-mention.util';
 import { ChatMemoryService } from './memory/chat-memory.service';
 import { ImageTextMemoryService } from './memory/image-text-memory.service';
 
-/** Per-thread memory settings for the text pipeline; each part only when the thread has it on. */
-function toAgentMemory(
-  config: ThreadBotConfig,
-): Pick<AgentInput, 'shortTermMemory' | 'longTermMemory'> {
-  const memory = config.chatMemory;
-  return {
-    shortTermMemory: memory?.shortTermEnabled
-      ? { contextWindow: memory.contextWindow, days: memory.shortTermDays }
-      : undefined,
-    longTermMemory: memory?.enabled ? { searchLimit: memory.searchLimit } : undefined,
-  };
+/** Per-thread memory settings for the text pipeline. */
+function toAgentMemory(config: ThreadBotConfig): Pick<AgentInput, 'longTermMemory'> {
+  return { longTermMemory: config.chatMemory?.enabled === true };
 }
 
 /** A history payload field as text; objects and missing values become ''. */
@@ -824,7 +816,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
 
   /**
    * Queues a photo so the text read from it (local OCR, in the background) joins its entry in the
-   * chat memories that are on. Every photo of the chat, whether or not it addresses the bot.
+   * chat memory when it is on. Every photo of the chat, whether or not it addresses the bot.
    */
   private rememberImageText(
     message: Message,
@@ -834,7 +826,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
   ): void {
     const memory = config.chatMemory;
     if (!this.imageTextMemoryService || message.data?.msgType !== 'chat.photo') return;
-    if (!memory?.readImageText || (!memory.enabled && !memory.shortTermEnabled)) return;
+    if (!memory?.readImageText || !memory.enabled) return;
     const { url } = extractMediaMeta(message.data?.content);
     if (!url) return;
     this.imageTextMemoryService.enqueue({
@@ -842,8 +834,6 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       channelType,
       data: message.data,
       imageUrl: url,
-      shortTermDays: memory.shortTermEnabled ? memory.shortTermDays : undefined,
-      longTerm: memory.enabled,
       afterStored,
     });
   }
@@ -862,7 +852,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     fields: {
       text: string;
       directConfig: ThreadDirectInteractionConfig;
-      memory: Pick<AgentInput, 'shortTermMemory' | 'longTermMemory'>;
+      memory: Pick<AgentInput, 'longTermMemory'>;
     },
   ): AgentInput {
     const { text, directConfig, memory } = fields;
@@ -931,15 +921,13 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     const memory = toAgentMemory(config);
     const messageId = message.data?.msgId ? String(message.data.msgId) : undefined;
     const channelType = message.type === ThreadType.Group ? 'group' : 'user';
-    // One row serves both memories. The bot's own messages echoed back by self-listen are stored
+    // The bot's own messages echoed back by self-listen are stored
     // by the send wrapper with the kind they were sent as, so they are skipped here.
     const isBotEcho = Boolean(message.isSelf && this.zcaService?.isBotSentMessage(message));
     // Never rejects; the photo reader waits for the row before adding the photo's text to it.
     const stored =
-      (memory.shortTermMemory || memory.longTermMemory) && !isBotEcho
-        ? this.chatMemoryService?.record(threadId, channelType, message.data, {
-            longTerm: Boolean(memory.longTermMemory),
-          })
+      memory.longTermMemory && !isBotEcho
+        ? this.chatMemoryService?.record(threadId, channelType, message.data)
         : undefined;
     this.rememberImageText(message, config, channelType, stored);
 
@@ -1341,8 +1329,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
   }
 
   /**
-   * A message recalled in Zalo is also forgotten by both memories (and its day is sent to Cognee
-   * again without it), even when the thread has since turned them off.
+   * A message recalled in Zalo is also forgotten by the chat memory (and its day is sent to Cognee
+   * again without it), even when the thread has since turned it off.
    */
   public async onUndo(undo: Undo): Promise<void> {
     const recalledMsgId = undo.data?.content?.globalMsgId;

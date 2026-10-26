@@ -7,16 +7,6 @@ import {
 
 export type ThreadKind = 'user' | 'group';
 
-/**
- * Raw text of the chat-memory number inputs: clamping on every keystroke would rewrite what the
- * user is typing (clearing the field, typing "25"), so values are normalized on blur and save.
- */
-export interface ChatMemoryDraft {
-  contextWindow: string;
-  shortTermDays: string;
-  searchLimit: string;
-}
-
 /** Fills every optional field so the form controls are always controlled. */
 export function configToForm(config: ThreadBotConfig, threadType: ThreadKind): ThreadBotConfig {
   return {
@@ -49,30 +39,8 @@ export function configToForm(config: ThreadBotConfig, threadType: ThreadKind): T
   };
 }
 
-export function memoryDraftFrom(chatMemory: ThreadBotConfig['chatMemory']): ChatMemoryDraft {
-  return {
-    contextWindow: String(chatMemory.contextWindow),
-    shortTermDays: String(chatMemory.shortTermDays),
-    searchLimit: String(chatMemory.searchLimit),
-  };
-}
-
-/** Applies the typed numbers; an empty field falls back to the default. */
-export function resolveChatMemory(
-  form: ThreadBotConfig,
-  draft: ChatMemoryDraft,
-): ThreadBotConfig['chatMemory'] {
-  return normalizeChatMemoryConfig({
-    ...form.chatMemory,
-    contextWindow: draft.contextWindow.trim() || undefined,
-    shortTermDays: draft.shortTermDays.trim() || undefined,
-    searchLimit: draft.searchLimit.trim() || undefined,
-  });
-}
-
 export function formToPayload(
   form: ThreadBotConfig,
-  draft: ChatMemoryDraft,
   threadName: string,
   threadType: ThreadKind,
 ): UpdateThreadBotConfigDto {
@@ -89,7 +57,7 @@ export function formToPayload(
     directInteraction: form.directInteraction,
     mediaBackup: form.mediaBackup,
     confirmationRules: form.confirmationRules,
-    chatMemory: resolveChatMemory(form, draft),
+    chatMemory: normalizeChatMemoryConfig(form.chatMemory),
     memberAccess: normalizeMemberAccessConfig(form.memberAccess),
   };
 }

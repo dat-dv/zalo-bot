@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { IChannelLearnedFact } from '@zalobot/contracts';
-import { groupLearnedFacts, memoryStatusText, noteTextError } from './channel-memory';
+import { groupLearnedFacts, memoryStatusText } from './channel-memory';
 
 function fact(partial: Partial<IChannelLearnedFact>): IChannelLearnedFact {
   return {
@@ -37,12 +37,6 @@ void test('groupLearnedFacts puts the bot first, then members by name', () => {
       ['Văn Đạt', ['1', '4']],
     ],
   );
-});
-
-void test('noteTextError checks empty and too long notes', () => {
-  assert.equal(noteTextError('   '), 'Nhập điều cần bot nhớ.');
-  assert.equal(noteTextError('a'.repeat(201)), 'Tối đa 200 ký tự.');
-  assert.equal(noteTextError('Bot là con mèo đen 2 mái'), null);
 });
 
 void test('memoryStatusText explains Cognee off, the last day and retries', () => {

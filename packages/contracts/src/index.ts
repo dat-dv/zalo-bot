@@ -3944,23 +3944,15 @@ export interface ThreadDirectInteractionConfig {
 }
 
 /**
- * Per-thread chat memory, two independent switches: short-term (latest messages in the prompt, for
- * follow-ups) and long-term (every message stored, searched for questions about the past).
+ * Per-thread chat memory: the long-term switch (every message stored, searched for questions about
+ * the past) and its options. Notes (`IChannelNote`) are independent of it.
  */
 export interface ThreadChatMemoryConfig {
   /** Long-term memory: store messages in Postgres and answer questions about them. */
   enabled: boolean;
-  /** Short-term memory: add the latest messages to the LLM prompt. */
-  shortTermEnabled: boolean;
-  /** Latest messages kept by the short-term memory. */
-  contextWindow: number;
-  /** Days a message stays in the short-term memory, counted from when it was sent. */
-  shortTermDays: number;
-  /** Best-matching messages fetched per history search. */
-  searchLimit: number;
   /**
    * Read the text of photos posted in the chat (local OCR) and remember it with the photo. Only
-   * acts while at least one memory is on.
+   * acts while the long-term memory is on.
    */
   readImageText: boolean;
   /**
@@ -3972,66 +3964,29 @@ export interface ThreadChatMemoryConfig {
 
 export const CHAT_MEMORY_DEFAULTS: ThreadChatMemoryConfig = {
   enabled: false,
-  shortTermEnabled: false,
-  contextWindow: 10,
-  shortTermDays: 1,
-  searchLimit: 15,
   readImageText: true,
   learnPeople: true,
 };
 
+/** Best-matching messages per history search; the agent picks within these bounds. */
 export const CHAT_MEMORY_LIMITS = {
-  CONTEXT_WINDOW_MIN: 1,
-  CONTEXT_WINDOW_MAX: 30,
-  SHORT_TERM_DAYS_MIN: 1,
-  SHORT_TERM_DAYS_MAX: 7,
   SEARCH_LIMIT_MIN: 1,
   SEARCH_LIMIT_MAX: 50,
+  SEARCH_LIMIT_DEFAULT: 15,
 } as const;
 
-function clampInteger(value: unknown, min: number, max: number, fallback: number): number {
-  const number =
-    typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
-  if (!Number.isFinite(number)) return fallback;
-  return Math.min(max, Math.max(min, Math.round(number)));
-}
-
 /**
- * Cleans a stored or submitted chat-memory config: missing fields take the defaults, numbers are
- * rounded and clamped. Thread config updates are not class-validated, so this is the only guard.
- * Configs saved before the short-term switch existed turned it off with `contextWindow: 0` and
- * shared the long-term switch, so they keep that behaviour.
+ * Cleans a stored or submitted chat-memory config: missing fields take the defaults. Thread config
+ * updates are not class-validated, so this is the only guard. Keys of removed options (the
+ * short-term window `shortTermEnabled`/`contextWindow`/`shortTermDays`, `searchLimit`) are dropped.
  */
 export function normalizeChatMemoryConfig(value: unknown): ThreadChatMemoryConfig {
   const raw: Record<string, unknown> =
     value && typeof value === 'object' && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : {};
-  const enabled = raw.enabled === true;
-  const window = clampInteger(
-    raw.contextWindow,
-    0,
-    CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MAX,
-    CHAT_MEMORY_DEFAULTS.contextWindow,
-  );
   return {
-    enabled,
-    shortTermEnabled:
-      typeof raw.shortTermEnabled === 'boolean' ? raw.shortTermEnabled : enabled && window > 0,
-    contextWindow:
-      window >= CHAT_MEMORY_LIMITS.CONTEXT_WINDOW_MIN ? window : CHAT_MEMORY_DEFAULTS.contextWindow,
-    shortTermDays: clampInteger(
-      raw.shortTermDays,
-      CHAT_MEMORY_LIMITS.SHORT_TERM_DAYS_MIN,
-      CHAT_MEMORY_LIMITS.SHORT_TERM_DAYS_MAX,
-      CHAT_MEMORY_DEFAULTS.shortTermDays,
-    ),
-    searchLimit: clampInteger(
-      raw.searchLimit,
-      CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MIN,
-      CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MAX,
-      CHAT_MEMORY_DEFAULTS.searchLimit,
-    ),
+    enabled: raw.enabled === true,
     // Configs saved before the photo switch existed get it on, like new ones.
     readImageText:
       typeof raw.readImageText === 'boolean'

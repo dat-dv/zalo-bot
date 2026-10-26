@@ -3,7 +3,7 @@ import type { ZcaLearnedFactEntity } from '../../database/entities/zca-learned-f
 
 /**
  * Opening line of every chat prompt. The default persona yields to what the chat told the bot,
- * otherwise "mày là con mèo đen" is forgotten as soon as it leaves the short-term window.
+ * so "mày là con mèo đen" holds in every reply of the chat.
  */
 export const BOT_IDENTITY_LINE =
   'Bạn là trợ lý cá nhân thông minh trên Zalo. Nếu phần ĐIỀU ĐƯỢC DẶN bên dưới mô tả bạn khác ' +

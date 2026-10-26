@@ -62,13 +62,12 @@
 
 ## Trí nhớ hội thoại
 
-- **Trí nhớ hội thoại**: Những gì bot nhớ về một kênh ZCA, gồm **Ghi nhớ**, **trí nhớ ngắn hạn**, **trí nhớ dài hạn** và **điều bot tự học**; mỗi kênh chỉ dùng trí nhớ của chính nó. Admin bật riêng trí nhớ ngắn hạn và dài hạn cho từng kênh đang listen (mặc định tắt cả hai). Tin bị thu hồi thì bị xoá khỏi trí nhớ.
-- **Ghi nhớ**: Điều một kênh dặn bot luôn nhớ (tên gọi, tính cách, cách xưng hô, quy ước của nhóm), tối đa 20 điều. Có hiệu lực ở mọi lượt trả lời của kênh, ưu tiên hơn mô tả mặc định của bot, không phụ thuộc công tắc trí nhớ nào. Thêm hoặc quên trong chat thì có hiệu lực ngay (không qua thao tác chờ duyệt), bot trả lời theo đúng giọng vừa được dặn; admin xem, sửa, xoá được trên trang cấu hình kênh.
+- **Trí nhớ hội thoại**: Những gì bot nhớ về một kênh ZCA, gồm **Ghi nhớ**, **trí nhớ dài hạn** và **điều bot tự học**; mỗi kênh chỉ dùng trí nhớ của chính nó. Admin bật trí nhớ dài hạn cho từng kênh đang listen (mặc định tắt). Bot không đưa tin gần đây vào prompt: mỗi tin được xử lý riêng, trừ **tin bổ sung** cho thẻ đang chờ. Tin bị thu hồi thì bị xoá khỏi trí nhớ.
+- **Ghi nhớ**: Điều một kênh dặn bot luôn nhớ (tên gọi, tính cách, cách xưng hô, quy ước của nhóm), tối đa 20 điều. Có hiệu lực ở mọi lượt trả lời của kênh, ưu tiên hơn mô tả mặc định của bot, không phụ thuộc công tắc trí nhớ nào. Thêm hoặc quên trong chat thì có hiệu lực ngay (không qua thao tác chờ duyệt), bot trả lời theo đúng giọng vừa được dặn. Chỉ quản lý trong chat, dashboard không có mục Ghi nhớ.
 - **Trí nhớ dài hạn**: Bản lưu lâu dài tin nhắn của kênh (từ lúc bật) cùng nhật ký từng ngày được nạp mỗi đêm vào kho trí nhớ của kênh, dùng để trả lời câu hỏi về chuyện đã trao đổi. Chỉ tra cứu **trong đúng kênh đang hỏi**. Chỉ lời người nói và **thao tác đã duyệt** được nạp; thẻ xác nhận, thông báo, câu bot tự trò chuyện và kết quả tra cứu thì không.
 - **Thao tác đã duyệt (trong trí nhớ)**: Dòng ghi lại một thao tác chờ duyệt đã được duyệt **và chạy thành công**, đứng tên người yêu cầu. Thao tác bị huỷ, hết hạn hoặc lỗi không vào trí nhớ.
 - **Điều bot tự học**: Điều ổn định bot rút ra mỗi đêm từ trí nhớ dài hạn về chính nó và những người hay nói trong kênh (ví dụ "Hằng ăn chay"), tối đa 5 điều mỗi người. Dùng ngay, có thể sai, xoá được; điều đã xoá không được học lại. Mâu thuẫn với Ghi nhớ thì theo Ghi nhớ.
-- **Trí nhớ ngắn hạn (cửa sổ ngữ cảnh)**: Vài tin hội thoại gần nhất của kênh được đưa vào prompt ở mỗi lượt để bot hiểu câu nối tiếp (không tính thẻ xác nhận và thông báo của bot); chỉ dùng tin gửi trong số ngày admin chọn cho kênh (1–7 ngày, mặc định 1), tin cũ hơn tự bị quên. Bot không thực hiện lại các yêu cầu cũ nằm trong đó.
-- **Chữ trong ảnh**: Chữ bot tự đọc (OCR ngay trên server) từ ảnh gửi vào kênh, kể cả ảnh không gọi bot, rồi nhớ cùng tin ảnh đó trong các trí nhớ đang bật. Admin bật/tắt riêng cho từng kênh (mặc định bật, chỉ có tác dụng khi kênh bật ít nhất một loại trí nhớ). Ảnh không có chữ rõ ràng thì chỉ được nhớ là ảnh.
+- **Chữ trong ảnh**: Chữ bot tự đọc (OCR ngay trên server) từ ảnh gửi vào kênh, kể cả ảnh không gọi bot, rồi nhớ cùng tin ảnh đó trong trí nhớ dài hạn. Admin bật/tắt riêng cho từng kênh (mặc định bật, chỉ có tác dụng khi kênh bật trí nhớ dài hạn). Ảnh không có chữ rõ ràng thì chỉ được nhớ là ảnh.
 
 ## ZCA & Phân vùng lưu trữ Drive
 

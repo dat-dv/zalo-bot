@@ -26,12 +26,10 @@ export interface AgentInput {
   allowAiChat?: boolean;
   /** Tiền tố gọi bot của kênh (ví dụ: "!", "bot:") để cắt khỏi tin trước khi đưa vào LLM */
   triggerPrefixes?: readonly string[];
-  /** Id của tin đang xử lý (ZCA), để cửa sổ ngữ cảnh chat không lặp lại chính tin này */
+  /** Id của tin đang xử lý (ZCA), để tra lịch sử chat không trả lại chính tin này */
   messageId?: string;
-  /** Trí nhớ ngắn hạn của kênh (các tin gần nhất đưa vào prompt); chỉ có khi kênh bật `chatMemory.shortTermEnabled` */
-  shortTermMemory?: { contextWindow: number; days: number };
-  /** Trí nhớ dài hạn của kênh (tra lại chuyện cũ); chỉ có khi kênh bật `chatMemory.enabled` */
-  longTermMemory?: { searchLimit: number };
+  /** Kênh bật trí nhớ dài hạn (`chatMemory.enabled`): được tra lại chuyện cũ */
+  longTermMemory?: boolean;
   /** Người được tag trong tin nhóm (trừ bot và @All); là người được nhắc của nhắc việc/nhắc nhở */
   taggedUsers?: IReminderTargetUser[];
 }

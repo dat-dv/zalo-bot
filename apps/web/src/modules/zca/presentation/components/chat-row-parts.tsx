@@ -138,16 +138,6 @@ function featureItems(row: ChatRow, config: ThreadBotConfig): InlineItem[] {
           },
     );
   }
-  if (config.chatMemory?.shortTermEnabled) {
-    items.push({
-      key: 'short-term-memory',
-      node: (
-        <span title="Nhớ đoạn chat gần đây đang bật: bot nhớ vài tin gần nhất để hiểu câu nối tiếp">
-          Ngữ cảnh
-        </span>
-      ),
-    });
-  }
   if (config.chatMemory?.enabled) {
     items.push({
       key: 'memory',

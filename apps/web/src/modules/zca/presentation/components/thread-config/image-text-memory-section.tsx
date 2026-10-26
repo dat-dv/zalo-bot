@@ -8,7 +8,7 @@ interface ImageTextMemorySectionProps {
   onChange: (form: ThreadBotConfig) => void;
 }
 
-/** What reading photos does, so admins know what ends up in the memories. */
+/** What reading photos does, so admins know what ends up in the memory. */
 const HOW_IT_WORKS: ReadonlyArray<{ title: string; text: string }> = [
   {
     title: 'Đọc ở đâu',
@@ -20,7 +20,7 @@ const HOW_IT_WORKS: ReadonlyArray<{ title: string; text: string }> = [
   },
   {
     title: 'Nhớ gì',
-    text: 'chữ đọc được, đã bỏ ký tự rác, gắn vào đúng tin ảnh. Ảnh không có chữ chỉ nhớ nhãn [Ảnh]. Đoạn chat gần đây chỉ dùng 500 ký tự đầu mỗi ảnh.',
+    text: 'chữ đọc được, đã bỏ ký tự rác, gắn vào đúng tin ảnh. Ảnh không có chữ chỉ nhớ nhãn [Ảnh].',
   },
   {
     title: 'Hạn chế',
@@ -28,10 +28,10 @@ const HOW_IT_WORKS: ReadonlyArray<{ title: string; text: string }> = [
   },
 ];
 
-/** Text read from the chat's photos joins the memories that are on; acts only while one is. */
+/** Text read from the chat's photos joins the long-term memory; acts only while it is on. */
 export function ImageTextMemorySection({ form, onChange }: ImageTextMemorySectionProps) {
   const memory = form.chatMemory;
-  const anyMemoryOn = memory.enabled || memory.shortTermEnabled;
+
   return (
     <ConfigSectionCard
       description="Đọc chữ trong ảnh gửi vào kênh (menu, lịch, thông báo) để bot nhớ cùng tấm ảnh"
@@ -42,13 +42,13 @@ export function ImageTextMemorySection({ form, onChange }: ImageTextMemorySectio
       }
       title="Đọc chữ trong ảnh"
     >
-      {!anyMemoryOn && (
+      {!memory.enabled && (
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          Chưa có tác dụng: bật trí nhớ ngắn hạn hoặc dài hạn để bot bắt đầu đọc ảnh.
+          Chưa có tác dụng: bật Nhớ lâu dài để bot bắt đầu đọc ảnh.
         </p>
       )}
       <p className="text-xs text-amber-700 dark:text-amber-400">
-        Chữ trong ảnh được lưu vào trí nhớ đang bật và có thể được gửi cho AI như tin nhắn chữ. Nên
+        Chữ trong ảnh được lưu vào trí nhớ lâu dài và có thể được gửi cho AI như tin nhắn chữ. Nên
         tắt nếu nhóm hay gửi ảnh giấy tờ cá nhân (CCCD, sao kê).
       </p>
       <div>

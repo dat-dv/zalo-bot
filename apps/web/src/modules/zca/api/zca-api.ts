@@ -4,8 +4,6 @@ import {
   type CreateChannelStorageLinkDto,
   type IChannelLearnedFact,
   type IChannelMemoryStatus,
-  type IChannelNote,
-  type IUpsertChannelNoteRequest,
   type IApiResponse,
   type IGoogleStorageAccountStatus,
   type IGoogleStorageLoginResponse,
@@ -373,45 +371,6 @@ export async function deleteThreadStorageLink(
     API_ROUTES.zcaThreadStorageLink(threadId, linkId),
   );
   return response.data.data;
-}
-
-/** What the chat told the bot to always remember (Ghi nhớ), oldest first. */
-export async function getThreadNotes(threadId: string, signal?: AbortSignal): Promise<IChannelNote[]> {
-  const response = await httpClient.get<IApiResponse<{ notes: IChannelNote[] }>>(
-    API_ROUTES.zcaThreadNotes(threadId),
-    { signal },
-  );
-  return response.data.data.notes;
-}
-
-export async function createThreadNote(
-  threadId: string,
-  data: IUpsertChannelNoteRequest,
-): Promise<IChannelNote[]> {
-  const response = await httpClient.post<IApiResponse<{ notes: IChannelNote[] }>>(
-    API_ROUTES.zcaThreadNotes(threadId),
-    data,
-  );
-  return response.data.data.notes;
-}
-
-export async function updateThreadNote(
-  threadId: string,
-  noteId: string,
-  data: IUpsertChannelNoteRequest,
-): Promise<IChannelNote[]> {
-  const response = await httpClient.patch<IApiResponse<{ notes: IChannelNote[] }>>(
-    API_ROUTES.zcaThreadNote(threadId, noteId),
-    data,
-  );
-  return response.data.data.notes;
-}
-
-export async function deleteThreadNote(threadId: string, noteId: string): Promise<IChannelNote[]> {
-  const response = await httpClient.delete<IApiResponse<{ notes: IChannelNote[] }>>(
-    API_ROUTES.zcaThreadNote(threadId, noteId),
-  );
-  return response.data.data.notes;
 }
 
 /** What the bot learned from the chat about itself and the members. */

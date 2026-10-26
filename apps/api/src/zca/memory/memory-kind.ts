@@ -21,16 +21,6 @@ export const MEMORY_KINDS = [
 
 export type MemoryKind = (typeof MEMORY_KINDS)[number];
 
-/** Kinds shown in the short-term window: the conversation without confirmation noise. */
-export const SHORT_TERM_KINDS: readonly MemoryKind[] = [
-  'chat',
-  'request',
-  'action',
-  'bot_chat',
-  'tool',
-  'reminder',
-];
-
 /**
  * Kinds sent to Cognee and to the learned facts: what people said and what was really done.
  * Bot replies, read-only tool answers and requests stay out so that made-up chit-chat, stale
