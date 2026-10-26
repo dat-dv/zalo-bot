@@ -100,6 +100,14 @@ server {
   location / {
     set $cognee_ui http://cognee-ui:3000;
     proxy_pass $cognee_ui;
+    # A location with its own proxy_set_header inherits none from the server, so every header
+    # is repeated. Next.js rejects Server Actions unless the forwarded host matches the browser
+    # origin (otherwise it sees cognee-ui:3000 and answers 500).
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
   }

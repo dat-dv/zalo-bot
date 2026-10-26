@@ -100,6 +100,10 @@ services:
       UI_APP_URL: https://${COGNEE_UI_HOST:-cognee.localhost}
     volumes:
       - zalobot-cognee:/cognee-storage
+    # Like the api: an LLM endpoint running on the server itself (e.g. 9router) is reached through
+    # host.docker.internal; without it the LLM connection test times out.
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     healthcheck:
       test:
         [
@@ -140,7 +144,8 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://localhost:80/ > /dev/null || exit 1']
+      # 127.0.0.1, not localhost: busybox wget tries ::1 first and nginx listens on IPv4 only.
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:80/ > /dev/null || exit 1']
       interval: 10s
       timeout: 5s
       retries: 3
