@@ -496,8 +496,11 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
         keywords: {
           type: 'STRING',
           description:
-            'Từ khóa và từ đồng nghĩa có thể đã xuất hiện trong tin nhắn, phân cách bằng dấu phẩy. ' +
-            'Ví dụ hỏi "đi đâu": "đi, du lịch, đi chơi, chuyến, vé, khách sạn, homestay, máy bay, xe khách".',
+            'Từ khóa và từ đồng nghĩa có thể đã xuất hiện trong tin nhắn, phân cách bằng dấu phẩy; ' +
+            'mỗi từ khóa nên ngắn (1-2 chữ), thêm cả cách viết tắt người ta hay dùng (mk, pass, tk, stk, sdt, đc) ' +
+            'và giữ nguyên tên miền, email, link (vd "c.datintech.site"). ' +
+            'Ví dụ hỏi "đi đâu": "đi, du lịch, đi chơi, chuyến, vé, khách sạn, homestay, máy bay, xe khách"; ' +
+            'hỏi "tài khoản admin web c.datintech.site": "c.datintech.site, admin, tài khoản, tk, mật khẩu, mk, pass".',
         },
         fromDate: {
           type: 'STRING',

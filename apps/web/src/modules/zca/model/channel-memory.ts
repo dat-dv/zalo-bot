@@ -45,7 +45,20 @@ export function memoryStatusText(status: IChannelMemoryStatus | undefined): stri
   }
   const last = status.lastIngestedDay
     ? `Đã nạp tới ngày ${status.lastIngestedDay.split('-').reverse().join('/')}.`
-    : 'Chưa nạp ngày nào (job chạy lúc 03:00 mỗi đêm).';
+    : 'Chưa nạp ngày nào trước hôm nay.';
+  const today = status.todayIngestedUntil
+    ? ` Hôm nay đã nạp tới ${timeOfDay(status.todayIngestedUntil)}.`
+    : '';
   const failed = status.failedDays > 0 ? ` ${status.failedDays} ngày lỗi, sẽ thử lại đêm sau.` : '';
-  return `${last}${failed}`;
+  return `${last}${today}${failed}`;
+}
+
+/** `HH:mm` in Vietnam time for an ISO timestamp. */
+function timeOfDay(iso: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(new Date(iso));
 }

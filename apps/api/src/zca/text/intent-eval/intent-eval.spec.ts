@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { TextToolType } from '../text-tool.enum';
 import { textToolDefinitionsFor } from '../text-tool.definitions';
-import { INTENT_CLASSIFICATION_RULES, buildToolSystemInstruction } from '../text-system-prompt';
+import {
+  CHAT_HISTORY_INTENT_RULE,
+  INTENT_CLASSIFICATION_RULES,
+  buildToolSystemInstruction,
+} from '../text-system-prompt';
 import { CHAT, INTENT_EVAL_CASES } from './intent-eval.cases';
 import { evalRequest, intentAccuracy, pickedIntent, runIntentEval } from './intent-eval';
 
@@ -21,6 +25,26 @@ void test('every eval case expects a tool the bot offers, or plain chat, and app
   const texts = INTENT_EVAL_CASES.map((testCase) => testCase.text);
   assert.ok(texts.includes('mày là con mèo đen 2 mái 10 tuổi'));
   assert.ok(texts.includes('cút lên mái nhà đi'));
+  assert.ok(texts.includes('chỉ hằng biết tài khoản admin của website c.datintech.site'));
+});
+
+void test('the history rule is in the prompt only when the chat has long-term memory', () => {
+  const base = {
+    profile: '',
+    dateTimeSnippet: 'Bây giờ là 15:00 ngày 26/10/2026.',
+    allowAiChat: true,
+    amendableBlock: '',
+  };
+  assert.ok(
+    buildToolSystemInstruction({ ...base, longTermMemory: true }).includes(
+      CHAT_HISTORY_INTENT_RULE,
+    ),
+  );
+  assert.ok(
+    !buildToolSystemInstruction({ ...base, longTermMemory: false }).includes(
+      CHAT_HISTORY_INTENT_RULE,
+    ),
+  );
 });
 
 void test('the tool prompt carries the classification table with the confusing pairs', () => {

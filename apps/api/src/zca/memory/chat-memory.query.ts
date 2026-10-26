@@ -1,4 +1,5 @@
 import type { MemoryKind } from './memory-kind';
+import { foldVietnamese } from './memory-text.util';
 
 /**
  * SQL builders for chat-memory search. Every query is scoped to one channel: a question asked in
@@ -53,22 +54,100 @@ export function parseKeywords(raw: string): string[] {
   return keywords;
 }
 
+/** Single words of multi-word keywords searched on their own, on top of the keywords. */
+export const MAX_SEARCH_WORDS = 24;
+
+/** Words too common to find anything on their own (folded). */
+const STOP_WORDS = new Set([
+  'co',
+  'la',
+  'va',
+  'cua',
+  'cho',
+  'da',
+  'khong',
+  'thi',
+  'ma',
+  'voi',
+  'nay',
+  'do',
+  'duoc',
+  'noi',
+  'gi',
+  'ai',
+  'nao',
+  'luc',
+  'roi',
+  'hom',
+  'nhung',
+  'cac',
+  'mot',
+  'nhe',
+  'nha',
+  'oi',
+]);
+
+/** Domains, emails, links: one token for Postgres, so they are also matched as text. */
+const LITERAL_KEYWORD = /[.@/]/;
+
+export interface SearchTerms {
+  /** Each keyword as given; all its words must match. */
+  phrases: string[];
+  /** The words of multi-word keywords, any one matching: "tài khoản admin" finds "admin". */
+  words: string[];
+  /** `ILIKE` patterns for keywords like `c.datintech.site`, which the text search keeps whole. */
+  patterns: string[];
+}
+
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+export function searchTerms(raw: string): SearchTerms {
+  const phrases = parseKeywords(raw);
+  const seen = new Set(phrases.map((phrase) => foldVietnamese(phrase)));
+  const words: string[] = [];
+  for (const phrase of phrases) {
+    const parts = phrase.split(/\s+/);
+    if (parts.length < 2) continue;
+    for (const part of parts) {
+      const key = foldVietnamese(part);
+      if (key.length < 2 || STOP_WORDS.has(key) || seen.has(key)) continue;
+      seen.add(key);
+      if (words.length < MAX_SEARCH_WORDS) words.push(part);
+    }
+  }
+  const patterns = phrases
+    .filter((phrase) => phrase.length >= 4 && LITERAL_KEYWORD.test(phrase))
+    .map((phrase) => `%${escapeLike(phrase)}%`);
+  return { phrases, words, patterns };
+}
+
 export function normalizeDate(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
   if (!trimmed || !DATE_PATTERN.test(trimmed)) return undefined;
   return Number.isNaN(Date.parse(`${trimmed}T00:00:00Z`)) ? undefined : trimmed;
 }
 
-/** Ranked ids of matching messages; `null` when there is no usable keyword. */
+/**
+ * Ranked ids of matching messages; `null` when there is no usable keyword. A message matches a
+ * whole keyword, any single word of a multi-word keyword, or contains a domain/email/link keyword;
+ * the literal matches come first, then by how much of the query matched (`ts_rank`).
+ */
 export function buildHitQuery(channelId: string, search: ChatMemorySearchParams): SqlQuery | null {
-  const keywords = parseKeywords(search.keywords);
-  if (keywords.length === 0) return null;
+  const { phrases, words, patterns } = searchTerms(search.keywords);
+  if (phrases.length === 0) return null;
 
   const params: unknown[] = [channelId];
-  const tsQueries = keywords.map((keyword) => {
-    params.push(keyword);
+  const tsQueries = [...phrases, ...words].map((term) => {
+    params.push(term);
     return `plainto_tsquery('simple', zalobot_unaccent($${params.length}))`;
   });
+  let literal = '';
+  if (patterns.length > 0) {
+    params.push(patterns);
+    literal = `m.text ILIKE ANY($${params.length}::text[])`;
+  }
 
   // Bot replies never count as hits (an earlier, maybe wrong answer is not evidence); they can
   // still appear as neighbours of a real hit. Rows with `expires_at` were kept for the
@@ -79,7 +158,7 @@ export function buildHitQuery(channelId: string, search: ChatMemorySearchParams)
     'm.expires_at IS NULL',
     'NOT m.is_bot',
     `m.memory_kind IN (${sqlList(SEARCH_HIT_KINDS)})`,
-    'm.search_vector @@ q.query',
+    literal ? `(m.search_vector @@ q.query OR ${literal})` : 'm.search_vector @@ q.query',
   ];
   if (search.excludeMsgId) {
     params.push(search.excludeMsgId);
@@ -107,7 +186,7 @@ export function buildHitQuery(channelId: string, search: ChatMemorySearchParams)
     `WITH q AS (SELECT (${tsQueries.join(' || ')}) AS query) ` +
     `SELECT m.id FROM zca_messages m, q ` +
     `WHERE ${conditions.join(' AND ')} ` +
-    `ORDER BY ts_rank(m.search_vector, q.query) DESC, m.sent_at DESC ` +
+    `ORDER BY ${literal ? `(${literal}) DESC, ` : ''}ts_rank(m.search_vector, q.query) DESC, m.sent_at DESC ` +
     `LIMIT $${params.length}`;
   return { sql, params };
 }

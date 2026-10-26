@@ -46,6 +46,7 @@ void test('memoryStatusText explains Cognee off, the last day and retries', () =
       lastIngestedDay: null,
       failedDays: 0,
       lastError: null,
+      todayIngestedUntil: null,
     }),
     /chưa bật Cognee/,
   );
@@ -55,7 +56,18 @@ void test('memoryStatusText explains Cognee off, the last day and retries', () =
       lastIngestedDay: '2026-10-25',
       failedDays: 2,
       lastError: 'x',
+      todayIngestedUntil: null,
     }),
     'Đã nạp tới ngày 25/10/2026. 2 ngày lỗi, sẽ thử lại đêm sau.',
+  );
+  assert.equal(
+    memoryStatusText({
+      cogneeEnabled: true,
+      lastIngestedDay: '2026-10-25',
+      failedDays: 0,
+      lastError: null,
+      todayIngestedUntil: '2026-10-26T07:56:00.000Z',
+    }),
+    'Đã nạp tới ngày 25/10/2026. Hôm nay đã nạp tới 14:56.',
   );
 });

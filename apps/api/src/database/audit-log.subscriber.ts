@@ -16,6 +16,7 @@ export class AuditLogSubscriber implements EntitySubscriberInterface {
     'zca_messages',
     'zca_learned_facts',
     'zca_memory_ingestions',
+    'zca_memory_segments',
   ]);
 
   public async afterInsert(event: InsertEvent<unknown>): Promise<void> {

@@ -17,6 +17,7 @@ import { ZcaMessageEntity } from './entities/zca-message.entity';
 import { ZcaChannelNoteEntity } from './entities/zca-channel-note.entity';
 import { ZcaLearnedFactEntity } from './entities/zca-learned-fact.entity';
 import { ZcaMemoryIngestionEntity } from './entities/zca-memory-ingestion.entity';
+import { ZcaMemorySegmentEntity } from './entities/zca-memory-segment.entity';
 import { ChannelStorageLinkEntity } from './entities/channel-storage-link.entity';
 import { CalendarEventEntity } from './entities/calendar-event.entity';
 import { TaskEntity } from './entities/task.entity';
@@ -56,6 +57,7 @@ import { AddAuditLogActorSource1724950000000 } from './migrations/1724950000000-
 import { AddReminderRepeatAndNag1724960000000 } from './migrations/1724960000000-AddReminderRepeatAndNag';
 import { AddAuditLogActorName1724970000000 } from './migrations/1724970000000-AddAuditLogActorName';
 import { AddChatMemoryV21724980000000 } from './migrations/1724980000000-AddChatMemoryV2';
+import { AddChatMemorySegments1724990000000 } from './migrations/1724990000000-AddChatMemorySegments';
 
 @Module({
   imports: [
@@ -82,6 +84,7 @@ import { AddChatMemoryV21724980000000 } from './migrations/1724980000000-AddChat
           ZcaChannelNoteEntity,
           ZcaLearnedFactEntity,
           ZcaMemoryIngestionEntity,
+          ZcaMemorySegmentEntity,
           ChannelStorageLinkEntity,
           CalendarEventEntity,
           TaskEntity,
@@ -129,6 +132,7 @@ import { AddChatMemoryV21724980000000 } from './migrations/1724980000000-AddChat
             AddReminderRepeatAndNag1724960000000,
             AddAuditLogActorName1724970000000,
             AddChatMemoryV21724980000000,
+            AddChatMemorySegments1724990000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

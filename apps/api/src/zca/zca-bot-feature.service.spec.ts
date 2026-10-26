@@ -2106,8 +2106,9 @@ function createChatMemoryMock(calls: RecordedMemoryCall[]): ChatMemoryService {
     },
     markRecalled: (...args: unknown[]) => {
       calls.push({ method: 'markRecalled', args });
-      return Promise.resolve();
+      return Promise.resolve([]);
     },
+    timeZone: () => 'Asia/Ho_Chi_Minh',
   } as unknown as ChatMemoryService;
 }
 

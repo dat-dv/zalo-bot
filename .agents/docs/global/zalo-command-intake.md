@@ -77,6 +77,7 @@ Lệnh này gửi khoảng 40 câu mẫu tiếng Việt (gồm cả đoạn chat
 | `/echo <nội dung>` | Lặp lại nội dung |
 | `/ping` | Kiểm tra bot còn sống |
 | `/reset`, `/clear` | Chỉ gửi thông báo làm mới (bot không lưu ngữ cảnh hội thoại) |
+| `/sync` | Nạp ngay tin mới của kênh vào trí nhớ lâu dài (Cognee) thay vì đợi kênh im lặng vài phút; xong thì bot báo đã nạp bao nhiêu tin |
 | `/zlogin`, `/zalo-login`, `/zca-login` | Admin — đăng nhập ZCA bằng QR |
 | `/zlogout`, `/zalo-logout`, `/zca-logout` | Admin — đăng xuất ZCA |
 | `/login`, `/auth` | Admin — link kết nối Google |
