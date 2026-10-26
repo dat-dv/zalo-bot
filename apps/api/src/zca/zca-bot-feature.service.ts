@@ -46,7 +46,8 @@ import type { PendingImageActionDispatcher } from './pending-image/pending-image
 import type { ImageBatchHandler } from './pending-image/image-batch-handler.service';
 import type { OcrService } from '../ocr/ocr.service';
 import { cleanBotMention } from './text/bot-mention.util';
-import { ChatMemoryService } from './memory/chat-memory.service';
+import { ChatMemoryService, localDay } from './memory/chat-memory.service';
+import { MemorySegmentScheduler } from './memory/long-term/memory-segment.scheduler';
 import { ImageTextMemoryService } from './memory/image-text-memory.service';
 
 /** Per-thread memory settings for the text pipeline. */
@@ -347,6 +348,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     @Optional() private readonly chatMemoryService?: ChatMemoryService,
     @Optional() threadAccessService?: ThreadAccessService,
     @Optional() private readonly imageTextMemoryService?: ImageTextMemoryService,
+    @Optional() private readonly memorySegmentScheduler?: MemorySegmentScheduler,
   ) {
     this.threadAccessService = threadAccessService ?? new ThreadAccessService();
     if (mediaStorageServiceOrConfirmation) {
@@ -929,6 +931,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       memory.longTermMemory && !isBotEcho
         ? this.chatMemoryService?.record(threadId, channelType, message.data)
         : undefined;
+    // Today's new messages go to Cognee once the chat is quiet for a few minutes.
+    if (memory.longTermMemory && !isBotEcho) this.memorySegmentScheduler?.noteMessage(threadId);
     this.rememberImageText(message, config, channelType, stored);
 
     const directConfig: ThreadDirectInteractionConfig = config.directInteraction ?? {
@@ -1341,7 +1345,16 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       recalledCliMsgId && senderUid
         ? { cliMsgId: String(recalledCliMsgId), senderUid: String(senderUid) }
         : undefined;
-    await this.chatMemoryService?.markRecalled(undo.threadId, String(recalledMsgId), byClient);
+    const memory = this.chatMemoryService;
+    if (!memory) return;
+    const sentAts = await memory.markRecalled(undo.threadId, String(recalledMsgId), byClient);
+    // A message of today may already be in a segment in Cognee: send today again without it.
+    if (sentAts.length === 0) return;
+    const timeZone = memory.timeZone();
+    const today = localDay(new Date(), timeZone);
+    if (sentAts.some((sentAt) => localDay(sentAt, timeZone) === today)) {
+      this.memorySegmentScheduler?.noteRecall(undo.threadId);
+    }
   }
 
   /**

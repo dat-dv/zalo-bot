@@ -18,8 +18,8 @@ const HOW_IT_WORKS: ReadonlyArray<{ title: string; text: string }> = [
     text: 'mọi tin của kênh từ lúc bật. Ảnh lưu nhãn, chú thích và chữ trong ảnh (khi bật Đọc chữ trong ảnh); file chỉ lưu tên. Thẻ xác nhận và thông báo của bot không được nhớ; thao tác chỉ được nhớ khi đã duyệt và chạy xong.',
   },
   {
-    title: 'Mỗi đêm',
-    text: 'lúc 03:00 bot gửi chat từng ngày của kênh (lời người nói và thao tác đã duyệt) sang Cognee để dựng trí nhớ theo kênh, rồi tự học vài điều về bot và những người hay nói (nếu bật bên dưới).',
+    title: 'Khi nào nạp',
+    text: 'kênh im lặng khoảng 3 phút (nói liên tục thì chậm nhất 15 phút) là các tin mới được gửi sang Cognee; gõ /sync để nạp ngay. Lúc 03:00 mỗi đêm bot nạp lại cả ngày hôm trước thành một bản cho gọn, rồi tự học vài điều về bot và những người hay nói (nếu bật bên dưới). Tin được gửi đúng như đã nhắn, không che gì.',
   },
   {
     title: 'Hỏi thế nào',
@@ -27,16 +27,17 @@ const HOW_IT_WORKS: ReadonlyArray<{ title: string; text: string }> = [
   },
   {
     title: 'Phạm vi',
-    text: 'chỉ trong kênh này, kênh khác không đọc được. Tin bị thu hồi trên Zalo bị xoá khỏi trí nhớ, ngày đó được nạp lại vào đêm sau.',
+    text: 'chỉ trong kênh này, kênh khác không đọc được. Tin bị thu hồi trên Zalo bị xoá khỏi trí nhớ: tin hôm nay thì nạp lại ngay, ngày cũ thì nạp lại vào đêm sau.',
   },
   {
     title: 'Hạn chế',
-    text: 'chỉ nhớ từ lúc bật; tin hôm nay chỉ tìm được theo từ khoá cho tới đêm nay. Điều tự học có thể sai, xoá được bên dưới.',
+    text: 'chỉ nhớ từ lúc bật; tin vừa nhắn chỉ tìm được theo từ khoá cho tới lần nạp kế tiếp. Điều tự học có thể sai, xoá được bên dưới.',
   },
 ];
 
 /**
- * Every message stored for questions about the past, the nightly Cognee memory and what the bot
+ * Every message stored for questions about the past, the Cognee memory (fed minutes after a chat
+ * goes quiet, rebuilt nightly) and what the bot
  * learned. How many past messages a question looks at is the agent's choice, not a setting.
  */
 export function LongTermMemorySection({ threadId, form, onChange }: LongTermMemorySectionProps) {
@@ -50,9 +51,9 @@ export function LongTermMemorySection({ threadId, form, onChange }: LongTermMemo
       title="Nhớ lâu dài"
     >
       <p className="text-xs text-amber-700 dark:text-amber-400">
-        Bot lưu mọi tin nhắn của kênh, kể cả của người không dùng bot. Mỗi đêm toàn bộ chat trong
-        ngày được gửi tới AI dựng trí nhớ (Cognee, qua dịch vụ AI đang cấu hình trên máy chủ). Tắt
-        thì ngừng lưu, ngừng nạp và ngừng tra cứu; dữ liệu đã lưu vẫn được giữ.
+        Bot lưu mọi tin nhắn của kênh, kể cả của người không dùng bot, và vài phút sau gửi nguyên
+        văn (kể cả mật khẩu, số tài khoản) tới AI dựng trí nhớ (Cognee, qua dịch vụ AI đang cấu hình
+        trên máy chủ). Tắt thì ngừng lưu, ngừng nạp và ngừng tra cứu; dữ liệu đã lưu vẫn được giữ.
       </p>
       <div>
         <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Cách hoạt động</p>

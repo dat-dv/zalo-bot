@@ -1,15 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  confirmedActionText,
-  foldVietnamese,
-  maskLongNumbers,
-  matchesAllWords,
-} from './memory-text.util';
+import { confirmedActionText, foldVietnamese, matchesAllWords } from './memory-text.util';
 import { buildMemoryProfileBlock, BOT_IDENTITY_LINE } from './memory-profile.util';
 import {
   buildChatDayDocument,
   chatDayFileName,
+  chatSegmentFileName,
   vietnameseDayLabel,
 } from './long-term/chat-day-document';
 import { buildLearnedFactsPrompt, parseLearnedFacts } from './long-term/learned-facts.prompt';
@@ -34,11 +30,6 @@ void test('confirmedActionText turns a success notice into a plain done line', (
   assert.equal(confirmedActionText('✅ [123]'), '');
 });
 
-void test('maskLongNumbers hides card and account numbers but keeps phone numbers', () => {
-  assert.equal(maskLongNumbers('stk 0123 4567 8901 2345 nhé'), 'stk ***2345 nhé');
-  assert.equal(maskLongNumbers('gọi 0912345678'), 'gọi 0912345678');
-});
-
 void test('buildMemoryProfileBlock lists notes with short ids, then learned facts', () => {
   const block = buildMemoryProfileBlock(
     [{ text: 'Bot là con mèo đen 2 mái' }, { text: 'Xưng em, gọi anh chị' }],
@@ -53,7 +44,7 @@ void test('buildMemoryProfileBlock lists notes with short ids, then learned fact
   assert.match(BOT_IDENTITY_LINE, /ĐIỀU ĐƯỢC DẶN/);
 });
 
-void test('buildChatDayDocument dates the day and masks long numbers', () => {
+void test('buildChatDayDocument dates the day and keeps every line as written', () => {
   const text = buildChatDayDocument(
     'Gia đình',
     '2026-10-25',
@@ -71,11 +62,28 @@ void test('buildChatDayDocument dates the day and masks long numbers', () => {
     text,
     'Nhật ký cuộc trò chuyện "Gia đình" ngày 25/10/2026 (Chủ Nhật)\n' +
       '17:02 Văn Đạt: tao dặn rồi mày là con mèo đen 2 mái\n' +
-      '17:03 Ai đó: stk ***1234',
+      '17:03 Ai đó: stk 012345678901234',
   );
   assert.equal(buildChatDayDocument('x', '2026-10-25', [], 'Asia/Ho_Chi_Minh'), '');
   assert.equal(vietnameseDayLabel('2026-10-26'), '26/10/2026 (Thứ Hai)');
   assert.equal(chatDayFileName('123', '2026-10-25'), '123_2026-10-25.txt');
+});
+
+void test('buildChatDayDocument puts the time range of a segment in its header', () => {
+  const lines = [
+    { sentAt: new Date('2026-10-26T07:28:00Z'), senderName: 'Văn Đạt', text: 'c.datintech.site' },
+    { sentAt: new Date('2026-10-26T07:56:00Z'), senderName: 'Diệu Hằng', text: 'ok' },
+  ];
+  assert.equal(
+    buildChatDayDocument('Gia đình', '2026-10-26', lines, 'Asia/Ho_Chi_Minh', { segment: true }),
+    'Nhật ký cuộc trò chuyện "Gia đình" ngày 26/10/2026 (Thứ Hai), 14:28–14:56\n' +
+      '14:28 Văn Đạt: c.datintech.site\n' +
+      '14:56 Diệu Hằng: ok',
+  );
+  assert.equal(
+    chatSegmentFileName('123', '2026-10-26', lines[1].sentAt),
+    `123_2026-10-26_${lines[1].sentAt.getTime()}.txt`,
+  );
 });
 
 void test('parseLearnedFacts reads the facts array, even inside extra text', () => {

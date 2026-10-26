@@ -66,6 +66,15 @@ export const INTENT_EVAL_CASES: readonly IntentEvalCase[] = [
   { text: 'oke nha', expect: CHAT },
   { text: 'kêu chồng Hằng về ăn cơm', expect: CHAT },
 
+  // Asking again for what was said in the chat (the eval runs with long-term memory on).
+  {
+    text: 'chỉ hằng biết tài khoản admin của website c.datintech.site',
+    expect: TextToolType.SEARCH_CHAT_HISTORY,
+  },
+  { text: 'nói lại cho Nam cái link lúc nãy', expect: TextToolType.SEARCH_CHAT_HISTORY },
+  { text: 'pass wifi nhà mình là gì nhỉ', expect: TextToolType.SEARCH_CHAT_HISTORY },
+  { text: 'hôm trước Nam nói gửi file gì', expect: TextToolType.SEARCH_CHAT_HISTORY },
+
   // Other tools keep working.
   { text: 'sáng nay đi bơi hết 70k ở hồ bơi tây thạnh', expect: TextToolType.RECORD_TRANSACTION },
   { text: 'cho Nam vay 200k', expect: TextToolType.MANAGE_DEBT },

@@ -41,6 +41,7 @@ import { SearchChatHistoryToolStrategy } from './strategies/search-chat-history-
 import { AskClarificationToolStrategy } from './strategies/ask-clarification-tool.strategy';
 import { RememberNoteToolStrategy } from './strategies/remember-note-tool.strategy';
 import { ForgetMemoryToolStrategy } from './strategies/forget-memory-tool.strategy';
+import { SyncMemoryToolStrategy } from './strategies/sync-memory-tool.strategy';
 
 @Injectable()
 export class TextToolFactory {
@@ -86,6 +87,7 @@ export class TextToolFactory {
     askClarificationStrategy?: AskClarificationToolStrategy,
     rememberNoteStrategy?: RememberNoteToolStrategy,
     forgetMemoryStrategy?: ForgetMemoryToolStrategy,
+    syncMemoryStrategy?: SyncMemoryToolStrategy,
   ) {
     if (welcomeStrategy) this.strategyMap.set(TextToolType.WELCOME, welcomeStrategy);
     if (helpStrategy) this.strategyMap.set(TextToolType.HELP, helpStrategy);
@@ -137,6 +139,7 @@ export class TextToolFactory {
       this.strategyMap.set(TextToolType.REMEMBER_NOTE, rememberNoteStrategy);
     if (forgetMemoryStrategy)
       this.strategyMap.set(TextToolType.FORGET_MEMORY, forgetMemoryStrategy);
+    if (syncMemoryStrategy) this.strategyMap.set(TextToolType.SYNC_MEMORY, syncMemoryStrategy);
   }
 
   public resolveFastPathToolType(text: string, customBotName?: string): TextToolType | null {
@@ -189,6 +192,9 @@ export class TextToolFactory {
     ) {
       return TextToolType.RESET;
     }
+
+    // 5a. /sync: send this chat's new messages to the long-term memory now
+    if (trimmed === '/sync' || trimmed.startsWith('/sync ')) return TextToolType.SYNC_MEMORY;
 
     // 6. /zalo-login, /zca-login, /zlogin
     if (

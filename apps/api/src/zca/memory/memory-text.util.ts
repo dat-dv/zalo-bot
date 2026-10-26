@@ -38,20 +38,6 @@ export function confirmedActionText(summary: string): string {
   return body ? `(đã duyệt) ${body}` : '';
 }
 
-/** Digit runs of a card or account number (spaces/dots/dashes between digits allowed). */
-const LONG_NUMBER = /\d(?:[\s.-]?\d){11,}/g;
-
-/**
- * Masks numbers of 12+ digits (card, account, ID numbers) before chat text leaves the server for
- * Cognee; the last 4 digits stay so people can still tell them apart. Phone numbers (10–11) stay.
- */
-export function maskLongNumbers(text: string): string {
-  return (text || '').replace(LONG_NUMBER, (match) => {
-    const digits = match.replace(/\D/g, '');
-    return `***${digits.slice(-4)}`;
-  });
-}
-
 /** Every word of `query` (2+ chars, folded) appears in `text`. */
 export function matchesAllWords(text: string, query: string): boolean {
   const words = foldVietnamese(query)

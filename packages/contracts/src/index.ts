@@ -4048,6 +4048,8 @@ export interface IChannelMemoryStatus {
   /** Days waiting for a retry after an error. */
   failedDays: number;
   lastError: string | null;
+  /** Last message of today already sent to Cognee in a segment (ISO), or null. */
+  todayIngestedUntil: string | null;
 }
 
 /**

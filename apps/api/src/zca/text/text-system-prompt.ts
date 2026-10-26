@@ -38,6 +38,13 @@ export const INTENT_CLASSIFICATION_RULES =
   '- "mai 14h họp" → SET_REMINDER | "thêm lịch họp 14h mai" → CREATE_CALENDAR_EVENT\n' +
   '- "nhà mình ăn cơm lúc 7h tối" → REMEMBER_NOTE | "7h tối nhắc nấu cơm" → SET_REMINDER';
 
+/**
+ * Only with long-term memory: asking for something said in the chat before, or asking the bot to
+ * pass it on, is a history search, not chat ("chỉ Hằng biết tài khoản admin", "lúc nãy nói rồi").
+ */
+export const CHAT_HISTORY_INTENT_RULE =
+  'TRA LẠI CHUYỆN ĐÃ NHẮN → SEARCH_CHAT_HISTORY (xét TRƯỚC loại 5 TRÒ CHUYỆN): người dùng hỏi lại, hoặc nhờ bot nói/chỉ/gửi lại cho ai đó, một thông tin đã được nhắn trong cuộc chat này (link, trang web, tài khoản, mật khẩu, địa chỉ, số điện thoại, giờ hẹn, ai đã nói gì). Ví dụ: "chỉ Hằng biết tài khoản admin của web c.datintech.site", "nói lại cho Nam cái link lúc nãy", "pass wifi là gì nhỉ", "hồi nãy ai gửi số tài khoản". Câu "lúc nãy anh nói rồi", "tìm lại đi" sau một câu hỏi thì cũng là tra lại, keywords lấy từ chủ đề đang hỏi.';
+
 export interface ToolSystemInstructionOptions {
   /** Notes and learned facts of the chat (`buildMemoryProfileBlock`); empty when none. */
   profile: string;
@@ -57,6 +64,7 @@ export function buildToolSystemInstruction(options: ToolSystemInstructionOptions
     (options.profile ? `${options.profile}\n\n` : '') +
     `${options.dateTimeSnippet}\n\n` +
     `${INTENT_CLASSIFICATION_RULES}\n\n` +
+    (options.longTermMemory ? `${CHAT_HISTORY_INTENT_RULE}\n\n` : '') +
     'CÁCH ĐIỀN THAM SỐ (sau khi đã chọn đúng loại theo bảng trên):\n' +
     '- Về công nợ ("nợ a 100k", "cho Nam vay 200k", "mai trả nợ"): gọi MANAGE_DEBT, xác định chính xác direction (receivable: người ta nợ mình, payable: mình nợ người ta), counterparty, amount, occurredAt (nếu có) và dueAt (nếu có).\n' +
     '- Về thu chi ("ăn trưa 45k", "tiền lương 15tr", "tối qua cà phê 15k"): gọi RECORD_TRANSACTION, xác định type (income, expense), category, amount, occurredAt (thời gian nếu có đề cập trong quá khứ/tương lai, tính chuẩn ISO theo giờ hiện tại), placeName (địa điểm/nơi chốn nếu có), paymentMethod (phương thức thanh toán nếu có).\n' +

@@ -53,6 +53,7 @@ export class HelpToolStrategy implements TextToolStrategy {
       `• /dashboard - mở dashboard web xem biểu đồ, phân tích\n` +
       `• /status - tài khoản và kết nối Google\n` +
       `• /reset (hoặc /clear) - làm mới hội thoại với bot\n` +
+      `• /sync - cập nhật ngay trí nhớ lâu dài với các tin mới của nhóm\n` +
       `• /ping - kiểm tra bot còn chạy không\n\n` +
       `Cho admin:\n` +
       `• /login (hoặc /auth) - đăng nhập Google dùng chung cho Calendar, Drive, Photos\n` +

@@ -194,19 +194,24 @@ export class ChatMemoryService {
     return rows.map((row) => row.day);
   }
 
-  /** What one local day of a chat sends to Cognee: people's messages and confirmed actions. */
+  /**
+   * What one local day of a chat sends to Cognee: people's messages and confirmed actions; with
+   * `after`, only those sent after it (the next segment of today).
+   */
   public async dayLines(
     channelId: string,
     day: string,
     timeZone: string,
+    after?: Date,
   ): Promise<Array<{ sentAt: Date; senderName: string | null; text: string }>> {
     const rows: Array<{ sent_at: Date | string; sender_name: string | null; text: string }> =
       await this.messageRepository.query(
         `SELECT sent_at, sender_name, text FROM zca_messages ` +
           `WHERE channel_id = $1 AND (sent_at AT TIME ZONE $2)::date = $3::date ` +
           `AND recalled_at IS NULL AND expires_at IS NULL AND text IS NOT NULL ` +
-          `AND NOT is_bot AND memory_kind = ANY($4::varchar[]) ORDER BY sent_at ASC`,
-        [channelId, timeZone, day, [...LONG_TERM_INGEST_KINDS]],
+          `AND NOT is_bot AND memory_kind = ANY($4::varchar[]) ` +
+          `AND ($5::timestamptz IS NULL OR sent_at > $5::timestamptz) ORDER BY sent_at ASC`,
+        [channelId, timeZone, day, [...LONG_TERM_INGEST_KINDS], after ?? null],
       );
     return rows.map((row) => ({
       sentAt: row.sent_at instanceof Date ? row.sent_at : new Date(row.sent_at),
@@ -294,13 +299,14 @@ export class ChatMemoryService {
    * A recalled message is forgotten: its content is erased, only the tombstone remains. The
    * client id is not unique across senders, so it only matches together with the sender. A day
    * already sent to Cognee is marked `stale`, so the nightly job sends it again without it.
+   * Resolves when the recalled messages were sent (none when nothing matched or it failed).
    */
   public async markRecalled(
     channelId: string,
     msgId: string,
     byClient?: { cliMsgId: string; senderUid: string },
-  ): Promise<void> {
-    if (!channelId || !msgId) return;
+  ): Promise<Date[]> {
+    if (!channelId || !msgId) return [];
     try {
       const result = await this.messageRepository
         .createQueryBuilder()
@@ -326,8 +332,10 @@ export class ChatMemoryService {
         )
         .filter((date): date is Date => date !== null && !Number.isNaN(date.getTime()));
       await this.markDaysStale(channelId, sentAts);
+      return sentAts;
     } catch (err: unknown) {
       this.logger.warn(`[ChatMemory] Could not mark recall in ${channelId}: ${errorMessage(err)}`);
+      return [];
     }
   }
 

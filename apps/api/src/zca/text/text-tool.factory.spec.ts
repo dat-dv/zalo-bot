@@ -48,6 +48,7 @@ function createFactory(): TextToolFactory {
     createDummyStrategy(TextToolType.ASK_CLARIFICATION),
     createDummyStrategy(TextToolType.REMEMBER_NOTE),
     createDummyStrategy(TextToolType.FORGET_MEMORY),
+    createDummyStrategy(TextToolType.SYNC_MEMORY),
   );
 }
 
@@ -106,6 +107,9 @@ void test('TextToolFactory resolves tool types by enum correctly', () => {
   assert.equal(factory.resolveFastPathToolType('/zalo-logout'), TextToolType.ZALO_LOGOUT);
   assert.equal(factory.resolveFastPathToolType('/zca-logout'), TextToolType.ZALO_LOGOUT);
   assert.equal(factory.resolveFastPathToolType('/zlogout'), TextToolType.ZALO_LOGOUT);
+  assert.equal(factory.resolveFastPathToolType('/sync'), TextToolType.SYNC_MEMORY);
+  assert.equal(factory.resolveFastPathToolType('@Bot /sync'), TextToolType.SYNC_MEMORY);
+  assert.equal(factory.resolveFastPathToolType('/synchronize'), null);
 
   assert.equal(factory.resolveFastPathToolType('nợ a 100k'), null);
   assert.equal(factory.resolveFastPathToolType('@Bot nợ a 100k'), null);

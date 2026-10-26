@@ -5,6 +5,7 @@ export enum TextToolType {
   ECHO = 'ECHO',
   PING = 'PING',
   RESET = 'RESET',
+  SYNC_MEMORY = 'SYNC_MEMORY',
   LOGIN = 'LOGIN',
   STATUS = 'STATUS',
   TODAY = 'TODAY',

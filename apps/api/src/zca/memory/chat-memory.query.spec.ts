@@ -6,6 +6,7 @@ import {
   buildNeighbourQuery,
   normalizeDate,
   parseKeywords,
+  searchTerms,
 } from './chat-memory.query';
 
 void test('parseKeywords splits, trims, dedupes and caps keywords', () => {
@@ -32,8 +33,42 @@ void test('buildHitQuery always scopes by channel and binds keywords as params',
   assert.match(query.sql, /m\.channel_id = \$1/);
   assert.match(query.sql, /m\.recalled_at IS NULL/);
   assert.doesNotMatch(query.sql, /DROP TABLE/);
-  assert.deepEqual(query.params, ['g-1', 'đi', "Đà Lạt'", 'DROP TABLE x', 15]);
+  // The keywords, then the single words of the multi-word ones, all bound as params.
+  assert.deepEqual(query.params, [
+    'g-1',
+    'đi',
+    "Đà Lạt'",
+    'DROP TABLE x',
+    // "Đà" folds to "da" like the stop word "đã"; "Lạt" still finds Đà Lạt.
+    "Lạt'",
+    'DROP',
+    'TABLE',
+    15,
+  ]);
   assert.doesNotMatch(query.sql, /sent_at >=/);
+});
+
+void test('searchTerms adds the words of multi-word keywords and literal patterns', () => {
+  assert.deepEqual(searchTerms('tài khoản admin, c.datintech.site, có nói, mk'), {
+    phrases: ['tài khoản admin', 'c.datintech.site', 'có nói', 'mk'],
+    // "có" and "nói" alone would match almost every message.
+    words: ['tài', 'khoản', 'admin'],
+    patterns: ['%c.datintech.site%'],
+  });
+  assert.deepEqual(searchTerms('50%_off.vn').patterns, ['%50\\%\\_off.vn%']);
+});
+
+void test('buildHitQuery also matches domains as text and ranks those hits first', () => {
+  const query = buildHitQuery('g-1', {
+    keywords: 'c.datintech.site, admin',
+    limit: 15,
+    timeZone: 'Asia/Ho_Chi_Minh',
+  });
+
+  assert.ok(query);
+  assert.deepEqual(query.params, ['g-1', 'c.datintech.site', 'admin', ['%c.datintech.site%'], 15]);
+  assert.match(query.sql, /\(m\.search_vector @@ q\.query OR m\.text ILIKE ANY\(\$4::text\[\]\)\)/);
+  assert.match(query.sql, /ORDER BY \(m\.text ILIKE ANY\(\$4::text\[\]\)\) DESC, ts_rank/);
 });
 
 void test('buildHitQuery adds an inclusive local date range', () => {

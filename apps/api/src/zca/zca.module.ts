@@ -23,12 +23,14 @@ import { OcrModule } from '../ocr/ocr.module';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 import { ChatMemoryModule } from './memory/chat-memory.module';
 import { MemoryIngestService } from './memory/long-term/memory-ingest.service';
+import { MemorySegmentScheduler } from './memory/long-term/memory-segment.scheduler';
 import { ChannelMemoryController } from './memory/channel-memory.controller';
 import {
   CHAT_MEMORY_QUEUE,
   MemoryIngestProcessor,
 } from './memory/long-term/memory-ingest.processor';
 import { ZcaMemoryIngestionEntity } from '../database/entities/zca-memory-ingestion.entity';
+import { ZcaMemorySegmentEntity } from '../database/entities/zca-memory-segment.entity';
 import { ChannelStorageLinkModule } from './storage/channel-storage-link.module';
 
 // Chat pipeline: messenger, text input and tool strategies
@@ -53,7 +55,11 @@ import { StorageUploadPendingImageStrategy } from './pending-image/strategies/st
 import { CreateBillPendingImageStrategy } from './pending-image/strategies/create-bill-pending-image.strategy';
 
 const COMMON_IMPORTS = [
-  TypeOrmModule.forFeature([ZcaThreadConfigEntity, ZcaMemoryIngestionEntity]),
+  TypeOrmModule.forFeature([
+    ZcaThreadConfigEntity,
+    ZcaMemoryIngestionEntity,
+    ZcaMemorySegmentEntity,
+  ]),
   BullModule.registerQueue({ name: CHAT_MEMORY_QUEUE }),
   AuditModule,
   forwardRef(() => ReceiptStorageModule),
@@ -92,6 +98,7 @@ const COMMON_PROVIDERS = [
   CreateBillPendingImageStrategy,
   MemoryIngestService,
   MemoryIngestProcessor,
+  MemorySegmentScheduler,
 ];
 
 const COMMON_EXPORTS = [
@@ -115,6 +122,7 @@ const COMMON_EXPORTS = [
   StorageUploadPendingImageStrategy,
   CreateBillPendingImageStrategy,
   MemoryIngestService,
+  MemorySegmentScheduler,
 ];
 
 @Module({

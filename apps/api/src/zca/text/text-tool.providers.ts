@@ -37,6 +37,7 @@ import { SearchChatHistoryToolStrategy } from './strategies/search-chat-history-
 import { AskClarificationToolStrategy } from './strategies/ask-clarification-tool.strategy';
 import { RememberNoteToolStrategy } from './strategies/remember-note-tool.strategy';
 import { ForgetMemoryToolStrategy } from './strategies/forget-memory-tool.strategy';
+import { SyncMemoryToolStrategy } from './strategies/sync-memory-tool.strategy';
 
 export const TEXT_TOOL_STRATEGY_PROVIDERS = [
   WelcomeToolStrategy,
@@ -77,4 +78,5 @@ export const TEXT_TOOL_STRATEGY_PROVIDERS = [
   AskClarificationToolStrategy,
   RememberNoteToolStrategy,
   ForgetMemoryToolStrategy,
+  SyncMemoryToolStrategy,
 ];

@@ -11,6 +11,8 @@ metadata:
       - apps/api/src/zca/memory/learned-facts.service.ts
       - apps/api/src/zca/memory/long-term/cognee.client.ts
       - apps/api/src/zca/memory/long-term/memory-ingest.service.ts
+      - apps/api/src/zca/memory/long-term/memory-segment.scheduler.ts
+      - apps/api/src/zca/text/strategies/sync-memory-tool.strategy.ts
       - apps/api/src/zca/confirmation/transaction-confirmation.service.ts
       - apps/api/src/zca/text/text-input.service.ts
       - apps/api/src/zca/text/strategies/search-chat-history-tool.strategy.ts
@@ -85,15 +87,39 @@ Bản v2 giải quyết bằng các tầng trí nhớ chia theo kênh. Hiện c�
 
 **Cognee** là máy chủ trí nhớ mã nguồn mở (Apache 2.0) chạy thành service riêng trong docker-compose. Nó dùng AI rút thực thể và quan hệ từ văn bản thành sơ đồ tri thức (knowledge graph), nhờ vậy trả lời được câu hỏi tổng hợp kiểu "tháng 5 nhóm đi đâu", "chồng Hằng là ai". Đánh giá và kiểm chứng: `.agents/artifacts/chat-memory-cognee/research.md`.
 
-Mỗi đêm lúc 03:00 (giờ Việt Nam, BullMQ queue `chat-memory`):
+**Ghi gì nhớ nấy** (anh Đạt chốt 26/10/2026): tin được gửi sang Cognee đúng như đã nhắn, không che gì, kể cả mật khẩu hay số tài khoản. Trước đây bot che số dài từ 12 chữ số, nay đã bỏ.
+
+### Nạp trong ngày, sau vài phút (anh Đạt chốt 26/10/2026)
+
+Trước đây tin hôm nay chỉ vào Cognee lúc 03:00 hôm sau. Vì vậy chuyện vừa nói lúc chiều (ví dụ tên miền và tài khoản admin) bot chỉ tìm lại được theo từ khoá. Giờ bot nạp theo **đoạn**:
+
+- Mỗi tin của kênh bật "Nhớ lâu dài" đặt lại hẹn giờ của kênh. Kênh im lặng **3 phút** thì các tin mới của hôm nay được gửi sang Cognee thành một đoạn. Nhóm nói liên tục thì chậm nhất **15 phút** cũng gửi một lần, tính từ tin đầu tiên chưa gửi.
+- Mỗi đoạn có tiêu đề kèm khung giờ, ví dụ `…ngày 26/10/2026 (Thứ Hai), 14:28–14:56`. Mỗi đoạn được ghi một dòng trong bảng `zca_memory_segments`; đoạn sau chỉ lấy tin sau đoạn trước, nên không gửi trùng.
+- Hẹn giờ nằm trong RAM của API. Khởi động lại thì sau 1 phút bot gửi bù một đoạn cho mọi kênh bật Nhớ lâu dài, nên không sót tin.
+- Cognee lỗi thì không ghi gì, đợt sau gửi lại phần đó.
+- **Gõ `/sync`** (hoặc `@bot /sync`): bot bỏ hẹn giờ của kênh, nạp ngay các ngày cũ còn chờ hoặc lỗi và các tin mới hôm nay. Bot trả lời "🔄 Đang cập nhật trí nhớ…", xong thì báo "🧠 Đã cập nhật trí nhớ: N tin mới hôm nay". `/sync` không chạy tự học (vẫn ban đêm).
+- Thu hồi một tin hôm nay: các đoạn hôm nay bị xoá khỏi Cognee và gửi lại ngay, không còn tin đó.
+- Cái giá: Cognee gọi LLM nhiều hơn, khoảng gấp đôi lượng token so với chỉ nạp ban đêm.
+
+### Mỗi đêm lúc 03:00
+
+Giờ Việt Nam, cùng queue BullMQ `chat-memory`, chạy lần lượt từng job nên không chạy chồng với các đoạn:
 
 1. Xoá các dòng hết hạn còn sót từ trí nhớ ngắn hạn đã bỏ.
 2. Với mỗi kênh bật "Nhớ lâu dài", lần lượt từng kênh: lấy tối đa 8 ngày chưa nạp (hôm qua trước, rồi tới ngày cũ chưa nạp, ngày `stale`, ngày lỗi còn lượt thử).
-3. Mỗi ngày thành một tài liệu: tiêu đề `Nhật ký cuộc trò chuyện "<tên kênh>" ngày 25/10/2026 (Chủ Nhật)`, mỗi dòng `HH:mm Tên: nội dung`. Chỉ gồm tin `chat` và `action`; số dài từ 12 chữ số (thẻ, tài khoản) bị che còn `***1234`. Ngày có tiêu đề ngày tháng trong chữ thì Cognee mới hiểu được thời gian.
+3. Mỗi ngày: xoá các đoạn của ngày đó khỏi Cognee, rồi gửi cả ngày thành **một** tài liệu, để trí nhớ không bị trùng. Tiêu đề `Nhật ký cuộc trò chuyện "<tên kênh>" ngày 25/10/2026 (Chủ Nhật)`, mỗi dòng `HH:mm Tên: nội dung`. Chỉ gồm tin `chat` và `action`. Có tiêu đề ngày tháng trong chữ thì Cognee mới hiểu được thời gian.
 4. Gửi vào Cognee. Lỗi thì ghi `failed` kèm lý do, đêm sau thử lại (tối đa 5 lần).
 5. Nếu bật "Tự học về mọi người": hỏi Cognee về bot và 10 người hay nói nhất trong các ngày vừa nạp, rồi nhờ LLM rút tối đa 5 điều **ổn định** mỗi người (bỏ câu đùa, chửi, đe doạ, lịch hẹn, số tiền). Kết quả thay cho các điều cũ của người đó, trừ những điều admin hoặc người dùng đã xoá.
 
-Khi có người hỏi chuyện cũ, `SEARCH_CHAT_HISTORY` chạy song song tìm theo từ khoá (để có câu gốc và tin hôm nay chưa nạp) và hỏi ngữ cảnh từ Cognee, rồi đưa cả hai cho LLM trả lời, kèm ngày và người nói. Cognee tắt hoặc lỗi thì chỉ còn tìm theo từ khoá như bản cũ.
+Khi có người hỏi chuyện cũ, `SEARCH_CHAT_HISTORY` chạy song song tìm theo từ khoá (để có câu gốc và các tin vừa nhắn chưa nạp) và hỏi ngữ cảnh từ Cognee, rồi đưa cả hai cho LLM trả lời, kèm ngày và người nói. Cognee tắt hoặc lỗi thì chỉ còn tìm theo từ khoá như bản cũ.
+
+**Tìm theo từ khoá bền hơn** (sửa sau đoạn chat 26/10, hỏi tài khoản admin `c.datintech.site` mà bot không tìm ra):
+
+- Postgres coi `c.datintech.site` là **một chữ**, nên tìm "datintech" không ra. Từ khoá có dấu `.`, `@`, `/` (tên miền, email, link) giờ được tìm thêm theo chuỗi (`ILIKE`) và xếp lên đầu.
+- Trước đây cụm "tài khoản admin" phải khớp đủ cả ba chữ. Giờ mỗi chữ của cụm nhiều chữ cũng được tìm riêng, nên tin chỉ ghi "admin" vẫn ra. Tin khớp nhiều chữ hơn đứng trước. Các chữ quá phổ biến (có, là, nói, đã…) không được tìm riêng.
+- Mô tả tool nhắc AI sinh từ khoá ngắn, thêm từ viết tắt (mk, pass, tk, stk, sdt) và giữ nguyên tên miền.
+- Khi kênh bật Nhớ lâu dài, prompt có thêm luật: hỏi lại, hoặc nhờ bot nói lại cho ai đó, một thông tin đã nhắn trong chat ("chỉ Hằng biết tài khoản admin của web…", "nói lại cho Nam cái link lúc nãy", "pass wifi là gì") thì gọi tra lịch sử, không trò chuyện.
+- Hạn chế: bot không còn đọc tin gần đây, nên câu trống không như "lúc nãy a có nói r" (không nói chuyện gì) vẫn có thể không tìm ra. Nói kèm chủ đề, ví dụ "lúc nãy a nói tài khoản admin rồi".
 
 **Số kết quả mỗi lần tra do agent tự chọn** (tham số `limit` của tool, 1–50, không truyền thì 15): câu hỏi chung chung hoặc cần liệt kê ("nhóm đã đi những đâu") thì lấy nhiều, hỏi một chi tiết thì lấy ít. Trước đây đây là ô "Số kết quả mỗi lần tra" trong mục Nâng cao, nhưng admin không biết nên đặt bao nhiêu, mà Cognee đã bổ sung ngữ cảnh rồi. Trần 80 dòng gửi cho AI vẫn giữ.
 
@@ -104,9 +130,9 @@ Khi có người hỏi chuyện cũ, `SEARCH_CHAT_HISTORY` chạy song song tìm
 - Khoá env (khai báo trong `.env.production`, xem [quy tắc env](../../global/environment-guard.md)):
   - `COGNEE_USER_PASSWORD`: mật khẩu tài khoản dịch vụ; để trống là tắt Cognee.
   - `COGNEE_JWT_SECRET`: bí mật ký token của Cognee; thiếu thì token hỏng mỗi lần Cognee khởi động lại.
-  - `COGNEE_LLM_PROVIDER` (mặc định `custom`), `COGNEE_LLM_ENDPOINT` (`…/v1`), `COGNEE_LLM_MODEL` (`openai/<model>`), `COGNEE_LLM_API_KEY`: LLM Cognee dùng để dựng graph. Toàn bộ chat từng ngày của kênh bật "Nhớ lâu dài" được gửi tới đây.
+  - `COGNEE_LLM_PROVIDER` (mặc định `custom`), `COGNEE_LLM_ENDPOINT` (`…/v1`), `COGNEE_LLM_MODEL` (`openai/<model>`), `COGNEE_LLM_API_KEY`: LLM Cognee dùng để dựng graph. Mọi tin của kênh bật "Nhớ lâu dài" được gửi tới đây vài phút sau khi nhắn, và cả ngày được gửi lại ban đêm.
   - `COGNEE_URL` do compose đặt cố định là `http://cognee:8000`; chạy API ngoài Docker thì tự khai báo.
-- Trạng thái nạp hiện trên thẻ "Nhớ lâu dài": ngày đã nạp gần nhất, số ngày lỗi.
+- Trạng thái nạp hiện trên thẻ "Nhớ lâu dài": ngày đã nạp gần nhất, "Hôm nay đã nạp tới HH:mm", số ngày lỗi.
 - **Giao diện Cognee**: vào `https://zalobot.datintech.site/cognee`, trang này chuyển sang `https://cognee-zalobot.datintech.site` (biến `COGNEE_UI_HOST`).
   - Đăng nhập UI bằng `zalobot@example.com` + `COGNEE_USER_PASSWORD`. Đây là lớp bảo vệ duy nhất: theo quyết định của anh Đạt ngày 26/10/2026, nginx không có Basic Auth.
   - UI là service `cognee-ui` (image chính thức `cognee/cognee-ui:1.6.5`). Nó không chạy được dưới đường dẫn `/cognee/` vì không có basePath, và đăng nhập bằng cookie gắn theo host, nên UI và API Cognee cùng nằm trên subdomain riêng: `/` là UI, `/api/` là API, cùng một origin nên không vướng CORS.
@@ -121,7 +147,7 @@ Khi có người hỏi chuyện cũ, `SEARCH_CHAT_HISTORY` chạy song song tìm
 
 ## 6. Trang cấu hình kênh
 
-Cột phải có nhóm "🧠 Trí nhớ" gồm: 🧠 Nhớ lâu dài (công tắc, cảnh báo quyền riêng tư, cách hoạt động, công tắc "Tự học về mọi người", trạng thái nạp, danh sách "Bot đã học" có nút xoá) và 🖼️ Đọc chữ trong ảnh. Không còn ô số nào để chỉnh. Trên điện thoại hiển thị một cột.
+Cột phải có nhóm "🧠 Trí nhớ" gồm: 🧠 Nhớ lâu dài (công tắc, cảnh báo rằng mọi tin, kể cả mật khẩu, được gửi nguyên văn tới AI sau vài phút, cách hoạt động với mục "Khi nào nạp", công tắc "Tự học về mọi người", trạng thái nạp, danh sách "Bot đã học" có nút xoá) và 🖼️ Đọc chữ trong ảnh. Không còn ô số nào để chỉnh. Trên điện thoại hiển thị một cột.
 
 Cấu hình kênh (`chatMemory`): `enabled`, `readImageText` (mặc định bật), `learnPeople` (mặc định bật). Cấu hình cũ chưa có `readImageText`/`learnPeople` được coi là bật; các key cũ `shortTermEnabled`, `contextWindow`, `shortTermDays`, `searchLimit` bị bỏ khi đọc.
 
@@ -134,13 +160,15 @@ Không đổi cách đọc: OCR Tesseract chạy trên server, lần lượt t�
 - Bot lưu tin của **mọi thành viên** kênh đang listen, kể cả người không dùng bot.
 - Mỗi lượt trả lời: Ghi nhớ và điều tự học (tối đa 15 dòng) được gửi cho LLM. Không gửi kèm tin nhắn gần đây.
 - Khi hỏi chuyện cũ: tối đa 80 dòng tìm được (agent chọn 1–50 kết quả, mỗi kết quả kèm vài tin xung quanh) và ngữ cảnh Cognee.
-- **Mỗi đêm**: toàn bộ chat trong ngày của kênh bật "Nhớ lâu dài" được gửi tới LLM của Cognee. Anh Đạt đã chấp nhận dùng 9router cho việc này (có thể là model miễn phí của bên thứ ba). Muốn giữ dữ liệu nội bộ thì trỏ `COGNEE_LLM_*` vào Qwen/Ollama local.
+- **Sau vài phút và mỗi đêm**: tin của kênh bật "Nhớ lâu dài" được gửi **nguyên văn** (không che mật khẩu, số tài khoản) tới LLM của Cognee, khoảng 3 phút sau khi kênh im lặng và cả ngày một lần nữa ban đêm. Anh Đạt đã chấp nhận dùng 9router cho việc này (có thể là model miễn phí của bên thứ ba). Muốn giữ dữ liệu nội bộ thì trỏ `COGNEE_LLM_*` vào Qwen/Ollama local.
 
 ## 9. Kiểm thử
 
 - Unit test: `npm run test --workspace @zalobot/api`. Các file chính:
   - `zca/memory/chat-memory.service.spec.ts`, `memory-text.util.spec.ts`, `image-text-memory.service.spec.ts`
-  - `zca/memory/long-term/cognee.client.spec.ts`, `memory-ingest.service.spec.ts`
+  - `zca/memory/long-term/cognee.client.spec.ts`, `memory-ingest.service.spec.ts` (đoạn trong ngày, xoá đoạn khi nạp đêm và khi thu hồi), `memory-segment.scheduler.spec.ts` (3 phút, trần 15 phút, `/sync`)
+  - `zca/memory/chat-memory.query.spec.ts` (tách chữ, tên miền)
+  - `zca/text/strategies/sync-memory-tool.strategy.spec.ts`, `zca/text/intent-eval/` (câu hỏi lại thông tin đã nhắn)
   - `zca/confirmation/confirmed-action-memory.spec.ts` (chỉ ghi khi thành công)
   - `zca/text/strategies/remember-note-tool.strategy.spec.ts`, `search-chat-history-tool.strategy.spec.ts` (agent chọn `limit`, giới hạn 1–50)
   - `zca/text/text-input.service.spec.ts` (Ghi nhớ nằm ngay sau câu danh tính)
@@ -148,7 +176,7 @@ Không đổi cách đọc: OCR Tesseract chạy trên server, lần lượt t�
 - Thử tay:
   1. Trong nhóm: "@bot tao dặn rồi mày là con mèo đen 2 mái" → bot lưu ngay → hỏi "@bot mày là con gì" sau vài chục tin.
   2. Ghi một khoản chi rồi huỷ thẻ: `SELECT memory_kind, text FROM zca_messages WHERE channel_id = '<id>' ORDER BY sent_at DESC LIMIT 10;` không có dòng `action`. Duyệt một khoản khác thì có dòng `action` "(đã duyệt) …".
-  3. Có Cognee: chạy job thủ công (đợi 03:00 hoặc thêm job `nightly` vào queue `chat-memory`), xem bảng `zca_memory_ingestions` và danh sách "Bot đã học".
+  3. Có Cognee: nhắn vài tin, đợi 3 phút hoặc gõ `/sync`, xem bảng `zca_memory_segments`, rồi hỏi lại "@bot lúc nãy ai gửi link gì". Job đêm: đợi 03:00 hoặc thêm job `nightly` vào queue `chat-memory`, xem `zca_memory_ingestions` (các đoạn của ngày đó phải biến mất) và danh sách "Bot đã học".
 
 ## 10. Xử lý sự cố
 
@@ -161,3 +189,5 @@ Không đổi cách đọc: OCR Tesseract chạy trên server, lần lượt t�
 | "Bot đã học" có điều sai | Xoá điều đó trên dashboard hoặc nói "@bot quên vụ … đi"; điều đã xoá không được học lại |
 | Bot không hiểu câu nối tiếp | Bình thường: bot không còn đọc tin gần đây. Chỉ tin bổ sung cho thẻ đang chờ của chính người nhắn mới được hiểu; còn lại hãy nói đầy đủ một câu |
 | Câu hỏi chuyện cũ chỉ trò chuyện | Chưa bật "Nhớ lâu dài" (tool tra cứu không được đưa cho AI) |
+| Tin vừa nhắn chưa có trong Cognee | Kênh chưa im lặng đủ 3 phút (tối đa 15 phút). Gõ `/sync` để nạp ngay; bot báo lỗi thì xem log `[MemoryIngest]` |
+| `/sync` báo "Máy chủ chưa bật Cognee" | Như dòng "Máy chủ chưa bật Cognee" ở trên; tìm theo từ khoá vẫn chạy |

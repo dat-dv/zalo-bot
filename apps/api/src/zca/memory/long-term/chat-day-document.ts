@@ -1,5 +1,3 @@
-import { maskLongNumbers } from '../memory-text.util';
-
 /** One stored message of the day, already filtered to what may reach the long-term memory. */
 export interface ChatDayLine {
   sentAt: Date;
@@ -32,22 +30,31 @@ export function chatDayFileName(channelId: string, day: string): string {
   return `${channelId}_${day}.txt`;
 }
 
+/** File name of a part of today's chat in Cognee, unique per last message. */
+export function chatSegmentFileName(channelId: string, day: string, lastSentAt: Date): string {
+  return `${channelId}_${day}_${lastSentAt.getTime()}.txt`;
+}
+
 /**
- * The text of one chat day sent to Cognee: a dated header (Cognee extracts dates from the text,
- * which is what lets it answer time questions) and `HH:mm Name: text` lines. Long numbers are
- * masked before the text leaves the server. Empty when the day has no line.
+ * The text of one chat day, or of a part of it (`segment`: the header adds its time range), sent
+ * to Cognee: a dated header (Cognee extracts dates from the text, which is what lets it answer
+ * time questions) and `HH:mm Name: text` lines, as written: nothing is masked (owner's decision,
+ * 2026-10-26). Empty when there is no line.
  */
 export function buildChatDayDocument(
   channelName: string,
   day: string,
   lines: readonly ChatDayLine[],
   timeZone: string,
+  options: { segment?: boolean } = {},
 ): string {
   if (lines.length === 0) return '';
-  const header = `Nhật ký cuộc trò chuyện "${channelName}" ngày ${vietnameseDayLabel(day)}`;
+  const range = options.segment
+    ? `, ${timeOfDay(lines[0].sentAt, timeZone)}–${timeOfDay(lines[lines.length - 1].sentAt, timeZone)}`
+    : '';
+  const header = `Nhật ký cuộc trò chuyện "${channelName}" ngày ${vietnameseDayLabel(day)}${range}`;
   const body = lines.map(
-    (line) =>
-      `${timeOfDay(line.sentAt, timeZone)} ${line.senderName || 'Ai đó'}: ${maskLongNumbers(line.text)}`,
+    (line) => `${timeOfDay(line.sentAt, timeZone)} ${line.senderName || 'Ai đó'}: ${line.text}`,
   );
   return [header, ...body].join('\n');
 }

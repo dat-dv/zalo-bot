@@ -4,20 +4,40 @@ import { ConfigService } from '@nestjs/config';
 import type { Job, Queue } from 'bullmq';
 import { AuditContext } from '../../../audit/audit-context';
 import { throttledErrorLogger } from '../../../queue/reminder-queue';
-import { MemoryIngestService } from './memory-ingest.service';
+import { ZcaMessengerService } from '../../zca-messenger.service';
+import {
+  CHAT_MEMORY_NIGHTLY_CRON,
+  CHAT_MEMORY_NIGHTLY_JOB,
+  CHAT_MEMORY_QUEUE,
+  CHAT_MEMORY_SEGMENT_JOB,
+  CHAT_MEMORY_SYNC_JOB,
+  readChannelJob,
+} from './memory-ingest.jobs';
+import { MemoryIngestService, type MemorySyncResult } from './memory-ingest.service';
 
-/** BullMQ queue of the nightly long-term memory job. */
-export const CHAT_MEMORY_QUEUE = 'chat-memory';
-export const CHAT_MEMORY_NIGHTLY_JOB = 'nightly';
-/** 03:00 in the bot timezone: the chat day before is over and chats are quiet. */
-export const CHAT_MEMORY_NIGHTLY_CRON = '0 3 * * *';
+export { CHAT_MEMORY_QUEUE, CHAT_MEMORY_NIGHTLY_JOB, CHAT_MEMORY_NIGHTLY_CRON };
+
+/** The `/sync` answer posted to the chat once the job is done. */
+export function syncResultText(result: MemorySyncResult | null): string {
+  if (!result) return '🧠 Kênh này chưa bật Nhớ lâu dài nên không có gì để cập nhật.';
+  if (result.failed) return '⚠️ Chưa cập nhật được trí nhớ lúc này, thử lại sau.';
+  const parts: string[] = [];
+  if (result.todayLines > 0) parts.push(`${result.todayLines} tin mới hôm nay`);
+  if (result.days > 0) parts.push(`${result.days} ngày trước còn chờ`);
+  return parts.length > 0
+    ? `🧠 Đã cập nhật trí nhớ: ${parts.join(', ')}.`
+    : '🧠 Trí nhớ đã đủ, không có tin mới.';
+}
 
 const NIGHTLY_JOB_OPTIONS = {
   removeOnComplete: true,
   removeOnFail: { count: 20 },
 } as const;
 
-/** Runs the nightly memory job; one at a time, each night's run handles every chat in turn. */
+/**
+ * Runs the memory jobs one at a time: the nightly run over every chat, today's segment of one
+ * chat, and `/sync` (whose result is posted to the chat).
+ */
 @Processor(CHAT_MEMORY_QUEUE, { concurrency: 1 })
 export class MemoryIngestProcessor extends WorkerHost implements OnApplicationBootstrap {
   private readonly logger = new Logger(MemoryIngestProcessor.name);
@@ -27,6 +47,7 @@ export class MemoryIngestProcessor extends WorkerHost implements OnApplicationBo
     private readonly ingest: MemoryIngestService,
     @InjectQueue(CHAT_MEMORY_QUEUE) private readonly queue: Queue,
     @Optional() private readonly configService?: ConfigService,
+    @Optional() private readonly messenger?: ZcaMessengerService,
   ) {
     super();
   }
@@ -49,11 +70,21 @@ export class MemoryIngestProcessor extends WorkerHost implements OnApplicationBo
   }
 
   public async process(job: Job<unknown>): Promise<void> {
-    if (job.name !== CHAT_MEMORY_NIGHTLY_JOB) {
+    // The jobs act for nobody: rows they write are system changes.
+    if (job.name === CHAT_MEMORY_NIGHTLY_JOB) {
+      await AuditContext.runAsSystem(() => this.ingest.runNightly());
+      return;
+    }
+    const data = readChannelJob(job.data);
+    if (!data || (job.name !== CHAT_MEMORY_SEGMENT_JOB && job.name !== CHAT_MEMORY_SYNC_JOB)) {
       throw new Error(`Unknown chat memory job "${job.name}"`);
     }
-    // The job acts for nobody: rows it writes are system changes.
-    await AuditContext.runAsSystem(() => this.ingest.runNightly());
+    if (job.name === CHAT_MEMORY_SEGMENT_JOB) {
+      await AuditContext.runAsSystem(() => this.ingest.runSegment(data.channelId, data));
+      return;
+    }
+    const result = await AuditContext.runAsSystem(() => this.ingest.runSync(data.channelId));
+    await this.messenger?.sendMessage(data.channelId, syncResultText(result));
   }
 
   @OnWorkerEvent('failed')
