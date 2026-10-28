@@ -50,9 +50,6 @@ import { ThreadAccessService } from './access/thread-access.service';
 import { ZcaWebhookController } from './webhook/zca-webhook.controller';
 import { WebhookApiKeyGuard } from './webhook/guards/webhook-api-key.guard';
 import { WebhookRateLimiter } from './webhook/webhook-rate-limiter';
-import { WebhookRecipientService } from './webhook/webhook-recipient.service';
-import { WebhookRecipientsController } from './webhook/webhook-recipients.controller';
-import { WebhookRecipientEntity } from '../database/entities/webhook-recipient.entity';
 
 // Pending Image & Batching
 import { PendingImageActionService } from './pending-image/pending-image-action.service';
@@ -67,7 +64,6 @@ const COMMON_IMPORTS = [
     ZcaThreadConfigEntity,
     ZcaMemoryIngestionEntity,
     ZcaMemorySegmentEntity,
-    WebhookRecipientEntity,
   ]),
   BullModule.registerQueue({ name: CHAT_MEMORY_QUEUE }),
   AuditModule,
@@ -83,13 +79,6 @@ const COMMON_IMPORTS = [
   DashboardAuthModule,
   ChatMemoryModule,
   ChannelStorageLinkModule,
-];
-
-const ZCA_CONTROLLERS = [
-  ZcaController,
-  ChannelMemoryController,
-  ZcaWebhookController,
-  WebhookRecipientsController,
 ];
 
 const COMMON_PROVIDERS = [
@@ -117,7 +106,6 @@ const COMMON_PROVIDERS = [
   MemorySegmentScheduler,
   WebhookApiKeyGuard,
   WebhookRateLimiter,
-  WebhookRecipientService,
 ];
 
 const COMMON_EXPORTS = [
@@ -146,7 +134,7 @@ const COMMON_EXPORTS = [
 
 @Module({
   imports: COMMON_IMPORTS,
-  controllers: ZCA_CONTROLLERS,
+  controllers: [ZcaController, ChannelMemoryController, ZcaWebhookController],
   providers: COMMON_PROVIDERS,
   exports: COMMON_EXPORTS,
 })
@@ -155,7 +143,7 @@ export class ZcaModule {
     return {
       module: ZcaModule,
       imports: COMMON_IMPORTS,
-      controllers: ZCA_CONTROLLERS,
+      controllers: [ZcaController, ChannelMemoryController, ZcaWebhookController],
       providers: [
         {
           provide: ZCA_MODULE_OPTIONS,
@@ -172,7 +160,7 @@ export class ZcaModule {
       global: true,
       module: ZcaModule,
       imports: COMMON_IMPORTS,
-      controllers: ZCA_CONTROLLERS,
+      controllers: [ZcaController, ChannelMemoryController, ZcaWebhookController],
       providers: [
         {
           provide: ZCA_MODULE_OPTIONS,

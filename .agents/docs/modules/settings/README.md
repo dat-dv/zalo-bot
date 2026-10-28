@@ -9,9 +9,6 @@ metadata:
       - apps/web/src/modules/settings/api/categories-query.ts
       - apps/web/src/modules/settings/presentation/components/settings-screen.tsx
       - apps/web/src/modules/settings/presentation/components/install-app-row.tsx
-      - apps/web/src/modules/settings/presentation/components/webhook-recipients-panel.tsx
-      - apps/web/src/modules/settings/model/webhook-recipients.ts
-      - apps/web/src/modules/settings/api/webhook-recipients-query.ts
       - apps/web/src/shared/providers/react-scan-provider.tsx
 ---
 
@@ -19,7 +16,7 @@ metadata:
 
 Tài liệu này ánh xạ trực tiếp với tri thức canonical [`README.md`](../../../knowledge/modules/settings/README.md).
 
-Module `apps/web/src/modules/settings` cho phép người dùng quản lý danh mục thu/chi của riêng mình, xem một số tuỳ chọn của dashboard, và cho admin chọn người nhận webhook.
+Module `apps/web/src/modules/settings` cho phép người dùng quản lý danh mục thu/chi của riêng mình và xem một số tuỳ chọn của dashboard.
 
 ## 1. Vì sao cần quản lý danh mục
 
@@ -30,14 +27,11 @@ Danh mục (ví dụ `Ăn uống`, `Lương`) dùng để nhóm giao dịch tron
 - `api/categories-api.ts`: `getCategories` (có thể lọc `?type=income|expense`), `createCategory`, `updateCategory`, `deleteCategory`, đều gọi `API_ROUTES.categories`.
 - `api/categories-query.ts`: query key `['categories']` và 4 hook TanStack Query. Mọi mutation thành công đều làm mới `categoriesQueryKeys.all`.
 - `presentation/components/settings-screen.tsx`: màn hình `SettingsScreen` (re-export qua `view/settings-screen.tsx`).
-- `api/webhook-recipients-api.ts`, `api/webhook-recipients-query.ts`: đọc/lưu danh sách người nhận webhook (`API_ROUTES.webhookRecipients`).
-- `model/webhook-recipients.ts`: hàm thuần dựng, lọc và bật/tắt dòng người nhận (có test `webhook-recipients.spec.ts`).
-- `presentation/components/webhook-recipients-panel.tsx`: tab Webhook.
-- Endpoint backend nằm trong `apps/api/src/finance/finance.controller.ts`; người nhận webhook ở `apps/api/src/zca/webhook/webhook-recipients.controller.ts`.
+- Endpoint backend nằm trong `apps/api/src/finance/finance.controller.ts`.
 
 ## 3. Màn hình Cài đặt
 
-Tiêu đề trang, nút Làm mới và Đăng xuất do `WorkspaceHeader` của layout chung cung cấp; `SettingsScreen` không tự vẽ header. Màn hình có 3 tab:
+Tiêu đề trang, nút Làm mới và Đăng xuất do `WorkspaceHeader` của layout chung cung cấp; `SettingsScreen` không tự vẽ header. Màn hình có 2 tab:
 
 - **Danh mục** (mặc định): hai bảng `DataPanel` cho danh mục chi và danh mục thu.
   - Tìm kiếm theo tên.
@@ -54,12 +48,6 @@ Tiêu đề trang, nút Làm mới và Đăng xuất do `WorkspaceHeader` của 
     - Các trường hợp khác hiện hướng dẫn theo trình duyệt: trong Zalo thì mở bằng Safari/Chrome, trên iOS thì Chia sẻ → "Thêm vào MH chính", còn lại thì báo trình duyệt chưa hỗ trợ.
   - **Quản lý số dư & Cân chỉnh ví**: nút `⚖️` mở `AdjustBalanceModal` (thuộc module dashboard) để cân số dư sổ sách với số dư ví thật. Số dư trên sổ lấy từ `finance.ledgerBalance` của payload dashboard (tổng thu − tổng chi toàn thời gian), không phải số dư của tháng.
   - Công tắc **React Scan**.
-- **Webhook** (chỉ admin; người khác thấy thông báo không tải được): chọn người và nhóm Zalo mà webhook được phép trả về (`GET /api/webhooks/targets`) và nhắn tới (`POST /api/webhooks/send`).
-  - Danh sách lấy từ danh bạ Zalo của bot (`GET /api/zca/threads`), gộp với người nhận đã lưu. Dòng đã chọn lên đầu, rồi tới nhóm, rồi theo tên. Mỗi dòng có avatar (hoặc chữ cái đầu), tên, loại, ID.
-  - Người đã chọn mà bot không còn thấy trong danh bạ vẫn hiện, ghi "Không còn trong danh bạ Zalo".
-  - Tick để chọn; thay đổi chỉ là bản nháp cho tới khi bấm **Lưu** (gửi cả danh sách). **Hoàn tác** bỏ bản nháp. Hai nút bị khoá khi chưa thay đổi gì.
-  - Chip lọc Tất cả / Đã chọn / Nhóm / Người, ô tìm theo tên (không cần gõ dấu) hoặc ID.
-  - Bấm vào ID để sao chép `targetId`. Đầu bảng hiện hai endpoint và quy tắc gửi. Chi tiết API: [`zca/webhook.md`](../zca/webhook.md).
 - **Trên điện thoại / màn hình hẹp** (desktop giữ nguyên):
   - Hai bảng danh mục chuyển thành danh sách (≤ 960px): dòng 1 là tên danh mục, dòng 2 là loại (Thu/Chi). Danh mục không có số lần dùng nên không có giá trị bên phải. Chạm dòng mở bottom-sheet; đổi tên bằng nút Sửa ở chân sheet (ô nhập 40px), Lưu/✕ và Xoá cũng ở đó vì điện thoại không nhấp đúp được.
   - Ở ≤ 640px: hai tab thành một hàng chip cuộn ngang cao 32px; ô tìm kiếm (cao 36px) và nút Thêm (cao 32px) của mỗi bảng rộng hết màn hình; hàng thêm nhanh có ô nhập và nút ✓/✕ cao 40px; nút trong tab Tuỳ chọn cao 40px. Hai bảng danh mục xếp chồng ở 640px. Toast nằm phía trên thanh tab để không che tiêu đề trang.

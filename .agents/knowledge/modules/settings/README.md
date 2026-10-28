@@ -4,7 +4,7 @@
 
 ## Purpose
 
-`apps/web/src/modules/settings` manages the user's income/expense transaction categories, shows workspace preferences, and lets admins pick webhook recipients.
+`apps/web/src/modules/settings` manages the user's income/expense transaction categories and shows workspace preferences.
 
 ## Code layout
 
@@ -12,16 +12,12 @@
 - `api/categories-query.ts`: `categoriesQueryKeys.all` (`['categories']`), `list(type)`; hooks `useCategoriesQuery`, `useCreateCategoryMutation`, `useUpdateCategoryMutation`, `useDeleteCategoryMutation`. Mutations invalidate `categoriesQueryKeys.all`.
 - `presentation/components/settings-screen.tsx` (`SettingsScreen`), re-exported by `view/settings-screen.tsx`.
 - `presentation/components/install-app-row.tsx` (`InstallAppRow`): the Preferences "Mobile app" row.
-- `api/webhook-recipients-api.ts` / `api/webhook-recipients-query.ts`: `GET`/`PUT` `API_ROUTES.webhookRecipients`; `useWebhookRecipientsQuery`, `useUpdateWebhookRecipientsMutation` (writes the saved list into the query cache).
-- `model/webhook-recipients.ts`: pure helpers `buildWebhookRecipientRows`, `filterWebhookRecipientRows`, `toggleWebhookRecipient`, `isSameRecipientSet`.
-- `presentation/components/webhook-recipients-panel.tsx` (`WebhookRecipientsPanel`): the Webhook tab.
-- Backend endpoints live in `apps/api/src/finance/finance.controller.ts` (`GET/POST /categories`, `PATCH/DELETE /categories/:id`); webhook recipients in `apps/api/src/zca/webhook/webhook-recipients.controller.ts`.
+- Backend endpoints live in `apps/api/src/finance/finance.controller.ts` (`GET/POST /categories`, `PATCH/DELETE /categories/:id`).
 
 ## UI (`SettingsScreen`)
 
 - Page header (title, subtitle, Refresh, Logout) comes from the private layout `WorkspaceHeader`; the screen renders none.
-- Three tabs: `categories` (default), `preferences`, `webhook`.
-- **Webhook tab** (`WebhookRecipientsPanel`, admin APIs; non-admins see the load error): chats from `useZcaThreadsQuery` (`GET /api/zca/threads`, directory cache, `missingFromZalo` placeholders dropped) merged with saved recipients; picked rows first, then groups, then name. Saved recipients Zalo no longer returns stay as rows marked `settings.webhook.missing`. Rows show avatar (or initial), name, type, id. Checkbox toggles a local draft (null until edited); Save sends the whole draft via `PUT`, Undo drops it; both disabled while unchanged. Filter chips All / Selected / Groups / People, accent-insensitive search by name or id. The ID cell copies the `targetId`. Header shows `GET /api/webhooks/targets`, `POST /api/webhooks/send` and the recipient rule. Backend rules: `modules/zca/webhook.md`.
+- Two tabs: `categories` (default) and `preferences`.
 - **Categories tab**: two `DataPanel`s (expense, income). Each has client search by name, inline add (`settings.categories.addExpense` / `addIncome`; Enter saves, Escape cancels), inline rename (double-click or Edit; Enter/Escape), delete with `window.confirm`. Action buttons use `flex-nowrap whitespace-nowrap` / `shrink-0`. Loading and empty (`settings.categories.empty`) states come from the table; error state shows an alert with Retry.
 - **Preferences tab** (static info + tools):
   - Language and Theme: informational rows with a "Supported" badge (no switcher here).

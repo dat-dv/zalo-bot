@@ -2,8 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BadGatewayException,
-  ConflictException,
-  ForbiddenException,
   HttpException,
   NotFoundException,
   ServiceUnavailableException,
@@ -12,9 +10,8 @@ import {
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ThreadType } from 'zca-js';
-import type { IWebhookRecipient } from '@zalobot/contracts';
 import { OutgoingMemoryKind } from '../memory/memory-kind';
-import { ZcaWebhookController, recipientEntries } from './zca-webhook.controller';
+import { ZcaWebhookController } from './zca-webhook.controller';
 import { WebhookApiKeyGuard } from './guards/webhook-api-key.guard';
 import { isWebhookKeyValid } from './webhook-api-key';
 import { WEBHOOK_MAX_CALLS, WebhookRateLimiter } from './webhook-rate-limiter';
@@ -22,11 +19,6 @@ import { toWebhookTargets } from './webhook-targets';
 import { WebhookTargetsQueryDto } from './dto/webhook-targets-query.dto';
 import type { AvailableThread } from '../zca.service';
 import { WEBHOOK_MESSAGE_MAX_LENGTH, WebhookSendMessageDto } from './dto/webhook-send-message.dto';
-import {
-  UpdateWebhookRecipientsDto,
-  WEBHOOK_RECIPIENTS_MAX,
-} from './dto/update-webhook-recipients.dto';
-import { compareRecipients } from './webhook-recipient.service';
 
 const KEY = 'k'.repeat(32);
 
@@ -65,18 +57,11 @@ const DIRECTORY: AvailableThread[] = [
   { id: 'g-old', name: 'Nhóm đã rời', type: 'group', isListened: true, missingFromZalo: true },
 ];
 
-const GROUP: IWebhookRecipient = { threadId: 'g-1', threadName: 'Kế toán', threadType: 'group' };
-const USER: IWebhookRecipient = { threadId: 'u-1', threadName: 'An', threadType: 'user' };
-
 function createController(options: {
   loggedIn?: boolean;
   allowCall?: boolean;
-  recipients?: IWebhookRecipient[];
-  /** Result per target id; targets left out get `result` (or a success). */
-  results?: Record<string, { success: boolean; msgId?: string; cliMsgId?: string }>;
   result?: { success: boolean; msgId?: string; cliMsgId?: string };
 }) {
-  const saved = options.recipients ?? [GROUP, USER];
   const sent: SentMessage[] = [];
   const limiterScopes: string[] = [];
   const directoryCalls: boolean[] = [];
@@ -92,8 +77,7 @@ function createController(options: {
     sendMessageWithResult: (targetId: string, message: string, type?: ThreadType) => {
       sent.push({ targetId, message, type, memoryKind: OutgoingMemoryKind.current() });
       return Promise.resolve(
-        options.results?.[targetId] ??
-          options.result ?? { success: true, msgId: `msg-${targetId}`, cliMsgId: 'cli-1' },
+        options.result ?? { success: true, msgId: 'msg-1', cliMsgId: 'cli-1' },
       );
     },
   };
@@ -103,16 +87,10 @@ function createController(options: {
       return Promise.resolve(options.allowCall ?? true);
     },
   };
-  const recipients = {
-    list: () => Promise.resolve(saved),
-    find: (threadId: string) =>
-      Promise.resolve(saved.find((recipient) => recipient.threadId === threadId) ?? null),
-  };
   const controller = new ZcaWebhookController(
     zcaService as never,
     zcaMessenger as never,
     rateLimiter as never,
-    recipients as never,
   );
   return { controller, sent, limiterScopes, directoryCalls };
 }
@@ -145,12 +123,14 @@ void test('WebhookApiKeyGuard answers 401 on a wrong key and lets the right key 
   assert.equal(guardWithKey(KEY, { 'x-api-key': KEY })(), true);
 });
 
-void test('WebhookSendMessageDto accepts a body with or without targetId', async () => {
-  assert.deepEqual(await validationErrors({ targetId: '123', message: 'Xin chào' }), []);
-  assert.deepEqual(await validationErrors({ message: 'Xin chào' }), []);
+void test('WebhookSendMessageDto accepts a valid body', async () => {
+  assert.deepEqual(
+    await validationErrors({ targetId: '123', message: 'Xin chào', threadType: 'group' }),
+    [],
+  );
 });
 
-void test('WebhookSendMessageDto rejects blank or too long values', async () => {
+void test('WebhookSendMessageDto rejects blank, too long or unknown values', async () => {
   assert.deepEqual(await validationErrors({ targetId: '123', message: '   \n ' }), ['message']);
   assert.deepEqual(
     await validationErrors({
@@ -160,103 +140,39 @@ void test('WebhookSendMessageDto rejects blank or too long values', async () => 
     ['message'],
   );
   assert.deepEqual(await validationErrors({ targetId: '  ', message: 'hi' }), ['targetId']);
-  assert.deepEqual(await validationErrors({ targetId: '', message: 'hi' }), ['targetId']);
+  assert.deepEqual(
+    await validationErrors({ targetId: '123', message: 'hi', threadType: 'channel' }),
+    ['threadType'],
+  );
 });
 
-void test('UpdateWebhookRecipientsDto rejects a bad thread type and too many recipients', async () => {
-  const errors = async (body: Record<string, unknown>) =>
-    (await validate(plainToInstance(UpdateWebhookRecipientsDto, body))).map((e) => e.property);
-
-  assert.deepEqual(await errors({ recipients: [GROUP, USER] }), []);
-  assert.deepEqual(await errors({ recipients: [{ ...USER, threadType: 'channel' }] }), [
-    'recipients',
-  ]);
-  const many = Array.from({ length: WEBHOOK_RECIPIENTS_MAX + 1 }, (_, i) => ({
-    ...USER,
-    threadId: `u${i}`,
-  }));
-  assert.deepEqual(await errors({ recipients: many }), ['recipients']);
-});
-
-void test('ZcaWebhookController sends to every saved recipient without targetId', async () => {
+void test('ZcaWebhookController sends with the thread type and returns msgId and cliMsgId', async () => {
   const { controller, sent } = createController({});
 
-  const response = await controller.sendMessage({ message: 'Hello' });
+  const response = await controller.sendMessage({
+    targetId: 'group-1',
+    message: 'Hello',
+    threadType: 'group',
+  });
 
   assert.deepEqual(response, {
     success: true,
-    data: {
-      sent: 2,
-      failed: 0,
-      results: [
-        {
-          targetId: 'g-1',
-          threadType: 'group',
-          success: true,
-          msgId: 'msg-g-1',
-          cliMsgId: 'cli-1',
-        },
-        { targetId: 'u-1', threadType: 'user', success: true, msgId: 'msg-u-1', cliMsgId: 'cli-1' },
-      ],
-    },
+    data: { targetId: 'group-1', msgId: 'msg-1', cliMsgId: 'cli-1' },
   });
   assert.deepEqual(sent, [
-    { targetId: 'g-1', message: 'Hello', type: ThreadType.Group, memoryKind: 'system' },
-    { targetId: 'u-1', message: 'Hello', type: ThreadType.User, memoryKind: 'system' },
+    { targetId: 'group-1', message: 'Hello', type: ThreadType.Group, memoryKind: 'system' },
   ]);
 });
 
-void test('ZcaWebhookController sends only to targetId, with its saved thread type', async () => {
+void test('ZcaWebhookController leaves the thread type to auto-resolution when omitted', async () => {
   const { controller, sent } = createController({});
 
-  const response = await controller.sendMessage({ targetId: ' g-1 ', message: 'Hi' });
+  await controller.sendMessage({ targetId: 'user-1', message: 'Hi', threadType: 'user' });
+  await controller.sendMessage({ targetId: 'auto-1', message: 'Hi' });
 
-  assert.equal(response.data.sent, 1);
   assert.deepEqual(
-    sent.map((message) => [message.targetId, message.type]),
-    [['g-1', ThreadType.Group]],
-  );
-});
-
-void test('ZcaWebhookController answers 403 for a targetId that is not a recipient', async () => {
-  const { controller, sent } = createController({});
-
-  await assert.rejects(
-    () => controller.sendMessage({ targetId: 'u-2', message: 'Hi' }),
-    ForbiddenException,
-  );
-  assert.equal(sent.length, 0);
-});
-
-void test('ZcaWebhookController answers 409 when no recipient is saved', async () => {
-  const { controller } = createController({ recipients: [] });
-
-  await assert.rejects(() => controller.sendMessage({ message: 'Hi' }), ConflictException);
-});
-
-void test('ZcaWebhookController reports a partial failure and still answers 200', async () => {
-  const { controller } = createController({ results: { 'u-1': { success: false } } });
-
-  const response = await controller.sendMessage({ message: 'Hi' });
-
-  assert.equal(response.data.sent, 1);
-  assert.equal(response.data.failed, 1);
-  assert.deepEqual(response.data.results[1], {
-    targetId: 'u-1',
-    threadType: 'user',
-    success: false,
-  });
-});
-
-void test('compareRecipients puts groups first, then sorts by name', () => {
-  const sorted = [
-    USER,
-    { threadId: 'g2', threadName: 'Ánh', threadType: 'group' as const },
-    GROUP,
-  ].sort(compareRecipients);
-  assert.deepEqual(
-    sorted.map((recipient) => recipient.threadId),
-    ['g2', 'g-1', 'u-1'],
+    sent.map((message) => message.type),
+    [ThreadType.User, undefined],
   );
 });
 
@@ -280,14 +196,13 @@ void test('ZcaWebhookController answers 503 when ZCA is not logged in', async ()
   assert.equal(sent.length, 0);
 });
 
-void test('ZcaWebhookController answers 502 when no recipient got the message', async () => {
+void test('ZcaWebhookController answers 502 when the send fails or nothing went out', async () => {
   for (const result of [{ success: false }, { success: true }]) {
     const { controller } = createController({ result });
     await assert.rejects(
-      () => controller.sendMessage({ targetId: 'u-1', message: 'Hi' }),
+      () => controller.sendMessage({ targetId: 'user-1', message: 'Hi' }),
       BadGatewayException,
     );
-    await assert.rejects(() => controller.sendMessage({ message: 'Hi' }), BadGatewayException);
   }
 });
 
@@ -349,7 +264,7 @@ void test('WebhookTargetsQueryDto rejects an unknown type or a too long q', asyn
   assert.deepEqual(await errors({ q: 'a'.repeat(101) }), ['q']);
 });
 
-void test('ZcaWebhookController lists recipients from the cached directory', async () => {
+void test('ZcaWebhookController lists targets from the cached directory, skipping left groups', async () => {
   const { controller, limiterScopes, directoryCalls } = createController({});
 
   const response = await controller.listTargets({ type: 'group' });
@@ -376,32 +291,4 @@ void test('ZcaWebhookController answers 429 or 503 for targets without reading t
   const loggedOut = createController({ loggedIn: false });
   await assert.rejects(() => loggedOut.controller.listTargets({}), ServiceUnavailableException);
   assert.equal(loggedOut.directoryCalls.length, 0);
-});
-
-void test('ZcaWebhookController lists only saved recipients, not the whole directory', async () => {
-  const { controller } = createController({});
-
-  const response = await controller.listTargets({});
-
-  assert.deepEqual(
-    response.data.items.map((target) => target.id),
-    ['g-1', 'u-1'],
-  );
-});
-
-void test('recipientEntries keeps the saved name for a recipient Zalo no longer returns', () => {
-  const entries = recipientEntries(
-    [
-      GROUP,
-      { threadId: 'g-old', threadName: 'Nhóm cũ', threadType: 'group' },
-      { threadId: 'gone', threadName: null, threadType: 'user' },
-    ],
-    DIRECTORY,
-  );
-
-  assert.deepEqual(entries, [
-    { id: 'g-1', name: 'Nhóm Kế toán', type: 'group', avatar: '', totalMembers: 12 },
-    { id: 'g-old', name: 'Nhóm cũ', type: 'group', avatar: undefined, totalMembers: undefined },
-    { id: 'gone', name: 'gone', type: 'user', avatar: undefined, totalMembers: undefined },
-  ]);
 });

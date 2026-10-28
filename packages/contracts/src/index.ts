@@ -73,7 +73,6 @@ export const API_ROUTES = {
   auditLogs: '/api/audit-logs',
   auditLog: (id: string) => `/api/audit-logs/${id}`,
   webhookSendMessage: '/api/webhooks/send',
-  webhookRecipients: '/api/webhooks/recipients',
   webhookTargets: '/api/webhooks/targets',
 } as const;
 
@@ -1157,33 +1156,6 @@ const messages = {
     'settings.subtitle': 'Quản lý danh mục thu chi và cấu hình hệ thống',
     'settings.tabs.categories': 'Danh mục Thu & Chi',
     'settings.tabs.preferences': 'Tùy chọn hệ thống',
-    'settings.tabs.webhook': 'Webhook',
-    'settings.webhook.title': 'Người nhận webhook',
-    'settings.webhook.description':
-      'Hệ thống bên ngoài chỉ thấy và nhắn được tới những người và nhóm được chọn ở đây.',
-    'settings.webhook.endpoint': 'Endpoint',
-    'settings.webhook.howItWorks':
-      'GET /api/webhooks/targets chỉ trả những người được chọn. POST /api/webhooks/send không có targetId thì gửi tất cả; có targetId thì người đó phải nằm trong danh sách.',
-    'settings.webhook.search': 'Tìm theo tên hoặc ID...',
-    'settings.webhook.filterAll': 'Tất cả',
-    'settings.webhook.filterUser': 'Người',
-    'settings.webhook.filterGroup': 'Nhóm',
-    'settings.webhook.filterSelected': 'Đã chọn',
-    'settings.webhook.selectedCount': 'Đã chọn {count}',
-    'settings.webhook.name': 'Tên',
-    'settings.webhook.type': 'Loại',
-    'settings.webhook.id': 'ID (targetId)',
-    'settings.webhook.empty': 'Không có người hoặc nhóm nào khớp',
-    'settings.webhook.missing': 'Không còn trong danh bạ Zalo',
-    'settings.webhook.save': 'Lưu',
-    'settings.webhook.reset': 'Hoàn tác',
-    'settings.webhook.saved': 'Đã lưu người nhận webhook',
-    'settings.webhook.saveFailed': 'Không lưu được người nhận webhook',
-    'settings.webhook.unsaved': 'Có thay đổi chưa lưu',
-    'settings.webhook.copyId': 'Sao chép ID',
-    'settings.webhook.copied': 'Đã sao chép ID',
-    'settings.webhook.loadFailed':
-      'Không tải được danh sách. Cần quyền admin và tài khoản Zalo bot đang đăng nhập.',
     'settings.categories.expenseTitle': 'Danh mục Chi tiêu',
     'settings.categories.incomeTitle': 'Danh mục Thu nhập',
     'settings.categories.addExpense': '+ Thêm danh mục chi',
@@ -2425,33 +2397,6 @@ const messages = {
     'settings.subtitle': 'Manage finance categories and system configuration',
     'settings.tabs.categories': 'Categories',
     'settings.tabs.preferences': 'Preferences',
-    'settings.tabs.webhook': 'Webhook',
-    'settings.webhook.title': 'Webhook recipients',
-    'settings.webhook.description':
-      'External systems can only see and message the people and groups picked here.',
-    'settings.webhook.endpoint': 'Endpoint',
-    'settings.webhook.howItWorks':
-      'GET /api/webhooks/targets lists only the picked chats. POST /api/webhooks/send without targetId sends to all of them; with targetId the chat must be in the list.',
-    'settings.webhook.search': 'Search by name or ID...',
-    'settings.webhook.filterAll': 'All',
-    'settings.webhook.filterUser': 'People',
-    'settings.webhook.filterGroup': 'Groups',
-    'settings.webhook.filterSelected': 'Selected',
-    'settings.webhook.selectedCount': '{count} selected',
-    'settings.webhook.name': 'Name',
-    'settings.webhook.type': 'Type',
-    'settings.webhook.id': 'ID (targetId)',
-    'settings.webhook.empty': 'No people or groups match',
-    'settings.webhook.missing': 'No longer in the Zalo directory',
-    'settings.webhook.save': 'Save',
-    'settings.webhook.reset': 'Undo',
-    'settings.webhook.saved': 'Webhook recipients saved',
-    'settings.webhook.saveFailed': 'Could not save webhook recipients',
-    'settings.webhook.unsaved': 'Unsaved changes',
-    'settings.webhook.copyId': 'Copy ID',
-    'settings.webhook.copied': 'ID copied',
-    'settings.webhook.loadFailed':
-      'Could not load the list. Admin access and a logged-in Zalo bot account are required.',
     'settings.categories.expenseTitle': 'Expense Categories',
     'settings.categories.incomeTitle': 'Income Categories',
     'settings.categories.addExpense': '+ Add Expense Category',
@@ -4623,44 +4568,20 @@ export interface IAuditLogDetail extends IAuditLogListItem {
   afterData: Record<string, unknown> | null;
 }
 
-/**
- * Body of `POST /api/webhooks/send`: an external system asks the bot to message Zalo chats.
- * Without `targetId` the message goes to every recipient picked in Settings → Webhook; with it,
- * only to that recipient, which must be one of them. The thread type comes from the recipient.
- */
+/** Body of `POST /api/webhooks/send`: an external system asks the bot to message a Zalo chat. */
 export interface IWebhookSendMessageRequest {
-  targetId?: string;
-  message: string;
-}
-
-export interface IWebhookSendResult {
   targetId: string;
-  threadType: 'user' | 'group';
-  success: boolean;
-  msgId?: string;
-  cliMsgId?: string;
+  message: string;
+  threadType?: 'user' | 'group';
 }
 
-/** 200 when at least one recipient got the message; `results` has one row per recipient. */
 export interface IWebhookSendMessageResponse {
   success: true;
   data: {
-    sent: number;
-    failed: number;
-    results: IWebhookSendResult[];
+    targetId: string;
+    msgId: string;
+    cliMsgId?: string;
   };
-}
-
-/** A chat the webhook may list and message, picked in Settings → Webhook. */
-export interface IWebhookRecipient {
-  threadId: string;
-  threadName: string | null;
-  threadType: 'user' | 'group';
-}
-
-/** Body of `PUT /api/webhooks/recipients`: the full list replaces the saved one. */
-export interface IUpdateWebhookRecipientsRequest {
-  recipients: IWebhookRecipient[];
 }
 
 /** Query of `GET /api/webhooks/targets`; `q` matches names without regard to case or diacritics. */
@@ -4670,7 +4591,7 @@ export interface IWebhookTargetsQuery {
 }
 
 /**
- * A webhook recipient as an external picker shows it: `id` is the `targetId` of
+ * A chat an external caller may message: `id` is the `targetId` and `type` the `threadType` of
  * `POST /api/webhooks/send`. Carries only what a picker needs, never phone numbers or aliases.
  */
 export interface IWebhookTarget {

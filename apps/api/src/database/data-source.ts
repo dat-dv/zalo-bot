@@ -24,7 +24,6 @@ import { CalendarEventEntity } from './entities/calendar-event.entity';
 import { TaskEntity } from './entities/task.entity';
 import { TaskReminderTimeEntity } from './entities/task-reminder-time.entity';
 import { ReminderTimeEntity } from './entities/reminder-time.entity';
-import { WebhookRecipientEntity } from './entities/webhook-recipient.entity';
 import { AuditLogSubscriber } from './audit-log.subscriber';
 import { InitSchema1724650000000 } from './migrations/1724650000000-InitSchema';
 import { MigrateLegacyPlaceContacts1724660000000 } from './migrations/1724660000000-MigrateLegacyPlaceContacts';
@@ -60,7 +59,6 @@ import { AddReminderRepeatAndNag1724960000000 } from './migrations/1724960000000
 import { AddAuditLogActorName1724970000000 } from './migrations/1724970000000-AddAuditLogActorName';
 import { AddChatMemoryV21724980000000 } from './migrations/1724980000000-AddChatMemoryV2';
 import { AddChatMemorySegments1724990000000 } from './migrations/1724990000000-AddChatMemorySegments';
-import { CreateWebhookRecipients1725000000000 } from './migrations/1725000000000-CreateWebhookRecipients';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -99,7 +97,6 @@ export const AppDataSource = new DataSource({
     TaskEntity,
     TaskReminderTimeEntity,
     ReminderTimeEntity,
-    WebhookRecipientEntity,
   ],
   subscribers: [AuditLogSubscriber],
   migrations: [
@@ -137,7 +134,6 @@ export const AppDataSource = new DataSource({
     AddAuditLogActorName1724970000000,
     AddChatMemoryV21724980000000,
     AddChatMemorySegments1724990000000,
-    CreateWebhookRecipients1725000000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,
