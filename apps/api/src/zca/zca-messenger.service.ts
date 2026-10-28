@@ -1,4 +1,5 @@
 import { Injectable, Logger, Optional, Inject, forwardRef } from '@nestjs/common';
+import { ThreadType } from 'zca-js';
 import { ZcaService } from './zca.service';
 import { splitMessage } from '../common/utils/message-splitter.util';
 
@@ -30,6 +31,7 @@ export class ZcaMessengerService {
   public async sendMessageWithResult(
     chatId: string | number,
     text: string,
+    type?: ThreadType,
   ): Promise<{ success: boolean; msgId?: string; cliMsgId?: string }> {
     const targetChatId = String(chatId);
 
@@ -45,7 +47,7 @@ export class ZcaMessengerService {
 
     let lastResult: { success: boolean; msgId?: string; cliMsgId?: string } = { success: false };
     for (let i = 0; i < chunks.length; i++) {
-      lastResult = await this.sendSingleMessage(this.zcaService, targetChatId, chunks[i]);
+      lastResult = await this.sendSingleMessage(this.zcaService, targetChatId, chunks[i], type);
       if (!lastResult.success) {
         return lastResult;
       }
@@ -60,9 +62,10 @@ export class ZcaMessengerService {
     zcaService: ZcaService,
     targetChatId: string,
     text: string,
+    type?: ThreadType,
   ): Promise<{ success: boolean; msgId?: string; cliMsgId?: string }> {
     try {
-      const res = await zcaService.sendMessage(text, targetChatId);
+      const res = await zcaService.sendMessage(text, targetChatId, type);
       const rawMsg = res?.message as unknown as
         { msgId?: string | number; cliMsgId?: string | number } | undefined;
       const msgId = rawMsg?.msgId !== undefined ? String(rawMsg.msgId) : undefined;

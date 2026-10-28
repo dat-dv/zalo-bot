@@ -72,6 +72,7 @@ export const API_ROUTES = {
   googleStorageAccountLogout: '/api/google/storage-account/logout',
   auditLogs: '/api/audit-logs',
   auditLog: (id: string) => `/api/audit-logs/${id}`,
+  webhookSendMessage: '/api/webhooks/send',
 } as const;
 
 export const APP_ROUTES = {
@@ -4564,4 +4565,20 @@ export interface IAuditLogDetail extends IAuditLogListItem {
   /** Secrets (`token`, `secret`, `password`, `authorization` keys) are redacted when written. */
   beforeData: Record<string, unknown> | null;
   afterData: Record<string, unknown> | null;
+}
+
+/** Body of `POST /api/webhooks/send`: an external system asks the bot to message a Zalo chat. */
+export interface IWebhookSendMessageRequest {
+  targetId: string;
+  message: string;
+  threadType?: 'user' | 'group';
+}
+
+export interface IWebhookSendMessageResponse {
+  success: true;
+  data: {
+    targetId: string;
+    msgId: string;
+    cliMsgId?: string;
+  };
 }

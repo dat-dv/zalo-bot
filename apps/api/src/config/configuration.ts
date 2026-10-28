@@ -74,6 +74,9 @@ export interface AppConfig {
     userPassword: string;
     timeoutMs: number;
   };
+  webhook: {
+    apiKey: string;
+  };
 }
 
 function readEnv(name: string, fallback = ''): string {
@@ -178,6 +181,10 @@ export default (): AppConfig => {
       userPassword: readOptionalEnv('COGNEE_USER_PASSWORD') || '',
       // Building the graph of one chat day calls the LLM per chunk and can take minutes.
       timeoutMs: readNumberEnv('COGNEE_TIMEOUT_MS', 600000),
+    },
+    webhook: {
+      // Empty turns the outbound webhook off (404).
+      apiKey: readEnv('WEBHOOK_API_KEY'),
     },
   };
 };

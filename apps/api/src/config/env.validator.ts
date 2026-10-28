@@ -1,6 +1,7 @@
 import { config as loadDotenv } from 'dotenv';
 import { isDashboardAccessCode, normalizeDashboardAccessCode } from '@zalobot/contracts';
 import { fromProjectRoot } from './project-root';
+import { WEBHOOK_API_KEY_MIN_LENGTH } from '../zca/webhook/webhook-api-key';
 
 /** The fixed code never expires, so it needs more guesses than the rate limit allows in practice. */
 const DASHBOARD_LOGIN_CODE_MIN_LENGTH = 6;
@@ -89,6 +90,16 @@ export function validateEnvironment(): EnvValidationResult {
       'DASHBOARD_LOGIN_CODE',
       `Phải gồm ít nhất ${DASHBOARD_LOGIN_CODE_MIN_LENGTH} chữ số (khoảng trắng, dấu gạch ngang tuỳ ý).`,
       'Khai báo mã dạng 1234-5678 hoặc bỏ trống để tắt đăng nhập bằng mã cố định.',
+    );
+  }
+
+  const webhookApiKey = readEnv('WEBHOOK_API_KEY');
+  if (webhookApiKey && webhookApiKey.length < WEBHOOK_API_KEY_MIN_LENGTH) {
+    addError(
+      errors,
+      'WEBHOOK_API_KEY',
+      `Phải dài ít nhất ${WEBHOOK_API_KEY_MIN_LENGTH} ký tự.`,
+      'Tạo khoá bằng `openssl rand -hex 32` hoặc bỏ trống để tắt webhook gửi tin.',
     );
   }
 
