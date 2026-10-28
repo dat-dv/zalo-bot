@@ -9,7 +9,9 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
+import { getClientIp } from '../../../common/utils/client-ip.util';
 import { isWebhookKeyValid } from '../webhook-api-key';
+import { WEBHOOK_IP_LOCK_SECONDS, WebhookIpLimiter } from '../webhook-ip-limiter';
 
 /**
  * Lets a webhook call through only with the `WEBHOOK_API_KEY`. Without a configured key the
@@ -19,7 +21,10 @@ import { isWebhookKeyValid } from '../webhook-api-key';
 export class WebhookApiKeyGuard implements CanActivate, OnModuleInit {
   private readonly logger = new Logger(WebhookApiKeyGuard.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly ipLimiter: WebhookIpLimiter,
+  ) {}
 
   public onModuleInit(): void {
     if (!this.configuredKey()) {
@@ -27,7 +32,7 @@ export class WebhookApiKeyGuard implements CanActivate, OnModuleInit {
     }
   }
 
-  public canActivate(context: ExecutionContext): boolean {
+  public async canActivate(context: ExecutionContext): Promise<boolean> {
     const configuredKey = this.configuredKey();
     if (!configuredKey) {
       throw new NotFoundException();
@@ -35,6 +40,13 @@ export class WebhookApiKeyGuard implements CanActivate, OnModuleInit {
 
     const req = context.switchToHttp().getRequest<Request>();
     if (!isWebhookKeyValid(configuredKey, req.headers)) {
+      // Wrong keys count toward a lock on the caller's IP (`WebhookIpLimitGuard` refuses it).
+      const ip = getClientIp(req);
+      if (await this.ipLimiter.recordFailedKey(ip)) {
+        this.logger.warn(
+          `Webhook: IP ${ip} locked for ${WEBHOOK_IP_LOCK_SECONDS / 60} min after repeated wrong keys.`,
+        );
+      }
       throw new UnauthorizedException('Mã API key webhook không hợp lệ hoặc bị thiếu.');
     }
     return true;

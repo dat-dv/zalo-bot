@@ -34,6 +34,7 @@ import { getDashboardUserId } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from './reports-token.service';
 import { AccessCodeRateLimiter } from './access-code-rate-limiter';
 import { DashboardAccessCodeDto } from './dto/dashboard-access-code.dto';
+import { getClientIp } from '../common/utils/client-ip.util';
 
 function toIsoDate(value: unknown, fallback?: string): string {
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
@@ -127,7 +128,8 @@ export class ReportsController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<IApiResponse<IDashboardAccessTokenResponse>> {
-    const clientIp = this.getClientIp(req);
+    // Forged IP headers are covered by the limiter's overall attempt cap.
+    const clientIp = getClientIp(req);
     if (!(await this.accessCodeLimiter.tryAttempt(clientIp))) {
       throw new HttpException('Too many sign-in code attempts', HttpStatus.TOO_MANY_REQUESTS);
     }
@@ -142,18 +144,6 @@ export class ReportsController {
     const access = this.tokens.issueAccessToken(userId);
     this.setRefreshCookie(res, this.tokens.issueRefreshToken(userId).token);
     return { data: { accessToken: access.token, expiresAt: access.expiresAt } };
-  }
-
-  /**
-   * Express has no `trust proxy` here, so `req.ip` is nginx for everyone. Cloudflare and nginx
-   * headers carry the real client; they can be forged, which the overall attempt cap covers.
-   */
-  private getClientIp(req: Request): string {
-    const header = (name: string): string | undefined => {
-      const value = req.get(name)?.split(',')[0]?.trim();
-      return value || undefined;
-    };
-    return header('cf-connecting-ip') ?? header('x-real-ip') ?? req.ip ?? 'unknown';
   }
 
   private renderAccessError(res: Response): void {

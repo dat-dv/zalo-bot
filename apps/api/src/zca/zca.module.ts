@@ -50,6 +50,8 @@ import { ThreadAccessService } from './access/thread-access.service';
 import { ZcaWebhookController } from './webhook/zca-webhook.controller';
 import { WebhookApiKeyGuard } from './webhook/guards/webhook-api-key.guard';
 import { WebhookRateLimiter } from './webhook/webhook-rate-limiter';
+import { WebhookIpLimiter } from './webhook/webhook-ip-limiter';
+import { WebhookIpLimitGuard } from './webhook/guards/webhook-ip-limit.guard';
 
 // Pending Image & Batching
 import { PendingImageActionService } from './pending-image/pending-image-action.service';
@@ -106,6 +108,8 @@ const COMMON_PROVIDERS = [
   MemorySegmentScheduler,
   WebhookApiKeyGuard,
   WebhookRateLimiter,
+  WebhookIpLimiter,
+  WebhookIpLimitGuard,
 ];
 
 const COMMON_EXPORTS = [
