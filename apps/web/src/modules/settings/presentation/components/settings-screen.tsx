@@ -25,13 +25,16 @@ import {
 import { useDashboardQuery } from '@/modules/dashboard/api/dashboard-query';
 import { AdjustBalanceModal } from '@/modules/dashboard/presentation/components/adjust-balance-modal';
 import { InstallAppRow } from './install-app-row';
+import { WebhookRecipientsPanel } from './webhook-recipients-panel';
 
 export function SettingsScreen() {
   const queryClient = useQueryClient();
   const { t } = useLocale();
   const { isReactScanEnabled, setReactScanEnabled } = useReactScan();
 
-  const [activeTab, setActiveTab] = useState<'categories' | 'preferences'>('categories');
+  const [activeTab, setActiveTab] = useState<'categories' | 'preferences' | 'webhook'>(
+    'categories',
+  );
   const [expenseSearch, setExpenseSearch] = useState('');
   const [incomeSearch, setIncomeSearch] = useState('');
 
@@ -271,9 +274,20 @@ export function SettingsScreen() {
         >
           {t('settings.tabs.preferences')}
         </button>
+        <button
+          type="button"
+          className={`inline-flex h-6 min-h-6 shrink-0 items-center rounded-[3px] border px-2 text-[11px] font-medium whitespace-nowrap ${PHONE_CHIP} ${
+            activeTab === 'webhook' ? BUTTON_TONE.chipSelected : BUTTON_TONE.chip
+          }`}
+          onClick={() => setActiveTab('webhook')}
+        >
+          {t('settings.tabs.webhook')}
+        </button>
       </div>
 
-      {categoriesQuery.isError ? (
+      {activeTab === 'webhook' ? (
+        <WebhookRecipientsPanel onToast={showToast} />
+      ) : categoriesQuery.isError ? (
         <section
           className="flex items-center justify-between rounded border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300"
           role="alert"
