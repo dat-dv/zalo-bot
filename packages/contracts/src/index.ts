@@ -72,6 +72,8 @@ export const API_ROUTES = {
   googleStorageAccountLogout: '/api/google/storage-account/logout',
   auditLogs: '/api/audit-logs',
   auditLog: (id: string) => `/api/audit-logs/${id}`,
+  webhookSendMessage: '/api/webhooks/send',
+  webhookTargets: '/api/webhooks/targets',
 } as const;
 
 export const APP_ROUTES = {
@@ -4564,4 +4566,47 @@ export interface IAuditLogDetail extends IAuditLogListItem {
   /** Secrets (`token`, `secret`, `password`, `authorization` keys) are redacted when written. */
   beforeData: Record<string, unknown> | null;
   afterData: Record<string, unknown> | null;
+}
+
+/** Body of `POST /api/webhooks/send`: an external system asks the bot to message a Zalo chat. */
+export interface IWebhookSendMessageRequest {
+  targetId: string;
+  message: string;
+  threadType?: 'user' | 'group';
+}
+
+export interface IWebhookSendMessageResponse {
+  success: true;
+  data: {
+    targetId: string;
+    msgId: string;
+    cliMsgId?: string;
+  };
+}
+
+/** Query of `GET /api/webhooks/targets`; `q` matches names without regard to case or diacritics. */
+export interface IWebhookTargetsQuery {
+  type?: 'user' | 'group';
+  q?: string;
+}
+
+/**
+ * A chat an external caller may message: `id` is the `targetId` and `type` the `threadType` of
+ * `POST /api/webhooks/send`. Carries only what a picker needs, never phone numbers or aliases.
+ */
+export interface IWebhookTarget {
+  id: string;
+  name: string;
+  type: 'user' | 'group';
+  avatar: string | null;
+  totalMembers?: number;
+}
+
+export interface IWebhookTargetsResponse {
+  success: true;
+  data: {
+    items: IWebhookTarget[];
+    /** When the bot's Zalo directory was last fetched; `null` when it was never fetched. */
+    fetchedAt: string | null;
+  };
 }

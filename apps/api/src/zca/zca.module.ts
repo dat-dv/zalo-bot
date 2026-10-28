@@ -46,6 +46,11 @@ import { InitialAdminBootstrapGuard } from './guards/initial-admin-bootstrap.gua
 import { GrantAccessGuard } from './guards/grant-access.guard';
 import { ThreadAccessService } from './access/thread-access.service';
 
+// Webhook
+import { ZcaWebhookController } from './webhook/zca-webhook.controller';
+import { WebhookApiKeyGuard } from './webhook/guards/webhook-api-key.guard';
+import { WebhookRateLimiter } from './webhook/webhook-rate-limiter';
+
 // Pending Image & Batching
 import { PendingImageActionService } from './pending-image/pending-image-action.service';
 import { PendingImageActionDispatcher } from './pending-image/pending-image-dispatcher.service';
@@ -99,6 +104,8 @@ const COMMON_PROVIDERS = [
   MemoryIngestService,
   MemoryIngestProcessor,
   MemorySegmentScheduler,
+  WebhookApiKeyGuard,
+  WebhookRateLimiter,
 ];
 
 const COMMON_EXPORTS = [
@@ -127,7 +134,7 @@ const COMMON_EXPORTS = [
 
 @Module({
   imports: COMMON_IMPORTS,
-  controllers: [ZcaController, ChannelMemoryController],
+  controllers: [ZcaController, ChannelMemoryController, ZcaWebhookController],
   providers: COMMON_PROVIDERS,
   exports: COMMON_EXPORTS,
 })
@@ -136,7 +143,7 @@ export class ZcaModule {
     return {
       module: ZcaModule,
       imports: COMMON_IMPORTS,
-      controllers: [ZcaController, ChannelMemoryController],
+      controllers: [ZcaController, ChannelMemoryController, ZcaWebhookController],
       providers: [
         {
           provide: ZCA_MODULE_OPTIONS,
@@ -153,7 +160,7 @@ export class ZcaModule {
       global: true,
       module: ZcaModule,
       imports: COMMON_IMPORTS,
-      controllers: [ZcaController, ChannelMemoryController],
+      controllers: [ZcaController, ChannelMemoryController, ZcaWebhookController],
       providers: [
         {
           provide: ZCA_MODULE_OPTIONS,

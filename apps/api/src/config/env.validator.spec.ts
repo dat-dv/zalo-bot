@@ -16,7 +16,12 @@ const VALID_ENV: Record<string, string> = {
   DEFAULT_TIMEZONE: 'Asia/Ho_Chi_Minh',
 };
 
-const TOUCHED_KEYS = [...Object.keys(VALID_ENV), 'NGINX_PORT', 'DASHBOARD_LOGIN_CODE'];
+const TOUCHED_KEYS = [
+  ...Object.keys(VALID_ENV),
+  'NGINX_PORT',
+  'DASHBOARD_LOGIN_CODE',
+  'WEBHOOK_API_KEY',
+];
 let snapshot: Record<string, string | undefined> = {};
 
 beforeEach(() => {
@@ -93,4 +98,19 @@ void test('validateEnvironment rejects a DASHBOARD_LOGIN_CODE with letters or un
       code,
     );
   }
+});
+
+void test('validateEnvironment accepts an empty or 32+ character WEBHOOK_API_KEY', () => {
+  for (const key of ['', 'a'.repeat(32), 'f'.repeat(64)]) {
+    process.env.WEBHOOK_API_KEY = key;
+    assert.deepEqual(validateEnvironment(), { isValid: true, errors: [] }, key);
+  }
+});
+
+void test('validateEnvironment rejects a WEBHOOK_API_KEY under 32 characters', () => {
+  process.env.WEBHOOK_API_KEY = 'my-super-secret-key';
+  assert.deepEqual(
+    validateEnvironment().errors.map((error) => error.key),
+    ['WEBHOOK_API_KEY'],
+  );
 });
