@@ -15,6 +15,9 @@ import { ZcaWebhookController } from './zca-webhook.controller';
 import { WebhookApiKeyGuard } from './guards/webhook-api-key.guard';
 import { isWebhookKeyValid } from './webhook-api-key';
 import { WEBHOOK_MAX_CALLS, WebhookRateLimiter } from './webhook-rate-limiter';
+import { toWebhookTargets } from './webhook-targets';
+import { WebhookTargetsQueryDto } from './dto/webhook-targets-query.dto';
+import type { AvailableThread } from '../zca.service';
 import { WEBHOOK_MESSAGE_MAX_LENGTH, WebhookSendMessageDto } from './dto/webhook-send-message.dto';
 
 const KEY = 'k'.repeat(32);
@@ -32,13 +35,44 @@ interface SentMessage {
   memoryKind?: string;
 }
 
+const DIRECTORY: AvailableThread[] = [
+  {
+    id: 'u-2',
+    name: 'Trần Thị Bình',
+    type: 'user',
+    avatar: 'https://ava/u2',
+    alias: 'Bình kế toán',
+    phoneNumber: '0900000000',
+    isListened: false,
+  },
+  {
+    id: 'g-1',
+    name: 'Nhóm Kế toán',
+    type: 'group',
+    avatar: '',
+    totalMembers: 12,
+    isListened: true,
+  },
+  { id: 'u-1', name: 'An Nguyễn', type: 'user', isListened: true },
+  { id: 'g-old', name: 'Nhóm đã rời', type: 'group', isListened: true, missingFromZalo: true },
+];
+
 function createController(options: {
   loggedIn?: boolean;
   allowCall?: boolean;
   result?: { success: boolean; msgId?: string; cliMsgId?: string };
 }) {
   const sent: SentMessage[] = [];
-  const zcaService = { isLoggedIn: () => options.loggedIn ?? true };
+  const limiterScopes: string[] = [];
+  const directoryCalls: boolean[] = [];
+  const zcaService = {
+    isLoggedIn: () => options.loggedIn ?? true,
+    getAvailableThreads: (forceRefresh: boolean) => {
+      directoryCalls.push(forceRefresh);
+      return Promise.resolve(DIRECTORY);
+    },
+    getDirectoryFetchedAt: () => '2026-10-28T08:00:00.000Z',
+  };
   const zcaMessenger = {
     sendMessageWithResult: (targetId: string, message: string, type?: ThreadType) => {
       sent.push({ targetId, message, type, memoryKind: OutgoingMemoryKind.current() });
@@ -47,13 +81,18 @@ function createController(options: {
       );
     },
   };
-  const rateLimiter = { tryCall: () => Promise.resolve(options.allowCall ?? true) };
+  const rateLimiter = {
+    tryCall: (scope: string) => {
+      limiterScopes.push(scope);
+      return Promise.resolve(options.allowCall ?? true);
+    },
+  };
   const controller = new ZcaWebhookController(
     zcaService as never,
     zcaMessenger as never,
     rateLimiter as never,
   );
-  return { controller, sent };
+  return { controller, sent, limiterScopes, directoryCalls };
 }
 
 async function validationErrors(body: Record<string, unknown>): Promise<string[]> {
@@ -177,20 +216,79 @@ void test('WebhookRateLimiter blocks the call after the cap within one window', 
     },
   });
 
-  for (let i = 0; i < WEBHOOK_MAX_CALLS; i++) {
-    assert.equal(await limiter.tryCall(), true);
+  for (let i = 0; i < WEBHOOK_MAX_CALLS.send; i++) {
+    assert.equal(await limiter.tryCall('send'), true);
   }
-  assert.equal(await limiter.tryCall(), false);
+  assert.equal(await limiter.tryCall('send'), false);
+  // Listing targets has its own counter, so a full send window does not block it.
+  assert.equal(await limiter.tryCall('targets'), true);
 });
 
 void test('WebhookRateLimiter counts in process when Redis is unavailable', async () => {
   const limiter = new WebhookRateLimiter({ incrWithTtl: () => Promise.resolve(null) });
   const start = 1_000_000;
 
-  for (let i = 0; i < WEBHOOK_MAX_CALLS; i++) {
-    assert.equal(await limiter.tryCall(start), true);
+  for (let i = 0; i < WEBHOOK_MAX_CALLS.targets; i++) {
+    assert.equal(await limiter.tryCall('targets', start), true);
   }
-  assert.equal(await limiter.tryCall(start), false);
+  assert.equal(await limiter.tryCall('targets', start), false);
+  assert.equal(await limiter.tryCall('send', start), true);
   // A new window starts once the old one has expired.
-  assert.equal(await limiter.tryCall(start + 61_000), true);
+  assert.equal(await limiter.tryCall('targets', start + 61_000), true);
+});
+
+void test('toWebhookTargets lists groups first, then people by name, without private fields', () => {
+  assert.deepEqual(toWebhookTargets(DIRECTORY.slice(0, 3), {}), [
+    { id: 'g-1', name: 'Nhóm Kế toán', type: 'group', avatar: null, totalMembers: 12 },
+    { id: 'u-1', name: 'An Nguyễn', type: 'user', avatar: null },
+    { id: 'u-2', name: 'Trần Thị Bình', type: 'user', avatar: 'https://ava/u2' },
+  ]);
+});
+
+void test('toWebhookTargets filters by type and by name without diacritics', () => {
+  const ids = (query: { type?: 'user' | 'group'; q?: string }) =>
+    toWebhookTargets(DIRECTORY.slice(0, 3), query).map((target) => target.id);
+
+  assert.deepEqual(ids({ type: 'user' }), ['u-1', 'u-2']);
+  assert.deepEqual(ids({ q: 'ke toan' }), ['g-1']);
+  assert.deepEqual(ids({ q: 'BÌNH' }), ['u-2']);
+  assert.deepEqual(ids({ type: 'group', q: 'binh' }), []);
+});
+
+void test('WebhookTargetsQueryDto rejects an unknown type or a too long q', async () => {
+  const errors = async (query: Record<string, unknown>) =>
+    (await validate(plainToInstance(WebhookTargetsQueryDto, query))).map((e) => e.property);
+
+  assert.deepEqual(await errors({ type: 'group', q: 'ke toan' }), []);
+  assert.deepEqual(await errors({ type: 'channel' }), ['type']);
+  assert.deepEqual(await errors({ q: 'a'.repeat(101) }), ['q']);
+});
+
+void test('ZcaWebhookController lists targets from the cached directory, skipping left groups', async () => {
+  const { controller, limiterScopes, directoryCalls } = createController({});
+
+  const response = await controller.listTargets({ type: 'group' });
+
+  assert.deepEqual(response, {
+    success: true,
+    data: {
+      items: [{ id: 'g-1', name: 'Nhóm Kế toán', type: 'group', avatar: null, totalMembers: 12 }],
+      fetchedAt: '2026-10-28T08:00:00.000Z',
+    },
+  });
+  assert.deepEqual(limiterScopes, ['targets']);
+  assert.deepEqual(directoryCalls, [false]);
+});
+
+void test('ZcaWebhookController answers 429 or 503 for targets without reading the directory', async () => {
+  const limited = createController({ allowCall: false });
+  await assert.rejects(
+    () => limited.controller.listTargets({}),
+    (error: unknown) => error instanceof HttpException && error.getStatus() === 429,
+  );
+  assert.equal(limited.directoryCalls.length, 0);
+
+  const loggedOut = createController({ loggedIn: false });
+  await assert.rejects(() => loggedOut.controller.listTargets({}), ServiceUnavailableException);
+  assert.equal(loggedOut.directoryCalls.length, 0);
 });
