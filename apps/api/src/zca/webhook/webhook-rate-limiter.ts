@@ -1,18 +1,24 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { RedisService } from '../../redis/redis.service';
 
-export type WebhookCallScope = 'send' | 'targets';
+export type WebhookCallScope = 'send' | 'targets' | 'status';
 
-/** Calls per window for each webhook route; listing targets never eats into the send quota. */
+/** Calls per window for each webhook route; each has its own counter so none eats another's quota. */
 export const WEBHOOK_MAX_CALLS: Record<WebhookCallScope, number> = {
   send: 30,
   targets: 10,
+  status: 60,
 };
 export const WEBHOOK_WINDOW_SECONDS = 60;
 
 /** The part of `RedisService` the limiter needs; lets specs pass a plain object. */
 export interface WebhookCallCounterStore {
   incrWithTtl(key: string, ttlSeconds: number): Promise<number | null>;
+  get(key: string): Promise<string | null>;
+}
+
+function counterKey(scope: WebhookCallScope): string {
+  return `webhook:${scope}:calls`;
 }
 
 /**
@@ -29,9 +35,23 @@ export class WebhookRateLimiter {
   /** Records one call of `scope`; returns `false` once that scope's window is over the cap. */
   public async tryCall(scope: WebhookCallScope, now: number = Date.now()): Promise<boolean> {
     const count =
-      (await this.store.incrWithTtl(`webhook:${scope}:calls`, WEBHOOK_WINDOW_SECONDS)) ??
+      (await this.store.incrWithTtl(counterKey(scope), WEBHOOK_WINDOW_SECONDS)) ??
       this.countLocally(scope, now);
     return count <= WEBHOOK_MAX_CALLS[scope];
+  }
+
+  /** Calls of `scope` still allowed in the current window, without recording one. */
+  public async remaining(scope: WebhookCallScope, now: number = Date.now()): Promise<number> {
+    // A missing Redis key (fresh window) and a Redis outage both read null; the local counter
+    // only fills while Redis is down, so falling back to it covers both.
+    const stored = Number(await this.store.get(counterKey(scope)));
+    const used = stored > 0 ? stored : this.localCount(scope, now);
+    return Math.max(0, WEBHOOK_MAX_CALLS[scope] - used);
+  }
+
+  private localCount(scope: WebhookCallScope, now: number): number {
+    const current = this.localCounters.get(scope);
+    return current && current.resetAt > now ? current.count : 0;
   }
 
   private countLocally(scope: WebhookCallScope, now: number): number {

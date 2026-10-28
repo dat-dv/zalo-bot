@@ -54,7 +54,7 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
   - `2` hoặc `lưu drive/ảnh/photo` → tải lên Drive và Google Photos.
   - `hủy`, `cancel`, `bỏ qua`, `không`… → huỷ.
 - **Sự kiện nhóm**: `GroupEventDispatcher` có sẵn `WelcomeGroupEventStrategy`. Khi bật `ZCA_ENABLE_WELCOME=true`, bot chào thành viên mới vào nhóm ("Chào mừng @tên đến với nhóm!"), kèm ảnh `ZCA_WELCOME_IMAGE_PATH` (mặc định `./welcome.jpg`) nếu file tồn tại.
-- **Webhook API (`ZcaWebhookController`)**: Cung cấp endpoint `POST /api/webhooks/send` cho hệ thống bên ngoài gọi gửi tin nhắn Zalo tới cá nhân hoặc nhóm, bảo vệ bằng `WebhookApiKeyGuard` (`WEBHOOK_API_KEY`; để trống = tắt, trả 404), tối đa 30 lần gửi/phút; kèm `GET /api/webhooks/targets` trả bạn bè và nhóm có avatar để bên tích hợp chọn `targetId` (10 lần/phút). Xem [Webhook API gửi tin nhắn Zalo](webhook.md).
+- **Webhook API (`ZcaWebhookController`)**: Cung cấp endpoint `POST /api/webhooks/send` cho hệ thống bên ngoài gọi gửi tin nhắn Zalo tới cá nhân hoặc nhóm, bảo vệ bằng `WebhookApiKeyGuard` (`WEBHOOK_API_KEY`; để trống = tắt, trả 404), tối đa 30 lần gửi/phút; kèm `GET /api/webhooks/targets` trả bạn bè và nhóm có avatar để bên tích hợp chọn `targetId` (10 lần/phút), và `GET /api/webhooks/status` cho biết bot gửi được chưa và còn bao nhiêu lượt gọi (60 lần/phút); thêm chặn spam theo IP: 120 request/phút, sai key 10 lần thì khoá IP 15 phút. Xem [Webhook API gửi tin nhắn Zalo](webhook.md).
 
 ### Các trường cấu hình của một kênh
 

@@ -14,19 +14,31 @@ import {
 } from '@nestjs/common';
 import { ApiHeader, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ThreadType } from 'zca-js';
-import type { IWebhookSendMessageResponse, IWebhookTargetsResponse } from '@zalobot/contracts';
+import type {
+  IWebhookCallLimit,
+  IWebhookSendMessageResponse,
+  IWebhookStatusResponse,
+  IWebhookTargetsResponse,
+} from '@zalobot/contracts';
 import { ZcaService } from '../zca.service';
 import { ZcaMessengerService } from '../zca-messenger.service';
 import { OutgoingMemoryKind } from '../memory/memory-kind';
 import { WebhookSendMessageDto } from './dto/webhook-send-message.dto';
 import { WebhookTargetsQueryDto } from './dto/webhook-targets-query.dto';
 import { WebhookApiKeyGuard } from './guards/webhook-api-key.guard';
-import { WEBHOOK_MAX_CALLS, WebhookCallScope, WebhookRateLimiter } from './webhook-rate-limiter';
+import { WebhookIpLimitGuard } from './guards/webhook-ip-limit.guard';
+import {
+  WEBHOOK_MAX_CALLS,
+  WEBHOOK_WINDOW_SECONDS,
+  WebhookCallScope,
+  WebhookRateLimiter,
+} from './webhook-rate-limiter';
 import { toWebhookTargets } from './webhook-targets';
 
 @ApiTags('webhook')
 @Controller('webhooks')
-@UseGuards(WebhookApiKeyGuard)
+// Order matters: the IP limit runs before the key check so keyless floods stop early.
+@UseGuards(WebhookIpLimitGuard, WebhookApiKeyGuard)
 export class ZcaWebhookController {
   private readonly logger = new Logger(ZcaWebhookController.name);
 
@@ -135,6 +147,50 @@ export class ZcaWebhookController {
         items: toWebhookTargets(threads, query),
         fetchedAt: this.zcaService.getDirectoryFetchedAt(),
       },
+    };
+  }
+
+  @Get('status')
+  @ApiOperation({
+    summary: 'Trạng thái bot cho hệ thống tích hợp',
+    description:
+      'Bot có gửi tin được ngay không và còn bao nhiêu lượt gọi trong phút này. Trả 200 kể cả khi bot mất đăng nhập.',
+  })
+  @ApiHeader({
+    name: 'x-api-key',
+    description: 'Khóa API bí mật WEBHOOK_API_KEY (hoặc gửi qua Authorization: Bearer)',
+    required: true,
+  })
+  @ApiResponse({ status: 200, description: 'Trạng thái bot và số lượt gọi còn lại.' })
+  @ApiResponse({ status: 401, description: 'API key không hợp lệ hoặc bị thiếu.' })
+  @ApiResponse({ status: 404, description: 'Webhook đang tắt (chưa đặt WEBHOOK_API_KEY).' })
+  @ApiResponse({
+    status: 429,
+    description: `Vượt quá ${WEBHOOK_MAX_CALLS.status} lần gọi mỗi phút.`,
+  })
+  public async getStatus(): Promise<IWebhookStatusResponse> {
+    await this.assertWithinRateLimit('status');
+
+    // Never 503 here: callers poll this precisely to learn that the bot is logged out.
+    const zaloLoggedIn = this.zcaService.isLoggedIn();
+    const [send, targets] = await Promise.all([this.callLimit('send'), this.callLimit('targets')]);
+    return {
+      success: true,
+      data: {
+        ready: zaloLoggedIn,
+        zaloLoggedIn,
+        directoryFetchedAt: this.zcaService.getDirectoryFetchedAt(),
+        limits: { send, targets },
+        checkedAt: new Date().toISOString(),
+      },
+    };
+  }
+
+  private async callLimit(scope: WebhookCallScope): Promise<IWebhookCallLimit> {
+    return {
+      limit: WEBHOOK_MAX_CALLS[scope],
+      remaining: await this.rateLimiter.remaining(scope),
+      windowSeconds: WEBHOOK_WINDOW_SECONDS,
     };
   }
 

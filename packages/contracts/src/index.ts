@@ -74,6 +74,7 @@ export const API_ROUTES = {
   auditLog: (id: string) => `/api/audit-logs/${id}`,
   webhookSendMessage: '/api/webhooks/send',
   webhookTargets: '/api/webhooks/targets',
+  webhookStatus: '/api/webhooks/status',
 } as const;
 
 export const APP_ROUTES = {
@@ -4608,5 +4609,25 @@ export interface IWebhookTargetsResponse {
     items: IWebhookTarget[];
     /** When the bot's Zalo directory was last fetched; `null` when it was never fetched. */
     fetchedAt: string | null;
+  };
+}
+
+/** Calls of one webhook route left in the current window, shared by every caller. */
+export interface IWebhookCallLimit {
+  limit: number;
+  remaining: number;
+  windowSeconds: number;
+}
+
+/** `GET /api/webhooks/status`: 200 whenever the key is valid, even while the bot is logged out. */
+export interface IWebhookStatusResponse {
+  success: true;
+  data: {
+    /** Whether a send can go out now; check this, not the individual fields. */
+    ready: boolean;
+    zaloLoggedIn: boolean;
+    directoryFetchedAt: string | null;
+    limits: { send: IWebhookCallLimit; targets: IWebhookCallLimit };
+    checkedAt: string;
   };
 }

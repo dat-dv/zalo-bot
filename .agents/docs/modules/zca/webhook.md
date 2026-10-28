@@ -12,6 +12,7 @@ Vì tin được gửi bằng chính tài khoản Zalo của bot, nếu bị l�
 
 - **Gửi tin**: `POST /api/webhooks/send`.
 - **Lấy danh sách người nhận**: `GET /api/webhooks/targets` (xem mục bên dưới).
+- **Kiểm tra trạng thái bot**: `GET /api/webhooks/status`.
 - **Route contract**: `API_ROUTES.webhookSendMessage`, `API_ROUTES.webhookTargets`; kiểu dữ liệu `IWebhookSendMessageRequest/Response`, `IWebhookTarget`, `IWebhookTargetsResponse` (`@zalobot/contracts`).
 - **Code**: `apps/api/src/zca/webhook/`.
 
@@ -51,9 +52,33 @@ Người nhận do **website bên tích hợp** chọn và lưu, Zalobot không 
 - Nhóm bot đã rời (chỉ còn trong cấu hình) không xuất hiện.
 - Link avatar do Zalo cấp có thể đổi; bên kia nên lưu `targetId`, không lưu link ảnh.
 
+## Kiểm tra trạng thái bot (`GET /api/webhooks/status`)
+
+Cho bên tích hợp biết bot có gửi được ngay không và còn bao nhiêu lượt gọi, để họ hiện "Zalo đang mất kết nối" hoặc tạm dừng hàng đợi gửi, thay vì gửi rồi mới nhận `503`/`429`.
+
+- Cùng khoá `WEBHOOK_API_KEY`. Khoá đúng thì **luôn trả `200`**, kể cả lúc bot mất đăng nhập; trạng thái nằm trong body.
+- `ready`: gửi được ngay hay không (hiện bằng `zaloLoggedIn`; tách riêng để sau này thêm điều kiện mà bên kia không phải sửa code). Bên kia chỉ cần đọc trường này.
+- `zaloLoggedIn`, `directoryFetchedAt` (lần cuối cập nhật danh bạ), `limits.send` / `limits.targets` gồm `limit`, `remaining`, `windowSeconds`, và `checkedAt`.
+- Đọc số lượt còn lại không làm mất lượt; số này tính chung mọi bên gọi.
+- Không trả ID/tên tài khoản Zalo của bot, số kênh listen, trạng thái QR hay proxy: những thứ đó chỉ có ở trang admin.
+- Khi bot mất đăng nhập: admin vào trang Zalo & Người dùng quét lại QR; `ready` tự về `true`.
+
+## Chặn spam theo IP (trước bước kiểm tra key)
+
+Giới hạn theo route bên dưới chỉ đếm request **đúng key**. Để người không có key không spam được (làm ngập api, dò key), mọi request webhook đi qua thêm một lớp chặn theo IP, chạy **trước** khi kiểm tra key:
+
+- **120 request/phút mỗi IP**, đúng hay sai key đều đếm. Vượt thì `429` ngay.
+- **Sai key 10 lần trong 15 phút** thì lần thứ 11 khoá IP đó **15 phút**: mọi request từ IP đó nhận `429`, kể cả khi gửi đúng key. Webhook đang tắt (404) thì không tính là sai key.
+- Log chỉ ghi một lần khi IP bị khoá hoặc lần đầu chạm giới hạn trong phút, không ghi từng request.
+- IP lấy từ `cf-connecting-ip` (Cloudflare), rồi `x-real-ip` (nginx), cùng cách với đăng nhập bằng mã cố định (`getClientIp`).
+
+**Giới hạn cần biết:** header IP giả được nếu ai đó gọi thẳng vào server không qua Cloudflare; họ né được giới hạn theo IP nhưng vẫn không dò được khoá 64 ký tự. Không có giới hạn chung mọi IP cho sai key, vì kẻ xấu sẽ dùng nó để chặn luôn bên tích hợp thật. Nên bật thêm Rate Limiting Rule của Cloudflare cho `/api/webhooks/*` và chỉ cho server nhận traffic từ Cloudflare.
+
+**Xử lý sự cố:** bên tích hợp báo bị `429` "Địa chỉ IP này gửi sai API key quá nhiều lần" thì họ đã dùng sai khoá; sửa khoá rồi đợi 15 phút (hoặc xoá key Redis `webhook:ip:<ip>:locked`).
+
 ## Giới hạn số lần gọi
 
-- Gửi tin: tối đa **30 lần/phút**; lấy danh sách: tối đa **10 lần/phút**. Hai bộ đếm riêng, cộng chung mọi bên gọi. Vượt thì nhận `429` và không có gì được gửi.
+- Gửi tin: tối đa **30 lần/phút**; lấy danh sách: **10 lần/phút**; kiểm tra trạng thái: **60 lần/phút**. Ba bộ đếm riêng, cộng chung mọi bên gọi. Vượt thì nhận `429` và không có gì được gửi.
 - Chỉ đếm các lời gọi đúng khoá, nên người đoán khoá không làm hết lượt của bên gọi thật.
 - Bộ đếm lưu trong Redis; Redis lỗi thì đếm tạm trong tiến trình api.
 

@@ -23,9 +23,17 @@ import { WEBHOOK_MESSAGE_MAX_LENGTH, WebhookSendMessageDto } from './dto/webhook
 const KEY = 'k'.repeat(32);
 
 function guardWithKey(apiKey: string, headers: Record<string, string> = {}) {
-  const guard = new WebhookApiKeyGuard({ get: () => apiKey } as never);
-  const context = { switchToHttp: () => ({ getRequest: () => ({ headers }) }) };
-  return () => guard.canActivate(context as never);
+  const failedIps: string[] = [];
+  const ipLimiter = {
+    recordFailedKey: (ip: string) => {
+      failedIps.push(ip);
+      return Promise.resolve(false);
+    },
+  };
+  const guard = new WebhookApiKeyGuard({ get: () => apiKey } as never, ipLimiter as never);
+  const request = { headers, ip: '10.0.0.9', get: (name: string) => headers[name.toLowerCase()] };
+  const context = { switchToHttp: () => ({ getRequest: () => request }) };
+  return { check: () => guard.canActivate(context as never), failedIps };
 }
 
 interface SentMessage {
@@ -86,6 +94,8 @@ function createController(options: {
       limiterScopes.push(scope);
       return Promise.resolve(options.allowCall ?? true);
     },
+    remaining: (scope: 'send' | 'targets' | 'status') =>
+      Promise.resolve(WEBHOOK_MAX_CALLS[scope] - 1),
   };
   const controller = new ZcaWebhookController(
     zcaService as never,
@@ -114,13 +124,21 @@ void test('isWebhookKeyValid rejects a missing, wrong or differently sized key',
   assert.equal(isWebhookKeyValid('', { 'x-api-key': '' }), false);
 });
 
-void test('WebhookApiKeyGuard answers 404 when WEBHOOK_API_KEY is not configured', () => {
-  assert.throws(guardWithKey('', { 'x-api-key': KEY }), NotFoundException);
+void test('WebhookApiKeyGuard answers 404 when WEBHOOK_API_KEY is not configured', async () => {
+  const off = guardWithKey('', { 'x-api-key': KEY });
+  await assert.rejects(off.check(), NotFoundException);
+  // A webhook that is off is no wrong-key attempt.
+  assert.deepEqual(off.failedIps, []);
 });
 
-void test('WebhookApiKeyGuard answers 401 on a wrong key and lets the right key through', () => {
-  assert.throws(guardWithKey(KEY, { 'x-api-key': 'wrong' }), UnauthorizedException);
-  assert.equal(guardWithKey(KEY, { 'x-api-key': KEY })(), true);
+void test('WebhookApiKeyGuard answers 401 on a wrong key and counts it for the caller IP', async () => {
+  const wrong = guardWithKey(KEY, { 'x-api-key': 'wrong', 'cf-connecting-ip': '203.0.113.7' });
+  await assert.rejects(wrong.check(), UnauthorizedException);
+  assert.deepEqual(wrong.failedIps, ['203.0.113.7']);
+
+  const right = guardWithKey(KEY, { 'x-api-key': KEY });
+  assert.equal(await right.check(), true);
+  assert.deepEqual(right.failedIps, []);
 });
 
 void test('WebhookSendMessageDto accepts a valid body', async () => {
@@ -214,6 +232,7 @@ void test('WebhookRateLimiter blocks the call after the cap within one window', 
       counts.set(key, next);
       return Promise.resolve(next);
     },
+    get: (key: string) => Promise.resolve(String(counts.get(key) ?? '') || null),
   });
 
   for (let i = 0; i < WEBHOOK_MAX_CALLS.send; i++) {
@@ -225,7 +244,10 @@ void test('WebhookRateLimiter blocks the call after the cap within one window', 
 });
 
 void test('WebhookRateLimiter counts in process when Redis is unavailable', async () => {
-  const limiter = new WebhookRateLimiter({ incrWithTtl: () => Promise.resolve(null) });
+  const limiter = new WebhookRateLimiter({
+    incrWithTtl: () => Promise.resolve(null),
+    get: () => Promise.resolve(null),
+  });
   const start = 1_000_000;
 
   for (let i = 0; i < WEBHOOK_MAX_CALLS.targets; i++) {
@@ -291,4 +313,82 @@ void test('ZcaWebhookController answers 429 or 503 for targets without reading t
   const loggedOut = createController({ loggedIn: false });
   await assert.rejects(() => loggedOut.controller.listTargets({}), ServiceUnavailableException);
   assert.equal(loggedOut.directoryCalls.length, 0);
+});
+
+void test('WebhookRateLimiter.remaining reads the window without recording a call', async () => {
+  const counts = new Map<string, number>();
+  const limiter = new WebhookRateLimiter({
+    incrWithTtl: (key: string) => {
+      const next = (counts.get(key) ?? 0) + 1;
+      counts.set(key, next);
+      return Promise.resolve(next);
+    },
+    get: (key: string) => Promise.resolve(counts.has(key) ? String(counts.get(key)) : null),
+  });
+
+  assert.equal(await limiter.remaining('send'), WEBHOOK_MAX_CALLS.send);
+  await limiter.tryCall('send');
+  await limiter.tryCall('send');
+  assert.equal(await limiter.remaining('send'), WEBHOOK_MAX_CALLS.send - 2);
+  assert.equal(await limiter.remaining('send'), WEBHOOK_MAX_CALLS.send - 2);
+  assert.equal(await limiter.remaining('targets'), WEBHOOK_MAX_CALLS.targets);
+
+  for (let i = 0; i < WEBHOOK_MAX_CALLS.send + 5; i++) await limiter.tryCall('send');
+  assert.equal(await limiter.remaining('send'), 0);
+});
+
+void test('WebhookRateLimiter.remaining uses the in-process counter while Redis is down', async () => {
+  const limiter = new WebhookRateLimiter({
+    incrWithTtl: () => Promise.resolve(null),
+    get: () => Promise.resolve(null),
+  });
+  const start = 1_000_000;
+
+  await limiter.tryCall('targets', start);
+  await limiter.tryCall('targets', start);
+  assert.equal(await limiter.remaining('targets', start), WEBHOOK_MAX_CALLS.targets - 2);
+  // The window is over: the full quota is back.
+  assert.equal(await limiter.remaining('targets', start + 61_000), WEBHOOK_MAX_CALLS.targets);
+});
+
+void test('ZcaWebhookController status reports a logged-out bot with 200 and ready false', async () => {
+  const { controller, limiterScopes, directoryCalls } = createController({ loggedIn: false });
+
+  const response = await controller.getStatus();
+
+  assert.equal(response.success, true);
+  assert.equal(response.data.ready, false);
+  assert.equal(response.data.zaloLoggedIn, false);
+  assert.equal(response.data.directoryFetchedAt, '2026-10-28T08:00:00.000Z');
+  assert.deepEqual(response.data.limits, {
+    send: {
+      limit: WEBHOOK_MAX_CALLS.send,
+      remaining: WEBHOOK_MAX_CALLS.send - 1,
+      windowSeconds: 60,
+    },
+    targets: {
+      limit: WEBHOOK_MAX_CALLS.targets,
+      remaining: WEBHOOK_MAX_CALLS.targets - 1,
+      windowSeconds: 60,
+    },
+  });
+  assert.deepEqual(Object.keys(response.data).sort(), [
+    'checkedAt',
+    'directoryFetchedAt',
+    'limits',
+    'ready',
+    'zaloLoggedIn',
+  ]);
+  assert.deepEqual(limiterScopes, ['status']);
+  assert.deepEqual(directoryCalls, []);
+});
+
+void test('ZcaWebhookController status is ready when logged in and answers 429 over its cap', async () => {
+  const ready = await createController({}).controller.getStatus();
+  assert.equal(ready.data.ready, true);
+
+  await assert.rejects(
+    () => createController({ allowCall: false }).controller.getStatus(),
+    (error: unknown) => error instanceof HttpException && error.getStatus() === 429,
+  );
 });
