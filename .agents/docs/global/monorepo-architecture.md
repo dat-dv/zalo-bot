@@ -71,17 +71,26 @@ Chi tiết: [Phiên Dashboard](dashboard-session.md).
 
 - `postgres` (16-alpine) và `redis` (7-alpine, bật AOF) với volume riêng.
 - `api`: cổng `BE_PORT` (mặc định 3005), mount `./data:/app/data`, healthcheck `GET /health`.
-- `web`: Nginx phục vụ static export tại `NGINX_PORT` (mặc định 3009), đồng thời reverse proxy `/api/`, `/oauth2callback` sang `http://api:${BE_PORT}`. Nhờ vậy Cloudflare Tunnel chỉ cần trỏ vào một cổng web.
+- `web`: Nginx phục vụ static export tại `NGINX_PORT` (mặc định 3009), đồng thời reverse proxy `/api/`, `/oauth2callback` sang `upstream api` (`api:${BE_PORT}`, có keepalive). Nhờ vậy Cloudflare Tunnel chỉ cần trỏ vào một cổng web.
 
 Tối ưu build:
 
-1. Root `.dockerignore` loại `node_modules`, `dist`, `.next`, `out`, `.git`, `.env*` để context nhỏ và không lọt secret.
+1. Root `.dockerignore` loại mọi `node_modules`, `dist`, `.next`, `out`, `.tsbuild` ở **mọi cấp** (mẫu `**/`), cùng `.claude`, `.agents`, `docs`, `*.traineddata`, `.git`, `.env*` để context nhỏ và không lọt secret. Trước đây mẫu `node_modules` không có `**/` chỉ khớp thư mục gốc, nên các worktree trong `.claude/worktrees/` (hơn 10 GB `node_modules` lồng nhau) bị gửi vào context mỗi lần build docker ở máy dev (Coolify clone từ git nên không bị).
 2. **Giữ cache `npm ci` dù version tự tăng.** Hook `.githooks/pre-commit` tự tăng `version` ở mọi `package.json` sau mỗi commit. Nếu Dockerfile copy thẳng các file này thì layer luôn đổi và `npm ci` phải cài lại từ đầu ở mỗi lần deploy (~45–55 giây mỗi service). Vì vậy cả 2 Dockerfile có stage `manifests` đặt mọi `version` (gồm cả `package-lock.json`) về `0.0.0`; các stage sau lấy file bằng `COPY --from=manifests`, Docker so cache theo nội dung file nên `npm ci` chỉ chạy lại khi dependency thật sự thay đổi.
 3. **Image API chỉ chứa thư viện chạy thật.** Stage `prod-deps` cài `npm ci --omit=dev` riêng cho workspace `@zalobot/api` và `@zalobot/contracts`; runner lấy `node_modules` từ stage này nên không kèm thư viện của web (Next.js, React…) hay devDependencies (TypeScript, Nest CLI…). Image nhỏ hơn giúp bước export/nén layer khi deploy nhanh hơn đáng kể. Builder cũng chỉ cài theo workspace của mình (API không cài thư viện web, web không cài thư viện API).
 4. Runner API copy các `package.json` của workspace để Node tìm được các gói `@zalobot/*`. Không còn copy `CHANGELOG.md`: trước đây chỉ có tính năng thông báo deploy (đã bỏ) đọc file này lúc chạy.
 5. BuildKit cache mount (`RUN --mount=type=cache,target=/root/.npm`) chia sẻ cache npm giữa các lần build.
+6. **Dữ liệu ngôn ngữ OCR có sẵn trong image API.** Stage `tessdata` tải đúng hai file `vie`/`eng` mà tesseract.js vẫn tự tải lúc chạy (từ jsdelivr, có cache mount), runner copy vào `/app/tessdata` và đặt `OCR_TESSDATA_DIR=/app/tessdata`. Trước đây container mới nào cũng tải lại ~6,6 MB từ CDN ở lần OCR đầu sau mỗi deploy.
+7. **Nginx web nén và giữ kết nối tới API.** `nginx.conf` bật `gzip` cho JS/CSS/JSON/SVG/manifest (HTML vốn đã nén) và proxy `/api/` qua khối `upstream api` với `keepalive 16`; header `Connection` lấy từ `map $http_upgrade` nên request thường dùng lại kết nối, còn WebSocket vẫn nâng cấp được. Cloudflare vẫn nén ở biên; phần này lo đoạn origin→edge và khi truy cập thẳng.
 
 Khi thêm dependency mới cho API, hãy kiểm tra nó nằm trong `dependencies` (không phải `devDependencies`) nếu cần lúc chạy; nếu không, container sẽ lỗi `Cannot find module` vì runner không có devDependencies.
+
+## Node và công cụ dev
+
+- Node 22 ở mọi nơi: `.nvmrc` = `22`, `engines.node >= 22` ở root, Docker `node:22-alpine`, `@types/node` `^22` (bản types mới hơn cho phép dùng API mà runtime không có).
+- File `.tsbuildinfo` của TypeScript nằm ngoài `dist` (`.tsbuild/`, đã gitignore) nên `nest build` xoá `dist` không làm mất nó; typecheck và build chạy nóng thay vì lạnh mỗi lần.
+- `npm run dev` chạy 3 tiến trình: `contracts` (`tsc --watch`, sửa `packages/contracts/src/index.ts` là api và web thấy ngay, không cần chạy lại), `api`, `web`; `predev` vẫn build contracts một lần trước.
+- Đã gỡ các dependency khai báo nhưng không import: `next-intl` (web; bản dịch nằm trong catalog contracts), `graphology*`, `gray-matter`, `tsconfig-paths` (api; script `typeorm` không còn `-r tsconfig-paths/register`, tsconfig không có `paths`). `react-scan` giữ lại và chỉ nạp khi bật công tắc (xem modules/settings).
 
 ## Quản lý cơ sở dữ liệu & TypeORM Migrations
 

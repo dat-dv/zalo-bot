@@ -10,6 +10,7 @@ metadata:
       - apps/api/src/calendar/dto/calendar-event.dto.ts
       - apps/api/src/database/entities/calendar-event.entity.ts
       - apps/api/src/database/migrations/1724870000000-CreateCalendarEvents.ts
+      - apps/api/src/database/migrations/1725020000000-AddAuditAndCalendarIndexes.ts
       - apps/api/src/google/google-calendar.service.ts
       - apps/api/src/google/google-copy.util.ts
       - apps/web/src/shared/ui/google-sync.ts
@@ -46,7 +47,7 @@ Shared system calendar. Events live in the DB (`calendar_events`); Google Calend
 
 ## Data: `calendar_events` (migration `1724870000000-CreateCalendarEvents`)
 
-`id` uuid, `title`, `description`, `location`, `start_at`, `end_at` (exclusive; all-day = local midnight after the last day, Google's convention), `all_day`, `time_zone` (default config `timezone`), `reminder_minutes` jsonb (default `[60,30,10,0]`), `created_by_user_id`, `created_by_name`, `source` (`zalo|dashboard|google`), `source_chat_id`, `google_event_id`, `google_account_email`, `sync_status` (`synced|pending|failed|local`), `synced_at`, `deleted_at` (soft delete), timestamps. Indexes: `start_at`, `deleted_at`, partial unique `(google_account_email, google_event_id) WHERE google_event_id IS NOT NULL`.
+`id` uuid, `title`, `description`, `location`, `start_at`, `end_at` (exclusive; all-day = local midnight after the last day, Google's convention), `all_day`, `time_zone` (default config `timezone`), `reminder_minutes` jsonb (default `[60,30,10,0]`), `created_by_user_id`, `created_by_name`, `source` (`zalo|dashboard|google`), `source_chat_id`, `google_event_id`, `google_account_email`, `sync_status` (`synced|pending|failed|local`), `synced_at`, `deleted_at` (soft delete), timestamps. Indexes: `start_at`, `deleted_at`, `(start_at, end_at)` for the overlap query (migration `1725020000000-AddAuditAndCalendarIndexes`), partial unique `(google_account_email, google_event_id) WHERE google_event_id IS NOT NULL`.
 
 ## Backend: `apps/api/src/calendar/`
 
@@ -58,7 +59,7 @@ Shared system calendar. Events live in the DB (`calendar_events`); Google Calend
 - `resyncEvent(id, actorId)`: same push logic, for `failed`/`local`/old-account events.
 - `getEvent(id)`: by uuid, or by `google_event_id` (bot delete actions queued in Redis before the DB move).
 - `listEvents({ timeMin, timeMax?, query?, limit?, importForUserId? })`: overlap query (`end_at > timeMin AND start_at < timeMax`), ILIKE on title/location/description, ordered by start, default limit 500.
-- **Import from Google** (when `importForUserId` set): for the viewer's account (needs authorization + known email). First time an account is seen: import ±365 days (flag `calendar:initial-import:<email>` in Redis, plus in-memory). Then per `(email, range)` at most every 5 min (in-memory), concurrent callers share one run. Upsert by `(email, google_event_id)`; rows deleted in zalobot are never resurrected; rows of that account starting inside the range that Google no longer returns are soft-deleted (deleted in Google). Written with `callListeners(false)` so bulk imports do not flood `audit_logs`; user writes go through `save()` and are audited.
+- **Import from Google** (when `importForUserId` set): for the viewer's account (needs authorization + known email). First time an account is seen: import ±365 days (flag `calendar:initial-import:<email>` in Redis, plus in-memory). Then per `(email, range)` at most every 5 min (in-memory), concurrent callers share one run; the range is snapped outward to a 5-minute grid before it is keyed, because callers pass `now` to the millisecond, which made every call a new key and the throttle never hit (one Google read plus row-by-row writes per dashboard load); the throttle map is pruned past 500 entries. Upsert by `(email, google_event_id)`; rows deleted in zalobot are never resurrected; rows of that account starting inside the range that Google no longer returns are soft-deleted (deleted in Google). Written with `callListeners(false)` so bulk imports do not flood `audit_logs`; user writes go through `save()` and are audited.
 - Google-copy helpers shared with tasks live in `apps/api/src/google/google-copy.util.ts` (copy target, connected emails, creator/chat lookups, `toGoogleCopySync`); web sync badge tones/states in `apps/web/src/shared/ui/google-sync.ts`.
 - `toItems(rows, viewerId)`: `ICalendarEventItem` with creator name (current `users.first_name` wins over the snapshot), source chat name/type (`zca_thread_configs`), `sync { status, accountEmail, isCurrentAccount, syncedAt }` (`isCurrentAccount` = email is the viewer's or the shared account's).
 

@@ -44,7 +44,7 @@ The bot has one channel: the bot's **personal Zalo account (ZCA, `zca-js`)** —
 
 ## Intent classification (tool prompt)
 
-`buildToolSystemInstruction` (`text/text-system-prompt.ts`, pure, shared with the eval script) opens with `INTENT_CLASSIFICATION_RULES`: one ordered table, first match wins, plus contrasting pairs, because "nhớ" alone appears in all of them. No separate classifier LLM call (same model, double latency, compounding errors); the chosen tool is the label.
+`buildToolSystemInstruction` (`text/text-system-prompt.ts`, pure, shared with the eval script) starts with the static text — `BOT_IDENTITY_LINE`, then `INTENT_CLASSIFICATION_RULES`: one ordered table, first match wins, plus contrasting pairs, because "nhớ" alone appears in all of them — and ends with the per-chat text (notes/facts profile, date-time snippet to the minute, pending cards), so the provider's prompt cache can reuse the prefix (see [LLM Providers](llm-providers.md)). No separate classifier LLM call (same model, double latency, compounding errors); the chosen tool is the label. Before the call, the profile (DB notes/facts) and the sender's pending cards (Redis) are looked up in parallel.
 
 1. Reminder → `SET_REMINDER`: be told at a moment (a time, or "nhắc/báo/gọi dậy"); "7h tối nhớ mua sữa", "mai 9h họp".
 2. Calendar → `CREATE_CALENDAR_EVENT`: only when a calendar entry is asked for ("thêm/đặt lịch …").

@@ -53,6 +53,7 @@ Defaults in parentheses.
 - Network: `BE_PORT` (3005), `WEB_ORIGIN` (`APP_URL`), `CORS_ALLOW_ALL` (false), `DEFAULT_TIMEZONE` (`Asia/Ho_Chi_Minh`).
 - Database/cache: `DATABASE_SSL` (false), `TYPEORM_SYNCHRONIZE` (false), `REDIS_URL`. Only effective outside `docker-compose.yml` (dev), which hardcodes them.
 - Bot: `BOT_NAME` (`Bot`, config `zalo.botName`).
+- OCR: `OCR_TESSDATA_DIR` (unset: tesseract.js downloads `vie`/`eng` into the working directory on the first OCR; the API image sets `/app/tessdata`, read directly by `OcrService`).
 - Dashboard: `DASHBOARD_LOGIN_CODE` (unset = off; config `reports.dashboardLoginCode`).
 - ZCA: `DATA_DIR` (`./data`, resolved from cwd; `docker-compose.yml` hardcodes `/app/data`), `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN` (false), `ZCA_CHECK_UPDATE` (false), `ZCA_LOGGING` (false), `ZCA_ENABLE_WELCOME` (false), `ZCA_WELCOME_IMAGE_PATH`. Bootstrap auto-login has no flag (see `modules/zca/README.md`).
 - LLM: `LLM_PROVIDER` (`gemini`; also `openai`, `qwen`/`ollama`, `router`/`9router` — provider names, not env aliases), `LLM_FALLBACK_PROVIDERS` (comma-separated chain after `LLM_PROVIDER`, default empty), `LLM_TIMEOUT_MS` (`30000`), `ROUTER_BASE_URL`, `ROUTER_MODEL`, `ROUTER_API_KEY`, `GEMINI_API_KEY`, `GEMINI_MODEL` (`gemini-3.5-flash-lite`), `OPENAI_API_KEY`, `OPENAI_MODEL` (`gpt-4o-mini`), `OPENAI_BASE_URL` (`https://api.openai.com/v1`), `QWEN_BASE_URL` (`http://localhost:11434`), `QWEN_MODEL` (`qwen2.5:14b`), `QWEN_API_KEY`.

@@ -18,6 +18,8 @@ metadata:
       - apps/api/src/zca/text/text-input.service.ts
       - apps/api/src/zca/text/strategies/search-chat-history-tool.strategy.ts
       - apps/api/src/zca/text/strategies/ask-clarification-tool.strategy.ts
+      - apps/api/src/zca/text/text-system-prompt.ts
+      - apps/api/src/common/utils/datetime.util.ts
 ---
 
 # LLM Providers
@@ -40,6 +42,7 @@ Human guide: [LLM Providers](../../docs/global/llm-providers.md).
 - `TextInputService`: when the tool-calling pass returns `failed` (whole chain failed), it sends that error text once and skips the tool-free chit-chat pass (which would run the chain again); with `allowAiChat === false` it stays silent.
 - `LLM_TIMEOUT_MS` (default 30000) applies to every provider, including local Qwen/Ollama; raise it for slow local models.
 - Post-processing: every `toolCall.args` / `toolCalls[].args` passes through `cleanToolArguments`.
+- **Prompt layout for provider caching**: both system prompts (`buildToolSystemInstruction`, `generateChitChatReply`) put the static text first (identity line, intent table, parameter rules, `CHIT_CHAT_INSTRUCTION`, plain-text rules) and the per-chat, per-call text last (notes/facts profile, the date-time snippet, pending cards). The date-time snippet stops at the minute (`getVietnamDateTimeContext.systemInstructionSnippet`; the context's `time`/`isoLocal` fields keep seconds). Gemini implicit caching and OpenAI prompt caching only reuse a byte-identical prefix, so with the old order (profile and a clock with seconds first) the several-thousand static tokens were billed and processed in full on every message. Each provider logs `… tokens: prompt=… cached=… output=…` at debug level from the response usage metadata; `cached > 0` from the second call of a chat on shows the cache hitting (needs a model with implicit caching, e.g. Gemini 2.5+ or gpt-4o+).
 
 ## Types (`llm/types/llm.types.ts`)
 

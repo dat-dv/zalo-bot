@@ -48,7 +48,7 @@ Bot chỉ còn **một kênh** là tài khoản Zalo cá nhân của bot qua ZCA
 
 ## 2b. Bot phân biệt loại tin nhắn thế nào
 
-Trước khi gọi tool, prompt có một bảng **"PHÂN LOẠI TIN NHẮN"** (`text/text-system-prompt.ts`). AI xét theo thứ tự và chọn loại đầu tiên khớp:
+Trước khi gọi tool, prompt có một bảng **"PHÂN LOẠI TIN NHẮN"** (`text/text-system-prompt.ts`). Prompt mở đầu bằng phần tĩnh (câu giới thiệu bot rồi bảng này, luật điền tham số…) và kết thúc bằng phần theo kênh (ghi nhớ, mốc giờ tới phút, thẻ đang chờ) để provider dùng lại được cache prompt (xem [LLM](llm-providers.md)); ghi nhớ (DB) và thẻ chờ (Redis) được tra song song trước khi gọi. AI xét theo thứ tự và chọn loại đầu tiên khớp:
 
 | Loại | Khi nào | Ví dụ |
 | --- | --- | --- |

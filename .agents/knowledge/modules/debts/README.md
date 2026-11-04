@@ -13,6 +13,7 @@
 - `model/debt-create-form.ts` (pure, unit-tested): `matchContact` (exact case-insensitive match on display name or alias, shared with the inline edit), `buildCreateDebtRequest` (draft → `ICreateDebtRequest` or error `counterpartyRequired` | `amountInvalid` | `newContactRequired`); the due date uses the shared `dueDateToIso` (`apps/web/src/shared/lib/local-date-input.ts`).
 - `presentation/components/create-debt-dialog.tsx`: create form on the shared `FormDialog` (`apps/web/src/shared/ui/form-dialog.tsx`).
 - `presentation/components/debts-screen.tsx`, `debts-table.tsx`, `combine-debts-dialog.tsx` (re-exported via `view/`). `DebtsTable` is also used read-only on the Home overview (`id="home-debts"`).
+- `DebtsTable` dates go through the cached `getDateTimeFormat` (`@/shared/lib/intl-format`); amounts through `useMoneyVisibility().money` (one `Intl.NumberFormat` per locale). No formatter is built per cell.
 
 ## API data
 

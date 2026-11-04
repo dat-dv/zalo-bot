@@ -80,7 +80,7 @@ Người dùng Zalo không có mật khẩu dashboard. Thay vào đó bot cấp 
 ## Biết mình đang đăng nhập bằng tài khoản nào
 
 - Vì sao: một người có thể có nhiều ID Zalo, và link đăng nhập có thể là của ID không phải admin. Trước đây dashboard không cho biết phiên đang là ai, nên gặp thông báo "chỉ admin" thì không biết lý do.
-- API `GET /api/me` trả về ID, tên Zalo, ảnh đại diện, có phải admin không và có phải chủ hệ thống (đăng nhập bằng mã cố định) không.
+- API `GET /api/me` trả về ID, tên Zalo, ảnh đại diện, có phải admin không, có phải chủ hệ thống (đăng nhập bằng mã cố định) không, và đã kết nối Google chưa (`googleConnected`). Cờ Google đặt ở đây để trang Lịch không phải tải cả payload Tổng quan (sổ cái, nợ, việc, nhắc) chỉ vì một cờ.
   - Tên lấy theo thứ tự: tên trong danh bạ ZCA (đọc cache, không gọi Zalo) → `firstName` trong bảng users → "Chưa rõ tên".
 - Thẻ tài khoản hiện ảnh đại diện, tên, nhãn **Admin**/**Người dùng** và ID (bấm để copy).
   - Máy tính: ở cuối thanh bên, trên nút giao diện sáng/tối.

@@ -13,6 +13,7 @@
 - `api/contacts-api.ts` also: `createContact` (`POST API_ROUTES.contacts`), `getContactProfile` / `updateContactProfile` (`API_ROUTES.contactProfile(id)`).
 - Profile page: `model/contact-profile-form.ts` (+ spec), `view/contact-profile-screen.tsx`, `view/use-open-contact-profile.ts`, `presentation/components/contact-profile/*` (header, info panel, debts/transactions tables, styles). Route `app/(private)/contacts/profile/page.tsx`.
 - `presentation/components/contacts-screen.tsx`, `presentation/components/combine-contacts-dialog.tsx` (re-exported via `view/`). Route `/contacts`.
+- Dates in the list, the profile tables and the profile panel go through the cached `getDateTimeFormat` (`@/shared/lib/intl-format`), never a new `Intl.DateTimeFormat` per cell.
 
 ## API data (`GET /api/contacts`, `ReportsController`)
 

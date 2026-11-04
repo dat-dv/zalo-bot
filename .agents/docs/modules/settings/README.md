@@ -52,10 +52,10 @@ Tiêu đề trang, nút Làm mới và Đăng xuất do `WorkspaceHeader` của 
   - Hai bảng danh mục chuyển thành danh sách (≤ 960px): dòng 1 là tên danh mục, dòng 2 là loại (Thu/Chi). Danh mục không có số lần dùng nên không có giá trị bên phải. Chạm dòng mở bottom-sheet; đổi tên bằng nút Sửa ở chân sheet (ô nhập 40px), Lưu/✕ và Xoá cũng ở đó vì điện thoại không nhấp đúp được.
   - Ở ≤ 640px: hai tab thành một hàng chip cuộn ngang cao 32px; ô tìm kiếm (cao 36px) và nút Thêm (cao 32px) của mỗi bảng rộng hết màn hình; hàng thêm nhanh có ô nhập và nút ✓/✕ cao 40px; nút trong tab Tuỳ chọn cao 40px. Hai bảng danh mục xếp chồng ở 640px. Toast nằm phía trên thanh tab để không che tiêu đề trang.
 
-## 4. React Scan — giới hạn đã biết
+## 4. React Scan
 
-- `ReactScanProvider` (`apps/web/src/shared/providers/react-scan-provider.tsx`) chỉ lưu cờ bật/tắt vào localStorage với khoá `zalobot-react-scan-enabled` (mặc định tắt).
-- Hiện **không có chỗ nào nạp thư viện `react-scan`** dù package có trong `apps/web/package.json`. Vì vậy bật công tắc này chưa có tác dụng gì. Muốn dùng thật cần một task riêng để nạp profiler khi cờ được bật.
+- `ReactScanProvider` (`apps/web/src/shared/providers/react-scan-provider.tsx`) lưu cờ bật/tắt vào localStorage với khoá `zalobot-react-scan-enabled` (mặc định tắt). Khi bật, provider nạp thư viện `react-scan` bằng `import()` động rồi gọi `scan({ enabled: true, showToolbar: true })`; tắt thì gọi `setOptions({ enabled: false })` trên module đã nạp. Thư viện không nằm trong bundle mặc định (chỉ có chunk nạp theo yêu cầu), nên khi tắt không tốn gì. Trước đây công tắc chỉ lưu cờ mà không nạp gì nên bật không có tác dụng.
+- Dùng để kiểm tra render thừa sau khi sửa bảng hay màn hình (ví dụ gõ trong ô sửa trực tiếp ở Thu chi chỉ render lại ô đó, không phải cả bảng).
 
 ## 5. Kiểm thử
 

@@ -26,18 +26,20 @@ Người dùng thường chụp bill thay vì gõ lại số tiền. Bot đọc 
    - `2`: chỉ lưu ảnh lên Google Drive & Google Photos.
    - `hủy`: bỏ qua ảnh. Người dùng cũng có thể tiếp tục trò chuyện bình thường.
 3. Với lựa chọn **1**:
-   - Ảnh được tải vào bộ nhớ, `OcrService` chuẩn hóa bằng Sharp rồi chạy Tesseract với ngôn ngữ `vie+eng`.
+   - Ảnh được tải vào bộ nhớ (tối đa 120 giây và 100 MB mỗi tệp, quá thì báo lỗi thay vì treo hay phình RAM), `OcrService` chuẩn hóa bằng Sharp rồi chạy Tesseract với ngôn ngữ `vie+eng`.
    - `MediaStorageService.uploadBill` đồng thời lưu ảnh lên Drive (`zalobot/<channelId>/bill/YYYY-MM`) và Google Photos. Nếu lưu Drive thành công, link Drive được dùng làm `receiptUrl`; nếu lỗi thì giữ URL ảnh gốc và chỉ ghi log. Không lưu file xuống ổ đĩa máy chủ.
-   - `LlmService` nhận prompt gồm text OCR, ghi chú người dùng, chuỗi `receiptUrl` và mốc thời gian hiện tại, cùng danh sách tool `ZALO_TOOL_DEFINITIONS`. AI không nhận bytes ảnh hay base64.
+   - `LlmService` nhận prompt gồm text OCR, ghi chú người dùng, chuỗi `receiptUrl` và mốc thời gian hiện tại, kèm **đúng một tool** `RECORD_TRANSACTION` (trước đây gửi cả catalog 20 tool dù chỉ chấp nhận tool này, tốn gấp ~10 lần token và đôi khi AI gọi nhầm tool rồi bị bỏ). AI không nhận bytes ảnh hay base64.
    - Nếu AI gọi `RECORD_TRANSACTION`, bot tạo thẻ xác nhận giao dịch như khi nhắn tay (kèm `receiptUrl`). Giao dịch chỉ được ghi sau khi người dùng xác nhận mã.
    - Nếu AI không trích được số tiền, bot gửi lại câu trả lời của AI hoặc nhắc người dùng nhắn thông tin chi tiêu (ví dụ "Ăn trưa 85k"); không tự tạo giao dịch.
 4. Với lựa chọn **2**: mọi ảnh đang chờ được tải lên Drive (`zalobot/<channelId>/image/...`) và Google Photos qua `MediaStorageService.uploadImage`, bot trả tóm tắt từng ảnh; không gọi AI.
+
+**Ảnh gửi kèm lời gọi bot** (caption tag @bot, hoặc quote một ảnh): bot đọc chữ làm ngữ cảnh và lưu ảnh như một bill trước khi chạy pipeline văn bản. Ảnh của tin được **tải về đúng một lần** rồi dùng chung cho sao lưu tự động, đọc chữ, trí nhớ ảnh và lưu theo yêu cầu; trước đây mỗi bước tự tải lại từ CDN Zalo (tới 3 lần cho một ảnh). Đọc chữ và lưu bill chỉ dùng chung bytes nên chạy song song, không chờ nhau. Bill và bản sao lưu vẫn vào hai phân vùng Drive riêng (`bill` và `image`).
 
 ## Cấu hình và xử lý sự cố
 
 - Lưu Drive/Photos cần người dùng đã kết nối Google với scope `drive.file` và `photoslibrary.appendonly` (gõ `/login` để kết nối lại nếu thiếu).
 - Chất lượng trích xuất phụ thuộc AI provider cấu hình qua `LLM_PROVIDER`.
-- Hiện chưa có giới hạn dung lượng hoặc timeout khi tải ảnh; ảnh quá lớn có thể làm chậm OCR.
+- Tải media có giới hạn 120 giây và 100 MB (`MAX_MEDIA_BYTES`); OCR thu nhỏ ảnh về tối đa 2000px bề ngang trước khi đọc nên ảnh lớn không còn làm chậm.
 - Nếu ảnh mờ hoặc OCR không đọc được chữ, prompt ghi rõ là không nhận diện được nội dung; khi AI không gọi tool, bot nhắc người dùng nhắn tay. Dù AI có đoán, người dùng vẫn kiểm tra trên thẻ xác nhận trước khi ghi sổ.
 
 ## Xem lại ảnh hoá đơn trên dashboard

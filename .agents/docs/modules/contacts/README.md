@@ -40,6 +40,7 @@ Tài liệu này ánh xạ trực tiếp với tri thức canonical [`README.md`
 - `GET /api/contacts` (`ReportsController`): trả danh bạ công nợ **chung** của cả hệ thống (ai đăng nhập cũng thấy như nhau), sắp theo tên A→Z rồi ngày tạo mới nhất, tối đa 200 dòng. Mỗi liên hệ có: tên, biệt danh, mô tả (`descriptor`), số điện thoại, số tài khoản, mã/tên ngân hàng, avatar, `linkedUserId` và `linkedUser` (tài khoản Zalo được liên kết), `debtCount`, `transactionCount`, thời điểm tạo/cập nhật.
 - `PATCH /api/contacts/:id`: sửa thông tin. `POST /api/contacts/combine`: gộp. `DELETE /api/contacts/:id`: xoá (có hook `useDeleteContactMutation` nhưng giao diện hiện **không** có nút xoá).
 - Sau khi sửa/xoá: làm mới cache `contacts`, `users`, `debts`, `dashboard`. Sau khi gộp: thêm cả `transactions` và `expenses` vì giao dịch được trỏ sang người liên quan chính. `users` được làm mới để số "🔗 N người liên quan" trên trang ZCA luôn đúng.
+- Ngày giờ trong danh bạ, bảng hồ sơ và khung thông tin định dạng qua `getDateTimeFormat` dùng chung (cache theo ngôn ngữ), không tạo `Intl.DateTimeFormat` mới cho từng ô.
 
 ## Màn hình danh bạ
 

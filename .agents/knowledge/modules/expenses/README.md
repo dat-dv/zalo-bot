@@ -10,7 +10,7 @@
 
 - `api/expenses-api.ts`: `getExpenses` (`GET API_ROUTES.expenses`), `updateExpense` (`PATCH /api/transactions/:id`, `IUpdateExpenseRequest`), `deleteExpense` (`DELETE /api/transactions/:id`).
 - `api/expenses-query.ts`: key `['expenses']`; `useExpensesQuery`, `useUpdateExpenseMutation`, `useDeleteExpenseMutation`. Both mutations invalidate `['expenses']`, `['transactions']`, `['dashboard']`.
-- `presentation/components/expenses-screen.tsx` (re-exported via `view/expenses-screen.tsx`): `ExpensesScreen`.
+- `presentation/components/expenses-screen.tsx` (re-exported via `view/expenses-screen.tsx`): `ExpensesScreen`. Its date helpers use the cached `getDateTimeFormat` (`@/shared/lib/intl-format`).
 
 ## API data
 

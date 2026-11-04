@@ -40,17 +40,24 @@ Cross-cutting NestJS services in `apps/api/src` that are not feature CRUD.
 - `GET /health` -> `{ status: 'ok', timestamp }` (load balancer / Coolify / Docker probe), public, excluded from the `/api` global prefix (`main.ts`), `@BypassTransform()`.
 - There is no deploy notification: the deploy webhooks (`/health/deploy`, `/deploy/notify`, `/deploy/ping`, `DEPLOY_NOTIFY_TOKEN`) and the startup message to admins (`NOTIFY_ON_STARTUP`) were removed.
 
+## Process settings (`main.ts`, `database/database.module.ts`)
+
+- Nest logger levels: `error`, `warn`, `log` in production; `debug` and `verbose` are added only outside `NODE_ENV=production`, because the chat pipeline and the LLM providers log at those levels on every message.
+- TypeORM/pg pool: `extra.max = 20` (pg default 10); one `GET /api/dashboard` alone fans out into 8 parallel queries.
+
 ## Redis (`redis/`)
 
 - `RedisModule` is `@Global`. `RedisService` (ioredis) connects to `redis.url` / `REDIS_URL` / `redis://localhost:6379`, `lazyConnect`, `maxRetriesPerRequest: 2`, retry up to 3 times.
 - Fail-soft: when disconnected every op returns `null` / `false` / `[]` and logs a warning; callers keep in-memory fallbacks (e.g. pending confirmations).
-- API: `get`, `set(key, value, ttlSeconds?)`, `del`, set ops (`sadd`, `srem`, `smembers`, `sismember`), list ops (`rpush`, `ltrim`, `lrange`), `expire`, `onReady(cb)`, `isReady`.
+- API: `get`, `mget(keys)` (one round trip; `null` per missing key, or for every key when down), `set(key, value, ttlSeconds?)`, `del`, set ops (`sadd`, `srem`, `smembers`, `sismember`), list ops (`rpush`, `ltrim`, `lrange`), `expire`, `pipeline(ops)` (`RedisPipelineOp[]` of `set` / `del` / `rpush` / `ltrim` / `expire` sent as one ioredis pipeline; `false` when down or when any command failed, never throws), `onReady(cb)`, `isReady`.
+- Hot paths batch their Redis traffic: a pending card's keys (`pending:tx:code|user|user-codes|msg`) are written and deleted as one pipeline, the sender's pending cards are read with one `mget`, and the per-thread recent-message buffer (`zca:buffered_msgs:<thread>`: `rpush` + `ltrim` + `expire`) is one pipeline per message.
 - Whitelist cache: `whitelist:user:<id>` = `1` (TTL 24 h) / `0` (TTL 10 min).
 - Other key families documented elsewhere: `pending:tx:*` ([Zalo Response Layout](zalo-response-layout.md)), `zca:msg:cli:*`.
 
 ## OCR (`ocr/`)
 
-- `OcrService.recognize(buffer) → { text, confidence }`: `sharp` pre-process (auto-rotate, grayscale, normalize; raw buffer on failure) then `tesseract.js` worker with languages `vie` + `eng`; worker terminated after each call. `confidence` is Tesseract's mean word confidence (0–100). Errors return `{ text: '', confidence: 0 }`. `extractTextFromBuffer(buffer)` returns only the text. Local only; images are never sent to an LLM.
+- `OcrService.recognize(buffer) → { text, confidence }`: `sharp` pre-process (auto-rotate, downscale to ≤ 2000 px wide, grayscale, normalize; raw buffer on failure) then one **long-lived** `tesseract.js` worker (`vie` + `eng`), created lazily on the first image and reused: starting the WASM core and loading ~6.6 MB of language data costs seconds, which used to be paid for every image. Concurrent calls queue inside the worker. A recognition still running after 60 s is abandoned and the worker replaced; the worker is released after 10 min idle and on `onModuleDestroy`. `confidence` is Tesseract's mean word confidence (0–100). Errors return `{ text: '', confidence: 0 }`. `extractTextFromBuffer(buffer)` returns only the text. Local only; images are never sent to an LLM.
+- Language data: `OCR_TESSDATA_DIR` when set (`langPath` + `cachePath`; the API image bakes `vie`/`eng` into `/app/tessdata`, see [Monorepo Architecture](monorepo-architecture.md)); otherwise tesseract.js downloads the files once into its cache directory (the working directory), as before.
 - Background use: `ImageTextMemoryService` (`zca/memory/`) reads chat photos for chat memory through an in-process queue, one photo at a time, ≤ 20 waiting, lost on restart (see `modules/zca/chat-memory.md`). Not a BullMQ queue.
 
 ## Media storage (`receipt-storage/`)

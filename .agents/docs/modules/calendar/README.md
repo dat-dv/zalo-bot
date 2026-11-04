@@ -45,7 +45,7 @@ Giờ sự kiện nằm trong bảng `calendar_events` của zalobot. Google Cal
 **Nhập từ Google**: mỗi khi mở lịch (dashboard, trang Tổng quan, hoặc lệnh bot), hệ thống đọc tài khoản Google của người xem trong khoảng đang xem rồi ghi vào DB, nên sự kiện tạo thẳng trên app Google cũng hiện ra và được giữ lại.
 
 - Lần đầu gặp một tài khoản Google: nhập 12 tháng trước đến 12 tháng sau (đánh dấu trong Redis `calendar:initial-import:<email>`).
-- Sau đó mỗi khoảng thời gian chỉ đọc Google tối đa 5 phút một lần để tiết kiệm quota.
+- Sau đó mỗi khoảng thời gian chỉ đọc Google tối đa 5 phút một lần để tiết kiệm quota. Khoảng thời gian được làm tròn ra lưới 5 phút trước khi so khoá: trang Tổng quan truyền giờ hiện tại tới mili-giây, nên trước đây mỗi lần mở đều bị coi là khoảng mới và lần nào cũng gọi Google rồi ghi DB từng dòng.
 - Sự kiện đã xoá trong zalobot thì không bị nhập lại.
 - Sự kiện của chính tài khoản đó, bắt đầu trong khoảng đang xem, mà Google không còn trả về ⇒ người dùng đã xoá trên Google ⇒ xoá mềm trong zalobot.
 - Nhập hàng loạt không ghi nhật ký kiểm toán (tránh hàng nghìn dòng); tạo/sửa/xoá do người dùng làm thì có ghi.

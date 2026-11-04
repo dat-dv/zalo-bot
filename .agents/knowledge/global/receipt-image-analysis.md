@@ -13,6 +13,8 @@ metadata:
       - apps/api/src/receipt-storage/media-storage.service.ts
       - apps/api/src/common/utils/image-fetcher.util.ts
       - apps/api/src/finance/receipt-source.ts
+      - apps/api/src/zca/zca-bot-feature.service.ts
+      - apps/api/src/zca/memory/image-text-memory.service.ts
 ---
 
 # Receipt Image Analysis
@@ -24,12 +26,16 @@ metadata:
 
 ## Option 1 — Create Bill (`CreateBillPendingImageStrategy`)
 
-1. Clears the pending action and downloads the image into memory via `fetchImageBuffer` (HTTP(S) or data URI; no size or timeout limit is enforced).
+1. Clears the pending action and downloads the image into memory via `fetchImageBuffer` (HTTP(S) or data URI). Limits (`common/utils/image-fetcher.util.ts`): 120 s per download (`AbortSignal.timeout`) and `MAX_MEDIA_BYTES` = 100 MB (checked on `content-length`, then on the bytes); larger or stalled media throws a Vietnamese error that the caller logs. `memoizeMediaFetch(url)` wraps one download so several steps of the same message share it (see below).
 2. `OcrService.extractTextFromBuffer`: Sharp normalization, then Tesseract.js `vie+eng`, entirely local.
 3. `MediaStorageService.uploadBill` uploads the buffer to Drive (`zalobot/<channelId>/bill/YYYY-MM`) and Google Photos in parallel; on Drive success the Drive `webViewLink` replaces the original URL as `receiptUrl`. Upload failures are only logged. Nothing is written to local disk.
-4. `LlmService.generate(prompt, ZALO_TOOL_DEFINITIONS, systemInstruction)`: the prompt holds the OCR text, the user's note, the `receiptUrl` string, and the current date-time anchor. No image bytes or base64 are sent.
+4. `LlmService.generate(prompt, selectToolDefinitions([RECORD_TRANSACTION]), systemInstruction)`: the bill pass offers the model only the one tool it can act on (not the whole catalog, which cost ~10× the prompt tokens and produced wrong-tool calls to discard). The prompt holds the OCR text, the user's note, the `receiptUrl` string, and the current date-time anchor. No image bytes or base64 are sent.
 5. If the model returns a `RECORD_TRANSACTION` tool call, missing `receiptUrl`/`note` are filled in and `RecordTransactionToolStrategy` creates the usual pending confirmation; the transaction is written only after the user confirms.
 6. Otherwise the bot relays the model's text or asks the user to type the amount (e.g. "Ăn trưa 85k"); no transaction is created.
+
+## Photo addressed to the bot (`ZcaBotFeatureService.prepareImageOcrContext`)
+
+A photo sent with a caption that addresses the bot (or a quoted photo) is read for OCR context and archived as a bill before the text pipeline runs. The message's own media is downloaded **once** (`ownMediaFetch` → `memoizeMediaFetch`) and the same bytes feed the auto backup, the OCR context, the chat-memory photo reader (`ImageTextJob.fetchImage`) and an upload on request; previously each step fetched the Zalo CDN again (up to three downloads per photo). Inside `prepareImageOcrContext`, reading the text (`readImageText`, shared with the memory reader through `recognizeNow`) and archiving the bill (`archiveBill` → `uploadBill`) only share the bytes, so they run with `Promise.all`. The bill and the backup still go to their own Drive partitions (`bill` vs `image`).
 
 ## Option 2 — Store Only
 

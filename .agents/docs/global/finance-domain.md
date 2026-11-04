@@ -137,7 +137,7 @@ Xoá giao dịch vẫn giữ hành vi cũ: lấy khoản khớp đầu tiên.
 
 Nút **Xuất CSV** ở trang Thu chi và Công nợ để đối soát hoặc giữ bản sao dữ liệu riêng.
 
-- **Giao dịch** theo đúng bộ lọc đang xem (kỳ, loại, danh mục, tìm kiếm).
+- **Giao dịch** theo đúng bộ lọc đang xem (kỳ, loại, danh mục, tìm kiếm). Sổ cái (để tính số dư lũy kế) chỉ được tải và tính **một lần** cho cả file; trước đây mỗi trang 500 dòng lại tải toàn bộ sổ cái, nên file càng dài càng chậm theo bình phương.
 - **Công nợ** xuất tất cả khoản gốc, bất kể bộ lọc trên màn hình. Khoản đã gộp không xuất riêng vì khoản cha đã gồm số tiền đó, xuất cả hai sẽ bị cộng đôi.
 - **Mở được bằng Excel**: file có BOM UTF-8 nên không lỗi dấu tiếng Việt, số tiền vẫn là số nên tính tổng được.
 - **Chống chèn công thức**: ô chữ bắt đầu bằng `=`, `+`, `-`, `@` được thêm dấu `'` ở đầu. Ghi chú là chữ tự do từ Zalo, nếu không thoát thì Excel có thể chạy nó như công thức.

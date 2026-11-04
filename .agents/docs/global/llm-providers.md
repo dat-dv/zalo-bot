@@ -87,6 +87,7 @@ Quy tắc an toàn:
 - **`edit <mã>`**: LLM chỉ được gọi lại đúng tool của thẻ đang chờ.
 - **Trò chuyện tự do** (`allowAiChat` khác `false`, không ở chế độ thụ động): prompt có thêm đoạn cho phép trả lời câu hỏi tổng quát. Khi LLM không gọi tool, hệ thống gọi lại một lần với `tools = undefined` để danh sách tool không kéo câu trả lời về hướng từ chối. Chi tiết ở [Tiếp nhận lệnh Zalo](zalo-command-intake.md).
 - Lệnh nhanh (`/help`, `/finance`...) không bao giờ đi qua LLM.
+- **Bố cục prompt để tận dụng cache của provider**: phần tĩnh (câu giới thiệu bot, bảng phân loại, luật điền tham số, đoạn trò chuyện tự do, luật trả lời thuần văn bản) đứng trước; phần đổi theo kênh và theo lượt (ghi nhớ/điều bot học, mốc giờ, thẻ đang chờ) đứng cuối, và mốc giờ trong prompt chỉ tới phút. Gemini (cache ngầm) và OpenAI (prompt caching) chỉ dùng lại được phần đầu prompt giống hệt nhau giữa các lượt; trước đây profile kênh và giờ tới từng giây đứng đầu nên vài nghìn token tĩnh bị tính tiền và xử lý lại ở mọi tin. Mỗi provider ghi log debug `… tokens: prompt=… cached=… output=…`; từ tin thứ hai của một kênh, `cached > 0` nghĩa là cache đang trúng (cần model có cache ngầm, ví dụ Gemini 2.5+ hoặc gpt-4o+).
 
 ## 5. Nhiều hành động trong một câu
 

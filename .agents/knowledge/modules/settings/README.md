@@ -26,10 +26,10 @@
   - React Scan: toggle bound to `useReactScan()`.
 - **Compact / phone** (desktop unchanged): both category `DataTable`s use the mobile list (<= 960px): primary `name`, secondary type label; no trailing (categories carry no count/usage). Rename goes through the sheet footer Edit (input 40px), Save/✕ and Delete sit in the sheet footer. At <= 640px the tabs are one sideways-scrolling row of 32px chips (`MOBILE_TOOLBAR_ROW`, `PHONE_CHIP`); panel toolbars stack a full-width 36px search (`PHONE_TOOLBAR_INPUT`) over a full-width 32px Add chip (`PHONE_CHIP`); the inline add row's input and ✓/✕ are 40px (`TAP_CONTROL`); Preferences buttons are 40px and the panel padding shrinks. Category panels stack at 640px (`grid-cols-1`). Toast uses `TOAST_POSITION`; Retry 40px.
 
-## React Scan (known gap)
+## React Scan
 
-- `ReactScanProvider` (`apps/web/src/shared/providers/react-scan-provider.tsx`) only stores a boolean in `localStorage` key `zalobot-react-scan-enabled` (default off) and exposes it via context.
-- Nothing imports `react-scan` (the package is declared in `apps/web/package.json`), so toggling it currently has **no effect** on rendering or profiling.
+- `ReactScanProvider` (`apps/web/src/shared/providers/react-scan-provider.tsx`) stores the switch in `localStorage` key `zalobot-react-scan-enabled` (default off), exposes it via context and, once it is on, loads `react-scan` with a dynamic `import()` and calls `scan({ enabled: true, showToolbar: true })`; switching off calls `setOptions({ enabled: false, showToolbar: false })` on the already loaded module. The package never enters the default bundle (only its on-demand chunk), so the switch costs nothing while off. Loading errors are swallowed: the profiler is a developer aid.
+- Use it to check render churn after a table or screen change (for example that typing in the transactions inline editor re-renders one input, not the table).
 
 ## Buttons
 

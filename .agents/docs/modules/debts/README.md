@@ -34,6 +34,7 @@ Trang `/debts` cho người dùng theo dõi **khoản phải thu** (người kh�
 - Khoản con xuất hiện cả như một bản ghi riêng (có `parentDebtId`); bảng chỉ hiện khoản gốc/khoản cha, còn khoản con nằm trong panel mở rộng của khoản cha.
 - `POST /api/debts` tạo khoản nợ, `DELETE /api/debts/:id` xoá khoản nợ.
 - Mọi mutation (thêm, sửa, xoá, trả nợ, xoá đợt trả, gộp) làm mới cache `debts` và `dashboard`; thêm và xoá còn làm mới `contacts` vì thêm nợ có thể tạo người liên quan mới. Nút Thử lại trên màn hình làm mới `debts` và `contacts`.
+- Ngày trong bảng công nợ định dạng qua `getDateTimeFormat` dùng chung (cache theo ngôn ngữ) và tiền qua `money()` của `useMoneyVisibility` (một `Intl.NumberFormat` mỗi ngôn ngữ); bảng có tới 11 ô tiền mỗi dòng nên không tạo formatter mới cho từng ô.
 
 ## Màn hình công nợ
 

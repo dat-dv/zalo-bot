@@ -57,7 +57,7 @@ Balance effects on other APIs: see [Finance Domain](../../global/finance-domain.
 ## UI (`/savings`)
 
 - Navigation: Finance section of the sidebar and the phone More sheet, available to every signed-in user.
-- Metrics: wallet balance, total savings, wallet + savings. Amounts use the money visibility toggle.
+- Metrics: wallet balance, total savings, wallet + savings. Amounts use the money visibility toggle. Movement history dates go through the cached `getDateTimeFormat` (`@/shared/lib/intl-format`).
 - `DataTable` of groups (`saving_groups`), archived hidden unless "Show archived groups" is on. Phone: list row with a detail sheet holding the actions.
 - Row actions: deposit, withdraw (off at balance 0), opening balance, history, edit, archive (off while it holds money). Archived rows keep history only.
 - Movement dialog: amount, date-time (default now), note. Withdrawal shows the group balance and blocks a higher amount.

@@ -63,7 +63,7 @@ metadata:
 ## Session Identity (`GET API_ROUTES.sessionMe` = `/api/me`)
 
 - Why: an admin hitting an "admins only" page could not tell which Zalo account the session belonged to (e.g. signed in via the link of a non-admin or duplicate id). `/api/dashboard` returns only the raw id and also loads finance/calendar/tasks, so a light endpoint serves the navigation.
-- `ReportsController.me` (Bearer access token) → `IDashboardSessionUser { id, name, avatarUrl, isAdmin, isDashboardOwner }` from `UsersService.getSessionProfile(id)`:
+- `ReportsController.me` (Bearer access token) → `IDashboardSessionUser { id, name, avatarUrl, isAdmin, isDashboardOwner, googleConnected }`: the profile from `UsersService.getSessionProfile(id)` plus `googleConnected` = `GoogleAuthService.isAuthorized(id)`, added in the controller so pages that only need that flag (the calendar) read this cached query instead of the heavy `/api/dashboard` payload:
   - Name: ZCA directory entry of type `user` (`getAvailableThreads(false)`: Redis cache, never a Zalo fetch) `alias || name || displayName` → `users.firstName` → `null`.
   - `dashboard-owner`: `isDashboardOwner: true`, `name: null` unless renamed from the default "Chủ hệ thống" (the web shows the translated `session.owner`).
   - Avatar: `users.avatarUrl` → directory avatar → `null`. `isAdmin` = `UsersService.isAdmin`.

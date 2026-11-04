@@ -33,10 +33,19 @@ Tài liệu này ánh xạ với tri thức canonical [`backend-runtime-services
 - Kết nối qua `REDIS_URL` (mặc định `redis://localhost:6379`).
 - **Thiết kế "lỗi mềm":** nếu Redis không kết nối được, mọi thao tác trả về rỗng/false và chỉ ghi cảnh báo; bot vẫn chạy với bộ nhớ trong tiến trình. Vì vậy mất Redis không làm sập bot, nhưng thẻ chờ sẽ mất khi khởi động lại.
 - Cache whitelist: `whitelist:user:<id>` — được phép lưu 24 giờ, bị từ chối lưu 10 phút để thay đổi quyền có hiệu lực nhanh.
+- **Gộp lệnh Redis ở đường nóng:** `RedisService` có thêm `mget(keys)` (đọc nhiều key một lượt) và `pipeline(ops)` (gửi nhiều lệnh `set`/`del`/`rpush`/`ltrim`/`expire` trong một round trip; trả `false` khi Redis không sẵn sàng hoặc có lệnh lỗi, không ném lỗi). Thẻ xác nhận chờ ghi và xoá 3–4 key bằng một pipeline, danh sách thẻ của một người đọc bằng một `mget`, và bộ đệm tin gần đây của mỗi kênh (`rpush` + `ltrim` + `expire`) đi một lượt cho mỗi tin. Lý do: mỗi tin Zalo trước đây tốn 3–5 round trip Redis nối tiếp nhau chỉ cho việc sổ sách.
+
+## 2a. Thiết lập tiến trình (`main.ts`, `database.module.ts`)
+
+- Mức log: production chỉ ghi `error`, `warn`, `log`; `debug` và `verbose` chỉ bật ngoài production, vì pipeline chat và các provider LLM ghi log ở hai mức này cho **mỗi** tin nhắn.
+- Pool kết nối Postgres: `extra.max = 20` (mặc định của pg là 10). Riêng một lần mở Tổng quan đã chạy 8 truy vấn song song.
 
 ## 3. OCR (`ocr/`)
 
-`OcrService` đọc chữ trên ảnh hoá đơn **ngay trên máy chủ** bằng Tesseract (ngôn ngữ `vie` + `eng`), sau khi dùng `sharp` xoay đúng chiều, chuyển xám và tăng tương phản. Lỗi trả về chuỗi rỗng. Chỉ phần chữ trích xuất mới được gửi cho LLM, ảnh gốc thì không — phù hợp nguyên tắc ưu tiên xử lý cục bộ.
+`OcrService` đọc chữ trên ảnh hoá đơn **ngay trên máy chủ** bằng Tesseract (ngôn ngữ `vie` + `eng`), sau khi dùng `sharp` xoay đúng chiều, thu nhỏ về tối đa 2000px bề ngang, chuyển xám và tăng tương phản. Lỗi trả về chuỗi rỗng. Chỉ phần chữ trích xuất mới được gửi cho LLM, ảnh gốc thì không — phù hợp nguyên tắc ưu tiên xử lý cục bộ.
+
+- **Một worker Tesseract dùng lại**, khởi tạo lười ở ảnh đầu tiên: trước đây mỗi ảnh tạo worker mới rồi huỷ, tức là mỗi lần đều mất vài giây khởi động WASM và nạp ~6,6 MB dữ liệu ngôn ngữ. Nhiều ảnh cùng lúc xếp hàng trong worker. Ảnh nào nhận dạng quá 60 giây thì bị bỏ và worker được tạo lại; worker tự giải phóng sau 10 phút không dùng và khi API tắt.
+- Dữ liệu ngôn ngữ: đặt `OCR_TESSDATA_DIR` thì đọc từ thư mục đó (image API đặt sẵn `/app/tessdata`, xem [Kiến trúc monorepo](monorepo-architecture.md)); để trống thì tesseract.js tải về thư mục làm việc ở lần OCR đầu như trước.
 
 - `recognize(buffer)` trả thêm **độ tin cậy** (0–100) của Tesseract. Ảnh chân dung, phong cảnh thường cho độ tin cậy thấp và ra toàn ký tự rác, nên trí nhớ hội thoại dùng con số này để bỏ qua. `extractTextFromBuffer` vẫn chỉ trả chữ cho các luồng cũ (hoá đơn).
 - **Đọc ảnh chạy nền cho trí nhớ hội thoại**: `ImageTextMemoryService` đọc ảnh của kênh đã bật trí nhớ qua một hàng đợi ngay trong tiến trình, mỗi lần một ảnh vì Tesseract tốn CPU (khoảng 1–3 giây mỗi ảnh), tối đa 20 ảnh chờ. Hàng đợi này không dùng BullMQ nên mất khi restart; ảnh chưa đọc kịp chỉ được nhớ là `[Ảnh]`. Chi tiết ở [Trí nhớ hội thoại](../modules/zca/chat-memory.md).

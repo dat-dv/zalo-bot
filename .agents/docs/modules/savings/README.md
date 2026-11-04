@@ -53,6 +53,8 @@ Tài sản ròng luôn tính cả tiết kiệm, không phụ thuộc công tắ
 
 Các khoản trước đây đã ghi thành khoản chi không tự chuyển: cần xoá khoản chi đó rồi nhập số dư ban đầu.
 
+Lịch sử nạp/rút định dạng ngày giờ qua `getDateTimeFormat` dùng chung (cache theo ngôn ngữ), không tạo `Intl.DateTimeFormat` mới cho từng dòng.
+
 ## Kiểm thử
 
 `apps/api/src/finance/savings.service.spec.ts` kiểm tra cách tính số dư và các quy tắc trên. `transaction-ledger-rows.spec.ts` ở web kiểm tra việc chèn lượt nạp/rút vào bảng thu chi.

@@ -75,6 +75,7 @@ Thao tác chờ duyệt không lưu tên người yêu cầu. Vì vậy khi duy�
   - 50 dòng mỗi trang (tối đa 200), mới nhất trước.
   - Mặc định ẩn 4 bảng kỹ thuật: token Google, phiên đăng nhập dashboard, dấu đã gửi của từng lần nhắc việc/lời nhắc. Chọn đích danh một bảng thì vẫn xem được.
   - Danh sách không trả dữ liệu trước/sau, để payload nhẹ.
+  - Danh sách người thực hiện (để lọc) là một lần quét cả bảng, nên được giữ trong bộ nhớ 60 giây và dùng chung cho các trang mở cùng lúc; người mới xuất hiện trong bộ lọc chậm nhất 1 phút. Lọc theo người thực hiện và khối hoạt động ở Tổng quan dùng chỉ mục ghép `(actor_id, created_at)`.
 - `GET /api/audit-logs/:id`: một dòng kèm dữ liệu trước/sau.
 - Controller nằm trong `AuditAdminModule` riêng. Nếu đặt chung với `AuditModule` sẽ tạo vòng import: `UsersModule → ZcaModule → AuditModule → UsersModule`.
 
@@ -96,6 +97,7 @@ Thao tác chờ duyệt không lưu tên người yêu cầu. Vì vậy khi duy�
   - Trong chi tiết giao dịch có link **Xem lịch sử thay đổi**.
   - Khối Hoạt động ở trang Tổng quan có link **Xem tất cả**. Khối này dùng cùng nhãn tiếng Việt với trang nhật ký ("Thêm · Lời nhắc") và không hiện các bảng kỹ thuật.
   - Cả hai chỉ hiện với admin.
+- Cột thời điểm trong bảng định dạng qua `getDateTimeFormat` dùng chung (cache theo ngôn ngữ), không tạo `Intl.DateTimeFormat` mới cho từng dòng.
 
 ## 5. Chạy & kiểm thử
 

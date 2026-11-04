@@ -16,6 +16,8 @@ metadata:
       - apps/web/src/shared/ui/confirm-dialog.tsx
       - apps/web/src/shared/store/money-visibility-store.ts
       - apps/web/src/shared/store/theme-store.ts
+      - apps/web/src/shared/lib/intl-format.ts
+      - apps/web/src/modules/dashboard/store/transaction-edit-store.ts
       - apps/web/src/shared/providers/app-providers.tsx
       - apps/web/app/(private)/layout.tsx
       - apps/web/src/shared/ui/modal.tsx
@@ -140,3 +142,7 @@ Every modal/dialog renders through the shared `Modal` shell (`apps/web/src/share
 ## Global Client UI State
 
 App-wide client-only UI state (theme, money visibility) lives in Zustand stores under `apps/web/src/shared/store/` (rule 07, Tier 4). The web app is a static export with no server runtime, so module-level `create()` singletons are safe (no per-request store factory). Stores keep only sync UI state; derived values (e.g. `money()` formatter combining visibility + locale) are computed in hooks, never stored. Public hooks: `useTheme()`, `useMoneyVisibility()`, `useMoneyFormatter()`. `AppProviders` keeps only `ErrorBoundary`, `ReactScanProvider`, `QueryClientProvider`, and `LocaleProvider` (locale stays React Context).
+
+Screen-local UI state that would otherwise re-render a whole screen per keystroke may live in a module store too: `modules/dashboard/store/transaction-edit-store.ts` holds the inline-edit draft of the transactions table, and each input subscribes to its own field.
+
+Formatters are cached per locale: `useMoneyFormatter()` keeps one `Intl.NumberFormat` per locale and dates go through `getDateTimeFormat(locale, options)` (`apps/web/src/shared/lib/intl-format.ts`, one `Intl.DateTimeFormat` per locale + options). Never construct `new Intl.NumberFormat` / `new Intl.DateTimeFormat` inside a table cell or row renderer: construction costs tens of microseconds, formatting a value far less, and the tables format every row on every render.

@@ -50,11 +50,11 @@ Human guide: [Finance Domain](../../docs/global/finance-domain.md).
 
 Savings groups (see [modules/savings](../modules/savings/README.md)) move money out of the wallet without an expense. `saving_movements` are separate from `finance_transactions`, so income, expense, category totals and `netSavingsRate` ignore them.
 
-- `computeLedger(rows, movements)` walks both by `occurredAt, createdAt, id` and returns wallet and with-savings running balances plus `ledgerBalance` (wallet) and `savingsTotal`. `getLedgerPosition()` is the entry point; `getLedgerBalance()` returns the wallet only.
+- `computeLedger(rows, movements)` walks both by `occurredAt, createdAt, id` and returns wallet and with-savings running balances plus `ledgerBalance` (wallet) and `savingsTotal`. `prepareLedger()` loads the rows (lean select) and movements once and returns `PreparedLedger { rows, movements, ledger }`; `getLedgerPosition()` is its `ledger`, `getLedgerBalance()` returns the wallet only. `queryTransactions(query, preparedLedger?)` accepts a prepared ledger so a caller paging through the list (CSV export) computes it once instead of per page.
 - `ledgerBalance` = income − expense − deposits + withdrawals. `opening` movements add savings only. The adjust-balance modal uses it, so it reconciles the real wallet.
 - `GET /transactions` items add `runningBalanceWithSavings`; the response adds `savingsTotal` and `savingMovements`: movements on this page (each with both running balances), between the row above the page and the page's last row, so neighbouring pages never repeat or lose one. Empty while a type, search or column filter is active, since movements have none of those fields.
 - Analytics `currentPosition`: `cashflowBalance` = wallet, `savings`, `netWorth` = wallet + savings + receivable − payable. Trend `balance` = wallet at the end of the bucket (same formula as `ledgerBalance`), `balanceWithSavings` = wallet + money in savings groups. `netCashflow` ignores movements: they are neither income nor expense, so a bucket's balance can change by more than its `netCashflow`.
-- `GET /dashboard`: `finance.ledgerBalance`, `finance.savingsTotal`, `transactions[].runningBalance` (from the same ledger walk).
+- `GET /dashboard`: `finance.ledgerBalance`, `finance.savingsTotal`, `transactions[].runningBalance` (from the same ledger walk). The month's `income`/`expense`/`balance` come from `sumPeriod` (two SQL `SUM`s) and its 20 rows from `listRecentTransactions` (`take: 20`); the month is no longer loaded in full with joins just to be summed and sliced (`getSummary` now serves only the chat report tools). Upcoming reminders use `take: 10`, the admin counts read user ids only.
 - Zalo `GET_REPORT` shows the wallet as "Số dư". `/finance` and the today summary are period income − expense, unchanged.
 
 ## Transaction creator and receipt
@@ -128,6 +128,7 @@ Identity normalization (`normalizeIdentity`): NFD, strip diacritics, `vi-VN` low
 - `GET /finance/analytics?startAt&endAt&grain` (`AnalyticsGrain`: day/week/month/quarter/year/all; default `month`).
 - Returns `summary` (income, expense, balance, `netSavingsRate`, receivable/payable totals), `currentPosition` (wallet balance, savings, receivable, payable, `netWorth`), `trend`, `categories` keyed by `${type}:${category}` with per-type percentage, `debts` (top receivables/payables from active top-level debts).
 - Trend buckets: `week` = 7 weekday buckets T2..CN; `month` = 6 day ranges (1-5 … 26-end); `quarter` = 3 months; anything else = 12 months. Running balance starts from the wallet and savings position before `startAt`; movements land in the same bucket a transaction on that date would. For a range reaching the present, the last bucket equals `currentPosition`.
+- Computation: one parallel read of the ledger rows (lean select), the saving movements and the active debts. The period's rows (`rowsInPeriod`, inclusive bounds), the opening position (rows before `startAt`), the summary, the trend and the categories are all derived from those ledger rows in memory; there is no per-period query with joins and no second full-entity load for the opening balance. Invalid `startAt`/`endAt` raise the same "Mốc thời gian … không hợp lệ." errors as the list endpoints (`parsePeriodBound`).
 
 ## Zalo chat integration (LLM tools)
 
@@ -162,7 +163,7 @@ Tools from `ZALO_TOOL_DEFINITIONS` relevant to finance (see [LLM Providers](llm-
 ## CSV export
 
 - `GET /api/transactions/export` takes the list's filters; `GET /api/debts/export` returns all root debts (merged children excluded: the parent already carries the amount). Both are declared before the `:id` routes and need the dashboard bearer token, so the web downloads a blob instead of linking.
-- Transactions page through `queryTransactions`, 500 rows at a time. A failure after the first page destroys the socket: a truncated file must not look complete. Debts bypass the screen's 200-row cap.
+- Transactions page through `queryTransactions`, 500 rows at a time, sharing one `prepareLedger()` across every page (the running balance needs the whole ledger; it used to be reloaded and recomputed for each page). A failure after the first page destroys the socket: a truncated file must not look complete. Debts bypass the screen's 200-row cap.
 - UTF-8 BOM so Excel reads Vietnamese. Text starting with `= + - @`, tab or CR gets a leading `'` (formula injection: notes are free text). Numbers stay numbers. Headers are Vietnamese; dates are Vietnam time. The balance column is the wallet balance, without savings.
 - Any signed-in dashboard user may export: the ledger is shared. Not recorded in the audit log, which only tracks data changes.
 - CSV only for now; no `.xlsx`, no new dependency.

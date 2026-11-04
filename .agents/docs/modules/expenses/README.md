@@ -31,6 +31,7 @@ Nghĩa là người dùng xem và sửa khoản chi trong trang Thu chi (`Transa
 - `GET /api/expenses`: chỉ lấy khoản chi của người đang đăng nhập, mới nhất trước, **tối đa 200 dòng**, mỗi dòng chỉ có `id`, danh mục, ghi chú, số tiền, ngày phát sinh.
 - Sửa và xoá đi qua API giao dịch chung: `PATCH /api/transactions/:id`, `DELETE /api/transactions/:id`.
 - Sửa/xoá thành công làm mới cache `expenses`, `transactions`, `dashboard`. Nút Thử lại khi lỗi làm mới `expenses` và `categories`.
+- Ngày giờ trong bảng định dạng qua `getDateTimeFormat` dùng chung (cache theo ngôn ngữ), không tạo `Intl.DateTimeFormat` mới cho từng ô.
 
 ## Hành vi của `ExpensesScreen` (nếu được gắn lại)
 

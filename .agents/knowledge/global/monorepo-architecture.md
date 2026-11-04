@@ -19,6 +19,13 @@ metadata:
       - docker-compose.yml
       - docker-compose.local.yml
       - packages/contracts/src/index.ts
+      - .dockerignore
+      - .nvmrc
+      - apps/api/package.json
+      - apps/api/tsconfig.json
+      - apps/web/package.json
+      - packages/contracts/package.json
+      - packages/contracts/tsconfig.json
 ---
 
 # Monorepo Architecture
@@ -52,17 +59,25 @@ metadata:
 
 - `APP_URL` and `WEB_ORIGIN` are explicit URLs (`WEB_ORIGIN` defaults to `APP_URL`). `NEXT_PUBLIC_API_URL` is the public origin without `/api` (route constants include the prefix); when unset or on localhost/tunnel hosts the web uses relative URLs. Avoid `SERVICE_URL_*` (reserved by Coolify).
 - CORS: `CORS_ALLOW_ALL=true` reflects any origin with credentials (explicit security exception); otherwise `WEB_ORIGIN` plus `http://localhost:5173` outside production.
-- Production web container (`apps/web/nginx.conf`, Nginx 1.27) serves the static export and proxies `/api/`, `/oauth2callback` to `http://api:${BE_PORT}`.
+- Production web container (`apps/web/nginx.conf`, Nginx 1.27) serves the static export and proxies `/api/`, `/oauth2callback` to the `upstream api` (`api:${BE_PORT}`, `keepalive 16`; the `Connection` header is mapped from `$http_upgrade`, so plain requests reuse upstream connections while WebSocket upgrades still pass). Text assets are gzipped on the way out (`gzip on`, level 5, ≥ 1 KB, JS/CSS/JSON/SVG/manifest; HTML by default). Cloudflare still compresses at the edge; this covers origin→edge and direct access.
 - Next dev (`FE_PORT`, default 5173) rewrites `/api/:path*` to `NEXT_PUBLIC_API_URL` or `http://localhost:${NGINX_PORT|3000}`.
 
 ## Docker
 
 - `docker-compose.yml`: `postgres` (16-alpine), `redis` (7-alpine, AOF), `api` (`BE_PORT`, default 3005; mounts `./data:/app/data`; healthcheck `/health`), `web` (Nginx, host port `NGINX_PORT`, default 3009; no build arg, so the web calls the API same-origin). Fixed stack values (DB name/user, SSL off, synchronize off, `DATA_DIR=/app/data`) are hardcoded, not interpolated (see `environment-guard.md`).
 - `docker-compose.local.yml` (`npm run docker:local`): postgres, redis, and an Nginx gateway (`NGINX_PORT`, default 3000) proxying to API/web dev servers on the host.
-- Root `.dockerignore` excludes `node_modules`, build outputs, `.git`, and `.env*`. Both Dockerfiles use BuildKit npm cache mounts.
+- Root `.dockerignore` excludes every nested `node_modules`, `dist`, `.next`, `out`, `.tsbuild` (`**/` patterns: a bare `node_modules` only matches the root copy, so the `.claude/worktrees/*` checkouts with their own `node_modules` used to be sent into local builds), plus `.claude`, `.agents`, `docs`, `*.traineddata`, `.git` and `.env*`. Both Dockerfiles use BuildKit npm cache mounts.
 - Stage `manifests` (both Dockerfiles): copies all workspace `package.json` + `package-lock.json` and zeroes every `version` (root, workspaces, lockfile). Rationale: `.githooks/pre-commit` auto-bumps the version on every commit; downstream stages `COPY --from=manifests` (content-checksummed), so `npm ci` stays cached unless dependencies actually change.
 - API (`apps/api/Dockerfile`): `manifests` → `prod-deps` (`npm ci --omit=dev -w @zalobot/api -w @zalobot/contracts`) → `builder` (`npm ci -w @zalobot/api -w @zalobot/contracts`, builds contracts + api) → `runner`. Runner holds only runtime deps from `prod-deps` (no web or dev deps) plus `dist`; it copies the real (non-zeroed) workspace manifests; nothing reads the version or `CHANGELOG.md` at runtime (deploy notifications were removed).
+- API stage `tessdata`: downloads the same `vie`/`eng` files tesseract.js would fetch at runtime (jsdelivr `@tesseract.js-data/<lang>/4.0.0_best_int`, cached with a BuildKit cache mount) and the runner copies them to `/app/tessdata` with `ENV OCR_TESSDATA_DIR=/app/tessdata`, so a fresh container never downloads language data on its first OCR.
 - Web (`apps/web/Dockerfile`): `manifests` → `builder` (`npm ci -w @zalobot/web -w @zalobot/contracts`, `next build`) → Nginx `runner` serving `out`.
+
+## Node & tooling
+
+- Node 22 everywhere: `.nvmrc` = `22`, root `engines.node >= 22`, Docker `node:22-alpine`, `@types/node` `^22` (a newer types major would allow APIs the runtime lacks).
+- TypeScript incremental info lives outside `dist` (`apps/api/tsconfig.json` and `packages/contracts/tsconfig.json`: `tsBuildInfoFile` under `.tsbuild/`, gitignored), so `nest build`'s `deleteOutDir` no longer throws it away and typecheck/build start warm.
+- `npm run dev` runs three processes: `contracts` (`tsc --watch`, so an edit to `packages/contracts/src/index.ts` reaches the api and web without restarting), `api`, `web`; `predev` still builds contracts once first.
+- Dependencies declared but never imported were removed: `next-intl` (web; translations are the contracts catalog), `graphology*`, `gray-matter`, `tsconfig-paths` (api; the `typeorm` script no longer registers it, `tsconfig.json` has no `paths`). `react-scan` stays and is loaded on demand (see modules/settings).
 
 ## Database Migrations
 
