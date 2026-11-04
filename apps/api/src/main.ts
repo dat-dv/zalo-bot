@@ -24,8 +24,12 @@ async function bootstrap() {
   }
 
   const logger = new Logger('Bootstrap');
+  // `debug`/`verbose` lines fire on every Zalo message and LLM call; production keeps them off.
   const app = await NestFactory.create(AppModule, {
-    logger: ['error', 'warn', 'log', 'debug', 'verbose'],
+    logger:
+      process.env.NODE_ENV === 'production'
+        ? ['error', 'warn', 'log']
+        : ['error', 'warn', 'log', 'debug', 'verbose'],
   });
 
   // Security & Performance Middlewares

@@ -59,7 +59,19 @@ export const DEFAULT_REMINDER_MINUTES = [60, 30, 10, 0];
 const DAY_MS = 86_400_000;
 // Re-reading the same Google range more often than this only costs API quota.
 const IMPORT_THROTTLE_MS = 5 * 60_000;
+// Import ranges snap outward to this grid, so loads a few minutes apart ask for the same range.
+const IMPORT_RANGE_GRID_MS = 5 * 60_000;
+// Throttle entries are pruned beyond this many (one per account and range).
+const MAX_REMEMBERED_IMPORTS = 500;
 const INITIAL_IMPORT_DAYS = 365;
+
+function floorToGrid(date: Date): Date {
+  return new Date(Math.floor(date.getTime() / IMPORT_RANGE_GRID_MS) * IMPORT_RANGE_GRID_MS);
+}
+
+function ceilToGrid(date: Date): Date {
+  return new Date(Math.ceil(date.getTime() / IMPORT_RANGE_GRID_MS) * IMPORT_RANGE_GRID_MS);
+}
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
@@ -283,7 +295,11 @@ export class CalendarService {
     if (!email) return;
     const accountEmail = email;
 
-    const key = `${accountEmail}|${timeMin.toISOString()}|${timeMax.toISOString()}`;
+    // Callers pass `now` to the millisecond, which would make every call a new range and the
+    // throttle useless: the range is widened to the grid so repeated loads share one key.
+    const rangeMin = floorToGrid(timeMin);
+    const rangeMax = ceilToGrid(timeMax);
+    const key = `${accountEmail}|${rangeMin.toISOString()}|${rangeMax.toISOString()}`;
     const last = this.recentImports.get(key);
     if (last !== undefined && Date.now() - last < IMPORT_THROTTLE_MS) return;
 
@@ -294,17 +310,28 @@ export class CalendarService {
       const initialMin = new Date(now - INITIAL_IMPORT_DAYS * DAY_MS);
       const initialMax = new Date(now + INITIAL_IMPORT_DAYS * DAY_MS);
       if (await this.runImport(accountEmail, viewerId, initialMin, initialMax)) {
-        this.recentImports.set(initialKey, now);
+        this.rememberImport(initialKey, now);
         await this.redis?.set(initialKey, new Date(now).toISOString());
-        if (timeMin >= initialMin && timeMax <= initialMax) {
-          this.recentImports.set(key, now);
+        if (rangeMin >= initialMin && rangeMax <= initialMax) {
+          this.rememberImport(key, now);
           return;
         }
       }
     }
 
-    if (await this.runImport(accountEmail, viewerId, timeMin, timeMax)) {
-      this.recentImports.set(key, Date.now());
+    if (await this.runImport(accountEmail, viewerId, rangeMin, rangeMax)) {
+      this.rememberImport(key, Date.now());
+    }
+  }
+
+  /** Records an import; entries past the throttle window are dropped once the map grows. */
+  private rememberImport(key: string, at: number): void {
+    this.recentImports.set(key, at);
+    if (this.recentImports.size <= MAX_REMEMBERED_IMPORTS) return;
+    for (const [storedKey, storedAt] of this.recentImports) {
+      if (!storedKey.startsWith('calendar:') && at - storedAt >= IMPORT_THROTTLE_MS) {
+        this.recentImports.delete(storedKey);
+      }
     }
   }
 

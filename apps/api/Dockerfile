@@ -46,7 +46,21 @@ COPY apps/api apps/api
 COPY packages/contracts packages/contracts
 RUN npm run build --workspace @zalobot/contracts && npm run build --workspace @zalobot/api
 
-# Stage 4: Production runner
+# Stage 4: Tesseract language data. The same files tesseract.js downloads on its own (jsdelivr,
+# `4.0.0_best_int`, the LSTM-only variant it defaults to), baked in so a fresh container never
+# fetches them from the CDN on its first OCR. Cached across builds: they change rarely.
+FROM node:22-alpine AS tessdata
+WORKDIR /tessdata
+RUN --mount=type=cache,target=/tessdata-cache \
+    for lang in vie eng; do \
+      if [ ! -s "/tessdata-cache/${lang}.traineddata" ]; then \
+        wget -qO- "https://cdn.jsdelivr.net/npm/@tesseract.js-data/${lang}/4.0.0_best_int/${lang}.traineddata.gz" \
+          | gunzip > "/tessdata-cache/${lang}.traineddata"; \
+      fi; \
+      cp "/tessdata-cache/${lang}.traineddata" "/tessdata/${lang}.traineddata"; \
+    done
+
+# Stage 5: Production runner
 FROM node:22-alpine AS runner
 WORKDIR /app
 RUN --mount=type=cache,target=/var/cache/apk \
@@ -57,7 +71,11 @@ ARG BE_PORT=3005
 ENV NODE_ENV=production
 ENV TZ=Asia/Ho_Chi_Minh
 ENV BE_PORT=${BE_PORT}
+# OcrService reads vie/eng from here instead of downloading into the working directory.
+ENV OCR_TESSDATA_DIR=/app/tessdata
 EXPOSE ${BE_PORT}
+
+COPY --from=tessdata /tessdata /app/tessdata
 
 # Workspace manifests so Node resolves the @zalobot/* packages at runtime.
 COPY package.json package-lock.json ./
