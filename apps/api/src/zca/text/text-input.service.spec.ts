@@ -14,6 +14,7 @@ import { ManageDebtToolStrategy } from './strategies/manage-debt-tool.strategy';
 import { RecordTransactionToolStrategy } from './strategies/record-transaction-tool.strategy';
 import { SetReminderToolStrategy } from './strategies/set-reminder-tool.strategy';
 import { GetReportToolStrategy } from './strategies/get-report-tool.strategy';
+import type { FinanceReportService } from '../../finance/finance-report.service';
 import { CreateTaskToolStrategy } from './strategies/create-task-tool.strategy';
 import { TasksService } from '../../tasks/tasks.service';
 import { ZcaMessengerService } from '../zca-messenger.service';
@@ -191,7 +192,10 @@ function createTextInputService(options?: SetupOptions) {
     options?.enablePlaceCheck ? mockFinanceService : undefined,
   );
   const setReminderStrategy = new SetReminderToolStrategy(mockZaloService, confirmationService);
-  const getReportStrategy = new GetReportToolStrategy(mockZaloService, mockFinanceService);
+  const getReportStrategy = new GetReportToolStrategy(mockZaloService, mockFinanceService, {
+    getBreakdown: () =>
+      Promise.resolve({ income: 0, expense: 0, count: 0, topCategories: [], topTransactions: [] }),
+  } as unknown as FinanceReportService);
   const mockTasksService = {
     findPotentialDuplicateTasks: () => Promise.resolve([]),
   } as unknown as TasksService;

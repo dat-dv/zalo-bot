@@ -79,5 +79,7 @@ export const INTENT_EVAL_CASES: readonly IntentEvalCase[] = [
   { text: 'sáng nay đi bơi hết 70k ở hồ bơi tây thạnh', expect: TextToolType.RECORD_TRANSACTION },
   { text: 'cho Nam vay 200k', expect: TextToolType.MANAGE_DEBT },
   { text: 'hôm nay tiêu bao nhiêu', expect: TextToolType.GET_REPORT },
+  { text: 'tháng trước ăn uống hết bao nhiêu', expect: TextToolType.GET_REPORT },
+  { text: 'tuần này tiêu ở aeon bao nhiêu', expect: TextToolType.GET_REPORT },
   { text: 'còn việc gì chưa xong', expect: TextToolType.LIST_TASKS },
 ];

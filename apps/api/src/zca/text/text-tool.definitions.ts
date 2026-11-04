@@ -1,4 +1,5 @@
 import { LlmToolDefinition } from '../../llm/types/llm.types';
+import { REPORT_PERIODS } from '../../finance/report-period';
 import { TextToolType } from './text-tool.enum';
 
 export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
@@ -215,16 +216,34 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
   {
     name: TextToolType.GET_REPORT,
     description:
-      'Tra cứu báo cáo, tóm tắt chi tiêu hoặc tình hình tài chính. ' +
-      'Ví dụ: "hôm nay chi bao nhiêu?", "tháng này tiêu hết bao nhiêu?", "báo cáo tài chính".',
+      'Tra cứu số liệu thu chi: tổng theo kỳ, theo danh mục, nơi chốn, người liên quan hoặc từ khoá. ' +
+      'Ví dụ: "hôm nay chi bao nhiêu?", "tháng trước ăn uống hết bao nhiêu?", ' +
+      '"tuần này tiêu ở Aeon bao nhiêu?", "tháng này thu được bao nhiêu?", "báo cáo tài chính".',
     parameters: {
       type: 'OBJECT',
       properties: {
-        grain: {
+        period: {
           type: 'STRING',
-          enum: ['day', 'month', 'year'],
-          description: 'Khung thời gian báo cáo',
+          enum: [...REPORT_PERIODS],
+          description: 'Kỳ báo cáo. Không nêu kỳ thì bỏ trống (mặc định tháng này).',
         },
+        startDate: {
+          type: 'STRING',
+          description: 'Ngày đầu YYYY-MM-DD, chỉ dùng khi hỏi khoảng ngày cụ thể',
+        },
+        endDate: {
+          type: 'STRING',
+          description: 'Ngày cuối YYYY-MM-DD (tính cả ngày này)',
+        },
+        type: {
+          type: 'STRING',
+          enum: ['income', 'expense'],
+          description: 'Chỉ khi người dùng hỏi riêng khoản thu hoặc khoản chi',
+        },
+        category: { type: 'STRING', description: 'Tên danh mục, ví dụ Ăn uống' },
+        placeName: { type: 'STRING', description: 'Tên nơi chốn' },
+        contactName: { type: 'STRING', description: 'Tên người liên quan' },
+        keyword: { type: 'STRING', description: 'Từ khoá trong nội dung giao dịch' },
       },
     },
   },

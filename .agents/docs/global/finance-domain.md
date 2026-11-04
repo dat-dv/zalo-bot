@@ -101,3 +101,15 @@ Không có API riêng. Danh mục `Điều chỉnh số dư` có sẵn ở cả 
 
 ## 5. Kiểm thử
 `npm run test --workspace @zalobot/api` (bao gồm `apps/api/src/finance/finance.service.spec.ts`).
+
+## Hỏi số liệu tài chính trên Zalo (`GET_REPORT`)
+
+Người dùng hỏi "tháng trước ăn uống hết bao nhiêu?" thì bot trả về đúng kỳ và đúng bộ lọc. Trước đây tool khai báo kỳ nhưng code không dùng, nên mọi câu hỏi đều nhận về tổng từ trước đến nay.
+
+- **Kỳ**: hôm nay, hôm qua, tuần này, tuần trước, tháng này, tháng trước, năm nay, từ trước đến nay, hoặc khoảng ngày cụ thể. Không nêu kỳ thì mặc định tháng này. Tính theo giờ Việt Nam, tuần bắt đầu từ thứ 2.
+- **Bộ lọc**: loại, danh mục, nơi chốn, người liên quan, từ khoá.
+- **Luôn ghi rõ kỳ và bộ lọc trong câu trả lời**: nếu mô hình hiểu sai câu hỏi, người dùng thấy ngay.
+- **Tên không khớp thì nói không tìm thấy**: thà không trả lời còn hơn trả số của nơi khác hoặc người khác.
+- **Số dư chỉ hiện ở báo cáo không lọc**: số dư là con số hiện tại, không phải của kỳ đang xem.
+
+Báo cáo trong chat và tóm tắt tự động dùng chung `FinanceReportService`, nên số liệu hai nơi luôn khớp.

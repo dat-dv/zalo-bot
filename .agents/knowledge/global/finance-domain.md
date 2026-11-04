@@ -129,3 +129,12 @@ Tools from `ZALO_TOOL_DEFINITIONS` relevant to finance (see [LLM Providers](llm-
 - No LLM tool exists for allocations, contacts, categories, or combine operations (dashboard only).
 - No call coalescing. Multiple tool calls run sequentially; `TextInputService.propagateSharedTransactionContext` copies a single shared `occurredAt`, and (when times agree) a single shared `placeName`/`paymentMethod`, to sibling `RECORD_TRANSACTION` calls missing them.
 - Fast-path commands `/finance` (today summary) and `/debts` (active debts) read directly without LLM.
+
+## Chat financial queries (`GET_REPORT`)
+
+- Args: `period` (`today | yesterday | this_week | last_week | this_month | last_month | this_year | all_time`), or `startDate` + `endDate` (`YYYY-MM-DD`, inclusive); plus `type`, `category`, `placeName`, `contactName`, `keyword`.
+- No period means `this_month`; the reply always names the period and filters so a wrong model guess is visible.
+- `report-period.ts` resolves periods in Vietnam time, weeks start Monday, `endAt` exclusive. Invalid or reversed dates are refused.
+- `FinanceReportService.getBreakdown` computes totals, top 5 categories and top 3 transactions in SQL. Chat reports and scheduled digests share it, so their numbers cannot drift.
+- Place and contact names match exactly; an unknown name is reported, never dropped as a filter. Category match is case-insensitive equality.
+- The wallet balance is shown only on unfiltered reports: it is current, not a figure of the period.
