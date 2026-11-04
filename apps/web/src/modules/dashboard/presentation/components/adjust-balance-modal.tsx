@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useId, useMemo } from 'react';
+import Link from 'next/link';
+import { APP_ROUTES } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import {
@@ -166,6 +168,18 @@ export function AdjustBalanceModal({
             {money(currentBalance)}
           </strong>
         </div>
+
+        {/* An adjustment is income or expense, so a move to savings must not go through here. */}
+        <p className="leading-relaxed text-slate-600 dark:text-slate-400">
+          {t('transactions.balanceAdjust.savingsHint')}{' '}
+          <Link
+            href={APP_ROUTES.savings}
+            onClick={onClose}
+            className="font-medium text-sky-700 underline underline-offset-2 dark:text-sky-400"
+          >
+            {t('transactions.balanceAdjust.savingsLink')}
+          </Link>
+        </p>
 
         {/* New Target Balance Input */}
         <div className="space-y-1.5">

@@ -46,7 +46,7 @@ Chạy tự động một lần khi API khởi động, trong **một transactio
 
 Số dư trên sổ giờ là **số dư ví**: tổng thu − tổng chi − tiền đã nạp vào nhóm tiết kiệm + tiền đã rút ra. Tiền trong nhóm không phải khoản chi nên không ảnh hưởng tổng chi, danh mục hay tỷ lệ tiết kiệm. Riêng "số dư ban đầu" chỉ làm tăng tiết kiệm, không trừ ví, vì đó là tiền đã có từ trước.
 
-Bảng thu chi chèn các lượt nạp/rút vào giữa giao dịch để số dư sau giao dịch không đổi mà không rõ lý do. Khi đang lọc theo loại, từ khoá hoặc cột thì không chèn, vì lượt nạp/rút không có các trường đó. Tài sản ròng luôn tính cả tiết kiệm. Báo cáo Zalo hiện số dư ví. Chi tiết xem [Nhóm tiết kiệm](../modules/savings/README.md).
+Bảng thu chi chèn các lượt nạp/rút vào giữa giao dịch để số dư sau giao dịch không đổi mà không rõ lý do. Các dòng này có nhãn Chuyển, màu trung tính và dấu theo tác động lên ví, không hiện như thu chi. Vì "chênh lệch thu chi" không phải số tiền đang có, dải tổng của trang hiện thêm tiền chuyển tiết kiệm trong kỳ (`summary.savingsMoved`: tiền nạp trừ tiền rút, không tính số dư ban đầu, không theo bộ lọc) và số dư ví hiện tại. Khi đang lọc theo loại, từ khoá hoặc cột thì không chèn, vì lượt nạp/rút không có các trường đó. Tài sản ròng luôn tính cả tiết kiệm. Báo cáo Zalo hiện số dư ví. Chi tiết xem [Nhóm tiết kiệm](../modules/savings/README.md).
 
 ## 1b. Người tạo và ảnh hoá đơn
 
@@ -96,7 +96,7 @@ Bảng thu chi chèn các lượt nạp/rút vào giữa giao dịch để số 
 Không có API riêng. Danh mục `Điều chỉnh số dư` có sẵn ở cả hai loại. Web tạo một giao dịch thường: chênh lệch dương là khoản thu, âm là khoản chi. Cách này giữ được lịch sử dòng tiền thay vì sửa trực tiếp con số.
 
 ### 3.7 Phân tích
-`GET /api/finance/analytics` trả tổng thu/chi, tỷ lệ tiết kiệm, vị thế hiện tại (số dư toàn thời gian + phải thu − phải trả), xu hướng theo khung (`week`: 7 ngày T2–CN, `month`: 6 khoảng ngày, `quarter`: 3 tháng, còn lại: 12 tháng), phân bổ danh mục tách riêng thu/chi và top người nợ/chủ nợ. Mỗi kỳ trong xu hướng có `balance` là số dư ví cuối kỳ (đã tính nạp/rút tiết kiệm) và `balanceWithSavings` là ví + tiết kiệm, nên kỳ cuối của một khoảng tới hiện tại luôn khớp vị thế hiện tại.
+`GET /api/finance/analytics` trả tổng thu/chi, tỷ lệ tiết kiệm, vị thế hiện tại (số dư toàn thời gian + phải thu − phải trả), xu hướng theo khung (`week`: 7 ngày T2–CN, `month`: 6 khoảng ngày, `quarter`: 3 tháng, còn lại: 12 tháng), phân bổ danh mục tách riêng thu/chi và top người nợ/chủ nợ. Mỗi kỳ trong xu hướng có `balance` là số dư ví cuối kỳ (đã tính nạp/rút tiết kiệm) `balanceWithSavings` là ví + tiết kiệm và `savingsMoved` là tiền nạp trừ tiền rút trong kỳ, nên kỳ cuối của một khoảng tới hiện tại luôn khớp vị thế hiện tại.
 
 ## 4. Tích hợp chat Zalo
 

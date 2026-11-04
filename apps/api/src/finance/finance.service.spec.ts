@@ -548,6 +548,27 @@ void test('FinanceService.getAnalyticsReport ends the trend on the current posit
   );
 });
 
+void test('FinanceService.getAnalyticsReport reports the savings moved in each trend period', async () => {
+  const report = await serviceWithSavingMovements().getAnalyticsReport(
+    '2026-07-01T00:00:00.000Z',
+    '2026-09-30T23:59:59.999Z',
+    'month',
+  );
+
+  // Deposits minus withdrawals; the opening balance of July never left the wallet.
+  const moved = report.trend.map((bucket) => bucket.savingsMoved);
+  assert.equal(
+    moved.reduce((total, amount) => total + amount, 0),
+    3_700_000,
+  );
+  // Every period reconciles: the wallet moves by the net cashflow less what went to savings.
+  let wallet = 0;
+  for (const bucket of report.trend) {
+    wallet += bucket.netCashflow - bucket.savingsMoved;
+    assert.equal(bucket.balance, wallet);
+  }
+});
+
 void test('FinanceService.getAnalyticsReport separates income and expense with identical categories', async () => {
   const transactions: FinanceTransactionEntity[] = [
     {

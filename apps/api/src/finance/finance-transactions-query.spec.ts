@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { BadRequestException } from '@nestjs/common';
+import type { SavingMovementType } from '@zalobot/contracts';
 import type { Request } from 'express';
 import type { FindManyOptions } from 'typeorm';
 import type { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
@@ -30,7 +31,21 @@ const LEDGER: LedgerRow[] = [
   row('e', 'expense', 300_000, '2026-09-10T02:00:00.000Z', '2026-09-10T03:00:00.000Z'),
 ];
 
-function createService(pageRows: LedgerRow[], total = pageRows.length) {
+function movement(id: string, type: SavingMovementType, amount: number, occurredAt: string) {
+  return {
+    id,
+    type,
+    amount,
+    occurredAt: new Date(occurredAt),
+    createdAt: new Date(occurredAt),
+  };
+}
+
+function createService(
+  pageRows: LedgerRow[],
+  total = pageRows.length,
+  movements: ReturnType<typeof movement>[] = [],
+) {
   const findAndCountCalls: FindManyOptions<FinanceTransactionEntity>[] = [];
   const findCalls: FindManyOptions<FinanceTransactionEntity>[] = [];
   const transactionRepo = {
@@ -58,6 +73,9 @@ function createService(pageRows: LedgerRow[], total = pageRows.length) {
     {} as never,
     {} as never,
     {} as never,
+    undefined,
+    undefined,
+    { find: () => Promise.resolve(movements) } as never,
   );
   return { service, findAndCountCalls, findCalls };
 }
@@ -88,7 +106,12 @@ void test('queryTransactions keeps running balances from the whole ledger when f
   assert.equal(result.items[0].runningBalance, 7_500_000);
   assert.equal(result.ledgerBalance, 8_200_000);
   // Summary covers the whole period (both types), independent of the type filter.
-  assert.deepEqual(result.summary, { income: 1_000_000, expense: 800_000, count: 3 });
+  assert.deepEqual(result.summary, {
+    income: 1_000_000,
+    expense: 800_000,
+    count: 3,
+    savingsMoved: 0,
+  });
   // Finance data is shared: the ledger walk and the page never filter by user.
   assert.equal(findCalls[0].where, undefined);
   const where = findAndCountCalls[0].where;
@@ -96,6 +119,32 @@ void test('queryTransactions keeps running balances from the whole ledger when f
   assert.equal(where.length, 1);
   assert.equal('userId' in where[0], false);
   assert.equal(where[0].type, 'expense');
+});
+
+void test('queryTransactions reports money moved to savings without touching income or expense', async () => {
+  const { service } = createService([LEDGER[2]], 1, [
+    movement('before', 'deposit', 7_000_000, '2026-08-25T02:00:00.000Z'),
+    movement('deposit', 'deposit', 1_000_000, '2026-09-06T02:00:00.000Z'),
+    movement('withdrawal', 'withdrawal', 200_000, '2026-09-07T02:00:00.000Z'),
+    movement('opening', 'opening', 5_000_000, '2026-09-08T02:00:00.000Z'),
+  ]);
+
+  const result = await service.queryTransactions({
+    type: 'expense',
+    startAt: '2026-09-01T00:00:00.000Z',
+    endAt: '2026-09-30T23:59:59.999Z',
+  });
+
+  // A deposit before the period and an opening balance are not moves out of this period's wallet.
+  assert.deepEqual(result.summary, {
+    income: 1_000_000,
+    expense: 800_000,
+    count: 3,
+    savingsMoved: 800_000,
+  });
+  // The list hides movements under a filter; the total must not depend on that.
+  assert.deepEqual(result.savingMovements, []);
+  assert.equal(result.ledgerBalance, 400_000);
 });
 
 void test('queryTransactions searches category, note and place name across the shared ledger', async () => {

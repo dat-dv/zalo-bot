@@ -18,6 +18,7 @@
 - **Số dư ví**: Tiền đang tiêu được: tổng thu − tổng chi − tiền nạp vào nhóm tiết kiệm + tiền rút ra.
 - **Tổng tiết kiệm**: Tổng tiền đang nằm trong mọi nhóm tiết kiệm.
 - **Nạp / Rút (tiết kiệm)**: Chuyển tiền giữa ví và nhóm tiết kiệm, không phải khoản thu hay khoản chi. Không rút quá số dư nhóm. Muốn tiêu tiền đã rút thì ghi khoản chi như bình thường.
+- **Chuyển tiết kiệm**: Số tiền ròng đã ra khỏi ví sang tiết kiệm trong một kỳ: tiền nạp trừ tiền rút, không tính **số dư ban đầu**. Là phần giải thích vì sao số dư ví của kỳ không tăng bằng chênh lệch thu chi. Dùng **Cân chỉnh số dư** thay cho Nạp thì sai, vì cân chỉnh luôn ghi thành thu hoặc chi.
 - **Số dư ban đầu (tiết kiệm)**: Tiền đã để dành từ trước, nhập vào nhóm mà không trừ **số dư ví**.
 - **Sổ chung**: Toàn hệ thống chỉ có một kho tài chính (thu chi, nơi chốn, danh bạ công nợ, công nợ, danh mục), không thuộc về người dùng nào; ai nhắn bot hay thao tác trên dashboard cũng ghi vào và xem toàn bộ kho này. Không có sổ riêng theo người dùng.
 - **Người tạo**: Người đã ghi giao dịch (người gửi tin Zalo hoặc người dùng dashboard), kèm **nguồn** (nhóm Zalo, chat riêng hoặc dashboard). Không dùng để giới hạn ai được xem dữ liệu; chỉ dùng khi người dùng chủ động chọn xem (bộ lọc người tạo ở bảng thu chi, giao dịch do họ ghi trên **hồ sơ**).

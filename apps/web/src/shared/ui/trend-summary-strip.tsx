@@ -14,6 +14,20 @@ interface TrendSummaryStripProps {
   extraMetrics?: ReactNode;
 }
 
+/** One more figure beside the totals, passed through `extraMetrics`. */
+export function TrendSummaryMetric({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <article className="flex min-h-[62px] flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60">
+      <span className="block text-[11px] font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+        {label}
+      </span>
+      <strong className="mt-0.5 block text-base font-bold tabular-nums tracking-tight text-slate-900 dark:text-slate-100">
+        {value}
+      </strong>
+    </article>
+  );
+}
+
 export function TrendSummaryStrip({
   income,
   expense,
@@ -45,7 +59,7 @@ export function TrendSummaryStrip({
         valueClassName="text-amber-700 dark:text-amber-400"
       />
       <PhoneTotal
-        label={t('dashboard.balance')}
+        label={t('dashboard.balanceShort')}
         value={money(balance)}
         valueClassName={balanceClass}
       />
@@ -102,7 +116,7 @@ export function TrendSummaryStrip({
         className="grid grid-cols-[minmax(0,1fr)_minmax(280px,380px)] gap-3 rounded border border-slate-200 bg-white p-2.5 dark:border-slate-800 dark:bg-slate-900 max-[900px]:grid-cols-1 max-[640px]:hidden"
         aria-label={t('chart.incomeVsExpense')}
       >
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-2">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(132px,1fr))] gap-2">
           <article className="flex min-h-[62px] flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60">
             <span className="block text-[11px] font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
               {t('dashboard.incomeTotal')}

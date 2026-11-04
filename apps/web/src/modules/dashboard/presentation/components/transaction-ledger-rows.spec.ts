@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import type { ITransactionListItem, ITransactionSavingMovement } from '@zalobot/contracts';
-import { mergeLedgerRows } from './transaction-ledger-rows';
+import type {
+  ITransactionListItem,
+  ITransactionSavingMovement,
+  SavingMovementType,
+} from '@zalobot/contracts';
+import { mergeLedgerRows, walletSignOfSavingsMoved } from './transaction-ledger-rows';
 
 function transaction(id: string, occurredAt: string): ITransactionListItem {
   return {
@@ -52,6 +56,25 @@ void test('a movement is read-only and names its group', () => {
   assert.equal(row?.type, 'expense');
   assert.equal(row?.category, 'label:deposit');
   assert.equal(row?.note, 'Du lịch: Tháng 10');
+});
+
+void test('a movement is signed by its effect on the wallet', () => {
+  const signOf = (type: SavingMovementType) =>
+    mergeLedgerRows([], [{ ...deposit, type }], false, label)[0]?.walletSign;
+  assert.equal(signOf('deposit'), '-');
+  assert.equal(signOf('withdrawal'), '+');
+  assert.equal(signOf('opening'), '');
+});
+
+void test('a transaction has no wallet sign, so it keeps the income and expense look', () => {
+  const rows = [transaction('t', '2026-10-01T00:00:00.000Z')];
+  assert.equal(mergeLedgerRows(rows, [], false, label)[0]?.walletSign, undefined);
+});
+
+void test('money moved to savings takes from the wallet, money moved back adds to it', () => {
+  assert.equal(walletSignOfSavingsMoved(88_000_000), '-');
+  assert.equal(walletSignOfSavingsMoved(-1_000), '+');
+  assert.equal(walletSignOfSavingsMoved(0), '');
 });
 
 void test('the toggle picks the balance that includes savings', () => {

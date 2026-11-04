@@ -3,14 +3,27 @@ import type {
   ITransactionSavingMovement,
   SavingMovementType,
 } from '@zalobot/contracts';
-import type { TransactionTableItem } from './transactions-table';
+import type { TransactionTableItem, WalletSign } from './transactions-table';
 
-/** A deposit leaves the wallet, so it reads like an expense; the others add money. */
+/** Only fills the required `type`: `walletSign` is what marks and renders these rows. */
 const ROW_TYPE: Record<SavingMovementType, TransactionTableItem['type']> = {
   deposit: 'expense',
   withdrawal: 'income',
   opening: 'income',
 };
+
+/** How a movement changes the wallet: `opening` leaves it alone, so it has no sign. */
+const WALLET_SIGN: Record<SavingMovementType, WalletSign> = {
+  deposit: '-',
+  withdrawal: '+',
+  opening: '',
+};
+
+/** The sign of a period's `savingsMoved` on the wallet: money moved out reads as a minus. */
+export function walletSignOfSavingsMoved(savingsMoved: number): WalletSign {
+  if (savingsMoved > 0) return '-';
+  return savingsMoved < 0 ? '+' : '';
+}
 
 function movementRow(
   movement: ITransactionSavingMovement,
@@ -28,6 +41,7 @@ function movementRow(
     createdByName: movement.createdByName,
     runningBalance: includeSavings ? movement.runningBalanceWithSavings : movement.runningBalance,
     readOnly: true,
+    walletSign: WALLET_SIGN[movement.type],
     balanceIncludesSavings: includeSavings,
   };
 }

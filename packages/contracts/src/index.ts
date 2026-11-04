@@ -285,7 +285,7 @@ const messages = {
     'savings.columns.createdBy': 'Người tạo',
     'savings.actions.create': 'Tạo nhóm',
     'savings.actions.edit': 'Sửa',
-    'savings.actions.deposit': 'Nạp',
+    'savings.actions.deposit': 'Nạp từ ví',
     'savings.actions.withdraw': 'Rút',
     'savings.actions.opening': 'Số dư ban đầu',
     'savings.actions.history': 'Lịch sử',
@@ -301,7 +301,7 @@ const messages = {
     'savings.form.namePlaceholder': 'Ví dụ: Du lịch, Quỹ dự phòng',
     'savings.form.note': 'Ghi chú',
     'savings.form.save': 'Lưu',
-    'savings.movement.title.deposit': 'Nạp vào {name}',
+    'savings.movement.title.deposit': 'Nạp từ ví vào {name}',
     'savings.movement.title.withdrawal': 'Rút từ {name}',
     'savings.movement.title.opening': 'Số dư ban đầu của {name}',
     'savings.movement.hint.deposit': 'Số dư ví giảm tương ứng. Khoản này không tính là khoản chi.',
@@ -332,6 +332,8 @@ const messages = {
     'savings.error.generic': 'Chưa lưu được, thử lại sau.',
     'savings.error.load': 'Chưa tải được dữ liệu tiết kiệm.',
     'savings.ledgerRow.deposit': 'Nạp tiết kiệm',
+    'savings.ledgerBadge.transfer': 'Chuyển',
+    'savings.ledgerBadge.opening': 'Tiết kiệm',
     'savings.ledgerRow.withdrawal': 'Rút tiết kiệm',
     'savings.ledgerRow.opening': 'Số dư tiết kiệm ban đầu',
     'analytics.currentPosition.savings': 'Tiết kiệm',
@@ -580,7 +582,8 @@ const messages = {
     'dashboard.incomeTotal': 'Tổng thu',
     'dashboard.expenseTotal': 'Tổng chi',
     'dashboard.netDebt': 'Chênh lệch vay nợ',
-    'dashboard.balance': 'Thu − Chi',
+    'dashboard.balance': 'Chênh lệch thu chi',
+    'dashboard.balanceShort': 'Chênh lệch',
     'dashboard.tasks': 'Việc cần làm',
     'dashboard.reminders': 'Nhắc nhở',
     'dashboard.calendar': 'Lịch sắp tới',
@@ -1003,6 +1006,11 @@ const messages = {
     'category.debtPayment': 'Trả công nợ',
     'category.balanceAdjustment': 'Điều chỉnh số dư',
     'transactions.balanceAdjust.title': 'Cân chỉnh số dư ví',
+    'transactions.balanceAdjust.savingsHint':
+      'Khoản cân chỉnh được ghi thành thu hoặc chi. Muốn chuyển tiền sang tiết kiệm, hãy dùng Nạp từ ví.',
+    'transactions.balanceAdjust.savingsLink': 'Mở trang Tiết kiệm',
+    'transactions.metric.savingsMoved': 'Chuyển tiết kiệm trong kỳ',
+    'transactions.metric.walletNow': 'Số dư ví hiện tại',
     'transactions.balanceAdjust.subtitle':
       'Nhập số dư thực tế để hệ thống tự động ghi nhận giao dịch bù trừ cho khớp',
     'transactions.balanceAdjust.currentBalance': 'Số dư trên sổ hiện tại',
@@ -1054,6 +1062,7 @@ const messages = {
     'analytics.cashflow.column.income': 'Tổng thu (+)',
     'analytics.cashflow.column.expense': 'Tổng chi (-)',
     'analytics.cashflow.column.netCashflow': 'Chênh lệch Thu–Chi',
+    'analytics.cashflow.column.savingsMoved': 'Chuyển tiết kiệm',
     'analytics.cashflow.column.balance': 'Số dư ví cuối kỳ',
     'analytics.cashflow.column.balanceWithSavings': 'Ví và tiết kiệm cuối kỳ',
     'calendar.title': 'Lịch',
@@ -1669,7 +1678,7 @@ const messages = {
     'savings.columns.createdBy': 'Created by',
     'savings.actions.create': 'New group',
     'savings.actions.edit': 'Edit',
-    'savings.actions.deposit': 'Deposit',
+    'savings.actions.deposit': 'Deposit from wallet',
     'savings.actions.withdraw': 'Withdraw',
     'savings.actions.opening': 'Opening balance',
     'savings.actions.history': 'History',
@@ -1685,7 +1694,7 @@ const messages = {
     'savings.form.namePlaceholder': 'For example: Travel, Emergency fund',
     'savings.form.note': 'Note',
     'savings.form.save': 'Save',
-    'savings.movement.title.deposit': 'Deposit to {name}',
+    'savings.movement.title.deposit': 'Deposit from wallet to {name}',
     'savings.movement.title.withdrawal': 'Withdraw from {name}',
     'savings.movement.title.opening': 'Opening balance of {name}',
     'savings.movement.hint.deposit':
@@ -1718,6 +1727,8 @@ const messages = {
     'savings.error.generic': 'Could not save. Try again later.',
     'savings.error.load': 'Could not load savings data.',
     'savings.ledgerRow.deposit': 'Savings deposit',
+    'savings.ledgerBadge.transfer': 'Transfer',
+    'savings.ledgerBadge.opening': 'Savings',
     'savings.ledgerRow.withdrawal': 'Savings withdrawal',
     'savings.ledgerRow.opening': 'Opening savings balance',
     'analytics.currentPosition.savings': 'Savings',
@@ -1966,7 +1977,8 @@ const messages = {
     'dashboard.incomeTotal': 'Total income',
     'dashboard.expenseTotal': 'Total expense',
     'dashboard.netDebt': 'Net loan balance',
-    'dashboard.balance': 'Income − Expense',
+    'dashboard.balance': 'Net income/expense',
+    'dashboard.balanceShort': 'Net',
     'dashboard.tasks': 'Tasks',
     'dashboard.reminders': 'Reminders',
     'dashboard.calendar': 'Upcoming events',
@@ -2392,6 +2404,11 @@ const messages = {
     'category.debtPayment': 'Debt Repayment',
     'category.balanceAdjustment': 'Balance Adjustment',
     'transactions.balanceAdjust.title': 'Adjust Wallet Balance',
+    'transactions.balanceAdjust.savingsHint':
+      'An adjustment is recorded as income or expense. To move money to savings, use Deposit from wallet.',
+    'transactions.balanceAdjust.savingsLink': 'Open Savings',
+    'transactions.metric.savingsMoved': 'Moved to savings this period',
+    'transactions.metric.walletNow': 'Current wallet balance',
     'transactions.balanceAdjust.subtitle':
       'Enter your actual balance to automatically reconcile your ledger balance',
     'transactions.balanceAdjust.currentBalance': 'Current ledger balance',
@@ -2443,6 +2460,7 @@ const messages = {
     'analytics.cashflow.column.income': 'Total Income (+)',
     'analytics.cashflow.column.expense': 'Total Expense (-)',
     'analytics.cashflow.column.netCashflow': 'Net Surplus / Deficit',
+    'analytics.cashflow.column.savingsMoved': 'Moved to savings',
     'analytics.cashflow.column.balance': 'Ending Balance',
     'analytics.cashflow.column.balanceWithSavings': 'Ending wallet and savings',
     'calendar.title': 'Calendar',
@@ -3843,7 +3861,13 @@ export interface ITransactionListResponse {
   limit: number;
   offset: number;
   /** Totals over the whole period (ignores type/search and pagination). */
-  summary: { income: number; expense: number; count: number };
+  summary: {
+    income: number;
+    expense: number;
+    count: number;
+    /** Deposits minus withdrawals in the period: positive means money left the wallet for savings. */
+    savingsMoved: number;
+  };
   /** Wallet balance: all-time income minus expense, less the money moved into savings groups. */
   ledgerBalance: number;
   savingsTotal: number;
@@ -4330,6 +4354,8 @@ export interface IAnalyticsTrendBucket {
   balance: number;
   /** Wallet balance plus the money in savings groups at the end of the period. */
   balanceWithSavings: number;
+  /** Deposits minus withdrawals in the period; explains why `balance` moves unlike `netCashflow`. */
+  savingsMoved: number;
   startAt: string;
   endAt: string;
 }

@@ -40,13 +40,45 @@ import {
   type TransactionColumnFilters,
 } from './transaction-column-filters';
 
+/** `+`/`-` on the wallet; empty when the row leaves the wallet alone. */
+export type WalletSign = '+' | '-' | '';
+
 export type TransactionTableItem = ITransactionItem & {
   runningBalance?: number;
   /** A savings movement shown for context: it has no edit, delete or change history here. */
   readOnly?: boolean;
+  /** Set only on savings movements: they move money, so they never read as income or expense. */
+  walletSign?: WalletSign;
   /** `runningBalance` contains savings, so it needs the savings eye as well. */
   balanceIncludesSavings?: boolean;
 };
+
+const NEUTRAL_AMOUNT_TEXT = 'text-slate-700 dark:text-slate-300';
+
+function amountSign(item: TransactionTableItem): WalletSign {
+  return item.walletSign ?? (item.type === 'income' ? '+' : '-');
+}
+
+function amountTextClass(item: TransactionTableItem): string {
+  if (item.walletSign !== undefined) return NEUTRAL_AMOUNT_TEXT;
+  return item.type === 'income'
+    ? 'text-emerald-700 dark:text-emerald-400'
+    : 'text-amber-700 dark:text-amber-400';
+}
+
+function amountBarClass(item: TransactionTableItem): string {
+  if (item.walletSign !== undefined) return 'bg-slate-400 dark:bg-slate-500';
+  return item.type === 'income' ? 'bg-emerald-500' : 'bg-amber-500';
+}
+
+function typeBadgeClass(item: TransactionTableItem): string {
+  if (item.walletSign !== undefined) {
+    return 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300';
+  }
+  return item.type === 'income'
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+    : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300';
+}
 
 export type { TransactionEditDraft } from '../../store/transaction-edit-store';
 
@@ -154,6 +186,13 @@ export function TransactionsTable({
         label
       );
 
+    const typeBadgeLabel = (item: TransactionTableItem) => {
+      if (item.walletSign !== undefined) {
+        return t(item.walletSign ? 'savings.ledgerBadge.transfer' : 'savings.ledgerBadge.opening');
+      }
+      return item.type === 'income' ? t('table.filter.income') : t('table.filter.expense');
+    };
+
     const list: DataTableColumn<TransactionTableItem>[] = [
       {
         id: 'type',
@@ -189,14 +228,10 @@ export function TransactionsTable({
             <span
               className={`inline-flex items-center rounded-[2px] border px-1.5 py-0.5 text-[10px] font-semibold select-none ${
                 onStartEdit ? 'cursor-pointer' : ''
-              } ${
-                item.type === 'income'
-                  ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                  : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-              }`}
+              } ${typeBadgeClass(item)}`}
               onDoubleClick={() => onStartEdit?.(item)}
             >
-              {item.type === 'income' ? t('table.filter.income') : t('table.filter.expense')}
+              {typeBadgeLabel(item)}
             </span>
           );
         },
@@ -485,15 +520,8 @@ export function TransactionsTable({
         mobileSlot: 'trailing',
         // No ratio bar in the list row: the amount alone keeps the row to two lines.
         mobileCell: (item) => (
-          <span
-            className={
-              item.type === 'income'
-                ? 'text-emerald-700 dark:text-emerald-400'
-                : 'text-amber-700 dark:text-amber-400'
-            }
-          >
-            {item.type === 'income' ? '+' : '-'}{' '}
-            {(item.readOnly ? savingsMoney : money)(item.amount)}
+          <span className={amountTextClass(item)}>
+            {amountSign(item)} {(item.readOnly ? savingsMoney : money)(item.amount)}
           </span>
         ),
         mobileHeader: Boolean(setFilters),
@@ -521,23 +549,14 @@ export function TransactionsTable({
               }`}
               onDoubleClick={() => onStartEdit?.(item)}
             >
-              <strong
-                className={`tabular-nums ${
-                  item.type === 'income'
-                    ? 'text-emerald-700 dark:text-emerald-400'
-                    : 'text-amber-700 dark:text-amber-400'
-                }`}
-              >
-                {item.type === 'income' ? '+' : '-'}{' '}
-                {(item.readOnly ? savingsMoney : money)(item.amount)}
+              <strong className={`tabular-nums ${amountTextClass(item)}`}>
+                {amountSign(item)} {(item.readOnly ? savingsMoney : money)(item.amount)}
               </strong>
               {/* The ratio bar would leak relative amounts, so it only shows when amounts are revealed. */}
               {(item.readOnly ? isSavingsVisible : isMoneyVisible) && (
                 <div className="h-1 w-20 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                   <div
-                    className={`h-full rounded-full ${
-                      item.type === 'income' ? 'bg-emerald-500' : 'bg-amber-500'
-                    }`}
+                    className={`h-full rounded-full ${amountBarClass(item)}`}
                     style={{ width: `${pct}%` }}
                   />
                 </div>

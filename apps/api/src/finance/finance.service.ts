@@ -48,6 +48,7 @@ import { toTransactionItem, type TransactionItemLookups } from './transaction-it
 import {
   savingMovementDeltas,
   savingMovementsInWindow,
+  savingsMovedOut,
   toSavingMovementItem,
 } from './saving-ledger';
 import {
@@ -688,6 +689,7 @@ export class FinanceService {
       netCashflow: 0,
       balance: 0,
       balanceWithSavings: 0,
+      savingsMoved: 0,
       startAt: '',
       endAt: '',
     }));
@@ -728,6 +730,8 @@ export class FinanceService {
       savings += savingsMoves[index];
       bucket.balance = wallet;
       bucket.balanceWithSavings = wallet + savings;
+      // `+ 0` keeps a period with no movement at 0 rather than -0.
+      bucket.savingsMoved = -walletMoves[index] + 0;
     });
 
     return buckets;
@@ -868,7 +872,14 @@ export class FinanceService {
       const time = row.occurredAt.getTime();
       return !(startAt && time < startAt.getTime()) && !(endAt && time > endAt.getTime());
     });
-    const summary = { income: 0, expense: 0, count: periodRows.length };
+    const summary = {
+      income: 0,
+      expense: 0,
+      count: periodRows.length,
+      savingsMoved: savingsMovedOut(
+        savingMovementsInWindow(ledgerMovements, { from: startAt, to: endAt, toExclusive: false }),
+      ),
+    };
     for (const row of periodRows) {
       if (row.type === 'income') summary.income += row.amount;
       else summary.expense += row.amount;

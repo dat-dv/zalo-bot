@@ -20,6 +20,16 @@ export function savingBalance(
   );
 }
 
+/** Net money that left the wallet for savings: deposits minus withdrawals, `opening` excluded. */
+export function savingsMovedOut(
+  movements: readonly Pick<SavingMovementEntity, 'type' | 'amount'>[],
+): number {
+  return movements.reduce(
+    (total, row) => total - savingMovementDeltas(row.type, row.amount).wallet,
+    0,
+  );
+}
+
 export function toSavingMovementItem(
   row: SavingMovementEntity,
   groupName = row.group?.name ?? '',

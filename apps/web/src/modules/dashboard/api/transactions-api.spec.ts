@@ -12,7 +12,7 @@ void test('listTransactions sends period, type, search and paging as query param
     total: 0,
     limit: 100,
     offset: 100,
-    summary: { income: 0, expense: 0, count: 0 },
+    summary: { income: 0, expense: 0, count: 0, savingsMoved: 0 },
     ledgerBalance: 1_500_000,
     savingsTotal: 0,
     savingMovements: [],

@@ -27,6 +27,7 @@ import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { MetricGrid, MetricGridSkeleton, type MetricGridItem } from '@/shared/ui/metric-grid';
 import { PHONE_CHIP } from '@/shared/ui/touch';
 import { IncludeSavingsToggle } from './include-savings-toggle';
+import { walletSignOfSavingsMoved } from './transaction-ledger-rows';
 
 // Chart/Table toggle: compact toolbar chips sharing the row on phones.
 const PHONE_TOGGLE = `max-[640px]:flex-1 ${PHONE_CHIP}`;
@@ -175,6 +176,9 @@ export function AnalyticsScreen() {
       : buckets;
   }, [analyticsQuery.data?.trend, includeSavings]);
   const balanceMoney = includeSavings ? combinedMoney : money;
+  // With savings included the balance already follows the net cashflow, so nothing needs explaining.
+  const showSavingsMoved =
+    !includeSavings && trendBuckets.some((bucket) => bucket.savingsMoved !== 0);
 
   type CashflowRow = IAnalyticsTrendBucket & { id: string };
 
@@ -190,7 +194,7 @@ export function AnalyticsScreen() {
       {
         id: 'period',
         header: t('analytics.cashflow.column.period'),
-        width: '22%',
+        width: showSavingsMoved ? '18%' : '22%',
         mobileSlot: 'primary',
         mobileCell: (item) => item.label,
         cell: (item) => (
@@ -201,7 +205,7 @@ export function AnalyticsScreen() {
         id: 'income',
         header: t('analytics.cashflow.column.income'),
         align: 'right',
-        width: '19%',
+        width: showSavingsMoved ? '16%' : '19%',
         mobileSlot: 'secondary',
         mobileCell: (item) => `${t('chart.income')} +${money(item.income)}`,
         cell: (item) => (
@@ -214,7 +218,7 @@ export function AnalyticsScreen() {
         id: 'expense',
         header: t('analytics.cashflow.column.expense'),
         align: 'right',
-        width: '19%',
+        width: showSavingsMoved ? '16%' : '19%',
         mobileSlot: 'secondary',
         mobileCell: (item) => `${t('chart.expense')} -${money(item.expense)}`,
         cell: (item) => (
@@ -227,7 +231,7 @@ export function AnalyticsScreen() {
         id: 'netCashflow',
         header: t('analytics.cashflow.column.netCashflow'),
         align: 'right',
-        width: '20%',
+        width: showSavingsMoved ? '17%' : '20%',
         mobileSlot: 'trailing',
         cell: (item) => {
           const net =
@@ -247,6 +251,22 @@ export function AnalyticsScreen() {
           );
         },
       },
+      ...(showSavingsMoved
+        ? [
+            {
+              id: 'savingsMoved',
+              header: t('analytics.cashflow.column.savingsMoved'),
+              align: 'right' as const,
+              width: '16%',
+              cell: (item: CashflowRow) => (
+                <span className="tabular-nums font-medium text-slate-700 dark:text-slate-300">
+                  {walletSignOfSavingsMoved(item.savingsMoved)}{' '}
+                  {savingsMoney(Math.abs(item.savingsMoved))}
+                </span>
+              ),
+            },
+          ]
+        : []),
       {
         id: 'balance',
         header: t(
@@ -255,7 +275,7 @@ export function AnalyticsScreen() {
             : 'analytics.cashflow.column.balance',
         ),
         align: 'right',
-        width: '20%',
+        width: showSavingsMoved ? '17%' : '20%',
         cell: (item) => {
           const isPos = item.balance >= 0;
           return (
@@ -270,7 +290,7 @@ export function AnalyticsScreen() {
         },
       },
     ],
-    [balanceMoney, includeSavings, money, t],
+    [balanceMoney, includeSavings, money, savingsMoney, showSavingsMoved, t],
   );
 
   if (dashboard.isError) {

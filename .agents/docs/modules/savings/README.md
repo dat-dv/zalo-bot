@@ -48,7 +48,7 @@ Tài sản ròng luôn tính cả tiết kiệm, không phụ thuộc công tắ
 
 1. Vào **Tiết kiệm** trong nhóm Tài chính ở thanh bên (điện thoại: tab Thêm), bấm **Tạo nhóm**.
 2. Nếu đã có sẵn tiền để dành, bấm **Số dư ban đầu** để nhập, số dư ví không đổi.
-3. Bấm **Nạp** hoặc **Rút** để chuyển tiền. Trên điện thoại, chạm vào dòng nhóm để thấy các nút.
+3. Bấm **Nạp từ ví** hoặc **Rút** để chuyển tiền. Nút ghi rõ "từ ví" để không lẫn với **Số dư ban đầu**, loại không trừ ví. Đừng dùng Cân chỉnh số dư để chuyển tiền: cân chỉnh luôn ghi thành khoản thu hoặc chi nên làm sai báo cáo. Trên điện thoại, chạm vào dòng nhóm để thấy các nút.
 4. Bấm **Lịch sử** để xem hoặc xoá lượt.
 
 Các khoản trước đây đã ghi thành khoản chi không tự chuyển: cần xoá khoản chi đó rồi nhập số dư ban đầu.
@@ -63,6 +63,6 @@ Lịch sử nạp/rút định dạng ngày giờ qua `getDateTimeFormat` dùng 
 
 Tiền tiết kiệm có công tắc ẩn/hiện riêng, không liên quan tới nút "Hiện số tiền" toàn cục, để mở xem thu chi không làm lộ khoản để dành. Trạng thái chỉ nằm trong bộ nhớ nên tải lại trang là ẩn lại, và dùng chung cho `/savings`, `/analytics`, `/transactions` cùng hộp lịch sử.
 
-- **Theo mắt tiết kiệm**: số dư nhóm, tổng tiết kiệm, lượt nạp/rút, hạn mức rút, dòng nạp/rút trong bảng Thu chi.
+- **Theo mắt tiết kiệm**: số dư nhóm, tổng tiết kiệm, lượt nạp/rút, hạn mức rút, dòng nạp/rút trong bảng Thu chi, ô Chuyển tiết kiệm trong kỳ và cột Chuyển tiết kiệm ở trang Phân tích.
 - **Cần mở cả hai mắt**: ví + tiết kiệm, tài sản ròng, số dư khi bật "Tính cả tiết kiệm". Nếu chỉ theo mắt toàn cục thì lấy số gộp trừ số dư ví là ra tiền tiết kiệm.
-- **Hạn chế**: khi mắt toàn cục mở, chênh lệch số dư ví trước và sau dòng nạp/rút, cùng mức đổi số dư của một kỳ ở trang Phân tích so với cột chênh lệch thu chi, vẫn cho biết số tiền đã nạp/rút. Các cách này không cho biết tổng tiết kiệm.
+- **Hạn chế**: khi mắt toàn cục mở, so chênh lệch thu chi với số dư ví vẫn suy ra được số tiền đã chuyển: số dư trước và sau dòng nạp/rút, mức đổi số dư của một kỳ ở trang Phân tích, hoặc chênh lệch thu chi của kỳ với ô Số dư ví hiện tại. Nếu kỳ đang xem bao trọn toàn bộ sổ và không dùng số dư ban đầu, số này chính là tổng tiết kiệm. Chấp nhận hạn chế này, vì ẩn số dư ví sẽ mất đúng thứ người dùng cần xem.

@@ -59,7 +59,7 @@ Balance effects on other APIs: see [Finance Domain](../../global/finance-domain.
 - Navigation: Finance section of the sidebar and the phone More sheet, available to every signed-in user.
 - Metrics: wallet balance, total savings, wallet + savings. Amounts use the money visibility toggle. Movement history dates go through the cached `getDateTimeFormat` (`@/shared/lib/intl-format`).
 - `DataTable` of groups (`saving_groups`), archived hidden unless "Show archived groups" is on. Phone: list row with a detail sheet holding the actions.
-- Row actions: deposit, withdraw (off at balance 0), opening balance, history, edit, archive (off while it holds money). Archived rows keep history only.
+- Row actions: deposit from wallet (`savings.actions.deposit`: the label names the source so it is not mixed up with opening balance), withdraw (off at balance 0), opening balance, history, edit, archive (off while it holds money). Archived rows keep history only.
 - Movement dialog: amount, date-time (default now), note. Withdrawal shows the group balance and blocks a higher amount.
 - History dialog: movements newest first, delete with confirm; a refusal shows above the list.
 - Load failure uses `SessionStateScreen` like other pages.
@@ -76,4 +76,5 @@ Savings amounts have their own eye (`SavingsVisibilityToggle`, `useSavingsVisibi
 
 - `useSavingsMoney`: group balances, total, movements, withdrawal limit, movement rows in the ledger.
 - `useCombinedSavingsMoney` needs both eyes: wallet + savings, net worth, running balance while "Include savings" is on. Under the global eye alone, subtracting the wallet would reveal savings.
-- Known gap: with the global eye open, the wallet balance before and after a movement row, and an analytics bucket's balance change against its net cashflow, still give away the net amount moved. Neither gives the savings total.
+- `savingsMoved` (`summary` on `/transactions`, each analytics bucket) follows the savings eye, on the Transactions tile and the Analytics column.
+- Known gap: with the global eye open, net cashflow against the wallet balance gives away the net amount moved: the wallet before and after a movement row, a bucket's balance change, and a period's net income/expense against the current wallet tile. When the period covers the whole ledger, and nothing used `opening`, that equals the savings total. Accepted: hiding the wallet would defeat showing it.

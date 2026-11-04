@@ -27,7 +27,7 @@ import {
 import { DebtAllocationModal } from './debt-allocation-modal';
 import { DeleteTransactionModal } from './delete-transaction-modal';
 import { IncludeSavingsToggle } from './include-savings-toggle';
-import { mergeLedgerRows } from './transaction-ledger-rows';
+import { mergeLedgerRows, walletSignOfSavingsMoved } from './transaction-ledger-rows';
 import { AdjustBalanceModal } from './adjust-balance-modal';
 import { useIncludeSavingsStore } from '@/shared/store/include-savings-store';
 import { usePeriodFilter } from '@/shared/hooks/use-period-filter';
@@ -35,7 +35,9 @@ import { ExportCsvButton } from '@/shared/ui/export-csv-button';
 import { SavingsVisibilityToggle } from '@/shared/ui/savings-visibility-toggle';
 import { PeriodFilterToolbar } from '@/shared/ui/period-filter-toolbar';
 import { exportTransactions } from '../../api/transactions-api';
-import { TrendSummaryStrip } from '@/shared/ui/trend-summary-strip';
+import { TrendSummaryMetric, TrendSummaryStrip } from '@/shared/ui/trend-summary-strip';
+import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
+import { useSavingsMoney } from '@/shared/store/savings-visibility-store';
 import { SessionStateScreen } from '@/modules/auth/view/session-state-screen';
 import { useSessionUserQuery } from '@/modules/auth/api/session-user-query';
 import { useCategoriesQuery } from '@/modules/settings/api/categories-query';
@@ -187,6 +189,9 @@ export function TransactionsScreen() {
   // Totals are exact for the whole period (server summary); chart buckets use the loaded rows.
   const periodIncome = firstPage?.summary.income ?? 0;
   const periodExpense = firstPage?.summary.expense ?? 0;
+  const savingsMoved = firstPage?.summary.savingsMoved ?? 0;
+  const money = useMoneyFormatter();
+  const savingsMoney = useSavingsMoney();
   const periodBuckets = useMemo(
     () => periodFilter.generateBuckets(rawList),
     [rawList, periodFilter],
@@ -317,7 +322,25 @@ export function TransactionsScreen() {
       >
         <PeriodFilterToolbar filter={periodFilter} />
 
-        <TrendSummaryStrip buckets={periodBuckets} income={periodIncome} expense={periodExpense} />
+        <TrendSummaryStrip
+          buckets={periodBuckets}
+          income={periodIncome}
+          expense={periodExpense}
+          extraMetrics={
+            <>
+              {savingsMoved !== 0 && (
+                <TrendSummaryMetric
+                  label={t('transactions.metric.savingsMoved')}
+                  value={`${walletSignOfSavingsMoved(savingsMoved)}\u00A0${savingsMoney(Math.abs(savingsMoved))}`}
+                />
+              )}
+              <TrendSummaryMetric
+                label={t('transactions.metric.walletNow')}
+                value={money(ledgerBalance)}
+              />
+            </>
+          }
+        />
 
         <DataPanel
           title={t('transactions.title')}
