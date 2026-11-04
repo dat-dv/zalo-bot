@@ -154,3 +154,10 @@ Tools from `ZALO_TOOL_DEFINITIONS` relevant to finance (see [LLM Providers](llm-
 - UTF-8 BOM so Excel reads Vietnamese. Text starting with `= + - @`, tab or CR gets a leading `'` (formula injection: notes are free text). Numbers stay numbers. Headers are Vietnamese; dates are Vietnam time.
 - Any signed-in dashboard user may export: the ledger is shared. Not recorded in the audit log, which only tracks data changes.
 - CSV only for now; no `.xlsx`, no new dependency.
+
+## Scheduled finance digest
+
+- Per-channel switches `financeDigest.{weekly,monthly}` (`zca_thread_configs.finance_digest`), default off: the numbers are the whole shared ledger, including rows from private chats, so any member of the channel can read them. Admin-only on `/zca/thread`.
+- Queue `finance-digest`: 8:00 Vietnam time, Monday for the previous week, the 1st for the previous month. Only listened channels.
+- Content: income, spending compared with the period before, top 3 categories, receivable and payable totals, debts due within 7 days including overdue ones. Numbers come from `FinanceReportService`.
+- Retries about 15m to 4h apart, then the digest is dropped rather than sent stale. Redis marks per channel and period stop a retry from repeating channels already served. The period comes from the job's timestamp, not the retry time.

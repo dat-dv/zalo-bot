@@ -36,6 +36,8 @@
 
 ## Per-thread configuration (`ThreadBotConfig`)
 
+`financeDigest` (`weekly`, `monthly`, default off): scheduled finance summary of the channel, see [finance-domain](../../global/finance-domain.md).
+
 | Field | Default (`createDefaultThreadConfig`) | Meaning |
 | --- | --- | --- |
 | `threadType` | from zca-js, else legacy prefix, else `user` | `user` / `group` |

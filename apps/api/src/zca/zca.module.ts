@@ -33,6 +33,9 @@ import {
 import { ZcaMemoryIngestionEntity } from '../database/entities/zca-memory-ingestion.entity';
 import { ZcaMemorySegmentEntity } from '../database/entities/zca-memory-segment.entity';
 import { ChannelStorageLinkModule } from './storage/channel-storage-link.module';
+import { FINANCE_DIGEST_QUEUE } from './digest/finance-digest.jobs';
+import { FinanceDigestProcessor } from './digest/finance-digest.processor';
+import { FinanceDigestService } from './digest/finance-digest.service';
 
 // Chat pipeline: messenger, text input and tool strategies
 import { ZcaMessengerService } from './zca-messenger.service';
@@ -68,7 +71,7 @@ const COMMON_IMPORTS = [
     ZcaMemoryIngestionEntity,
     ZcaMemorySegmentEntity,
   ]),
-  BullModule.registerQueue({ name: CHAT_MEMORY_QUEUE }),
+  BullModule.registerQueue({ name: CHAT_MEMORY_QUEUE }, { name: FINANCE_DIGEST_QUEUE }),
   AuditModule,
   forwardRef(() => ReceiptStorageModule),
   forwardRef(() => UsersModule),
@@ -108,6 +111,8 @@ const COMMON_PROVIDERS = [
   MemoryIngestService,
   MemoryIngestProcessor,
   MemorySegmentScheduler,
+  FinanceDigestService,
+  FinanceDigestProcessor,
   WebhookApiKeyGuard,
   WebhookRateLimiter,
   WebhookIpLimiter,

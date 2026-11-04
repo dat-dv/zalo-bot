@@ -8,6 +8,7 @@ import {
   CHAT_MEMORY_DEFAULTS,
   MEMBER_ACCESS_DEFAULTS,
   normalizeChatMemoryConfig,
+  normalizeFinanceDigestConfig,
   normalizeMemberAccessConfig,
   normalizeTriggerPrefixes,
   type ThreadBotConfig,
@@ -132,6 +133,7 @@ function normalizeCachedConfig(
     directInteraction: normalizeDirectInteraction(config.directInteraction),
     chatMemory: normalizeChatMemoryConfig(config.chatMemory),
     memberAccess: normalizeMemberAccessConfig(config.memberAccess),
+    financeDigest: normalizeFinanceDigestConfig(config.financeDigest),
   });
 }
 
@@ -174,6 +176,7 @@ export function createDefaultThreadConfig(
     },
     chatMemory: { ...CHAT_MEMORY_DEFAULTS },
     memberAccess: { ...MEMBER_ACCESS_DEFAULTS, memberIds: [] },
+    financeDigest: normalizeFinanceDigestConfig(undefined),
     updatedAt: Date.now(),
   };
 }
@@ -210,6 +213,7 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
     },
     chatMemory: normalizeChatMemoryConfig(entity.chatMemory),
     memberAccess: normalizeMemberAccessConfig(entity.memberAccess),
+    financeDigest: normalizeFinanceDigestConfig(entity.financeDigest),
     updatedAt: entity.updatedAt ? new Date(entity.updatedAt).getTime() : Date.now(),
   });
 }
@@ -619,6 +623,13 @@ export class ThreadConfigService implements OnModuleInit {
       });
     }
 
+    if (update.financeDigest) {
+      config.financeDigest = normalizeFinanceDigestConfig({
+        ...config.financeDigest,
+        ...update.financeDigest,
+      });
+    }
+
     if (update.memberAccess) {
       config.memberAccess = normalizeMemberAccessConfig({
         ...config.memberAccess,
@@ -713,6 +724,7 @@ export class ThreadConfigService implements OnModuleInit {
           confirmationRules: config.confirmationRules,
           chatMemory: config.chatMemory,
           memberAccess: config.memberAccess,
+          financeDigest: config.financeDigest,
           driveFolderId: config.driveFolderId,
           driveFolderUrl: config.driveFolderUrl,
           driveFolderPath: config.driveFolderPath,

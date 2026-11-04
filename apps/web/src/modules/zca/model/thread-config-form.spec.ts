@@ -12,6 +12,7 @@ function makeConfig(overrides: Partial<ThreadBotConfig> = {}): ThreadBotConfig {
     confirmationRules: { allowReactions: true, requiredHearts: 3, timeoutMinutes: 10 },
     chatMemory: { enabled: true, readImageText: false, learnPeople: true },
     memberAccess: { mode: 'selected-members', memberIds: ['u1'] },
+    financeDigest: { weekly: true, monthly: false },
     ...overrides,
   };
 }

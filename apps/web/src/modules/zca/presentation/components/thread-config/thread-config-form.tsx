@@ -4,6 +4,7 @@ import type { ThreadBotConfig } from '@zalobot/contracts';
 import type { ThreadKind } from '../../../model/thread-config-form';
 import { ConfirmationRulesSection } from './confirmation-rules-section';
 import { DirectInteractionSection } from './direct-interaction-section';
+import { FinanceDigestSection } from './finance-digest-section';
 import { ImageTextMemorySection } from './image-text-memory-section';
 import { ListenToggleCard } from './listen-toggle-card';
 import { LongTermMemorySection } from './long-term-memory-section';
@@ -58,6 +59,10 @@ export function ThreadConfigForm({
           </h2>
           <LongTermMemorySection threadId={threadId} form={form} onChange={setForm} />
           <ImageTextMemorySection form={form} onChange={setForm} />
+          <h2 className="mt-2 text-xs font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400">
+            💰 Tài chính
+          </h2>
+          <FinanceDigestSection form={form} onChange={setForm} />
         </div>
       </div>
       <ThreadConfigActionBar isSaving={isSaving} status={status} />

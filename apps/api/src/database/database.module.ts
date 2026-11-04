@@ -58,6 +58,7 @@ import { AddReminderRepeatAndNag1724960000000 } from './migrations/1724960000000
 import { AddAuditLogActorName1724970000000 } from './migrations/1724970000000-AddAuditLogActorName';
 import { AddChatMemoryV21724980000000 } from './migrations/1724980000000-AddChatMemoryV2';
 import { AddChatMemorySegments1724990000000 } from './migrations/1724990000000-AddChatMemorySegments';
+import { AddThreadFinanceDigest1725000000000 } from './migrations/1725000000000-AddThreadFinanceDigest';
 
 @Module({
   imports: [
@@ -133,6 +134,7 @@ import { AddChatMemorySegments1724990000000 } from './migrations/1724990000000-A
             AddAuditLogActorName1724970000000,
             AddChatMemoryV21724980000000,
             AddChatMemorySegments1724990000000,
+            AddThreadFinanceDigest1725000000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

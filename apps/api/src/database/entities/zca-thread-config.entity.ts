@@ -4,6 +4,7 @@ import type {
   ThreadMediaBackupConfig,
   ThreadConfirmationConfig,
   ThreadChatMemoryConfig,
+  ThreadFinanceDigestConfig,
   ThreadMemberAccessConfig,
 } from '@zalobot/contracts';
 
@@ -58,6 +59,13 @@ export class ZcaThreadConfigEntity {
     default: () => '\'{"mode": "granted-users", "memberIds": []}\'',
   })
   memberAccess: ThreadMemberAccessConfig;
+
+  @Column({
+    name: 'finance_digest',
+    type: 'jsonb',
+    default: () => '\'{"weekly": false, "monthly": false}\'',
+  })
+  financeDigest: ThreadFinanceDigestConfig;
 
   @Column({ name: 'drive_folder_id', type: 'varchar', nullable: true })
   driveFolderId?: string;

@@ -60,6 +60,8 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
 
 ### Các trường cấu hình của một kênh
 
+`financeDigest` (hằng tuần, hằng tháng, mặc định tắt): bot tự gửi tóm tắt tài chính vào kênh. Lý do mặc định tắt và lịch gửi ở `global/finance-domain.md`.
+
 | Nhóm cấu hình | Trường | Mặc định | Ý nghĩa |
 | --- | --- | --- | --- |
 | Chung | `isListened` | tắt | Bot có nhận tin từ kênh này không |

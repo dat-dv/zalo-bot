@@ -1,5 +1,6 @@
 import {
   normalizeChatMemoryConfig,
+  normalizeFinanceDigestConfig,
   normalizeMemberAccessConfig,
   type ThreadBotConfig,
   type UpdateThreadBotConfigDto,
@@ -36,6 +37,7 @@ export function configToForm(config: ThreadBotConfig, threadType: ThreadKind): T
     },
     chatMemory: normalizeChatMemoryConfig(config.chatMemory),
     memberAccess: normalizeMemberAccessConfig(config.memberAccess),
+    financeDigest: normalizeFinanceDigestConfig(config.financeDigest),
   };
 }
 
@@ -59,5 +61,6 @@ export function formToPayload(
     confirmationRules: form.confirmationRules,
     chatMemory: normalizeChatMemoryConfig(form.chatMemory),
     memberAccess: normalizeMemberAccessConfig(form.memberAccess),
+    financeDigest: normalizeFinanceDigestConfig(form.financeDigest),
   };
 }

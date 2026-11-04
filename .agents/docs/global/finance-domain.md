@@ -137,3 +137,12 @@ Nút **Xuất CSV** ở trang Thu chi và Công nợ để đối soát hoặc g
 - **File dở dang không giả làm file đủ**: lỗi giữa chừng thì kết nối bị ngắt và trình duyệt báo lỗi.
 
 Ai đăng nhập dashboard cũng xuất được vì đây là sổ chung. Việc xuất không ghi vào nhật ký kiểm toán, vì nhật ký chỉ ghi thay đổi dữ liệu. Bản này chưa tạo file `.xlsx` thật.
+
+## Tóm tắt tài chính tự động
+
+Người dùng không cần mở dashboard vẫn nắm được tình hình: bot tự gửi tóm tắt vào kênh.
+
+- **Lịch**: 8:00 thứ 2 cho tuần trước, 8:00 ngày 1 cho tháng trước, theo giờ Việt Nam.
+- **Nội dung**: thu, chi so với kỳ trước, 3 danh mục chi nhiều nhất, tổng phải thu và phải trả, các khoản nợ đến hạn trong 7 ngày tới (gồm cả khoản đã quá hạn).
+- **Mặc định tắt**: số liệu lấy từ toàn bộ sổ chung, gồm cả khoản ghi ở chat riêng, và mọi thành viên của kênh đều đọc được. Chỉ admin bật được, ở trang cấu hình kênh, và chỉ có tác dụng với kênh đang nghe.
+- **Khi lỗi**: bot thử lại trong khoảng 8 giờ (15 phút, 30 phút, 1, 2, 4 giờ). Quá thời gian đó thì bỏ, không gửi muộn. Kênh đã nhận rồi không bị gửi lại, và kỳ báo cáo giữ theo lần chạy đầu nên thử lại muộn cũng không lệch kỳ.

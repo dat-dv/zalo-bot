@@ -4108,6 +4108,20 @@ export interface ThreadMemberAccessConfig {
   memberIds: string[];
 }
 
+/** Scheduled finance summaries of a channel. Off by default: they show the whole shared ledger. */
+export interface ThreadFinanceDigestConfig {
+  weekly: boolean;
+  monthly: boolean;
+}
+
+export function normalizeFinanceDigestConfig(value: unknown): ThreadFinanceDigestConfig {
+  const raw = typeof value === 'object' && value !== null ? value : {};
+  return {
+    weekly: 'weekly' in raw && raw.weekly === true,
+    monthly: 'monthly' in raw && raw.monthly === true,
+  };
+}
+
 export const MEMBER_ACCESS_DEFAULTS: ThreadMemberAccessConfig = {
   mode: 'granted-users',
   memberIds: [],
@@ -4222,6 +4236,7 @@ export interface ThreadBotConfig {
   confirmationRules: ThreadConfirmationConfig;
   chatMemory: ThreadChatMemoryConfig;
   memberAccess: ThreadMemberAccessConfig;
+  financeDigest: ThreadFinanceDigestConfig;
   updatedAt?: number;
 }
 
@@ -4240,6 +4255,7 @@ export type UpdateThreadBotConfigDto = Partial<{
   confirmationRules: Partial<ThreadConfirmationConfig>;
   chatMemory: Partial<ThreadChatMemoryConfig>;
   memberAccess: Partial<ThreadMemberAccessConfig>;
+  financeDigest: Partial<ThreadFinanceDigestConfig>;
 }>;
 
 export type ChannelStorageLinkKind = 'drive' | 'photos';
