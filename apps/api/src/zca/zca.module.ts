@@ -9,6 +9,7 @@ import { WelcomeGroupEventStrategy } from './strategies/welcome-group-event.stra
 import { GroupEventDispatcher } from './group-event-dispatcher.service';
 import { ThreadConfigService } from './thread-config.service';
 import { ZcaBotFeatureService } from './zca-bot-feature.service';
+import { ZcaConnectionAlertService } from './zca-connection-alert.service';
 import { AuditModule } from '../audit/audit.module';
 import { ReceiptStorageModule } from '../receipt-storage/receipt-storage.module';
 import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.entity';
@@ -93,6 +94,7 @@ const COMMON_PROVIDERS = [
   ThreadConfigService,
   ZcaBotFeatureService,
   ZcaService,
+  ZcaConnectionAlertService,
   TransactionConfirmationService,
   InitialAdminBootstrapGuard,
   GrantAccessGuard,

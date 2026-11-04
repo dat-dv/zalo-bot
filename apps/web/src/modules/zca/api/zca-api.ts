@@ -1,3 +1,4 @@
+import type { IZcaConnectionStatus } from '@zalobot/contracts';
 import {
   API_ROUTES,
   type ChannelStorageLinksResponse,
@@ -40,6 +41,7 @@ export interface ZcaStatus {
   loggedIn: boolean;
   ownId: string | null;
   isListening: boolean;
+  connection?: IZcaConnectionStatus;
   listenedCount: number;
   proxyEnabled: boolean;
   qrStatus?: ZcaQrStatus;

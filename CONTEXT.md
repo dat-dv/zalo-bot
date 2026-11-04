@@ -75,6 +75,7 @@
 
 - **Chủ hệ thống (`dashboard-owner`)**: Tài khoản admin không gắn với ID Zalo nào, được dùng khi đăng nhập dashboard bằng mã cố định `DASHBOARD_LOGIN_CODE` trong env; mỗi lần đăng nhập đều được trả lại quyền admin.
 - **ZCA (Zalo Client Account)**: Kết nối tài khoản cá nhân Zalo qua giao thức WebSocket và quét mã QR, cho phép bot tham gia các nhóm chat như người dùng thật.
+- **Trạng thái kết nối ZCA**: Bot có đang nghe được tin nhắn hay không, khác với đã đăng nhập: bot có thể vẫn đăng nhập và gửi được tin trong khi không nghe được gì. Khi rớt, bot tự kết nối lại và báo admin nếu mất quá 5 phút.
 - **Kênh (Thread / Channel)**: Một cuộc trò chuyện cá nhân (`user`) hoặc nhóm chat (`group`) trên Zalo, có ID nguyên bản (`channelId`) độc lập.
 - **Quyền toàn cục**: Quyền dùng bot của một người dùng zalo (`grantAccess`), admin cấp trên trang Zalo & Người dùng; có hiệu lực ở mọi kênh.
 - **Quyền theo kênh**: Quyền gọi bot (mention hoặc tiền tố) chỉ trong một nhóm, admin cấu hình trên trang cấu hình kênh: không ai thêm, mọi thành viên, hoặc thành viên được chọn. Cộng thêm vào quyền toàn cục, không thu hồi quyền toàn cục; không tự cấp quyền toàn cục.

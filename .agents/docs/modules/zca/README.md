@@ -6,6 +6,8 @@ metadata:
     depends_on:
       - .agents/knowledge/modules/zca/README.md
       - apps/api/src/zca/zca.service.ts
+      - apps/api/src/zca/zca-connection-supervisor.ts
+      - apps/api/src/zca/zca-connection-alert.service.ts
       - apps/api/src/zca/zca.controller.ts
       - apps/api/src/zca/zca-bot-feature.service.ts
       - apps/api/src/zca/thread-config.service.ts
@@ -81,6 +83,26 @@ Lưu ý:
 - Bật lắng nghe một kênh đang tắt tương tác trực tiếp thì hệ thống tự bật `directInteraction.enabled` kèm `allowAiChat` (giữ nguyên danh sách tiền tố).
 - **Dữ liệu cũ**: kênh lưu từ trước có thể còn một chuỗi `triggerPrefix` đơn. Hệ thống tự gộp nó vào `triggerPrefixes` mỗi khi đọc (DB, Redis, file JSON cũ) và bỏ khoá cũ ở lần lưu sau. Trường `requireMention` không còn: nhóm luôn phải @mention hoặc dùng tiền tố.
 - **Đã gỡ bỏ**: hai cấu hình "Thu chi thụ động" (`expenseTracking`) và "Lịch thụ động" (`calendarExtraction`). Migration `1724800000000-DropZcaPassiveTrackingColumns` xoá hai cột này và xoá `requireMention` khỏi `direct_interaction`. Migration không khôi phục được giá trị cũ khi chạy `down`.
+
+## 1.1. Tự Kết Nối Lại Khi Mất Kết Nối
+
+Bot gửi tin qua HTTP nhưng nhận tin qua WebSocket, nên có lúc **vẫn đăng nhập, vẫn gửi được nhắc, mà không nghe được tin nào**. Vì vậy `isLoggedIn` không cho biết bot có khoẻ hay không; cần xem `getConnectionStatus()`.
+
+| Trạng thái | Nghĩa | Bot làm gì | Admin cần làm |
+| --- | --- | --- | --- |
+| `connected` | Đang nghe tin | Không | Không |
+| `reconnecting` | Vừa rớt | Thử lại sau 5 giây, 30 giây, 2 phút, rồi 5 phút; sau 2 lần thì đăng nhập lại từ phiên đã lưu | Chờ, quá 5 phút sẽ có tin báo |
+| `replaced` | Tài khoản bot đăng nhập nơi khác (mã đóng 3000/3003) | Báo ngay, 30 phút thử lại một lần để không tranh phiên | Kiểm tra ai đang dùng tài khoản |
+| `session_expired` | Đăng nhập lại thất bại 3 lần | 30 phút thử lại một lần | Quét lại mã QR ở `/zca` |
+| `logged_out` | Chưa đăng nhập hoặc chủ động đăng xuất | Không tự nối lại | Không |
+
+Vì sao làm như vậy:
+
+- **Báo sau 5 phút**: tránh làm phiền với các lần rớt ngắn. Mỗi lần mất kết nối chỉ báo một lần, và báo thêm một lần khi kết nối lại.
+- **Coi là ổn định sau 60 giây**: nếu socket vừa nối đã rớt, thời gian chờ vẫn tăng dần thay vì thử lại liên tục.
+- **`/health` luôn trả 200**: nếu trả lỗi, Coolify sẽ khởi động lại container và admin mất luôn dashboard để quét QR. Hệ thống giám sát đọc trường `zca` trong kết quả.
+
+Hạn chế: tin nhắn gửi trong lúc mất kết nối không được xử lý bù. Khi phiên hỏng, bot không nhắn Zalo được nên chỉ có cảnh báo ở trang `/zca`, chưa có kênh báo ngoài.
 
 ## 1a. Luồng Xử Lý Tin Nhắn (L1 / L3)
 

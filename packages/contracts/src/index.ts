@@ -213,6 +213,12 @@ const messages = {
     'nav.settings': 'Cài đặt',
     'nav.zca': 'Zalo & Người dùng',
     'nav.googleStorage': 'Google Drive',
+    'zca.connection.reconnecting':
+      'Bot đang mất kết nối và tự thử lại. Tin gửi lúc này chưa được xử lý.',
+    'zca.connection.replaced':
+      'Tài khoản bot vừa đăng nhập ở nơi khác nên bot ngừng nghe tin nhắn.',
+    'zca.connection.sessionExpired':
+      'Phiên Zalo có vẻ đã hết hạn. Quét lại mã QR để bot hoạt động.',
     'zca.logout': 'Đăng xuất ZCA',
     'zca.refreshDirectory': 'Làm mới danh bạ Zalo',
     'zca.logoutConfirm':
@@ -1451,6 +1457,12 @@ const messages = {
     'nav.settings': 'Settings',
     'nav.zca': 'Zalo & Users',
     'nav.googleStorage': 'Google Drive',
+    'zca.connection.reconnecting':
+      'The bot lost its connection and is retrying. Messages sent now are not handled.',
+    'zca.connection.replaced':
+      'The bot account signed in elsewhere, so the bot stopped hearing messages.',
+    'zca.connection.sessionExpired':
+      'The Zalo session seems to have expired. Scan the QR code again.',
     'zca.logout': 'Logout ZCA',
     'zca.refreshDirectory': 'Refresh Zalo directory',
     'zca.logoutConfirm':
@@ -3950,6 +3962,21 @@ export interface ThreadDirectInteractionConfig {
  * Per-thread chat memory: the long-term switch (every message stored, searched for questions about
  * the past) and its options. Notes (`IChannelNote`) are independent of it.
  */
+/**
+ * `connected`: hearing messages. `reconnecting`: retrying on its own. `replaced`: the account
+ * connected elsewhere. `session_expired`: needs a new QR scan. `logged_out`: never started or
+ * stopped on purpose.
+ */
+export type ZcaConnectionState =
+  'connected' | 'reconnecting' | 'replaced' | 'session_expired' | 'logged_out';
+
+export interface IZcaConnectionStatus {
+  state: ZcaConnectionState;
+  closeCode: number | null;
+  lastConnectedAt: string | null;
+  downSince: string | null;
+}
+
 export interface ThreadChatMemoryConfig {
   /** Long-term memory: store messages in Postgres and answer questions about them. */
   enabled: boolean;

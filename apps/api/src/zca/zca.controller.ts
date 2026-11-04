@@ -87,6 +87,7 @@ export class ZcaController {
         loggedIn: this.zcaService.isLoggedIn(),
         ownId: this.zcaService.getOwnId(),
         isListening: this.zcaService.isListenerActive(),
+        connection: this.zcaService.getConnectionStatus(),
         listenedCount: this.zcaService.getListenedThreadIds().length,
         proxyEnabled: Boolean(process.env.ZCA_PROXY_URL),
         qrStatus: this.zcaService.getQrLoginStatus(),

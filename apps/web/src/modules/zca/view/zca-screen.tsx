@@ -8,6 +8,8 @@ import {
   localeTag,
   type IUserListItem,
   type IUserMergeResult,
+  type TranslationKey,
+  type ZcaConnectionState,
 } from '@zalobot/contracts';
 import {
   useZcaStatusQuery,
@@ -114,6 +116,12 @@ type UserDialogState =
   | { mode: 'create'; initialId?: string; initialName?: string }
   | { mode: 'edit'; user: IUserListItem };
 
+const CONNECTION_WARNINGS: Partial<Record<ZcaConnectionState, TranslationKey>> = {
+  reconnecting: 'zca.connection.reconnecting',
+  replaced: 'zca.connection.replaced',
+  session_expired: 'zca.connection.sessionExpired',
+};
+
 export function ZcaScreen() {
   const { t, locale } = useLocale();
   const isCompact = useIsCompact();
@@ -125,6 +133,9 @@ export function ZcaScreen() {
   } = useZcaStatusQuery({
     refetchInterval: pollInterval,
   });
+  const connectionWarning = status?.connection
+    ? CONNECTION_WARNINGS[status.connection.state]
+    : undefined;
   const {
     data: threads = [],
     isLoading: isThreadsLoading,
@@ -516,6 +527,11 @@ export function ZcaScreen() {
               ? `ID tài khoản: ${status.ownId || 'Đang cập nhật'}`
               : 'Hãy quét mã QR để bắt đầu'}
           </p>
+          {connectionWarning && (
+            <p className="mt-2 rounded bg-amber-50 px-2 py-1.5 text-xs font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+              {t(connectionWarning)}
+            </p>
+          )}
         </div>
 
         {/* Card 2: Danh sách lắng nghe (Whitelist) */}

@@ -76,7 +76,12 @@ import {
   type ZcaDirectorySnapshot,
 } from './zca-directory-cache';
 import type { ZcaModuleOptions, ZcaPlugin } from './zca.interfaces';
-import type { IZcaGroupMember, IZcaGroupMembersResponse } from '@zalobot/contracts';
+import type {
+  IZcaConnectionStatus,
+  IZcaGroupMember,
+  IZcaGroupMembersResponse,
+} from '@zalobot/contracts';
+import { ZcaConnectionSupervisor, type ZcaConnectionAlert } from './zca-connection-supervisor';
 import {
   buildGroupMembers,
   parseGroupMembersCache,
@@ -154,6 +159,18 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
   private client: Zalo;
   private api: API | null = null;
   private isListening = false;
+  /** Listeners that already carry handlers: a restart must not bind them twice. */
+  private readonly boundListeners = new WeakSet<object>();
+  private readonly connectionAlertHandlers: Array<(alert: ZcaConnectionAlert) => void> = [];
+  private readonly connection = new ZcaConnectionSupervisor({
+    restartListener: () => this.restartListener(),
+    login: async () => {
+      await this.login();
+    },
+    alert: (alert) => {
+      for (const handler of this.connectionAlertHandlers) handler(alert);
+    },
+  });
   private plugins: ZcaPlugin[] = [];
   private proxyUrl?: string;
   private readonly groupEventDispatcher: GroupEventDispatcher;
@@ -468,6 +485,9 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       await this.login();
     } catch (err) {
       this.logger.warn(`Không thể tự đăng nhập ZCA: ${formatErrorMessage(err)}`);
+      // A network hiccup at boot must not leave the bot offline until someone notices.
+      this.connection.markStarted();
+      this.connection.markClosed(null);
     }
   }
 
@@ -509,6 +529,16 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
    */
   public isListenerActive(): boolean {
     return this.isListening;
+  }
+
+  /** Whether the bot is really hearing messages, unlike `isLoggedIn` which only means it can send. */
+  public getConnectionStatus(): IZcaConnectionStatus {
+    return this.connection.snapshot();
+  }
+
+  /** Subscribes to outage and recovery alerts. */
+  public onConnectionAlert(handler: (alert: ZcaConnectionAlert) => void): void {
+    this.connectionAlertHandlers.push(handler);
   }
 
   /**
@@ -1543,14 +1573,52 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     }
 
     const listener = this.api.listener;
+    if (!this.boundListeners.has(listener)) {
+      this.boundListeners.add(listener);
+      this.bindListenerEvents(listener);
+    }
+
+    this.connection.markStarted();
+    listener.start({ retryOnClose: true });
+    this.isListening = true;
+    this.logger.log('ZCA Realtime listener started.');
+  }
+
+  /** Starts the socket again on the current session; handlers are already bound. */
+  private restartListener(): void {
+    if (!this.api) throw new Error('ZCA is not logged in.');
+    this.api.listener.start({ retryOnClose: true });
+    this.isListening = true;
+  }
+
+  /** Registers every handler of a listener. Binding twice would process each message twice. */
+  private bindListenerEvents(listener: API['listener']): void {
+    /** A listener replaced by a newer login may still report; only the live one counts. */
+    const isCurrent = () => this.api?.listener === listener;
 
     listener.on('connected', () => {
+      if (!isCurrent()) {
+        // zca-js may finish a queued retry after logout: do not leave that socket open.
+        listener.stop();
+        return;
+      }
       this.logger.log('ZCA Realtime listener connected.');
+      this.isListening = true;
+      this.connection.markConnected();
+    });
+
+    listener.on('disconnected', (code, reason) => {
+      if (!isCurrent()) return;
+      this.logger.warn(`ZCA Realtime listener disconnected (code: ${code}, reason: ${reason}).`);
+      this.isListening = false;
+      this.connection.markDisconnected(code);
     });
 
     listener.on('closed', (code, reason) => {
+      if (!isCurrent()) return;
       this.logger.warn(`ZCA Realtime listener closed (code: ${code}, reason: ${reason}).`);
       this.isListening = false;
+      this.connection.markClosed(code);
     });
 
     listener.on('error', (err: unknown) => {
@@ -1649,16 +1717,13 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     listener.on('delivered_messages', (messages: DeliveredMessage[]) => {
       void this.dispatchDeliveredMessages(messages);
     });
-
-    listener.start();
-    this.isListening = true;
-    this.logger.log('ZCA Realtime listener started.');
   }
 
   /**
    * Stops listening to incoming messages and events.
    */
   public stopListener(): void {
+    this.connection.markStopped();
     if (this.api && this.isListening) {
       try {
         this.api.listener.stop();
