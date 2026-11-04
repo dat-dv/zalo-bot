@@ -6,6 +6,7 @@ metadata:
     depends_on:
       - .agents/knowledge/global/finance-domain.md
       - apps/api/src/finance/finance.service.ts
+      - apps/api/src/finance/saving-ledger.ts
       - apps/api/src/finance/transaction-item.mapper.ts
       - apps/api/src/finance/finance.controller.ts
       - apps/api/src/finance/receipt-source.ts
@@ -40,6 +41,12 @@ Chạy tự động một lần khi API khởi động, trong **một transactio
 4. Ghi một dòng nhật ký kiểm toán chứa số lượng của từng sổ cũ, rồi xoá cột `user_id` và `users.is_ledger_owner`; tên nơi chốn trở thành duy nhất toàn hệ thống.
 
 **Không hoàn tác được**: `down()` chỉ thêm lại cột rỗng. Trước khi deploy phải sao lưu DB (`pg_dump`); muốn quay lại thì khôi phục bản sao lưu và deploy commit cũ.
+
+## 1a1. Số dư ví và tiền tiết kiệm
+
+Số dư trên sổ giờ là **số dư ví**: tổng thu − tổng chi − tiền đã nạp vào nhóm tiết kiệm + tiền đã rút ra. Tiền trong nhóm không phải khoản chi nên không ảnh hưởng tổng chi, danh mục hay tỷ lệ tiết kiệm. Riêng "số dư ban đầu" chỉ làm tăng tiết kiệm, không trừ ví, vì đó là tiền đã có từ trước.
+
+Bảng thu chi chèn các lượt nạp/rút vào giữa giao dịch để số dư sau giao dịch không đổi mà không rõ lý do. Khi đang lọc theo loại, từ khoá hoặc cột thì không chèn, vì lượt nạp/rút không có các trường đó. Tài sản ròng luôn tính cả tiết kiệm. Báo cáo Zalo hiện số dư ví. Chi tiết xem [Nhóm tiết kiệm](../modules/savings/README.md).
 
 ## 1b. Người tạo và ảnh hoá đơn
 
@@ -134,6 +141,7 @@ Nút **Xuất CSV** ở trang Thu chi và Công nợ để đối soát hoặc g
 - **Công nợ** xuất tất cả khoản gốc, bất kể bộ lọc trên màn hình. Khoản đã gộp không xuất riêng vì khoản cha đã gồm số tiền đó, xuất cả hai sẽ bị cộng đôi.
 - **Mở được bằng Excel**: file có BOM UTF-8 nên không lỗi dấu tiếng Việt, số tiền vẫn là số nên tính tổng được.
 - **Chống chèn công thức**: ô chữ bắt đầu bằng `=`, `+`, `-`, `@` được thêm dấu `'` ở đầu. Ghi chú là chữ tự do từ Zalo, nếu không thoát thì Excel có thể chạy nó như công thức.
+- **Cột số dư** là số dư ví, chưa tính tiền trong nhóm tiết kiệm.
 - **File dở dang không giả làm file đủ**: lỗi giữa chừng thì kết nối bị ngắt và trình duyệt báo lỗi.
 
 Ai đăng nhập dashboard cũng xuất được vì đây là sổ chung. Việc xuất không ghi vào nhật ký kiểm toán, vì nhật ký chỉ ghi thay đổi dữ liệu. Bản này chưa tạo file `.xlsx` thật.

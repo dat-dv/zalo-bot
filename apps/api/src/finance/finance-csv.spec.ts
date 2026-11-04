@@ -35,6 +35,7 @@ void test('a transaction row is dated in Vietnam time', () => {
     note: 'ăn trưa',
     occurredAt: '2026-11-03T17:30:00.000Z',
     runningBalance: 100_000,
+    runningBalanceWithSavings: 150_000,
   });
   assert.equal(row, '04/11/2026 00:30,Chi,45000,Ăn uống,ăn trưa,,,,100000\r\n');
 });

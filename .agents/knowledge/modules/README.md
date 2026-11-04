@@ -21,6 +21,7 @@ Each module document covers:
 - [Dashboard](dashboard/README.md): Personal reports, statistics, and operational data views.
 - [Expenses](expenses/README.md): Expense-only transaction history reporting.
 - [Reminders](reminders/README.md): Scheduled user reminders management and status updates.
+- [Savings](savings/README.md): Savings groups: money moved out of the wallet balance without an expense; dashboard page `/savings`.
 - [Settings](settings/README.md): System preferences and custom finance categories management.
 - [Tasks](tasks/README.md): Shared task list stored only in `tasks` (no Google Tasks sync); `/tasks` UI.
 - [Users](users/README.md): Multi-tenant user directory, Admin/User roles, and bot authorization.

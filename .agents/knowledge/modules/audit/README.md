@@ -75,7 +75,7 @@ Finance, calendar and tasks are shared stores: anyone can edit or delete anyone'
   - **Actor name precedence** (`actorNameOf`): ZCA directory name (`UsersService.resolveZaloNames`: cached `getAvailableThreads(false)`, `user` entries, `alias || name || displayName`; never calls Zalo; errors → skipped) → the row's `actor_name` → `users.first_name` → ''. Same order for `facets.actors` and the detail. `AuditController` passes the resolver as `AuditNameResolver` so `AuditModule` stays free of `UsersModule`.
   - Item `IAuditLogListItem`: ids, `actorName` (see precedence, else ''), `actorIsOwner` (`dashboard-owner`), `actorSource`, `channelName`/`channelType` (`zca_thread_configs`), `changedFields` (`computeChangedFields`: update with before → differing keys; without before → written keys; `updatedAt` ignored; insert/remove → []), `createdAt`. No before/after data in the list.
 - `GET /api/audit-logs/:id` (`API_ROUTES.auditLog(id)`) → `IAuditLogDetail` (= item + `beforeData`, `afterData`), 404 when missing.
-- `AUDIT_TABLES` (contracts) lists 17 tables with `group` (`finance|planning|system`) and `technical`.
+- `AUDIT_TABLES` (contracts) lists 19 tables with `group` (`finance|planning|system`) and `technical`, including `saving_groups` and `saving_movements` (finance).
 
 ## Web (`/activity`)
 

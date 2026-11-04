@@ -7,6 +7,8 @@ import { DebtPaymentEntity } from '../database/entities/debt-payment.entity';
 import { DebtPaymentAllocationEntity } from '../database/entities/debt-payment-allocation.entity';
 import { UserCategoryEntity } from '../database/entities/user-category.entity';
 import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
+import { SavingGroupEntity } from '../database/entities/saving-group.entity';
+import { SavingMovementEntity } from '../database/entities/saving-movement.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { RecurringOccurrenceEntity } from '../database/entities/recurring-occurrence.entity';
 import { RecurringTransactionEntity } from '../database/entities/recurring-transaction.entity';
@@ -14,6 +16,8 @@ import { ZcaThreadConfigEntity } from '../database/entities/zca-thread-config.en
 import { FinanceService } from './finance.service';
 import { FinanceReportService } from './finance-report.service';
 import { FinanceController } from './finance.controller';
+import { SavingsController } from './savings.controller';
+import { SavingsService } from './savings.service';
 import { ContactUserSyncService } from './contact-user-sync.service';
 import { RecurringTransactionController } from './recurring/recurring-transaction.controller';
 import { RecurringTransactionService } from './recurring/recurring-transaction.service';
@@ -30,6 +34,8 @@ import { UsersModule } from '../users/users.module';
       DebtPaymentAllocationEntity,
       UserCategoryEntity,
       FinancePlaceEntity,
+      SavingGroupEntity,
+      SavingMovementEntity,
       UserEntity,
       ZcaThreadConfigEntity,
       RecurringTransactionEntity,
@@ -38,11 +44,12 @@ import { UsersModule } from '../users/users.module';
     DashboardAuthModule,
     forwardRef(() => UsersModule),
   ],
-  controllers: [FinanceController, RecurringTransactionController],
+  controllers: [FinanceController, RecurringTransactionController, SavingsController],
   providers: [
     FinanceService,
     FinanceReportService,
     RecurringTransactionService,
+    SavingsService,
     ContactUserSyncService,
   ],
   exports: [FinanceService, FinanceReportService, RecurringTransactionService],

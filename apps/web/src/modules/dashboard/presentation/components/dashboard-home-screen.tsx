@@ -170,30 +170,11 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
     return data.calendar.filter((item) => item.title.toLowerCase().includes(q));
   }, [data.calendar, calendarQuery]);
 
-  const transactionsWithBalance = useMemo<TransactionTableItem[]>(() => {
-    const list = data.transactions ?? [];
-    if (!list.length) return [];
-
-    const sortedAsc = [...list].sort(
-      (a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
-    );
-
-    let running = 0;
-    const balanceMap = new Map<string, number>();
-    for (const item of sortedAsc) {
-      if (item.type === 'income') {
-        running += item.amount;
-      } else {
-        running -= item.amount;
-      }
-      balanceMap.set(item.id, running);
-    }
-
-    return list.map((item) => ({
-      ...item,
-      runningBalance: balanceMap.get(item.id) ?? 0,
-    }));
-  }, [data.transactions]);
+  // runningBalance comes from the server: this list is only the latest rows of the ledger.
+  const transactionsWithBalance = useMemo<TransactionTableItem[]>(
+    () => data.transactions ?? [],
+    [data.transactions],
+  );
 
   const filteredTransactions = useMemo(() => {
     if (!txQuery.trim()) return transactionsWithBalance;

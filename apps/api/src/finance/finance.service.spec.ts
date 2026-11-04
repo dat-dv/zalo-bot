@@ -415,6 +415,7 @@ void test('FinanceService.getAnalyticsReport computes cumulative balance and ope
   });
   assert.deepEqual(report.currentPosition, {
     cashflowBalance: 12_000_000,
+    savings: 0,
     receivable: 500_000,
     payable: 13_000_000,
     netWorth: -500_000,

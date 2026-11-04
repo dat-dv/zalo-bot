@@ -51,7 +51,7 @@
   1. Reject self-merge, unknown users, and the bot's own ZCA account as source (`isBotAccount`) — it is recreated as admin on every startup.
   2. Finance rows are shared and untouched (no owner column); only authorship follows: `finance_transactions.createdByUserId` source → target.
   3. `debt_contacts.linkedUserId` source → target; if the target already links to a contact (a user links to at most one), the source links are set to `null` instead.
-  4. Move `reminders.userId`; authorship `tasks.createdByUserId` and `calendar_events.createdByUserId`; reminder targets: `reminders.chatId` and `tasks.remindChatId` equal to source ⇒ target, and the source among `remind_users` (jsonb, reminders and tasks) ⇒ target (`replaceRemindUser`: dropped when the target is already listed). Preview counts are unchanged (`USER_MERGE_TABLES`).
+  4. Move `reminders.userId`; authorship `tasks.createdByUserId`, `calendar_events.createdByUserId`, `saving_groups.createdByUserId` and `saving_movements.createdByUserId`; reminder targets: `reminders.chatId` and `tasks.remindChatId` equal to source ⇒ target, and the source among `remind_users` (jsonb, reminders and tasks) ⇒ target (`replaceRemindUser`: dropped when the target is already listed). Preview counts are unchanged (`USER_MERGE_TABLES`).
   5. `user_tokens` (Google): keep the only token, else the one with a refresh token, else the newest `updatedAt`.
   6. Delete source `dashboard_exchange_tokens`.
   7. Target profile: fill empty `firstName/username/phoneNumber/avatarUrl/driveFolder*` from source; role ADMIN if either is admin; `grantAccess` GRANTED if either granted or admin; earliest `createdAt`.

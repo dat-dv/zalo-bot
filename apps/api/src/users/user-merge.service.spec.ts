@@ -6,6 +6,8 @@ import { UserMergeService, chooseGoogleToken, replaceRemindUser } from './user-m
 import type { UserMergeManager, UserMergeUnitOfWork, UserMergeUsersPort } from './user-merge.types';
 import { AuditLogEntity } from '../database/entities/audit-log.entity';
 import { CalendarEventEntity } from '../database/entities/calendar-event.entity';
+import { SavingGroupEntity } from '../database/entities/saving-group.entity';
+import { SavingMovementEntity } from '../database/entities/saving-movement.entity';
 import { DashboardExchangeTokenEntity } from '../database/entities/dashboard-exchange-token.entity';
 import { DebtContactEntity } from '../database/entities/debt-contact.entity';
 import { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
@@ -303,6 +305,8 @@ void test('merge moves task and calendar authorship and where reminders go', asy
       ],
     ],
     [CalendarEventEntity, [{ id: 'e1', createdByUserId: OLD }]],
+    [SavingGroupEntity, [{ id: 'sg1', createdByUserId: OLD }]],
+    [SavingMovementEntity, [{ id: 'sm1', createdByUserId: OLD }]],
   );
   const { service, manager } = setup(seed);
   await service.merge(OLD, NEW, NEW);
@@ -318,6 +322,8 @@ void test('merge moves task and calendar authorship and where reminders go', asy
   assert.equal(byId(TaskEntity, 'k1')?.remindChatId, NEW);
   assert.deepEqual(byId(TaskEntity, 'k2')?.remindUsers, [{ id: NEW, name: 'Đạt' }]);
   assert.equal(byId(CalendarEventEntity, 'e1')?.createdByUserId, NEW);
+  assert.equal(byId(SavingGroupEntity, 'sg1')?.createdByUserId, NEW);
+  assert.equal(byId(SavingMovementEntity, 'sm1')?.createdByUserId, NEW);
 });
 
 void test('replaceRemindUser swaps the source, drops it when the target is listed', () => {

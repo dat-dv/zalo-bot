@@ -26,7 +26,10 @@ import {
 } from './transaction-column-filters';
 import { DebtAllocationModal } from './debt-allocation-modal';
 import { DeleteTransactionModal } from './delete-transaction-modal';
+import { IncludeSavingsToggle } from './include-savings-toggle';
+import { mergeLedgerRows } from './transaction-ledger-rows';
 import { AdjustBalanceModal } from './adjust-balance-modal';
+import { useIncludeSavingsStore } from '@/shared/store/include-savings-store';
 import { usePeriodFilter } from '@/shared/hooks/use-period-filter';
 import { ExportCsvButton } from '@/shared/ui/export-csv-button';
 import { PeriodFilterToolbar } from '@/shared/ui/period-filter-toolbar';
@@ -140,6 +143,18 @@ export function TransactionsScreen() {
   const firstPage = pages?.[0];
   const totalRows = firstPage?.total ?? 0;
   const ledgerBalance = firstPage?.ledgerBalance ?? 0;
+  const savingsTotal = firstPage?.savingsTotal ?? 0;
+  const includeSavings = useIncludeSavingsStore((state) => state.includeSavings);
+  const tableRows = useMemo(
+    () =>
+      mergeLedgerRows(
+        (pages ?? []).flatMap((page) => page.items),
+        (pages ?? []).flatMap((page) => page.savingMovements),
+        includeSavings,
+        (type) => t(`savings.ledgerRow.${type}`),
+      ),
+    [pages, includeSavings, t],
+  );
 
   const configuredCategories = useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data]);
   const placeSuggestions = useMemo(
@@ -197,6 +212,7 @@ export function TransactionsScreen() {
   );
 
   const handleStartEdit = useCallback((item: TransactionTableItem) => {
+    if (item.readOnly) return;
     setEditingId(item.id);
     setEditDraft({
       type: item.type,
@@ -360,6 +376,7 @@ export function TransactionsScreen() {
                   download={() => exportTransactions(listQuery)}
                   onError={showToast}
                 />
+                {savingsTotal !== 0 && <IncludeSavingsToggle />}
                 {activeColumnFilterCount > 0 && (
                   <button
                     type="button"
@@ -387,7 +404,7 @@ export function TransactionsScreen() {
           <TransactionsTable
             id="transactions"
             ariaLabel={t('transactions.title')}
-            transactions={rawList}
+            transactions={tableRows}
             loading={transactionsQuery.isLoading}
             emptyMessage={t('dashboard.noTransactions')}
             maxAmount={maxAmount}

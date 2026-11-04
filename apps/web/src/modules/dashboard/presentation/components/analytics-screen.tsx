@@ -14,10 +14,12 @@ import { useFinanceAnalyticsQuery } from '../../api/analytics-query';
 import { CashflowTrendChart } from '@/shared/ui/charts/cashflow-trend-chart';
 import { CategoryDonutChart } from '@/shared/ui/charts/category-donut-chart';
 import { DebtStructureChart } from '@/shared/ui/charts/debt-structure-chart';
+import { useIncludeSavingsStore } from '@/shared/store/include-savings-store';
 import { Button } from '@/shared/ui/button';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { MetricGrid, MetricGridSkeleton, type MetricGridItem } from '@/shared/ui/metric-grid';
 import { PHONE_CHIP } from '@/shared/ui/touch';
+import { IncludeSavingsToggle } from './include-savings-toggle';
 
 // Chart/Table toggle: compact toolbar chips sharing the row on phones.
 const PHONE_TOGGLE = `max-[640px]:flex-1 ${PHONE_CHIP}`;
@@ -26,6 +28,7 @@ export function AnalyticsScreen() {
   const queryClient = useQueryClient();
   const { t } = useLocale();
   const money = useMoneyFormatter();
+  const includeSavings = useIncludeSavingsStore((state) => state.includeSavings);
   const periodFilter = usePeriodFilter('month');
   const [cashflowViewMode, setCashflowViewMode] = useState<'chart' | 'table'>('chart');
 
@@ -153,11 +156,20 @@ export function AnalyticsScreen() {
             : 'text-slate-700 dark:text-slate-300',
     },
   ];
+  const walletBalance = currentPosition?.cashflowBalance ?? 0;
+  const savingsTotal = currentPosition?.savings ?? 0;
   const currentPositionMetrics: MetricGridItem[] = [
     {
-      label: t('analytics.currentPosition.cashflowBalance'),
-      value: money(currentPosition?.cashflowBalance ?? 0),
+      label: t(
+        includeSavings ? 'savings.walletWithSavings' : 'analytics.currentPosition.cashflowBalance',
+      ),
+      value: money(includeSavings ? walletBalance + savingsTotal : walletBalance),
       valueClassName: 'text-sky-700 dark:text-sky-400',
+    },
+    {
+      label: t('analytics.currentPosition.savings'),
+      value: money(savingsTotal),
+      valueClassName: 'text-emerald-700 dark:text-emerald-400',
     },
     {
       label: t('analytics.currentPosition.receivable'),
@@ -288,7 +300,7 @@ export function AnalyticsScreen() {
 
         <MetricGridSkeleton count={4} />
         <DataPanel title={t('analytics.currentPosition.title')}>
-          <MetricGridSkeleton count={4} />
+          <MetricGridSkeleton count={5} />
         </DataPanel>
 
         {/* Cashflow Trend Panel Skeleton */}
@@ -373,13 +385,17 @@ export function AnalyticsScreen() {
         <MetricGrid items={periodMetrics} />
       </section>
 
-      <DataPanel title={t('analytics.currentPosition.title')}>
+      <DataPanel
+        title={t('analytics.currentPosition.title')}
+        toolbar={savingsTotal !== 0 ? <IncludeSavingsToggle /> : undefined}
+      >
         <MetricGrid items={currentPositionMetrics} />
       </DataPanel>
 
       {/* Cashflow Trend Panel */}
       <DataPanel
         title={t('analytics.chart.cashflowTrend')}
+        description={savingsTotal !== 0 ? t('analytics.trend.balanceIncludesSavings') : undefined}
         toolbar={
           <div className="flex items-center gap-1 max-[640px]:w-full">
             <Button

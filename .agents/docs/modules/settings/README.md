@@ -46,7 +46,7 @@ Tiêu đề trang, nút Làm mới và Đăng xuất do `WorkspaceHeader` của 
     - Đang chạy trong app đã cài: hiện nhãn "Đã cài".
     - Chrome/Android đã cho phép cài: hiện nút **Cài ứng dụng**. Hộp thoại cài chỉ mở được một lần; người dùng bấm huỷ thì nút ẩn đi cho tới lần tải trang sau.
     - Các trường hợp khác hiện hướng dẫn theo trình duyệt: trong Zalo thì mở bằng Safari/Chrome, trên iOS thì Chia sẻ → "Thêm vào MH chính", còn lại thì báo trình duyệt chưa hỗ trợ.
-  - **Quản lý số dư & Cân chỉnh ví**: nút `⚖️` mở `AdjustBalanceModal` (thuộc module dashboard) để cân số dư sổ sách với số dư ví thật. Số dư trên sổ lấy từ `finance.ledgerBalance` của payload dashboard (tổng thu − tổng chi toàn thời gian), không phải số dư của tháng.
+  - **Quản lý số dư & Cân chỉnh ví**: nút `⚖️` mở `AdjustBalanceModal` (thuộc module dashboard) để cân số dư sổ sách với số dư ví thật. Số dư trên sổ lấy từ `finance.ledgerBalance` của payload dashboard (số dư ví toàn thời gian, không gồm tiền trong nhóm tiết kiệm), không phải số dư của tháng.
   - Công tắc **React Scan**.
 - **Trên điện thoại / màn hình hẹp** (desktop giữ nguyên):
   - Hai bảng danh mục chuyển thành danh sách (≤ 960px): dòng 1 là tên danh mục, dòng 2 là loại (Thu/Chi). Danh mục không có số lần dùng nên không có giá trị bên phải. Chạm dòng mở bottom-sheet; đổi tên bằng nút Sửa ở chân sheet (ô nhập 40px), Lưu/✕ và Xoá cũng ở đó vì điện thoại không nhấp đúp được.

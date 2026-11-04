@@ -19,6 +19,7 @@ This directory contains developer & operating guides organized by feature module
 - [Công nợ](debts/README.md): Theo dõi các khoản cần thu và cần trả đang mở.
 - [Khoản cố định](recurring/README.md): Các khoản thu chi lặp lại theo kỳ.
 - [Dashboard](dashboard/README.md): Tổng quan, thống kê và các bảng dữ liệu cá nhân.
+- [Nhóm tiết kiệm](savings/README.md): Giữ tiền để dành ngoài số dư ví, thao tác trên trang `/savings`.
 - [Khoản chi](expenses/README.md): Hiển thị lịch sử các giao dịch chi.
 - [Lời nhắc](reminders/README.md): Quản lý lời nhắc hẹn giờ và cập nhật trạng thái.
 - [Cài đặt](settings/README.md): Quản lý danh mục thu chi và cấu hình hệ thống cá nhân.

@@ -5,6 +5,7 @@ metadata:
     type: documentation
     depends_on:
       - apps/api/src/finance/finance.service.ts
+      - apps/api/src/finance/saving-ledger.ts
       - apps/api/src/finance/transaction-item.mapper.ts
       - apps/api/src/finance/finance.controller.ts
       - apps/api/src/reports/reports.controller.ts
@@ -45,6 +46,17 @@ Human guide: [Finance Domain](../../docs/global/finance-domain.md).
 - Audit: `actor_id` is whoever made the change (dashboard user, Zalo sender, or the requester of a confirmed pending action), not the row's `createdByUserId`; editing someone else's transaction is credited to the editor. See `backend-runtime-services.md` (Audit) and `modules/audit`.
 - Migration `1724790000000-RemoveFinanceUserScope` (plain SQL, one transaction, idempotent guard on `finance_transactions.user_id`): backfill `created_by_user_id = user_id` where null; fold duplicates across old ledgers — places by `normalized_name` (repoint `finance_transactions.place_id`), contacts by `normalized_name + COALESCE(normalized_alias,'')` (keeper = earliest, inherits missing phone/avatar/linked user; repoint `debts.contact_id`, `finance_transactions.contact_id`), categories by `type + lower(trim(name))`; keep only the earliest contact link per `linked_user_id`; write one `audit_logs` row (`operation: remove-finance-user-scope`, per-ledger counts before); drop `user_id` (+ indexes) on the 7 tables, add unique `UQ_finance_places_normalized_name`; drop `users.is_ledger_owner`. `down()` restores empty columns only — the old split needs the pre-migration backup.
 
+## Wallet balance and savings
+
+Savings groups (see [modules/savings](../modules/savings/README.md)) move money out of the wallet without an expense. `saving_movements` are separate from `finance_transactions`, so income, expense, category totals and `netSavingsRate` ignore them.
+
+- `computeLedger(rows, movements)` walks both by `occurredAt, createdAt, id` and returns wallet and with-savings running balances plus `ledgerBalance` (wallet) and `savingsTotal`. `getLedgerPosition()` is the entry point; `getLedgerBalance()` returns the wallet only.
+- `ledgerBalance` = income − expense − deposits + withdrawals. `opening` movements add savings only. The adjust-balance modal uses it, so it reconciles the real wallet.
+- `GET /transactions` items add `runningBalanceWithSavings`; the response adds `savingsTotal` and `savingMovements`: movements on this page (each with both running balances), between the row above the page and the page's last row, so neighbouring pages never repeat or lose one. Empty while a type, search or column filter is active, since movements have none of those fields.
+- Analytics `currentPosition`: `cashflowBalance` = wallet, `savings`, `netWorth` = wallet + savings + receivable − payable. Trend `balance` stays cumulative income − expense, so it includes savings (the chart says so).
+- `GET /dashboard`: `finance.ledgerBalance`, `finance.savingsTotal`, `transactions[].runningBalance` (from the same ledger walk).
+- Zalo `GET_REPORT` shows the wallet as "Số dư". `/finance` and the today summary are period income − expense, unchanged.
+
 ## Transaction creator and receipt
 
 - `finance_transactions` columns: `created_by_user_id`, `created_by_name` (display-name snapshot), `source` (`zalo` | `dashboard`), `source_chat_id` (Zalo thread). Chat writes sender id/name + chat id; dashboard writes the signed-in user + `source = 'dashboard'`. Rows older than creator tracking got `created_by_user_id` backfilled from their former `user_id` by the migration; `created_by_name` may be null (UI falls back to the user's current name or "—").
@@ -71,7 +83,7 @@ Identity normalization (`normalizeIdentity`): NFD, strip diacritics, `vi-VN` low
 ## REST API (all under `/api`, dashboard access token required, data is system-wide)
 
 ### Transactions
-- `GET /transactions` — query `type?`, `startAt?`, `endAt?` (ISO; `startAt <= endAt`), `search?` (ILIKE on category, note, place name), column filters `categories?` (exact, OR), `note?` (ILIKE), `placeIds?` (OR; `none` = no place, its own OR branch), `createdByUserIds?` (OR), `hasReceipt?` (`true|false`; blank `receipt_url` = no receipt), `amountMin?`/`amountMax?` (integers ≥ 0, min ≤ max) — lists accept repeated keys, ≤ 50 values each; all filters AND together and with `search` (a column filter and the search branch on the same column are combined with TypeORM `And`), `limit?` (default 100, max 500), `offset?`. Invalid params → 400. Returns `ITransactionListResponse { items, total, limit, offset, summary, ledgerBalance, facets }` ordered `occurredAt, createdAt, id` DESC. `items[].runningBalance` = wallet balance after that row computed over the whole shared ledger in chronological order (`computeLedger`), independent of filters/paging. `summary { income, expense, count }` covers the period only (ignores `type`/`search`/column filters). `facets { creators: { id, name }[], categories: string[] }` = filter options over the period only (also ignores filters, so dropdowns do not shrink); creator name = current `users.firstName`, else `createdByName` snapshot, else `''` (web labels it `table.columnFilter.unknownCreator` "Không rõ tên (…<last 4 of id>)"; unnamed creators sort last); both come from the same ledger-row load (no extra transaction query). `ledgerBalance` = all-time income − expense (`getLedgerBalance`, also exposed as dashboard `finance.ledgerBalance`). Entity → DTO mapping shared with the dashboard via `toTransactionItem`. `listTransactions` (newest 200) remains for the chat `DELETE_TRANSACTION` tool.
+- `GET /transactions` — query `type?`, `startAt?`, `endAt?` (ISO; `startAt <= endAt`), `search?` (ILIKE on category, note, place name), column filters `categories?` (exact, OR), `note?` (ILIKE), `placeIds?` (OR; `none` = no place, its own OR branch), `createdByUserIds?` (OR), `hasReceipt?` (`true|false`; blank `receipt_url` = no receipt), `amountMin?`/`amountMax?` (integers ≥ 0, min ≤ max) — lists accept repeated keys, ≤ 50 values each; all filters AND together and with `search` (a column filter and the search branch on the same column are combined with TypeORM `And`), `limit?` (default 100, max 500), `offset?`. Invalid params → 400. Returns `ITransactionListResponse { items, total, limit, offset, summary, ledgerBalance, savingsTotal, savingMovements, facets }` ordered `occurredAt, createdAt, id` DESC. `items[].runningBalance` = wallet balance after that row computed over the whole shared ledger in chronological order (`computeLedger`), independent of filters/paging. `summary { income, expense, count }` covers the period only (ignores `type`/`search`/column filters). `facets { creators: { id, name }[], categories: string[] }` = filter options over the period only (also ignores filters, so dropdowns do not shrink); creator name = current `users.firstName`, else `createdByName` snapshot, else `''` (web labels it `table.columnFilter.unknownCreator` "Không rõ tên (…<last 4 of id>)"; unnamed creators sort last); both come from the same ledger-row load (no extra transaction query). `ledgerBalance` = wallet balance (`getLedgerBalance`, also exposed as dashboard `finance.ledgerBalance`; see Wallet balance and savings). Entity → DTO mapping shared with the dashboard via `toTransactionItem`. `listTransactions` (newest 200) remains for the chat `DELETE_TRANSACTION` tool.
 - `GET/PATCH/DELETE /transactions/:id`, `POST /transactions`.
 - Body accepts `placeId` or `placeName`. `placeId` must exist; `placeName` resolves-or-creates a place; `placeId: null` unlinks.
 - `PATCH` guards: cannot change `type` while allocations exist; new `amount` cannot be below allocated sum.
@@ -114,7 +126,7 @@ Identity normalization (`normalizeIdentity`): NFD, strip diacritics, `vi-VN` low
 
 ### Analytics
 - `GET /finance/analytics?startAt&endAt&grain` (`AnalyticsGrain`: day/week/month/quarter/year/all; default `month`).
-- Returns `summary` (income, expense, balance, `netSavingsRate`, receivable/payable totals), `currentPosition` (all-time cashflow balance, receivable, payable, `netWorth`), `trend`, `categories` keyed by `${type}:${category}` with per-type percentage, `debts` (top receivables/payables from active top-level debts).
+- Returns `summary` (income, expense, balance, `netSavingsRate`, receivable/payable totals), `currentPosition` (wallet balance, savings, receivable, payable, `netWorth`), `trend`, `categories` keyed by `${type}:${category}` with per-type percentage, `debts` (top receivables/payables from active top-level debts).
 - Trend buckets: `week` = 7 weekday buckets T2..CN; `month` = 6 day ranges (1-5 … 26-end); `quarter` = 3 months; anything else = 12 months. Running balance starts from the opening balance before `startAt`.
 
 ## Zalo chat integration (LLM tools)
@@ -125,8 +137,8 @@ Tools from `ZALO_TOOL_DEFINITIONS` relevant to finance (see [LLM Providers](llm-
 - `CREATE_PLACE` (name) -> pending confirmation unless the place exists.
 - `DELETE_TRANSACTION` (transactionId or query; UUID also extracted from raw text; "gần nhất/mới nhất" -> latest) -> pending confirmation -> `deleteTransaction`.
 - `MANAGE_DEBT` (direction, counterparty, amount, note, occurredAt, dueAt) (+ optional `counterpartyAlias`) -> `ManageDebtToolStrategy` resolves the contact with `resolveContacts` (exact normalized name/alias): 1 match -> `contactId`; 0 -> `createNewContact: true`; >1 -> no card, bot lists `Name (alias)` options and asks the user to resend with the alias -> pending confirmation -> `createDebt`.
-- `GET_REPORT` (grain day/month/year) for chat summaries.
-- No LLM tool exists for allocations, contacts, categories, or combine operations (dashboard only).
+- `GET_REPORT` (grain day/month/year) for chat summaries; its balance is the wallet balance.
+- No LLM tool exists for allocations, contacts, categories, savings groups, or combine operations (dashboard only).
 - No call coalescing. Multiple tool calls run sequentially; `TextInputService.propagateSharedTransactionContext` copies a single shared `occurredAt`, and (when times agree) a single shared `placeName`/`paymentMethod`, to sibling `RECORD_TRANSACTION` calls missing them.
 - Fast-path commands `/finance` (today summary) and `/debts` (active debts) read directly without LLM.
 
@@ -151,7 +163,7 @@ Tools from `ZALO_TOOL_DEFINITIONS` relevant to finance (see [LLM Providers](llm-
 
 - `GET /api/transactions/export` takes the list's filters; `GET /api/debts/export` returns all root debts (merged children excluded: the parent already carries the amount). Both are declared before the `:id` routes and need the dashboard bearer token, so the web downloads a blob instead of linking.
 - Transactions page through `queryTransactions`, 500 rows at a time. A failure after the first page destroys the socket: a truncated file must not look complete. Debts bypass the screen's 200-row cap.
-- UTF-8 BOM so Excel reads Vietnamese. Text starting with `= + - @`, tab or CR gets a leading `'` (formula injection: notes are free text). Numbers stay numbers. Headers are Vietnamese; dates are Vietnam time.
+- UTF-8 BOM so Excel reads Vietnamese. Text starting with `= + - @`, tab or CR gets a leading `'` (formula injection: notes are free text). Numbers stay numbers. Headers are Vietnamese; dates are Vietnam time. The balance column is the wallet balance, without savings.
 - Any signed-in dashboard user may export: the ledger is shared. Not recorded in the audit log, which only tracks data changes.
 - CSV only for now; no `.xlsx`, no new dependency.
 

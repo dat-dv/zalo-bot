@@ -15,6 +15,8 @@ import { UserCategoryEntity } from './entities/user-category.entity';
 import { FinancePlaceEntity } from './entities/finance-place.entity';
 import { RecurringOccurrenceEntity } from './entities/recurring-occurrence.entity';
 import { RecurringTransactionEntity } from './entities/recurring-transaction.entity';
+import { SavingGroupEntity } from './entities/saving-group.entity';
+import { SavingMovementEntity } from './entities/saving-movement.entity';
 import { ZcaThreadConfigEntity } from './entities/zca-thread-config.entity';
 import { ZcaMessageEntity } from './entities/zca-message.entity';
 import { ZcaChannelNoteEntity } from './entities/zca-channel-note.entity';
@@ -61,7 +63,8 @@ import { AddReminderRepeatAndNag1724960000000 } from './migrations/1724960000000
 import { AddAuditLogActorName1724970000000 } from './migrations/1724970000000-AddAuditLogActorName';
 import { AddChatMemoryV21724980000000 } from './migrations/1724980000000-AddChatMemoryV2';
 import { AddChatMemorySegments1724990000000 } from './migrations/1724990000000-AddChatMemorySegments';
-import { AddThreadFinanceDigest1725000000000 } from './migrations/1725000000000-AddThreadFinanceDigest';
+import { AddSavingGroups1725000000000 } from './migrations/1725000000000-AddSavingGroups';
+import { AddThreadFinanceDigest1725005000000 } from './migrations/1725005000000-AddThreadFinanceDigest';
 import { CreateRecurringTransactions1725010000000 } from './migrations/1725010000000-CreateRecurringTransactions';
 
 // Load environment variables for TypeORM CLI từ root
@@ -92,6 +95,8 @@ export const AppDataSource = new DataSource({
     FinancePlaceEntity,
     RecurringTransactionEntity,
     RecurringOccurrenceEntity,
+    SavingGroupEntity,
+    SavingMovementEntity,
     ZcaThreadConfigEntity,
     ZcaMessageEntity,
     ZcaChannelNoteEntity,
@@ -140,7 +145,8 @@ export const AppDataSource = new DataSource({
     AddAuditLogActorName1724970000000,
     AddChatMemoryV21724980000000,
     AddChatMemorySegments1724990000000,
-    AddThreadFinanceDigest1725000000000,
+    AddSavingGroups1725000000000,
+    AddThreadFinanceDigest1725005000000,
     CreateRecurringTransactions1725010000000,
   ],
   migrationsTableName: 'typeorm_migrations',

@@ -43,8 +43,14 @@ import { DebtPaymentEntity } from '../database/entities/debt-payment.entity';
 import { DebtPaymentAllocationEntity } from '../database/entities/debt-payment-allocation.entity';
 import { UserCategoryEntity } from '../database/entities/user-category.entity';
 import { FinancePlaceEntity } from '../database/entities/finance-place.entity';
+import { SavingMovementEntity } from '../database/entities/saving-movement.entity';
 import { UserEntity } from '../database/entities/user.entity';
 import { toTransactionItem, type TransactionItemLookups } from './transaction-item.mapper';
+import {
+  savingMovementDeltas,
+  savingMovementsInWindow,
+  toSavingMovementItem,
+} from './saving-ledger';
 import {
   contactProfileTransactionWhere,
   mergeContactProfileFields,
@@ -79,30 +85,65 @@ function allOf<T>(
   return left && right ? And(left, right) : (left ?? right);
 }
 
+export type LedgerMovementRow = Pick<
+  SavingMovementEntity,
+  'id' | 'type' | 'amount' | 'occurredAt' | 'createdAt'
+>;
+
 export interface LedgerComputation {
-  /** Balance right after each transaction, keyed by transaction id. */
+  /** Wallet balance right after each transaction or savings movement, keyed by its id. */
   runningBalances: Map<string, number>;
+  /** The same moments with the money in savings groups added back. */
+  runningBalancesWithSavings: Map<string, number>;
+  /** Wallet balance: money moved into savings groups is not in it. */
   ledgerBalance: number;
+  savingsTotal: number;
 }
 
 /**
  * Walks the whole ledger chronologically (occurredAt, createdAt, id) so a row's running balance is
  * the real wallet balance after it, regardless of which page or filter displays the row.
  */
-export function computeLedger(rows: readonly LedgerRow[]): LedgerComputation {
-  const sorted = [...rows].sort(
+export function computeLedger(
+  rows: readonly LedgerRow[],
+  movements: readonly LedgerMovementRow[] = [],
+): LedgerComputation {
+  const entries = [
+    ...rows.map(({ id, occurredAt, createdAt, type, amount }) => ({
+      id,
+      occurredAt,
+      createdAt,
+      wallet: type === 'income' ? amount : -amount,
+      savings: 0,
+    })),
+    ...movements.map(({ id, occurredAt, createdAt, type, amount }) => ({
+      id,
+      occurredAt,
+      createdAt,
+      ...savingMovementDeltas(type, amount),
+    })),
+  ].sort(
     (a, b) =>
       a.occurredAt.getTime() - b.occurredAt.getTime() ||
       a.createdAt.getTime() - b.createdAt.getTime() ||
       a.id.localeCompare(b.id),
   );
   const runningBalances = new Map<string, number>();
-  let balance = 0;
-  for (const row of sorted) {
-    balance += row.type === 'income' ? row.amount : -row.amount;
-    runningBalances.set(row.id, balance);
+  const runningBalancesWithSavings = new Map<string, number>();
+  let wallet = 0;
+  let savings = 0;
+  for (const entry of entries) {
+    wallet += entry.wallet;
+    savings += entry.savings;
+    runningBalances.set(entry.id, wallet);
+    runningBalancesWithSavings.set(entry.id, wallet + savings);
   }
-  return { runningBalances, ledgerBalance: balance };
+  return {
+    runningBalances,
+    runningBalancesWithSavings,
+    ledgerBalance: wallet,
+    savingsTotal: savings,
+  };
 }
 
 export interface CreateFinanceTransactionDto {
@@ -241,6 +282,9 @@ export class FinanceService {
     @Optional()
     @InjectRepository(ZcaThreadConfigEntity)
     private readonly threadConfigRepo?: Repository<ZcaThreadConfigEntity>,
+    @Optional()
+    @InjectRepository(SavingMovementEntity)
+    private readonly savingMovementRepo?: Repository<SavingMovementEntity>,
   ) {}
 
   /** Maps rows to DTOs, resolving creator names and source chat names in one query each. */
@@ -384,7 +428,7 @@ export class FinanceService {
     grain: AnalyticsGrain = 'month',
   ): Promise<IFinanceAnalyticsResponse> {
     const summary = await this.getSummary(startAt, endAt);
-    const allTimeSummary = startAt || endAt ? await this.getSummary() : summary;
+    const { ledgerBalance, savingsTotal } = await this.getLedgerPosition();
     const debts = await this.getActiveDebts();
 
     const receivableTotal = debts
@@ -487,10 +531,11 @@ export class FinanceService {
         payableTotal,
       },
       currentPosition: {
-        cashflowBalance: allTimeSummary.balance,
+        cashflowBalance: ledgerBalance,
+        savings: savingsTotal,
         receivable: receivableTotal,
         payable: payableTotal,
-        netWorth: allTimeSummary.balance + receivableTotal - payableTotal,
+        netWorth: ledgerBalance + savingsTotal + receivableTotal - payableTotal,
       },
       trend,
       categories,
@@ -669,8 +714,21 @@ export class FinanceService {
     });
   }
 
+  private async loadLedgerMovements(): Promise<SavingMovementEntity[]> {
+    return (await this.savingMovementRepo?.find({ relations: { group: true } })) ?? [];
+  }
+
+  /** Wallet and savings over the whole shared ledger, right after every entry. */
+  public async getLedgerPosition(): Promise<LedgerComputation> {
+    const [rows, movements] = await Promise.all([
+      this.loadLedgerRows(),
+      this.loadLedgerMovements(),
+    ]);
+    return computeLedger(rows, movements);
+  }
+
   public async getLedgerBalance(): Promise<number> {
-    return computeLedger(await this.loadLedgerRows()).ledgerBalance;
+    return (await this.getLedgerPosition()).ledgerBalance;
   }
 
   public async queryTransactions(query: ITransactionListQuery): Promise<ITransactionListResponse> {
@@ -732,8 +790,9 @@ export class FinanceService {
         ])
       : placeBranches;
 
-    const [ledgerRows, [entities, total]] = await Promise.all([
+    const [ledgerRows, ledgerMovements, [entities, total]] = await Promise.all([
       this.loadLedgerRows(),
+      this.loadLedgerMovements(),
       this.transactionRepo.findAndCount({
         where,
         relations: { place: true, allocations: { debt: true } },
@@ -743,7 +802,8 @@ export class FinanceService {
       }),
     ]);
 
-    const { runningBalances, ledgerBalance } = computeLedger(ledgerRows);
+    const { runningBalances, runningBalancesWithSavings, ledgerBalance, savingsTotal } =
+      computeLedger(ledgerRows, ledgerMovements);
     // Period totals and filter options ignore type/search/column filters, so the summary strip shows
     // the whole period and the filter dropdowns do not shrink as filters are applied.
     const periodRows = ledgerRows.filter((row) => {
@@ -758,6 +818,25 @@ export class FinanceService {
     const categories = [
       ...new Set(periodRows.map((row) => row.category?.trim()).filter((c): c is string => !!c)),
     ].sort((a, b) => a.localeCompare(b, 'vi'));
+    // Movements have no category, note or creator to filter on, so they only join the plain ledger.
+    const hasRowFilters =
+      query.type ||
+      search ||
+      categoryFilter ||
+      noteFilter ||
+      query.createdByUserIds?.length ||
+      query.hasReceipt !== undefined ||
+      amountMin !== undefined ||
+      amountMax !== undefined ||
+      query.placeIds?.length;
+    const savingMovementsOnPage = hasRowFilters
+      ? []
+      : await this.savingMovementsForPage(ledgerMovements, where, entities, {
+          offset,
+          total,
+          startAt,
+          endAt,
+        });
     const [items, creators] = await Promise.all([
       this.toTransactionItems(entities),
       this.creatorFacets(periodRows),
@@ -766,14 +845,46 @@ export class FinanceService {
       items: items.map((item) => ({
         ...item,
         runningBalance: runningBalances.get(item.id) ?? 0,
+        runningBalanceWithSavings: runningBalancesWithSavings.get(item.id) ?? 0,
       })),
       total,
       limit,
       offset,
       summary,
       ledgerBalance,
+      savingsTotal,
+      savingMovements: savingMovementsOnPage.map((movement) => ({
+        ...toSavingMovementItem(movement),
+        runningBalance: runningBalances.get(movement.id) ?? 0,
+        runningBalanceWithSavings: runningBalancesWithSavings.get(movement.id) ?? 0,
+      })),
       facets: { creators, categories },
     };
+  }
+
+  private async savingMovementsForPage(
+    movements: SavingMovementEntity[],
+    where: FindOptionsWhere<FinanceTransactionEntity>[],
+    entities: FinanceTransactionEntity[],
+    page: { offset: number; total: number; startAt?: Date; endAt?: Date },
+  ): Promise<SavingMovementEntity[]> {
+    if (!movements.length) return [];
+    const isLastPage = page.offset + entities.length >= page.total;
+    const [rowAbove] =
+      page.offset > 0
+        ? await this.transactionRepo.find({
+            where,
+            select: { id: true, occurredAt: true },
+            order: { occurredAt: 'DESC', createdAt: 'DESC', id: 'DESC' },
+            skip: page.offset - 1,
+            take: 1,
+          })
+        : [];
+    return savingMovementsInWindow(movements, {
+      from: isLastPage ? page.startAt : entities[entities.length - 1]?.occurredAt,
+      to: rowAbove?.occurredAt ?? page.endAt,
+      toExclusive: Boolean(rowAbove),
+    });
   }
 
   /** Creators of the given rows, named like the table rows (current profile name, then snapshot). */

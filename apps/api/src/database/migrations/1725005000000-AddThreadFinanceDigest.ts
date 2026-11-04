@@ -1,8 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /** Per-channel switches for the scheduled finance digest; off because it shows the shared ledger. */
-export class AddThreadFinanceDigest1725000000000 implements MigrationInterface {
-  name = 'AddThreadFinanceDigest1725000000000';
+export class AddThreadFinanceDigest1725005000000 implements MigrationInterface {
+  name = 'AddThreadFinanceDigest1725005000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`

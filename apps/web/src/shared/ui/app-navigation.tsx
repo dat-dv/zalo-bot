@@ -36,6 +36,7 @@ export type NavigationPage =
   | 'reminders'
   | 'contacts'
   | 'places'
+  | 'savings'
   | 'zca'
   | 'googleStorage'
   | 'activity'
@@ -52,6 +53,7 @@ type NavigationIcon =
   | 'reminders'
   | 'contacts'
   | 'places'
+  | 'savings'
   | 'zca'
   | 'googleStorage'
   | 'activity'
@@ -91,6 +93,12 @@ const navSections: readonly NavSection[] = [
         href: APP_ROUTES.recurring,
         labelKey: 'nav.recurring',
         icon: 'recurring',
+      },
+      {
+        page: 'savings',
+        href: APP_ROUTES.savings,
+        labelKey: 'nav.savings',
+        icon: 'savings',
       },
       {
         page: 'analytics',
@@ -704,6 +712,15 @@ function NavigationItemIcon({
       <svg {...sharedProps}>
         <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
         <circle cx="12" cy="10" r="3" />
+      </svg>
+    );
+  }
+  if (icon === 'savings') {
+    return (
+      <svg {...sharedProps}>
+        <path d="M19 5H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2z" />
+        <path d="M21 12h-5a2 2 0 0 0 0 4h5" />
+        <path d="M3 9h18" />
       </svg>
     );
   }
