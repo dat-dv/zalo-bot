@@ -16,7 +16,7 @@ import type { TasksService } from '../tasks/tasks.service';
 import type { RemindersService } from '../reminders/reminders.service';
 import type { RecurringTransactionService } from '../finance/recurring/recurring-transaction.service';
 
-const PROFILE: IDashboardSessionUser = {
+const PROFILE: Omit<IDashboardSessionUser, 'googleConnected'> = {
   id: '42',
   name: 'Anh Đạt',
   avatarUrl: null,
@@ -41,7 +41,7 @@ function createController(profileFor: string[]) {
     {} as unknown as ConfigService,
     {} as unknown as FinanceService,
     {} as unknown as AuditService,
-    {} as unknown as GoogleAuthService,
+    { isAuthorized: () => true } as unknown as GoogleAuthService,
     {} as unknown as CalendarService,
     {} as unknown as TasksService,
     {} as unknown as RemindersService,
@@ -60,7 +60,7 @@ void test('ReportsController.me returns the profile of the session user', async 
     headers: { authorization: 'Bearer valid-token' },
   } as unknown as Request);
 
-  assert.deepEqual(res, { data: PROFILE });
+  assert.deepEqual(res, { data: { ...PROFILE, googleConnected: true } });
   assert.deepEqual(profileFor, ['42']);
 });
 

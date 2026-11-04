@@ -171,7 +171,9 @@ export class ReportsController {
   @ApiOperation({ summary: 'Tài khoản của phiên dashboard hiện tại (tên Zalo, ID, quyền admin)' })
   public async me(@Req() req: Request): Promise<IApiResponse<IDashboardSessionUser>> {
     const userId = this.getAccessUserId(req);
-    return { data: await this.users.getSessionProfile(userId) };
+    const profile = await this.users.getSessionProfile(userId);
+    // Pages that only need to know whether Google is connected read it here, not from /dashboard.
+    return { data: { ...profile, googleConnected: this.googleAuth.isAuthorized(userId) } };
   }
 
   @Get('dashboard')
@@ -186,17 +188,28 @@ export class ReportsController {
     const googleConnected = this.googleAuth.isAuthorized(userId);
     const calendarPromise = this.getCalendarEvents(String(userId), now);
     const tasksPromise = this.getTasks();
-    const [summary, position, debts, reminders, activity, calendar, tasks, recurringPending] =
-      await Promise.all([
-        this.finance.getSummary(startAt, endAt),
-        this.finance.getLedgerPosition(),
-        this.finance.getActiveDebts(),
-        this.reminders.getUserUpcomingReminders(userId),
-        this.audit.listRecent(userId, 10),
-        calendarPromise,
-        tasksPromise,
-        this.recurring.listPendingItems(),
-      ]);
+    // Only the month's totals and its 20 newest rows are shown, so only those are loaded.
+    const [
+      totals,
+      recentTransactions,
+      position,
+      debts,
+      reminders,
+      activity,
+      calendar,
+      tasks,
+      recurringPending,
+    ] = await Promise.all([
+      this.finance.sumPeriod(startAt, endAt),
+      this.finance.listRecentTransactions(startAt, endAt, 20),
+      this.finance.getLedgerPosition(),
+      this.finance.getActiveDebts(),
+      this.reminders.getUserUpcomingReminders(userId, 10),
+      this.audit.listRecent(userId, 10),
+      calendarPromise,
+      tasksPromise,
+      this.recurring.listPendingItems(),
+    ]);
     const receivable = debts
       .filter((item) => item.direction === 'receivable')
       .reduce((total, item) => total + item.remainingAmount, 0);
@@ -208,21 +221,22 @@ export class ReportsController {
       data: {
         user: { name: userId.toString(), isAdmin, googleConnected },
         finance: {
-          income: summary.income,
-          expense: summary.expense,
-          balance: summary.balance,
+          income: totals.income,
+          expense: totals.expense,
+          balance: totals.balance,
           ledgerBalance: position.ledgerBalance,
           savingsTotal: position.savingsTotal,
           receivable,
           payable,
         },
-        transactions: (
-          await this.finance.toTransactionItems(summary.transactions.slice(0, 20))
-        ).map((item) => ({ ...item, runningBalance: position.runningBalances.get(item.id) ?? 0 })),
+        transactions: (await this.finance.toTransactionItems(recentTransactions)).map((item) => ({
+          ...item,
+          runningBalance: position.runningBalances.get(item.id) ?? 0,
+        })),
         debts: debts.map((item) => this.mapDebt(item)),
         calendar,
         tasks,
-        reminders: reminders.slice(0, 10).map((item) => ({
+        reminders: reminders.map((item) => ({
           id: item.id,
           title: item.title,
           remindAt: toIsoDate(item.remindAt),
@@ -361,11 +375,11 @@ export class ReportsController {
   }
 
   private async getAdminSummary(): Promise<{ userCount: number; googleConnectedCount: number }> {
-    const users = await this.users.getUsers();
+    // Counts only: no names, so no ZCA directory lookup behind `getUsers()`.
+    const userIds = await this.users.listUserIds();
     return {
-      userCount: users.length,
-      googleConnectedCount: users.filter((user) => this.googleAuth.isAuthorized(Number(user.id)))
-        .length,
+      userCount: userIds.length,
+      googleConnectedCount: userIds.filter((id) => this.googleAuth.isAuthorized(Number(id))).length,
     };
   }
 

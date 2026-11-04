@@ -66,6 +66,7 @@ import { AddChatMemorySegments1724990000000 } from './migrations/1724990000000-A
 import { AddSavingGroups1725000000000 } from './migrations/1725000000000-AddSavingGroups';
 import { AddThreadFinanceDigest1725005000000 } from './migrations/1725005000000-AddThreadFinanceDigest';
 import { CreateRecurringTransactions1725010000000 } from './migrations/1725010000000-CreateRecurringTransactions';
+import { AddAuditAndCalendarIndexes1725020000000 } from './migrations/1725020000000-AddAuditAndCalendarIndexes';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -148,6 +149,7 @@ export const AppDataSource = new DataSource({
     AddSavingGroups1725000000000,
     AddThreadFinanceDigest1725005000000,
     CreateRecurringTransactions1725010000000,
+    AddAuditAndCalendarIndexes1725020000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

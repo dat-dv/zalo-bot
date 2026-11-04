@@ -2,6 +2,8 @@ import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 
 import type { AuditAction, AuditActorSource } from '@zalobot/contracts';
 
 @Entity('audit_logs')
+// One actor's rows newest first (home page activity); created by AddAuditAndCalendarIndexes.
+@Index('IDX_audit_logs_actor_created', ['actorId', 'createdAt'])
 export class AuditLogEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

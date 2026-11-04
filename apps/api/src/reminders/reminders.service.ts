@@ -253,7 +253,11 @@ export class RemindersService {
     });
   }
 
-  public async getUserUpcomingReminders(userId: number | string): Promise<ReminderEntity[]> {
+  /** Upcoming reminders of a user, soonest first; `limit` for screens that show only the next few. */
+  public async getUserUpcomingReminders(
+    userId: number | string,
+    limit?: number,
+  ): Promise<ReminderEntity[]> {
     return this.reminderRepo.find({
       where: {
         userId: userId.toString(),
@@ -262,6 +266,7 @@ export class RemindersService {
       order: {
         remindAt: 'ASC',
       },
+      ...(limit ? { take: limit } : {}),
     });
   }
 

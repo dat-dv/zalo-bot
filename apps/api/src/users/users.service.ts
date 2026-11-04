@@ -477,7 +477,9 @@ export class UsersService implements OnModuleInit {
    * the ZCA directory (cached, never fetched from Zalo here), like the `/zca` user list, then from
    * `firstName`.
    */
-  public async getSessionProfile(userId: string | number): Promise<IDashboardSessionUser> {
+  public async getSessionProfile(
+    userId: string | number,
+  ): Promise<Omit<IDashboardSessionUser, 'googleConnected'>> {
     const id = userId.toString();
     const user = await this.userRepo.findOne({ where: { id } });
     const isDashboardOwner = id === DASHBOARD_OWNER_USER_ID;
@@ -524,6 +526,12 @@ export class UsersService implements OnModuleInit {
         return name ? [[t.id, name]] : [];
       }),
     );
+  }
+
+  /** Every user id, for counts that need no names (no ZCA directory lookup). */
+  public async listUserIds(): Promise<string[]> {
+    const users = await this.userRepo.find({ select: { id: true } });
+    return users.map((user) => user.id);
   }
 
   public async getUsers(): Promise<

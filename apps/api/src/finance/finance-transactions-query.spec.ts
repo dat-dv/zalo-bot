@@ -337,6 +337,7 @@ void test('GET /api/transactions/export pages through everything and keeps the f
     }));
   const controller = new FinanceController(
     {
+      prepareLedger: () => Promise.resolve({ rows: [], movements: [], ledger: undefined }),
       queryTransactions: (query: { offset: number; type?: string }) => {
         offsets.push([query.offset, query.type]);
         return Promise.resolve({ items: rows(query.offset === 0 ? 500 : 3), total: 503 });

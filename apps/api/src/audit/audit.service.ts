@@ -33,8 +33,14 @@ interface ActorRow {
   actorName: string | null;
 }
 
+/** The actor facet is a GROUP BY over the whole log; a new actor shows up after this at most. */
+const ACTOR_FACET_TTL_MS = 60_000;
+
 @Injectable()
 export class AuditService {
+  private actorFacet: { rows: ActorRow[]; expiresAt: number } | null = null;
+  private actorFacetPending: Promise<ActorRow[]> | null = null;
+
   constructor(
     @InjectRepository(AuditLogEntity) private readonly auditRepo: Repository<AuditLogEntity>,
     @Optional()
@@ -103,7 +109,25 @@ export class AuditService {
     };
   }
 
-  private async distinctActors(): Promise<ActorRow[]> {
+  /** Every actor in the log, cached briefly and shared by concurrent pages. */
+  private distinctActors(): Promise<ActorRow[]> {
+    if (this.actorFacet && this.actorFacet.expiresAt > Date.now()) {
+      return Promise.resolve(this.actorFacet.rows);
+    }
+    if (this.actorFacetPending === null) {
+      this.actorFacetPending = this.queryDistinctActors()
+        .then((rows) => {
+          this.actorFacet = { rows, expiresAt: Date.now() + ACTOR_FACET_TTL_MS };
+          return rows;
+        })
+        .finally(() => {
+          this.actorFacetPending = null;
+        });
+    }
+    return this.actorFacetPending;
+  }
+
+  private async queryDistinctActors(): Promise<ActorRow[]> {
     const rows = await this.auditRepo
       .createQueryBuilder('log')
       .select('log.actor_id', 'actorId')

@@ -8,7 +8,6 @@ import {
   ILike,
   In,
   IsNull,
-  LessThan,
   LessThanOrEqual,
   MoreThanOrEqual,
   Not,
@@ -98,6 +97,42 @@ export interface LedgerComputation {
   /** Wallet balance: money moved into savings groups is not in it. */
   ledgerBalance: number;
   savingsTotal: number;
+}
+
+/** The whole ledger as loaded once, plus its computation (see `prepareLedger`). */
+export interface PreparedLedger {
+  rows: LedgerRow[];
+  movements: SavingMovementEntity[];
+  ledger: LedgerComputation;
+}
+
+/** A period bound from the API; the same error text whichever endpoint parsed it. */
+function parsePeriodBound(
+  value: string | undefined,
+  label: 'bắt đầu' | 'kết thúc',
+): Date | undefined {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error(`Mốc thời gian ${label} không hợp lệ.`);
+  return date;
+}
+
+/** Ledger rows inside a period; both bounds inclusive, either one optional. */
+function rowsInPeriod(rows: readonly LedgerRow[], startDate?: Date, endDate?: Date): LedgerRow[] {
+  return rows.filter((row) => {
+    const time = row.occurredAt.getTime();
+    return !(startDate && time < startDate.getTime()) && !(endDate && time > endDate.getTime());
+  });
+}
+
+function sumRows(rows: readonly LedgerRow[]): { income: number; expense: number; balance: number } {
+  let income = 0;
+  let expense = 0;
+  for (const row of rows) {
+    if (row.type === 'income') income += row.amount;
+    else expense += row.amount;
+  }
+  return { income, expense, balance: income - expense };
 }
 
 /**
@@ -450,27 +485,51 @@ export class FinanceService {
     return this.transactionRepo.save(transaction);
   }
 
-  public async getSummary(startAt?: string, endAt?: string): Promise<FinanceSummary> {
+  /** The `occurredAt` condition of a period; both bounds inclusive, either one optional. */
+  private periodWhere(
+    startAt?: string,
+    endAt?: string,
+  ): FindOptionsWhere<FinanceTransactionEntity> {
+    const startDate = parsePeriodBound(startAt, 'bắt đầu');
+    const endDate = parsePeriodBound(endAt, 'kết thúc');
     const where: FindOptionsWhere<FinanceTransactionEntity> = {};
+    if (startDate && endDate) where.occurredAt = Between(startDate, endDate);
+    else if (startDate) where.occurredAt = MoreThanOrEqual(startDate);
+    else if (endDate) where.occurredAt = LessThanOrEqual(endDate);
+    return where;
+  }
 
-    if (startAt && endAt) {
-      const startDate = new Date(startAt);
-      const endDate = new Date(endAt);
-      if (Number.isNaN(startDate.getTime())) throw new Error('Mốc thời gian bắt đầu không hợp lệ.');
-      if (Number.isNaN(endDate.getTime())) throw new Error('Mốc thời gian kết thúc không hợp lệ.');
-      where.occurredAt = Between(startDate, endDate);
-    } else if (startAt) {
-      const startDate = new Date(startAt);
-      if (Number.isNaN(startDate.getTime())) throw new Error('Mốc thời gian bắt đầu không hợp lệ.');
-      where.occurredAt = MoreThanOrEqual(startDate);
-    } else if (endAt) {
-      const endDate = new Date(endAt);
-      if (Number.isNaN(endDate.getTime())) throw new Error('Mốc thời gian kết thúc không hợp lệ.');
-      where.occurredAt = LessThanOrEqual(endDate);
-    }
+  /** Income and expense of a period summed by the database, for screens that only show totals. */
+  public async sumPeriod(
+    startAt?: string,
+    endAt?: string,
+  ): Promise<{ income: number; expense: number; balance: number }> {
+    const where = this.periodWhere(startAt, endAt);
+    const [income, expense] = await Promise.all([
+      this.transactionRepo.sum('amount', { ...where, type: 'income' }),
+      this.transactionRepo.sum('amount', { ...where, type: 'expense' }),
+    ]);
+    const totals = { income: income ?? 0, expense: expense ?? 0 };
+    return { ...totals, balance: totals.income - totals.expense };
+  }
 
+  /** The newest transactions of a period, with the relations the dashboard lists them with. */
+  public listRecentTransactions(
+    startAt: string | undefined,
+    endAt: string | undefined,
+    limit: number,
+  ): Promise<FinanceTransactionEntity[]> {
+    return this.transactionRepo.find({
+      where: this.periodWhere(startAt, endAt),
+      relations: { place: true, allocations: { debt: true } },
+      order: { occurredAt: 'DESC' },
+      take: limit,
+    });
+  }
+
+  public async getSummary(startAt?: string, endAt?: string): Promise<FinanceSummary> {
     const transactions = await this.transactionRepo.find({
-      where,
+      where: this.periodWhere(startAt, endAt),
       relations: { place: true, allocations: { debt: true } },
       order: { occurredAt: 'DESC' },
     });
@@ -489,13 +548,19 @@ export class FinanceService {
     endAt?: string,
     grain: AnalyticsGrain = 'month',
   ): Promise<IFinanceAnalyticsResponse> {
-    const summary = await this.getSummary(startAt, endAt);
-    const [ledgerRows, movements] = await Promise.all([
+    // The bounds are checked like every other period endpoint, then everything the report needs
+    // comes from three parallel reads: the ledger already serves the balances, so the period's
+    // rows are picked from it in memory instead of a second query with joins.
+    const startDate = parsePeriodBound(startAt, 'bắt đầu');
+    const endDate = parsePeriodBound(endAt, 'kết thúc');
+    const [ledgerRows, movements, debts] = await Promise.all([
       this.loadLedgerRows(),
       this.loadLedgerMovements(),
+      this.getActiveDebts(),
     ]);
     const { ledgerBalance, savingsTotal } = computeLedger(ledgerRows, movements);
-    const debts = await this.getActiveDebts();
+    const periodRows = rowsInPeriod(ledgerRows, startDate, endDate);
+    const summary = sumRows(periodRows);
 
     const receivableTotal = debts
       .filter((d) => d.direction === 'receivable')
@@ -511,46 +576,26 @@ export class FinanceService {
         : 0;
 
     const opening: TrendOpeningPosition = { wallet: 0, savings: 0 };
-    if (startAt) {
-      const startDate = new Date(startAt);
-      if (!Number.isNaN(startDate.getTime())) {
-        const priorTransactions = await this.transactionRepo.find({
-          where: {
-            occurredAt: LessThan(startDate),
-          },
-        });
-        const priorIncome = priorTransactions
-          .filter((tx) => tx.type === 'income')
-          .reduce((sum, tx) => sum + tx.amount, 0);
-        const priorExpense = priorTransactions
-          .filter((tx) => tx.type === 'expense')
-          .reduce((sum, tx) => sum + tx.amount, 0);
-        opening.wallet = priorIncome - priorExpense;
-        for (const movement of savingMovementsInWindow(movements, {
-          to: startDate,
-          toExclusive: true,
-        })) {
-          const deltas = savingMovementDeltas(movement.type, movement.amount);
-          opening.wallet += deltas.wallet;
-          opening.savings += deltas.savings;
-        }
+    if (startDate) {
+      const prior = sumRows(ledgerRows.filter((row) => row.occurredAt < startDate));
+      opening.wallet = prior.income - prior.expense;
+      for (const movement of savingMovementsInWindow(movements, {
+        to: startDate,
+        toExclusive: true,
+      })) {
+        const deltas = savingMovementDeltas(movement.type, movement.amount);
+        opening.wallet += deltas.wallet;
+        opening.savings += deltas.savings;
       }
     }
 
-    const trend = this.generateTrendBuckets(
-      summary.transactions,
-      movements,
-      opening,
-      startAt,
-      endAt,
-      grain,
-    );
+    const trend = this.generateTrendBuckets(periodRows, movements, opening, startAt, endAt, grain);
 
     const categoryMap = new Map<
       string,
       { category: string; amount: number; count: number; type: 'income' | 'expense' }
     >();
-    for (const tx of summary.transactions) {
+    for (const tx of periodRows) {
       const cat = tx.category?.trim() || 'Khác';
       const key = `${tx.type}:${cat}`;
       const existing = categoryMap.get(key) || {
@@ -625,7 +670,7 @@ export class FinanceService {
   }
 
   private generateTrendBuckets(
-    transactions: FinanceTransactionEntity[],
+    transactions: readonly LedgerRow[],
     movements: readonly SavingMovementEntity[],
     opening: TrendOpeningPosition,
     startAt?: string,
@@ -723,20 +768,29 @@ export class FinanceService {
     return (await this.savingMovementRepo?.find({ relations: { group: true } })) ?? [];
   }
 
-  /** Wallet and savings over the whole shared ledger, right after every entry. */
-  public async getLedgerPosition(): Promise<LedgerComputation> {
+  /** The whole ledger loaded and computed once, for callers that page through it (CSV export). */
+  public async prepareLedger(): Promise<PreparedLedger> {
     const [rows, movements] = await Promise.all([
       this.loadLedgerRows(),
       this.loadLedgerMovements(),
     ]);
-    return computeLedger(rows, movements);
+    return { rows, movements, ledger: computeLedger(rows, movements) };
+  }
+
+  /** Wallet and savings over the whole shared ledger, right after every entry. */
+  public async getLedgerPosition(): Promise<LedgerComputation> {
+    return (await this.prepareLedger()).ledger;
   }
 
   public async getLedgerBalance(): Promise<number> {
     return (await this.getLedgerPosition()).ledgerBalance;
   }
 
-  public async queryTransactions(query: ITransactionListQuery): Promise<ITransactionListResponse> {
+  /** `preparedLedger`: a caller paging through the ledger (CSV export) computes it only once. */
+  public async queryTransactions(
+    query: ITransactionListQuery,
+    preparedLedger?: PreparedLedger,
+  ): Promise<ITransactionListResponse> {
     const limit = Math.min(
       Math.max(Math.trunc(query.limit ?? TRANSACTION_LIST_DEFAULT_LIMIT), 1),
       TRANSACTION_LIST_MAX_LIMIT,
@@ -795,9 +849,8 @@ export class FinanceService {
         ])
       : placeBranches;
 
-    const [ledgerRows, ledgerMovements, [entities, total]] = await Promise.all([
-      this.loadLedgerRows(),
-      this.loadLedgerMovements(),
+    const [prepared, [entities, total]] = await Promise.all([
+      preparedLedger ? Promise.resolve(preparedLedger) : this.prepareLedger(),
       this.transactionRepo.findAndCount({
         where,
         relations: { place: true, allocations: { debt: true } },
@@ -807,8 +860,8 @@ export class FinanceService {
       }),
     ]);
 
-    const { runningBalances, runningBalancesWithSavings, ledgerBalance, savingsTotal } =
-      computeLedger(ledgerRows, ledgerMovements);
+    const { rows: ledgerRows, movements: ledgerMovements, ledger } = prepared;
+    const { runningBalances, runningBalancesWithSavings, ledgerBalance, savingsTotal } = ledger;
     // Period totals and filter options ignore type/search/column filters, so the summary strip shows
     // the whole period and the filter dropdowns do not shrink as filters are applied.
     const periodRows = ledgerRows.filter((row) => {

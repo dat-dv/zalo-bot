@@ -31,7 +31,8 @@ void test('the dashboard payload carries the periods waiting to be recorded', as
   const controller = new ReportsController(
     {} as unknown as ConfigService,
     {
-      getSummary: () => Promise.resolve({ income: 0, expense: 0, balance: 0, transactions: [] }),
+      sumPeriod: () => Promise.resolve({ income: 0, expense: 0, balance: 0 }),
+      listRecentTransactions: () => Promise.resolve([]),
       getLedgerPosition: () =>
         Promise.resolve({ ledgerBalance: 0, savingsTotal: 0, runningBalances: new Map() }),
       getActiveDebts: () => Promise.resolve([]),

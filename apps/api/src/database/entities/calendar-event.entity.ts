@@ -19,6 +19,8 @@ import {
   unique: true,
   where: '"google_event_id" IS NOT NULL',
 })
+// The overlap query (`end_at > min AND start_at < max`); created by AddAuditAndCalendarIndexes.
+@Index('IDX_calendar_events_start_end', ['startAt', 'endAt'])
 export class CalendarEventEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

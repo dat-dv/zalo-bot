@@ -171,23 +171,23 @@ export class FinanceController {
   ): Promise<void> {
     this.authenticate(req);
     const filter = this.transactionListQuery(query);
+    // Running balances need the whole ledger: computed once here, not again for every page.
+    const ledger = await this.finance.prepareLedger();
     // The first page fails normally; a later one aborts the socket so no partial file looks whole.
-    let page = await this.finance.queryTransactions({
-      ...filter,
-      limit: TRANSACTION_LIST_MAX_LIMIT,
-      offset: 0,
-    });
+    let page = await this.finance.queryTransactions(
+      { ...filter, limit: TRANSACTION_LIST_MAX_LIMIT, offset: 0 },
+      ledger,
+    );
     this.startCsv(res, 'giao-dich', TRANSACTION_CSV_HEADER);
     try {
       for (let offset = 0; ;) {
         res.write(page.items.map(transactionCsvRow).join(''));
         offset += page.items.length;
         if (page.items.length === 0 || offset >= page.total) break;
-        page = await this.finance.queryTransactions({
-          ...filter,
-          limit: TRANSACTION_LIST_MAX_LIMIT,
-          offset,
-        });
+        page = await this.finance.queryTransactions(
+          { ...filter, limit: TRANSACTION_LIST_MAX_LIMIT, offset },
+          ledger,
+        );
       }
       res.end();
     } catch (err: unknown) {

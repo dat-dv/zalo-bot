@@ -3177,6 +3177,8 @@ export interface IDashboardSessionUser {
   isAdmin: boolean;
   /** Signed in with `DASHBOARD_LOGIN_CODE`. */
   isDashboardOwner: boolean;
+  /** The session user has a Google account connected (also in the heavier `GET /dashboard`). */
+  googleConnected: boolean;
 }
 
 export interface IDashboardData {
