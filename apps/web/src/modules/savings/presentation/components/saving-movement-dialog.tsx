@@ -4,7 +4,7 @@ import { useState } from 'react';
 import type { ISavingGroup, SavingMovementType } from '@zalobot/contracts';
 import { apiErrorText } from '@/modules/zca/model/channel-memory';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
+import { useSavingsMoney } from '@/shared/store/savings-visibility-store';
 import {
   FORM_ERROR_TEXT,
   FORM_FIELD,
@@ -29,7 +29,7 @@ interface SavingMovementDialogProps {
 
 export function SavingMovementDialog({ group, type, onClose, onSaved }: SavingMovementDialogProps) {
   const { t } = useLocale();
-  const { money } = useMoneyVisibility();
+  const money = useSavingsMoney();
   const [amount, setAmount] = useState('');
   const [occurredAt, setOccurredAt] = useState(() => localDateTimeValue(new Date()));
   const [note, setNote] = useState('');

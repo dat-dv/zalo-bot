@@ -9,6 +9,11 @@ import {
 } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
+import {
+  useCombinedSavingsMoney,
+  useSavingsMoney,
+  useSavingsVisibilityStore,
+} from '@/shared/store/savings-visibility-store';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { CategoryAutocomplete } from '@/shared/ui/category-autocomplete';
@@ -35,6 +40,8 @@ export type TransactionTableItem = ITransactionItem & {
   runningBalance?: number;
   /** A savings movement shown for context: it has no edit, delete or change history here. */
   readOnly?: boolean;
+  /** `runningBalance` contains savings, so it needs the savings eye as well. */
+  balanceIncludesSavings?: boolean;
 };
 
 export type TransactionEditDraft = {
@@ -109,6 +116,9 @@ export function TransactionsTable({
 }: TransactionsTableProps) {
   const { locale, t } = useLocale();
   const { money, isMoneyVisible } = useMoneyVisibility();
+  const savingsMoney = useSavingsMoney();
+  const combinedMoney = useCombinedSavingsMoney();
+  const isSavingsVisible = useSavingsVisibilityStore((state) => state.isSavingsVisible);
   const [expandedAllocationIds, setExpandedAllocationIds] = useState<Set<string>>(new Set());
   // Not persisted: every page load starts with icons only, so receipts are fetched on demand.
   const [showReceiptPreview, setShowReceiptPreview] = useState(false);
@@ -530,7 +540,8 @@ export function TransactionsTable({
                 : 'text-amber-700 dark:text-amber-400'
             }
           >
-            {item.type === 'income' ? '+' : '-'} {money(item.amount)}
+            {item.type === 'income' ? '+' : '-'}{' '}
+            {(item.readOnly ? savingsMoney : money)(item.amount)}
           </span>
         ),
         mobileHeader: Boolean(setFilters),
@@ -574,10 +585,11 @@ export function TransactionsTable({
                     : 'text-amber-700 dark:text-amber-400'
                 }`}
               >
-                {item.type === 'income' ? '+' : '-'} {money(item.amount)}
+                {item.type === 'income' ? '+' : '-'}{' '}
+                {(item.readOnly ? savingsMoney : money)(item.amount)}
               </strong>
               {/* The ratio bar would leak relative amounts, so it only shows when amounts are revealed. */}
-              {isMoneyVisible && (
+              {(item.readOnly ? isSavingsVisible : isMoneyVisible) && (
                 <div className="h-1 w-20 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                   <div
                     className={`h-full rounded-full ${
@@ -607,7 +619,7 @@ export function TransactionsTable({
                 isPos ? 'text-violet-700 dark:text-violet-400' : 'text-rose-600 dark:text-rose-400'
               }`}
             >
-              {money(item.runningBalance)}
+              {(item.balanceIncludesSavings ? combinedMoney : money)(item.runningBalance)}
             </span>
           );
         },

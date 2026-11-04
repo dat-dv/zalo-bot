@@ -32,6 +32,7 @@ import { AdjustBalanceModal } from './adjust-balance-modal';
 import { useIncludeSavingsStore } from '@/shared/store/include-savings-store';
 import { usePeriodFilter } from '@/shared/hooks/use-period-filter';
 import { ExportCsvButton } from '@/shared/ui/export-csv-button';
+import { SavingsVisibilityToggle } from '@/shared/ui/savings-visibility-toggle';
 import { PeriodFilterToolbar } from '@/shared/ui/period-filter-toolbar';
 import { exportTransactions } from '../../api/transactions-api';
 import { TrendSummaryStrip } from '@/shared/ui/trend-summary-strip';
@@ -376,7 +377,12 @@ export function TransactionsScreen() {
                   download={() => exportTransactions(listQuery)}
                   onError={showToast}
                 />
-                {savingsTotal !== 0 && <IncludeSavingsToggle />}
+                {savingsTotal !== 0 && (
+                  <>
+                    <SavingsVisibilityToggle />
+                    <IncludeSavingsToggle />
+                  </>
+                )}
                 {activeColumnFilterCount > 0 && (
                   <button
                     type="button"

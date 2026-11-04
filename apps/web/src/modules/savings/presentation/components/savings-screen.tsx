@@ -6,10 +6,12 @@ import { SessionStateScreen } from '@/modules/auth/view/session-state-screen';
 import { apiErrorText } from '@/modules/zca/model/channel-memory';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
+import { useCombinedSavingsMoney, useSavingsMoney } from '@/shared/store/savings-visibility-store';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { MetricGrid, MetricGridSkeleton, type MetricGridItem } from '@/shared/ui/metric-grid';
+import { SavingsVisibilityToggle } from '@/shared/ui/savings-visibility-toggle';
 import { PHONE_CHIP, TOAST_POSITION } from '@/shared/ui/touch';
 import { useArchiveSavingGroupMutation, useSavingGroupsQuery } from '../../api/savings-query';
 import { SavingGroupDialog } from './saving-group-dialog';
@@ -21,6 +23,8 @@ const ROW_ACTION = `inline-flex h-[22px] min-h-[22px] shrink-0 items-center roun
 export function SavingsScreen() {
   const { t } = useLocale();
   const { money } = useMoneyVisibility();
+  const savingsMoney = useSavingsMoney();
+  const combinedMoney = useCombinedSavingsMoney();
   const savings = useSavingGroupsQuery();
   const archiveMutation = useArchiveSavingGroupMutation();
   const [showArchived, setShowArchived] = useState(false);
@@ -56,12 +60,12 @@ export function SavingsScreen() {
     },
     {
       label: t('savings.total'),
-      value: money(savingsTotal),
+      value: savingsMoney(savingsTotal),
       valueClassName: 'text-emerald-700 dark:text-emerald-400',
     },
     {
       label: t('savings.walletWithSavings'),
-      value: money(ledgerBalance + savingsTotal),
+      value: combinedMoney(ledgerBalance + savingsTotal),
       valueClassName: 'text-slate-700 dark:text-slate-300',
     },
   ];
@@ -113,8 +117,8 @@ export function SavingsScreen() {
       minWidth: '120px',
       hideable: false,
       mobileSlot: 'trailing',
-      mobileCell: (item) => money(item.balance),
-      cell: (item) => <span className="tabular-nums">{money(item.balance)}</span>,
+      mobileCell: (item) => savingsMoney(item.balance),
+      cell: (item) => <span className="tabular-nums">{savingsMoney(item.balance)}</span>,
     },
     {
       id: 'note',
@@ -220,6 +224,7 @@ export function SavingsScreen() {
           counter={t('table.rowsCount', { count: visibleGroups.length })}
           toolbar={
             <div className="flex flex-wrap items-center gap-1.5">
+              <SavingsVisibilityToggle />
               <button
                 type="button"
                 aria-pressed={showArchived}

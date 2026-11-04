@@ -13,6 +13,7 @@
 - **Kỳ (khoản cố định)**: Một lần đến hạn của khoản cố định, ở trạng thái đang chờ, đã ghi hoặc đã bỏ qua. Kỳ đang chờ không hết hạn. Kỳ bị lỡ do server tắt vẫn được tạo bù, khác với lời nhắc.
 - **Tóm tắt tài chính**: Tin bot tự gửi vào một kênh sau mỗi tuần hoặc tháng, gồm tổng thu chi của kỳ vừa qua so với kỳ trước, danh mục chi nhiều nhất và công nợ. Admin bật riêng từng kênh, mặc định tắt vì số liệu là của toàn bộ sổ chung.
 - **Nhóm tiết kiệm**: Nơi giữ tiền để dành theo mục đích, ví dụ `Du lịch`. Thuộc **sổ chung**, ai cũng xem được. Tiền trong nhóm không nằm trong **số dư ví** và không phải khoản chi. Chỉ thao tác trên dashboard. Nhóm không bị xoá, chỉ được lưu trữ khi đã hết tiền.
+- **Con mắt tiết kiệm**: Công tắc ẩn/hiện riêng cho số tiền tiết kiệm, độc lập với nút hiện số tiền toàn cục, mặc định ẩn và không giữ qua lần tải trang. Số gộp có tiền tiết kiệm phải mở cả hai mới hiện.
 - **Số dư ví**: Tiền đang tiêu được: tổng thu − tổng chi − tiền nạp vào nhóm tiết kiệm + tiền rút ra.
 - **Tổng tiết kiệm**: Tổng tiền đang nằm trong mọi nhóm tiết kiệm.
 - **Nạp / Rút (tiết kiệm)**: Chuyển tiền giữa ví và nhóm tiết kiệm, không phải khoản thu hay khoản chi. Không rút quá số dư nhóm. Muốn tiêu tiền đã rút thì ghi khoản chi như bình thường.

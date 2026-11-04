@@ -16,6 +16,7 @@ import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { handleZaloLinkClick, ZALO_LINKS } from '@/shared/zalo/zalo-app-link';
 import { useSessionUserQuery } from '@/modules/auth/api/session-user-query';
 import { SessionUserCard } from '@/modules/auth/presentation/components/session-user-card';
+import { MoneyVisibilityIcon } from './money-visibility-icon';
 import { BUTTON_TONE } from './button-styles';
 import { LogoutConfirmDialog } from './logout-confirm-dialog';
 import { MODAL_STICKY_HEADER, Modal } from './modal';
@@ -777,22 +778,6 @@ const TOPBAR_ICON_PROPS = {
   strokeWidth: 1.8,
   viewBox: '0 0 24 24',
 };
-
-function MoneyVisibilityIcon({ visible }: { visible: boolean }) {
-  return visible ? (
-    <svg {...TOPBAR_ICON_PROPS}>
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  ) : (
-    <svg {...TOPBAR_ICON_PROPS}>
-      <path d="M10.6 5.1A9.8 9.8 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.7 3.7" />
-      <path d="M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6" />
-      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
-      <line x1="2" x2="22" y1="2" y2="22" />
-    </svg>
-  );
-}
 
 function RefreshIcon() {
   return (

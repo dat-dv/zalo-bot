@@ -15,6 +15,8 @@ import { CashflowTrendChart } from '@/shared/ui/charts/cashflow-trend-chart';
 import { CategoryDonutChart } from '@/shared/ui/charts/category-donut-chart';
 import { DebtStructureChart } from '@/shared/ui/charts/debt-structure-chart';
 import { useIncludeSavingsStore } from '@/shared/store/include-savings-store';
+import { useCombinedSavingsMoney, useSavingsMoney } from '@/shared/store/savings-visibility-store';
+import { SavingsVisibilityToggle } from '@/shared/ui/savings-visibility-toggle';
 import { Button } from '@/shared/ui/button';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { MetricGrid, MetricGridSkeleton, type MetricGridItem } from '@/shared/ui/metric-grid';
@@ -29,6 +31,8 @@ export function AnalyticsScreen() {
   const { t } = useLocale();
   const money = useMoneyFormatter();
   const includeSavings = useIncludeSavingsStore((state) => state.includeSavings);
+  const savingsMoney = useSavingsMoney();
+  const combinedMoney = useCombinedSavingsMoney();
   const periodFilter = usePeriodFilter('month');
   const [cashflowViewMode, setCashflowViewMode] = useState<'chart' | 'table'>('chart');
 
@@ -163,12 +167,12 @@ export function AnalyticsScreen() {
       label: t(
         includeSavings ? 'savings.walletWithSavings' : 'analytics.currentPosition.cashflowBalance',
       ),
-      value: money(includeSavings ? walletBalance + savingsTotal : walletBalance),
+      value: includeSavings ? combinedMoney(walletBalance + savingsTotal) : money(walletBalance),
       valueClassName: 'text-sky-700 dark:text-sky-400',
     },
     {
       label: t('analytics.currentPosition.savings'),
-      value: money(savingsTotal),
+      value: savingsMoney(savingsTotal),
       valueClassName: 'text-emerald-700 dark:text-emerald-400',
     },
     {
@@ -183,7 +187,7 @@ export function AnalyticsScreen() {
     },
     {
       label: t('analytics.currentPosition.netWorth'),
-      value: money(currentPosition?.netWorth ?? 0),
+      value: combinedMoney(currentPosition?.netWorth ?? 0),
       valueClassName:
         (currentPosition?.netWorth ?? 0) >= 0
           ? 'text-emerald-700 dark:text-emerald-400'
@@ -387,7 +391,14 @@ export function AnalyticsScreen() {
 
       <DataPanel
         title={t('analytics.currentPosition.title')}
-        toolbar={savingsTotal !== 0 ? <IncludeSavingsToggle /> : undefined}
+        toolbar={
+          savingsTotal !== 0 ? (
+            <div className="flex items-center gap-1.5">
+              <SavingsVisibilityToggle />
+              <IncludeSavingsToggle />
+            </div>
+          ) : undefined
+        }
       >
         <MetricGrid items={currentPositionMetrics} />
       </DataPanel>

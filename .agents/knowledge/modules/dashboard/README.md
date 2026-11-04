@@ -141,3 +141,7 @@
 ## Transaction source
 
 `source: 'system'` marks rows written by a fixed item (see [recurring](../recurring/README.md)); `describeTransactionSource` shows it as "Tự ghi".
+
+## Savings amounts
+
+Movement rows and balances that include savings follow the savings eye, see [savings](../savings/README.md). Rows carry `balanceIncludesSavings`, so tables outside `/transactions` keep the global eye.

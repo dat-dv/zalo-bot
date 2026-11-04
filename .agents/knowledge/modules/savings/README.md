@@ -69,3 +69,11 @@ Balance effects on other APIs: see [Finance Domain](../../global/finance-domain.
 `useIncludeSavingsStore`: in-memory, off on every page load, display only. Shown on Transactions and Analytics when savings total is not 0. See dashboard module.
 
 Invalidation: movements and group edits refetch `['savings']`, `['transactions']`, `['dashboard']`, `['finance-analytics']`.
+
+## Amount visibility
+
+Savings amounts have their own eye (`SavingsVisibilityToggle`, `useSavingsVisibilityStore`), independent from the global amounts switch: in memory, hidden on every load, one shared state across `/savings`, `/analytics`, `/transactions` and the history dialog.
+
+- `useSavingsMoney`: group balances, total, movements, withdrawal limit, movement rows in the ledger.
+- `useCombinedSavingsMoney` needs both eyes: wallet + savings, net worth, running balance while "Include savings" is on. Under the global eye alone, subtracting the wallet would reveal savings.
+- Known gap: with the global eye open, the wallet balance before and after a movement row, and the analytics trend balance (income − expense) against the wallet, still let someone work out savings.

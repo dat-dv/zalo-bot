@@ -4,7 +4,8 @@ import { useId, useState } from 'react';
 import { localeTag, type ISavingGroup, type ISavingMovement } from '@zalobot/contracts';
 import { apiErrorText } from '@/modules/zca/model/channel-memory';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
+import { useSavingsMoney } from '@/shared/store/savings-visibility-store';
+import { SavingsVisibilityToggle } from '@/shared/ui/savings-visibility-toggle';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
@@ -19,7 +20,7 @@ interface SavingHistoryDialogProps {
 
 export function SavingHistoryDialog({ group, onClose, onDeleted }: SavingHistoryDialogProps) {
   const { locale, t } = useLocale();
-  const { money } = useMoneyVisibility();
+  const money = useSavingsMoney();
   const titleId = useId();
   const movements = useSavingMovementsQuery(group.id);
   const deleteMutation = useDeleteSavingMovementMutation();
@@ -122,6 +123,8 @@ export function SavingHistoryDialog({ group, onClose, onDeleted }: SavingHistory
           >
             {t('savings.history.title', { name: group.name })}
           </h2>
+          {/* Behind this dialog the page's eye cannot be reached. */}
+          <SavingsVisibilityToggle />
           <button
             type="button"
             className={`inline-flex size-8 shrink-0 items-center justify-center rounded-[3px] border-0 text-lg ${BUTTON_TONE.ghost} ${MODAL_CLOSE_TAP}`}

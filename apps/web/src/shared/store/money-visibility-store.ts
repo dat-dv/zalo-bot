@@ -24,13 +24,13 @@ export const useMoneyVisibilityStore = create<MoneyVisibilityState>()((set) => (
   setMoneyVisibility: (visible) => set({ isMoneyVisible: visible }),
 }));
 
-export function useMoneyFormatter() {
-  const isMoneyVisible = useMoneyVisibilityStore((state) => state.isMoneyVisible);
+/** Formats amounts, or masks them while `isVisible` is off. */
+export function useVisibleMoneyFormatter(isVisible: boolean) {
   const { locale, t } = useLocale();
 
   return useCallback(
     (value: number) => {
-      if (!isMoneyVisible) {
+      if (!isVisible) {
         return t('common.maskedAmount');
       }
       return new Intl.NumberFormat(localeTag(locale), {
@@ -39,8 +39,13 @@ export function useMoneyFormatter() {
         maximumFractionDigits: 0,
       }).format(value);
     },
-    [isMoneyVisible, locale, t],
+    [isVisible, locale, t],
   );
+}
+
+export function useMoneyFormatter() {
+  const isMoneyVisible = useMoneyVisibilityStore((state) => state.isMoneyVisible);
+  return useVisibleMoneyFormatter(isMoneyVisible);
 }
 
 export function useMoneyVisibility(): MoneyVisibilityValue {

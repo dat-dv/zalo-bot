@@ -56,3 +56,11 @@ Các khoản trước đây đã ghi thành khoản chi không tự chuyển: c�
 ## Kiểm thử
 
 `apps/api/src/finance/savings.service.spec.ts` kiểm tra cách tính số dư và các quy tắc trên. `transaction-ledger-rows.spec.ts` ở web kiểm tra việc chèn lượt nạp/rút vào bảng thu chi.
+
+## Con mắt riêng của số tiền tiết kiệm
+
+Tiền tiết kiệm có công tắc ẩn/hiện riêng, không liên quan tới nút "Hiện số tiền" toàn cục, để mở xem thu chi không làm lộ khoản để dành. Trạng thái chỉ nằm trong bộ nhớ nên tải lại trang là ẩn lại, và dùng chung cho `/savings`, `/analytics`, `/transactions` cùng hộp lịch sử.
+
+- **Theo mắt tiết kiệm**: số dư nhóm, tổng tiết kiệm, lượt nạp/rút, hạn mức rút, dòng nạp/rút trong bảng Thu chi.
+- **Cần mở cả hai mắt**: ví + tiết kiệm, tài sản ròng, số dư khi bật "Tính cả tiết kiệm". Nếu chỉ theo mắt toàn cục thì lấy số gộp trừ số dư ví là ra tiền tiết kiệm.
+- **Hạn chế**: khi mắt toàn cục mở, chênh lệch số dư ví trước và sau dòng nạp/rút, cùng đường số dư ở biểu đồ Phân tích so với số dư ví, vẫn có thể suy ra tiền tiết kiệm.

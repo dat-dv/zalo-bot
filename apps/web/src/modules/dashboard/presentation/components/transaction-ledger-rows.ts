@@ -28,6 +28,7 @@ function movementRow(
     createdByName: movement.createdByName,
     runningBalance: includeSavings ? movement.runningBalanceWithSavings : movement.runningBalance,
     readOnly: true,
+    balanceIncludesSavings: includeSavings,
   };
 }
 
@@ -46,6 +47,7 @@ export function mergeLedgerRows(
     ...transactions.map((item) => ({
       ...item,
       runningBalance: includeSavings ? item.runningBalanceWithSavings : item.runningBalance,
+      balanceIncludesSavings: includeSavings,
     })),
     ...movements.map((item) => movementRow(item, includeSavings, labelFor)),
   ];
