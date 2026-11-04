@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { shouldRegisterServiceWorker } from './pwa-environment';
 import { isBeforeInstallPromptEvent, usePwaStore } from './pwa-store';
+import { pwaUpdater } from './pwa-update';
 
 const SERVICE_WORKER_URL = `/sw.js?v=${encodeURIComponent(process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev')}`;
 
@@ -11,12 +12,23 @@ function isStandaloneDisplay(): boolean {
   return iosStandalone || window.matchMedia('(display-mode: standalone)').matches;
 }
 
+/** Stores the waiting worker and swaps it out once a newer deploy replaces it. */
+function holdWaitingWorker(registration: ServiceWorkerRegistration, worker: ServiceWorker) {
+  usePwaStore.getState().setWaitingWorker(worker);
+  worker.addEventListener('statechange', () => {
+    if (worker.state !== 'redundant' || usePwaStore.getState().waitingWorker !== worker) return;
+    const next = registration.waiting;
+    if (next) holdWaitingWorker(registration, next);
+    else usePwaStore.getState().setWaitingWorker(null);
+  });
+}
+
 /** Tracks a worker until it is installed; one that installs while a page is controlled waits for the user. */
-function watchInstalling(worker: ServiceWorker | null) {
+function watchInstalling(registration: ServiceWorkerRegistration, worker: ServiceWorker | null) {
   if (!worker) return;
   worker.addEventListener('statechange', () => {
     if (worker.state === 'installed' && navigator.serviceWorker.controller) {
-      usePwaStore.getState().setWaitingWorker(worker);
+      holdWaitingWorker(registration, worker);
     }
   });
 }
@@ -46,12 +58,10 @@ export function PwaRegistrar() {
       hasServiceWorker: 'serviceWorker' in navigator,
     });
     let registration: ServiceWorkerRegistration | undefined;
-    let reloading = false;
     const handleControllerChange = () => {
-      // Only reload when the user asked for the update, not on the very first install.
-      if (reloading || !usePwaStore.getState().waitingWorker) return;
-      reloading = true;
-      window.location.reload();
+      // Only reload for an update, not when the very first install claims the page.
+      const { updating, waitingWorker } = usePwaStore.getState();
+      if (updating || waitingWorker) pwaUpdater.reloadOnce();
     };
     const handleVisibility = () => {
       // Installed apps stay open for days; look for a new deploy whenever they come back.
@@ -64,10 +74,12 @@ export function PwaRegistrar() {
         .then((registered) => {
           registration = registered;
           if (registered.waiting && navigator.serviceWorker.controller) {
-            usePwaStore.getState().setWaitingWorker(registered.waiting);
+            holdWaitingWorker(registered, registered.waiting);
           }
-          watchInstalling(registered.installing);
-          registered.addEventListener('updatefound', () => watchInstalling(registered.installing));
+          watchInstalling(registered, registered.installing);
+          registered.addEventListener('updatefound', () =>
+            watchInstalling(registered, registered.installing),
+          );
         })
         .catch((error: unknown) => {
           console.error('Service worker registration failed:', error);

@@ -19,7 +19,10 @@ interface PwaState {
   installPrompt: BeforeInstallPromptEvent | null;
   /** Set when the app is opened from the home screen or was just installed. */
   installed: boolean;
+  /** The user pressed reload; the button stays locked until the page goes away. */
+  updating: boolean;
   setWaitingWorker: (worker: ServiceWorker | null) => void;
+  setUpdating: (updating: boolean) => void;
   setInstallPrompt: (event: BeforeInstallPromptEvent | null) => void;
   markInstalled: () => void;
 }
@@ -28,7 +31,9 @@ export const usePwaStore = create<PwaState>()((set) => ({
   waitingWorker: null,
   installPrompt: null,
   installed: false,
+  updating: false,
   setWaitingWorker: (waitingWorker) => set({ waitingWorker }),
+  setUpdating: (updating) => set({ updating }),
   setInstallPrompt: (installPrompt) => set({ installPrompt }),
   markInstalled: () => set({ installed: true, installPrompt: null }),
 }));

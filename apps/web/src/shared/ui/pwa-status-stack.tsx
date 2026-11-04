@@ -3,15 +3,11 @@
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { usePwaStore } from '@/shared/pwa/pwa-store';
+import { pwaUpdater } from '@/shared/pwa/pwa-update';
 import { useOnlineStatus } from '@/shared/pwa/use-online-status';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { Button } from '@/shared/ui/button';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
-
-function applyUpdate(worker: ServiceWorker | null) {
-  // The worker activates, `controllerchange` fires and PwaRegistrar reloads the page once.
-  worker?.postMessage({ type: 'SKIP_WAITING' });
-}
 
 /**
  * A waiting deploy is applied on the next in-app navigation: the page changes anyway, so the
@@ -23,7 +19,7 @@ function useApplyUpdateOnNavigation(waitingWorker: ServiceWorker | null) {
   useEffect(() => {
     if (previousPathname.current === pathname) return;
     previousPathname.current = pathname;
-    applyUpdate(waitingWorker);
+    if (waitingWorker) void pwaUpdater.apply({ fallback: false });
   }, [pathname, waitingWorker]);
 }
 
@@ -36,6 +32,7 @@ export function PwaStatusStack() {
   const { t } = useLocale();
   const isOnline = useOnlineStatus();
   const waitingWorker = usePwaStore((state) => state.waitingWorker);
+  const updating = usePwaStore((state) => state.updating);
   useApplyUpdateOnNavigation(waitingWorker);
   // The card covers the top of the page; closing it hides it until the next load.
   const [dismissedWorker, setDismissedWorker] = useState<ServiceWorker | null>(null);
@@ -61,10 +58,12 @@ export function PwaStatusStack() {
         >
           <span className="flex-1 font-medium">{t('pwa.update.title')}</span>
           <Button
-            onClick={() => applyUpdate(waitingWorker)}
-            className="min-h-[36px] shrink-0 rounded bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-sky-600 dark:text-white dark:hover:bg-sky-500"
+            onClick={() => void pwaUpdater.apply({ fallback: true })}
+            disabled={updating}
+            aria-busy={updating}
+            className="min-h-[36px] shrink-0 rounded bg-slate-900 px-3 text-xs font-semibold text-white not-disabled:hover:bg-slate-800 dark:bg-sky-600 dark:text-white dark:not-disabled:hover:bg-sky-500"
           >
-            {t('pwa.update.reload')}
+            {t(updating ? 'pwa.update.reloading' : 'pwa.update.reload')}
           </Button>
           <Button
             onClick={() => setDismissedWorker(waitingWorker)}
@@ -83,20 +82,25 @@ export function PwaStatusStack() {
 export function PwaUpdateBar() {
   const { t } = useLocale();
   const waitingWorker = usePwaStore((state) => state.waitingWorker);
+  const updating = usePwaStore((state) => state.updating);
   const [dismissedWorker, setDismissedWorker] = useState<ServiceWorker | null>(null);
   if (waitingWorker === null || waitingWorker === dismissedWorker) return null;
 
   return (
     <div
       role="status"
+      // A touch that wanders slightly must stay a tap on these buttons, not start a pull.
+      data-no-pull-refresh
       className="hidden min-h-10 items-center gap-2 rounded border border-sky-200 bg-sky-50 py-1 pr-1 pl-3 text-xs text-sky-900 max-[960px]:flex max-[960px]:animate-bar-down dark:border-sky-900 dark:bg-sky-950/60 dark:text-sky-100"
     >
       <span className="min-w-0 flex-1 truncate font-medium">{t('pwa.update.title')}</span>
       <Button
-        onClick={() => applyUpdate(waitingWorker)}
+        onClick={() => void pwaUpdater.apply({ fallback: true })}
+        disabled={updating}
+        aria-busy={updating}
         className={`h-8 min-h-8 shrink-0 rounded-[3px] border px-3 text-xs font-semibold ${BUTTON_TONE.primary}`}
       >
-        {t('pwa.update.reload')}
+        {t(updating ? 'pwa.update.reloading' : 'pwa.update.reload')}
       </Button>
       <Button
         onClick={() => setDismissedWorker(waitingWorker)}
