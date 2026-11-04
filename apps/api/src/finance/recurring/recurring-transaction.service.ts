@@ -73,6 +73,12 @@ export class RecurringTransactionService {
     };
   }
 
+  /** Periods waiting to be recorded or skipped, earliest first. */
+  public async listPendingItems(): Promise<IRecurringOccurrenceItem[]> {
+    const pending = await this.listDue();
+    return pending.map((occurrence) => this.toOccurrenceItem(occurrence));
+  }
+
   private toRuleItem(
     rule: RecurringTransactionEntity,
     chatNames: ReadonlyMap<string, string | undefined>,

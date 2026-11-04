@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { APP_ROUTES, localeTag } from '@zalobot/contracts';
+import { APP_ROUTES, localeTag, type TranslationKey } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { SessionStateScreen } from '@/modules/auth/view/session-state-screen';
@@ -15,6 +15,8 @@ import { TasksTable } from './tasks-table';
 import { RemindersTable } from './reminders-table';
 import { CalendarTable } from './calendar-table';
 import { AdjustBalanceModal } from './adjust-balance-modal';
+import { HOME_ATTENTION_ID, HomeAttentionPanel } from './home-attention-panel';
+import { buildHomeAttention, type HomeAttentionKind } from '../../model/home-attention';
 import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
 import {
   AUDIT_ACTION_LABEL_KEYS,
@@ -35,6 +37,16 @@ const HOME_COMPACT_ROW_LIMIT = 5;
 const QUICK_LINKS_PHONE = 'max-[640px]:grid max-[640px]:grid-cols-4';
 const QUICK_LINK_PHONE =
   'shrink-0 whitespace-nowrap max-[640px]:h-auto max-[640px]:min-h-10 max-[640px]:justify-center max-[640px]:px-1 max-[640px]:py-1 max-[640px]:text-center max-[640px]:text-[12px] max-[640px]:leading-tight max-[640px]:whitespace-normal';
+
+const METRICS_GRID = 'grid grid-cols-4 gap-2 max-[640px]:grid-cols-2';
+const ATTENTION_METRIC_SPAN = 'col-span-2';
+
+const ATTENTION_HINT_KEYS: Record<HomeAttentionKind, TranslationKey> = {
+  overdueTasks: 'dashboard.attention.hint.overdueTasks',
+  tasksDueToday: 'dashboard.attention.hint.tasksDueToday',
+  debtsDue: 'dashboard.attention.hint.debtsDue',
+  recurringPending: 'dashboard.attention.hint.recurringPending',
+};
 
 function limitRows<T>(rows: T[], isCompact: boolean): T[] {
   return isCompact ? rows.slice(0, HOME_COMPACT_ROW_LIMIT) : rows;
@@ -85,10 +97,18 @@ function Metric({
   label,
   value,
   tone = 'neutral',
+  hint,
+  href,
+  className = '',
 }: {
   label: string;
   value: string;
   tone?: 'neutral' | 'positive' | 'warning' | 'negative';
+  /** One line under the value saying what it is made of. */
+  hint?: string;
+  /** In-page anchor: the whole card jumps there. */
+  href?: string;
+  className?: string;
 }) {
   const toneStyles = {
     neutral: 'text-slate-900 dark:text-slate-100',
@@ -97,8 +117,8 @@ function Metric({
     negative: 'text-rose-600 dark:text-rose-400',
   };
 
-  return (
-    <article className="flex min-h-[62px] flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60 max-[640px]:min-h-[52px] max-[640px]:px-2.5 max-[640px]:py-1.5">
+  const content = (
+    <>
       <span className="block text-[11px] font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
         {label}
       </span>
@@ -107,7 +127,24 @@ function Metric({
       >
         {value}
       </strong>
-    </article>
+      {hint && (
+        <span className="mt-0.5 block truncate text-[11.5px] text-slate-600 dark:text-slate-400">
+          {hint}
+        </span>
+      )}
+    </>
+  );
+  const cardClass = `flex min-h-[62px] min-w-0 flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60 max-[640px]:min-h-[52px] max-[640px]:px-2.5 max-[640px]:py-1.5 ${className}`;
+
+  return href ? (
+    <a
+      href={href}
+      className={`${cardClass} transition-colors hover:border-slate-300 hover:bg-slate-50 dark:hover:border-slate-700 dark:hover:bg-slate-800/60`}
+    >
+      {content}
+    </a>
+  ) : (
+    <article className={cardClass}>{content}</article>
   );
 }
 
@@ -149,8 +186,14 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
     return data.tasks.filter((item) => item.status !== 'completed');
   }, [data.tasks]);
 
-  const rootDebts = useMemo(() => data.debts.filter((d) => !d.parentDebtId), [data.debts]);
-  const attentionCount = rootDebts.length + data.reminders.length + pendingTasks.length;
+  const attentionRows = useMemo(() => buildHomeAttention(data, new Date()), [data]);
+  const attentionCount = attentionRows.reduce((total, row) => total + row.count, 0);
+  const attentionHint =
+    attentionRows.length > 0
+      ? attentionRows
+          .map((row) => t(ATTENTION_HINT_KEYS[row.kind], { count: row.count }))
+          .join(' · ')
+      : t('dashboard.attention.none');
 
   const filteredTasks = useMemo(() => {
     if (!taskQuery.trim()) return pendingTasks;
@@ -254,22 +297,24 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <section
-        className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2 max-[640px]:grid-cols-2"
-        aria-label={t('dashboard.quickStats')}
-      >
+      <section className={METRICS_GRID} aria-label={t('dashboard.quickStats')}>
         <Metric
-          label={t('dashboard.incomeTotal')}
+          label={t('dashboard.walletBalance')}
+          value={money(data.finance.ledgerBalance)}
+          tone={data.finance.ledgerBalance >= 0 ? 'neutral' : 'negative'}
+        />
+        <Metric
+          label={t('dashboard.monthIncome')}
           value={money(data.finance.income)}
           tone="positive"
         />
         <Metric
-          label={t('dashboard.expenseTotal')}
+          label={t('dashboard.monthExpense')}
           value={money(data.finance.expense)}
           tone="warning"
         />
         <Metric
-          label={t('dashboard.balance')}
+          label={t('dashboard.monthBalance')}
           value={money(data.finance.balance)}
           tone={data.finance.balance >= 0 ? 'positive' : 'negative'}
         />
@@ -286,9 +331,14 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
         <Metric
           label={t('dashboard.attentionItems')}
           value={String(attentionCount)}
-          tone="warning"
+          tone={attentionCount > 0 ? 'warning' : 'neutral'}
+          hint={attentionHint}
+          href={attentionCount > 0 ? `#${HOME_ATTENTION_ID}` : undefined}
+          className={ATTENTION_METRIC_SPAN}
         />
       </section>
+
+      <HomeAttentionPanel rows={attentionRows} />
 
       <section
         className={`flex flex-wrap gap-1.5 rounded border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900 ${QUICK_LINKS_PHONE}`}
@@ -505,14 +555,11 @@ function DashboardHomeSkeleton() {
 
   return (
     <div aria-busy="true" className="flex flex-col gap-3">
-      {/* 6 KPI Cards */}
-      <section
-        className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-2 max-[640px]:grid-cols-2"
-        aria-hidden="true"
-      >
-        {Array.from({ length: 6 }, (_, index) => (
+      {/* 7 KPI cards: the last one (attention) takes two columns */}
+      <section className={METRICS_GRID} aria-hidden="true">
+        {Array.from({ length: 7 }, (_, index) => (
           <div
-            className="flex min-h-[62px] flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60 max-[640px]:min-h-[52px] max-[640px]:px-2.5 max-[640px]:py-1.5"
+            className={`flex min-h-[62px] flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60 max-[640px]:min-h-[52px] max-[640px]:px-2.5 max-[640px]:py-1.5 ${index === 6 ? ATTENTION_METRIC_SPAN : ''}`}
             key={index}
           >
             <span className="block h-2.5 w-16 animate-pulse rounded-[2px] bg-slate-200 dark:bg-slate-800" />

@@ -31,6 +31,8 @@ Rent, bills and salary repeat every period. A rule produces one occurrence per p
 
 ## API
 
+Home shows waiting periods through `recurringPending` in `GET /api/dashboard` (see modules/dashboard), so recording or skipping one refreshes the dashboard query.
+
 `API_ROUTES.recurring` (`GET`, `POST`), `recurringDetail(id)` (`PATCH`, `DELETE`), `recurringOccurrenceRecord(id)`, `recurringOccurrenceSkip(id)`. Any signed-in dashboard user.
 
 ## Web UI (`APP_ROUTES.recurring`, `RecurringScreen`)

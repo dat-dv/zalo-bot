@@ -109,6 +109,8 @@ export const APP_ROUTES = {
 
   calendar: '/calendar',
   tasks: '/tasks',
+  /** The tasks page defaults to this month, which would hide what is overdue from before. */
+  tasksAllPeriods: '/tasks?period=all',
   reminders: '/reminders',
 
   contacts: '/contacts',
@@ -593,6 +595,19 @@ const messages = {
     'dashboard.noCalendar': 'Chưa có lịch sắp tới',
     'dashboard.noActivity': 'Chưa có hoạt động',
     'dashboard.viewAll': 'Xem tất cả',
+    'dashboard.walletBalance': 'Số dư ví',
+    'dashboard.monthIncome': 'Thu tháng này',
+    'dashboard.monthExpense': 'Chi tháng này',
+    'dashboard.monthBalance': 'Thu − Chi tháng này',
+    'dashboard.attention.none': 'Không có gì cần xử lý',
+    'dashboard.attention.overdueTasks': 'Việc quá hạn',
+    'dashboard.attention.tasksDueToday': 'Việc đến hạn hôm nay',
+    'dashboard.attention.debtsDue': 'Nợ quá hạn hoặc sắp đến hạn',
+    'dashboard.attention.recurringPending': 'Khoản cố định chờ ghi',
+    'dashboard.attention.hint.overdueTasks': '{count} việc quá hạn',
+    'dashboard.attention.hint.tasksDueToday': '{count} việc hôm nay',
+    'dashboard.attention.hint.debtsDue': '{count} khoản nợ',
+    'dashboard.attention.hint.recurringPending': '{count} kỳ chờ ghi',
     'dashboard.noTransactions': 'Chưa có giao dịch',
     'dashboard.noDebts': 'Không có khoản vay nợ',
     'dashboard.noExpenses': 'Chưa có chi tiêu',
@@ -1962,6 +1977,19 @@ const messages = {
     'dashboard.noCalendar': 'No upcoming events',
     'dashboard.noActivity': 'No recent activity',
     'dashboard.viewAll': 'View all',
+    'dashboard.walletBalance': 'Wallet balance',
+    'dashboard.monthIncome': 'Income this month',
+    'dashboard.monthExpense': 'Expense this month',
+    'dashboard.monthBalance': 'Net this month',
+    'dashboard.attention.none': 'Nothing needs you right now',
+    'dashboard.attention.overdueTasks': 'Overdue tasks',
+    'dashboard.attention.tasksDueToday': 'Tasks due today',
+    'dashboard.attention.debtsDue': 'Debts overdue or due soon',
+    'dashboard.attention.recurringPending': 'Fixed items to record',
+    'dashboard.attention.hint.overdueTasks': '{count} overdue',
+    'dashboard.attention.hint.tasksDueToday': '{count} due today',
+    'dashboard.attention.hint.debtsDue': '{count} debts',
+    'dashboard.attention.hint.recurringPending': '{count} to record',
     'dashboard.noTransactions': 'No transactions',
     'dashboard.noDebts': 'No open loans or debts',
     'dashboard.noExpenses': 'No expenses found',
@@ -3173,6 +3201,8 @@ export interface IDashboardData {
   calendar: ICalendarEventItem[];
   tasks: ITaskListItem[];
   reminders: IReminderListItem[];
+  /** Periods of fixed income and expenses waiting to be recorded, earliest first. */
+  recurringPending: IRecurringOccurrenceItem[];
   activity: Array<{ id: string; action: AuditAction; tableName: string; createdAt: string }>;
   admin?: { userCount: number; googleConnectedCount: number };
 }

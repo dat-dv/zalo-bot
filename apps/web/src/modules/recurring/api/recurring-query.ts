@@ -75,10 +75,15 @@ export function useRecordOccurrenceMutation() {
   });
 }
 
+/** Home counts the periods waiting to be recorded, so it refreshes too. */
 export function useSkipOccurrenceMutation() {
+  const queryClient = useQueryClient();
   const invalidate = useInvalidateRecurring();
   return useMutation<void, Error, string>({
     mutationFn: (id) => skipOccurrence(id),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      void queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
   });
 }
