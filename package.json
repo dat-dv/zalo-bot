@@ -1,6 +1,6 @@
 {
   "name": "zalobot-monorepo",
-  "version": "1.0.219",
+  "version": "1.0.220",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -9,7 +9,8 @@
   "scripts": {
     "prepare": "git config core.hooksPath .githooks && git config push.followTags true || true",
     "predev": "npm run build --workspace @zalobot/contracts",
-    "dev": "concurrently -k --names api,web --prefix-colors blue,green \"npm run dev:api\" \"npm run dev:web\"",
+    "dev": "concurrently -k --names contracts,api,web --prefix-colors magenta,blue,green \"npm run dev:contracts\" \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:contracts": "npm run build:watch --workspace @zalobot/contracts",
     "kill:ports": "lsof -ti:3005,5173,3000,3009 | xargs kill -9 2>/dev/null || true",
     "docker:local": "docker compose -f docker-compose.local.yml up -d",
     "docker:local:down": "docker compose -f docker-compose.local.yml down",
@@ -37,6 +38,9 @@
     "release:major": "node scripts/release.mjs major --push",
     "release:local": "node scripts/release.mjs patch",
     "changelog": "node scripts/update-changelog.mjs"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "devDependencies": {
     "concurrently": "^9.2.4"

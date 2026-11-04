@@ -1,23 +1,33 @@
-# Dependencies
+# Dependencies (every nested copy, including worktrees under .claude/)
 node_modules
+**/node_modules
 apps/*/node_modules
 packages/*/node_modules
 
-# Build artifacts
+# Build artifacts (the images build contracts, api and web themselves)
 dist
+**/dist
+**/.next
+**/out
+**/.tsbuild
+*.tsbuildinfo
 apps/api/dist
 apps/web/.next
 apps/web/out
 coverage
 
-# Version Control & IDE
+# Local Tesseract language data cache (the api image downloads its own copy)
+*.traineddata
+
+# Version Control, IDE, agent workspaces
 .git
 .github
 .husky
 .vscode
 .gemini
-.agents/artifacts
-.agents/system-explain
+.claude
+.agents
+docs
 
 # Logs
 *.log
