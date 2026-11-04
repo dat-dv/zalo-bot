@@ -86,9 +86,9 @@
 
 - `usePeriodFilter('month')` + toolbar; `useFinanceAnalyticsQuery({ startAt, endAt, grain })` (no dates for `all`).
 - Selected-period `MetricGrid`: income, expense, net savings, savings rate. Separate "current position" grid (not period-filtered): cashflow balance (all-time), receivable, payable, net worth.
-- Cashflow panel: `Button` toggle chart/table; `CashflowTrendChart` (Recharts `ComposedChart`: income/expense bars + cumulative balance line) or `DataTable` of buckets.
+- Cashflow panel: `Button` toggle chart/table; `CashflowTrendChart` (Recharts `ComposedChart`: income/expense bars + cumulative balance line) or `DataTable` of buckets. While amounts are hidden the plot is not rendered (`MaskedChartPlaceholder`, same height); the legend stays.
 - Phones: Chart/Table toggle buttons are 32px chips (`PHONE_CHIP`) and share the row (`aria-pressed`). The breakdown table is per period bucket (not per category), so its mobile list maps primary = period label, trailing = net cashflow (signed, colored), secondary = `Income +x` · `Expense -y`; balance shows only in the sheet. In table mode the panel padding drops at <= 960px so the list is edge to edge. `MetricGrid` (shared) keeps 2 cards per row at <= 640px, 52px tall, 14px values.
-- `CategoryDonutChart` (Recharts `PieChart`, all expense categories, scrollable legend) and `DebtStructureChart` (receivable vs payable ratio + top 3 counterparties each side; ratio and per-counterparty bars render only while amounts are revealed). Charts live in `shared/ui/charts/`.
+- `CategoryDonutChart` (Recharts `PieChart`, all expense categories, scrollable legend; while amounts are hidden it shows category names sorted by name with masked amounts, no donut, percentages, bars or colour dots, because the API order and palette follow the amount ranking) and `DebtStructureChart` (receivable vs payable ratio + top 3 counterparties each side; ratio and per-counterparty bars render only while amounts are revealed). Charts live in `shared/ui/charts/`.
 - Only `SessionStateScreen reason="expired"` (on dashboard query error). Loading skeleton is inline (`MetricGridSkeleton` + placeholder blocks); there is no `AnalyticsSkeleton` component. Retry invalidates dashboard + finance-analytics.
 
 ## Places (`PlacesScreen`, `/places`)
@@ -112,7 +112,7 @@
 ## Shared UI behavior
 
 - `WorkspaceHeader`: route title/subtitle, money visibility toggle, Refresh (= `queryClient.invalidateQueries()` for all queries), Logout.
-- Money visibility (`useMoneyVisibilityStore` Zustand store, `useMoneyVisibility`/`useMoneyFormatter` hooks): default hidden; in-memory only (no `persist`, no `localStorage`), so every page load/F5 resets to hidden; masked as `••••••` in KPIs, tables, tooltips; amount ratio bars in Transactions/Expenses tables are hidden while masked; edit inputs unmasked.
+- Money visibility (`useMoneyVisibilityStore` Zustand store, `useMoneyVisibility`/`useMoneyFormatter` hooks): default hidden; in-memory only (no `persist`, no `localStorage`), so every page load/F5 resets to hidden; masked as `••••••` in KPIs, tables, tooltips, and the savings-rate KPI; charts are not drawn while masked (axis ticks print amounts, bar heights give away proportions): `CashflowTrendChart` and `MicroBarChart` show `MaskedChartPlaceholder`; amount ratio bars in Transactions/Expenses tables are hidden while masked; edit inputs unmasked.
 - `DataTable`: column visibility (`zalobot:table-columns:<id>`) and widths (`zalobot:table-widths:<id>`) persisted per table id; `allColumnsKey` + equality guards prevent render loops. `usePeriodFilter` result is memoized.
 - `AppNavigation`: 210px docked sidebar (sections Overview, Finance, Planning, Data, System); ≤960px becomes sticky top bar + slide-out drawer. Footer: theme toggle (`useThemeStore`, localStorage, first visit follows system) and vi/en locale selector.
 

@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
+import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
+import { MaskedChartPlaceholder } from './charts/masked-chart-placeholder';
 
 export interface ChartBucket {
   key: string;
@@ -18,7 +19,7 @@ interface MicroBarChartProps {
 
 export function MicroBarChart({ buckets, height = 76 }: MicroBarChartProps) {
   const { t } = useLocale();
-  const money = useMoneyFormatter();
+  const { money, isMoneyVisible } = useMoneyVisibility();
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   if (!buckets.length) {
@@ -30,6 +31,11 @@ export function MicroBarChart({ buckets, height = 76 }: MicroBarChartProps) {
         <span>{t('chart.noData')}</span>
       </div>
     );
+  }
+
+  // Bar heights give away how periods compare, so nothing is drawn while amounts are hidden.
+  if (!isMoneyVisible) {
+    return <MaskedChartPlaceholder height={height} />;
   }
 
   const maxVal = Math.max(...buckets.map((b) => Math.max(b.income, b.expense)), 1);

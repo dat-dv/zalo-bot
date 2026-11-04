@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
-import type { IAnalyticsCategoryBreakdown } from '@zalobot/contracts';
+import { useMoneyFormatter, useMoneyVisibility } from '@/shared/store/money-visibility-store';
+import { localeTag, type IAnalyticsCategoryBreakdown } from '@zalobot/contracts';
+import { maskedLegendLabels } from './masked-legend';
 
 interface CategoryDonutChartProps {
   categories: IAnalyticsCategoryBreakdown[];
@@ -64,8 +65,8 @@ export function CategoryDonutChart({
   totalAmount,
   height = 180,
 }: CategoryDonutChartProps) {
-  const { t } = useLocale();
-  const money = useMoneyFormatter();
+  const { locale, t } = useLocale();
+  const { money, isMoneyVisible } = useMoneyVisibility();
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   const expenseCategories = categories.filter((c) => c.type === 'expense' && c.amount > 0);
@@ -98,6 +99,37 @@ export function CategoryDonutChart({
       percentage: sum > 0 ? (diff / sum) * 100 : 0,
       color: PALETTE[slices.length % PALETTE.length],
     });
+  }
+
+  // Slices, percentages and bars show each category's share, and palette colours follow the
+  // ranking, so a hidden legend is names only.
+  if (!isMoneyVisible) {
+    return (
+      <div className="flex flex-col gap-1.5 overflow-hidden">
+        <div className="mb-0.5 flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+          <span>{t('analytics.topCategories')}</span>
+          <span className="tabular-nums">{money(sum)}</span>
+        </div>
+        <div className="flex max-h-[220px] flex-col gap-1.5 overflow-y-auto pr-1">
+          {maskedLegendLabels(
+            slices.map((slice) => slice.label),
+            localeTag(locale),
+          ).map((label) => (
+            <div
+              key={label}
+              className="flex items-center justify-between px-1.5 py-0.5 text-[11px]"
+            >
+              <span className="truncate font-medium text-slate-700 dark:text-slate-300">
+                {label}
+              </span>
+              <span className="shrink-0 font-semibold text-slate-900 tabular-nums dark:text-slate-100">
+                {t('common.maskedAmount')}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   const activeSlice = hoveredIdx !== null ? slices[hoveredIdx] : null;

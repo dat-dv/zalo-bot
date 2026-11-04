@@ -11,8 +11,9 @@ import {
   Tooltip,
 } from 'recharts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
+import { useMoneyFormatter, useMoneyVisibilityStore } from '@/shared/store/money-visibility-store';
 import type { IAnalyticsTrendBucket } from '@zalobot/contracts';
+import { MaskedChartPlaceholder } from './masked-chart-placeholder';
 
 interface CashflowTrendChartProps {
   buckets: IAnalyticsTrendBucket[];
@@ -106,6 +107,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
 
 export function CashflowTrendChart({ buckets, height = 220 }: CashflowTrendChartProps) {
   const { t } = useLocale();
+  const isMoneyVisible = useMoneyVisibilityStore((state) => state.isMoneyVisible);
 
   if (!buckets.length) {
     return (
@@ -149,59 +151,64 @@ export function CashflowTrendChart({ buckets, height = 220 }: CashflowTrendChart
         </span>
       </div>
 
-      <div className="w-full" style={{ height }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={buckets} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              vertical={false}
-              className="stroke-slate-200/70 dark:stroke-slate-800/70"
-            />
-            <XAxis
-              dataKey="label"
-              tickLine={false}
-              axisLine={false}
-              tick={{ fontSize: 10 }}
-              className="fill-slate-500 dark:fill-slate-400"
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tick={{ fontSize: 10 }}
-              tickFormatter={formatYAxis}
-              className="fill-slate-500 dark:fill-slate-400"
-            />
-            <Tooltip
-              content={<CustomTooltip />}
-              cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
-              wrapperStyle={{ outline: 'none', zIndex: 1000 }}
-            />
-            <Bar
-              dataKey="income"
-              name={t('chart.income')}
-              fill="#0284c7"
-              radius={[3, 3, 0, 0]}
-              maxBarSize={24}
-            />
-            <Bar
-              dataKey="expense"
-              name={t('chart.expense')}
-              fill="#f59e0b"
-              radius={[3, 3, 0, 0]}
-              maxBarSize={24}
-            />
-            <Line
-              type="monotone"
-              dataKey="balance"
-              name={t('analytics.chart.walletBalance')}
-              stroke="#8b5cf6"
-              strokeWidth={2}
-              dot={{ r: 2.5, fill: '#8b5cf6' }}
-              activeDot={{ r: 4.5 }}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
+      {/* Axis ticks print real amounts and bar heights give away proportions, so nothing is drawn. */}
+      {!isMoneyVisible ? (
+        <MaskedChartPlaceholder height={height} />
+      ) : (
+        <div className="w-full" style={{ height }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={buckets} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+              <CartesianGrid
+                strokeDasharray="3 3"
+                vertical={false}
+                className="stroke-slate-200/70 dark:stroke-slate-800/70"
+              />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 10 }}
+                className="fill-slate-500 dark:fill-slate-400"
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 10 }}
+                tickFormatter={formatYAxis}
+                className="fill-slate-500 dark:fill-slate-400"
+              />
+              <Tooltip
+                content={<CustomTooltip />}
+                cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
+                wrapperStyle={{ outline: 'none', zIndex: 1000 }}
+              />
+              <Bar
+                dataKey="income"
+                name={t('chart.income')}
+                fill="#0284c7"
+                radius={[3, 3, 0, 0]}
+                maxBarSize={24}
+              />
+              <Bar
+                dataKey="expense"
+                name={t('chart.expense')}
+                fill="#f59e0b"
+                radius={[3, 3, 0, 0]}
+                maxBarSize={24}
+              />
+              <Line
+                type="monotone"
+                dataKey="balance"
+                name={t('analytics.chart.walletBalance')}
+                stroke="#8b5cf6"
+                strokeWidth={2}
+                dot={{ r: 2.5, fill: '#8b5cf6' }}
+                activeDot={{ r: 4.5 }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }

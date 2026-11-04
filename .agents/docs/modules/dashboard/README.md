@@ -147,9 +147,9 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - Bộ lọc kỳ mặc định theo tháng; gọi `GET /api/finance/analytics` với `startAt`, `endAt`, `grain` (kỳ "tất cả" không gửi ngày).
 - **Kết quả trong kỳ**: Tổng thu, Tổng chi, Tiết kiệm ròng, Tỷ lệ tiết kiệm.
 - **Tình hình hiện tại** (không phụ thuộc bộ lọc): Số dư dòng tiền toàn thời gian, Phải thu, Phải trả, Tài sản ròng. Đây không phải số dư ngân hàng vì hệ thống không quản lý số dư đầu kỳ.
-- Khối Dòng tiền: nút chuyển Biểu đồ/Bảng; biểu đồ Recharts gồm cột thu/chi và đường số dư lũy kế, hoặc bảng số liệu theo kỳ.
+- Khối Dòng tiền: nút chuyển Biểu đồ/Bảng; biểu đồ Recharts gồm cột thu/chi và đường số dư lũy kế, hoặc bảng số liệu theo kỳ. Khi ẩn số tiền, biểu đồ không được vẽ mà thay bằng dòng "Biểu đồ đang ẩn cùng số tiền", vì trục in số thật và chiều cao cột cho thấy kỳ nào lớn gấp mấy lần kỳ nào. Biểu đồ mini Thu/Chi ở trang Giao dịch và Khoản chi cũng vậy.
 - Trên điện thoại: hai nút Biểu đồ/Bảng cao 32px, chia đôi hàng. Bảng số liệu là theo **kỳ** (không theo danh mục), nên ở dạng danh sách: dòng trên là tên kỳ + dòng tiền ròng (có dấu, có màu), dòng dưới là "Thu +x · Chi −y"; số dư lũy kế xem trong sheet chi tiết. Các thẻ chỉ số giữ 2 thẻ một hàng, thấp hơn.
-- Khối Phân bổ chi tiêu (biểu đồ donut, đủ mọi danh mục chi, chú thích cuộn được) và Cơ cấu công nợ (tỷ lệ phải thu/phải trả + top 3 người liên quan mỗi bên; khi ẩn số tiền thì các thanh tỷ lệ cũng ẩn để không lộ ai nợ nhiều/ít). Các biểu đồ nằm ở `shared/ui/charts/`.
+- Khối Phân bổ chi tiêu (biểu đồ donut, đủ mọi danh mục chi, chú thích cuộn được; khi ẩn số tiền chỉ còn tên danh mục xếp theo tên, không có donut, %, thanh hay chấm màu, vì thứ tự và màu đều theo xếp hạng số tiền) và Cơ cấu công nợ (tỷ lệ phải thu/phải trả + top 3 người liên quan mỗi bên; khi ẩn số tiền thì các thanh tỷ lệ cũng ẩn để không lộ ai nợ nhiều/ít). Các biểu đồ nằm ở `shared/ui/charts/`.
 - Chỉ hiện màn hình "Phiên hết hạn" khi lỗi tải dashboard. Skeleton được viết trực tiếp trong màn hình (không có component `AnalyticsSkeleton`).
 
 ## Trang Nơi chốn (`PlacesScreen`)

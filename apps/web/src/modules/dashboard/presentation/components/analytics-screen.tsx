@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { type IAnalyticsTrendBucket } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
-import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
+import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { usePeriodFilter } from '@/shared/hooks/use-period-filter';
 import { PeriodFilterToolbar } from '@/shared/ui/period-filter-toolbar';
@@ -29,7 +29,7 @@ const PHONE_TOGGLE = `max-[640px]:flex-1 ${PHONE_CHIP}`;
 export function AnalyticsScreen() {
   const queryClient = useQueryClient();
   const { t } = useLocale();
-  const money = useMoneyFormatter();
+  const { money, isMoneyVisible } = useMoneyVisibility();
   const includeSavings = useIncludeSavingsStore((state) => state.includeSavings);
   const savingsMoney = useSavingsMoney();
   const combinedMoney = useCombinedSavingsMoney();
@@ -151,9 +151,11 @@ export function AnalyticsScreen() {
     },
     {
       label: t('analytics.kpi.savingsRate'),
-      value: `${savingsRate.toFixed(1)}%`,
-      valueClassName:
-        savingsRate >= 20
+      // The rate compares income with expense, and its colour bands say roughly how it came out.
+      value: isMoneyVisible ? `${savingsRate.toFixed(1)}%` : t('common.maskedAmount'),
+      valueClassName: !isMoneyVisible
+        ? 'text-slate-700 dark:text-slate-300'
+        : savingsRate >= 20
           ? 'text-emerald-700 dark:text-emerald-400'
           : savingsRate > 0
             ? 'text-amber-700 dark:text-amber-400'
