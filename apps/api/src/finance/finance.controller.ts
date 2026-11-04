@@ -32,7 +32,16 @@ import {
 } from '../dashboard-auth/dashboard-user';
 import { ReportsTokenService } from '../reports/reports-token.service';
 import { UsersService } from '../users/users.service';
-import { FinanceService } from './finance.service';
+import { FinanceService, TRANSACTION_LIST_MAX_LIMIT } from './finance.service';
+import { FinanceReportService } from './finance-report.service';
+import {
+  CSV_BOM,
+  DEBT_CSV_HEADER,
+  TRANSACTION_CSV_HEADER,
+  csvFileName,
+  debtCsvRow,
+  transactionCsvRow,
+} from './finance-csv';
 import { ContactUserSyncService } from './contact-user-sync.service';
 import { downloadDriveReceipt, parseReceiptSource } from './receipt-source';
 
@@ -77,6 +86,7 @@ export class FinanceController {
     @Inject(forwardRef(() => UsersService))
     private readonly users: UsersService,
     private readonly contactUserSync: ContactUserSyncService,
+    private readonly financeReport: FinanceReportService,
     @Optional() private readonly moduleRef?: ModuleRef,
   ) {}
 
@@ -149,6 +159,52 @@ export class FinanceController {
     return {
       data: await this.finance.queryTransactions(this.transactionListQuery(query)),
     };
+  }
+
+  /** Same filters as the list, in a CSV. Declared before `transactions/:id`, which would match it. */
+  @Get('transactions/export')
+  @ApiOperation({ summary: 'Xuất giao dịch thu/chi theo bộ lọc ra CSV' })
+  async exportTransactions(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Query() query: Record<string, unknown>,
+  ): Promise<void> {
+    this.authenticate(req);
+    const filter = this.transactionListQuery(query);
+    // The first page fails normally; a later one aborts the socket so no partial file looks whole.
+    let page = await this.finance.queryTransactions({
+      ...filter,
+      limit: TRANSACTION_LIST_MAX_LIMIT,
+      offset: 0,
+    });
+    this.startCsv(res, 'giao-dich', TRANSACTION_CSV_HEADER);
+    try {
+      for (let offset = 0; ;) {
+        res.write(page.items.map(transactionCsvRow).join(''));
+        offset += page.items.length;
+        if (page.items.length === 0 || offset >= page.total) break;
+        page = await this.finance.queryTransactions({
+          ...filter,
+          limit: TRANSACTION_LIST_MAX_LIMIT,
+          offset,
+        });
+      }
+      res.end();
+    } catch (err: unknown) {
+      this.logger.error(
+        `Transaction export failed: ${err instanceof Error ? err.message : 'unknown error'}`,
+      );
+      res.destroy();
+    }
+  }
+
+  @Get('debts/export')
+  @ApiOperation({ summary: 'Xuất toàn bộ công nợ ra CSV' })
+  async exportDebts(@Req() req: Request, @Res() res: Response): Promise<void> {
+    this.authenticate(req);
+    const debts = await this.financeReport.listAllRootDebts();
+    this.startCsv(res, 'cong-no', DEBT_CSV_HEADER);
+    res.end(debts.map(debtCsvRow).join(''));
   }
 
   @Get('transactions/:id')
@@ -781,6 +837,13 @@ export class FinanceController {
     return getDashboardUserId(req, this.tokens);
   }
   /** Requires a signed-in dashboard user; finance data itself is shared, never scoped by user. */
+  private startCsv(res: Response, filePrefix: string, header: string): void {
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${csvFileName(filePrefix)}"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.write(CSV_BOM + header);
+  }
+
   private authenticate(req: Request): void {
     this.actorId(req);
   }

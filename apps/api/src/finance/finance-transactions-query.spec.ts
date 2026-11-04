@@ -166,6 +166,7 @@ void test('GET /api/transactions rejects malformed query parameters', async () =
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
   );
   // actorId() is stubbed below, so the request object itself is never read.
   const req = {} as Request;
@@ -217,6 +218,7 @@ void test('GET /api/transactions parses column filters and rejects malformed one
         return Promise.resolve({});
       },
     } as never,
+    {} as never,
     {} as never,
     {} as never,
     {} as never,
@@ -319,4 +321,56 @@ void test('queryTransactions lists period creators and categories as filter opti
     { id: 'u9999', name: '' },
   ]);
   assert.deepEqual(result.facets.categories, ['Ăn uống', 'Đi lại']);
+});
+
+void test('GET /api/transactions/export pages through everything and keeps the filters', async () => {
+  const offsets: unknown[] = [];
+  const rows = (count: number) =>
+    Array.from({ length: count }, (_, i) => ({
+      id: String(i),
+      type: 'expense',
+      amount: 1,
+      category: 'Khác',
+      note: 'x',
+      occurredAt: '2026-11-03T05:00:00.000Z',
+      runningBalance: 0,
+    }));
+  const controller = new FinanceController(
+    {
+      queryTransactions: (query: { offset: number; type?: string }) => {
+        offsets.push([query.offset, query.type]);
+        return Promise.resolve({ items: rows(query.offset === 0 ? 500 : 3), total: 503 });
+      },
+    } as never,
+    { verifyAccessToken: () => 'u1', verifyAccess: () => 'u1' } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+  Object.defineProperty(controller, 'authenticate', { value: (): void => undefined });
+
+  const chunks: string[] = [];
+  const headers = new Map<string, string>();
+  let ended = false;
+  await controller.exportTransactions(
+    {} as never,
+    {
+      setHeader: (key: string, value: string) => headers.set(key, value),
+      write: (chunk: string) => chunks.push(chunk),
+      end: () => {
+        ended = true;
+      },
+    } as never,
+    { type: 'expense' },
+  );
+
+  assert.deepEqual(offsets, [
+    [0, 'expense'],
+    [500, 'expense'],
+  ]);
+  assert.equal(ended, true);
+  const body = chunks.join('');
+  assert.ok(body.startsWith('﻿Ngày,'));
+  assert.equal(body.trim().split('\r\n').length, 504);
+  assert.match(headers.get('Content-Disposition') ?? '', /giao-dich-.*\.csv/);
 });

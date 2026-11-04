@@ -16,6 +16,11 @@ export async function getDebts(signal?: AbortSignal): Promise<IDebtListItem[]> {
   return response.data.data;
 }
 
+export async function exportDebts(): Promise<Blob> {
+  const response = await httpClient.get<Blob>(API_ROUTES.debtsExport, { responseType: 'blob' });
+  return response.data;
+}
+
 export async function createDebt(
   data: ICreateDebtRequest,
   signal?: AbortSignal,

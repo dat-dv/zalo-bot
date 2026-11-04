@@ -146,3 +146,11 @@ Tools from `ZALO_TOOL_DEFINITIONS` relevant to finance (see [LLM Providers](llm-
 - Several matches: nothing changes; up to 3 rows are listed with ids. Ids rather than "reply 2" because the bot keeps no chat context between messages. Delete keeps its first-match behavior.
 - Only fields that really differ reach the card; no difference means no card. The card shows `old → new`.
 - Runs `updateTransaction` on approval, so its rules (amount not below allocated debt, no type change with allocations) surface as the failure message. The audit actor is the requester.
+
+## CSV export
+
+- `GET /api/transactions/export` takes the list's filters; `GET /api/debts/export` returns all root debts (merged children excluded: the parent already carries the amount). Both are declared before the `:id` routes and need the dashboard bearer token, so the web downloads a blob instead of linking.
+- Transactions page through `queryTransactions`, 500 rows at a time. A failure after the first page destroys the socket: a truncated file must not look complete. Debts bypass the screen's 200-row cap.
+- UTF-8 BOM so Excel reads Vietnamese. Text starting with `= + - @`, tab or CR gets a leading `'` (formula injection: notes are free text). Numbers stay numbers. Headers are Vietnamese; dates are Vietnam time.
+- Any signed-in dashboard user may export: the ledger is shared. Not recorded in the audit log, which only tracks data changes.
+- CSV only for now; no `.xlsx`, no new dependency.

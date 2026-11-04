@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository, SelectQueryBuilder } from 'typeorm';
+import { IsNull, type Repository, type SelectQueryBuilder } from 'typeorm';
+import { DebtEntity } from '../database/entities/debt.entity';
 import { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
 
 const TOP_CATEGORIES = 5;
@@ -41,7 +42,20 @@ export class FinanceReportService {
   constructor(
     @InjectRepository(FinanceTransactionEntity)
     private readonly transactionRepo: Repository<FinanceTransactionEntity>,
+    @InjectRepository(DebtEntity)
+    private readonly debtRepo: Repository<DebtEntity>,
   ) {}
+
+  /**
+   * Every debt for export, unlike the capped screen list. Merged debts are left out because their
+   * parent already carries the amount; listing both would count it twice.
+   */
+  public listAllRootDebts(): Promise<DebtEntity[]> {
+    return this.debtRepo.find({
+      where: { parentDebtId: IsNull() },
+      order: { occurredAt: 'DESC', createdAt: 'DESC', id: 'DESC' },
+    });
+  }
 
   private filtered(filter: FinanceBreakdownFilter): SelectQueryBuilder<FinanceTransactionEntity> {
     const query = this.transactionRepo.createQueryBuilder('t');

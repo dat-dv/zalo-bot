@@ -7,6 +7,7 @@ import { useLocale } from '@/shared/providers/locale-provider';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { DataPanel } from '@/shared/ui/data-table';
+import { ExportCsvButton } from '@/shared/ui/export-csv-button';
 import { DebtsTable, type DebtEditDraft, getDebtStatus } from './debts-table';
 import { CombineDebtsDialog } from './combine-debts-dialog';
 import { CreateDebtDialog } from './create-debt-dialog';
@@ -23,6 +24,7 @@ import {
   useDebtsQuery,
   useUpdateDebtMutation,
 } from '../../api/debts-query';
+import { exportDebts } from '../../api/debts-api';
 import { matchContact } from '../../model/debt-create-form';
 
 const CONTACTS_DATALIST_ID = 'debt-contacts-autocomplete';
@@ -461,6 +463,7 @@ export function DebtsScreen() {
                 >
                   + {t('debts.actions.create')}
                 </button>
+                <ExportCsvButton filePrefix="cong-no" download={exportDebts} onError={showToast} />
                 {selectedIds.size >= 2 && (
                   <button
                     type="button"

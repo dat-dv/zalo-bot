@@ -91,3 +91,7 @@ Giao diện desktop (> 960px) giữ nguyên. Trên màn hình hẹp, bảng côn
 ## Nút bấm
 
 - Màu nút lấy từ `BUTTON_TONE`; con trỏ, độ mờ khi khoá, viền focus và hiệu ứng chuyển màu do lớp nền lo, nên nút trong module không tự khai báo lại. Nút tạo (toolbar và thanh hành động mobile), nút xác nhận gộp công nợ và nút chính trong dòng `DebtsTable` dùng `primary`; bộ lọc trạng thái/chiều nợ (`filterChipClass`) và chip trong hộp tạo nợ dùng `chip`/`chipSelected`; xoá khoản nợ và xoá lần trả dùng `dangerSoft`; Thử lại dùng `danger`. Toast dùng tông toast tối. Xem [web-ui-direction](../../global/web-ui-direction.md#trạng-thái-tương-tác-của-nút).
+
+## Xuất CSV
+
+Nút Xuất CSV ở trang Công nợ tải toàn bộ khoản gốc, không theo bộ lọc trên màn hình vì bộ lọc này chạy phía trình duyệt. Quy tắc chi tiết ở `global/finance-domain.md`.

@@ -22,6 +22,15 @@ export async function listTransactions(
   return response.data.data;
 }
 
+export async function exportTransactions(query: ITransactionListQuery): Promise<Blob> {
+  const response = await httpClient.get<Blob>(API_ROUTES.transactionsExport, {
+    params: query,
+    paramsSerializer: { indexes: null },
+    responseType: 'blob',
+  });
+  return response.data;
+}
+
 export async function createTransaction(
   data: ICreateTransactionRequest,
   signal?: AbortSignal,

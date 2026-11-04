@@ -132,3 +132,7 @@
 ## Buttons
 
 - Colours come from `BUTTON_TONE`; cursor, disabled dimming, focus outline and transitions come from the base layer, so buttons here never re-spell them. Create buttons on Places/Tasks/Reminders/Calendar (toolbar and mobile action bar), row primaries in the common tables, combine-places, adjust-balance and debt-allocation confirms are `primary` (Places save was emerald-600, adjust balance indigo-600). Row Edit/Cancel, Snooze, 🔗 allocate, quick links and Overview's Adjust balance are `secondary`; Transactions' Adjust balance chip, column-filter funnels, reminder weekday toggles and the Analytics chart/table toggle are `chip`/`chipSelected`; the Calendar view switch is `segment`/`segmentSelected`; dialog ✕ are `ghost`; destructive confirms are `danger`. Exceptions with their own colours: the "N allocated" badge-button (allocation state), the receipt thumbnail (`cursor-zoom-in`), "Clear" in the amber unsynced banner, and the column-filter "Clear" text link (`not-disabled:hover:underline`). Button-styled quick-link `<Link>`s keep `transition-colors` because the base-layer transition covers buttons only. Screen toasts use the dark toast tone. See [web-ui-direction](../../global/web-ui-direction.md#button-interaction-states).
+
+## CSV export
+
+`ExportCsvButton` on `/transactions` sends the current list query to `API_ROUTES.transactionsExport`. It sits in the chip row, so it scrolls with the chips on phones. Rules: [finance-domain](../../global/finance-domain.md).

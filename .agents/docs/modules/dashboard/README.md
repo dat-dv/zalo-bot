@@ -199,3 +199,7 @@ Khi dữ liệu dashboard sai hoặc rỗng, kiểm tra payload `GET /api/dashbo
 ## Nút bấm
 
 - Màu nút lấy từ `BUTTON_TONE`; con trỏ, độ mờ khi khoá, viền focus và hiệu ứng chuyển màu do lớp nền lo, nên nút trong module không tự khai báo lại. Nút tạo ở Nơi chốn/Việc cần làm/Lời nhắc/Lịch (toolbar và thanh hành động mobile), nút chính trong các bảng dùng chung, nút xác nhận gộp nơi chốn, điều chỉnh số dư và phân bổ công nợ dùng `primary` (trước đây nút lưu Nơi chốn màu emerald-600, điều chỉnh số dư màu indigo-600). Sửa/Huỷ trong dòng, Hoãn, 🔗 phân bổ, lối tắt và nút Điều chỉnh số dư ở Tổng quan dùng `secondary`; chip Điều chỉnh số dư ở Giao dịch, phễu lọc cột, nút chọn thứ trong tuần của lời nhắc và nút chuyển biểu đồ/bảng ở Phân tích dùng `chip`/`chipSelected`; nút chuyển chế độ xem Lịch dùng `segment`/`segmentSelected`; ✕ của dialog dùng `ghost`; nút xác nhận xoá dùng `danger`. Ngoại lệ giữ màu riêng: nút-badge "N đã phân bổ" (thể hiện trạng thái phân bổ), ảnh thu nhỏ của bill (`cursor-zoom-in`), nút "Xoá" trong banner amber chưa đồng bộ, và link chữ "Xoá" của bộ lọc cột (`not-disabled:hover:underline`). Các lối tắt là `<Link>` có dáng nút vẫn giữ `transition-colors` vì lớp nền chỉ áp transition cho nút. Toast dùng tông toast tối. Xem [web-ui-direction](../../global/web-ui-direction.md#trạng-thái-tương-tác-của-nút).
+
+## Xuất CSV
+
+Nút Xuất CSV ở trang Thu chi gửi đúng bộ lọc đang xem lên API, nên file khớp với những gì người dùng thấy. Nút nằm trong hàng chip và cuộn cùng hàng chip trên điện thoại. Quy tắc chi tiết ở `global/finance-domain.md`.

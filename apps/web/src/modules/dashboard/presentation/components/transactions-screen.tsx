@@ -28,7 +28,9 @@ import { DebtAllocationModal } from './debt-allocation-modal';
 import { DeleteTransactionModal } from './delete-transaction-modal';
 import { AdjustBalanceModal } from './adjust-balance-modal';
 import { usePeriodFilter } from '@/shared/hooks/use-period-filter';
+import { ExportCsvButton } from '@/shared/ui/export-csv-button';
 import { PeriodFilterToolbar } from '@/shared/ui/period-filter-toolbar';
+import { exportTransactions } from '../../api/transactions-api';
 import { TrendSummaryStrip } from '@/shared/ui/trend-summary-strip';
 import { SessionStateScreen } from '@/modules/auth/view/session-state-screen';
 import { useSessionUserQuery } from '@/modules/auth/api/session-user-query';
@@ -353,6 +355,11 @@ export function TransactionsScreen() {
                   <span>⚖️</span>
                   {t('transactions.balanceAdjust.actionButton')}
                 </button>
+                <ExportCsvButton
+                  filePrefix="giao-dich"
+                  download={() => exportTransactions(listQuery)}
+                  onError={showToast}
+                />
                 {activeColumnFilterCount > 0 && (
                   <button
                     type="button"

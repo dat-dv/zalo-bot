@@ -125,3 +125,15 @@ Trước đây muốn sửa một khoản ghi nhầm phải xoá rồi ghi lại
 - **Nhật ký kiểm toán** ghi người thực hiện là người yêu cầu sửa, không phải người duyệt.
 
 Xoá giao dịch vẫn giữ hành vi cũ: lấy khoản khớp đầu tiên.
+
+## Xuất CSV
+
+Nút **Xuất CSV** ở trang Thu chi và Công nợ để đối soát hoặc giữ bản sao dữ liệu riêng.
+
+- **Giao dịch** theo đúng bộ lọc đang xem (kỳ, loại, danh mục, tìm kiếm).
+- **Công nợ** xuất tất cả khoản gốc, bất kể bộ lọc trên màn hình. Khoản đã gộp không xuất riêng vì khoản cha đã gồm số tiền đó, xuất cả hai sẽ bị cộng đôi.
+- **Mở được bằng Excel**: file có BOM UTF-8 nên không lỗi dấu tiếng Việt, số tiền vẫn là số nên tính tổng được.
+- **Chống chèn công thức**: ô chữ bắt đầu bằng `=`, `+`, `-`, `@` được thêm dấu `'` ở đầu. Ghi chú là chữ tự do từ Zalo, nếu không thoát thì Excel có thể chạy nó như công thức.
+- **File dở dang không giả làm file đủ**: lỗi giữa chừng thì kết nối bị ngắt và trình duyệt báo lỗi.
+
+Ai đăng nhập dashboard cũng xuất được vì đây là sổ chung. Việc xuất không ghi vào nhật ký kiểm toán, vì nhật ký chỉ ghi thay đổi dữ liệu. Bản này chưa tạo file `.xlsx` thật.

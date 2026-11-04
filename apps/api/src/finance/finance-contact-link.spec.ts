@@ -147,6 +147,7 @@ function createController(isAdmin: boolean) {
     {} as never,
     { isAdmin: () => isAdmin } as never,
     {} as never,
+    {} as never,
   );
   // actorId() is stubbed, so the request object itself is never read.
   Reflect.set(controller, 'actorId', () => ACTOR);

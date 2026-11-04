@@ -67,3 +67,7 @@ Desktop (> 960px) is unchanged. See [Mobile List Mode](../../global/web-ui-direc
 ## Buttons
 
 - Colours come from `BUTTON_TONE`; cursor, disabled dimming, focus outline and transitions come from the base layer, so buttons here never re-spell them. Create (toolbar and mobile action bar), the combine-debts submit and the `DebtsTable` row primary are `primary`; status/direction filters (`filterChipClass`) and the create-dialog chips are `chip`/`chipSelected`; debt and payment delete are `dangerSoft`; Retry is `danger`. The screen toast uses the dark toast tone. See [web-ui-direction](../../global/web-ui-direction.md#button-interaction-states).
+
+## CSV export
+
+`ExportCsvButton` on `/debts` downloads all root debts from `API_ROUTES.debtsExport`, regardless of the screen filters. Rules: [finance-domain](../../global/finance-domain.md).
