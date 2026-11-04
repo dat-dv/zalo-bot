@@ -14,6 +14,7 @@ import type { GoogleAuthService } from '../google/google-auth.service';
 import type { CalendarService } from '../calendar/calendar.service';
 import type { TasksService } from '../tasks/tasks.service';
 import type { RemindersService } from '../reminders/reminders.service';
+import type { RecurringTransactionService } from '../finance/recurring/recurring-transaction.service';
 
 const PROFILE: IDashboardSessionUser = {
   id: '42',
@@ -47,6 +48,7 @@ function createController(profileFor: string[]) {
     users,
     tokens,
     {} as unknown as AccessCodeRateLimiter,
+    {} as unknown as RecurringTransactionService,
   );
 }
 

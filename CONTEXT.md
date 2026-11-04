@@ -12,6 +12,7 @@
 - **Khoản cố định**: Khoản thu hoặc chi lặp lại theo kỳ (tiền nhà, tiền điện, lương), thuộc sổ chung. Có hai chế độ: **tự ghi** với số tiền cố định, và **chờ nhập** khi số tiền thay đổi theo kỳ.
 - **Kỳ (khoản cố định)**: Một lần đến hạn của khoản cố định, ở trạng thái đang chờ, đã ghi hoặc đã bỏ qua. Kỳ đang chờ không hết hạn. Kỳ bị lỡ do server tắt vẫn được tạo bù, khác với lời nhắc.
 - **Tóm tắt tài chính**: Tin bot tự gửi vào một kênh sau mỗi tuần hoặc tháng, gồm tổng thu chi của kỳ vừa qua so với kỳ trước, danh mục chi nhiều nhất và công nợ. Admin bật riêng từng kênh, mặc định tắt vì số liệu là của toàn bộ sổ chung.
+- **Cần chú ý**: Những thứ trên trang Tổng quan cần người làm ngay: việc quá hạn, việc đến hạn hôm nay, nợ quá hạn hoặc đến hạn trong 7 ngày, kỳ khoản cố định đang chờ ghi. Không gồm lời nhắc (bot tự gửi), việc không có hạn và nợ chưa tới hạn.
 - **Nhóm tiết kiệm**: Nơi giữ tiền để dành theo mục đích, ví dụ `Du lịch`. Thuộc **sổ chung**, ai cũng xem được. Tiền trong nhóm không nằm trong **số dư ví** và không phải khoản chi. Chỉ thao tác trên dashboard. Nhóm không bị xoá, chỉ được lưu trữ khi đã hết tiền.
 - **Con mắt tiết kiệm**: Công tắc ẩn/hiện riêng cho số tiền tiết kiệm, độc lập với nút hiện số tiền toàn cục, mặc định ẩn và không giữ qua lần tải trang. Số gộp có tiền tiết kiệm phải mở cả hai mới hiện.
 - **Số dư ví**: Tiền đang tiêu được: tổng thu − tổng chi − tiền nạp vào nhóm tiết kiệm + tiền rút ra.

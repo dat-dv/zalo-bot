@@ -17,6 +17,7 @@ import { ConfigService } from '@nestjs/config';
 import { Request, Response } from 'express';
 import { AuditService } from '../audit/audit.service';
 import { FinanceService } from '../finance/finance.service';
+import { RecurringTransactionService } from '../finance/recurring/recurring-transaction.service';
 import { GoogleAuthService } from '../google/google-auth.service';
 import { CalendarService } from '../calendar/calendar.service';
 import { TasksService } from '../tasks/tasks.service';
@@ -75,6 +76,7 @@ export class ReportsController {
     private readonly users: UsersService,
     private readonly tokens: ReportsTokenService,
     private readonly accessCodeLimiter: AccessCodeRateLimiter,
+    private readonly recurring: RecurringTransactionService,
   ) {}
 
   @Get('access')
@@ -184,15 +186,17 @@ export class ReportsController {
     const googleConnected = this.googleAuth.isAuthorized(userId);
     const calendarPromise = this.getCalendarEvents(String(userId), now);
     const tasksPromise = this.getTasks();
-    const [summary, position, debts, reminders, activity, calendar, tasks] = await Promise.all([
-      this.finance.getSummary(startAt, endAt),
-      this.finance.getLedgerPosition(),
-      this.finance.getActiveDebts(),
-      this.reminders.getUserUpcomingReminders(userId),
-      this.audit.listRecent(userId, 10),
-      calendarPromise,
-      tasksPromise,
-    ]);
+    const [summary, position, debts, reminders, activity, calendar, tasks, recurringPending] =
+      await Promise.all([
+        this.finance.getSummary(startAt, endAt),
+        this.finance.getLedgerPosition(),
+        this.finance.getActiveDebts(),
+        this.reminders.getUserUpcomingReminders(userId),
+        this.audit.listRecent(userId, 10),
+        calendarPromise,
+        tasksPromise,
+        this.recurring.listPendingItems(),
+      ]);
     const receivable = debts
       .filter((item) => item.direction === 'receivable')
       .reduce((total, item) => total + item.remainingAmount, 0);
@@ -226,6 +230,7 @@ export class ReportsController {
           repeatType: item.repeatType || 'none',
           status: item.status || 'pending',
         })),
+        recurringPending,
         activity: activity.map((item) => ({
           id: item.id,
           action: item.action,

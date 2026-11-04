@@ -33,6 +33,7 @@ Tiền nhà, điện nước, lương lặp lại đều đặn nhưng vẫn ph�
 
 - Trên trang `/recurring`: nhập số tiền rồi bấm Ghi, hoặc bấm Bỏ qua.
 - Trên Zalo: nhắn "đã đóng tiền điện 1tr2" hoặc "bỏ qua tiền nước tháng này". Bot hiện thẻ xác nhận như mọi thao tác khác.
+- Trang Tổng quan đếm các kỳ đang chờ trong mục Cần chú ý và dẫn tới `/recurring`; ghi hoặc bỏ qua xong thì số này tự cập nhật.
 
 ## Quy tắc nghiệp vụ
 
