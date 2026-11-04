@@ -53,9 +53,11 @@ Push notification **không** làm, vì lời nhắc đã gửi qua Zalo.
 
 1. Service worker được đăng ký dạng `/sw.js?v=<version>`, trong đó `version` lấy từ `apps/web/package.json` và tăng sau mỗi commit. Version mới thì trình duyệt cài service worker mới.
 2. Service worker mới cài xong sẽ **chờ**, không tự thay bản cũ. App hiện thẻ "Đã có phiên bản mới" ngay dưới header (trên điện thoại), có nút ✕ để ẩn tới lần tải trang sau vì thẻ che một phần đầu trang.
-3. Người dùng bấm "Tải lại": app gửi `SKIP_WAITING`, service worker mới bật lên và trang tải lại đúng một lần. Cache của version cũ bị xoá.
-   - Nếu người dùng không bấm, bản mới **tự áp dụng ở lần chuyển trang kế tiếp** (đổi pathname trong app). Đằng nào trang cũng đổi, nên tải lại lúc đó không làm mất gì: các form chỉ nằm trong một trang. Trang tải lại giữ đúng URL mới.
-   - Trên màn hẹp, thông báo là một hàng cao 40px nằm ngay dưới topbar, trong luồng trang (`PwaUpdateBar`). Nó đẩy nội dung xuống chứ không đè lên thanh chọn kỳ hay các tab nữa.
+3. Người dùng bấm "Tải lại": nút khoá lại và hiện "Đang tải lại…", app gửi `SKIP_WAITING`, service worker mới bật lên và trang tải lại đúng một lần. Cache của version cũ bị xoá.
+   - Bấm là trang luôn tải lại. Nếu không còn service worker chờ hoặc gửi tin lỗi thì tải lại ngay. Nếu sau 3 giây service worker vẫn chưa bật lên thì trang cũng tự tải lại, vì HTML lấy từ mạng trước nên người dùng vẫn có bản mới. Lúc này service worker cũ có thể còn chạy nên thông báo có thể hiện lại, nhưng không gây vòng lặp vì mỗi lần bấm chỉ tải lại một lần.
+   - App luôn đọc lại service worker đang chờ khi bấm, vì bản đã lưu có thể bị một deploy mới hơn thay mất. Khi điều đó xảy ra, thông báo cũng tự chuyển sang bản mới hơn.
+   - Nếu người dùng không bấm, bản mới **tự áp dụng ở lần chuyển trang kế tiếp** (đổi pathname trong app). Đằng nào trang cũng đổi, nên tải lại lúc đó không làm mất gì: các form chỉ nằm trong một trang. Trang tải lại giữ đúng URL mới. Đường này không có tải lại dự phòng 3 giây, để không tải lại khi người dùng đã bắt đầu nhập ở trang mới.
+   - Trên màn hẹp, thông báo là một hàng cao 40px nằm ngay dưới topbar, trong luồng trang (`PwaUpdateBar`). Nó đẩy nội dung xuống chứ không đè lên thanh chọn kỳ hay các tab nữa. Vuốt bắt đầu trên hàng này không kích hoạt pull-to-refresh, để cú chạm hơi rê vẫn tính là bấm nút.
 4. Khi app quay lại foreground, nó tự kiểm tra bản mới, vì app đã cài thường để mở nhiều ngày.
 
 Vì HTML luôn lấy từ mạng trước và nginx đặt `no-cache`, chỉ cần reload là người dùng có bản mới, kể cả khi chưa bấm "Tải lại".

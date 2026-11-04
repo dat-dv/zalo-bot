@@ -14,6 +14,8 @@ const MAX_PULL_PX = 96;
 const RESISTANCE = 0.5;
 // Spring-back time when released short of the trigger, and the chip's exit after a refresh.
 const SETTLE_MS = 300;
+// `preventDefault` on a pull can swallow the tap, so these areas never start one.
+const NO_PULL_SELECTOR = '[data-no-pull-refresh]';
 
 /**
  * Pull-to-refresh for the installed app only: iOS standalone apps have no browser
@@ -57,6 +59,7 @@ export function PullToRefresh() {
       const pageAtTop = window.scrollY <= 0;
       if (!touch || event.touches.length !== 1 || !pageAtTop) return;
       if (refreshingRef.current || isDocumentScrollLocked()) return;
+      if (event.target instanceof Element && event.target.closest(NO_PULL_SELECTOR)) return;
       startY = touch.clientY;
       window.clearTimeout(settleTimer);
       setSettling(false);
