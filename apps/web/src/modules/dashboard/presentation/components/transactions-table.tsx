@@ -1,12 +1,11 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
-  localeTag,
   TRANSACTION_FILTER_NO_PLACE,
   type ITransactionCreatorFacet,
-  type TransactionType,
   type ITransactionItem,
 } from '@zalobot/contracts';
+import { getDateTimeFormat } from '@/shared/lib/intl-format';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
 import {
@@ -16,7 +15,12 @@ import {
 } from '@/shared/store/savings-visibility-store';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
-import { CategoryAutocomplete } from '@/shared/ui/category-autocomplete';
+import {
+  DraftAutocomplete,
+  DraftTextInput,
+  DraftTypeSelect,
+  TransactionEditActions,
+} from './transaction-edit-fields';
 import {
   describeTransactionSource,
   ReceiptCell,
@@ -44,14 +48,7 @@ export type TransactionTableItem = ITransactionItem & {
   balanceIncludesSavings?: boolean;
 };
 
-export type TransactionEditDraft = {
-  type: TransactionType;
-  category: string;
-  note: string;
-  placeName: string;
-  amount: string;
-  occurredAt: string;
-};
+export type { TransactionEditDraft } from '../../store/transaction-edit-store';
 
 export type TransactionsTableProps = {
   id?: string;
@@ -60,8 +57,8 @@ export type TransactionsTableProps = {
   emptyMessage?: string;
   loading?: boolean;
   maxAmount?: number;
+  /** Row being edited inline; the draft itself lives in `useTransactionEditStore`. */
   editingId?: string | null;
-  editDraft?: TransactionEditDraft;
   categorySuggestions?: string[];
   placeSuggestions?: string[];
   onStartEdit?: (item: TransactionTableItem) => void;
@@ -69,7 +66,6 @@ export type TransactionsTableProps = {
   onSaveEdit?: (id: string) => void | Promise<void>;
   onDelete?: (id: string) => void | Promise<void>;
   onOpenAllocate?: (item: TransactionTableItem) => void;
-  onChangeEditDraft?: React.Dispatch<React.SetStateAction<TransactionEditDraft>>;
   isPending?: boolean;
   extraHeaderActions?: ReactNode;
   /** Server-side column filters; header filter buttons render only when `onChangeColumnFilters` is set. */
@@ -98,7 +94,6 @@ export function TransactionsTable({
   loading = false,
   maxAmount,
   editingId,
-  editDraft,
   categorySuggestions = [],
   placeSuggestions = [],
   onStartEdit,
@@ -106,7 +101,6 @@ export function TransactionsTable({
   onSaveEdit,
   onDelete,
   onOpenAllocate,
-  onChangeEditDraft,
   isPending = false,
   columnFilters = EMPTY_TRANSACTION_COLUMN_FILTERS,
   onChangeColumnFilters,
@@ -131,14 +125,9 @@ export function TransactionsTable({
   const columns = useMemo<DataTableColumn<TransactionTableItem>[]>(() => {
     const hasActions = Boolean(onStartEdit || onSaveEdit || onDelete || onOpenAllocate);
     const date = (value: string) =>
-      new Intl.DateTimeFormat(localeTag(locale), {
-        dateStyle: 'short',
-        timeStyle: 'short',
-      }).format(new Date(value));
+      getDateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
     const shortDate = (value: string) =>
-      new Intl.DateTimeFormat(localeTag(locale), { day: '2-digit', month: '2-digit' }).format(
-        new Date(value),
-      );
+      getDateTimeFormat(locale, { day: '2-digit', month: '2-digit' }).format(new Date(value));
 
     const filters = columnFilters;
     const setFilters = onChangeColumnFilters;
@@ -187,22 +176,13 @@ export function TransactionsTable({
         minWidth: '90px',
         mobileHeader: Boolean(setFilters),
         cell: (item) => {
-          if (editingId === item.id && editDraft && onChangeEditDraft) {
+          if (editingId === item.id) {
             return (
-              <select
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 max-[640px]:h-10 bg-white px-1 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
-                value={editDraft.type}
-                onChange={(e) =>
-                  onChangeEditDraft((prev) => ({
-                    ...prev,
-                    type: e.target.value as TransactionType,
-                  }))
-                }
-                aria-label={t('dashboard.columns.direction')}
-              >
-                <option value="income">{t('table.filter.income')}</option>
-                <option value="expense">{t('table.filter.expense')}</option>
-              </select>
+              <DraftTypeSelect
+                ariaLabel={t('dashboard.columns.direction')}
+                incomeLabel={t('table.filter.income')}
+                expenseLabel={t('table.filter.expense')}
+              />
             );
           }
           return (
@@ -240,21 +220,12 @@ export function TransactionsTable({
         mobileCell: (item) => item.category,
         mobileHeader: Boolean(setFilters),
         cell: (item) => {
-          if (
-            editingId === item.id &&
-            editDraft &&
-            onChangeEditDraft &&
-            onSaveEdit &&
-            onCancelEdit
-          ) {
+          if (editingId === item.id && onSaveEdit && onCancelEdit) {
             return (
-              <CategoryAutocomplete
+              <DraftAutocomplete
+                field="category"
                 ariaLabel={t('dashboard.columns.category')}
                 autoFocus
-                value={editDraft.category}
-                onChange={(category: string) =>
-                  onChangeEditDraft((prev) => ({ ...prev, category }))
-                }
                 onConfirm={() => void onSaveEdit(item.id)}
                 onCancel={onCancelEdit}
                 options={categorySuggestions}
@@ -289,26 +260,16 @@ export function TransactionsTable({
         mobileCell: (item) => item.note || '—',
         mobileHeader: Boolean(setFilters),
         cell: (item) => {
-          if (
-            editingId === item.id &&
-            editDraft &&
-            onChangeEditDraft &&
-            onSaveEdit &&
-            onCancelEdit
-          ) {
+          if (editingId === item.id && onSaveEdit && onCancelEdit) {
             return (
-              <input
+              <DraftTextInput
+                field="note"
                 type="text"
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 max-[640px]:h-10 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
-                value={editDraft.note}
-                onChange={(e) => onChangeEditDraft((prev) => ({ ...prev, note: e.target.value }))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void onSaveEdit(item.id);
-                  if (e.key === 'Escape') onCancelEdit();
-                }}
-                placeholder={t('transactions.placeholder.note')}
                 required
-                aria-label={t('dashboard.columns.note')}
+                placeholder={t('transactions.placeholder.note')}
+                ariaLabel={t('dashboard.columns.note')}
+                onConfirm={() => void onSaveEdit(item.id)}
+                onCancel={onCancelEdit}
               />
             );
           }
@@ -398,20 +359,11 @@ export function TransactionsTable({
         mobileCell: (item) => item.placeName || null,
         mobileHeader: Boolean(setFilters),
         cell: (item) => {
-          if (
-            editingId === item.id &&
-            editDraft &&
-            onChangeEditDraft &&
-            onSaveEdit &&
-            onCancelEdit
-          ) {
+          if (editingId === item.id && onSaveEdit && onCancelEdit) {
             return (
-              <CategoryAutocomplete
+              <DraftAutocomplete
+                field="placeName"
                 ariaLabel={t('dashboard.columns.place')}
-                value={editDraft.placeName}
-                onChange={(placeName: string) =>
-                  onChangeEditDraft((prev) => ({ ...prev, placeName }))
-                }
                 onConfirm={() => void onSaveEdit(item.id)}
                 onCancel={onCancelEdit}
                 options={placeSuggestions}
@@ -546,27 +498,18 @@ export function TransactionsTable({
         ),
         mobileHeader: Boolean(setFilters),
         cell: (item) => {
-          if (
-            editingId === item.id &&
-            editDraft &&
-            onChangeEditDraft &&
-            onSaveEdit &&
-            onCancelEdit
-          ) {
+          if (editingId === item.id && onSaveEdit && onCancelEdit) {
             return (
-              <input
+              <DraftTextInput
+                field="amount"
                 type="number"
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 max-[640px]:h-10 bg-white px-1.5 text-right text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
-                value={editDraft.amount}
-                onChange={(e) => onChangeEditDraft((prev) => ({ ...prev, amount: e.target.value }))}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void onSaveEdit(item.id);
-                  if (e.key === 'Escape') onCancelEdit();
-                }}
-                placeholder={t('transactions.placeholder.amount')}
+                alignRight
                 min="0"
                 required
-                aria-label={t('dashboard.columns.amount')}
+                placeholder={t('transactions.placeholder.amount')}
+                ariaLabel={t('dashboard.columns.amount')}
+                onConfirm={() => void onSaveEdit(item.id)}
+                onCancel={onCancelEdit}
               />
             );
           }
@@ -632,26 +575,14 @@ export function TransactionsTable({
         mobileSlot: 'secondary',
         mobileCell: (item) => shortDate(item.occurredAt),
         cell: (item) => {
-          if (
-            editingId === item.id &&
-            editDraft &&
-            onChangeEditDraft &&
-            onSaveEdit &&
-            onCancelEdit
-          ) {
+          if (editingId === item.id && onSaveEdit && onCancelEdit) {
             return (
-              <input
+              <DraftTextInput
+                field="occurredAt"
                 type="datetime-local"
-                className="h-6 min-h-6 w-full rounded-[2px] border border-sky-600 max-[640px]:h-10 bg-white px-1.5 text-[11.5px] text-slate-900 shadow-[0_0_0_1px_rgba(2,132,199,0.2)] outline-none focus:border-sky-700 dark:border-sky-400 dark:bg-slate-950 dark:text-slate-100"
-                value={editDraft.occurredAt}
-                onChange={(e) =>
-                  onChangeEditDraft((prev) => ({ ...prev, occurredAt: e.target.value }))
-                }
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void onSaveEdit(item.id);
-                  if (e.key === 'Escape') onCancelEdit();
-                }}
-                aria-label={t('dashboard.columns.date')}
+                ariaLabel={t('dashboard.columns.date')}
+                onConfirm={() => void onSaveEdit(item.id)}
+                onCancel={onCancelEdit}
               />
             );
           }
@@ -678,65 +609,16 @@ export function TransactionsTable({
         hideable: false,
         cell: (item) => {
           if (item.readOnly) return null;
-          const isEditing = editingId === item.id;
-          if (isEditing && editDraft && onSaveEdit && onCancelEdit) {
-            const itemAllocatedSum = (item.allocations || []).reduce(
-              (sum: number, a: { amount: number }) => sum + Number(a.amount || 0),
-              0,
-            );
-            const enteredAmount = Number(editDraft.amount) || 0;
-            const isTypeChangedWithAllocations =
-              itemAllocatedSum > 0 && editDraft.type !== item.type;
-            const isAmountBelowAllocations =
-              itemAllocatedSum > 0 && enteredAmount < itemAllocatedSum;
-            const isSaveDisabled =
-              isPending ||
-              !editDraft.category.trim() ||
-              !editDraft.note.trim() ||
-              enteredAmount <= 0 ||
-              isTypeChangedWithAllocations ||
-              isAmountBelowAllocations;
-
-            const saveButtonTitle = isTypeChangedWithAllocations
-              ? t('transactions.allocation.cannotChangeTypeWithAllocations')
-              : isAmountBelowAllocations
-                ? t('transactions.allocation.cannotReduceBelowAllocated', {
-                    amount: money(itemAllocatedSum),
-                  })
-                : t('transactions.actions.save');
-
+          if (editingId === item.id && onSaveEdit && onCancelEdit) {
             return (
-              <div className="flex flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
-                {onOpenAllocate && (
-                  <button
-                    type="button"
-                    className={`inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] items-center gap-1 rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
-                    onClick={() => onOpenAllocate(item)}
-                    title={t('transactions.actions.allocateDebts')}
-                    aria-label={t('transactions.actions.allocateDebts')}
-                  >
-                    <span aria-hidden="true">🔗</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] items-center rounded-[2px] border px-1.5 text-[11px] font-semibold whitespace-nowrap ${BUTTON_TONE.primary}`}
-                  onClick={() => void onSaveEdit(item.id)}
-                  disabled={isSaveDisabled}
-                  title={saveButtonTitle}
-                >
-                  ✓ {t('transactions.actions.save')}
-                </button>
-                <button
-                  type="button"
-                  className={`inline-flex h-[22px] min-h-[22px] shrink-0 max-[640px]:h-10 max-[640px]:px-3 max-[640px]:text-[13px] items-center rounded-[2px] border px-1.5 text-[11px] font-medium whitespace-nowrap ${BUTTON_TONE.secondary}`}
-                  onClick={onCancelEdit}
-                  disabled={isPending}
-                  title={t('transactions.actions.cancel')}
-                >
-                  ✕
-                </button>
-              </div>
+              <TransactionEditActions
+                item={item}
+                isPending={isPending}
+                money={money}
+                onSave={() => void onSaveEdit(item.id)}
+                onCancel={onCancelEdit}
+                onOpenAllocate={onOpenAllocate ? () => onOpenAllocate(item) : undefined}
+              />
             );
           }
           return (
@@ -773,7 +655,6 @@ export function TransactionsTable({
     savingsMoney,
     combinedMoney,
     isSavingsVisible,
-    editDraft,
     editingId,
     expandedAllocationIds,
     isMoneyVisible,
@@ -781,7 +662,6 @@ export function TransactionsTable({
     locale,
     money,
     onCancelEdit,
-    onChangeEditDraft,
     onDelete,
     onOpenAllocate,
     onSaveEdit,
@@ -798,10 +678,9 @@ export function TransactionsTable({
 
   const formatDateTime = (value?: string) =>
     value
-      ? new Intl.DateTimeFormat(localeTag(locale), {
-          dateStyle: 'short',
-          timeStyle: 'short',
-        }).format(new Date(value))
+      ? getDateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(
+          new Date(value),
+        )
       : '—';
 
   // Master-Detail sub-panel: full transaction details, receipt image, then allocations.

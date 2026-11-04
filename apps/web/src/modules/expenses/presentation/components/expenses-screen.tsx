@@ -2,7 +2,8 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { localeTag, DEFAULT_EXPENSE_CATEGORIES, type IExpenseListItem } from '@zalobot/contracts';
+import { DEFAULT_EXPENSE_CATEGORIES, type IExpenseListItem } from '@zalobot/contracts';
+import { getDateTimeFormat } from '@/shared/lib/intl-format';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { useMoneyVisibility } from '@/shared/store/money-visibility-store';
@@ -115,15 +116,10 @@ export function ExpensesScreen() {
   const { money, isMoneyVisible } = useMoneyVisibility();
 
   const date = (value: string) =>
-    new Intl.DateTimeFormat(localeTag(locale), {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    }).format(new Date(value));
+    getDateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
 
   const shortDate = (value: string) =>
-    new Intl.DateTimeFormat(localeTag(locale), { day: '2-digit', month: '2-digit' }).format(
-      new Date(value),
-    );
+    getDateTimeFormat(locale, { day: '2-digit', month: '2-digit' }).format(new Date(value));
 
   const showToast = (message: string) => {
     setToastMessage(message);

@@ -6,10 +6,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import {
   APP_ROUTES,
-  localeTag,
   type IContactListItem,
   type IContactUserSyncSuggestion,
 } from '@zalobot/contracts';
+import { getDateTimeFormat } from '@/shared/lib/intl-format';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
@@ -139,10 +139,9 @@ export function ContactsScreen() {
 
   const date = (value?: string) =>
     value
-      ? new Intl.DateTimeFormat(localeTag(locale), {
-          dateStyle: 'short',
-          timeStyle: 'short',
-        }).format(new Date(value))
+      ? getDateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(
+          new Date(value),
+        )
       : t('common.notSet');
 
   // Toggle single row selection

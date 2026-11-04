@@ -5,13 +5,13 @@ import {
   CONTACT_PROFILE_LIMITS,
   CONTACT_RELATIONSHIPS,
   isContactRelationship,
-  localeTag,
   type ContactProfileUpdateError,
   type ContactProfileUpdateErrorCode,
   type ContactRelationship,
   type IContactProfile,
   type TranslationKey,
 } from '@zalobot/contracts';
+import { getDateTimeFormat } from '@/shared/lib/intl-format';
 import { DataPanel } from '@/shared/ui/data-table';
 import { useLocale } from '@/shared/providers/locale-provider';
 import {
@@ -177,7 +177,7 @@ export function ProfileInfoPanel({
       })),
     ];
     const birthday = contact.birthday
-      ? new Intl.DateTimeFormat(localeTag(locale), { dateStyle: 'medium', timeZone: 'UTC' }).format(
+      ? getDateTimeFormat(locale, { dateStyle: 'medium', timeZone: 'UTC' }).format(
           new Date(`${contact.birthday}T00:00:00Z`),
         )
       : null;

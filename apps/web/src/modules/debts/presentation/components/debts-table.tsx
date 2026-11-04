@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { localeTag, type IDebtListItem } from '@zalobot/contracts';
+import type { IDebtListItem } from '@zalobot/contracts';
+import { getDateTimeFormat } from '@/shared/lib/intl-format';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
@@ -97,9 +98,7 @@ export function DebtsTable({
 
   const date = useCallback(
     (value?: string) =>
-      value
-        ? new Intl.DateTimeFormat(localeTag(locale), { dateStyle: 'short' }).format(new Date(value))
-        : '',
+      value ? getDateTimeFormat(locale, { dateStyle: 'short' }).format(new Date(value)) : '',
     [locale],
   );
 

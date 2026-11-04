@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo } from 'react';
-import { localeTag, type ICalendarEventItem } from '@zalobot/contracts';
+import type { ICalendarEventItem } from '@zalobot/contracts';
+import { getDateTimeFormat } from '@/shared/lib/intl-format';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
@@ -59,7 +60,7 @@ export function CalendarTable({
       /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value);
     const date = (item: ICalendarEventItem, value?: string) =>
       value
-        ? new Intl.DateTimeFormat(localeTag(locale), {
+        ? getDateTimeFormat(locale, {
             dateStyle: 'short',
             ...(isAllDayValue(item, value) ? {} : { timeStyle: 'short' }),
           }).format(toDate(value))
@@ -67,7 +68,7 @@ export function CalendarTable({
     const shortStart = (item: ICalendarEventItem) => {
       const value = item.startAt;
       if (!value) return null;
-      return new Intl.DateTimeFormat(localeTag(locale), {
+      return getDateTimeFormat(locale, {
         day: '2-digit',
         month: '2-digit',
         ...(isAllDayValue(item, value)

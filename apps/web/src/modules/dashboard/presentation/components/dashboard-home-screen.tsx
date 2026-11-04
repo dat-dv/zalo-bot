@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useState, useMemo, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { APP_ROUTES, localeTag, type TranslationKey } from '@zalobot/contracts';
+import { APP_ROUTES, type TranslationKey } from '@zalobot/contracts';
+import { getDateTimeFormat } from '@/shared/lib/intl-format';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
 import { useSavingsMoney } from '@/shared/store/savings-visibility-store';
@@ -197,10 +198,9 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
 
   const date = (value?: string) =>
     value
-      ? new Intl.DateTimeFormat(localeTag(locale), {
-          dateStyle: 'short',
-          timeStyle: 'short',
-        }).format(new Date(value))
+      ? getDateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(
+          new Date(value),
+        )
       : t('common.notSet');
 
   const pendingTasks = useMemo(() => {

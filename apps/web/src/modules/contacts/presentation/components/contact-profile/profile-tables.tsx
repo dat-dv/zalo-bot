@@ -2,10 +2,10 @@
 
 import {
   CONTACT_PROFILE_LIMITS,
-  localeTag,
   type IDebtListItem,
   type ITransactionItem,
 } from '@zalobot/contracts';
+import { getDateTimeFormat } from '@/shared/lib/intl-format';
 import { describeTransactionSource } from '@/modules/dashboard/presentation/components/transaction-receipt';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
 import { useLocale } from '@/shared/providers/locale-provider';
@@ -15,9 +15,7 @@ import { MUTED } from './profile-styles';
 function useShortDate() {
   const { locale } = useLocale();
   return (value?: string) =>
-    value
-      ? new Intl.DateTimeFormat(localeTag(locale), { dateStyle: 'short' }).format(new Date(value))
-      : '—';
+    value ? getDateTimeFormat(locale, { dateStyle: 'short' }).format(new Date(value)) : '—';
 }
 
 export function ProfileDebtsTable({ debts }: { debts: IDebtListItem[] }) {

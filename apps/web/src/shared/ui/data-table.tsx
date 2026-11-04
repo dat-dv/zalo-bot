@@ -365,6 +365,9 @@ type DataTableProps<T extends DataTableRow> = {
   mobileList?: boolean;
 };
 
+// Column widths change on every pointer move of a resize drag; they are persisted once it settles.
+const COLUMN_WIDTH_PERSIST_DELAY_MS = 150;
+
 const occurrenceTimeFields = [
   'occurredAt',
   'paymentDate',
@@ -682,6 +685,11 @@ export function DataTable<T extends DataTableRow>({
     () => allColumns.map((column) => column.id).join(','),
     [allColumns],
   );
+  // The localStorage effects below only care which columns exist (`allColumnsKey`); reading the
+  // array through a ref keeps them from re-running, and re-reading storage, every time a screen
+  // rebuilds its column definitions (for example on each keystroke of an inline edit).
+  const allColumnsRef = useRef(allColumns);
+  allColumnsRef.current = allColumns;
 
   const initialColumnIds = useMemo(() => {
     return allColumns.filter((column) => !column.defaultHidden).map((column) => column.id);
@@ -700,10 +708,11 @@ export function DataTable<T extends DataTableRow>({
       if (stored) {
         const parsed = JSON.parse(stored) as Record<string, number>;
         if (parsed && typeof parsed === 'object') {
+          const knownColumns = allColumnsRef.current;
           const nextWidths = Object.fromEntries(
             Object.entries(parsed).filter(
               ([columnId, width]) =>
-                allColumns.some((column) => column.id === columnId) &&
+                knownColumns.some((column) => column.id === columnId) &&
                 typeof width === 'number' &&
                 Number.isFinite(width) &&
                 width > 0,
@@ -727,7 +736,7 @@ export function DataTable<T extends DataTableRow>({
     } finally {
       hasLoadedColumnWidths.current = true;
     }
-  }, [allColumnsKey, allColumns, allowColumnResize, id]);
+  }, [allColumnsKey, allowColumnResize, id]);
 
   useEffect(() => {
     if (
@@ -740,11 +749,15 @@ export function DataTable<T extends DataTableRow>({
       return;
     }
 
-    try {
-      localStorage.setItem(`zalobot:table-widths:${id}`, JSON.stringify(columnWidths));
-    } catch {
-      // Gracefully ignore storage access errors
-    }
+    // A drag changes the widths on every pointer move; storage is written once it settles.
+    const timer = window.setTimeout(() => {
+      try {
+        localStorage.setItem(`zalobot:table-widths:${id}`, JSON.stringify(columnWidths));
+      } catch {
+        // Gracefully ignore storage access errors
+      }
+    }, COLUMN_WIDTH_PERSIST_DELAY_MS);
+    return () => window.clearTimeout(timer);
   }, [allowColumnResize, columnWidths, id]);
 
   // Synchronize with localStorage
@@ -755,10 +768,11 @@ export function DataTable<T extends DataTableRow>({
       if (stored) {
         const parsed = JSON.parse(stored) as string[];
         if (Array.isArray(parsed) && parsed.length > 0) {
+          const knownColumns = allColumnsRef.current;
           const validIds = parsed.filter((columnId) =>
-            allColumns.some((column) => column.id === columnId),
+            knownColumns.some((column) => column.id === columnId),
           );
-          const nonHideableIds = allColumns
+          const nonHideableIds = knownColumns
             .filter((column) => column.hideable === false)
             .map((column) => column.id);
           const merged = Array.from(new Set([...validIds, ...nonHideableIds]));
@@ -775,7 +789,7 @@ export function DataTable<T extends DataTableRow>({
     } catch {
       // Gracefully ignore storage access errors
     }
-  }, [allColumnsKey, allColumns, id]);
+  }, [allColumnsKey, id]);
 
   const saveVisibleColumnIds = (newIds: string[]) => {
     setVisibleColumnIds(newIds);
@@ -856,17 +870,31 @@ export function DataTable<T extends DataTableRow>({
     const startWidth = header.getBoundingClientRect().width;
     const minWidth = getMinimumColumnWidth(column);
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
+    // Pointer events can arrive faster than frames are drawn: the width is applied once per
+    // animation frame from the latest pointer position, not once per event.
+    let latestClientX = startX;
+    let frame: number | null = null;
+    const applyWidth = () => {
+      frame = null;
       hasChangedColumnWidths.current = true;
-      setColumnWidths((current) => ({
-        ...current,
-        [column.id]: Math.max(minWidth, Math.round(startWidth + moveEvent.clientX - startX)),
-      }));
+      const width = Math.max(minWidth, Math.round(startWidth + latestClientX - startX));
+      setColumnWidths((current) =>
+        current[column.id] === width ? current : { ...current, [column.id]: width },
+      );
+    };
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      latestClientX = moveEvent.clientX;
+      if (frame === null) frame = window.requestAnimationFrame(applyWidth);
     };
 
     const handlePointerUp = () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+        applyWidth();
+      }
     };
 
     window.addEventListener('pointermove', handlePointerMove);

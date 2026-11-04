@@ -29,7 +29,8 @@ import {
 import { CalendarSummaryStrip } from '@/modules/calendar/view/calendar-summary-strip';
 import { useStoredCalendarViewMode } from '@/modules/calendar/view/use-calendar-view-mode';
 import type { CalendarViewMode } from '@/modules/calendar/model/calendar-view-mode';
-import { dashboardQueryKeys, useDashboardQuery } from '../../api/dashboard-query';
+import { useSessionUserQuery } from '@/modules/auth/api/session-user-query';
+import { dashboardQueryKeys } from '../../api/dashboard-query';
 import { CalendarTable } from './calendar-table';
 
 // The side panel and the summary look this far ahead.
@@ -83,7 +84,9 @@ export function CalendarScreen() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  const dashboard = useDashboardQuery();
+  // Only "is Google connected" is needed here: the session profile has it, so the heavy
+  // /dashboard payload is not fetched for the calendar.
+  const sessionUser = useSessionUserQuery({ enabled: true });
   const monthRange = useMemo(() => getCalendarGridRange(currentMonth), [currentMonth]);
   // Re-anchored when the day changes, not on every minute tick.
   const upcomingRange = useMemo(
@@ -184,7 +187,7 @@ export function CalendarScreen() {
   const openEvent = (event: ICalendarEventItem) => setSheetTarget({ kind: 'event', event });
   const openCreate = () => setSheetTarget({ kind: 'create', day: selectedDate });
 
-  const isGoogleConnected = dashboard.data?.user.googleConnected;
+  const isGoogleConnected = sessionUser.data?.googleConnected;
   const isLoading = monthQuery.isLoading;
   const isAgendaLoading = agendaQuery.isLoading;
   const segments: Array<{ mode: CalendarViewMode; label: string }> = isPhone

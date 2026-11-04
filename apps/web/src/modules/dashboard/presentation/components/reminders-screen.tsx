@@ -245,8 +245,9 @@ export function RemindersScreen() {
     }
   };
 
-  const isLoading = dashboard.isLoading || remindersQuery.isLoading;
-  const isError = dashboard.isError || remindersQuery.isError;
+  // The list waits for its own query only; the Home payload is just a fallback loaded alongside.
+  const isLoading = remindersQuery.isLoading;
+  const isError = remindersQuery.isError;
 
   return (
     <>

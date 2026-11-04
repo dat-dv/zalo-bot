@@ -2,12 +2,12 @@
 
 import { useMemo } from 'react';
 import {
-  localeTag,
   type IReminderListItem,
   type IReminderTargetChannel,
   type ReminderNotifyType,
   type ReminderRepeatType,
 } from '@zalobot/contracts';
+import { getDateTimeFormat } from '@/shared/lib/intl-format';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
@@ -81,14 +81,13 @@ export function RemindersTable({
     const hasActions = Boolean(onStartEdit || onSaveEdit || onSnooze || onDelete);
     const date = (value?: string) =>
       value
-        ? new Intl.DateTimeFormat(localeTag(locale), {
-            dateStyle: 'short',
-            timeStyle: 'short',
-          }).format(new Date(value))
+        ? getDateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(
+            new Date(value),
+          )
         : t('common.notSet');
     const shortDateTime = (value?: string) =>
       value
-        ? new Intl.DateTimeFormat(localeTag(locale), {
+        ? getDateTimeFormat(locale, {
             day: '2-digit',
             month: '2-digit',
             hour: '2-digit',

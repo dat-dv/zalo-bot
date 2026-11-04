@@ -12,10 +12,10 @@ import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataPanel } from '@/shared/ui/data-table';
 import {
   TransactionsTable,
-  type TransactionEditDraft,
   type TransactionFilterOptions,
   type TransactionTableItem,
 } from './transactions-table';
+import { useTransactionEditStore } from '../../store/transaction-edit-store';
 import {
   countActiveColumnFilters,
   EMPTY_TRANSACTION_COLUMN_FILTERS,
@@ -74,14 +74,10 @@ export function TransactionsScreen() {
   );
   const [deletingTransaction, setDeletingTransaction] = useState<TransactionTableItem | null>(null);
   const [isAdjustBalanceOpen, setIsAdjustBalanceOpen] = useState(false);
-  const [editDraft, setEditDraft] = useState<TransactionEditDraft>({
-    type: 'expense',
-    category: '',
-    note: '',
-    amount: '',
-    placeName: '',
-    occurredAt: '',
-  });
+  // The inline-edit draft lives in a store, so typing re-renders only the field being typed into.
+  const setDraft = useTransactionEditStore((state) => state.setDraft);
+  const resetDraft = useTransactionEditStore((state) => state.resetDraft);
+  const draftType = useTransactionEditStore((state) => state.draft.type);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -175,18 +171,18 @@ export function TransactionsScreen() {
   const categorySuggestions = useMemo(() => {
     const set = new Set<string>();
     configuredCategories
-      .filter((c) => !editDraft.type || c.type === editDraft.type)
+      .filter((c) => !draftType || c.type === draftType)
       .forEach((c) => set.add(c.name));
     rawList.forEach((item) => {
-      if (item.category && (!editDraft.type || item.type === editDraft.type)) {
+      if (item.category && (!draftType || item.type === draftType)) {
         set.add(item.category);
       }
     });
     const defaults =
-      editDraft.type === 'income' ? DEFAULT_INCOME_CATEGORIES : DEFAULT_EXPENSE_CATEGORIES;
+      draftType === 'income' ? DEFAULT_INCOME_CATEGORIES : DEFAULT_EXPENSE_CATEGORIES;
     defaults.forEach((cat) => set.add(cat));
     return Array.from(set).sort();
-  }, [configuredCategories, rawList, editDraft.type]);
+  }, [configuredCategories, rawList, draftType]);
 
   // Totals are exact for the whole period (server summary); chart buckets use the loaded rows.
   const periodIncome = firstPage?.summary.income ?? 0;
@@ -212,33 +208,31 @@ export function TransactionsScreen() {
     [startTransition],
   );
 
-  const handleStartEdit = useCallback((item: TransactionTableItem) => {
-    if (item.readOnly) return;
-    setEditingId(item.id);
-    setEditDraft({
-      type: item.type,
-      category: item.category,
-      note: item.note || '',
-      amount: String(item.amount),
-      placeName: item.placeName || '',
-      occurredAt: item.occurredAt ? item.occurredAt.slice(0, 16) : '',
-    });
-  }, []);
+  const handleStartEdit = useCallback(
+    (item: TransactionTableItem) => {
+      if (item.readOnly) return;
+      setEditingId(item.id);
+      setDraft({
+        type: item.type,
+        category: item.category,
+        note: item.note || '',
+        amount: String(item.amount),
+        placeName: item.placeName || '',
+        occurredAt: item.occurredAt ? item.occurredAt.slice(0, 16) : '',
+      });
+    },
+    [setDraft],
+  );
 
   const handleCancelEdit = useCallback(() => {
     setEditingId(null);
-    setEditDraft({
-      type: 'expense',
-      category: '',
-      note: '',
-      amount: '',
-      placeName: '',
-      occurredAt: '',
-    });
-  }, []);
+    resetDraft();
+  }, [resetDraft]);
 
   const handleSaveEdit = useCallback(
     async (id: string) => {
+      // Read at save time: the draft is not React state here, so this callback stays stable.
+      const editDraft = useTransactionEditStore.getState().draft;
       const trimmedCategory = editDraft.category.trim();
       const trimmedNote = editDraft.note.trim();
       const parsedAmount = Number(editDraft.amount);
@@ -268,7 +262,7 @@ export function TransactionsScreen() {
         // Error handled by mutation
       }
     },
-    [editDraft, updateMutation, showToast, t],
+    [updateMutation, showToast, t],
   );
 
   const handleOpenDelete = useCallback(
@@ -415,8 +409,6 @@ export function TransactionsScreen() {
             emptyMessage={t('dashboard.noTransactions')}
             maxAmount={maxAmount}
             editingId={editingId}
-            editDraft={editDraft}
-            onChangeEditDraft={setEditDraft}
             onStartEdit={handleStartEdit}
             onCancelEdit={handleCancelEdit}
             onSaveEdit={handleSaveEdit}

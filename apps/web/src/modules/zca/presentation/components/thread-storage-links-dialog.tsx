@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import {
-  localeTag,
   validateChannelStorageLinkCreate,
   validateChannelStorageLinkUpdate,
   type ChannelStorageLink,
@@ -12,6 +11,7 @@ import {
   type ChannelStorageLinkUpdateErrors,
   type UpdateChannelStorageLinkDto,
 } from '@zalobot/contracts';
+import { getDateTimeFormat } from '@/shared/lib/intl-format';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { Modal, MODAL_CLOSE_TAP, MODAL_STICKY_HEADER } from '@/shared/ui/modal';
@@ -234,7 +234,7 @@ function StorageLinkRow({ threadId, link }: { threadId: string; link: ChannelSto
   const deleteMutation = useDeleteThreadStorageLinkMutation(threadId);
   const name = link.displayName || link.label || link.url;
   const formatDate = (iso: string) =>
-    new Intl.DateTimeFormat(localeTag(locale), { dateStyle: 'medium' }).format(new Date(iso));
+    getDateTimeFormat(locale, { dateStyle: 'medium' }).format(new Date(iso));
 
   const handleDelete = () => {
     if (!window.confirm(t('zca.storageLinks.deleteConfirm', { name }))) return;

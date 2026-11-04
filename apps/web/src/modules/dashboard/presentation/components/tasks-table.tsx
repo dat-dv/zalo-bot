@@ -2,11 +2,11 @@
 
 import { useMemo } from 'react';
 import {
-  localeTag,
   type IReminderTargetChannel,
   type ITaskListItem,
   type TranslationKey,
 } from '@zalobot/contracts';
+import { getDateTimeFormat } from '@/shared/lib/intl-format';
 import { useIsCompact } from '@/shared/hooks/use-media-query';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
@@ -87,16 +87,13 @@ export function TasksTable({
     const hasActions = Boolean(onStartEdit || onSaveEdit || onDelete);
     const date = (value?: string) =>
       value
-        ? new Intl.DateTimeFormat(localeTag(locale), {
-            dateStyle: 'short',
-            timeStyle: 'short',
-          }).format(new Date(value))
+        ? getDateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(
+            new Date(value),
+          )
         : t('common.notSet');
     const shortDate = (value?: string) =>
       value
-        ? new Intl.DateTimeFormat(localeTag(locale), { day: '2-digit', month: '2-digit' }).format(
-            new Date(value),
-          )
+        ? getDateTimeFormat(locale, { day: '2-digit', month: '2-digit' }).format(new Date(value))
         : null;
     const statusLabel = (item: ITaskListItem) =>
       item.status === 'completed' ? t('tasks.status.completed') : t('tasks.status.needsAction');

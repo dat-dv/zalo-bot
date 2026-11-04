@@ -1,6 +1,7 @@
 'use client';
 
-import { localeTag, type IAuditLogListItem } from '@zalobot/contracts';
+import type { IAuditLogListItem } from '@zalobot/contracts';
+import { getDateTimeFormat } from '@/shared/lib/intl-format';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataTable, type DataTableColumn } from '@/shared/ui/data-table';
@@ -36,9 +37,7 @@ interface AuditTableProps {
 export function AuditTable({ rows, loading, emptyMessage, onOpen }: AuditTableProps) {
   const { locale, t } = useLocale();
   const time = (value: string) =>
-    new Intl.DateTimeFormat(localeTag(locale), { dateStyle: 'short', timeStyle: 'medium' }).format(
-      new Date(value),
-    );
+    getDateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'medium' }).format(new Date(value));
   const actorLine = (item: IAuditLogListItem) =>
     [
       describeAuditActor(item, t),

@@ -1,7 +1,8 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { localeTag, type ISavingGroup, type ISavingMovement } from '@zalobot/contracts';
+import type { ISavingGroup, ISavingMovement } from '@zalobot/contracts';
+import { getDateTimeFormat } from '@/shared/lib/intl-format';
 import { apiErrorText } from '@/modules/zca/model/channel-memory';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useSavingsMoney } from '@/shared/store/savings-visibility-store';
@@ -27,10 +28,7 @@ export function SavingHistoryDialog({ group, onClose, onDeleted }: SavingHistory
   const [deleting, setDeleting] = useState<ISavingMovement | null>(null);
 
   const formatDate = (value: string) =>
-    new Intl.DateTimeFormat(localeTag(locale), {
-      dateStyle: 'short',
-      timeStyle: 'short',
-    }).format(new Date(value));
+    getDateTimeFormat(locale, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value));
 
   const handleConfirmDelete = () => {
     if (!deleting) return;
