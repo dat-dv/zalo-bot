@@ -335,7 +335,6 @@ const messages = {
     'savings.ledgerRow.withdrawal': 'Rút tiết kiệm',
     'savings.ledgerRow.opening': 'Số dư tiết kiệm ban đầu',
     'analytics.currentPosition.savings': 'Tiết kiệm',
-    'analytics.trend.balanceIncludesSavings': 'Đường số dư trên biểu đồ gồm cả tiền tiết kiệm.',
     'audit.table.saving_groups': 'Nhóm tiết kiệm',
     'audit.table.saving_movements': 'Nạp/rút tiết kiệm',
     'nav.debts': 'Vay & cho vay',
@@ -1055,6 +1054,7 @@ const messages = {
     'analytics.cashflow.column.expense': 'Tổng chi (-)',
     'analytics.cashflow.column.netCashflow': 'Chênh lệch Thu–Chi',
     'analytics.cashflow.column.balance': 'Số dư ví cuối kỳ',
+    'analytics.cashflow.column.balanceWithSavings': 'Ví và tiết kiệm cuối kỳ',
     'calendar.title': 'Lịch',
     'calendar.subtitle': 'Lịch chung, lưu trong zalobot và sao chép lên Google',
     'calendar.columns.description': 'Mô tả',
@@ -1720,7 +1720,6 @@ const messages = {
     'savings.ledgerRow.withdrawal': 'Savings withdrawal',
     'savings.ledgerRow.opening': 'Opening savings balance',
     'analytics.currentPosition.savings': 'Savings',
-    'analytics.trend.balanceIncludesSavings': 'The balance line on this chart includes savings.',
     'audit.table.saving_groups': 'Savings group',
     'audit.table.saving_movements': 'Savings movement',
     'nav.debts': 'Loans & Debts',
@@ -2443,6 +2442,7 @@ const messages = {
     'analytics.cashflow.column.expense': 'Total Expense (-)',
     'analytics.cashflow.column.netCashflow': 'Net Surplus / Deficit',
     'analytics.cashflow.column.balance': 'Ending Balance',
+    'analytics.cashflow.column.balanceWithSavings': 'Ending wallet and savings',
     'calendar.title': 'Calendar',
     'calendar.subtitle': 'Shared calendar, saved in zalobot and copied to Google',
     'calendar.columns.description': 'Description',
@@ -4322,7 +4322,10 @@ export interface IAnalyticsTrendBucket {
   income: number;
   expense: number;
   netCashflow: number;
+  /** Wallet balance at the end of the period: savings deposits are out of it. */
   balance: number;
+  /** Wallet balance plus the money in savings groups at the end of the period. */
+  balanceWithSavings: number;
   startAt: string;
   endAt: string;
 }

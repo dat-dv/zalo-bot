@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import type { SavingMovementType } from '@zalobot/contracts';
 import { DebtEntity } from '../database/entities/debt.entity';
 import { DebtPaymentEntity } from '../database/entities/debt-payment.entity';
 import { DebtPaymentAllocationEntity } from '../database/entities/debt-payment-allocation.entity';
@@ -420,6 +421,131 @@ void test('FinanceService.getAnalyticsReport computes cumulative balance and ope
     payable: 13_000_000,
     netWorth: -500_000,
   });
+});
+
+function serviceWithSavingMovements() {
+  const noon = (date: string) => new Date(`${date}T12:00:00.000Z`);
+  const transaction = (
+    id: string,
+    type: 'income' | 'expense',
+    amount: number,
+    date: string,
+  ): FinanceTransactionEntity => ({
+    id,
+    type,
+    amount,
+    currency: 'VND',
+    category: 'Khác',
+    note: '',
+    occurredAt: noon(date),
+    createdAt: noon(date),
+    updatedAt: noon(date),
+  });
+  const movement = (id: string, type: SavingMovementType, amount: number, date: string) => ({
+    id,
+    type,
+    amount,
+    occurredAt: noon(date),
+    createdAt: noon(date),
+  });
+
+  const transactions = [
+    transaction('tx-july', 'income', 10_000_000, '2026-07-10'),
+    transaction('tx-aug-expense', 'expense', 1_000_000, '2026-08-03'),
+    transaction('tx-aug-income', 'income', 2_000_000, '2026-08-08'),
+    transaction('tx-sep', 'expense', 500_000, '2026-09-02'),
+  ];
+  const movements = [
+    movement('mv-opening', 'opening', 5_000_000, '2026-07-05'),
+    movement('mv-july', 'deposit', 3_000_000, '2026-07-20'),
+    movement('mv-aug-deposit', 'deposit', 1_000_000, '2026-08-04'),
+    movement('mv-aug-withdrawal', 'withdrawal', 400_000, '2026-08-12'),
+    movement('mv-sep', 'deposit', 100_000, '2026-09-05'),
+  ];
+
+  const transactionRepository = {
+    find: (opts?: { where?: { occurredAt?: { _type?: string; _value?: unknown } } }) => {
+      const occurred = opts?.where?.occurredAt;
+      const value = occurred?._value;
+      if (occurred?._type === 'between' && Array.isArray(value)) {
+        const [start, end] = value as [Date, Date];
+        return Promise.resolve(
+          transactions.filter((t) => t.occurredAt >= start && t.occurredAt <= end),
+        );
+      }
+      if (occurred?._type === 'lessThan' && value instanceof Date) {
+        return Promise.resolve(transactions.filter((t) => t.occurredAt < value));
+      }
+      return Promise.resolve(transactions);
+    },
+  };
+  const debtQuery = {
+    leftJoinAndSelect: () => debtQuery,
+    where: () => debtQuery,
+    andWhere: () => debtQuery,
+    orderBy: () => debtQuery,
+    addOrderBy: () => debtQuery,
+    getMany: () => Promise.resolve([]),
+  };
+
+  return new FinanceService(
+    transactionRepository as never,
+    { find: () => Promise.resolve([]), createQueryBuilder: () => debtQuery } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    undefined,
+    undefined,
+    { find: () => Promise.resolve(movements) } as never,
+  );
+}
+
+void test('FinanceService.getAnalyticsReport keeps savings movements out of the trend wallet balance', async () => {
+  const report = await serviceWithSavingMovements().getAnalyticsReport(
+    '2026-08-01T00:00:00.000Z',
+    '2026-08-31T23:59:59.999Z',
+    'month',
+  );
+
+  // Before Aug 1: wallet 10tr - 3tr deposit = 7tr; savings 5tr opening + 3tr deposit = 8tr.
+  assert.deepEqual(
+    report.trend.map(({ key, netCashflow, balance, balanceWithSavings }) => ({
+      key,
+      netCashflow,
+      balance,
+      balanceWithSavings,
+    })),
+    [
+      { key: 'p1', netCashflow: -1_000_000, balance: 5_000_000, balanceWithSavings: 14_000_000 },
+      { key: 'p2', netCashflow: 2_000_000, balance: 7_000_000, balanceWithSavings: 16_000_000 },
+      { key: 'p3', netCashflow: 0, balance: 7_400_000, balanceWithSavings: 16_000_000 },
+      { key: 'p4', netCashflow: 0, balance: 7_400_000, balanceWithSavings: 16_000_000 },
+      { key: 'p5', netCashflow: 0, balance: 7_400_000, balanceWithSavings: 16_000_000 },
+      { key: 'p6', netCashflow: 0, balance: 7_400_000, balanceWithSavings: 16_000_000 },
+    ],
+  );
+  // Savings movements are neither income nor expense.
+  assert.equal(report.summary.income, 2_000_000);
+  assert.equal(report.summary.expense, 1_000_000);
+});
+
+void test('FinanceService.getAnalyticsReport ends the trend on the current position', async () => {
+  const report = await serviceWithSavingMovements().getAnalyticsReport(
+    '2026-07-01T00:00:00.000Z',
+    '2026-09-30T23:59:59.999Z',
+    'quarter',
+  );
+
+  const last = report.trend[report.trend.length - 1];
+  assert.equal(last?.balance, 6_800_000);
+  assert.equal(last?.balance, report.currentPosition.cashflowBalance);
+  assert.equal(last?.balanceWithSavings, 15_500_000);
+  assert.equal(
+    last?.balanceWithSavings,
+    report.currentPosition.cashflowBalance + report.currentPosition.savings,
+  );
 });
 
 void test('FinanceService.getAnalyticsReport separates income and expense with identical categories', async () => {

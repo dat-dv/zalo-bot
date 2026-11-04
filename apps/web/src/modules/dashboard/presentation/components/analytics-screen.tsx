@@ -15,7 +15,12 @@ import { CashflowTrendChart } from '@/shared/ui/charts/cashflow-trend-chart';
 import { CategoryDonutChart } from '@/shared/ui/charts/category-donut-chart';
 import { DebtStructureChart } from '@/shared/ui/charts/debt-structure-chart';
 import { useIncludeSavingsStore } from '@/shared/store/include-savings-store';
-import { useCombinedSavingsMoney, useSavingsMoney } from '@/shared/store/savings-visibility-store';
+import {
+  canShowCombinedMoney,
+  useCombinedSavingsMoney,
+  useSavingsMoney,
+  useSavingsVisibilityStore,
+} from '@/shared/store/savings-visibility-store';
 import { SavingsVisibilityToggle } from '@/shared/ui/savings-visibility-toggle';
 import { Button } from '@/shared/ui/button';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
@@ -31,6 +36,7 @@ export function AnalyticsScreen() {
   const { t } = useLocale();
   const { money, isMoneyVisible } = useMoneyVisibility();
   const includeSavings = useIncludeSavingsStore((state) => state.includeSavings);
+  const isSavingsVisible = useSavingsVisibilityStore((state) => state.isSavingsVisible);
   const savingsMoney = useSavingsMoney();
   const combinedMoney = useCombinedSavingsMoney();
   const periodFilter = usePeriodFilter('month');
@@ -68,7 +74,7 @@ export function AnalyticsScreen() {
   }, [rawTransactions, periodFilter]);
 
   // Aggregate metrics for selected period
-  const { periodIncome, periodExpense, periodBuckets } = useMemo(() => {
+  const { periodIncome, periodExpense } = useMemo(() => {
     let income = 0;
     let expense = 0;
     for (const item of periodTransactions) {
@@ -78,47 +84,11 @@ export function AnalyticsScreen() {
         expense += item.amount;
       }
     }
-    const buckets = periodFilter.generateBuckets(periodTransactions);
     return {
       periodIncome: income,
       periodExpense: expense,
-      periodBuckets: buckets,
     };
-  }, [periodTransactions, periodFilter]);
-
-  // Aggregate opening balance before selected period
-  const openingBalance = useMemo(() => {
-    let bal = 0;
-    const startRange = periodFilter.startDate ? periodFilter.startDate.getTime() : 0;
-    if (startRange > 0 && periodFilter.grain !== 'all') {
-      for (const item of rawTransactions) {
-        const itemDate = new Date(item.occurredAt).getTime();
-        if (itemDate < startRange) {
-          if (item.type === 'income') bal += item.amount;
-          else bal -= item.amount;
-        }
-      }
-    }
-    return bal;
-  }, [rawTransactions, periodFilter.startDate, periodFilter.grain]);
-
-  const fallbackTrendBuckets = useMemo<IAnalyticsTrendBucket[]>(() => {
-    let running = openingBalance;
-    return periodBuckets.map((b) => {
-      const net = b.income - b.expense;
-      running += net;
-      return {
-        key: b.key,
-        label: b.label,
-        income: b.income,
-        expense: b.expense,
-        netCashflow: net,
-        balance: running,
-        startAt: '',
-        endAt: '',
-      };
-    });
-  }, [periodBuckets, openingBalance]);
+  }, [periodTransactions]);
 
   const totalIncome = analyticsQuery.data?.summary.income ?? periodIncome;
   const totalExpense = analyticsQuery.data?.summary.expense ?? periodExpense;
@@ -197,9 +167,14 @@ export function AnalyticsScreen() {
     },
   ];
 
+  // Only the API knows the savings movements, so no balance is worked out here from transactions.
   const trendBuckets = useMemo<IAnalyticsTrendBucket[]>(() => {
-    return analyticsQuery.data?.trend ?? fallbackTrendBuckets;
-  }, [analyticsQuery.data?.trend, fallbackTrendBuckets]);
+    const buckets = analyticsQuery.data?.trend ?? [];
+    return includeSavings
+      ? buckets.map((bucket) => ({ ...bucket, balance: bucket.balanceWithSavings }))
+      : buckets;
+  }, [analyticsQuery.data?.trend, includeSavings]);
+  const balanceMoney = includeSavings ? combinedMoney : money;
 
   type CashflowRow = IAnalyticsTrendBucket & { id: string };
 
@@ -274,7 +249,11 @@ export function AnalyticsScreen() {
       },
       {
         id: 'balance',
-        header: t('analytics.cashflow.column.balance'),
+        header: t(
+          includeSavings
+            ? 'analytics.cashflow.column.balanceWithSavings'
+            : 'analytics.cashflow.column.balance',
+        ),
         align: 'right',
         width: '20%',
         cell: (item) => {
@@ -285,13 +264,13 @@ export function AnalyticsScreen() {
                 isPos ? 'text-violet-700 dark:text-violet-400' : 'text-rose-600 dark:text-rose-400'
               }`}
             >
-              {money(item.balance)}
+              {balanceMoney(item.balance)}
             </span>
           );
         },
       },
     ],
-    [money, t],
+    [balanceMoney, includeSavings, money, t],
   );
 
   if (dashboard.isError) {
@@ -408,7 +387,6 @@ export function AnalyticsScreen() {
       {/* Cashflow Trend Panel */}
       <DataPanel
         title={t('analytics.chart.cashflowTrend')}
-        description={savingsTotal !== 0 ? t('analytics.trend.balanceIncludesSavings') : undefined}
         toolbar={
           <div className="flex items-center gap-1 max-[640px]:w-full">
             <Button
@@ -435,7 +413,14 @@ export function AnalyticsScreen() {
         {/* Compact table mode is the edge-to-edge mobile list, so it drops the panel padding. */}
         <div className={cashflowViewMode === 'table' ? 'p-3 max-[960px]:p-0' : 'p-3'}>
           {cashflowViewMode === 'chart' ? (
-            <CashflowTrendChart buckets={trendBuckets} height={220} />
+            <CashflowTrendChart
+              buckets={trendBuckets}
+              height={220}
+              balanceLabel={includeSavings ? t('savings.walletWithSavings') : undefined}
+              amountsHidden={
+                includeSavings && !canShowCombinedMoney(isMoneyVisible, isSavingsVisible)
+              }
+            />
           ) : (
             <DataTable
               id="analytics-cashflow-breakdown"

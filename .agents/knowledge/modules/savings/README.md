@@ -76,4 +76,4 @@ Savings amounts have their own eye (`SavingsVisibilityToggle`, `useSavingsVisibi
 
 - `useSavingsMoney`: group balances, total, movements, withdrawal limit, movement rows in the ledger.
 - `useCombinedSavingsMoney` needs both eyes: wallet + savings, net worth, running balance while "Include savings" is on. Under the global eye alone, subtracting the wallet would reveal savings.
-- Known gap: with the global eye open, the wallet balance before and after a movement row, and the analytics trend balance (income − expense) against the wallet, still let someone work out savings.
+- Known gap: with the global eye open, the wallet balance before and after a movement row, and an analytics bucket's balance change against its net cashflow, still give away the net amount moved. Neither gives the savings total.

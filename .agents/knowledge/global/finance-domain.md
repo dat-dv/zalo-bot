@@ -53,7 +53,7 @@ Savings groups (see [modules/savings](../modules/savings/README.md)) move money 
 - `computeLedger(rows, movements)` walks both by `occurredAt, createdAt, id` and returns wallet and with-savings running balances plus `ledgerBalance` (wallet) and `savingsTotal`. `getLedgerPosition()` is the entry point; `getLedgerBalance()` returns the wallet only.
 - `ledgerBalance` = income − expense − deposits + withdrawals. `opening` movements add savings only. The adjust-balance modal uses it, so it reconciles the real wallet.
 - `GET /transactions` items add `runningBalanceWithSavings`; the response adds `savingsTotal` and `savingMovements`: movements on this page (each with both running balances), between the row above the page and the page's last row, so neighbouring pages never repeat or lose one. Empty while a type, search or column filter is active, since movements have none of those fields.
-- Analytics `currentPosition`: `cashflowBalance` = wallet, `savings`, `netWorth` = wallet + savings + receivable − payable. Trend `balance` stays cumulative income − expense, so it includes savings (the chart says so).
+- Analytics `currentPosition`: `cashflowBalance` = wallet, `savings`, `netWorth` = wallet + savings + receivable − payable. Trend `balance` = wallet at the end of the bucket (same formula as `ledgerBalance`), `balanceWithSavings` = wallet + money in savings groups. `netCashflow` ignores movements: they are neither income nor expense, so a bucket's balance can change by more than its `netCashflow`.
 - `GET /dashboard`: `finance.ledgerBalance`, `finance.savingsTotal`, `transactions[].runningBalance` (from the same ledger walk).
 - Zalo `GET_REPORT` shows the wallet as "Số dư". `/finance` and the today summary are period income − expense, unchanged.
 
@@ -127,7 +127,7 @@ Identity normalization (`normalizeIdentity`): NFD, strip diacritics, `vi-VN` low
 ### Analytics
 - `GET /finance/analytics?startAt&endAt&grain` (`AnalyticsGrain`: day/week/month/quarter/year/all; default `month`).
 - Returns `summary` (income, expense, balance, `netSavingsRate`, receivable/payable totals), `currentPosition` (wallet balance, savings, receivable, payable, `netWorth`), `trend`, `categories` keyed by `${type}:${category}` with per-type percentage, `debts` (top receivables/payables from active top-level debts).
-- Trend buckets: `week` = 7 weekday buckets T2..CN; `month` = 6 day ranges (1-5 … 26-end); `quarter` = 3 months; anything else = 12 months. Running balance starts from the opening balance before `startAt`.
+- Trend buckets: `week` = 7 weekday buckets T2..CN; `month` = 6 day ranges (1-5 … 26-end); `quarter` = 3 months; anything else = 12 months. Running balance starts from the wallet and savings position before `startAt`; movements land in the same bucket a transaction on that date would. For a range reaching the present, the last bucket equals `currentPosition`.
 
 ## Zalo chat integration (LLM tools)
 

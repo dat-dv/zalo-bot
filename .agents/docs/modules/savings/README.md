@@ -42,7 +42,7 @@ Rút tiền không phải khoản chi. Muốn tiêu số tiền đó thì rút v
 
 Công tắc nằm ở trang Thu chi và Phân tích, chỉ hiện khi đang có tiền tiết kiệm. Nó chỉ đổi số hiển thị, không ghi gì vào dữ liệu, và tự tắt khi tải lại trang.
 
-Tài sản ròng luôn tính cả tiết kiệm, không phụ thuộc công tắc. Biểu đồ dòng tiền ở trang Phân tích vẫn vẽ thu − chi luỹ kế nên đường số dư đã gồm tiết kiệm; biểu đồ có chú thích về điều này.
+Tài sản ròng luôn tính cả tiết kiệm, không phụ thuộc công tắc. Ở trang Phân tích, cột số dư và đường số dư trên biểu đồ mặc định là số dư ví, đã trừ tiền nạp và cộng tiền rút theo từng kỳ; bật công tắc thì đổi sang ví + tiết kiệm. Trước đây chỗ này chỉ cộng dồn thu − chi nên số hiện dưới nhãn "Số dư ví" cao hơn số dư ví thật đúng bằng phần đã nạp ròng.
 
 ## Cách thao tác
 
@@ -63,4 +63,4 @@ Tiền tiết kiệm có công tắc ẩn/hiện riêng, không liên quan tới
 
 - **Theo mắt tiết kiệm**: số dư nhóm, tổng tiết kiệm, lượt nạp/rút, hạn mức rút, dòng nạp/rút trong bảng Thu chi.
 - **Cần mở cả hai mắt**: ví + tiết kiệm, tài sản ròng, số dư khi bật "Tính cả tiết kiệm". Nếu chỉ theo mắt toàn cục thì lấy số gộp trừ số dư ví là ra tiền tiết kiệm.
-- **Hạn chế**: khi mắt toàn cục mở, chênh lệch số dư ví trước và sau dòng nạp/rút, cùng đường số dư ở biểu đồ Phân tích so với số dư ví, vẫn có thể suy ra tiền tiết kiệm.
+- **Hạn chế**: khi mắt toàn cục mở, chênh lệch số dư ví trước và sau dòng nạp/rút, cùng mức đổi số dư của một kỳ ở trang Phân tích so với cột chênh lệch thu chi, vẫn cho biết số tiền đã nạp/rút. Các cách này không cho biết tổng tiết kiệm.

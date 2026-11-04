@@ -146,6 +146,68 @@ export function computeLedger(
   };
 }
 
+/** Wallet and savings right before the first trend period. */
+interface TrendOpeningPosition {
+  wallet: number;
+  savings: number;
+}
+
+/** The trend periods of a grain, and which of them a date falls in (out of range when none). */
+function trendPeriods(
+  grain: AnalyticsGrain,
+  startDate: Date,
+  endDate: Date,
+): {
+  periods: { key: string; label: string }[];
+  periodIndexOf: (date: Date) => number;
+} {
+  if (grain === 'week') {
+    return {
+      periods: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((label, idx) => ({
+        key: `day-${idx}`,
+        label,
+      })),
+      periodIndexOf: (date) => (date.getDay() + 6) % 7,
+    };
+  }
+  if (grain === 'month') {
+    const lastDay = endDate.getDate() || 30;
+    const intervals = [
+      { key: 'p1', label: '1-5', start: 1, end: 5 },
+      { key: 'p2', label: '6-10', start: 6, end: 10 },
+      { key: 'p3', label: '11-15', start: 11, end: 15 },
+      { key: 'p4', label: '16-20', start: 16, end: 20 },
+      { key: 'p5', label: '21-25', start: 21, end: 25 },
+      { key: 'p6', label: `26-${lastDay}`, start: 26, end: lastDay },
+    ];
+    return {
+      periods: intervals.map(({ key, label }) => ({ key, label })),
+      periodIndexOf: (date) => {
+        const day = date.getDate();
+        return intervals.findIndex((iv) => day >= iv.start && day <= iv.end);
+      },
+    };
+  }
+  if (grain === 'quarter') {
+    const startMonth = Math.floor(startDate.getMonth() / 3) * 3;
+    return {
+      periods: [0, 1, 2].map((idx) => ({
+        key: `m-${startMonth + idx}`,
+        label: `Tháng ${String(startMonth + idx + 1).padStart(2, '0')}`,
+      })),
+      periodIndexOf: (date) => date.getMonth() - startMonth,
+    };
+  }
+  // Default: 12 months for year or all
+  return {
+    periods: Array.from({ length: 12 }, (_, i) => ({
+      key: `m-${i}`,
+      label: `T${String(i + 1).padStart(2, '0')}`,
+    })),
+    periodIndexOf: (date) => date.getMonth(),
+  };
+}
+
 export interface CreateFinanceTransactionDto {
   type: 'income' | 'expense';
   amount: number;
@@ -428,7 +490,11 @@ export class FinanceService {
     grain: AnalyticsGrain = 'month',
   ): Promise<IFinanceAnalyticsResponse> {
     const summary = await this.getSummary(startAt, endAt);
-    const { ledgerBalance, savingsTotal } = await this.getLedgerPosition();
+    const [ledgerRows, movements] = await Promise.all([
+      this.loadLedgerRows(),
+      this.loadLedgerMovements(),
+    ]);
+    const { ledgerBalance, savingsTotal } = computeLedger(ledgerRows, movements);
     const debts = await this.getActiveDebts();
 
     const receivableTotal = debts
@@ -444,7 +510,7 @@ export class FinanceService {
         ? Math.max(0, ((summary.income - summary.expense) / summary.income) * 100)
         : 0;
 
-    let openingBalance = 0;
+    const opening: TrendOpeningPosition = { wallet: 0, savings: 0 };
     if (startAt) {
       const startDate = new Date(startAt);
       if (!Number.isNaN(startDate.getTime())) {
@@ -459,16 +525,25 @@ export class FinanceService {
         const priorExpense = priorTransactions
           .filter((tx) => tx.type === 'expense')
           .reduce((sum, tx) => sum + tx.amount, 0);
-        openingBalance = priorIncome - priorExpense;
+        opening.wallet = priorIncome - priorExpense;
+        for (const movement of savingMovementsInWindow(movements, {
+          to: startDate,
+          toExclusive: true,
+        })) {
+          const deltas = savingMovementDeltas(movement.type, movement.amount);
+          opening.wallet += deltas.wallet;
+          opening.savings += deltas.savings;
+        }
       }
     }
 
     const trend = this.generateTrendBuckets(
       summary.transactions,
+      movements,
+      opening,
       startAt,
       endAt,
       grain,
-      openingBalance,
     );
 
     const categoryMap = new Map<
@@ -551,134 +626,64 @@ export class FinanceService {
 
   private generateTrendBuckets(
     transactions: FinanceTransactionEntity[],
+    movements: readonly SavingMovementEntity[],
+    opening: TrendOpeningPosition,
     startAt?: string,
     endAt?: string,
     grain: AnalyticsGrain = 'month',
-    openingBalance = 0,
   ): IAnalyticsTrendBucket[] {
     const startDate = startAt ? new Date(startAt) : new Date(0);
     const endDate = endAt ? new Date(endAt) : new Date();
+    const { periods, periodIndexOf } = trendPeriods(grain, startDate, endDate);
 
-    let buckets: IAnalyticsTrendBucket[] = [];
+    const buckets: IAnalyticsTrendBucket[] = periods.map((period) => ({
+      ...period,
+      income: 0,
+      expense: 0,
+      netCashflow: 0,
+      balance: 0,
+      balanceWithSavings: 0,
+      startAt: '',
+      endAt: '',
+    }));
 
-    if (grain === 'week') {
-      const dayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-      buckets = dayLabels.map((label, idx) => ({
-        key: `day-${idx}`,
-        label,
-        income: 0,
-        expense: 0,
-        netCashflow: 0,
-        balance: 0,
-        startAt: '',
-        endAt: '',
-      }));
-
-      for (const tx of transactions) {
-        const d = new Date(tx.occurredAt);
-        if (Number.isNaN(d.getTime())) continue;
-        const dayIdx = (d.getDay() + 6) % 7;
-        if (tx.type === 'income') {
-          buckets[dayIdx].income += tx.amount;
-        } else {
-          buckets[dayIdx].expense += tx.amount;
-        }
-      }
-    } else if (grain === 'month') {
-      const lastDay = endDate.getDate() || 30;
-      const intervals = [
-        { key: 'p1', label: '1-5', start: 1, end: 5 },
-        { key: 'p2', label: '6-10', start: 6, end: 10 },
-        { key: 'p3', label: '11-15', start: 11, end: 15 },
-        { key: 'p4', label: '16-20', start: 16, end: 20 },
-        { key: 'p5', label: '21-25', start: 21, end: 25 },
-        { key: 'p6', label: `26-${lastDay}`, start: 26, end: lastDay },
-      ];
-
-      buckets = intervals.map((iv) => ({
-        key: iv.key,
-        label: iv.label,
-        income: 0,
-        expense: 0,
-        netCashflow: 0,
-        balance: 0,
-        startAt: '',
-        endAt: '',
-      }));
-
-      for (const tx of transactions) {
-        const d = new Date(tx.occurredAt);
-        if (Number.isNaN(d.getTime())) continue;
-        const day = d.getDate();
-        const bucketIndex = intervals.findIndex((iv) => day >= iv.start && day <= iv.end);
-        if (bucketIndex >= 0) {
-          if (tx.type === 'income') {
-            buckets[bucketIndex].income += tx.amount;
-          } else {
-            buckets[bucketIndex].expense += tx.amount;
-          }
-        }
-      }
-    } else if (grain === 'quarter') {
-      const month = startDate.getMonth();
-      const startMonth = Math.floor(month / 3) * 3;
-      buckets = [0, 1, 2].map((idx) => ({
-        key: `m-${startMonth + idx}`,
-        label: `Tháng ${String(startMonth + idx + 1).padStart(2, '0')}`,
-        income: 0,
-        expense: 0,
-        netCashflow: 0,
-        balance: 0,
-        startAt: '',
-        endAt: '',
-      }));
-
-      for (const tx of transactions) {
-        const d = new Date(tx.occurredAt);
-        if (Number.isNaN(d.getTime())) continue;
-        const m = d.getMonth();
-        const bucketIndex = m - startMonth;
-        if (bucketIndex >= 0 && bucketIndex < 3) {
-          if (tx.type === 'income') {
-            buckets[bucketIndex].income += tx.amount;
-          } else {
-            buckets[bucketIndex].expense += tx.amount;
-          }
-        }
-      }
-    } else {
-      // Default: 12 months for year or all
-      buckets = Array.from({ length: 12 }, (_, i) => ({
-        key: `m-${i}`,
-        label: `T${String(i + 1).padStart(2, '0')}`,
-        income: 0,
-        expense: 0,
-        netCashflow: 0,
-        balance: 0,
-        startAt: '',
-        endAt: '',
-      }));
-
-      for (const tx of transactions) {
-        const d = new Date(tx.occurredAt);
-        if (Number.isNaN(d.getTime())) continue;
-        const m = d.getMonth();
-        if (m >= 0 && m < 12) {
-          if (tx.type === 'income') {
-            buckets[m].income += tx.amount;
-          } else {
-            buckets[m].expense += tx.amount;
-          }
-        }
+    for (const tx of transactions) {
+      const d = new Date(tx.occurredAt);
+      if (Number.isNaN(d.getTime())) continue;
+      const bucket = buckets[periodIndexOf(d)];
+      if (!bucket) continue;
+      if (tx.type === 'income') {
+        bucket.income += tx.amount;
+      } else {
+        bucket.expense += tx.amount;
       }
     }
 
-    let runningBalance = openingBalance;
-    for (const b of buckets) {
-      b.netCashflow = b.income - b.expense;
-      runningBalance += b.netCashflow;
-      b.balance = runningBalance;
+    // Savings movements change the balance but not netCashflow: they are neither income nor expense.
+    const walletMoves = periods.map(() => 0);
+    const savingsMoves = periods.map(() => 0);
+    const movementsInPeriod = savingMovementsInWindow(movements, {
+      from: startAt ? startDate : undefined,
+      to: endAt ? endDate : undefined,
+      toExclusive: false,
+    });
+    for (const movement of movementsInPeriod) {
+      const index = periodIndexOf(new Date(movement.occurredAt));
+      if (index < 0 || index >= periods.length) continue;
+      const deltas = savingMovementDeltas(movement.type, movement.amount);
+      walletMoves[index] += deltas.wallet;
+      savingsMoves[index] += deltas.savings;
     }
+
+    let wallet = opening.wallet;
+    let savings = opening.savings;
+    buckets.forEach((bucket, index) => {
+      bucket.netCashflow = bucket.income - bucket.expense;
+      wallet += bucket.netCashflow + walletMoves[index];
+      savings += savingsMoves[index];
+      bucket.balance = wallet;
+      bucket.balanceWithSavings = wallet + savings;
+    });
 
     return buckets;
   }

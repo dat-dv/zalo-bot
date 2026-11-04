@@ -96,7 +96,7 @@ Bảng thu chi chèn các lượt nạp/rút vào giữa giao dịch để số 
 Không có API riêng. Danh mục `Điều chỉnh số dư` có sẵn ở cả hai loại. Web tạo một giao dịch thường: chênh lệch dương là khoản thu, âm là khoản chi. Cách này giữ được lịch sử dòng tiền thay vì sửa trực tiếp con số.
 
 ### 3.7 Phân tích
-`GET /api/finance/analytics` trả tổng thu/chi, tỷ lệ tiết kiệm, vị thế hiện tại (số dư toàn thời gian + phải thu − phải trả), xu hướng theo khung (`week`: 7 ngày T2–CN, `month`: 6 khoảng ngày, `quarter`: 3 tháng, còn lại: 12 tháng), phân bổ danh mục tách riêng thu/chi và top người nợ/chủ nợ.
+`GET /api/finance/analytics` trả tổng thu/chi, tỷ lệ tiết kiệm, vị thế hiện tại (số dư toàn thời gian + phải thu − phải trả), xu hướng theo khung (`week`: 7 ngày T2–CN, `month`: 6 khoảng ngày, `quarter`: 3 tháng, còn lại: 12 tháng), phân bổ danh mục tách riêng thu/chi và top người nợ/chủ nợ. Mỗi kỳ trong xu hướng có `balance` là số dư ví cuối kỳ (đã tính nạp/rút tiết kiệm) và `balanceWithSavings` là ví + tiết kiệm, nên kỳ cuối của một khoảng tới hiện tại luôn khớp vị thế hiện tại.
 
 ## 4. Tích hợp chat Zalo
 

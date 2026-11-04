@@ -18,6 +18,10 @@ import { MaskedChartPlaceholder } from './masked-chart-placeholder';
 interface CashflowTrendChartProps {
   buckets: IAnalyticsTrendBucket[];
   height?: number;
+  /** Replaces the wallet balance label when the line shows another balance. */
+  balanceLabel?: string;
+  /** Hides the chart when `isMoneyVisible` alone does not cover the amounts on it. */
+  amountsHidden?: boolean;
 }
 
 interface CustomTooltipProps {
@@ -29,9 +33,10 @@ interface CustomTooltipProps {
     payload?: IAnalyticsTrendBucket;
   }>;
   label?: string;
+  balanceLabel: string;
 }
 
-function CustomTooltip({ active, payload }: CustomTooltipProps) {
+function CustomTooltip({ active, payload, balanceLabel }: CustomTooltipProps) {
   const { t } = useLocale();
   const money = useMoneyFormatter();
 
@@ -88,7 +93,7 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
         <div className="flex items-center justify-between gap-4 border-t border-slate-100 pt-1.5 dark:border-slate-800">
           <span className="flex items-center gap-1.5 font-semibold text-violet-700 dark:text-violet-400">
             <span className="size-2 rounded-xs bg-violet-500" />
-            {t('analytics.chart.walletBalance')}:
+            {balanceLabel}:
           </span>
           <span
             className={`font-bold tabular-nums ${
@@ -105,7 +110,12 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
   );
 }
 
-export function CashflowTrendChart({ buckets, height = 220 }: CashflowTrendChartProps) {
+export function CashflowTrendChart({
+  buckets,
+  height = 220,
+  balanceLabel,
+  amountsHidden = false,
+}: CashflowTrendChartProps) {
   const { t } = useLocale();
   const isMoneyVisible = useMoneyVisibilityStore((state) => state.isMoneyVisible);
 
@@ -119,6 +129,8 @@ export function CashflowTrendChart({ buckets, height = 220 }: CashflowTrendChart
       </div>
     );
   }
+
+  const lineLabel = balanceLabel ?? t('analytics.chart.walletBalance');
 
   // Format short axis currency (e.g. 1M, 500k)
   const formatYAxis = (val: number) => {
@@ -147,12 +159,12 @@ export function CashflowTrendChart({ buckets, height = 220 }: CashflowTrendChart
         </span>
         <span className="inline-flex items-center gap-1.5 font-medium text-violet-700 dark:text-violet-400">
           <span className="inline-block h-0.5 w-3.5 bg-violet-500 rounded-full" />
-          {t('analytics.chart.walletBalance')}
+          {lineLabel}
         </span>
       </div>
 
       {/* Axis ticks print real amounts and bar heights give away proportions, so nothing is drawn. */}
-      {!isMoneyVisible ? (
+      {!isMoneyVisible || amountsHidden ? (
         <MaskedChartPlaceholder height={height} />
       ) : (
         <div className="w-full" style={{ height }}>
@@ -178,7 +190,7 @@ export function CashflowTrendChart({ buckets, height = 220 }: CashflowTrendChart
                 className="fill-slate-500 dark:fill-slate-400"
               />
               <Tooltip
-                content={<CustomTooltip />}
+                content={<CustomTooltip balanceLabel={lineLabel} />}
                 cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
                 wrapperStyle={{ outline: 'none', zIndex: 1000 }}
               />
@@ -199,7 +211,7 @@ export function CashflowTrendChart({ buckets, height = 220 }: CashflowTrendChart
               <Line
                 type="monotone"
                 dataKey="balance"
-                name={t('analytics.chart.walletBalance')}
+                name={lineLabel}
                 stroke="#8b5cf6"
                 strokeWidth={2}
                 dot={{ r: 2.5, fill: '#8b5cf6' }}
