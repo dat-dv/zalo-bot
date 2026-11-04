@@ -770,6 +770,9 @@ export function TransactionsTable({
     return list;
   }, [
     computedMaxAmount,
+    savingsMoney,
+    combinedMoney,
+    isSavingsVisible,
     editDraft,
     editingId,
     expandedAllocationIds,
