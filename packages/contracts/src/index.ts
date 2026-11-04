@@ -8,6 +8,11 @@ export const API_ROUTES = {
   categories: '/api/categories',
   places: '/api/places',
   placesCombine: '/api/places/combine',
+  savingGroups: '/api/saving-groups',
+  savingGroup: (id: string) => `/api/saving-groups/${id}`,
+  savingGroupMovements: (id: string) => `/api/saving-groups/${id}/movements`,
+  savingGroupMovement: (id: string, movementId: string) =>
+    `/api/saving-groups/${id}/movements/${movementId}`,
   contacts: '/api/contacts',
   contactsCombine: '/api/contacts/combine',
   contactsSyncUsers: '/api/contacts/sync-users',
@@ -104,6 +109,7 @@ export const APP_ROUTES = {
   contactProfilePage: '/contacts/profile',
   contactProfile: (id: string) => `/contacts/profile?id=${encodeURIComponent(id)}`,
   places: '/places',
+  savings: '/savings',
   zca: '/zca',
   // Static export has no dynamic segments, so the thread id travels in the query string.
   zcaThreadPage: '/zca/thread',
@@ -201,6 +207,77 @@ const messages = {
     'nav.statistics': 'Phân tích',
     'nav.contacts': 'Người liên quan',
     'nav.places': 'Nơi chốn',
+    'nav.savings': 'Tiết kiệm',
+    'savings.title': 'Nhóm tiết kiệm',
+    'savings.subtitle': 'Tiền bỏ vào nhóm nằm ngoài số dư ví, không tính là khoản chi',
+    'savings.total': 'Tổng tiết kiệm',
+    'savings.walletBalance': 'Số dư ví',
+    'savings.walletWithSavings': 'Ví và tiết kiệm',
+    'savings.includeToggle': 'Tính cả tiết kiệm',
+    'savings.columns.name': 'Tên nhóm',
+    'savings.columns.balance': 'Số dư nhóm',
+    'savings.columns.note': 'Ghi chú',
+    'savings.columns.movementCount': 'Số lượt',
+    'savings.columns.action': 'Thao tác',
+    'savings.columns.date': 'Ngày',
+    'savings.columns.type': 'Loại',
+    'savings.columns.amount': 'Số tiền',
+    'savings.columns.createdBy': 'Người tạo',
+    'savings.actions.create': 'Tạo nhóm',
+    'savings.actions.edit': 'Sửa',
+    'savings.actions.deposit': 'Nạp',
+    'savings.actions.withdraw': 'Rút',
+    'savings.actions.opening': 'Số dư ban đầu',
+    'savings.actions.history': 'Lịch sử',
+    'savings.actions.archive': 'Lưu trữ',
+    'savings.actions.delete': 'Xoá',
+    'savings.showArchived': 'Hiện nhóm đã lưu trữ',
+    'savings.archived': 'Đã lưu trữ',
+    'savings.noData': 'Chưa có nhóm tiết kiệm nào',
+    'savings.noMovements': 'Nhóm này chưa có lượt nạp hoặc rút nào',
+    'savings.form.createTitle': 'Tạo nhóm tiết kiệm',
+    'savings.form.editTitle': 'Sửa nhóm tiết kiệm',
+    'savings.form.name': 'Tên nhóm',
+    'savings.form.namePlaceholder': 'Ví dụ: Du lịch, Quỹ dự phòng',
+    'savings.form.note': 'Ghi chú',
+    'savings.form.save': 'Lưu',
+    'savings.movement.title.deposit': 'Nạp vào {name}',
+    'savings.movement.title.withdrawal': 'Rút từ {name}',
+    'savings.movement.title.opening': 'Số dư ban đầu của {name}',
+    'savings.movement.hint.deposit': 'Số dư ví giảm tương ứng. Khoản này không tính là khoản chi.',
+    'savings.movement.hint.withdrawal':
+      'Số dư ví tăng tương ứng. Muốn tiêu số này thì ghi thêm khoản chi như bình thường.',
+    'savings.movement.hint.opening': 'Dành cho tiền đã để dành từ trước. Không trừ số dư ví.',
+    'savings.movement.amount': 'Số tiền (VND)',
+    'savings.movement.occurredAt': 'Ngày',
+    'savings.movement.note': 'Ghi chú',
+    'savings.movement.save': 'Lưu',
+    'savings.movement.overBalance': 'Số dư nhóm hiện có {amount}.',
+    'savings.movement.type.deposit': 'Nạp',
+    'savings.movement.type.withdrawal': 'Rút',
+    'savings.movement.type.opening': 'Số dư ban đầu',
+    'savings.history.title': 'Lịch sử {name}',
+    'savings.archive.title': 'Lưu trữ nhóm',
+    'savings.archive.message':
+      'Lưu trữ nhóm "{name}"? Lịch sử vẫn được giữ, nhưng không nạp hay rút được nữa.',
+    'savings.archive.blocked': 'Nhóm còn tiền, hãy rút hết trước khi lưu trữ.',
+    'savings.deleteMovement.title': 'Xoá lượt này',
+    'savings.deleteMovement.message':
+      'Xoá lượt {type} {amount}? Số dư nhóm và số dư ví sẽ được tính lại.',
+    'savings.toast.created': 'Đã tạo nhóm tiết kiệm',
+    'savings.toast.updated': 'Đã cập nhật nhóm tiết kiệm',
+    'savings.toast.archived': 'Đã lưu trữ nhóm',
+    'savings.toast.movementAdded': 'Đã lưu',
+    'savings.toast.movementDeleted': 'Đã xoá lượt',
+    'savings.error.generic': 'Chưa lưu được, thử lại sau.',
+    'savings.error.load': 'Chưa tải được dữ liệu tiết kiệm.',
+    'savings.ledgerRow.deposit': 'Nạp tiết kiệm',
+    'savings.ledgerRow.withdrawal': 'Rút tiết kiệm',
+    'savings.ledgerRow.opening': 'Số dư tiết kiệm ban đầu',
+    'analytics.currentPosition.savings': 'Tiết kiệm',
+    'analytics.trend.balanceIncludesSavings': 'Đường số dư trên biểu đồ gồm cả tiền tiết kiệm.',
+    'audit.table.saving_groups': 'Nhóm tiết kiệm',
+    'audit.table.saving_movements': 'Nạp/rút tiết kiệm',
     'nav.debts': 'Vay & cho vay',
     'nav.expenses': 'Chi tiêu',
     'nav.income': 'Thu nhập',
@@ -866,7 +943,7 @@ const messages = {
     'analytics.kpi.savingsRate': 'Tỷ lệ tích lũy',
     'analytics.periodResults.title': 'Kết quả trong kỳ',
     'analytics.currentPosition.title': 'Tình hình tài chính hiện tại',
-    'analytics.currentPosition.cashflowBalance': 'Số dư dòng tiền theo sổ',
+    'analytics.currentPosition.cashflowBalance': 'Số dư ví',
     'analytics.currentPosition.receivable': 'Phải thu còn lại',
     'analytics.currentPosition.payable': 'Phải trả còn lại',
     'analytics.currentPosition.netWorth': 'Tài sản ròng',
@@ -1439,6 +1516,79 @@ const messages = {
     'nav.statistics': 'Analytics',
     'nav.contacts': 'People',
     'nav.places': 'Places',
+    'nav.savings': 'Savings',
+    'savings.title': 'Savings groups',
+    'savings.subtitle': 'Money in a group stays out of the wallet balance and is not an expense',
+    'savings.total': 'Total savings',
+    'savings.walletBalance': 'Wallet balance',
+    'savings.walletWithSavings': 'Wallet and savings',
+    'savings.includeToggle': 'Include savings',
+    'savings.columns.name': 'Group',
+    'savings.columns.balance': 'Group balance',
+    'savings.columns.note': 'Note',
+    'savings.columns.movementCount': 'Movements',
+    'savings.columns.action': 'Actions',
+    'savings.columns.date': 'Date',
+    'savings.columns.type': 'Type',
+    'savings.columns.amount': 'Amount',
+    'savings.columns.createdBy': 'Created by',
+    'savings.actions.create': 'New group',
+    'savings.actions.edit': 'Edit',
+    'savings.actions.deposit': 'Deposit',
+    'savings.actions.withdraw': 'Withdraw',
+    'savings.actions.opening': 'Opening balance',
+    'savings.actions.history': 'History',
+    'savings.actions.archive': 'Archive',
+    'savings.actions.delete': 'Delete',
+    'savings.showArchived': 'Show archived groups',
+    'savings.archived': 'Archived',
+    'savings.noData': 'No savings groups yet',
+    'savings.noMovements': 'This group has no deposits or withdrawals yet',
+    'savings.form.createTitle': 'New savings group',
+    'savings.form.editTitle': 'Edit savings group',
+    'savings.form.name': 'Group name',
+    'savings.form.namePlaceholder': 'For example: Travel, Emergency fund',
+    'savings.form.note': 'Note',
+    'savings.form.save': 'Save',
+    'savings.movement.title.deposit': 'Deposit to {name}',
+    'savings.movement.title.withdrawal': 'Withdraw from {name}',
+    'savings.movement.title.opening': 'Opening balance of {name}',
+    'savings.movement.hint.deposit':
+      'The wallet balance goes down by this amount. It does not count as an expense.',
+    'savings.movement.hint.withdrawal':
+      'The wallet balance goes up by this amount. To spend it, record an expense as usual.',
+    'savings.movement.hint.opening':
+      'For money saved before using this app. It does not reduce the wallet balance.',
+    'savings.movement.amount': 'Amount (VND)',
+    'savings.movement.occurredAt': 'Date',
+    'savings.movement.note': 'Note',
+    'savings.movement.save': 'Save',
+    'savings.movement.overBalance': 'The group currently holds {amount}.',
+    'savings.movement.type.deposit': 'Deposit',
+    'savings.movement.type.withdrawal': 'Withdrawal',
+    'savings.movement.type.opening': 'Opening balance',
+    'savings.history.title': '{name} history',
+    'savings.archive.title': 'Archive group',
+    'savings.archive.message':
+      'Archive "{name}"? Its history is kept, but you can no longer deposit or withdraw.',
+    'savings.archive.blocked': 'This group still holds money. Withdraw it all before archiving.',
+    'savings.deleteMovement.title': 'Delete this movement',
+    'savings.deleteMovement.message':
+      'Delete {type} of {amount}? The group and wallet balances will be recalculated.',
+    'savings.toast.created': 'Savings group created',
+    'savings.toast.updated': 'Savings group updated',
+    'savings.toast.archived': 'Group archived',
+    'savings.toast.movementAdded': 'Saved',
+    'savings.toast.movementDeleted': 'Movement deleted',
+    'savings.error.generic': 'Could not save. Try again later.',
+    'savings.error.load': 'Could not load savings data.',
+    'savings.ledgerRow.deposit': 'Savings deposit',
+    'savings.ledgerRow.withdrawal': 'Savings withdrawal',
+    'savings.ledgerRow.opening': 'Opening savings balance',
+    'analytics.currentPosition.savings': 'Savings',
+    'analytics.trend.balanceIncludesSavings': 'The balance line on this chart includes savings.',
+    'audit.table.saving_groups': 'Savings group',
+    'audit.table.saving_movements': 'Savings movement',
     'nav.debts': 'Loans & Debts',
     'nav.expenses': 'Expenses',
     'nav.income': 'Income',
@@ -2107,7 +2257,7 @@ const messages = {
     'analytics.kpi.savingsRate': 'Savings Rate',
     'analytics.periodResults.title': 'Results for the selected period',
     'analytics.currentPosition.title': 'Current financial position',
-    'analytics.currentPosition.cashflowBalance': 'Ledger cashflow balance',
+    'analytics.currentPosition.cashflowBalance': 'Wallet balance',
     'analytics.currentPosition.receivable': 'Outstanding receivables',
     'analytics.currentPosition.payable': 'Outstanding payables',
     'analytics.currentPosition.netWorth': 'Net worth',
@@ -2876,7 +3026,9 @@ export interface IDashboardData {
     income: number;
     expense: number;
     balance: number;
+    /** Wallet balance: money in savings groups is excluded. */
     ledgerBalance: number;
+    savingsTotal: number;
     receivable: number;
     payable: number;
   };
@@ -2891,6 +3043,8 @@ export interface IDashboardData {
     placeId?: string;
     placeName?: string;
     occurredAt: string;
+    /** Wallet balance right after this transaction, over the whole shared ledger. */
+    runningBalance: number;
   }>;
   debts: IDebtListItem[];
   calendar: ICalendarEventItem[];
@@ -3395,6 +3549,66 @@ export interface ITransactionCreatorFacet {
 export interface ITransactionListItem extends ITransactionItem {
   /** Wallet balance right after this transaction, over the whole shared ledger (filter-independent). */
   runningBalance: number;
+  /** Same moment, with the money held in savings groups added back. */
+  runningBalanceWithSavings: number;
+}
+
+export const SAVING_MOVEMENT_TYPES = ['deposit', 'withdrawal', 'opening'] as const;
+/** `opening` records money saved before the app, so unlike `deposit` it leaves the wallet alone. */
+export type SavingMovementType = (typeof SAVING_MOVEMENT_TYPES)[number];
+
+export interface ISavingGroup {
+  id: string;
+  name: string;
+  note?: string;
+  balance: number;
+  movementCount: number;
+  archivedAt?: string;
+  createdByName?: string;
+  createdAt: string;
+}
+
+export interface ISavingGroupListResponse {
+  groups: ISavingGroup[];
+  /** Held across every group. */
+  savingsTotal: number;
+  /** Wallet balance, so the page can show both without another request. */
+  ledgerBalance: number;
+}
+
+export interface ISavingMovement {
+  id: string;
+  groupId: string;
+  groupName: string;
+  type: SavingMovementType;
+  amount: number;
+  occurredAt: string;
+  note?: string;
+  createdByName?: string;
+  createdAt: string;
+}
+
+/** A movement placed between transaction rows; read-only there. */
+export interface ITransactionSavingMovement extends ISavingMovement {
+  runningBalance: number;
+  runningBalanceWithSavings: number;
+}
+
+export interface ICreateSavingGroupRequest {
+  name: string;
+  note?: string;
+}
+
+export interface IUpdateSavingGroupRequest {
+  name?: string;
+  note?: string | null;
+}
+
+export interface ICreateSavingMovementRequest {
+  type: SavingMovementType;
+  amount: number;
+  occurredAt?: string;
+  note?: string;
 }
 
 export interface ITransactionListResponse {
@@ -3404,8 +3618,11 @@ export interface ITransactionListResponse {
   offset: number;
   /** Totals over the whole period (ignores type/search and pagination). */
   summary: { income: number; expense: number; count: number };
-  /** All-time income minus expense. */
+  /** Wallet balance: all-time income minus expense, less the money moved into savings groups. */
   ledgerBalance: number;
+  savingsTotal: number;
+  /** Savings movements falling on this page; empty while type/search/column filters are active. */
+  savingMovements: ITransactionSavingMovement[];
   /** Filter options over the whole period (ignores type/search/column filters). */
   facets: { creators: ITransactionCreatorFacet[]; categories: string[] };
 }
@@ -3906,7 +4123,9 @@ export interface IAnalyticsDebtBreakdown {
 }
 
 export interface IAnalyticsCurrentPosition {
+  /** Wallet balance: excludes money held in savings groups. */
   cashflowBalance: number;
+  savings: number;
   receivable: number;
   payable: number;
   netWorth: number;
@@ -4474,6 +4693,8 @@ export const AUDIT_TABLES = [
   { table: 'debt_payment_allocations', group: 'finance', technical: false },
   { table: 'debt_contacts', group: 'finance', technical: false },
   { table: 'finance_places', group: 'finance', technical: false },
+  { table: 'saving_groups', group: 'finance', technical: false },
+  { table: 'saving_movements', group: 'finance', technical: false },
   { table: 'user_categories', group: 'finance', technical: false },
   { table: 'tasks', group: 'planning', technical: false },
   { table: 'task_reminder_times', group: 'planning', technical: true },

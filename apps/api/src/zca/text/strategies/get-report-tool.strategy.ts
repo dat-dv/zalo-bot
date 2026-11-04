@@ -16,12 +16,15 @@ export class GetReportToolStrategy implements TextToolStrategy {
 
   public async execute(context: TextToolContext): Promise<void> {
     try {
-      const summary = await this.financeService.getSummary();
+      const [summary, walletBalance] = await Promise.all([
+        this.financeService.getSummary(),
+        this.financeService.getLedgerBalance(),
+      ]);
 
       const reply =
         `📊 Thu ${summary.income.toLocaleString('vi-VN')}đ · ` +
         `Chi ${summary.expense.toLocaleString('vi-VN')}đ · ` +
-        `Số dư ${summary.balance.toLocaleString('vi-VN')}đ`;
+        `Số dư ${walletBalance.toLocaleString('vi-VN')}đ`;
 
       await this.zcaMessenger.sendMessage(context.chatId, reply);
     } catch (err) {

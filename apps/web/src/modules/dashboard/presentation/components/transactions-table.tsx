@@ -33,6 +33,8 @@ import {
 
 export type TransactionTableItem = ITransactionItem & {
   runningBalance?: number;
+  /** A savings movement shown for context: it has no edit, delete or change history here. */
+  readOnly?: boolean;
 };
 
 export type TransactionEditDraft = {
@@ -663,6 +665,7 @@ export function TransactionsTable({
         minWidth: '130px',
         hideable: false,
         cell: (item) => {
+          if (item.readOnly) return null;
           const isEditing = editingId === item.id;
           if (isEditing && editDraft && onSaveEdit && onCancelEdit) {
             const itemAllocatedSum = (item.allocations || []).reduce(
@@ -823,7 +826,7 @@ export function TransactionsTable({
                 {item.note || '—'}
               </p>
             </div>
-            {historyHref && (
+            {historyHref && !item.readOnly && (
               <Link
                 href={historyHref(item.id)}
                 className="inline-flex items-center gap-1 text-xs font-medium text-sky-700 hover:underline max-[640px]:min-h-10 dark:text-sky-400"

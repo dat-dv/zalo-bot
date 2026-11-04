@@ -65,7 +65,7 @@ Layout riêng tư (`app/(private)/layout.tsx`) render thanh điều hướng `Ap
 
 ## Payload dashboard và giới hạn dữ liệu
 
-`GET /api/dashboard` trả về: thông tin người dùng (`isAdmin`, `googleConnected`), tổng thu/chi/số dư **của tháng hiện tại**, phải thu/phải trả, **tối đa 20 giao dịch mới nhất của tháng hiện tại** (kèm nơi chốn và phân bổ nợ), `finance.ledgerBalance` (số dư sổ cái toàn thời gian), các khoản nợ đang mở, sự kiện lịch và việc cần làm sắp tới (đều đọc từ DB, không phụ thuộc kết nối Google), tối đa 10 nhắc nhở, 10 hoạt động gần nhất **do chính người đang xem thực hiện** trong nhật ký kiểm toán (bỏ các bảng kỹ thuật như phiên đăng nhập và token), và số liệu admin (chỉ admin).
+`GET /api/dashboard` trả về: thông tin người dùng (`isAdmin`, `googleConnected`), tổng thu/chi/số dư **của tháng hiện tại**, phải thu/phải trả, **tối đa 20 giao dịch mới nhất của tháng hiện tại** (kèm nơi chốn và phân bổ nợ), `finance.ledgerBalance` (số dư ví toàn thời gian, không gồm tiền trong nhóm tiết kiệm), `finance.savingsTotal` (tổng tiết kiệm), các khoản nợ đang mở, sự kiện lịch và việc cần làm sắp tới (đều đọc từ DB, không phụ thuộc kết nối Google), tối đa 10 nhắc nhở, 10 hoạt động gần nhất **do chính người đang xem thực hiện** trong nhật ký kiểm toán (bỏ các bảng kỹ thuật như phiên đăng nhập và token), và số liệu admin (chỉ admin).
 
 Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sách riêng (`GET /api/transactions`, xem bên dưới) nên xem được mọi kỳ.
 
@@ -137,7 +137,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 - Mở từ thanh liên kết nhanh trang chủ, thanh công cụ trang Thu chi và trang Cài đặt.
 - Ô số dư thực tế chỉ điền sẵn số dư hiện tại khi đang **hiện** số tiền. Khi số tiền đang bị ẩn, ô để trống: điền sẵn sẽ in số dư thật ra màn hình, làm mất tác dụng của nút ẩn số tiền (lỗi phát hiện khi test prod ngày 22/10/2026).
 - Người dùng nhập số dư thực tế; chênh lệch dương sinh khoản **thu**, chênh lệch âm sinh khoản **chi**, danh mục "Điều chỉnh số dư" (theo ngôn ngữ đang chọn), ghi chú tự sinh có thể sửa, chọn thời điểm. Chênh lệch bằng 0 thì không làm gì.
-- "Số dư trên sổ hiện tại" là **số dư sổ cái toàn thời gian** (tổng thu − tổng chi): trang Thu chi lấy `ledgerBalance` từ API danh sách, trang chủ và Cài đặt lấy `finance.ledgerBalance` từ payload dashboard. Nhờ vậy số tiền điều chỉnh luôn đúng bất kể có dữ liệu các tháng trước.
+- "Số dư trên sổ hiện tại" là **số dư ví toàn thời gian** (tổng thu − tổng chi, trừ phần đã chuyển vào nhóm tiết kiệm): trang Thu chi lấy `ledgerBalance` từ API danh sách, trang chủ và Cài đặt lấy `finance.ledgerBalance` từ payload dashboard. Nhờ vậy số tiền điều chỉnh luôn đúng bất kể có dữ liệu các tháng trước.
 
 ## Trang Phân tích (`AnalyticsScreen`)
 

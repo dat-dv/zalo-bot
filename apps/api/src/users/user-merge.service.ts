@@ -15,6 +15,8 @@ import { DashboardExchangeTokenEntity } from '../database/entities/dashboard-exc
 import { DebtContactEntity } from '../database/entities/debt-contact.entity';
 import { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
 import { ReminderEntity } from '../database/entities/reminder.entity';
+import { SavingGroupEntity } from '../database/entities/saving-group.entity';
+import { SavingMovementEntity } from '../database/entities/saving-movement.entity';
 import { TaskEntity } from '../database/entities/task.entity';
 import { UserTokenEntity } from '../database/entities/user-token.entity';
 import { UserEntity } from '../database/entities/user.entity';
@@ -124,6 +126,16 @@ export class UserMergeService {
       );
       await manager.update(
         FinanceTransactionEntity,
+        { createdByUserId: sourceId },
+        { createdByUserId: targetId },
+      );
+      await manager.update(
+        SavingGroupEntity,
+        { createdByUserId: sourceId },
+        { createdByUserId: targetId },
+      );
+      await manager.update(
+        SavingMovementEntity,
         { createdByUserId: sourceId },
         { createdByUserId: targetId },
       );

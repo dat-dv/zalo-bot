@@ -184,17 +184,15 @@ export class ReportsController {
     const googleConnected = this.googleAuth.isAuthorized(userId);
     const calendarPromise = this.getCalendarEvents(String(userId), now);
     const tasksPromise = this.getTasks();
-    const [summary, ledgerBalance, debts, reminders, activity, calendar, tasks] = await Promise.all(
-      [
-        this.finance.getSummary(startAt, endAt),
-        this.finance.getLedgerBalance(),
-        this.finance.getActiveDebts(),
-        this.reminders.getUserUpcomingReminders(userId),
-        this.audit.listRecent(userId, 10),
-        calendarPromise,
-        tasksPromise,
-      ],
-    );
+    const [summary, position, debts, reminders, activity, calendar, tasks] = await Promise.all([
+      this.finance.getSummary(startAt, endAt),
+      this.finance.getLedgerPosition(),
+      this.finance.getActiveDebts(),
+      this.reminders.getUserUpcomingReminders(userId),
+      this.audit.listRecent(userId, 10),
+      calendarPromise,
+      tasksPromise,
+    ]);
     const receivable = debts
       .filter((item) => item.direction === 'receivable')
       .reduce((total, item) => total + item.remainingAmount, 0);
@@ -209,11 +207,14 @@ export class ReportsController {
           income: summary.income,
           expense: summary.expense,
           balance: summary.balance,
-          ledgerBalance,
+          ledgerBalance: position.ledgerBalance,
+          savingsTotal: position.savingsTotal,
           receivable,
           payable,
         },
-        transactions: await this.finance.toTransactionItems(summary.transactions.slice(0, 20)),
+        transactions: (
+          await this.finance.toTransactionItems(summary.transactions.slice(0, 20))
+        ).map((item) => ({ ...item, runningBalance: position.runningBalances.get(item.id) ?? 0 })),
         debts: debts.map((item) => this.mapDebt(item)),
         calendar,
         tasks,

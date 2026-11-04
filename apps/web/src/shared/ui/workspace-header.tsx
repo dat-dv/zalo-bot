@@ -66,6 +66,10 @@ const ROUTE_HEADER_MAP: Record<string, RouteHeaderMeta> = {
     titleKey: 'places.title',
     subtitleKey: 'places.subtitle',
   },
+  [APP_ROUTES.savings]: {
+    titleKey: 'savings.title',
+    subtitleKey: 'savings.subtitle',
+  },
   [APP_ROUTES.zca]: {
     titleKey: 'nav.zca',
   },

@@ -18,6 +18,8 @@ export const AUDIT_TABLE_LABEL_KEYS: Record<AuditTableName, TranslationKey> = {
   debt_payment_allocations: 'audit.table.debt_payment_allocations',
   debt_contacts: 'audit.table.debt_contacts',
   finance_places: 'audit.table.finance_places',
+  saving_groups: 'audit.table.saving_groups',
+  saving_movements: 'audit.table.saving_movements',
   user_categories: 'audit.table.user_categories',
   tasks: 'audit.table.tasks',
   task_reminder_times: 'audit.table.task_reminder_times',

@@ -9,6 +9,11 @@
 - **Danh mục**: Nhãn ngắn để nhóm giao dịch, chẳng hạn `Ăn uống`, `Đi lại`, `Lương`; khi không rõ dùng `Khác`.
 - **Ngày phát sinh**: Thời điểm giao dịch xảy ra. Nếu người dùng không nêu, mặc định là thời điểm họ nhắn bot.
 
+- **Nhóm tiết kiệm**: Nơi giữ tiền để dành theo mục đích, ví dụ `Du lịch`. Thuộc **sổ chung**, ai cũng xem được. Tiền trong nhóm không nằm trong **số dư ví** và không phải khoản chi. Chỉ thao tác trên dashboard. Nhóm không bị xoá, chỉ được lưu trữ khi đã hết tiền.
+- **Số dư ví**: Tiền đang tiêu được: tổng thu − tổng chi − tiền nạp vào nhóm tiết kiệm + tiền rút ra.
+- **Tổng tiết kiệm**: Tổng tiền đang nằm trong mọi nhóm tiết kiệm.
+- **Nạp / Rút (tiết kiệm)**: Chuyển tiền giữa ví và nhóm tiết kiệm, không phải khoản thu hay khoản chi. Không rút quá số dư nhóm. Muốn tiêu tiền đã rút thì ghi khoản chi như bình thường.
+- **Số dư ban đầu (tiết kiệm)**: Tiền đã để dành từ trước, nhập vào nhóm mà không trừ **số dư ví**.
 - **Sổ chung**: Toàn hệ thống chỉ có một kho tài chính (thu chi, nơi chốn, danh bạ công nợ, công nợ, danh mục), không thuộc về người dùng nào; ai nhắn bot hay thao tác trên dashboard cũng ghi vào và xem toàn bộ kho này. Không có sổ riêng theo người dùng.
 - **Người tạo**: Người đã ghi giao dịch (người gửi tin Zalo hoặc người dùng dashboard), kèm **nguồn** (nhóm Zalo, chat riêng hoặc dashboard). Không dùng để giới hạn ai được xem dữ liệu; chỉ dùng khi người dùng chủ động chọn xem (bộ lọc người tạo ở bảng thu chi, giao dịch do họ ghi trên **hồ sơ**).
 
@@ -79,7 +84,7 @@
 - **Quyền toàn cục**: Quyền dùng bot của một người dùng zalo (`grantAccess`), admin cấp trên trang Zalo & Người dùng; có hiệu lực ở mọi kênh.
 - **Quyền theo kênh**: Quyền gọi bot (mention hoặc tiền tố) chỉ trong một nhóm, admin cấu hình trên trang cấu hình kênh: không ai thêm, mọi thành viên, hoặc thành viên được chọn. Cộng thêm vào quyền toàn cục, không thu hồi quyền toàn cục; không tự cấp quyền toàn cục.
 - **Danh tính kênh Zalo**: Cùng một người có thể có nhiều ID: ID theo app của Zalo Bot chính thức đã bỏ (webhook, 20 ký tự hex, chỉ còn ở dữ liệu cũ) và UID Zalo cá nhân qua ZCA (dạng số). Hệ thống chỉ coi `users.id` là danh tính.
-- **Gộp tài khoản (User Merge)**: Thao tác của admin chuyển dấu vết của một ID trùng (người tạo giao dịch, việc cần làm và sự kiện lịch, liên kết người liên quan, lời nhắc, đích nhắc trỏ tới ID trùng, token Google) sang người dùng giữ lại, rồi xoá ID trùng. Dữ liệu tài chính là sổ chung nên không phải di chuyển. Chạy trong một transaction và không thể hoàn tác.
+- **Gộp tài khoản (User Merge)**: Thao tác của admin chuyển dấu vết của một ID trùng (người tạo giao dịch, việc cần làm, sự kiện lịch và nhóm tiết kiệm, liên kết người liên quan, lời nhắc, đích nhắc trỏ tới ID trùng, token Google) sang người dùng giữ lại, rồi xoá ID trùng. Dữ liệu tài chính là sổ chung nên không phải di chuyển. Chạy trong một transaction và không thể hoàn tác.
 - **Tài khoản lưu trữ dùng chung**: Tài khoản Google mà admin đăng nhập gần nhất qua `/login` hoặc trên dashboard (trang Google Drive); mọi media của các kênh được lưu vào đây. Việc tự làm mới token không làm đổi tài khoản này. Admin đăng xuất thì hệ thống không còn tài khoản lưu trữ nào cho tới khi có người đăng nhập lại, không tự chuyển sang tài khoản Google khác.
 - **Lịch sử nơi lưu trữ**: Danh sách mọi thư mục Drive gốc và album Photos mà một kênh từng dùng, kèm tài khoản Google và thời gian dùng. Đổi tài khoản thì link cũ vẫn còn trong danh sách. Admin có thể thêm tay link một thư mục hoặc album có sẵn (không tạo gì trên Google, không đổi nơi lưu media mới); không thêm được link đã có.
 - **Phân vùng lưu trữ (Drive Partition)**: Thư mục Google Drive được tạo riêng biệt cho từng kênh theo quy chuẩn `zalobot/<channelId>/<category>` (`bill`, `image`, `video`, `file`, `audio`).

@@ -21,7 +21,7 @@ REST surface of `apps/api` (global prefix `/api`). The API is organized by top-l
 ## Identity & Scoping
 
 - Caller identity comes only from the dashboard Bearer access token (`getDashboardUserId`). No endpoint accepts a client `userId` for scoping.
-- Finance data (transactions, places, contacts, debts, payments, allocations, categories) is ONE shared store: every signed-in user reads and writes all of it; the token only authenticates (see finance-domain). Calendar events and tasks are shared the same way (DB records with a Google copy); reminder records stay scoped to the caller. OAuth tokens are never returned; audit rows only through the admin-only `GET /api/audit-logs` (see modules/audit).
+- Finance data (transactions, places, contacts, debts, payments, allocations, categories, savings groups) is ONE shared store: every signed-in user reads and writes all of it; the token only authenticates (see finance-domain). Calendar events and tasks are shared the same way (DB records with a Google copy); reminder records stay scoped to the caller. OAuth tokens are never returned; audit rows only through the admin-only `GET /api/audit-logs` (see modules/audit).
 - `/api/users*` requires admin (`UsersService.isAdmin`: the ZCA own account or a user with admin role); otherwise `403`.
 - `POST /api/drive/share`, `GET /api/drive/folder-link`, `GET /api/photos/album-link` require a dashboard admin (`requireDashboardAdmin`, Bearer); `GET /api/drive/open`, `GET /api/photos/open` are `<a href>` links and accept the Bearer token or the dashboard refresh cookie, admin only (`getDashboardUserIdFromBrowser` + `assertDashboardAdmin`). 401 without a token, 403 for non-admins.
 
@@ -33,6 +33,7 @@ REST surface of `apps/api` (global prefix `/api`). The API is organized by top-l
 | Receipt image | `GET /api/transactions/:id/receipt` (Bearer or refresh cookie; any signed-in user) |
 | Allocations | `GET /api/transactions/:id/candidate-debts`, `GET/POST /api/transactions/:id/allocations` (body `allocations: [{ debtId, amount, note? }]`), `DELETE /api/transactions/:id/allocations/:allocationId` (`debt_payment_allocations`) |
 | Categories | `GET /api/categories?type=`, `POST /api/categories` (`type`, `name`, `color?`, `icon?`), `PATCH/DELETE /api/categories/:id` (`user_categories`) |
+| Savings groups | `GET/POST /api/saving-groups`, `GET/PATCH/DELETE /api/saving-groups/:id` (`DELETE` archives), `GET/POST /api/saving-groups/:id/movements`, `DELETE /api/saving-groups/:id/movements/:movementId` (see modules/savings) |
 | Places | `GET/POST /api/places`, `PATCH/DELETE /api/places/:id`, `POST /api/places/combine` (`placeIds` and/or `targetPlaceId` + `sourcePlaceIds`, optional `name`; ≥2 distinct ids) |
 | Contacts | `GET /api/contacts` (max 200, served by reports controller), `GET/PATCH/DELETE /api/contacts/:id`, `POST /api/contacts`, `POST /api/contacts/combine` (≥2 ids; optional `consolidateDebts: true`), `POST /api/contacts/sync-users` (admin: users → shared contacts + phone backup) |
 | Debts | `GET /api/debts?status=active\|settled` (reports controller), `GET/PATCH/DELETE /api/debts/:id`, `POST /api/debts`, `POST /api/debts/combine` (`debtIds` ≥2 → parent debt via `parent_debt_id`) |

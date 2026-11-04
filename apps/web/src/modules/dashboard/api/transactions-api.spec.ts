@@ -14,6 +14,8 @@ void test('listTransactions sends period, type, search and paging as query param
     offset: 100,
     summary: { income: 0, expense: 0, count: 0 },
     ledgerBalance: 1_500_000,
+    savingsTotal: 0,
+    savingMovements: [],
     facets: { creators: [], categories: [] },
   };
 
