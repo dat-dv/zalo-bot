@@ -145,7 +145,7 @@ Payload này chỉ phục vụ trang Tổng quan. Trang Thu chi có API danh sá
 ## Trang Phân tích (`AnalyticsScreen`)
 
 - Bộ lọc kỳ mặc định theo tháng; gọi `GET /api/finance/analytics` với `startAt`, `endAt`, `grain` (kỳ "tất cả" không gửi ngày).
-- **Kết quả trong kỳ**: Tổng thu, Tổng chi, Tiết kiệm ròng, Tỷ lệ tiết kiệm.
+- **Kết quả trong kỳ**: Tổng thu, Tổng chi, Chênh lệch thu chi, Tỷ lệ tích lũy.
 - **Tình hình hiện tại** (không phụ thuộc bộ lọc): Số dư dòng tiền toàn thời gian, Phải thu, Phải trả, Tài sản ròng. Đây không phải số dư ngân hàng vì hệ thống không quản lý số dư đầu kỳ.
 - Khối Dòng tiền: nút chuyển Biểu đồ/Bảng; biểu đồ Recharts gồm cột thu/chi và đường số dư, hoặc bảng số liệu theo kỳ. Số dư mặc định là số dư ví cuối kỳ. Kỳ có nạp/rút tiết kiệm thì số dư đổi khác cột chênh lệch thu chi, vì nạp/rút không phải thu chi. Bật "Tính cả tiết kiệm" thì hiện ví + tiết kiệm với nhãn riêng; số gộp chỉ hiện khi mở cả hai mắt, nếu không thì cột bị che và biểu đồ không được vẽ. Số liệu theo kỳ chỉ lấy từ API, vì payload dashboard không có nạp/rút và chỉ có tối đa 20 giao dịch; lúc API chưa trả lời thì khối này trống, không tự tính một số sai. Khi ẩn số tiền, biểu đồ không được vẽ mà thay bằng dòng "Biểu đồ đang ẩn cùng số tiền", vì trục in số thật và chiều cao cột cho thấy kỳ nào lớn gấp mấy lần kỳ nào. Biểu đồ mini Thu/Chi ở trang Giao dịch và Khoản chi cũng vậy.
 - Trên điện thoại: hai nút Biểu đồ/Bảng cao 32px, chia đôi hàng. Bảng số liệu là theo **kỳ** (không theo danh mục), nên ở dạng danh sách: dòng trên là tên kỳ + dòng tiền ròng (có dấu, có màu), dòng dưới là "Thu +x · Chi −y"; số dư lũy kế xem trong sheet chi tiết. Các thẻ chỉ số giữ 2 thẻ một hàng, thấp hơn.
