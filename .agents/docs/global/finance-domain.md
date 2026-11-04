@@ -113,3 +113,15 @@ Người dùng hỏi "tháng trước ăn uống hết bao nhiêu?" thì bot tr�
 - **Số dư chỉ hiện ở báo cáo không lọc**: số dư là con số hiện tại, không phải của kỳ đang xem.
 
 Báo cáo trong chat và tóm tắt tự động dùng chung `FinanceReportService`, nên số liệu hai nơi luôn khớp.
+
+## Sửa giao dịch đã lưu trên Zalo (`EDIT_TRANSACTION`)
+
+Trước đây muốn sửa một khoản ghi nhầm phải xoá rồi ghi lại, và làm mất liên kết với người tạo ban đầu. Giờ nhắn "sửa khoản ăn trưa thành 50k" thì bot hiện thẻ `cũ → mới` để duyệt.
+
+- **Thẻ còn chờ thì sửa thẻ, giao dịch đã lưu mới dùng tool này.**
+- **Nhiều khoản khớp thì không đoán**: bot liệt kê tối đa 3 khoản kèm mã. Dùng mã vì bot không nhớ tin trước, nên không hiểu được câu trả lời kiểu "sửa cái thứ 2". Sửa nhầm trong sổ chung rất khó phát hiện.
+- **Chỉ hiện phần thật sự đổi**: nếu giá trị mới giống giá trị cũ thì bot hỏi lại, không tạo thẻ.
+- **Vẫn áp dụng quy tắc công nợ**: không giảm số tiền xuống dưới phần đã phân bổ, không đổi loại khi đang có phân bổ. Bot báo lại đúng lý do.
+- **Nhật ký kiểm toán** ghi người thực hiện là người yêu cầu sửa, không phải người duyệt.
+
+Xoá giao dịch vẫn giữ hành vi cũ: lấy khoản khớp đầu tiên.

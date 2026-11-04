@@ -138,3 +138,11 @@ Tools from `ZALO_TOOL_DEFINITIONS` relevant to finance (see [LLM Providers](llm-
 - `FinanceReportService.getBreakdown` computes totals, top 5 categories and top 3 transactions in SQL. Chat reports and scheduled digests share it, so their numbers cannot drift.
 - Place and contact names match exactly; an unknown name is reported, never dropped as a filter. Category match is case-insensitive equality.
 - The wallet balance is shown only on unfiltered reports: it is current, not a figure of the period.
+
+## Editing a saved transaction from chat (`EDIT_TRANSACTION`)
+
+- Targets a saved row; cards still pending go through `AMEND_PENDING`. Fields: `amount`, `type`, `category`, `note`, `occurredAt`, `placeName`.
+- `findTransactionTargets` (shared with delete): id, then the sender's latest for "gần nhất", then note/category contains the query. Non-UUID ids skip the lookup.
+- Several matches: nothing changes; up to 3 rows are listed with ids. Ids rather than "reply 2" because the bot keeps no chat context between messages. Delete keeps its first-match behavior.
+- Only fields that really differ reach the card; no difference means no card. The card shows `old → new`.
+- Runs `updateTransaction` on approval, so its rules (amount not below allocated debt, no type change with allocations) surface as the failure message. The audit actor is the requester.

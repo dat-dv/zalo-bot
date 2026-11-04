@@ -41,6 +41,8 @@ import {
   renderDtoConfirmationCard,
   FINANCE_TRANSACTION_DESCRIPTOR,
   DELETE_TRANSACTION_DESCRIPTOR,
+  EDIT_TRANSACTION_DESCRIPTOR,
+  type EditTransactionPayload,
   DeleteTransactionDto,
   DEBT_DESCRIPTOR,
   REMINDER_DESCRIPTOR,
@@ -62,6 +64,7 @@ import {
   summarizeDebt,
   summarizeDeletedCalendarEvent,
   summarizeDeletedTransaction,
+  summarizeEditedTransaction,
   summarizeGeneric,
   summarizePlace,
   summarizeReminder,
@@ -72,6 +75,7 @@ import {
 export type PendingActionType =
   | 'RECORD_TRANSACTION'
   | 'DELETE_TRANSACTION'
+  | 'EDIT_TRANSACTION'
   | 'MANAGE_DEBT'
   | 'SET_REMINDER'
   | 'CREATE_TASK'
@@ -144,6 +148,8 @@ export function pendingActionLabel(
     case 'DELETE_TRANSACTION':
     case 'delete':
       return `xoá ${kind}`;
+    case 'EDIT_TRANSACTION':
+      return `sửa ${kind}`;
     case 'MANAGE_DEBT':
       return 'ghi công nợ';
     case 'SET_REMINDER':
@@ -888,6 +894,26 @@ export class TransactionConfirmationService implements OnModuleDestroy {
   }
 
   /**
+   * Tạo yêu cầu xác nhận sửa một giao dịch đã lưu.
+   */
+  public async createPendingEdit(params: {
+    userId: string;
+    chatId: string;
+    payload: EditTransactionPayload;
+    rawPrompt?: string;
+  }): Promise<PendingAction> {
+    return this.createPendingAction({
+      userId: params.userId,
+      chatId: params.chatId,
+      actionType: 'EDIT_TRANSACTION',
+      title: pendingActionLabel('EDIT_TRANSACTION', params.payload.type),
+      payload: params.payload,
+      descriptor: EDIT_TRANSACTION_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
+    });
+  }
+
+  /**
    * Tạo yêu cầu xác nhận ghi nhận công nợ.
    */
   public async createPendingDebt(params: {
@@ -1384,6 +1410,16 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           } else {
             await post(`⚠️ Không tìm thấy giao dịch, hoặc bạn không có quyền xoá nó.`, false);
           }
+          break;
+        }
+        case 'EDIT_TRANSACTION': {
+          const payload = pending.payload as unknown as EditTransactionPayload;
+          const updated = await this.financeService.updateTransaction(
+            payload.transactionId,
+            payload.changes,
+          );
+          if (updated) await post(summarizeEditedTransaction(pending.code, payload));
+          else await post('⚠️ Không tìm thấy giao dịch, có thể nó vừa bị xoá.', false);
           break;
         }
         case 'MANAGE_DEBT': {

@@ -58,6 +58,11 @@ export function pendingToolArgs(
 ): Record<string, unknown> | undefined {
   const remindMode = isReminderTargetMode(payload.remindMode) ? payload.remindMode : undefined;
   switch (isTextToolType(actionType) ? actionType : undefined) {
+    case TextToolType.EDIT_TRANSACTION:
+      return withoutUndefined({
+        transactionId: textArg(payload.transactionId),
+        ...(typeof payload.changes === 'object' && payload.changes !== null ? payload.changes : {}),
+      });
     case TextToolType.CREATE_TASK:
       return withoutUndefined({
         title: textArg(payload.title),

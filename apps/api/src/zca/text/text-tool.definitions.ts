@@ -120,6 +120,30 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
     },
   },
   {
+    name: TextToolType.EDIT_TRANSACTION,
+    description:
+      'Sửa một giao dịch thu chi ĐÃ LƯU (không phải thẻ đang chờ duyệt). ' +
+      'Ví dụ: "sửa khoản ăn trưa thành 50k", "khoản vừa rồi đổi sang danh mục Đi lại", ' +
+      '"đổi ngày khoản tiền điện thành hôm qua". Chỉ điền các trường cần đổi.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        transactionId: { type: 'STRING', description: 'ID (UUID) của giao dịch nếu có' },
+        query: {
+          type: 'STRING',
+          description:
+            'Từ khóa để tìm giao dịch cần sửa, không gồm giá trị mới (ví dụ: "ăn trưa", "gần nhất")',
+        },
+        amount: { type: 'NUMBER', description: 'Số tiền mới, tính bằng đồng' },
+        type: { type: 'STRING', enum: ['income', 'expense'], description: 'Loại mới' },
+        category: { type: 'STRING', description: 'Danh mục mới' },
+        note: { type: 'STRING', description: 'Nội dung mới' },
+        occurredAt: { type: 'STRING', description: 'Thời điểm mới dạng ISO 8601' },
+        placeName: { type: 'STRING', description: 'Nơi chốn mới' },
+      },
+    },
+  },
+  {
     name: TextToolType.SET_REMINDER,
     description:
       'LỜI NHẮC: người dùng muốn ĐƯỢC BÁO vào một thời điểm (có giờ, hoặc "nhắc", "báo", "gọi dậy"); ' +

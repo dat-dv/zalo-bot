@@ -171,6 +171,77 @@ export interface DeleteTransactionDto {
   occurredAt?: string;
 }
 
+/** Fields a chat edit may change; each holds the new value. */
+export interface EditTransactionChanges {
+  type?: 'income' | 'expense';
+  amount?: number;
+  category?: string;
+  note?: string;
+  occurredAt?: string;
+  placeName?: string;
+}
+
+/** The row as it stands, plus what changes: the card shows both. */
+export interface EditTransactionPayload {
+  transactionId: string;
+  type: 'income' | 'expense';
+  amount: number;
+  currency?: string;
+  category?: string;
+  note?: string;
+  occurredAt?: string;
+  placeName?: string;
+  changes: EditTransactionChanges;
+}
+
+const TYPE_WORD = { income: 'Thu', expense: 'Chi' } as const;
+
+/** One `old → new` part per changed field. */
+export function describeTransactionChanges(dto: EditTransactionPayload): string[] {
+  const { changes } = dto;
+  const parts: string[] = [];
+  const add = (label: string, before: string | undefined, after: string): void => {
+    parts.push(`${label}: ${before?.trim() ? before : '(trống)'} → ${after}`);
+  };
+  if (changes.type) add('Loại', TYPE_WORD[dto.type], TYPE_WORD[changes.type]);
+  if (changes.amount !== undefined) {
+    add(
+      'Số tiền',
+      formatCurrencyVN(dto.amount, dto.currency),
+      formatCurrencyVN(changes.amount, dto.currency),
+    );
+  }
+  if (changes.category) add('Danh mục', dto.category, changes.category);
+  if (changes.note) add('Ghi chú', dto.note, changes.note);
+  if (changes.placeName) add('Nơi chốn', dto.placeName, changes.placeName);
+  if (changes.occurredAt) {
+    add('Thời gian', formatDateTimeVN(dto.occurredAt), formatDateTimeVN(changes.occurredAt));
+  }
+  return parts;
+}
+
+const textOrEmpty = (v: unknown): string =>
+  typeof v === 'string' && v.trim() ? v.trim() : '(trống)';
+
+/**
+ * Strict Descriptor cho thẻ sửa giao dịch: chỉ phần đổi hiện đầy đủ, phần còn lại để nhận ra khoản.
+ */
+export const EDIT_TRANSACTION_DESCRIPTOR: DtoDescriptor<EditTransactionPayload> = {
+  transactionId: { label: 'Mã giao dịch', hidden: true },
+  type: { label: 'Phân loại', hidden: true },
+  amount: { label: 'Số tiền', hidden: true },
+  currency: { label: 'Đơn vị tiền tệ', hidden: true },
+  category: { label: 'Danh mục', hidden: true },
+  note: { label: 'Khoản', order: 1, format: textOrEmpty },
+  occurredAt: { label: 'Ngày', order: 2, format: (v) => formatDateTimeVN(v) },
+  placeName: { label: 'Nơi chốn', hidden: true },
+  changes: {
+    label: 'Sửa',
+    order: 3,
+    format: (_v, dto) => describeTransactionChanges(dto).join('; '),
+  },
+};
+
 /**
  * Strict Descriptor cho DeleteTransactionDto.
  */

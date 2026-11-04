@@ -49,6 +49,7 @@ function createFactory(): TextToolFactory {
     createDummyStrategy(TextToolType.REMEMBER_NOTE),
     createDummyStrategy(TextToolType.FORGET_MEMORY),
     createDummyStrategy(TextToolType.SYNC_MEMORY),
+    createDummyStrategy(TextToolType.EDIT_TRANSACTION),
   );
 }
 

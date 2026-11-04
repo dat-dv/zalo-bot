@@ -15,6 +15,8 @@ import {
   CompleteTaskDto,
   DeleteCalendarEventDto,
   DeleteTransactionDto,
+  describeTransactionChanges,
+  type EditTransactionPayload,
   formatCurrencyVN,
 } from './dto-descriptor.util';
 
@@ -136,6 +138,10 @@ export function summarizeDeletedTransaction(
     clean(dto.note),
   ])}`;
   return joinLines([first, formatShortDateTimeVN(dto.occurredAt, now)]);
+}
+
+export function summarizeEditedTransaction(code: string, dto: EditTransactionPayload): string {
+  return joinLines([`✏️ [${code}] Đã sửa ${clean(dto.note)}`, ...describeTransactionChanges(dto)]);
 }
 
 export function summarizeDebt(code: string, dto: CreateDebtDto, now: Date = new Date()): string {
