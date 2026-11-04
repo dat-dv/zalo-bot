@@ -59,10 +59,11 @@ export interface ToolSystemInstructionOptions {
 
 /** System prompt of the tool-calling pass. */
 export function buildToolSystemInstruction(options: ToolSystemInstructionOptions): string {
+  // Static text first, per-chat and per-call text (profile, clock, pending cards) last: providers
+  // reuse a cached prompt prefix (Gemini implicit caching, OpenAI prompt caching) only while the
+  // prefix is byte-identical between calls.
   return (
     `${BOT_IDENTITY_LINE}\n\n` +
-    (options.profile ? `${options.profile}\n\n` : '') +
-    `${options.dateTimeSnippet}\n\n` +
     `${INTENT_CLASSIFICATION_RULES}\n\n` +
     (options.longTermMemory ? `${CHAT_HISTORY_INTENT_RULE}\n\n` : '') +
     'CÁCH ĐIỀN THAM SỐ (sau khi đã chọn đúng loại theo bảng trên):\n' +
@@ -95,6 +96,8 @@ export function buildToolSystemInstruction(options: ToolSystemInstructionOptions
     '- Mọi giá trị tham số trong arguments PHẢI là giá trị phẳng (primitive: string, number, boolean). TUYỆT ĐỐI KHÔNG lồng tham số thành object (ví dụ đúng: {"amount": 15000, "category": "Ăn uống", "type": "expense", "note": "uống cà phê"}, KHÔNG ĐƯỢC: {"amount": {"amount": 15000}}).' +
     (options.allowAiChat ? `\n\n${CHIT_CHAT_INSTRUCTION}` : '') +
     `\n\n${ZALO_PLAIN_TEXT_INSTRUCTION}` +
+    (options.profile ? `\n\n${options.profile}` : '') +
+    `\n\n${options.dateTimeSnippet}` +
     options.amendableBlock
   );
 }

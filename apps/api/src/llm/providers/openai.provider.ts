@@ -102,7 +102,20 @@ export class OpenAiProvider implements ILlmProvider {
             }>;
           };
         }>;
+        usage?: {
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          prompt_tokens_details?: { cached_tokens?: number };
+        };
       };
+
+      // `cached` > 0 shows the static prompt prefix was served from the provider's prompt cache.
+      const usage = data.usage;
+      if (usage) {
+        this.logger.debug(
+          `OpenAI tokens: prompt=${usage.prompt_tokens ?? 0} cached=${usage.prompt_tokens_details?.cached_tokens ?? 0} output=${usage.completion_tokens ?? 0}`,
+        );
+      }
 
       const message = data.choices?.[0]?.message;
 

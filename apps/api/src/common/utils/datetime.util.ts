@@ -79,12 +79,17 @@ export function getVietnamDateTimeContext(
   const formattedDate = `${weekday}, ngày ${dayNum} tháng ${monthNum} năm ${year}`;
   const formattedDateTime = `${formattedDate}, ${time}`;
 
+  // The prompt clock stops at the minute: a prompt that changes every second can never reuse a
+  // provider's cached prefix, and the LLM has no use for seconds.
+  const timeToMinute = `${hour}:${minute}`;
+  const isoLocalToMinute = `${year}-${month}-${day}T${timeToMinute}${offsetStr}`;
+
   const systemInstructionSnippet =
     `[THỜI GIAN VÀ NGÀY THÁNG THỰC TẾ (Múi giờ ${timeZone}, GMT${offsetStr})]\n` +
     `- Hôm nay là: ${weekday}, ngày ${day}/${month}/${year}.\n` +
-    `- Thời gian hiện tại: ${formattedDateTime} (ISO chuẩn: ${isoLocal}).\n` +
+    `- Thời gian hiện tại: ${formattedDate}, ${timeToMinute} (ISO chuẩn: ${isoLocalToMinute}).\n` +
     `- Khi người dùng hỏi về hôm nay là thứ mấy, ngày mấy, tháng mấy, năm mấy hoặc hỏi giờ: LUÔN trả lời chính xác dựa theo thông tin trên (ví dụ: "Hôm nay là ${weekday}, ngày ${dayNum} tháng ${monthNum} năm ${year}"). TUYỆT ĐỐI KHÔNG tự tính nhầm sang thứ khác (đặc biệt không nhầm Thứ Hai thành Chủ Nhật).\n` +
-    `- Khi người dùng dùng các từ chỉ thời gian tương đối như "hôm nay", "ngày mai", "ngày kia", "hôm qua", "thứ 2", "thứ 3", "chủ nhật", "tuần này", "tuần sau"... để tạo lịch, nhắc việc, ghi nhận thu chi hay báo cáo: LUÔN căn cứ vào mốc hôm nay là ${weekday} (${isoLocal}) để tính ngày giờ ISO chính xác.`;
+    `- Khi người dùng dùng các từ chỉ thời gian tương đối như "hôm nay", "ngày mai", "ngày kia", "hôm qua", "thứ 2", "thứ 3", "chủ nhật", "tuần này", "tuần sau"... để tạo lịch, nhắc việc, ghi nhận thu chi hay báo cáo: LUÔN căn cứ vào mốc hôm nay là ${weekday} (${isoLocalToMinute}) để tính ngày giờ ISO chính xác.`;
 
   return {
     weekday,

@@ -459,6 +459,7 @@ void test('TransactionConfirmationService confirms reminder whose payload round-
   const redisStorage = new Map<string, string>();
   const redisService = {
     get: (key: string) => Promise.resolve(redisStorage.get(key) || null),
+    mget: (keys: string[]) => Promise.resolve(keys.map((key) => redisStorage.get(key) ?? null)),
     set: (key: string, val: string) => {
       redisStorage.set(key, val);
       return Promise.resolve('OK');
@@ -466,6 +467,13 @@ void test('TransactionConfirmationService confirms reminder whose payload round-
     del: (key: string) => {
       redisStorage.delete(key);
       return Promise.resolve(1);
+    },
+    pipeline: (ops: Array<{ op: string; key: string; value?: string }>) => {
+      for (const op of ops) {
+        if (op.op === 'set' && op.value !== undefined) redisStorage.set(op.key, op.value);
+        if (op.op === 'del') redisStorage.delete(op.key);
+      }
+      return Promise.resolve(true);
     },
   } as unknown as RedisService;
   const { service, sentMessages, createdReminders } = createTestContext(redisService);
@@ -1396,6 +1404,7 @@ void test('Multi-card confirmation flow cleans up all temporary cards and interi
   const mockRedisStorage = new Map<string, string>();
   const mockRedisService = {
     get: (key: string) => Promise.resolve(mockRedisStorage.get(key) || null),
+    mget: (keys: string[]) => Promise.resolve(keys.map((key) => mockRedisStorage.get(key) ?? null)),
     set: (key: string, val: string) => {
       mockRedisStorage.set(key, val);
       return Promise.resolve('OK');
@@ -1403,6 +1412,13 @@ void test('Multi-card confirmation flow cleans up all temporary cards and interi
     del: (key: string) => {
       mockRedisStorage.delete(key);
       return Promise.resolve(1);
+    },
+    pipeline: (ops: Array<{ op: string; key: string; value?: string }>) => {
+      for (const op of ops) {
+        if (op.op === 'set' && op.value !== undefined) mockRedisStorage.set(op.key, op.value);
+        if (op.op === 'del') mockRedisStorage.delete(op.key);
+      }
+      return Promise.resolve(true);
     },
   } as unknown as RedisService;
 

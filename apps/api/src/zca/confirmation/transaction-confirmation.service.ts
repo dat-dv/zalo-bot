@@ -30,7 +30,7 @@ import { CreateEventOptions } from '../../google/google-calendar.service';
 import { CalendarService } from '../../calendar/calendar.service';
 import { UsersService } from '../../users/users.service';
 import { GoogleAuthService } from '../../google/google-auth.service';
-import { RedisService } from '../../redis/redis.service';
+import { RedisService, type RedisPipelineOp } from '../../redis/redis.service';
 import { AuditContext, zaloAuditContext } from '../../audit/audit-context';
 import { ThreadConfigService } from '../thread-config.service';
 import { ChatMemoryService } from '../memory/chat-memory.service';
@@ -371,11 +371,13 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       if (raw) {
         try {
           const codes = JSON.parse(raw) as string[];
+          // One MGET for every code of the user instead of a GET per code.
+          const raws = await this.redisService.mget(codes.map((code) => `pending:tx:code:${code}`));
           const list: PendingAction[] = [];
-          for (const code of codes) {
-            const p = await this.getPendingByCode(code);
+          codes.forEach((code, index) => {
+            const p = this.parsePending(raws[index]) ?? this.pendingMap.get(code);
             if (p) list.push(p);
-          }
+          });
           if (list.length > 0) {
             return list;
           }
@@ -405,59 +407,57 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     );
   }
 
-  private async addUserPendingCode(userId: string, code: string): Promise<void> {
-    if (this.redisService) {
-      const key = `pending:tx:user-codes:${userId}`;
-      const raw = await this.redisService.get(key);
-      let codes: string[] = [];
-      if (raw) {
-        try {
-          codes = JSON.parse(raw) as string[];
-        } catch {
-          codes = [];
-        }
-      }
-      if (!codes.includes(code)) {
-        codes.push(code);
-      }
-      const ttl = Math.ceil(this.timeoutMs / 1000);
-      await this.redisService.set(key, JSON.stringify(codes), ttl);
+  private parsePending(raw: string | null | undefined): PendingAction | undefined {
+    if (!raw) return undefined;
+    try {
+      return JSON.parse(raw) as PendingAction;
+    } catch {
+      return undefined;
     }
   }
 
-  private async removeUserPendingCode(userId: string, code: string): Promise<void> {
-    if (this.redisService) {
-      const key = `pending:tx:user-codes:${userId}`;
-      const raw = await this.redisService.get(key);
-      if (raw) {
-        try {
-          let codes = JSON.parse(raw) as string[];
-          codes = codes.filter((c) => c !== code);
-          if (codes.length > 0) {
-            const ttl = Math.ceil(this.timeoutMs / 1000);
-            await this.redisService.set(key, JSON.stringify(codes), ttl);
-          } else {
-            await this.redisService.del(key);
-          }
-        } catch {
-          // ignore
-        }
+  /**
+   * The write that adds `code` to, or removes it from, the user's list of pending codes. The
+   * list is read here (one GET); the write joins the caller's pipeline.
+   */
+  private async userPendingCodesOp(
+    userId: string,
+    code: string,
+    change: 'add' | 'remove',
+  ): Promise<RedisPipelineOp> {
+    const key = `pending:tx:user-codes:${userId}`;
+    const raw = (await this.redisService?.get(key)) ?? null;
+    let codes: string[] = [];
+    if (raw) {
+      try {
+        codes = JSON.parse(raw) as string[];
+      } catch {
+        codes = [];
       }
     }
+    if (change === 'add') {
+      if (!codes.includes(code)) codes.push(code);
+    } else {
+      codes = codes.filter((c) => c !== code);
+    }
+    if (codes.length === 0) return { op: 'del', key };
+    const ttlSeconds = Math.ceil(this.timeoutMs / 1000);
+    return { op: 'set', key, value: JSON.stringify(codes), ttlSeconds };
   }
 
   private async deletePending(code: string, userId?: string): Promise<void> {
     const local = this.pendingMap.get(code);
     const targetUserId = userId || local?.userId;
     if (this.redisService) {
-      await this.redisService.del(`pending:tx:code:${code}`);
+      const ops: RedisPipelineOp[] = [{ op: 'del', key: `pending:tx:code:${code}` }];
       if (targetUserId) {
-        await this.redisService.del(`pending:tx:user:${targetUserId}`);
-        await this.removeUserPendingCode(targetUserId, code);
+        ops.push({ op: 'del', key: `pending:tx:user:${targetUserId}` });
+        ops.push(await this.userPendingCodesOp(targetUserId, code, 'remove'));
       }
       if (local?.messageId) {
-        await this.redisService.del(`pending:tx:msg:${local.messageId}`);
+        ops.push({ op: 'del', key: `pending:tx:msg:${local.messageId}` });
       }
+      await this.redisService.pipeline(ops);
     }
     if (local) {
       if (local.timer) {
@@ -548,12 +548,16 @@ export class TransactionConfirmationService implements OnModuleDestroy {
         requiredHearts: pending.requiredHearts,
         heartUsers: pending.heartUsers,
       });
-      await this.redisService.set(`pending:tx:code:${code}`, serialized, ttlSeconds);
-      await this.redisService.set(`pending:tx:user:${params.userId}`, code, ttlSeconds);
-      await this.addUserPendingCode(params.userId, code);
+      // The card's keys go in one round trip instead of one per key.
+      const ops: RedisPipelineOp[] = [
+        { op: 'set', key: `pending:tx:code:${code}`, value: serialized, ttlSeconds },
+        { op: 'set', key: `pending:tx:user:${params.userId}`, value: code, ttlSeconds },
+        await this.userPendingCodesOp(params.userId, code, 'add'),
+      ];
       if (params.messageId) {
-        await this.redisService.set(`pending:tx:msg:${params.messageId}`, code, ttlSeconds);
+        ops.push({ op: 'set', key: `pending:tx:msg:${params.messageId}`, value: code, ttlSeconds });
       }
+      await this.redisService.pipeline(ops);
     }
 
     // Thiết lập timer thông báo hết hạn sau 5 phút
@@ -608,8 +612,10 @@ export class TransactionConfirmationService implements OnModuleDestroy {
       this.pendingMap.set(code, pending);
       if (this.redisService) {
         const ttlSeconds = Math.ceil(this.timeoutMs / 1000);
-        await this.redisService.set(`pending:tx:code:${code}`, JSON.stringify(pending), ttlSeconds);
-        await this.redisService.set(`pending:tx:msg:${messageId}`, code, ttlSeconds);
+        await this.redisService.pipeline([
+          { op: 'set', key: `pending:tx:code:${code}`, value: JSON.stringify(pending), ttlSeconds },
+          { op: 'set', key: `pending:tx:msg:${messageId}`, value: code, ttlSeconds },
+        ]);
       }
       await this.addTempMessage(pending.chatId, messageId, cliMsgId, code);
     }

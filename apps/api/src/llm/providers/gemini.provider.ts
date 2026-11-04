@@ -80,7 +80,20 @@ export class GeminiProvider implements ILlmProvider {
             }>;
           };
         }>;
+        usageMetadata?: {
+          promptTokenCount?: number;
+          cachedContentTokenCount?: number;
+          candidatesTokenCount?: number;
+        };
       };
+
+      // `cached` > 0 shows the static prompt prefix was served from Gemini's implicit cache.
+      const usage = data.usageMetadata;
+      if (usage) {
+        this.logger.debug(
+          `Gemini tokens: prompt=${usage.promptTokenCount ?? 0} cached=${usage.cachedContentTokenCount ?? 0} output=${usage.candidatesTokenCount ?? 0}`,
+        );
+      }
 
       const parts = data.candidates?.[0]?.content?.parts || [];
 

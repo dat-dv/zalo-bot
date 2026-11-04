@@ -12,11 +12,15 @@ import {
 import { ThreadConfigService } from '../../thread-config.service';
 import { TextToolFactory } from '../../text/text-tool.factory';
 import { TextToolType } from '../../text/text-tool.enum';
-import { ZALO_TOOL_DEFINITIONS } from '../../text/text-tool.definitions';
+import { selectToolDefinitions } from '../../text/text-tool.definitions';
 import { ZALO_PLAIN_TEXT_INSTRUCTION } from '../../text/zalo-plain-text.util';
 import { fetchImageBuffer } from '../../../common/utils/image-fetcher.util';
 import { getVietnamDateTimeContext } from '../../../common/utils/datetime.util';
 import { PendingImageContext, PendingImageStrategy } from '../pending-image.interface';
+
+// The bill pass only ever records a transaction, so the LLM gets that one tool, not the whole
+// catalog: far fewer prompt tokens per bill and no wrong-tool answers to discard.
+const BILL_TOOL_DEFINITIONS = selectToolDefinitions([TextToolType.RECORD_TRANSACTION]);
 
 @Injectable()
 export class CreateBillPendingImageStrategy implements PendingImageStrategy {
@@ -144,7 +148,7 @@ export class CreateBillPendingImageStrategy implements PendingImageStrategy {
 
     try {
       const runner = () =>
-        this.llmService.generate(prompt, ZALO_TOOL_DEFINITIONS, systemInstruction);
+        this.llmService.generate(prompt, BILL_TOOL_DEFINITIONS, systemInstruction);
       const response = this.zcaMessenger
         ? await this.zcaMessenger.withTyping(context.chatId, runner)
         : await runner();

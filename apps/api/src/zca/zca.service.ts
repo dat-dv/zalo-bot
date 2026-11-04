@@ -117,6 +117,9 @@ function formatErrorMessage(err: unknown): string {
   return JSON.stringify(err);
 }
 
+/** Upper bound of the in-memory msgId → cliMsgId map (see `rememberCliMsgId`). */
+const MAX_TRACKED_MSG_IDS = 5000;
+
 function safeStringify(value: unknown): string {
   try {
     return JSON.stringify(value, null, 2);
@@ -620,9 +623,24 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
     if (!msgId || !cliMsgId) return;
     const strMsgId = String(msgId);
     const strCliMsgId = String(cliMsgId);
-    this.msgIdToCliMsgId.set(strMsgId, strCliMsgId);
+    this.rememberCliMsgId(strMsgId, strCliMsgId);
     if (this.redisService) {
       void this.redisService.set(`zca:msg:cli:${strMsgId}`, strCliMsgId, 86400);
+    }
+  }
+
+  /**
+   * The in-memory map only shortcuts lookups of recent ids; Redis (24h) is the durable copy. It is
+   * fed by every incoming message, so it is capped and drops its oldest entry once full.
+   */
+  private rememberCliMsgId(msgId: string, cliMsgId: string): void {
+    this.msgIdToCliMsgId.delete(msgId);
+    this.msgIdToCliMsgId.set(msgId, cliMsgId);
+    if (this.msgIdToCliMsgId.size > MAX_TRACKED_MSG_IDS) {
+      for (const oldest of this.msgIdToCliMsgId.keys()) {
+        this.msgIdToCliMsgId.delete(oldest);
+        break;
+      }
     }
   }
 
@@ -635,7 +653,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       try {
         const fromRedis = await this.redisService.get(`zca:msg:cli:${strMsgId}`);
         if (fromRedis) {
-          this.msgIdToCliMsgId.set(strMsgId, fromRedis);
+          this.rememberCliMsgId(strMsgId, fromRedis);
           return fromRedis;
         }
       } catch {
@@ -1638,22 +1656,18 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       const senderName = message?.data?.dName || 'Unknown';
       const senderId = message?.data?.uidFrom || 'Unknown';
       const msgType = message?.data?.msgType || 'chat';
-      const content =
-        typeof message?.data?.content === 'string'
-          ? message.data.content
-          : safeStringify(message?.data?.content ?? '');
 
+      // Message text is private chat content and is logged at debug level only (with the payload
+      // below); the info line keeps just who wrote where.
       this.logger.log(
         `📩 [ZCA on('message')] Nhận tin nhắn mới:\n` +
           `  • Thread ID: ${threadId} (${typeLabel})\n` +
           `  • Người gửi: ${senderName} (UID: ${senderId})\n` +
           `  • Loại tin nhắn: ${msgType}\n` +
-          `  • Nội dung: ${content}\n` +
           `  • Gửi bởi bot (isSelf): ${Boolean(message?.isSelf)}\n` +
           `  • Listened: ${isListened ? 'Có' : 'Không (Bỏ qua do không nằm trong danh sách lắng nghe)'}`,
       );
 
-      // Full payloads hold private chat content: only at debug level.
       this.logger.debug(`📦 [ZCA on('message') RAW PAYLOAD]:\n${safeStringify(message)}`);
 
       if (!isListened) {

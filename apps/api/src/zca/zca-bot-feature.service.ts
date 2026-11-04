@@ -26,7 +26,7 @@ import {
   isMentioned,
   isGroupMessage,
 } from './shapes';
-import { fetchImageBuffer } from '../common/utils/image-fetcher.util';
+import { fetchImageBuffer, memoizeMediaFetch } from '../common/utils/image-fetcher.util';
 import type { AgentInput } from '../types/agent-input.type';
 import {
   findTriggerPrefix,
@@ -229,6 +229,8 @@ export function stripBotMentions(
 
 const OCR_CONTEXT_MAX_CHARS = 2000;
 const DEFAULT_IMAGE_INSTRUCTION = 'Ghi nhận hóa đơn này';
+/** Message types whose own media may be backed up, read or uploaded (see `ownMediaFetch`). */
+const OWN_MEDIA_MSG_TYPES = new Set(['chat.photo', 'chat.video.msg', 'sharefile', 'chat.voice']);
 
 /** Builds a neutral LLM prompt: the image may be a bill, a menu, a poster or a schedule. */
 export function buildImageOcrPrompt(ocrText: string, instruction: string): string {
@@ -477,15 +479,15 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     }
 
     if (this.redisService?.isReady) {
-      try {
-        const key = `zca:buffered_msgs:${threadId}`;
-        await this.redisService.rpush(key, JSON.stringify(simplified));
-        await this.redisService.ltrim(key, -200, -1);
-        await this.redisService.expire(key, 7 * 24 * 3600);
-      } catch (err) {
-        this.logger.debug(
-          `Could not buffer message in Redis for thread ${threadId}: ${String(err)}`,
-        );
+      const key = `zca:buffered_msgs:${threadId}`;
+      // One round trip for the three commands; `pipeline` never throws.
+      const buffered = await this.redisService.pipeline([
+        { op: 'rpush', key, values: [JSON.stringify(simplified)] },
+        { op: 'ltrim', key, start: -200, stop: -1 },
+        { op: 'expire', key, seconds: 7 * 24 * 3600 },
+      ]);
+      if (!buffered) {
+        this.logger.debug(`Could not buffer message in Redis for thread ${threadId}`);
       }
     }
   }
@@ -698,44 +700,22 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     source: 'quoted' | 'direct';
     /** The photo's own message id, when it is the message being answered. */
     messageId?: string;
+    /** The photo's bytes when another step of this message already downloads them. */
+    fetchImage?: () => Promise<Buffer>;
   }): Promise<{ promptText: string; receiptUrl: string }> {
-    const { mediaUrl, senderId, threadId, cleanedText, source, messageId } = params;
+    const { mediaUrl, senderId, threadId, cleanedText, source, messageId, fetchImage } = params;
     let receiptUrl = mediaUrl;
     let ocrText = '';
 
     try {
-      const buffer = await fetchImageBuffer(mediaUrl);
-      // A photo the chat memory is reading is read once, for both the memory and this reply.
-      const readForMemory =
-        source === 'direct'
-          ? await this.imageTextMemoryService?.recognizeNow(threadId, messageId, buffer)
-          : null;
-      if (typeof readForMemory === 'string') {
-        ocrText = readForMemory;
-      } else if (this.ocrService) {
-        ocrText = await this.ocrService.extractTextFromBuffer(buffer);
-      } else {
-        this.logger.warn(
-          `[ZcaBotFeature] OcrService unavailable; ${source} image sent without OCR context.`,
-        );
-      }
-      if (this.mediaStorageService) {
-        try {
-          const uploadRes = await this.mediaStorageService.uploadBill(
-            senderId,
-            buffer,
-            await this.threadConfigService.getStorageTarget(threadId),
-            { note: cleanedText },
-          );
-          if (uploadRes.drive?.webViewLink) {
-            receiptUrl = uploadRes.drive.webViewLink;
-          }
-        } catch (upErr) {
-          this.logger.warn(
-            `[ZcaBotFeature] Failed to upload ${source} image: ${formatErrorMessage(upErr)}`,
-          );
-        }
-      }
+      const buffer = await (fetchImage ? fetchImage() : fetchImageBuffer(mediaUrl));
+      // Reading the text and archiving the bill only share the bytes: they run side by side.
+      const [text, archivedLink] = await Promise.all([
+        this.readImageText(buffer, { threadId, messageId, source }),
+        this.archiveBill(buffer, { senderId, threadId, cleanedText, source }),
+      ]);
+      ocrText = text;
+      if (archivedLink) receiptUrl = archivedLink;
     } catch (err) {
       this.logger.warn(
         `[ZcaBotFeature] Failed to fetch/OCR ${source} image: ${formatErrorMessage(err)}`,
@@ -752,6 +732,52 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     return { promptText: buildImageOcrPrompt(ocrText, cleanedText), receiptUrl };
   }
 
+  /** The text of a photo; a photo the chat memory is reading is read once, for both. */
+  private async readImageText(
+    buffer: Buffer,
+    context: { threadId: string; messageId?: string; source: 'quoted' | 'direct' },
+  ): Promise<string> {
+    const { threadId, messageId, source } = context;
+    const readForMemory =
+      source === 'direct'
+        ? await this.imageTextMemoryService?.recognizeNow(threadId, messageId, buffer)
+        : null;
+    if (typeof readForMemory === 'string') return readForMemory;
+    if (this.ocrService) return this.ocrService.extractTextFromBuffer(buffer);
+    this.logger.warn(
+      `[ZcaBotFeature] OcrService unavailable; ${source} image sent without OCR context.`,
+    );
+    return '';
+  }
+
+  /** Archives the photo as a bill so its link survives Zalo CDN expiry; `null` when not stored. */
+  private async archiveBill(
+    buffer: Buffer,
+    context: {
+      senderId: string;
+      threadId: string;
+      cleanedText: string;
+      source: 'quoted' | 'direct';
+    },
+  ): Promise<string | null> {
+    if (!this.mediaStorageService) return null;
+    const { senderId, threadId, cleanedText, source } = context;
+    try {
+      const uploadRes = await this.mediaStorageService.uploadBill(
+        senderId,
+        buffer,
+        await this.threadConfigService.getStorageTarget(threadId),
+        { note: cleanedText },
+      );
+      return uploadRes.drive?.webViewLink || null;
+    } catch (upErr) {
+      this.logger.warn(
+        `[ZcaBotFeature] Failed to upload ${source} image: ${formatErrorMessage(upErr)}`,
+      );
+      return null;
+    }
+  }
+
   private async handleDirectMediaStorageUpload(params: {
     mediaUrl: string;
     senderId: string;
@@ -761,6 +787,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     messageType: ThreadType;
     api: API;
     isVideo?: boolean;
+    /** The media's bytes when another step of this message already downloads them. */
+    fetchImage?: () => Promise<Buffer>;
   }): Promise<void> {
     const { mediaUrl, senderId, threadId, cleanedText, config, messageType, api, isVideo } = params;
 
@@ -782,7 +810,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         messageType,
       );
 
-      const buffer = await fetchImageBuffer(mediaUrl);
+      const buffer = await (params.fetchImage ? params.fetchImage() : fetchImageBuffer(mediaUrl));
       const target = getThreadStorageTarget(config);
       const photosAlbumTitle = target.photosAlbumTitle;
       const uploadOptions = {
@@ -825,6 +853,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     config: ThreadBotConfig,
     channelType: 'user' | 'group',
     afterStored?: Promise<unknown>,
+    fetchImage?: () => Promise<Buffer>,
   ): void {
     const memory = config.chatMemory;
     if (!this.imageTextMemoryService || message.data?.msgType !== 'chat.photo') return;
@@ -836,8 +865,20 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       channelType,
       data: message.data,
       imageUrl: url,
+      fetchImage,
       afterStored,
     });
+  }
+
+  /**
+   * One download for the message's own photo, video or file, shared by the photo memory, the
+   * backup, the OCR context and an upload on request. Nothing is fetched until a step needs it.
+   */
+  private ownMediaFetch(message: Message): (() => Promise<Buffer>) | undefined {
+    const msgType = message.data?.msgType || '';
+    if (!OWN_MEDIA_MSG_TYPES.has(msgType)) return undefined;
+    const { url } = extractMediaMeta(message.data?.content);
+    return url ? memoizeMediaFetch(url) : undefined;
   }
 
   private resolveBotName(): string {
@@ -933,7 +974,8 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
         : undefined;
     // Today's new messages go to Cognee once the chat is quiet for a few minutes.
     if (memory.longTermMemory && !isBotEcho) this.memorySegmentScheduler?.noteMessage(threadId);
-    this.rememberImageText(message, config, channelType, stored);
+    const fetchOwnMedia = this.ownMediaFetch(message);
+    this.rememberImageText(message, config, channelType, stored, fetchOwnMedia);
 
     const directConfig: ThreadDirectInteractionConfig = config.directInteraction ?? {
       enabled: true,
@@ -1063,7 +1105,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
             const target = getThreadStorageTarget(config);
             const photosAlbumTitle = target.photosAlbumTitle;
 
-            const buffer = await fetchImageBuffer(mediaUrl);
+            const buffer = await (fetchOwnMedia ? fetchOwnMedia() : fetchImageBuffer(mediaUrl));
             const uploadOptions = {
               msgId: msgId || undefined,
               filename: originalFilename,
@@ -1251,6 +1293,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
             messageType: message.type,
             api,
             isVideo: false,
+            fetchImage: fetchOwnMedia,
           });
           return;
         }
@@ -1263,6 +1306,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
           cleanedText,
           source: 'direct',
           messageId,
+          fetchImage: fetchOwnMedia,
         });
 
         if (this.textInputService) {

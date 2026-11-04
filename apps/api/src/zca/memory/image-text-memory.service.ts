@@ -23,6 +23,8 @@ export interface ImageTextJob {
   /** The photo message as received: id, sender, caption. */
   data: MemorySourceMessage;
   imageUrl: string;
+  /** The photo's bytes, shared with the other steps of the same message (see `memoizeMediaFetch`). */
+  fetchImage?: () => Promise<Buffer>;
   /** Settles once the photo's row is written, so the update finds it. */
   afterStored?: Promise<unknown>;
 }
@@ -124,7 +126,9 @@ export class ImageTextMemoryService {
   private async read(item: QueuedImage, buffer?: Buffer): Promise<OcrResult | null> {
     let result: OcrResult;
     try {
-      const image = buffer ?? (await fetchImageBuffer(item.job.imageUrl));
+      const image =
+        buffer ??
+        (await (item.job.fetchImage ? item.job.fetchImage() : fetchImageBuffer(item.job.imageUrl)));
       result = await this.ocr.recognize(image);
     } catch (err: unknown) {
       this.logger.warn(

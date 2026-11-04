@@ -189,8 +189,11 @@ export class TextInputService {
       process.env.DEFAULT_TIMEZONE ||
       'Asia/Ho_Chi_Minh';
     const dtContext = getVietnamDateTimeContext(new Date(), timeZone);
-    const profile = await this.buildProfileBlock(chatId, input);
-    const amendable = await this.amendablePending(senderId, chatId);
+    // Independent lookups (DB notes/facts, Redis pending cards): one round trip, not two.
+    const [profile, amendable] = await Promise.all([
+      this.buildProfileBlock(chatId, input),
+      this.amendablePending(senderId, chatId),
+    ]);
     const systemInstruction = buildToolSystemInstruction({
       profile,
       dateTimeSnippet: dtContext.systemInstructionSnippet,
@@ -576,13 +579,15 @@ export class TextInputService {
     dateTimeSnippet: string,
     profile = '',
   ): Promise<string | undefined> {
+    // Static text first, chat-specific text last, so the prompt prefix stays cacheable
+    // (see `buildToolSystemInstruction`).
     const systemInstruction =
       `${BOT_IDENTITY_LINE}\n\n` +
-      (profile ? `${profile}\n\n` : '') +
-      `${dateTimeSnippet}\n\n` +
       'Hãy trả lời tin nhắn của người dùng một cách tự nhiên, thân thiện, ngắn gọn bằng tiếng Việt.\n\n' +
       `${CHIT_CHAT_INSTRUCTION}\n\n` +
-      ZALO_PLAIN_TEXT_INSTRUCTION;
+      `${ZALO_PLAIN_TEXT_INSTRUCTION}` +
+      (profile ? `\n\n${profile}` : '') +
+      `\n\n${dateTimeSnippet}`;
     try {
       const response = await this.llmService.generate(text, undefined, systemInstruction);
       const reply = response.text?.trim();

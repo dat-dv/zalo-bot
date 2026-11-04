@@ -2,6 +2,14 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
+/** One write of a `pipeline()` call; the same semantics as the single-command methods. */
+export type RedisPipelineOp =
+  | { op: 'set'; key: string; value: string; ttlSeconds?: number }
+  | { op: 'del'; key: string }
+  | { op: 'rpush'; key: string; values: string[] }
+  | { op: 'ltrim'; key: string; start: number; stop: number }
+  | { op: 'expire'; key: string; seconds: number };
+
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
@@ -92,6 +100,19 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /** Reads several keys in one round trip; a missing key, or Redis being down, reads as `null`. */
+  public async mget(keys: string[]): Promise<Array<string | null>> {
+    if (keys.length === 0) return [];
+    const unavailable = new Array<string | null>(keys.length).fill(null);
+    if (!this.client || !this.isConnected) return unavailable;
+    try {
+      return await this.client.mget(...keys);
+    } catch (err) {
+      this.logger.warn(`Redis MGET failed for ${keys.length} keys: ${(err as Error).message}`);
+      return unavailable;
+    }
+  }
+
   public async set(key: string, value: string, ttlSeconds?: number): Promise<boolean> {
     if (!this.client || !this.isConnected) return false;
     try {
@@ -103,6 +124,53 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       return true;
     } catch (err) {
       this.logger.warn(`Redis SET failed for key "${key}": ${(err as Error).message}`);
+      return false;
+    }
+  }
+
+  /**
+   * Sends several writes in one round trip (an ioredis pipeline, not a transaction). `false` when
+   * Redis is unavailable or any command failed, so callers can fall back like they do for `set`.
+   */
+  public async pipeline(ops: RedisPipelineOp[]): Promise<boolean> {
+    if (ops.length === 0) return true;
+    if (!this.client || !this.isConnected) return false;
+    const batch = this.client.pipeline();
+    for (const item of ops) {
+      switch (item.op) {
+        case 'set':
+          if (item.ttlSeconds && item.ttlSeconds > 0) {
+            batch.set(item.key, item.value, 'EX', item.ttlSeconds);
+          } else {
+            batch.set(item.key, item.value);
+          }
+          break;
+        case 'del':
+          batch.del(item.key);
+          break;
+        case 'rpush':
+          if (item.values.length > 0) batch.rpush(item.key, ...item.values);
+          break;
+        case 'ltrim':
+          batch.ltrim(item.key, item.start, item.stop);
+          break;
+        case 'expire':
+          batch.expire(item.key, item.seconds);
+          break;
+      }
+    }
+    try {
+      const results = await batch.exec();
+      const failure = results?.find(([err]) => err !== null && err !== undefined);
+      if (failure?.[0]) {
+        this.logger.warn(`Redis pipeline of ${ops.length} commands failed: ${failure[0].message}`);
+        return false;
+      }
+      return true;
+    } catch (err) {
+      this.logger.warn(
+        `Redis pipeline of ${ops.length} commands failed: ${(err as Error).message}`,
+      );
       return false;
     }
   }
