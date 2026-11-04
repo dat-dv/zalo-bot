@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   isIosUserAgent,
   isZaloInAppUserAgent,
+  pickVersionToInstall,
   shouldRegisterServiceWorker,
 } from './pwa-environment';
 
@@ -24,4 +25,17 @@ void test('shouldRegisterServiceWorker only in a secure production build', () =>
   assert.equal(shouldRegisterServiceWorker({ ...ok, isProduction: false }), false);
   assert.equal(shouldRegisterServiceWorker({ ...ok, isSecureContext: false }), false);
   assert.equal(shouldRegisterServiceWorker({ ...ok, hasServiceWorker: false }), false);
+});
+
+void test('pickVersionToInstall returns a deployed version that differs from the running one', () => {
+  assert.equal(pickVersionToInstall('1.0.1', { version: '1.0.2' }), '1.0.2');
+  // A rollback is a deploy too.
+  assert.equal(pickVersionToInstall('1.0.2', { version: '1.0.1' }), '1.0.1');
+});
+
+void test('pickVersionToInstall ignores the same version and malformed files', () => {
+  assert.equal(pickVersionToInstall('1.0.1', { version: '1.0.1' }), null);
+  for (const body of [null, undefined, '1.0.2', 2, {}, { version: 2 }, { version: '' }]) {
+    assert.equal(pickVersionToInstall('1.0.1', body), null);
+  }
 });

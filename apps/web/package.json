@@ -1,10 +1,11 @@
 {
   "name": "@zalobot/web",
-  "version": "1.0.217",
+  "version": "1.0.218",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "next dev --port ${FE_PORT:-5173}",
+    "prebuild": "node scripts/write-version.mjs",
     "build": "next build",
     "lint": "eslint .",
     "lint:check": "eslint .",

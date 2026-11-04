@@ -4,6 +4,7 @@
 **/dist
 **/.next
 **/out
+apps/web/public/version.json
 **/*.tsbuildinfo
 **/node_modules
 

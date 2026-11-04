@@ -58,7 +58,10 @@ Push notification **không** làm, vì lời nhắc đã gửi qua Zalo.
    - App luôn đọc lại service worker đang chờ khi bấm, vì bản đã lưu có thể bị một deploy mới hơn thay mất. Khi điều đó xảy ra, thông báo cũng tự chuyển sang bản mới hơn.
    - Nếu người dùng không bấm, bản mới **tự áp dụng ở lần chuyển trang kế tiếp** (đổi pathname trong app). Đằng nào trang cũng đổi, nên tải lại lúc đó không làm mất gì: các form chỉ nằm trong một trang. Trang tải lại giữ đúng URL mới. Đường này không có tải lại dự phòng 3 giây, để không tải lại khi người dùng đã bắt đầu nhập ở trang mới.
    - Trên màn hẹp, thông báo là một hàng cao 40px nằm ngay dưới topbar, trong luồng trang (`PwaUpdateBar`). Nó đẩy nội dung xuống chứ không đè lên thanh chọn kỳ hay các tab nữa. Vuốt bắt đầu trên hàng này không kích hoạt pull-to-refresh, để cú chạm hơi rê vẫn tính là bấm nút.
-4. Khi app quay lại foreground, nó tự kiểm tra bản mới, vì app đã cài thường để mở nhiều ngày.
+4. Khi app quay lại foreground, nó đọc `/version.json` để kiểm tra bản mới, vì app đã cài thường để mở nhiều ngày. Version khác bản đang chạy thì app đăng ký `/sw.js?v=<version mới>`, service worker mới được cài và thẻ "Đã có phiên bản mới" hiện ra mà không cần tải lại trang.
+   - Không dùng `registration.update()`: lệnh đó tải lại đúng URL `?v=` cũ của trang, mà `sw.js` hiếm khi đổi giữa các bản nên nó không thấy gì.
+   - `/version.json` do script `prebuild` (`apps/web/scripts/write-version.mjs`) sinh ra lúc build, không commit vào git. Nginx đặt `no-cache` riêng cho file này.
+   - Lỗi mạng hoặc offline thì bỏ qua, lần quay lại sau kiểm tra tiếp. Tab desktop để hiển thị liên tục không được kiểm tra.
 
 Vì HTML luôn lấy từ mạng trước và nginx đặt `no-cache`, chỉ cần reload là người dùng có bản mới, kể cả khi chưa bấm "Tải lại".
 

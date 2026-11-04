@@ -19,3 +19,14 @@ export function shouldRegisterServiceWorker(env: {
   // Dev runs `next dev` with HMR; a worker there would serve stale chunks.
   return env.isProduction && env.isSecureContext && env.hasServiceWorker;
 }
+
+/**
+ * Reads /version.json and returns the version to install, or null when there is nothing to do:
+ * same version as the running page, or a body that is not the expected shape.
+ */
+export function pickVersionToInstall(currentVersion: string, body: unknown): string | null {
+  if (typeof body !== 'object' || body === null || !('version' in body)) return null;
+  const { version } = body;
+  if (typeof version !== 'string' || version === '') return null;
+  return version === currentVersion ? null : version;
+}

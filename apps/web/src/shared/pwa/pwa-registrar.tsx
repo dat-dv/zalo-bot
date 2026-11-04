@@ -1,11 +1,28 @@
 'use client';
 
 import { useEffect } from 'react';
-import { shouldRegisterServiceWorker } from './pwa-environment';
+import { pickVersionToInstall, shouldRegisterServiceWorker } from './pwa-environment';
 import { isBeforeInstallPromptEvent, usePwaStore } from './pwa-store';
 import { pwaUpdater } from './pwa-update';
 
-const SERVICE_WORKER_URL = `/sw.js?v=${encodeURIComponent(process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev')}`;
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev';
+const VERSION_FILE_URL = '/version.json';
+
+function serviceWorkerUrl(version: string): string {
+  return `/sw.js?v=${encodeURIComponent(version)}`;
+}
+
+/**
+ * `registration.update()` cannot see a deploy: it refetches this page's old `?v=` URL and sw.js
+ * rarely changes. Registering the deployed version's URL installs a worker and raises the notice.
+ */
+async function checkForNewDeploy() {
+  // `no-store` skips the browser cache, the query keeps Cloudflare from answering with a copy.
+  const response = await fetch(`${VERSION_FILE_URL}?t=${Date.now()}`, { cache: 'no-store' });
+  if (!response.ok) return;
+  const version = pickVersionToInstall(APP_VERSION, await response.json());
+  if (version) await navigator.serviceWorker.register(serviceWorkerUrl(version), { scope: '/' });
+}
 
 function isStandaloneDisplay(): boolean {
   const iosStandalone = 'standalone' in navigator && navigator.standalone === true;
@@ -57,7 +74,6 @@ export function PwaRegistrar() {
       isSecureContext: window.isSecureContext,
       hasServiceWorker: 'serviceWorker' in navigator,
     });
-    let registration: ServiceWorkerRegistration | undefined;
     const handleControllerChange = () => {
       // Only reload for an update, not when the very first install claims the page.
       const { updating, waitingWorker } = usePwaStore.getState();
@@ -65,14 +81,13 @@ export function PwaRegistrar() {
     };
     const handleVisibility = () => {
       // Installed apps stay open for days; look for a new deploy whenever they come back.
-      if (document.visibilityState === 'visible') void registration?.update().catch(() => {});
+      if (document.visibilityState === 'visible') void checkForNewDeploy().catch(() => {});
     };
 
     if (canRegister) {
       navigator.serviceWorker
-        .register(SERVICE_WORKER_URL, { scope: '/' })
+        .register(serviceWorkerUrl(APP_VERSION), { scope: '/' })
         .then((registered) => {
-          registration = registered;
           if (registered.waiting && navigator.serviceWorker.controller) {
             holdWaitingWorker(registered, registered.waiting);
           }

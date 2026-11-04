@@ -14,6 +14,7 @@ metadata:
       - apps/web/public/sw.js
       - apps/web/public/offline.html
       - apps/web/next.config.ts
+      - apps/web/scripts/write-version.mjs
       - apps/web/nginx.conf
       - apps/web/src/shared/pwa
       - apps/web/src/shared/ui/pwa-status-stack.tsx
@@ -45,6 +46,7 @@ The dashboard can be installed on the phone home screen and opened full screen l
 ## Service worker (`public/sw.js`)
 
 - Hand-written plain JS, no build step or library. Registered as `/sw.js?v=<NEXT_PUBLIC_APP_VERSION>`; `NEXT_PUBLIC_APP_VERSION` is `apps/web/package.json` `version`, injected by `next.config.ts` (`env`), bumped on every commit. A new version installs a new worker; caches are named `zalobot-{shell|pages|assets}-<version>` and old `zalobot-*` caches are deleted on `activate`.
+- `/version.json` (`{ "version": "..." }`) is written to `public/` by the `prebuild` script `apps/web/scripts/write-version.mjs` (gitignored, same source as `NEXT_PUBLIC_APP_VERSION`) and exported with the site. Pages left open read it to notice a deploy.
 - Install precaches `/offline.html`, the manifest and icons.
 - Not intercepted (always network): non-GET, other origins, `/api/`, `/oauth2callback`. Finance data is never cached; the sign-in link and OAuth redirects reach the server untouched.
 - Navigations: network first; a successful response is stored per URL; offline falls back to that URL's copy (also ignoring the query string), then `/offline.html`.
@@ -54,13 +56,13 @@ The dashboard can be installed on the phone home screen and opened full screen l
 
 ## Client side (`src/shared/pwa`)
 
-- `pwa-environment.ts` (pure, with spec): `isIosUserAgent` (iPadOS desktop UA counts when touch points > 1), `isZaloInAppUserAgent`, `shouldRegisterServiceWorker` (production build + secure context + `serviceWorker` support; never in `next dev`).
+- `pwa-environment.ts` (pure, with spec): `isIosUserAgent` (iPadOS desktop UA counts when touch points > 1), `isZaloInAppUserAgent`, `shouldRegisterServiceWorker` (production build + secure context + `serviceWorker` support; never in `next dev`), `pickVersionToInstall` (deployed version when it differs from the running one, including rollbacks; null for malformed bodies).
 - `pwa-store.ts` (Zustand): `waitingWorker`, `updating` (user pressed Reload; locks the button), `installPrompt` (`BeforeInstallPromptEvent`, checked by `isBeforeInstallPromptEvent`), `installed`.
 - `pwa-update.ts` (`createPwaUpdater`, pure with spec; `pwaUpdater` is the browser instance). `apply({ fallback })` reads `registration.waiting` fresh instead of trusting the store. `fallback: true` (Reload button): posts `SKIP_WAITING`, then reloads anyway after `UPDATE_RELOAD_FALLBACK_MS` (3s); reloads at once if no worker waits or the message fails; runs once. `fallback: false` (auto-apply on navigation): posts only, never reloads by itself, so typed input on the new page is safe. `reloadOnce` is shared with `controllerchange`.
 - `pwa-registrar.tsx` (`PwaRegistrar`, mounted once in `AppProviders`, renders nothing):
   - Marks `installed` when running standalone; captures `beforeinstallprompt` (prevents Chrome's mini-infobar) and `appinstalled`.
   - Registers the worker; a worker that reaches `installed` while the page is controlled becomes `waitingWorker`. When that worker goes `redundant` (a newer deploy replaced it) the store moves to `registration.waiting`, or `null` if there is none.
-  - Calls `registration.update()` whenever the page becomes visible again (installed apps stay open for days).
+  - Whenever the page becomes visible again (installed apps stay open for days) reads `/version.json` (`cache: 'no-store'` plus a `?t=` query); if `pickVersionToInstall` finds another version it registers `/sw.js?v=<deployed>`, and the normal install path raises the update notice. Failures are ignored until the next check. `registration.update()` is deliberately not used: it refetches the page's old `?v=` URL and sw.js rarely changes between deploys, so it finds nothing. A tab that stays visible is not checked.
   - On `controllerchange` calls `pwaUpdater.reloadOnce`, only if `waitingWorker` or `updating` is set (first install does not reload).
 - `use-online-status.ts`: `useSyncExternalStore` on `online`/`offline`; server snapshot `true`.
 - `shared/ui/pwa-status-stack.tsx` (`PwaStatusStack`, inside `LocaleProvider`): fixed top-center stack below the safe area, `z-[70]`. Desktop `top-3`; phone (<= 960px) just under the workspace header (`4.5rem` + safe area) so the menu button stays reachable. Offline pill (`pwa.offline.banner`) and an update card (`pwa.update.title` + Reload button that calls `pwaUpdater.apply({ fallback: true })` and shows `pwa.update.reloading`, disabled, while `updating` + ✕ `common.close` that hides the card for that waiting worker until the next load, since it covers the top of the page). Top, not bottom, because the phone shell stacks the tab bar and action bars at the bottom. On compact screens (<= 960px) the update card is hidden here; `PwaUpdateBar` (same file, mounted in the private layout right after `WorkspaceHeader`) shows it as a 40px row in the page flow so it pushes content down instead of covering the period toolbar/tabs (own ✕ state). The row carries `data-no-pull-refresh`: `PullToRefresh` ignores touches starting there, so a tap that wanders slightly stays a tap. Do not replace this with a pull threshold: on iOS an uncancelled first `touchmove` starts native scrolling and later moves cannot be cancelled.
@@ -77,7 +79,7 @@ The dashboard can be installed on the phone home screen and opened full screen l
 ## nginx (`apps/web/nginx.conf`)
 
 - `location /` (HTML): `Cache-Control: no-cache`.
-- `location = /sw.js` and `location = /manifest.webmanifest` (`application/manifest+json`): `no-cache`. Exact matches win over the asset regex; a cached worker could never update.
+- `location = /sw.js`, `location = /version.json` and `location = /manifest.webmanifest` (`application/manifest+json`): `no-cache`. Exact matches win over the asset regex; a cached worker could never update.
 - `location ^~ /_next/static/`: `public, max-age=31536000, immutable` (content-hashed build output; `^~` keeps the regex below from matching first).
 - Other assets by extension (`css|js|json|svg|png|jpg|jpeg|gif|ico|webp`, i.e. `public/` files whose names never change: favicon, PWA icons, og-image): `public, max-age=86400`, so a replaced icon shows within a day.
 - Prod sits behind Cloudflare. Its Browser Cache TTL rewrites `/sw.js` to `max-age=14400` (seen 2026-10-22); browsers still revalidate the worker script on update checks, but a Cloudflare Cache Rule bypassing `/sw.js` (or "Respect existing headers") keeps the origin header. That is a Cloudflare dashboard setting, not repo config.
