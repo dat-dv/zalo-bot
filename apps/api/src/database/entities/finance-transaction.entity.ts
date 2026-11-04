@@ -66,7 +66,7 @@ export class FinanceTransactionEntity {
   createdByName?: string;
 
   @Column({ type: 'varchar', nullable: true })
-  source?: 'zalo' | 'dashboard';
+  source?: 'zalo' | 'dashboard' | 'system';
 
   @Column({ name: 'source_chat_id', type: 'varchar', nullable: true })
   sourceChatId?: string;

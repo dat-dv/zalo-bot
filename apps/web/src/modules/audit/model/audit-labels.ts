@@ -13,6 +13,8 @@ type Translate = (key: TranslationKey, values?: Record<string, string | number>)
 
 export const AUDIT_TABLE_LABEL_KEYS: Record<AuditTableName, TranslationKey> = {
   finance_transactions: 'audit.table.finance_transactions',
+  recurring_transactions: 'audit.table.recurring_transactions',
+  recurring_occurrences: 'audit.table.recurring_occurrences',
   debts: 'audit.table.debts',
   debt_payments: 'audit.table.debt_payments',
   debt_payment_allocations: 'audit.table.debt_payment_allocations',

@@ -14,6 +14,7 @@ import { CalendarEventEntity } from '../database/entities/calendar-event.entity'
 import { DashboardExchangeTokenEntity } from '../database/entities/dashboard-exchange-token.entity';
 import { DebtContactEntity } from '../database/entities/debt-contact.entity';
 import { FinanceTransactionEntity } from '../database/entities/finance-transaction.entity';
+import { RecurringTransactionEntity } from '../database/entities/recurring-transaction.entity';
 import { ReminderEntity } from '../database/entities/reminder.entity';
 import { TaskEntity } from '../database/entities/task.entity';
 import { UserTokenEntity } from '../database/entities/user-token.entity';
@@ -124,6 +125,11 @@ export class UserMergeService {
       );
       await manager.update(
         FinanceTransactionEntity,
+        { createdByUserId: sourceId },
+        { createdByUserId: targetId },
+      );
+      await manager.update(
+        RecurringTransactionEntity,
         { createdByUserId: sourceId },
         { createdByUserId: targetId },
       );

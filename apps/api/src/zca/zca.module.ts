@@ -34,6 +34,7 @@ import { ZcaMemoryIngestionEntity } from '../database/entities/zca-memory-ingest
 import { ZcaMemorySegmentEntity } from '../database/entities/zca-memory-segment.entity';
 import { ChannelStorageLinkModule } from './storage/channel-storage-link.module';
 import { FINANCE_DIGEST_QUEUE } from './digest/finance-digest.jobs';
+import { RECURRING_QUEUE, RecurringScanProcessor } from './recurring/recurring-scan.processor';
 import { FinanceDigestProcessor } from './digest/finance-digest.processor';
 import { FinanceDigestService } from './digest/finance-digest.service';
 
@@ -71,7 +72,11 @@ const COMMON_IMPORTS = [
     ZcaMemoryIngestionEntity,
     ZcaMemorySegmentEntity,
   ]),
-  BullModule.registerQueue({ name: CHAT_MEMORY_QUEUE }, { name: FINANCE_DIGEST_QUEUE }),
+  BullModule.registerQueue(
+    { name: CHAT_MEMORY_QUEUE },
+    { name: FINANCE_DIGEST_QUEUE },
+    { name: RECURRING_QUEUE },
+  ),
   AuditModule,
   forwardRef(() => ReceiptStorageModule),
   forwardRef(() => UsersModule),
@@ -113,6 +118,7 @@ const COMMON_PROVIDERS = [
   MemorySegmentScheduler,
   FinanceDigestService,
   FinanceDigestProcessor,
+  RecurringScanProcessor,
   WebhookApiKeyGuard,
   WebhookRateLimiter,
   WebhookIpLimiter,

@@ -203,3 +203,7 @@ Khi dữ liệu dashboard sai hoặc rỗng, kiểm tra payload `GET /api/dashbo
 ## Xuất CSV
 
 Nút Xuất CSV ở trang Thu chi gửi đúng bộ lọc đang xem lên API, nên file khớp với những gì người dùng thấy. Nút nằm trong hàng chip và cuộn cùng hàng chip trên điện thoại. Quy tắc chi tiết ở `global/finance-domain.md`.
+
+## Nguồn giao dịch
+
+Giao dịch do khoản cố định tự ghi có nguồn `system`, hiện là "Tự ghi" trong bảng Thu chi, để người xem biết không ai nhập tay khoản đó.

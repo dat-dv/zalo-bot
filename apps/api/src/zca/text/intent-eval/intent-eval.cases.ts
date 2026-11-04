@@ -80,6 +80,7 @@ export const INTENT_EVAL_CASES: readonly IntentEvalCase[] = [
   { text: 'cho Nam vay 200k', expect: TextToolType.MANAGE_DEBT },
   { text: 'hôm nay tiêu bao nhiêu', expect: TextToolType.GET_REPORT },
   { text: 'sửa khoản ăn trưa thành 50k', expect: TextToolType.EDIT_TRANSACTION },
+  { text: 'đã đóng tiền điện 1tr2', expect: TextToolType.CONFIRM_RECURRING },
   { text: 'khoản vừa rồi đổi sang danh mục đi lại', expect: TextToolType.EDIT_TRANSACTION },
   { text: 'tháng trước ăn uống hết bao nhiêu', expect: TextToolType.GET_REPORT },
   { text: 'tuần này tiêu ở aeon bao nhiêu', expect: TextToolType.GET_REPORT },

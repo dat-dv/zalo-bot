@@ -136,3 +136,7 @@
 ## CSV export
 
 `ExportCsvButton` on `/transactions` sends the current list query to `API_ROUTES.transactionsExport`. It sits in the chip row, so it scrolls with the chips on phones. Rules: [finance-domain](../../global/finance-domain.md).
+
+## Transaction source
+
+`source: 'system'` marks rows written by a fixed item (see [recurring](../recurring/README.md)); `describeTransactionSource` shows it as "Tự ghi".

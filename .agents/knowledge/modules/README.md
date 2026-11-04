@@ -17,6 +17,7 @@ Each module document covers:
 - [Calendar](calendar/README.md): Shared calendar stored in `calendar_events` with a Google Calendar copy; month/agenda UI, create/edit/delete, re-sync.
 - [Contacts](contacts/README.md): Debt-contact retrieval and presentation.
 - [Debts](debts/README.md): Active receivables and payables reporting.
+- [Recurring](recurring/README.md): Fixed income and expenses that repeat every period.
 - [Dashboard](dashboard/README.md): Personal reports, statistics, and operational data views.
 - [Expenses](expenses/README.md): Expense-only transaction history reporting.
 - [Reminders](reminders/README.md): Scheduled user reminders management and status updates.

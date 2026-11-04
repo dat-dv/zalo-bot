@@ -123,3 +123,7 @@ Các test chính:
 ## 7. Nút bấm
 
 - Màu nút lấy từ `BUTTON_TONE`; con trỏ, độ mờ khi khoá, viền focus và hiệu ứng chuyển màu do lớp nền lo. Nút phân trang ← → (`PAGE_BUTTON`) và nút "Xem" trong bảng dùng `secondary`; chân dialog chi tiết và sheet bộ lọc ghép `secondary` (Lịch sử bản ghi, Xoá tất cả) với nút đóng/xong `primary`; ✕ dùng `ghost`; nút mở bộ lọc dùng `chip`/`chipSelected`. Ngoại lệ: nút "Xem bản ghi" ở ô dữ liệu (ô giống ô ID, màu theo `AUDIT_ACTION_TONE`, focus dùng viền chung) và chip bản ghi màu sky có nút bỏ lọc trong `AuditFilters`. Xem [web-ui-direction](../../global/web-ui-direction.md#trạng-thái-tương-tác-của-nút).
+
+## Khoản cố định
+
+Nhật ký ghi cả `recurring_transactions` và `recurring_occurrences` trong nhóm tài chính. Những gì job tự ghi có người thực hiện là hệ thống; kỳ do người dùng ghi thì đứng tên người đó.

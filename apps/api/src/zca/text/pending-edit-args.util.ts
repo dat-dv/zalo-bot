@@ -63,6 +63,12 @@ export function pendingToolArgs(
         transactionId: textArg(payload.transactionId),
         ...(typeof payload.changes === 'object' && payload.changes !== null ? payload.changes : {}),
       });
+    case TextToolType.CONFIRM_RECURRING:
+      return withoutUndefined({
+        query: textArg(payload.note),
+        amount: payload.skip === true ? undefined : payload.amount,
+        skip: payload.skip === true ? true : undefined,
+      });
     case TextToolType.CREATE_TASK:
       return withoutUndefined({
         title: textArg(payload.title),

@@ -16,6 +16,7 @@ export function describeTransactionSource(
   t: Translate,
 ): string | undefined {
   if (item.source === 'dashboard') return t('transactions.source.dashboard');
+  if (item.source === 'system') return t('transactions.source.system');
   if (item.source !== 'zalo') return undefined;
   if (item.sourceChatType === 'group') {
     return item.sourceChatName

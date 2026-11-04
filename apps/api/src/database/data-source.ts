@@ -13,6 +13,8 @@ import { AuditLogEntity } from './entities/audit-log.entity';
 import { DashboardExchangeTokenEntity } from './entities/dashboard-exchange-token.entity';
 import { UserCategoryEntity } from './entities/user-category.entity';
 import { FinancePlaceEntity } from './entities/finance-place.entity';
+import { RecurringOccurrenceEntity } from './entities/recurring-occurrence.entity';
+import { RecurringTransactionEntity } from './entities/recurring-transaction.entity';
 import { ZcaThreadConfigEntity } from './entities/zca-thread-config.entity';
 import { ZcaMessageEntity } from './entities/zca-message.entity';
 import { ZcaChannelNoteEntity } from './entities/zca-channel-note.entity';
@@ -60,6 +62,7 @@ import { AddAuditLogActorName1724970000000 } from './migrations/1724970000000-Ad
 import { AddChatMemoryV21724980000000 } from './migrations/1724980000000-AddChatMemoryV2';
 import { AddChatMemorySegments1724990000000 } from './migrations/1724990000000-AddChatMemorySegments';
 import { AddThreadFinanceDigest1725000000000 } from './migrations/1725000000000-AddThreadFinanceDigest';
+import { CreateRecurringTransactions1725010000000 } from './migrations/1725010000000-CreateRecurringTransactions';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -87,6 +90,8 @@ export const AppDataSource = new DataSource({
     DashboardExchangeTokenEntity,
     UserCategoryEntity,
     FinancePlaceEntity,
+    RecurringTransactionEntity,
+    RecurringOccurrenceEntity,
     ZcaThreadConfigEntity,
     ZcaMessageEntity,
     ZcaChannelNoteEntity,
@@ -136,6 +141,7 @@ export const AppDataSource = new DataSource({
     AddChatMemoryV21724980000000,
     AddChatMemorySegments1724990000000,
     AddThreadFinanceDigest1725000000000,
+    CreateRecurringTransactions1725010000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

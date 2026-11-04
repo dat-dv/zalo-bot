@@ -836,7 +836,6 @@ export class FinanceController {
   private actorId(req: Request): string | number {
     return getDashboardUserId(req, this.tokens);
   }
-  /** Requires a signed-in dashboard user; finance data itself is shared, never scoped by user. */
   private startCsv(res: Response, filePrefix: string, header: string): void {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${csvFileName(filePrefix)}"`);
@@ -844,6 +843,7 @@ export class FinanceController {
     res.write(CSV_BOM + header);
   }
 
+  /** Requires a signed-in dashboard user; finance data itself is shared, never scoped by user. */
   private authenticate(req: Request): void {
     this.actorId(req);
   }

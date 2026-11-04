@@ -98,3 +98,7 @@ Finance, calendar and tasks are shared stores: anyone can edit or delete anyone'
 
 - API: `audit-context.spec.ts` (incl. sender name), `audit-log.subscriber.spec.ts` (context actor + name, no row fallback, system default, `zca_messages` skipped), `audit-log-query.spec.ts`, `audit.service.spec.ts` (filters, technical exclusion, legacy source, mapping, facets, name precedence, resolver failure, `listRecent` technical exclusion, 403), `transaction-confirmation.service.spec.ts` (confirmed action credited to requester; name kept only for self-confirmation), `users-session-profile.spec.ts` (`resolveZaloNames`).
 - Web: `audit-url-state.spec.ts` (incl. `countActiveAuditFilters`), `audit-labels.spec.ts` (incl. `describeAuditChange`).
+
+## Fixed items
+
+`recurring_transactions` and `recurring_occurrences` are audited in the finance group. Rows written by the scan job have the actor `system`.

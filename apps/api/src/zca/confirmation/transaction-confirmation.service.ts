@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, Optional, Inject, forwardRef } from '@nestjs/common';
+import { RecurringTransactionService } from '../../finance/recurring/recurring-transaction.service';
 import { ZcaService } from '../zca.service';
 import {
   sendChatText,
@@ -41,6 +42,8 @@ import {
   renderDtoConfirmationCard,
   FINANCE_TRANSACTION_DESCRIPTOR,
   DELETE_TRANSACTION_DESCRIPTOR,
+  CONFIRM_RECURRING_DESCRIPTOR,
+  type ConfirmRecurringPayload,
   EDIT_TRANSACTION_DESCRIPTOR,
   type EditTransactionPayload,
   DeleteTransactionDto,
@@ -76,6 +79,7 @@ export type PendingActionType =
   | 'RECORD_TRANSACTION'
   | 'DELETE_TRANSACTION'
   | 'EDIT_TRANSACTION'
+  | 'CONFIRM_RECURRING'
   | 'MANAGE_DEBT'
   | 'SET_REMINDER'
   | 'CREATE_TASK'
@@ -150,6 +154,8 @@ export function pendingActionLabel(
       return `xoá ${kind}`;
     case 'EDIT_TRANSACTION':
       return `sửa ${kind}`;
+    case 'CONFIRM_RECURRING':
+      return `ghi ${kind} cố định`;
     case 'MANAGE_DEBT':
       return 'ghi công nợ';
     case 'SET_REMINDER':
@@ -316,6 +322,7 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     @Optional() private readonly redisService?: RedisService,
     @Optional() private readonly threadConfigService?: ThreadConfigService,
     @Optional() private readonly chatMemoryService?: ChatMemoryService,
+    @Optional() private readonly recurringService?: RecurringTransactionService,
   ) {
     // ZcaService in the app; ZcaMessengerService or a test double elsewhere. Messages of this
     // service are confirmation noise (`system`) unless the caller tagged them as a card or result,
@@ -913,6 +920,31 @@ export class TransactionConfirmationService implements OnModuleDestroy {
     });
   }
 
+  private requireRecurring(): RecurringTransactionService {
+    if (!this.recurringService) throw new Error('Khoản cố định chưa sẵn sàng.');
+    return this.recurringService;
+  }
+
+  /**
+   * Tạo yêu cầu xác nhận ghi hoặc bỏ qua một kỳ của khoản cố định.
+   */
+  public async createPendingRecurring(params: {
+    userId: string;
+    chatId: string;
+    payload: ConfirmRecurringPayload;
+    rawPrompt?: string;
+  }): Promise<PendingAction> {
+    return this.createPendingAction({
+      userId: params.userId,
+      chatId: params.chatId,
+      actionType: 'CONFIRM_RECURRING',
+      title: pendingActionLabel('CONFIRM_RECURRING', params.payload.type),
+      payload: params.payload,
+      descriptor: CONFIRM_RECURRING_DESCRIPTOR,
+      rawPrompt: params.rawPrompt,
+    });
+  }
+
   /**
    * Tạo yêu cầu xác nhận ghi nhận công nợ.
    */
@@ -1420,6 +1452,35 @@ export class TransactionConfirmationService implements OnModuleDestroy {
           );
           if (updated) await post(summarizeEditedTransaction(pending.code, payload));
           else await post('⚠️ Không tìm thấy giao dịch, có thể nó vừa bị xoá.', false);
+          break;
+        }
+        case 'CONFIRM_RECURRING': {
+          const payload = pending.payload as unknown as ConfirmRecurringPayload;
+          if (payload.skip) {
+            await this.requireRecurring().skipOccurrence(payload.occurrenceId);
+            await post(`⏭️ [${pending.code}] Đã bỏ qua kỳ này của ${payload.note}`);
+            break;
+          }
+          await this.requireRecurring().recordOccurrence(
+            payload.occurrenceId,
+            { amount: payload.amount },
+            {
+              userId: pending.userId,
+              source: 'zalo',
+              chatId: pending.chatId,
+              name: (await this.usersService?.resolveZaloNames([pending.userId]))?.get(
+                pending.userId,
+              ),
+            },
+          );
+          await post(
+            summarizeTransaction(pending.code, {
+              type: payload.type,
+              amount: payload.amount,
+              note: payload.note,
+              occurredAt: payload.dueAt,
+            }),
+          );
           break;
         }
         case 'MANAGE_DEBT': {

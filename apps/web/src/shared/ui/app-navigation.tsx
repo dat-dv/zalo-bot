@@ -29,6 +29,7 @@ export type NavigationPage =
   | 'home'
   | 'transactions'
   | 'debts'
+  | 'recurring'
   | 'analytics'
   | 'calendar'
   | 'tasks'
@@ -44,6 +45,7 @@ type NavigationIcon =
   | 'overview'
   | 'transactions'
   | 'debts'
+  | 'recurring'
   | 'analytics'
   | 'calendar'
   | 'tasks'
@@ -84,6 +86,12 @@ const navSections: readonly NavSection[] = [
         icon: 'transactions',
       },
       { page: 'debts', href: APP_ROUTES.debts, labelKey: 'nav.debts', icon: 'debts' },
+      {
+        page: 'recurring',
+        href: APP_ROUTES.recurring,
+        labelKey: 'nav.recurring',
+        icon: 'recurring',
+      },
       {
         page: 'analytics',
         href: APP_ROUTES.analytics,
@@ -645,6 +653,16 @@ function NavigationItemIcon({
         <rect height="15" rx="1.5" width="16" x="4" y="4.5" />
         <path d="M8 9.5h8" />
         <path d="M8 14.5h5" />
+      </svg>
+    );
+  }
+  if (icon === 'recurring') {
+    return (
+      <svg {...sharedProps}>
+        <path d="M4 12a8 8 0 0 1 13.7-5.6L20 8.5" />
+        <path d="M20 4v4.5h-4.5" />
+        <path d="M20 12a8 8 0 0 1-13.7 5.6L4 15.5" />
+        <path d="M4 20v-4.5h4.5" />
       </svg>
     );
   }

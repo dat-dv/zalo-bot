@@ -242,6 +242,29 @@ export const EDIT_TRANSACTION_DESCRIPTOR: DtoDescriptor<EditTransactionPayload> 
   },
 };
 
+/** Records or skips one waiting period of a fixed income or expense. */
+export interface ConfirmRecurringPayload {
+  occurrenceId: string;
+  type: 'income' | 'expense';
+  note: string;
+  amount: number;
+  dueAt: string;
+  skip: boolean;
+}
+
+export const CONFIRM_RECURRING_DESCRIPTOR: DtoDescriptor<ConfirmRecurringPayload> = {
+  occurrenceId: { label: 'Mã kỳ', hidden: true },
+  type: { label: 'Phân loại', hidden: true },
+  note: { label: 'Khoản', order: 1, format: textOrEmpty },
+  amount: {
+    label: 'Số tiền',
+    order: 2,
+    format: (v, dto) => (dto.skip ? 'Bỏ qua kỳ này' : formatCurrencyVN(v)),
+  },
+  dueAt: { label: 'Kỳ', order: 3, format: (v) => formatDateTimeVN(v) },
+  skip: { label: 'Bỏ qua', hidden: true },
+};
+
 /**
  * Strict Descriptor cho DeleteTransactionDto.
  */

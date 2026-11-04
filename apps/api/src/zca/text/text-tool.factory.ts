@@ -13,6 +13,7 @@ import { ManageDebtToolStrategy } from './strategies/manage-debt-tool.strategy';
 import { RecordTransactionToolStrategy } from './strategies/record-transaction-tool.strategy';
 import { SetReminderToolStrategy } from './strategies/set-reminder-tool.strategy';
 import { GetReportToolStrategy } from './strategies/get-report-tool.strategy';
+import { ConfirmRecurringToolStrategy } from './strategies/confirm-recurring-tool.strategy';
 import { EditTransactionToolStrategy } from './strategies/edit-transaction-tool.strategy';
 import { LoginToolStrategy } from './strategies/login-tool.strategy';
 import { StatusToolStrategy } from './strategies/status-tool.strategy';
@@ -90,6 +91,7 @@ export class TextToolFactory {
     forgetMemoryStrategy?: ForgetMemoryToolStrategy,
     syncMemoryStrategy?: SyncMemoryToolStrategy,
     editTransactionStrategy?: EditTransactionToolStrategy,
+    confirmRecurringStrategy?: ConfirmRecurringToolStrategy,
   ) {
     if (welcomeStrategy) this.strategyMap.set(TextToolType.WELCOME, welcomeStrategy);
     if (helpStrategy) this.strategyMap.set(TextToolType.HELP, helpStrategy);
@@ -104,6 +106,8 @@ export class TextToolFactory {
       this.strategyMap.set(TextToolType.DELETE_TRANSACTION, deleteTransactionStrategy);
     if (editTransactionStrategy)
       this.strategyMap.set(TextToolType.EDIT_TRANSACTION, editTransactionStrategy);
+    if (confirmRecurringStrategy)
+      this.strategyMap.set(TextToolType.CONFIRM_RECURRING, confirmRecurringStrategy);
     if (setReminderStrategy) this.strategyMap.set(TextToolType.SET_REMINDER, setReminderStrategy);
     if (getReportStrategy) this.strategyMap.set(TextToolType.GET_REPORT, getReportStrategy);
     if (loginStrategy) this.strategyMap.set(TextToolType.LOGIN, loginStrategy);

@@ -9,6 +9,8 @@
 - **Danh mục**: Nhãn ngắn để nhóm giao dịch, chẳng hạn `Ăn uống`, `Đi lại`, `Lương`; khi không rõ dùng `Khác`.
 - **Ngày phát sinh**: Thời điểm giao dịch xảy ra. Nếu người dùng không nêu, mặc định là thời điểm họ nhắn bot.
 
+- **Khoản cố định**: Khoản thu hoặc chi lặp lại theo kỳ (tiền nhà, tiền điện, lương), thuộc sổ chung. Có hai chế độ: **tự ghi** với số tiền cố định, và **chờ nhập** khi số tiền thay đổi theo kỳ.
+- **Kỳ (khoản cố định)**: Một lần đến hạn của khoản cố định, ở trạng thái đang chờ, đã ghi hoặc đã bỏ qua. Kỳ đang chờ không hết hạn. Kỳ bị lỡ do server tắt vẫn được tạo bù, khác với lời nhắc.
 - **Tóm tắt tài chính**: Tin bot tự gửi vào một kênh sau mỗi tuần hoặc tháng, gồm tổng thu chi của kỳ vừa qua so với kỳ trước, danh mục chi nhiều nhất và công nợ. Admin bật riêng từng kênh, mặc định tắt vì số liệu là của toàn bộ sổ chung.
 - **Sổ chung**: Toàn hệ thống chỉ có một kho tài chính (thu chi, nơi chốn, danh bạ công nợ, công nợ, danh mục), không thuộc về người dùng nào; ai nhắn bot hay thao tác trên dashboard cũng ghi vào và xem toàn bộ kho này. Không có sổ riêng theo người dùng.
 - **Người tạo**: Người đã ghi giao dịch (người gửi tin Zalo hoặc người dùng dashboard), kèm **nguồn** (nhóm Zalo, chat riêng hoặc dashboard). Không dùng để giới hạn ai được xem dữ liệu; chỉ dùng khi người dùng chủ động chọn xem (bộ lọc người tạo ở bảng thu chi, giao dịch do họ ghi trên **hồ sơ**).

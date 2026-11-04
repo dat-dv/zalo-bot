@@ -20,6 +20,10 @@ export const API_ROUTES = {
   expenses: '/api/expenses',
   transactions: '/api/transactions',
   transactionsExport: '/api/transactions/export',
+  recurring: '/api/recurring-transactions',
+  recurringDetail: (id: string) => `/api/recurring-transactions/${id}`,
+  recurringOccurrenceRecord: (id: string) => `/api/recurring-transactions/occurrences/${id}/record`,
+  recurringOccurrenceSkip: (id: string) => `/api/recurring-transactions/occurrences/${id}/skip`,
   debtsExport: '/api/debts/export',
   financeAnalytics: '/api/finance/analytics',
   reminders: '/api/reminders',
@@ -91,6 +95,7 @@ export const APP_ROUTES = {
   income: '/income',
 
   debts: '/debts',
+  recurring: '/recurring',
 
   analytics: '/analytics',
   analyticsSpending: '/analytics/spending',
@@ -202,6 +207,55 @@ const messages = {
     'nav.home': 'Tổng quan',
     'nav.statistics': 'Phân tích',
     'nav.contacts': 'Người liên quan',
+    'nav.recurring': 'Khoản cố định',
+    'audit.table.recurring_transactions': 'Khoản cố định',
+    'audit.table.recurring_occurrences': 'Kỳ khoản cố định',
+    'transactions.source.system': 'Tự ghi',
+    'recurring.title': 'Khoản cố định',
+    'recurring.subtitle': 'Tiền nhà, điện nước, lương: các khoản lặp lại theo kỳ.',
+    'recurring.add': 'Thêm khoản',
+    'recurring.empty': 'Chưa có khoản cố định nào.',
+    'recurring.pending.title': 'Đang chờ ghi',
+    'recurring.pending.record': 'Ghi',
+    'recurring.pending.skip': 'Bỏ qua',
+    'recurring.pending.amountPlaceholder': 'Số tiền',
+    'recurring.pending.amountRequired': 'Cần nhập số tiền của kỳ này.',
+    'recurring.column.name': 'Khoản',
+    'recurring.column.amount': 'Số tiền',
+    'recurring.column.repeat': 'Lặp lại',
+    'recurring.column.next': 'Kỳ tới',
+    'recurring.column.mode': 'Chế độ',
+    'recurring.column.chat': 'Báo vào',
+    'recurring.amountVaries': 'Thay đổi',
+    'recurring.mode.auto': 'Tự ghi',
+    'recurring.mode.confirm': 'Chờ nhập',
+    'recurring.mode.autoHint': 'Đến kỳ tự ghi giao dịch với số tiền cố định.',
+    'recurring.mode.confirmHint': 'Đến kỳ chờ người nhập số tiền, không hết hạn.',
+    'recurring.repeat.daily': 'Hằng ngày',
+    'recurring.repeat.weekdays': 'Thứ 2 đến thứ 6',
+    'recurring.repeat.weekly': 'Hằng tuần',
+    'recurring.repeat.monthly': 'Hằng tháng',
+    'recurring.repeat.yearly': 'Hằng năm',
+    'recurring.status.paused': 'Tạm dừng',
+    'recurring.action.pause': 'Tạm dừng',
+    'recurring.action.resume': 'Chạy lại',
+    'recurring.action.edit': 'Sửa',
+    'recurring.action.delete': 'Xoá',
+    'recurring.delete.title': 'Xoá khoản cố định',
+    'recurring.delete.message': 'Xoá "{name}"? Các giao dịch đã ghi vẫn giữ nguyên.',
+    'recurring.form.createTitle': 'Thêm khoản cố định',
+    'recurring.form.editTitle': 'Sửa khoản cố định',
+    'recurring.form.type': 'Loại',
+    'recurring.form.name': 'Tên khoản',
+    'recurring.form.category': 'Danh mục',
+    'recurring.form.amount': 'Số tiền',
+    'recurring.form.amountOptional': 'Số tiền dự kiến (không bắt buộc)',
+    'recurring.form.start': 'Kỳ đầu tiên',
+    'recurring.form.chat': 'Báo vào kênh',
+    'recurring.form.noChat': 'Không báo trên Zalo',
+    'recurring.form.save': 'Lưu',
+    'recurring.loadFailed': 'Không tải được danh sách, thử lại sau.',
+    'recurring.loading': 'Đang tải...',
     'nav.places': 'Nơi chốn',
     'nav.debts': 'Vay & cho vay',
     'nav.expenses': 'Chi tiêu',
@@ -1449,6 +1503,55 @@ const messages = {
     'nav.home': 'Overview',
     'nav.statistics': 'Analytics',
     'nav.contacts': 'People',
+    'nav.recurring': 'Fixed items',
+    'audit.table.recurring_transactions': 'Fixed item',
+    'audit.table.recurring_occurrences': 'Fixed item period',
+    'transactions.source.system': 'Automatic',
+    'recurring.title': 'Fixed items',
+    'recurring.subtitle': 'Rent, bills, salary: items that repeat every period.',
+    'recurring.add': 'Add item',
+    'recurring.empty': 'No fixed items yet.',
+    'recurring.pending.title': 'Waiting to be recorded',
+    'recurring.pending.record': 'Record',
+    'recurring.pending.skip': 'Skip',
+    'recurring.pending.amountPlaceholder': 'Amount',
+    'recurring.pending.amountRequired': 'Enter the amount of this period.',
+    'recurring.column.name': 'Item',
+    'recurring.column.amount': 'Amount',
+    'recurring.column.repeat': 'Repeats',
+    'recurring.column.next': 'Next',
+    'recurring.column.mode': 'Mode',
+    'recurring.column.chat': 'Notifies',
+    'recurring.amountVaries': 'Varies',
+    'recurring.mode.auto': 'Automatic',
+    'recurring.mode.confirm': 'Needs input',
+    'recurring.mode.autoHint': 'Records itself with the fixed amount.',
+    'recurring.mode.confirmHint': 'Waits for someone to enter the amount; never expires.',
+    'recurring.repeat.daily': 'Daily',
+    'recurring.repeat.weekdays': 'Monday to Friday',
+    'recurring.repeat.weekly': 'Weekly',
+    'recurring.repeat.monthly': 'Monthly',
+    'recurring.repeat.yearly': 'Yearly',
+    'recurring.status.paused': 'Paused',
+    'recurring.action.pause': 'Pause',
+    'recurring.action.resume': 'Resume',
+    'recurring.action.edit': 'Edit',
+    'recurring.action.delete': 'Delete',
+    'recurring.delete.title': 'Delete fixed item',
+    'recurring.delete.message': 'Delete "{name}"? Recorded transactions stay.',
+    'recurring.form.createTitle': 'Add fixed item',
+    'recurring.form.editTitle': 'Edit fixed item',
+    'recurring.form.type': 'Type',
+    'recurring.form.name': 'Name',
+    'recurring.form.category': 'Category',
+    'recurring.form.amount': 'Amount',
+    'recurring.form.amountOptional': 'Expected amount (optional)',
+    'recurring.form.start': 'First period',
+    'recurring.form.chat': 'Notify chat',
+    'recurring.form.noChat': 'No Zalo message',
+    'recurring.form.save': 'Save',
+    'recurring.loadFailed': 'Could not load the list, try again later.',
+    'recurring.loading': 'Loading...',
     'nav.places': 'Places',
     'nav.debts': 'Loans & Debts',
     'nav.expenses': 'Expenses',
@@ -3269,6 +3372,68 @@ export function isReminderRepeatType(value: unknown): value is ReminderRepeatTyp
   return typeof value === 'string' && (REMINDER_REPEAT_TYPES as readonly string[]).includes(value);
 }
 
+/** `auto` records itself at the fixed amount; `confirm` waits for someone to enter this period's. */
+export type RecurringMode = 'auto' | 'confirm';
+export type RecurringRepeatType = Exclude<ReminderRepeatType, 'none'>;
+export type RecurringOccurrenceStatus = 'due' | 'recorded' | 'skipped';
+
+export function isRecurringRepeatType(value: unknown): value is RecurringRepeatType {
+  return isReminderRepeatType(value) && value !== 'none';
+}
+
+export interface IRecurringTransactionItem {
+  id: string;
+  type: TransactionType;
+  amount: number | null;
+  category: string;
+  note: string;
+  placeName?: string;
+  repeatType: RecurringRepeatType;
+  repeatWeekdays: number[];
+  mode: RecurringMode;
+  notifyChatId: string | null;
+  notifyChatName?: string;
+  isActive: boolean;
+  nextDueAt: string;
+  createdByName?: string;
+}
+
+/** A period waiting to be recorded or skipped. */
+export interface IRecurringOccurrenceItem {
+  id: string;
+  ruleId: string;
+  type: TransactionType;
+  note: string;
+  category: string;
+  amount: number | null;
+  dueAt: string;
+}
+
+export interface IRecurringListResponse {
+  rules: IRecurringTransactionItem[];
+  pending: IRecurringOccurrenceItem[];
+}
+
+export interface ICreateRecurringRequest {
+  type: TransactionType;
+  amount?: number | null;
+  category?: string;
+  note: string;
+  placeName?: string;
+  repeatType: RecurringRepeatType;
+  repeatWeekdays?: number[];
+  startAt: string;
+  mode: RecurringMode;
+  notifyChatId?: string | null;
+}
+
+export type IUpdateRecurringRequest = Partial<ICreateRecurringRequest> & { isActive?: boolean };
+
+export interface IRecordOccurrenceRequest {
+  /** Leave empty to use the expected amount. */
+  amount?: number;
+}
+
 /** "Remind again": after each time, every 5 minutes to 24 hours, 1 to 10 more times. */
 export const REMINDER_NAG_LIMITS = {
   MIN_EVERY_MINUTES: 5,
@@ -3381,7 +3546,8 @@ export interface ITransactionItem {
   }>;
 }
 
-export type TransactionSource = 'zalo' | 'dashboard';
+/** `system`: recorded by a fixed income or expense when its period came. */
+export type TransactionSource = 'zalo' | 'dashboard' | 'system';
 
 /** `placeIds` entry selecting transactions without a place. */
 export const TRANSACTION_FILTER_NO_PLACE = 'none';
@@ -4520,6 +4686,8 @@ export type AuditTableGroup = (typeof AUDIT_TABLE_GROUPS)[number];
  */
 export const AUDIT_TABLES = [
   { table: 'finance_transactions', group: 'finance', technical: false },
+  { table: 'recurring_transactions', group: 'finance', technical: false },
+  { table: 'recurring_occurrences', group: 'finance', technical: false },
   { table: 'debts', group: 'finance', technical: false },
   { table: 'debt_payments', group: 'finance', technical: false },
   { table: 'debt_payment_allocations', group: 'finance', technical: false },

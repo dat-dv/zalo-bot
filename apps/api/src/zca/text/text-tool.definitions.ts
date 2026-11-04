@@ -144,6 +144,20 @@ export const ZALO_TOOL_DEFINITIONS: LlmToolDefinition[] = [
     },
   },
   {
+    name: TextToolType.CONFIRM_RECURRING,
+    description:
+      'Ghi nhận hoặc bỏ qua một khoản cố định đang chờ của kỳ này (tiền điện, tiền nước, tiền nhà...). ' +
+      'Ví dụ: "đã đóng tiền điện 1tr2", "bỏ qua tiền nước tháng này".',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        query: { type: 'STRING', description: 'Tên khoản, ví dụ "tiền điện"' },
+        amount: { type: 'NUMBER', description: 'Số tiền kỳ này, tính bằng đồng' },
+        skip: { type: 'BOOLEAN', description: 'true nếu người dùng muốn bỏ qua kỳ này' },
+      },
+    },
+  },
+  {
     name: TextToolType.SET_REMINDER,
     description:
       'LỜI NHẮC: người dùng muốn ĐƯỢC BÁO vào một thời điểm (có giờ, hoặc "nhắc", "báo", "gọi dậy"); ' +

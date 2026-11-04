@@ -20,6 +20,7 @@ import { ManageDebtToolStrategy } from './strategies/manage-debt-tool.strategy';
 import { RecordTransactionToolStrategy } from './strategies/record-transaction-tool.strategy';
 import { SetReminderToolStrategy } from './strategies/set-reminder-tool.strategy';
 import { GetReportToolStrategy } from './strategies/get-report-tool.strategy';
+import { ConfirmRecurringToolStrategy } from './strategies/confirm-recurring-tool.strategy';
 import { EditTransactionToolStrategy } from './strategies/edit-transaction-tool.strategy';
 import { CreateCalendarEventToolStrategy } from './strategies/create-calendar-event-tool.strategy';
 import { ListCalendarEventsToolStrategy } from './strategies/list-calendar-events-tool.strategy';
@@ -63,6 +64,7 @@ export const TEXT_TOOL_STRATEGY_PROVIDERS = [
   SetReminderToolStrategy,
   GetReportToolStrategy,
   EditTransactionToolStrategy,
+  ConfirmRecurringToolStrategy,
   CreateCalendarEventToolStrategy,
   ListCalendarEventsToolStrategy,
   DeleteCalendarEventToolStrategy,
