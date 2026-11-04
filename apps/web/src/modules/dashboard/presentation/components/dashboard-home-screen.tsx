@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { APP_ROUTES, localeTag, type TranslationKey } from '@zalobot/contracts';
 import { useLocale } from '@/shared/providers/locale-provider';
 import { useMoneyFormatter } from '@/shared/store/money-visibility-store';
+import { useSavingsMoney } from '@/shared/store/savings-visibility-store';
+import { SavingsVisibilityToggle } from '@/shared/ui/savings-visibility-toggle';
 import { SessionStateScreen } from '@/modules/auth/view/session-state-screen';
 import { BUTTON_TONE } from '@/shared/ui/button-styles';
 import { DataPanel, DataTable, type DataTableColumn } from '@/shared/ui/data-table';
@@ -39,7 +41,6 @@ const QUICK_LINK_PHONE =
   'shrink-0 whitespace-nowrap max-[640px]:h-auto max-[640px]:min-h-10 max-[640px]:justify-center max-[640px]:px-1 max-[640px]:py-1 max-[640px]:text-center max-[640px]:text-[12px] max-[640px]:leading-tight max-[640px]:whitespace-normal';
 
 const METRICS_GRID = 'grid grid-cols-4 gap-2 max-[640px]:grid-cols-2';
-const ATTENTION_METRIC_SPAN = 'col-span-2';
 
 const ATTENTION_HINT_KEYS: Record<HomeAttentionKind, TranslationKey> = {
   overdueTasks: 'dashboard.attention.hint.overdueTasks',
@@ -99,7 +100,8 @@ function Metric({
   tone = 'neutral',
   hint,
   href,
-  className = '',
+  labelHref,
+  action,
 }: {
   label: string;
   value: string;
@@ -108,7 +110,10 @@ function Metric({
   hint?: string;
   /** In-page anchor: the whole card jumps there. */
   href?: string;
-  className?: string;
+  /** Link on the label alone, so the card can also hold `action`. */
+  labelHref?: string;
+  /** Control at the end of the label row. */
+  action?: ReactNode;
 }) {
   const toneStyles = {
     neutral: 'text-slate-900 dark:text-slate-100',
@@ -119,8 +124,20 @@ function Metric({
 
   const content = (
     <>
-      <span className="block text-[11px] font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
-        {label}
+      <span className="flex min-w-0 items-center justify-between gap-1.5">
+        <span className="block min-w-0 truncate text-[11px] font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400">
+          {labelHref ? (
+            <Link
+              href={labelHref}
+              className="transition-colors hover:text-sky-600 dark:hover:text-sky-400"
+            >
+              {label}
+            </Link>
+          ) : (
+            label
+          )}
+        </span>
+        {action}
       </span>
       <strong
         className={`mt-0.5 block text-base font-bold tabular-nums tracking-tight max-[640px]:text-[14px] max-[640px]:break-words ${toneStyles[tone]}`}
@@ -128,13 +145,16 @@ function Metric({
         {value}
       </strong>
       {hint && (
-        <span className="mt-0.5 block truncate text-[11.5px] text-slate-600 dark:text-slate-400">
+        <span
+          className="mt-0.5 block truncate text-[11.5px] text-slate-600 dark:text-slate-400"
+          title={hint}
+        >
           {hint}
         </span>
       )}
     </>
   );
-  const cardClass = `flex min-h-[62px] min-w-0 flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60 max-[640px]:min-h-[52px] max-[640px]:px-2.5 max-[640px]:py-1.5 ${className}`;
+  const cardClass = `flex min-h-[62px] min-w-0 flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60 max-[640px]:min-h-[52px] max-[640px]:px-2.5 max-[640px]:py-1.5`;
 
   return href ? (
     <a
@@ -151,6 +171,7 @@ function Metric({
 function DashboardHomeContent({ data }: { data: DashboardData }) {
   const { locale, t } = useLocale();
   const money = useMoneyFormatter();
+  const savingsMoney = useSavingsMoney();
   const [taskSearch, setTaskSearch] = useState('');
   const [reminderSearch, setReminderSearch] = useState('');
   const [calendarSearch, setCalendarSearch] = useState('');
@@ -304,6 +325,12 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
           tone={data.finance.ledgerBalance >= 0 ? 'neutral' : 'negative'}
         />
         <Metric
+          label={t('savings.total')}
+          labelHref={APP_ROUTES.savings}
+          value={savingsMoney(data.finance.savingsTotal)}
+          action={<SavingsVisibilityToggle />}
+        />
+        <Metric
           label={t('dashboard.monthIncome')}
           value={money(data.finance.income)}
           tone="positive"
@@ -334,7 +361,6 @@ function DashboardHomeContent({ data }: { data: DashboardData }) {
           tone={attentionCount > 0 ? 'warning' : 'neutral'}
           hint={attentionHint}
           href={attentionCount > 0 ? `#${HOME_ATTENTION_ID}` : undefined}
-          className={ATTENTION_METRIC_SPAN}
         />
       </section>
 
@@ -555,11 +581,11 @@ function DashboardHomeSkeleton() {
 
   return (
     <div aria-busy="true" className="flex flex-col gap-3">
-      {/* 7 KPI cards: the last one (attention) takes two columns */}
+      {/* 8 KPI cards */}
       <section className={METRICS_GRID} aria-hidden="true">
-        {Array.from({ length: 7 }, (_, index) => (
+        {Array.from({ length: 8 }, (_, index) => (
           <div
-            className={`flex min-h-[62px] flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60 max-[640px]:min-h-[52px] max-[640px]:px-2.5 max-[640px]:py-1.5 ${index === 6 ? ATTENTION_METRIC_SPAN : ''}`}
+            className="flex min-h-[62px] flex-col justify-center rounded-[3px] border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60 max-[640px]:min-h-[52px] max-[640px]:px-2.5 max-[640px]:py-1.5"
             key={index}
           >
             <span className="block h-2.5 w-16 animate-pulse rounded-[2px] bg-slate-200 dark:bg-slate-800" />

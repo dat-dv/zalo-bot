@@ -15,7 +15,7 @@
 
 ## Chưa làm
 
-- Thẻ Tiết kiệm: chờ `feat/savings-amount-visibility` vào `main`. Khi thêm, thẻ Cần chú ý trở về 1 cột để lưới đủ 8 ô.
+- Không còn. Thẻ Tiết kiệm đã thêm sau khi con mắt tiết kiệm vào `main`; lưới đủ 8 ô.
 
 ## Kiểm tra
 
