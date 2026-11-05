@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ILlmProvider, LlmResponse, LlmToolDefinition } from '../types/llm.types';
+import {
+  ILlmProvider,
+  LlmProviderDescription,
+  LlmResponse,
+  LlmToolDefinition,
+} from '../types/llm.types';
 import { cleanToolArguments, normalizeSchemaTypes } from '../utils/tool-arguments.util';
 import { resolveLlmTimeoutMs } from '../utils/llm-timeout.util';
 
@@ -10,6 +15,14 @@ export class QwenProvider implements ILlmProvider {
   private readonly logger = new Logger(QwenProvider.name);
 
   constructor(private readonly configService: ConfigService) {}
+
+  /** Always configured: the URL and model have local defaults and the key is optional. */
+  public describe(): LlmProviderDescription {
+    return {
+      model: this.configService.get<string>('llm.qwen.model') || 'qwen2.5:14b',
+      configured: true,
+    };
+  }
 
   public async generate(
     prompt: string,

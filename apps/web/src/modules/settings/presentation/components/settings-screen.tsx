@@ -24,7 +24,9 @@ import {
 } from '../../api/categories-query';
 import { useDashboardQuery } from '@/modules/dashboard/api/dashboard-query';
 import { AdjustBalanceModal } from '@/modules/dashboard/presentation/components/adjust-balance-modal';
+import { useSessionUserQuery } from '@/modules/auth/api/session-user-query';
 import { InstallAppRow } from './install-app-row';
+import { LlmProvidersPanel } from './llm-providers-panel';
 
 export function SettingsScreen() {
   const queryClient = useQueryClient();
@@ -50,6 +52,7 @@ export function SettingsScreen() {
   const [, startTransition] = useTransition();
 
   const dashboard = useDashboardQuery();
+  const isAdmin = useSessionUserQuery({ enabled: true }).data?.isAdmin === true;
   const categoriesQuery = useCategoriesQuery();
   const createMutation = useCreateCategoryMutation();
   const updateMutation = useUpdateCategoryMutation();
@@ -508,6 +511,7 @@ export function SettingsScreen() {
               </article>
             </div>
           </DataPanel>
+          {isAdmin && <LlmProvidersPanel />}
         </section>
       )}
 

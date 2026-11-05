@@ -6,6 +6,8 @@ metadata:
     depends_on:
       - apps/api/src/llm/llm.service.ts
       - apps/api/src/llm/llm.module.ts
+      - apps/api/src/llm/llm-admin.controller.ts
+      - apps/api/src/llm/llm-admin.module.ts
       - apps/api/src/llm/types/llm.types.ts
       - apps/api/src/llm/utils/tool-arguments.util.ts
       - apps/api/src/llm/providers/gemini.provider.ts
@@ -41,6 +43,8 @@ Human guide: [LLM Providers](../../docs/global/llm-providers.md).
 - Current deployment intent: `LLM_PROVIDER=router` (9router) + `LLM_FALLBACK_PROVIDERS=gemini`, no third link.
 - `TextInputService`: when the tool-calling pass returns `failed` (whole chain failed), it sends that error text once and skips the tool-free chit-chat pass (which would run the chain again); with `allowAiChat === false` it stays silent.
 - `LLM_TIMEOUT_MS` (default 30000) applies to every provider, including local Qwen/Ollama; raise it for slow local models.
+- `getProviderStatuses()`: the chain `generate` would use now, as `ILlmProviderStatus[]` (`name`, `role` primary|fallback, `model`, `configured`). Built from `resolveProviderChain`, so the dashboard cannot disagree with the bot. Aliases show the real name (`ollama` -> `qwen`).
+- `pingProvider(name)`: one tool-free call to that provider alone with a fixed prompt, no user data. It must not use `generate`: the fallback would report OK while the provider is down. Returns `ILlmProviderPingResult` (`status` ok|empty|failed|not_configured, `latencyMs`); `not_configured` makes no call; a name outside the chain returns null. The provider's error text is dropped, details stay in the server log. Uses `LLM_TIMEOUT_MS`.
 - Post-processing: every `toolCall.args` / `toolCalls[].args` passes through `cleanToolArguments`.
 - **Prompt layout for provider caching**: both system prompts (`buildToolSystemInstruction`, `generateChitChatReply`) put the static text first (identity line, intent table, parameter rules, `CHIT_CHAT_INSTRUCTION`, plain-text rules) and the per-chat, per-call text last (notes/facts profile, the date-time snippet, pending cards). The date-time snippet stops at the minute (`getVietnamDateTimeContext.systemInstructionSnippet`; the context's `time`/`isoLocal` fields keep seconds). Gemini implicit caching and OpenAI prompt caching only reuse a byte-identical prefix, so with the old order (profile and a clock with seconds first) the several-thousand static tokens were billed and processed in full on every message. Each provider logs `… tokens: prompt=… cached=… output=…` at debug level from the response usage metadata; `cached > 0` from the second call of a chat on shows the cache hitting (needs a model with implicit caching, e.g. Gemini 2.5+ or gpt-4o+).
 
@@ -49,7 +53,7 @@ Human guide: [LLM Providers](../../docs/global/llm-providers.md).
 - `LlmToolDefinition { name, description, parameters?: { type?, properties: Record<string, LlmToolProperty>, required? } }`; `LlmToolProperty { type, description?, enum? }`.
 - `LlmToolCall { name, args: Record<string, unknown> }`.
 - `LlmResponse { text?, toolCall?, toolCalls? }` — `toolCall` is the first of `toolCalls`.
-- `ILlmProvider { name; generate(...) }`.
+- `ILlmProvider { name; describe(); generate(...) }`. `describe()` returns `LlmProviderDescription { model, configured }` with no network call and no secret. `configured`: Gemini/OpenAI need the API key; Router needs URL, key and model; Qwen is always true (local defaults, optional key).
 
 ## Providers
 
@@ -61,6 +65,15 @@ Human guide: [LLM Providers](../../docs/global/llm-providers.md).
 | `QwenProvider` | `QWEN_BASE_URL`, `QWEN_MODEL`, `QWEN_API_KEY` | `http://localhost:11434`, `qwen2.5:14b` | Base ending `/v1` or `/chat/completions` -> OpenAI format; else native Ollama `/api/chat` (`stream: false`). Optional Bearer key. Falls back to parsing `<tool_call>{...}</tool_call>` tags in text. |
 
 Failure contract: providers never throw to callers; they return `{ text, failed: true }` with a Vietnamese error message (missing API key / router config, HTTP error, network error, timeout; Qwen 404 -> "model not pulled" hint). Every `fetch` uses `AbortSignal.timeout(LLM_TIMEOUT_MS)` (default 30000 ms, `utils/llm-timeout.util.ts`), so a hung provider fails and the chain moves on.
+
+## Admin API (`LlmAdminModule`, `llm-admin.controller.ts`)
+
+Lets an admin see which LLMs the bot uses and test each one without reading the server env. Both routes call `requireDashboardAdmin`. Kept apart from `LlmModule` because `ZcaModule` imports `LlmModule` while the admin check needs `UsersModule`, which imports `ZcaModule`.
+
+- `GET /api/llm/providers` (`API_ROUTES.llmProviders`): the chain in call order. Never returns a base URL or an API key.
+- `POST /api/llm/providers/:name/ping` (`API_ROUTES.llmProviderPing`): always 200 with the result; 404 outside the chain. POST because each ping is a real, paid call. No server rate limit: admin-only, a few tokens each, the UI locks the row while waiting. Not audited, changes no data.
+
+UI: see `modules/settings/README.md`. Cognee (`COGNEE_LLM_*`) is not part of this chain and not shown.
 
 ## tool-arguments util
 

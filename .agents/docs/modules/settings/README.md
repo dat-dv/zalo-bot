@@ -9,6 +9,9 @@ metadata:
       - apps/web/src/modules/settings/api/categories-query.ts
       - apps/web/src/modules/settings/presentation/components/settings-screen.tsx
       - apps/web/src/modules/settings/presentation/components/install-app-row.tsx
+      - apps/web/src/modules/settings/api/llm-providers-api.ts
+      - apps/web/src/modules/settings/api/llm-providers-query.ts
+      - apps/web/src/modules/settings/presentation/components/llm-providers-panel.tsx
       - apps/web/src/shared/providers/react-scan-provider.tsx
 ---
 
@@ -27,6 +30,7 @@ Danh mục (ví dụ `Ăn uống`, `Lương`) dùng để nhóm giao dịch tron
 - `api/categories-api.ts`: `getCategories` (có thể lọc `?type=income|expense`), `createCategory`, `updateCategory`, `deleteCategory`, đều gọi `API_ROUTES.categories`.
 - `api/categories-query.ts`: query key `['categories']` và 4 hook TanStack Query. Mọi mutation thành công đều làm mới `categoriesQueryKeys.all`.
 - `presentation/components/settings-screen.tsx`: màn hình `SettingsScreen` (re-export qua `view/settings-screen.tsx`).
+- `api/llm-providers-api.ts`, `api/llm-providers-query.ts`, `presentation/components/llm-providers-panel.tsx`: thẻ **AI đang dùng**.
 - Endpoint backend nằm trong `apps/api/src/finance/finance.controller.ts`.
 
 ## 3. Màn hình Cài đặt
@@ -64,3 +68,13 @@ Chạy `npm run typecheck`, `npm run lint` và `npm run build` tại thư mục 
 ## Nút bấm
 
 - Màu nút lấy từ `BUTTON_TONE`; con trỏ, độ mờ khi khoá, viền focus và hiệu ứng chuyển màu do lớp nền lo, nên nút trong module không tự khai báo lại. Nút `+ Thêm danh mục` (thu và chi) dùng `primary` vì "+ thêm" là thao tác chính; Điều chỉnh số dư và Cài app dùng `secondary`; công tắc React Scan dùng `chip`/`chipSelected`; nút 🗑 xoá trong dòng dùng `dangerSoft`; Thử lại dùng `danger`. Toast dùng tông toast tối. Xem [web-ui-direction](../../global/web-ui-direction.md#trạng-thái-tương-tác-của-nút).
+
+## Thẻ AI đang dùng
+
+Chỉ admin thấy thẻ này, nằm dưới cùng tab Tùy chọn hệ thống; API cũng từ chối người khác. Thẻ cho admin biết bot đang dùng LLM nào và thử từng cái mà không cần đọc env server. Lý do thiết kế xem ở [Nhà cung cấp LLM](../../global/llm-providers.md#2-xem-và-ping-llm-trên-dashboard).
+
+- Mỗi dòng là một mắt xích theo thứ tự bot gọi: tên, Chính hoặc Dự phòng, model.
+- Nút Ping chỉ chạy khi bấm và khoá trong lúc chờ. Mỗi dòng có trạng thái riêng nên ping một dòng không khoá dòng khác.
+- Provider chưa cấu hình đủ thì nút bị khoá và dòng ghi "Chưa cấu hình".
+- Kết quả không được lưu, tải lại trang là mất.
+- Khi danh mục tải lỗi, cả tab Tùy chọn hệ thống bị thay bằng thông báo lỗi, nên thẻ cũng không hiện.

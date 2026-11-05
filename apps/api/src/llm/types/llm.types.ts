@@ -33,8 +33,15 @@ export interface LlmResponse {
   failed?: boolean;
 }
 
+/** What a provider can say about itself without a network call; never holds a secret. */
+export interface LlmProviderDescription {
+  model: string | null;
+  configured: boolean;
+}
+
 export interface ILlmProvider {
   readonly name: string;
+  describe(): LlmProviderDescription;
   generate(
     prompt: string,
     tools?: LlmToolDefinition[],

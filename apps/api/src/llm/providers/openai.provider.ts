@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ILlmProvider, LlmResponse, LlmToolDefinition } from '../types/llm.types';
+import {
+  ILlmProvider,
+  LlmProviderDescription,
+  LlmResponse,
+  LlmToolDefinition,
+} from '../types/llm.types';
 import { cleanToolArguments, normalizeSchemaTypes } from '../utils/tool-arguments.util';
 import { resolveLlmTimeoutMs } from '../utils/llm-timeout.util';
 
@@ -16,6 +21,13 @@ export class OpenAiProvider implements ILlmProvider {
   private readonly logger = new Logger(OpenAiProvider.name);
 
   constructor(private readonly configService: ConfigService) {}
+
+  public describe(): LlmProviderDescription {
+    return {
+      model: this.configService.get<string>('llm.openai.model') || 'gpt-4o-mini',
+      configured: Boolean(this.configService.get<string>('llm.openai.apiKey')),
+    };
+  }
 
   public async generate(
     prompt: string,

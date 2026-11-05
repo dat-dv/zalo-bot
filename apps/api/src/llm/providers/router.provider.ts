@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ILlmProvider, LlmResponse, LlmToolDefinition } from '../types/llm.types';
+import {
+  ILlmProvider,
+  LlmProviderDescription,
+  LlmResponse,
+  LlmToolDefinition,
+} from '../types/llm.types';
 import { OpenAiProvider } from './openai.provider';
 
 /**
@@ -16,6 +21,13 @@ export class RouterProvider implements ILlmProvider {
     private readonly configService: ConfigService,
     private readonly openAiProvider: OpenAiProvider,
   ) {}
+
+  public describe(): LlmProviderDescription {
+    const baseUrl = this.configService.get<string>('llm.router.baseUrl') || '';
+    const apiKey = this.configService.get<string>('llm.router.apiKey') || '';
+    const model = this.configService.get<string>('llm.router.model') || '';
+    return { model: model || null, configured: Boolean(baseUrl && apiKey && model) };
+  }
 
   public async generate(
     prompt: string,

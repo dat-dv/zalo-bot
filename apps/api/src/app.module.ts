@@ -11,6 +11,7 @@ import { RemindersModule } from './reminders/reminders.module';
 import { FinanceModule } from './finance/finance.module';
 import { AuditModule } from './audit/audit.module';
 import { AuditAdminModule } from './audit/audit-admin.module';
+import { LlmAdminModule } from './llm/llm-admin.module';
 import { ReportsModule } from './reports/reports.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { TasksModule } from './tasks/tasks.module';
@@ -43,6 +44,7 @@ import { HealthModule } from './health/health.module';
     FinanceModule,
     AuditModule,
     AuditAdminModule,
+    LlmAdminModule,
     ReportsModule,
     ZcaModule,
   ],

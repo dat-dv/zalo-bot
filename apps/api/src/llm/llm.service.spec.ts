@@ -460,3 +460,125 @@ void test('RouterProvider fails without a model instead of sending the OpenAI de
   const provider = new RouterProvider(config, new OpenAiProvider(config));
   assert.equal((await provider.generate('hi')).failed, true);
 });
+
+interface DescribedStub extends StubProvider {
+  describe: () => { model: string | null; configured: boolean };
+}
+
+function describedStub(
+  name: string,
+  response: LlmResponse,
+  description: { model: string | null; configured: boolean } = {
+    model: `${name}-model`,
+    configured: true,
+  },
+): DescribedStub {
+  return Object.assign(stubProvider(name, response), { describe: () => description });
+}
+
+void test('LlmService.getProviderStatuses lists the chain in call order, by real provider name', () => {
+  const service = createChainService(
+    { llm: { provider: 'ollama', fallbackProviders: ['qwen', 'gemini', 'nope'] } },
+    {
+      gemini: describedStub('gemini', {}),
+      openai: describedStub('openai', {}),
+      qwen: describedStub('qwen', {}),
+    },
+  );
+
+  assert.deepEqual(service.getProviderStatuses(), [
+    { name: 'qwen', role: 'primary', model: 'qwen-model', configured: true },
+    { name: 'gemini', role: 'fallback', model: 'gemini-model', configured: true },
+  ]);
+});
+
+void test('LlmService.pingProvider tests one provider alone: a failure never reaches the fallback', async () => {
+  const secretError = 'boom https://example.test/?key=secret';
+  const router = describedStub('router', { text: secretError, failed: true });
+  const gemini = describedStub('gemini', { text: 'pong' });
+  const service = createChainService(
+    { llm: { provider: 'router', fallbackProviders: ['gemini'] } },
+    { gemini, router, openai: describedStub('openai', {}), qwen: describedStub('qwen', {}) },
+  );
+
+  const result = await service.pingProvider('router');
+
+  assert.equal(result?.status, 'failed');
+  assert.equal(typeof result?.latencyMs, 'number');
+  assert.equal(router.calls, 1);
+  assert.equal(gemini.calls, 0);
+  assert.doesNotMatch(JSON.stringify(result), /secret/);
+});
+
+void test('LlmService.pingProvider reports ok and empty answers', async () => {
+  const gemini = describedStub('gemini', { text: 'pong' });
+  const router = describedStub('router', { text: '  ' });
+  const service = createChainService(
+    { llm: { provider: 'router', fallbackProviders: ['gemini'] } },
+    { gemini, router, openai: describedStub('openai', {}), qwen: describedStub('qwen', {}) },
+  );
+
+  assert.equal((await service.pingProvider('gemini'))?.status, 'ok');
+  assert.equal((await service.pingProvider('router'))?.status, 'empty');
+});
+
+void test('LlmService.pingProvider makes no call for an unconfigured provider', async () => {
+  const router = describedStub('router', { text: 'pong' }, { model: null, configured: false });
+  const service = createChainService(
+    { llm: { provider: 'router' } },
+    {
+      gemini: describedStub('gemini', {}),
+      router,
+      openai: describedStub('openai', {}),
+      qwen: describedStub('qwen', {}),
+    },
+  );
+
+  assert.deepEqual(await service.pingProvider('router'), {
+    name: 'router',
+    status: 'not_configured',
+    latencyMs: null,
+  });
+  assert.equal(router.calls, 0);
+});
+
+void test('LlmService.pingProvider refuses a provider outside the chain', async () => {
+  const openai = describedStub('openai', { text: 'pong' });
+  const service = createChainService(
+    { llm: { provider: 'gemini' } },
+    { gemini: describedStub('gemini', {}), openai, qwen: describedStub('qwen', {}) },
+  );
+
+  assert.equal(await service.pingProvider('openai'), null);
+  assert.equal(openai.calls, 0);
+});
+
+void test('RouterProvider.describe needs the URL, the key and the model', () => {
+  const describeWith = (router: Record<string, string>) =>
+    new RouterProvider(new ConfigService({ llm: { router } }), {} as never).describe();
+
+  assert.deepEqual(describeWith({ baseUrl: 'http://r', apiKey: 'k', model: 'm' }), {
+    model: 'm',
+    configured: true,
+  });
+  assert.deepEqual(describeWith({ baseUrl: 'http://r', apiKey: 'k' }), {
+    model: null,
+    configured: false,
+  });
+  assert.equal(describeWith({ baseUrl: 'http://r', model: 'm' }).configured, false);
+  assert.equal(describeWith({ apiKey: 'k', model: 'm' }).configured, false);
+});
+
+void test('Gemini, OpenAI and Qwen describe() report their model without any secret', () => {
+  const config = new ConfigService({
+    llm: {
+      gemini: { apiKey: 'gemini-secret', model: 'g' },
+      openai: { apiKey: '', model: 'o' },
+      qwen: { model: 'q', apiKey: 'qwen-secret' },
+    },
+  });
+
+  assert.deepEqual(new GeminiProvider(config).describe(), { model: 'g', configured: true });
+  assert.deepEqual(new OpenAiProvider(config).describe(), { model: 'o', configured: false });
+  assert.deepEqual(new QwenProvider(config).describe(), { model: 'q', configured: true });
+});

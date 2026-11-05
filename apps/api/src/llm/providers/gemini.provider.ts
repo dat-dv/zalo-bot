@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ILlmProvider, LlmResponse, LlmToolDefinition } from '../types/llm.types';
+import {
+  ILlmProvider,
+  LlmProviderDescription,
+  LlmResponse,
+  LlmToolDefinition,
+} from '../types/llm.types';
 import { resolveLlmTimeoutMs } from '../utils/llm-timeout.util';
 
 @Injectable()
@@ -9,6 +14,13 @@ export class GeminiProvider implements ILlmProvider {
   private readonly logger = new Logger(GeminiProvider.name);
 
   constructor(private readonly configService: ConfigService) {}
+
+  public describe(): LlmProviderDescription {
+    return {
+      model: this.configService.get<string>('llm.gemini.model') || 'gemini-3.5-flash-lite',
+      configured: Boolean(this.configService.get<string>('llm.gemini.apiKey')),
+    };
+  }
 
   public async generate(
     prompt: string,

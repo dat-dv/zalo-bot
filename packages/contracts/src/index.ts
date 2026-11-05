@@ -83,6 +83,8 @@ export const API_ROUTES = {
   googleStorageAccountLogout: '/api/google/storage-account/logout',
   auditLogs: '/api/audit-logs',
   auditLog: (id: string) => `/api/audit-logs/${id}`,
+  llmProviders: '/api/llm/providers',
+  llmProviderPing: (name: string) => `/api/llm/providers/${encodeURIComponent(name)}/ping`,
   webhookSendMessage: '/api/webhooks/send',
   webhookTargets: '/api/webhooks/targets',
   webhookStatus: '/api/webhooks/status',
@@ -1350,6 +1352,21 @@ const messages = {
       'Dò tìm render chậm ngay trên trình duyệt này. Chỉ bật khi cần kiểm tra hiệu năng.',
     'settings.preferences.reactScanEnabled': 'Đang bật',
     'settings.preferences.reactScanDisabled': 'Đang tắt',
+    'settings.llm.title': 'AI đang dùng',
+    'settings.llm.description':
+      'Bot gọi lần lượt theo thứ tự này, dòng trên lỗi thì chuyển xuống dòng dưới. Mỗi lần ping là một lượt gọi AI thật.',
+    'settings.llm.empty': 'Chưa có provider nào trong chuỗi.',
+    'settings.llm.role.primary': 'Chính',
+    'settings.llm.role.fallback': 'Dự phòng',
+    'settings.llm.modelMissing': 'Chưa đặt model',
+    'settings.llm.ping': 'Ping',
+    'settings.llm.pinging': 'Đang ping…',
+    'settings.llm.pingAria': 'Ping {name}',
+    'settings.llm.status.ok': 'OK · {ms} ms',
+    'settings.llm.status.empty': 'Trả lời rỗng · {ms} ms',
+    'settings.llm.status.failed': 'Lỗi · {ms} ms',
+    'settings.llm.status.notConfigured': 'Chưa cấu hình',
+    'settings.llm.pingRequestFailed': 'Không gửi được yêu cầu ping',
     'settings.preferences.walletManagementTitle': 'Quản lý số dư & Cân chỉnh ví',
     'settings.preferences.walletManagementDescription':
       'Kiểm tra số dư thực tế và cân chỉnh số dư trên sổ cho khớp với tiền trong ví hoặc tài khoản ngân hàng',
@@ -2748,6 +2765,21 @@ const messages = {
       'Detect slow renders in this browser. Enable only while investigating performance.',
     'settings.preferences.reactScanEnabled': 'Enabled',
     'settings.preferences.reactScanDisabled': 'Disabled',
+    'settings.llm.title': 'AI in use',
+    'settings.llm.description':
+      'The bot calls these in order and moves down a row when one fails. Each ping is a real AI call.',
+    'settings.llm.empty': 'No provider in the chain.',
+    'settings.llm.role.primary': 'Primary',
+    'settings.llm.role.fallback': 'Fallback',
+    'settings.llm.modelMissing': 'No model set',
+    'settings.llm.ping': 'Ping',
+    'settings.llm.pinging': 'Pinging…',
+    'settings.llm.pingAria': 'Ping {name}',
+    'settings.llm.status.ok': 'OK · {ms} ms',
+    'settings.llm.status.empty': 'Empty reply · {ms} ms',
+    'settings.llm.status.failed': 'Failed · {ms} ms',
+    'settings.llm.status.notConfigured': 'Not configured',
+    'settings.llm.pingRequestFailed': 'Could not send the ping',
     'settings.preferences.walletManagementTitle': 'Wallet & Balance Management',
     'settings.preferences.walletManagementDescription':
       'Verify and reconcile ledger balance with your actual cash or bank account balance',
@@ -3183,6 +3215,30 @@ export interface IUserMergeSummary {
 
 export interface IUserMergeResult extends IUserMergeSummary {
   sourceWasCurrentSession: boolean;
+}
+
+export const LLM_PROVIDER_ROLES = ['primary', 'fallback'] as const;
+export type LlmProviderRole = (typeof LLM_PROVIDER_ROLES)[number];
+
+/** One link of the bot's LLM chain, in call order. Never carries a base URL or an API key. */
+export interface ILlmProviderStatus {
+  name: string;
+  role: LlmProviderRole;
+  /** Null when no model is set (only the router has no default). */
+  model: string | null;
+  /** The provider has what it needs to make a call. */
+  configured: boolean;
+}
+
+export const LLM_PING_STATUSES = ['ok', 'empty', 'failed', 'not_configured'] as const;
+export type LlmPingStatus = (typeof LLM_PING_STATUSES)[number];
+
+/** Outcome of one provider alone, with no fallback. Error details stay in the server log. */
+export interface ILlmProviderPingResult {
+  name: string;
+  status: LlmPingStatus;
+  /** Null when no call was made (`not_configured`). */
+  latencyMs: number | null;
 }
 
 /** Who the dashboard session belongs to (`GET API_ROUTES.sessionMe`). */

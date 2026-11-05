@@ -1,11 +1,15 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { ILlmProviderPingResult, ILlmProviderStatus, LlmPingStatus } from '@zalobot/contracts';
 import { ILlmProvider, LlmResponse, LlmToolDefinition } from './types/llm.types';
 import { GeminiProvider } from './providers/gemini.provider';
 import { OpenAiProvider } from './providers/openai.provider';
 import { QwenProvider } from './providers/qwen.provider';
 import { RouterProvider } from './providers/router.provider';
 import { cleanToolArguments } from './utils/tool-arguments.util';
+
+const PING_PROMPT = 'ping';
+const PING_SYSTEM_INSTRUCTION = 'Reply with exactly one word: pong.';
 
 /** No text and no tool call: free models sometimes answer empty, which is worth a retry elsewhere. */
 function isEmptyResponse(response: LlmResponse): boolean {
@@ -71,6 +75,37 @@ export class LlmService {
     }
 
     return this.cleanArguments(lastResponse);
+  }
+
+  /** The chain `generate` would use right now, in call order. */
+  public getProviderStatuses(): ILlmProviderStatus[] {
+    return this.resolveProviderChain().map((provider, index) => ({
+      name: provider.name,
+      role: index === 0 ? 'primary' : 'fallback',
+      ...provider.describe(),
+    }));
+  }
+
+  /**
+   * Tests one provider alone: going through `generate` would report OK from a fallback while this
+   * provider is down. The provider's error text is dropped on purpose, it stays in the server log.
+   * Returns null for a name outside the chain.
+   */
+  public async pingProvider(name: string): Promise<ILlmProviderPingResult | null> {
+    const provider = this.resolveProviderChain().find((link) => link.name === name);
+    if (!provider) return null;
+    if (!provider.describe().configured) {
+      return { name, status: 'not_configured', latencyMs: null };
+    }
+
+    const startedAt = performance.now();
+    const response = await provider.generate(PING_PROMPT, undefined, PING_SYSTEM_INSTRUCTION);
+    const latencyMs = Math.round(performance.now() - startedAt);
+
+    let status: LlmPingStatus = 'ok';
+    if (response.failed) status = 'failed';
+    else if (isEmptyResponse(response)) status = 'empty';
+    return { name, status, latencyMs };
   }
 
   /** Ordered, de-duplicated providers; unknown names are skipped with one warning each. */

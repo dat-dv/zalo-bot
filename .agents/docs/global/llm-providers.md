@@ -6,6 +6,8 @@ metadata:
     depends_on:
       - .agents/knowledge/global/llm-providers.md
       - apps/api/src/llm/llm.service.ts
+      - apps/api/src/llm/llm-admin.controller.ts
+      - apps/api/src/llm/llm-admin.module.ts
       - apps/api/src/llm/providers/router.provider.ts
       - apps/api/src/zca/text/text-tool.definitions.ts
       - apps/api/src/zca/text/strategies/ask-clarification-tool.strategy.ts
@@ -25,7 +27,24 @@ Tool `SEARCH_CHAT_HISTORY` viết câu trả lời bằng `generate(prompt, unde
 
 Nơi sử dụng: `TextInputService` (tin nhắn chat, chỉnh sửa thẻ chờ) và chiến lược tạo hoá đơn từ ảnh (`CreateBillPendingImageStrategy`, dùng chữ OCR).
 
-## 2. Chọn nhà cung cấp
+## 2. Xem và ping LLM trên dashboard
+
+Trước đây muốn biết bot đang dùng LLM nào phải đọc env của server, và khi bot trả lời chậm hay lỗi thì không biết mắt xích nào hỏng. Vì vậy admin có thẻ **AI đang dùng** ở Cài đặt → Tùy chọn hệ thống, gọi hai API chỉ dành cho admin:
+
+- `GET /api/llm/providers`: chuỗi LLM theo đúng thứ tự bot gọi, gồm tên, vai trò, model và đã cấu hình đủ chưa. Không trả base URL hay API key.
+- `POST /api/llm/providers/:name/ping`: gọi thử đúng một provider.
+
+Những điều cần hiểu khi đọc kết quả:
+
+- **Ping không đi qua fallback.** Nếu đi qua `generate()`, provider chính chết thì provider dự phòng trả lời thay và thẻ vẫn báo OK. Nên `pingProvider` gọi thẳng một provider.
+- **`Trả lời rỗng` cũng là hỏng.** Bot coi trả lời rỗng là lỗi và chuyển provider, nên ping báo riêng trạng thái này.
+- **UI chỉ hiện trạng thái, không hiện chuỗi lỗi.** Xem chi tiết trong log server, ví dụ thông báo `ollama pull` của Qwen hoặc mã lỗi HTTP.
+- **Mỗi lần ping là một lượt gọi AI thật**, tốn vài token, nên không tự chạy khi tải trang. Provider treo có thể quay tới hết `LLM_TIMEOUT_MS`.
+- **Cognee không nằm trong thẻ này** vì nó dùng LLM riêng qua `COGNEE_LLM_*`.
+
+Khi thêm provider mới, phải cài `describe()` để thẻ biết model và trạng thái cấu hình; `describe()` không được gọi mạng và không được trả secret.
+
+## 3. Chọn nhà cung cấp
 
 | `LLM_PROVIDER` | Provider | Biến môi trường | Mặc định |
 | --- | --- | --- | --- |
@@ -61,11 +80,11 @@ LLM_TIMEOUT_MS=30000
 
 Provider `router` có biến môi trường riêng, tách khỏi `OPENAI_*`, để vẫn dùng được OpenAI thật như một mắt xích khác nếu cần. Rollback: đặt lại `LLM_PROVIDER=gemini` và xoá `LLM_FALLBACK_PROVIDERS`.
 
-## 3. Làm sạch tham số
+## 4. Làm sạch tham số
 
 Model nhỏ hay trả tham số bị lồng (`{"amount": {"amount": 15000}}`). `cleanToolArguments` tự gỡ lớp bọc cho mọi tool call. `parseAmount` đổi "45k", "2tr", "15.000" thành số nguyên VND dương. `normalizeSchemaTypes` chuyển kiểu schema (`OBJECT` → `object`) cho OpenAI/Ollama.
 
-## 4. Danh sách tool (`ZALO_TOOL_DEFINITIONS` — 16 tool)
+## 5. Danh sách tool (`ZALO_TOOL_DEFINITIONS` — 16 tool)
 
 | Tool | Mục đích |
 | --- | --- |
@@ -89,7 +108,7 @@ Quy tắc an toàn:
 - Lệnh nhanh (`/help`, `/finance`...) không bao giờ đi qua LLM.
 - **Bố cục prompt để tận dụng cache của provider**: phần tĩnh (câu giới thiệu bot, bảng phân loại, luật điền tham số, đoạn trò chuyện tự do, luật trả lời thuần văn bản) đứng trước; phần đổi theo kênh và theo lượt (ghi nhớ/điều bot học, mốc giờ, thẻ đang chờ) đứng cuối, và mốc giờ trong prompt chỉ tới phút. Gemini (cache ngầm) và OpenAI (prompt caching) chỉ dùng lại được phần đầu prompt giống hệt nhau giữa các lượt; trước đây profile kênh và giờ tới từng giây đứng đầu nên vài nghìn token tĩnh bị tính tiền và xử lý lại ở mọi tin. Mỗi provider ghi log debug `… tokens: prompt=… cached=… output=…`; từ tin thứ hai của một kênh, `cached > 0` nghĩa là cache đang trúng (cần model có cache ngầm, ví dụ Gemini 2.5+ hoặc gpt-4o+).
 
-## 5. Nhiều hành động trong một câu
+## 6. Nhiều hành động trong một câu
 
 Prompt hệ thống yêu cầu LLM tách mỗi hành động thành một tool call. Hệ thống **không gộp** các tool call lại; chúng chạy lần lượt và mỗi call sinh một thẻ xác nhận riêng. Riêng với nhiều `RECORD_TRANSACTION`, `propagateSharedTransactionContext` điền bù:
 1. Thời gian: nếu cả câu chỉ có một mốc thời gian, điền cho các giao dịch thiếu.
@@ -97,5 +116,5 @@ Prompt hệ thống yêu cầu LLM tách mỗi hành động thành một tool c
 
 Ví dụ: "hôm nay mua cà phê 13k và nước cam 20k ở đối diện ctgroup" → cả hai giao dịch đều có nơi chốn "đối diện ctgroup".
 
-## 6. Kiểm thử
+## 7. Kiểm thử
 `npm run test --workspace @zalobot/api` (bao gồm `llm.service.spec.ts`, `tool-arguments.util.spec.ts`).
