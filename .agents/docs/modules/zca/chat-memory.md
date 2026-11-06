@@ -96,10 +96,21 @@ Trước đây tin hôm nay chỉ vào Cognee lúc 03:00 hôm sau. Vì vậy chu
 - Mỗi tin của kênh bật "Nhớ lâu dài" đặt lại hẹn giờ của kênh. Kênh im lặng **3 phút** thì các tin mới của hôm nay được gửi sang Cognee thành một đoạn. Nhóm nói liên tục thì chậm nhất **15 phút** cũng gửi một lần, tính từ tin đầu tiên chưa gửi.
 - Mỗi đoạn có tiêu đề kèm khung giờ, ví dụ `…ngày 26/10/2026 (Thứ Hai), 14:28–14:56`. Mỗi đoạn được ghi một dòng trong bảng `zca_memory_segments`; đoạn sau chỉ lấy tin sau đoạn trước, nên không gửi trùng.
 - Hẹn giờ nằm trong RAM của API. Khởi động lại thì sau 1 phút bot gửi bù một đoạn cho mọi kênh bật Nhớ lâu dài, nên không sót tin.
-- Cognee lỗi thì không ghi gì, đợt sau gửi lại phần đó.
+- Cognee lỗi thì không ghi gì, đợt sau gửi lại phần đó. Nếu lỗi nằm ở phía sau Cognee (thường là LLM), bot **tạm dừng nạp 60 phút**, xem mục "Khi LLM của Cognee hỏng".
 - **Gõ `/sync`** (hoặc `@bot /sync`): bot bỏ hẹn giờ của kênh, nạp ngay các ngày cũ còn chờ hoặc lỗi và các tin mới hôm nay. Bot trả lời "🔄 Đang cập nhật trí nhớ…", xong thì báo "🧠 Đã cập nhật trí nhớ: N tin mới hôm nay". `/sync` không chạy tự học (vẫn ban đêm).
 - Thu hồi một tin hôm nay: các đoạn hôm nay bị xoá khỏi Cognee và gửi lại ngay, không còn tin đó.
 - Cái giá: Cognee gọi LLM nhiều hơn, khoảng gấp đôi lượng token so với chỉ nạp ban đêm.
+
+### Khi LLM của Cognee hỏng
+
+Mỗi lần gọi LLM lỗi, Cognee tự thử lại ít nhất 240 giây, và router lại thử từng model trong combo. Nếu cứ để từng đoạn của từng kênh gửi tiếp, log router sẽ đầy các lượt gọi hỏng (log 9router ngày 26/10/2026 cho thấy đúng như vậy), trong khi không có gì được nạp. Vì vậy:
+
+- Một lượt `remember` lỗi là bot **dừng mọi lượt nạp 60 phút**, trên toàn hệ thống. Lỗi tính gồm: HTTP 409 (trừ "already exists"), 5xx, timeout, lỗi mạng, hoặc response 2xx mà `status` không phải `completed`.
+- HTTP 400, 413, 422 **không** làm dừng, vì đó là lỗi của riêng một tài liệu, không nên chặn các kênh khác. Lỗi đăng nhập Cognee cũng vậy, vì chưa gọi LLM.
+- Trong lúc dừng, tin nhắn vẫn lưu ở Postgres, tìm theo từ khoá vẫn thấy. Ngày chờ không bị xoá đoạn và không mất lượt thử; job đêm dừng lại và để các kênh còn lại cho đêm sau.
+- Hết 60 phút, lượt nạp kế tiếp là lượt thử; lỗi nữa thì dừng tiếp.
+- **Sửa router xong muốn chạy ngay:** gõ `/sync` trong kênh. Lệnh này bỏ tạm dừng rồi nạp luôn. Vẫn lỗi thì bot báo "⚠️ LLM của trí nhớ đang lỗi…" và dừng tiếp. Khởi động lại API cũng xoá tạm dừng, vì trạng thái nằm trong RAM.
+- Dashboard chưa hiện trạng thái này. Muốn biết, tìm dòng `[Cognee] Ingest paused until` trong log API.
 
 ### Mỗi đêm lúc 03:00
 

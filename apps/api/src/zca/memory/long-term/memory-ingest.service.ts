@@ -31,6 +31,8 @@ export interface MemorySyncResult {
   todayLines: number;
   /** Today's segment could not be sent (a failing past day is retried as every night). */
   failed: boolean;
+  /** Cognee failed during this run, so ingest stays off for a while. */
+  paused: boolean;
 }
 
 function errorMessage(err: unknown): string {
@@ -74,6 +76,11 @@ export class MemoryIngestService {
       .getAllConfigs()
       .filter((config) => config.isListened && config.chatMemory?.enabled);
     for (const config of configs) {
+      // The other chats stay pending for tomorrow, without using up their attempts.
+      if (this.cognee.isIngestPaused()) {
+        this.logger.warn('[MemoryIngest] Nightly run stopped: ingest is paused');
+        return;
+      }
       try {
         await this.ingestChannel(config, now);
       } catch (err: unknown) {
@@ -103,6 +110,8 @@ export class MemoryIngestService {
     });
     const ingested: string[] = [];
     for (const day of days) {
+      // Before `ingestDay`, which forgets the segments of the day and counts an attempt.
+      if (this.cognee.isIngestPaused()) break;
       if (await this.ingestDay(config, day, timeZone)) ingested.push(day);
     }
     if (ingested.length > 0 && config.chatMemory.learnPeople && options.learn !== false) {
@@ -113,8 +122,8 @@ export class MemoryIngestService {
 
   /**
    * Sends the messages of today not in a segment yet as one more segment. Resolves how many lines
-   * went in: 0 when there was nothing new, `null` when Cognee could not take it (the next run
-   * picks them up again, nothing is marked).
+   * went in: 0 when there was nothing new, `null` when Cognee could not take it or ingest is
+   * paused (the next run picks them up again, nothing is marked).
    */
   public async ingestSegment(
     config: ThreadBotConfig,
@@ -123,6 +132,7 @@ export class MemoryIngestService {
     if (!this.segmentRepository || !this.cognee.isEnabled() || !config.chatMemory?.enabled) {
       return 0;
     }
+    if (this.cognee.isIngestPaused()) return null;
     const timeZone = this.chatMemory.timeZone();
     const channelId = config.threadId;
     const day = localDay(now, timeZone);
@@ -160,9 +170,15 @@ export class MemoryIngestService {
 
   /** `/sync`: past days still pending or failed, then today's new messages; no fact learning. */
   public async sync(config: ThreadBotConfig, now: Date = new Date()): Promise<MemorySyncResult> {
+    this.cognee.resumeIngest();
     const days = await this.ingestChannel(config, now, { learn: false });
     const todayLines = await this.ingestSegment(config, now);
-    return { days: days.length, todayLines: todayLines ?? 0, failed: todayLines === null };
+    return {
+      days: days.length,
+      todayLines: todayLines ?? 0,
+      failed: todayLines === null,
+      paused: this.cognee.isIngestPaused(),
+    };
   }
 
   /**

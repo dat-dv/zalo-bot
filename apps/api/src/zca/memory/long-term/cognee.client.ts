@@ -4,6 +4,15 @@ import { ConfigService } from '@nestjs/config';
 /** Login token lifetime is 1 h on the Cognee side; renew a little earlier. */
 const TOKEN_REUSE_MS = 50 * 60 * 1000;
 const LOGIN_TIMEOUT_MS = 30_000;
+/**
+ * How long ingest stays off after Cognee failed behind `/remember`. Each failed remember costs
+ * minutes of LLM retries inside Cognee (at least 240 s per call, not configurable), multiplied by
+ * the fallback models of the router, so one failure per hour is all a broken LLM gets.
+ */
+export const COGNEE_INGEST_PAUSE_MS = 60 * 60 * 1000;
+/** The only `status` of a blocking `/remember` (Cognee 1.6.5) meaning the graph was built. */
+const REMEMBER_COMPLETED = 'completed';
+const LOG_DETAIL_LENGTH = 300;
 
 export interface CogneeRememberResult {
   datasetId: string;
@@ -71,6 +80,8 @@ export function cogneeDatasetName(channelId: string): string {
 export class CogneeClient {
   private readonly logger = new Logger(CogneeClient.name);
   private token: { value: string; expiresAt: number } | null = null;
+  /** In memory: a restart only costs one more failed remember, the queue runs one job at a time. */
+  private ingestPausedUntil = 0;
 
   constructor(@Optional() private readonly configService?: ConfigService) {}
 
@@ -79,7 +90,21 @@ export class CogneeClient {
     return Boolean(settings.url && settings.userPassword);
   }
 
-  /** Stores one text document in the chat's dataset and builds its graph; waits until done. */
+  /** `true` while ingest must not call `remember`; ends by itself after the pause. */
+  public isIngestPaused(now: number = Date.now()): boolean {
+    return now < this.ingestPausedUntil;
+  }
+
+  /** `/sync` tries at once, so a fixed LLM does not wait for the pause to end. */
+  public resumeIngest(): void {
+    this.ingestPausedUntil = 0;
+  }
+
+  /**
+   * Stores one text document in the chat's dataset and builds its graph; waits until done.
+   * A failure behind Cognee (409 of a failed run, 5xx, timeout, unfinished status) pauses ingest;
+   * a 4xx about this document does not, it must not stop the other chats.
+   */
   public async remember(
     datasetName: string,
     fileName: string,
@@ -90,7 +115,11 @@ export class CogneeClient {
     form.append('data', new Blob([text], { type: 'text/plain' }), fileName);
     form.append('datasetName', datasetName);
     form.append('run_in_background', 'false');
-    const body = await this.request('POST', '/remember', { form, keepConflict: true });
+    const body = await this.request('POST', '/remember', {
+      form,
+      keepConflict: true,
+      onUpstreamFailure: (detail) => this.pauseIngest(detail),
+    });
     if (body instanceof CogneeConflict) {
       const stale = parseExistingDocument(body.detail);
       if (stale && !retried && (await this.forget(stale.datasetId, stale.dataId))) {
@@ -98,15 +127,24 @@ export class CogneeClient {
         return this.remember(datasetName, fileName, text, true);
       }
       this.logger.warn(
-        `[Cognee] POST /remember failed with HTTP 409: ${body.detail.slice(0, 300)}`,
+        `[Cognee] POST /remember failed with HTTP 409: ${body.detail.slice(0, LOG_DETAIL_LENGTH)}`,
       );
+      if (!stale) this.pauseIngest(body.detail);
       return null;
     }
+    if (body === null) return null;
     const datasetId = stringField(body, 'dataset_id');
     const items = isRecord(body) && Array.isArray(body.items) ? body.items : [];
     const dataId = stringField(items[0], 'id');
+    const status = stringField(body, 'status');
+    if (status !== REMEMBER_COMPLETED) {
+      // The item without a graph would stay in the dataset and block the file name.
+      if (datasetId && dataId) await this.forget(datasetId, dataId);
+      this.pauseIngest(`remember of ${datasetName} did not finish: status "${status}"`);
+      return null;
+    }
     if (!datasetId || !dataId) {
-      if (body !== null) this.logger.warn(`[Cognee] remember returned no item for ${datasetName}`);
+      this.logger.warn(`[Cognee] remember returned no item for ${datasetName}`);
       return null;
     }
     return { datasetId, dataId };
@@ -141,6 +179,16 @@ export class CogneeClient {
     });
     if (!Array.isArray(body)) return [];
     return body.map((item) => stringField(item, 'text').trim()).filter((text) => text.length > 0);
+  }
+
+  private pauseIngest(reason: string): void {
+    const wasPaused = this.isIngestPaused();
+    this.ingestPausedUntil = Date.now() + COGNEE_INGEST_PAUSE_MS;
+    if (wasPaused) return;
+    const until = new Date(this.ingestPausedUntil).toISOString();
+    this.logger.warn(
+      `[Cognee] Ingest paused until ${until}: ${reason.slice(0, LOG_DETAIL_LENGTH)}`,
+    );
   }
 
   private settings(): CogneeSettings {
@@ -182,7 +230,14 @@ export class CogneeClient {
   private async request(
     method: 'POST' | 'GET',
     path: string,
-    options: { json?: unknown; form?: FormData; notFoundIsEmpty?: boolean; keepConflict?: boolean },
+    options: {
+      json?: unknown;
+      form?: FormData;
+      notFoundIsEmpty?: boolean;
+      keepConflict?: boolean;
+      /** A 5xx or a request that never got an answer. */
+      onUpstreamFailure?: (detail: string) => void;
+    },
     retried = false,
   ): Promise<unknown> {
     const settings = this.settings();
@@ -209,16 +264,18 @@ export class CogneeClient {
         return new CogneeConflict(await response.text().catch(() => ''));
       }
       if (!response.ok) {
-        const detail = (await response.text().catch(() => '')).slice(0, 300);
+        const detail = (await response.text().catch(() => '')).slice(0, LOG_DETAIL_LENGTH);
         this.logger.warn(
           `[Cognee] ${method} ${path} failed with HTTP ${response.status}: ${detail}`,
         );
+        if (response.status >= 500) options.onUpstreamFailure?.(detail);
         return null;
       }
       const body: unknown = await response.json();
       return body;
     } catch (err: unknown) {
       this.logger.warn(`[Cognee] ${method} ${path} error: ${errorMessage(err)}`);
+      options.onUpstreamFailure?.(errorMessage(err));
       return null;
     }
   }

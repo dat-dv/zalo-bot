@@ -17,6 +17,12 @@ interface Fakes {
   lines?: Array<{ sentAt: Date; senderName: string | null; text: string }>;
   existing?: Partial<ZcaMemoryIngestionEntity>;
   rememberFails?: boolean;
+  /** Ingest is already paused. */
+  paused?: boolean;
+  /** A failed `remember` pauses ingest, as `CogneeClient` does for a failure behind Cognee. */
+  pauseOnFailure?: boolean;
+  /** Listened chats with long-term memory besides `CONFIG`. */
+  otherChats?: string[];
 }
 
 const CONFIG = {
@@ -45,10 +51,13 @@ function createService(fakes: Fakes = {}) {
       ),
     activeMembers: () => Promise.resolve([{ userId: 'u1', name: 'Văn Đạt' }]),
   } as unknown as ChatMemoryService;
+  let paused = fakes.paused ?? false;
   const cognee = {
     isEnabled: () => fakes.enabled ?? true,
+    isIngestPaused: () => paused,
     remember: (dataset: string, fileName: string) => {
       calls.push(`remember ${dataset} ${fileName}`);
+      if (fakes.rememberFails && fakes.pauseOnFailure) paused = true;
       return Promise.resolve(fakes.rememberFails ? null : { datasetId: 'ds', dataId: 'd2' });
     },
     forget: (datasetId: string, dataId: string) => {
@@ -81,7 +90,11 @@ function createService(fakes: Fakes = {}) {
     find: () => Promise.resolve([]),
   } as unknown as Repository<ZcaMemoryIngestionEntity>;
   const threadConfig = {
-    getAllConfigs: () => [CONFIG, { ...CONFIG, threadId: 'g-off', chatMemory: { enabled: false } }],
+    getAllConfigs: () => [
+      CONFIG,
+      ...(fakes.otherChats ?? []).map((threadId) => ({ ...CONFIG, threadId })),
+      { ...CONFIG, threadId: 'g-off', chatMemory: { enabled: false } },
+    ],
   } as unknown as ThreadConfigService;
   const service = new MemoryIngestService(threadConfig, chatMemory, cognee, facts, llm, repository);
   return { service, calls, saved, learned };
@@ -161,6 +174,8 @@ function createSegmentService(options: {
   segments?: SegmentRow[];
   today?: Array<{ sentAt: Date; senderName: string | null; text: string }>;
   rememberFails?: boolean;
+  paused?: boolean;
+  pauseOnFailure?: boolean;
 }) {
   const calls: string[] = [];
   const segments = [...(options.segments ?? [])];
@@ -173,10 +188,16 @@ function createSegmentService(options: {
       return Promise.resolve((options.today ?? []).filter((line) => !after || line.sentAt > after));
     },
   } as unknown as ChatMemoryService;
+  let paused = options.paused ?? false;
   const cognee = {
     isEnabled: () => true,
+    isIngestPaused: () => paused,
+    resumeIngest: () => {
+      paused = false;
+    },
     remember: (dataset: string, fileName: string, text: string) => {
       calls.push(`remember ${dataset} ${fileName} ${text.split('\n')[0]}`);
+      if (options.rememberFails && options.pauseOnFailure) paused = true;
       return Promise.resolve(options.rememberFails ? null : { datasetId: 'ds', dataId: 'seg2' });
     },
     forget: (datasetId: string, dataId: string) => {
@@ -323,6 +344,82 @@ void test('/sync reports what went in; chats without long-term memory get null',
     today: [{ sentAt: AT_1456, senderName: 'Đạt', text: 'hi' }],
   });
 
-  assert.deepEqual(await service.runSync('g-1', NOW), { days: 0, todayLines: 1, failed: false });
+  assert.deepEqual(await service.runSync('g-1', NOW), {
+    days: 0,
+    todayLines: 1,
+    failed: false,
+    paused: false,
+  });
   assert.equal(await service.runSync('g-unknown', NOW), null);
+});
+
+void test('one failure stops the night: the other chats and days are left for later', async () => {
+  const { service, calls, saved } = createService({
+    days: ['2026-10-25', '2026-10-24'],
+    rememberFails: true,
+    pauseOnFailure: true,
+    otherChats: ['g-2', 'g-3'],
+  });
+
+  await service.runNightly(new Date('2026-10-26T03:00:00+07:00'));
+
+  assert.deepEqual(calls, ['purge', 'remember zca-g-1 g-1_2026-10-25.txt']);
+  assert.equal(saved.length, 1, 'skipped days keep their attempts');
+  assert.equal(saved[0].attempts, 1);
+});
+
+void test('a paused night calls nothing and uses up no attempt', async () => {
+  const { service, calls, saved } = createService({ paused: true });
+
+  await service.runNightly(new Date('2026-10-26T03:00:00+07:00'));
+
+  assert.deepEqual(calls, ['purge']);
+  assert.equal(saved.length, 0);
+});
+
+void test('while paused a day keeps its segments and a segment is not sent', async () => {
+  const { service, calls, segments } = createSegmentService({
+    paused: true,
+    segments: [
+      {
+        channelId: 'g-1',
+        day: '2026-10-26',
+        fromSentAt: AT_1428,
+        toSentAt: AT_1428,
+        cogneeDataId: 'ds:seg1',
+      },
+    ],
+    today: [{ sentAt: AT_1456, senderName: 'Đạt', text: 'hi' }],
+  });
+
+  assert.equal(await service.ingestSegment(CONFIG, NOW), null);
+  assert.equal(await service.runSegment('g-1', {}, NOW), null);
+  assert.deepEqual(calls, []);
+  assert.equal(segments.length, 1);
+});
+
+void test('/sync tries at once during a pause and says when it failed again', async () => {
+  const today = [{ sentAt: AT_1456, senderName: 'Đạt', text: 'hi' }];
+
+  const fixed = createSegmentService({ paused: true, today });
+  assert.deepEqual(await fixed.service.runSync('g-1', NOW), {
+    days: 0,
+    todayLines: 1,
+    failed: false,
+    paused: false,
+  });
+
+  const stillDown = createSegmentService({
+    paused: true,
+    today,
+    rememberFails: true,
+    pauseOnFailure: true,
+  });
+  assert.deepEqual(await stillDown.service.runSync('g-1', NOW), {
+    days: 0,
+    todayLines: 0,
+    failed: true,
+    paused: true,
+  });
+  assert.equal(stillDown.calls.length, 1, 'one try, then the pause holds again');
 });

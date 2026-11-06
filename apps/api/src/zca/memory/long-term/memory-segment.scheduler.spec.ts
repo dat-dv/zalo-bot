@@ -68,13 +68,20 @@ void test('a recall or /sync replaces the waiting timer with a job at once', asy
 
 void test('syncResultText says what went in', () => {
   assert.equal(
-    syncResultText({ days: 1, todayLines: 3, failed: false }),
+    syncResultText({ days: 1, todayLines: 3, failed: false, paused: false }),
     '🧠 Đã cập nhật trí nhớ: 3 tin mới hôm nay, 1 ngày trước còn chờ.',
   );
   assert.equal(
-    syncResultText({ days: 0, todayLines: 0, failed: false }),
+    syncResultText({ days: 0, todayLines: 0, failed: false, paused: false }),
     '🧠 Trí nhớ đã đủ, không có tin mới.',
   );
-  assert.match(syncResultText({ days: 0, todayLines: 0, failed: true }), /Chưa cập nhật được/);
+  assert.match(
+    syncResultText({ days: 0, todayLines: 0, failed: true, paused: false }),
+    /Chưa cập nhật được/,
+  );
+  assert.match(
+    syncResultText({ days: 0, todayLines: 0, failed: true, paused: true }),
+    /tạm dừng nạp 60 phút/,
+  );
   assert.match(syncResultText(null), /chưa bật Nhớ lâu dài/);
 });

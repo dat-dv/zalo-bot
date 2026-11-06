@@ -13,6 +13,7 @@ import {
   CHAT_MEMORY_SYNC_JOB,
   readChannelJob,
 } from './memory-ingest.jobs';
+import { COGNEE_INGEST_PAUSE_MS } from './cognee.client';
 import { MemoryIngestService, type MemorySyncResult } from './memory-ingest.service';
 
 export { CHAT_MEMORY_QUEUE, CHAT_MEMORY_NIGHTLY_JOB, CHAT_MEMORY_NIGHTLY_CRON };
@@ -20,6 +21,10 @@ export { CHAT_MEMORY_QUEUE, CHAT_MEMORY_NIGHTLY_JOB, CHAT_MEMORY_NIGHTLY_CRON };
 /** The `/sync` answer posted to the chat once the job is done. */
 export function syncResultText(result: MemorySyncResult | null): string {
   if (!result) return '🧠 Kênh này chưa bật Nhớ lâu dài nên không có gì để cập nhật.';
+  if (result.paused) {
+    const minutes = COGNEE_INGEST_PAUSE_MS / 60_000;
+    return `⚠️ LLM của trí nhớ đang lỗi, bot tạm dừng nạp ${minutes} phút rồi tự thử lại. Tin nhắn không bị mất.`;
+  }
   if (result.failed) return '⚠️ Chưa cập nhật được trí nhớ lúc này, thử lại sau.';
   const parts: string[] = [];
   if (result.todayLines > 0) parts.push(`${result.todayLines} tin mới hôm nay`);

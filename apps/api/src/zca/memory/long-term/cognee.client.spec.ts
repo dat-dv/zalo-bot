@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { ConfigService } from '@nestjs/config';
-import { CogneeClient, cogneeDatasetName, parseExistingDocument } from './cognee.client';
+import {
+  COGNEE_INGEST_PAUSE_MS,
+  CogneeClient,
+  cogneeDatasetName,
+  parseExistingDocument,
+} from './cognee.client';
 
 interface SeenRequest {
   url: string;
@@ -153,7 +158,11 @@ void test('CogneeClient forgets a stale copy once and sends the file again', asy
       remembers += 1;
       return remembers === 1
         ? json({ detail: STALE }, 409)
-        : json({ dataset_id: '685503bb-9e2d-54a8-90df-a3b615ad9940', items: [{ id: 'new-item' }] });
+        : json({
+            status: 'completed',
+            dataset_id: '685503bb-9e2d-54a8-90df-a3b615ad9940',
+            items: [{ id: 'new-item' }],
+          });
     },
   });
   try {
@@ -195,4 +204,100 @@ void test('CogneeClient gives up on a 409 that names no stored item, or after on
   } finally {
     stuck.restore();
   }
+});
+
+/** One `remember` against a stubbed `/remember`; resolves the client and what it sent. */
+async function rememberOnce(answer: () => Response) {
+  const { seen, restore } = stubFetch({
+    '/auth/login': () => json({ access_token: 'tok' }),
+    '/forget': () => json({ status: 'success' }),
+    '/remember': answer,
+  });
+  try {
+    const cognee = client();
+    const result = await cognee.remember('zca-1', 'a.txt', 'x');
+    return { cognee, result, seen };
+  } finally {
+    restore();
+  }
+}
+
+void test('a failure behind Cognee pauses ingest', async () => {
+  const failures: Array<[string, () => Response]> = [
+    ['409 of a failed run', () => json({ status: 'errored', error: 'BadRequestError' }, 409)],
+    ['500', () => new Response('boom', { status: 500 })],
+    ['503', () => new Response('down', { status: 503 })],
+    [
+      'timeout',
+      () => {
+        throw new Error('The operation was aborted due to timeout');
+      },
+    ],
+  ];
+  for (const [name, answer] of failures) {
+    const { cognee, result } = await rememberOnce(answer);
+    assert.equal(result, null, name);
+    assert.equal(cognee.isIngestPaused(), true, name);
+  }
+});
+
+void test('a refused document does not pause the other chats', async () => {
+  for (const status of [400, 413, 422]) {
+    const { cognee, result } = await rememberOnce(() => json({ error: 'bad' }, status));
+    assert.equal(result, null);
+    assert.equal(cognee.isIngestPaused(), false, `HTTP ${status}`);
+  }
+
+  const { seen, restore } = stubFetch({
+    '/auth/login': () => new Response('no', { status: 401 }),
+  });
+  try {
+    const cognee = client();
+    assert.equal(await cognee.remember('zca-1', 'a.txt', 'x'), null);
+    assert.equal(cognee.isIngestPaused(), false, 'a failed login calls no LLM');
+    assert.equal(seen.filter((request) => request.url.endsWith('/remember')).length, 0);
+  } finally {
+    restore();
+  }
+});
+
+void test('a stale copy replaced on the retry does not pause ingest', async () => {
+  let remembers = 0;
+  const { cognee, result } = await rememberOnce(() => {
+    remembers += 1;
+    return remembers === 1
+      ? json({ detail: STALE }, 409)
+      : json({ status: 'completed', dataset_id: 'ds-1', items: [{ id: 'item-2' }] });
+  });
+  assert.deepEqual(result, { datasetId: 'ds-1', dataId: 'item-2' });
+  assert.equal(cognee.isIngestPaused(), false);
+});
+
+void test('remember only counts when the graph was built', async () => {
+  const done = await rememberOnce(() =>
+    json({ status: 'completed', dataset_id: 'ds-1', items: [{ id: 'item-1' }] }),
+  );
+  assert.deepEqual(done.result, { datasetId: 'ds-1', dataId: 'item-1' });
+  assert.equal(done.cognee.isIngestPaused(), false);
+
+  for (const body of [
+    { status: 'running', dataset_id: 'ds-1', items: [{ id: 'item-1' }] },
+    { dataset_id: 'ds-1', items: [{ id: 'item-1' }] },
+  ]) {
+    const unfinished = await rememberOnce(() => json(body));
+    assert.equal(unfinished.result, null);
+    assert.equal(unfinished.cognee.isIngestPaused(), true);
+    const forget = unfinished.seen.find((request) => request.url.endsWith('/forget'));
+    assert.deepEqual(JSON.parse(forget?.body ?? ''), { datasetId: 'ds-1', dataId: 'item-1' });
+  }
+});
+
+void test('the pause ends by itself, or at once with resumeIngest', async () => {
+  const { cognee } = await rememberOnce(() => new Response('down', { status: 503 }));
+  const justOver = Date.now() + COGNEE_INGEST_PAUSE_MS + 1000;
+  assert.equal(cognee.isIngestPaused(), true);
+  assert.equal(cognee.isIngestPaused(justOver), false);
+
+  cognee.resumeIngest();
+  assert.equal(cognee.isIngestPaused(), false);
 });
