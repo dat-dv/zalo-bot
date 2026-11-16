@@ -1,37 +1,25 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  ILlmProvider,
-  LlmProviderDescription,
-  LlmResponse,
-  LlmToolDefinition,
-} from '../types/llm.types';
+import { ILlmClient, LlmCallConfig, LlmResponse, LlmToolDefinition } from '../types/llm.types';
 import { resolveLlmTimeoutMs } from '../utils/llm-timeout.util';
 
+/** Google AI Studio `generateContent`; `config.baseUrl` is ignored (fixed endpoint). */
 @Injectable()
-export class GeminiProvider implements ILlmProvider {
-  public readonly name = 'gemini';
+export class GeminiProvider implements ILlmClient {
   private readonly logger = new Logger(GeminiProvider.name);
 
   constructor(private readonly configService: ConfigService) {}
 
-  public describe(): LlmProviderDescription {
-    return {
-      model: this.configService.get<string>('llm.gemini.model') || 'gemini-3.5-flash-lite',
-      configured: Boolean(this.configService.get<string>('llm.gemini.apiKey')),
-    };
-  }
-
   public async generate(
+    config: LlmCallConfig,
     prompt: string,
     tools?: LlmToolDefinition[],
     systemInstruction?: string,
   ): Promise<LlmResponse> {
-    const apiKey = this.configService.get<string>('llm.gemini.apiKey') || '';
-    const model = this.configService.get<string>('llm.gemini.model') || 'gemini-3.5-flash-lite';
+    const { apiKey, model } = config;
 
-    if (!apiKey) {
-      this.logger.warn('Gemini API key is missing. Skipping LLM call.');
+    if (!apiKey || !model) {
+      this.logger.warn('Gemini API key or model is missing. Skipping LLM call.');
       return { text: 'Chưa cấu hình API Key cho Gemini.', failed: true };
     }
 

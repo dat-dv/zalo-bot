@@ -511,7 +511,7 @@ export function SettingsScreen() {
               </article>
             </div>
           </DataPanel>
-          {isAdmin && <LlmProvidersPanel />}
+          {isAdmin && <LlmProvidersPanel onToast={showToast} />}
         </section>
       )}
 

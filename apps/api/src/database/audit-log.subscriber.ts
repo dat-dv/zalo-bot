@@ -75,7 +75,7 @@ export class AuditLogSubscriber implements EntitySubscriberInterface {
     return Object.fromEntries(
       Object.entries(data).map(([key, value]) => [
         key,
-        /token|secret|password|authorization/i.test(key) ? '[REDACTED]' : value,
+        /token|secret|password|authorization|api_?key/i.test(key) ? '[REDACTED]' : value,
       ]),
     );
   }

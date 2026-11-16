@@ -60,7 +60,7 @@ Finance, calendar and tasks are shared stores: anyone can edit or delete anyone'
 
 ## Data (`audit_logs`)
 
-- Columns: `id`, `table_name`, `record_id`, `action` (`insert|update|remove`), `actor_id`, `actor_name` (Zalo display name at write time; Zalo source only), `actor_source` (NULL = legacy), `channel_id`, `before_data`/`after_data` (simple-json text, secrets redacted at write), `created_at`.
+- Columns: `id`, `table_name`, `record_id`, `action` (`insert|update|remove`), `actor_id`, `actor_name` (Zalo display name at write time; Zalo source only), `actor_source` (NULL = legacy), `channel_id`, `before_data`/`after_data` (simple-json text; keys matching `token|secret|password|authorization|api_?key` are written as `[REDACTED]`), `created_at`.
 - Migration `1724950000000-AddAuditLogActorSource`: adds `actor_source`, `channel_id`, index `IDX_audit_logs_created_at (created_at DESC)`. Legacy rows are not backfilled: their `actor_id` is the row creator (the UI flags them).
 - Migration `1724970000000-AddAuditLogActorName`: adds nullable `actor_name`, not backfilled. Why: group members who are not the bot's friends are missing from the ZCA directory and often have no `users.first_name`.
 - Fidelity: `save`/`remove` → full row (+ before copy on update). Repository/query-builder `update()` → only written values, `record_id` usually NULL, no before copy. `delete()` by criteria → row with no data. `callListeners(false)` writes (calendar import) → nothing. `zca_messages` and `audit_logs` are skipped.
@@ -76,7 +76,7 @@ Finance, calendar and tasks are shared stores: anyone can edit or delete anyone'
   - **Actor name precedence** (`actorNameOf`): ZCA directory name (`UsersService.resolveZaloNames`: cached `getAvailableThreads(false)`, `user` entries, `alias || name || displayName`; never calls Zalo; errors → skipped) → the row's `actor_name` → `users.first_name` → ''. Same order for `facets.actors` and the detail. `AuditController` passes the resolver as `AuditNameResolver` so `AuditModule` stays free of `UsersModule`.
   - Item `IAuditLogListItem`: ids, `actorName` (see precedence, else ''), `actorIsOwner` (`dashboard-owner`), `actorSource`, `channelName`/`channelType` (`zca_thread_configs`), `changedFields` (`computeChangedFields`: update with before → differing keys; without before → written keys; `updatedAt` ignored; insert/remove → []), `createdAt`. No before/after data in the list.
 - `GET /api/audit-logs/:id` (`API_ROUTES.auditLog(id)`) → `IAuditLogDetail` (= item + `beforeData`, `afterData`), 404 when missing.
-- `AUDIT_TABLES` (contracts) lists 19 tables with `group` (`finance|planning|system`) and `technical`, including `saving_groups` and `saving_movements` (finance).
+- `AUDIT_TABLES` (contracts) lists 22 tables with `group` (`finance|planning|system`) and `technical`, including `saving_groups` and `saving_movements` (finance) and `llm_providers` (system, label "AI của bot"; its `api_key` is redacted). Each table needs a label in `apps/web/src/modules/audit/model/audit-labels.ts`.
 
 ## Web (`/activity`)
 
@@ -104,3 +104,5 @@ Finance, calendar and tasks are shared stores: anyone can edit or delete anyone'
 ## Fixed items
 
 `recurring_transactions` and `recurring_occurrences` are audited in the finance group. Rows written by the scan job have the actor `system`.
+
+`llm_providers` (the bot's AI chain, `global/llm-providers.md`) is audited in the system group: dashboard edits carry the admin as actor; the migration seed runs before any request and has no audit row. `api_key` is always `[REDACTED]`.

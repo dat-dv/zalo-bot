@@ -1,39 +1,29 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  ILlmProvider,
-  LlmProviderDescription,
-  LlmResponse,
-  LlmToolDefinition,
-} from '../types/llm.types';
+import { ILlmClient, LlmCallConfig, LlmResponse, LlmToolDefinition } from '../types/llm.types';
 import { cleanToolArguments, normalizeSchemaTypes } from '../utils/tool-arguments.util';
 import { resolveLlmTimeoutMs } from '../utils/llm-timeout.util';
 
+/** Ollama `/api/chat`, or its OpenAI-compatible `/v1` when the base URL ends with it. */
 @Injectable()
-export class QwenProvider implements ILlmProvider {
-  public readonly name = 'qwen';
+export class QwenProvider implements ILlmClient {
   private readonly logger = new Logger(QwenProvider.name);
 
   constructor(private readonly configService: ConfigService) {}
 
-  /** Always configured: the URL and model have local defaults and the key is optional. */
-  public describe(): LlmProviderDescription {
-    return {
-      model: this.configService.get<string>('llm.qwen.model') || 'qwen2.5:14b',
-      configured: true,
-    };
-  }
-
   public async generate(
+    config: LlmCallConfig,
     prompt: string,
     tools?: LlmToolDefinition[],
     systemInstruction?: string,
   ): Promise<LlmResponse> {
-    const rawBaseUrl = (
-      this.configService.get<string>('llm.qwen.baseUrl') || 'http://localhost:11434'
-    ).replace(/\/+$/, '');
-    const model = this.configService.get<string>('llm.qwen.model') || 'qwen2.5:14b';
-    const apiKey = this.configService.get<string>('llm.qwen.apiKey') || '';
+    const rawBaseUrl = config.baseUrl.replace(/\/+$/, '');
+    const { model, apiKey } = config;
+
+    if (!rawBaseUrl || !model) {
+      this.logger.warn('Ollama base URL or model is missing. Skipping LLM call.');
+      return { text: 'Chưa cấu hình Ollama.', failed: true };
+    }
 
     // Determine target endpoint: support both native Ollama (/api/chat) and OpenAI-compatible (/v1/chat/completions)
     let endpoint = rawBaseUrl;

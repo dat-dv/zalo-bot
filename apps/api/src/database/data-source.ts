@@ -28,6 +28,7 @@ import { CalendarEventEntity } from './entities/calendar-event.entity';
 import { TaskEntity } from './entities/task.entity';
 import { TaskReminderTimeEntity } from './entities/task-reminder-time.entity';
 import { ReminderTimeEntity } from './entities/reminder-time.entity';
+import { LlmProviderEntity } from './entities/llm-provider.entity';
 import { AuditLogSubscriber } from './audit-log.subscriber';
 import { InitSchema1724650000000 } from './migrations/1724650000000-InitSchema';
 import { MigrateLegacyPlaceContacts1724660000000 } from './migrations/1724660000000-MigrateLegacyPlaceContacts';
@@ -67,6 +68,7 @@ import { AddSavingGroups1725000000000 } from './migrations/1725000000000-AddSavi
 import { AddThreadFinanceDigest1725005000000 } from './migrations/1725005000000-AddThreadFinanceDigest';
 import { CreateRecurringTransactions1725010000000 } from './migrations/1725010000000-CreateRecurringTransactions';
 import { AddAuditAndCalendarIndexes1725020000000 } from './migrations/1725020000000-AddAuditAndCalendarIndexes';
+import { CreateLlmProviders1725030000000 } from './migrations/1725030000000-CreateLlmProviders';
 
 // Load environment variables for TypeORM CLI từ root
 loadDotenv({ path: fromProjectRoot('.env.local') });
@@ -109,6 +111,7 @@ export const AppDataSource = new DataSource({
     TaskEntity,
     TaskReminderTimeEntity,
     ReminderTimeEntity,
+    LlmProviderEntity,
   ],
   subscribers: [AuditLogSubscriber],
   migrations: [
@@ -150,6 +153,7 @@ export const AppDataSource = new DataSource({
     AddThreadFinanceDigest1725005000000,
     CreateRecurringTransactions1725010000000,
     AddAuditAndCalendarIndexes1725020000000,
+    CreateLlmProviders1725030000000,
   ],
   migrationsTableName: 'typeorm_migrations',
   synchronize: false,

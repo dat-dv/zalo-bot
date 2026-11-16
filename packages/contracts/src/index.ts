@@ -84,7 +84,9 @@ export const API_ROUTES = {
   auditLogs: '/api/audit-logs',
   auditLog: (id: string) => `/api/audit-logs/${id}`,
   llmProviders: '/api/llm/providers',
-  llmProviderPing: (name: string) => `/api/llm/providers/${encodeURIComponent(name)}/ping`,
+  llmProvider: (id: string) => `/api/llm/providers/${encodeURIComponent(id)}`,
+  llmProvidersOrder: '/api/llm/providers/order',
+  llmProviderPing: (id: string) => `/api/llm/providers/${encodeURIComponent(id)}/ping`,
   webhookSendMessage: '/api/webhooks/send',
   webhookTargets: '/api/webhooks/targets',
   webhookStatus: '/api/webhooks/status',
@@ -423,6 +425,7 @@ const messages = {
     'audit.table.users': 'Người dùng',
     'audit.table.zca_thread_configs': 'Cấu hình kênh',
     'audit.table.channel_storage_links': 'Nơi lưu trữ của kênh',
+    'audit.table.llm_providers': 'AI của bot',
     'audit.table.user_tokens': 'Kết nối Google',
     'audit.table.dashboard_exchange_tokens': 'Phiên đăng nhập dashboard',
     'audit.actor.system': 'Hệ thống',
@@ -1355,7 +1358,7 @@ const messages = {
     'settings.llm.title': 'AI đang dùng',
     'settings.llm.description':
       'Bot gọi lần lượt theo thứ tự này, dòng trên lỗi thì chuyển xuống dòng dưới. Mỗi lần ping là một lượt gọi AI thật.',
-    'settings.llm.empty': 'Chưa có provider nào trong chuỗi.',
+    'settings.llm.empty': 'Chưa có AI nào, bot sẽ không trả lời được cho tới khi thêm một AI.',
     'settings.llm.role.primary': 'Chính',
     'settings.llm.role.fallback': 'Dự phòng',
     'settings.llm.modelMissing': 'Chưa đặt model',
@@ -1367,6 +1370,42 @@ const messages = {
     'settings.llm.status.failed': 'Lỗi · {ms} ms',
     'settings.llm.status.notConfigured': 'Chưa cấu hình',
     'settings.llm.pingRequestFailed': 'Không gửi được yêu cầu ping',
+    'settings.llm.add': 'Thêm AI',
+    'settings.llm.editAria': 'Sửa {name}',
+    'settings.llm.deleteAria': 'Xoá {name}',
+    'settings.llm.moveUpAria': 'Đưa {name} lên trên',
+    'settings.llm.moveDownAria': 'Đưa {name} xuống dưới',
+    'settings.llm.toggleAria': 'Bật {name} trong chuỗi',
+    'settings.llm.disabled': 'Đang tắt',
+    'settings.llm.noneEnabled': 'Mọi AI đang tắt, bot sẽ không trả lời được.',
+    'settings.llm.kind.gemini': 'Gemini',
+    'settings.llm.kind.openai': 'OpenAI-compatible',
+    'settings.llm.kind.ollama': 'Ollama',
+    'settings.llm.form.createTitle': 'Thêm AI',
+    'settings.llm.form.editTitle': 'Sửa {name}',
+    'settings.llm.form.description': 'API key được mã hoá khi lưu và không bao giờ hiện lại.',
+    'settings.llm.form.name': 'Tên',
+    'settings.llm.form.namePlaceholder': 'Ví dụ router, gemini',
+    'settings.llm.form.kind': 'Loại',
+    'settings.llm.form.baseUrl': 'Base URL',
+    'settings.llm.form.baseUrlDefault': 'Để trống để dùng {url}',
+    'settings.llm.form.model': 'Model',
+    'settings.llm.form.apiKey': 'API key',
+    'settings.llm.form.apiKeyKeep': 'Đã lưu, để trống để giữ nguyên',
+    'settings.llm.form.apiKeyOptional': 'Không bắt buộc',
+    'settings.llm.form.clearApiKey': 'Xoá API key đã lưu',
+    'settings.llm.form.enabled': 'Bật trong chuỗi',
+    'settings.llm.form.save': 'Lưu',
+    'settings.llm.form.error.baseUrlInvalid': 'Base URL phải bắt đầu bằng http:// hoặc https://.',
+    'settings.llm.deleteTitle': 'Xoá AI',
+    'settings.llm.deleteConfirm': 'Xoá {name} khỏi chuỗi AI? Không hoàn tác được.',
+    'settings.llm.deleteAction': 'Xoá',
+    'settings.llm.editAction': 'Sửa',
+    'settings.llm.deleting': 'Đang xoá…',
+    'settings.llm.toast.created': 'Đã thêm AI',
+    'settings.llm.toast.updated': 'Đã lưu AI',
+    'settings.llm.toast.deleted': 'Đã xoá AI',
+    'settings.llm.error.save': 'Chưa lưu được, thử lại sau.',
     'settings.preferences.walletManagementTitle': 'Quản lý số dư & Cân chỉnh ví',
     'settings.preferences.walletManagementDescription':
       'Kiểm tra số dư thực tế và cân chỉnh số dư trên sổ cho khớp với tiền trong ví hoặc tài khoản ngân hàng',
@@ -1833,6 +1872,7 @@ const messages = {
     'audit.table.users': 'User',
     'audit.table.zca_thread_configs': 'Channel settings',
     'audit.table.channel_storage_links': 'Channel storage',
+    'audit.table.llm_providers': 'Bot AI',
     'audit.table.user_tokens': 'Google connection',
     'audit.table.dashboard_exchange_tokens': 'Dashboard sign-in',
     'audit.actor.system': 'System',
@@ -2768,7 +2808,7 @@ const messages = {
     'settings.llm.title': 'AI in use',
     'settings.llm.description':
       'The bot calls these in order and moves down a row when one fails. Each ping is a real AI call.',
-    'settings.llm.empty': 'No provider in the chain.',
+    'settings.llm.empty': 'No AI yet, the bot cannot reply until one is added.',
     'settings.llm.role.primary': 'Primary',
     'settings.llm.role.fallback': 'Fallback',
     'settings.llm.modelMissing': 'No model set',
@@ -2780,6 +2820,42 @@ const messages = {
     'settings.llm.status.failed': 'Failed · {ms} ms',
     'settings.llm.status.notConfigured': 'Not configured',
     'settings.llm.pingRequestFailed': 'Could not send the ping',
+    'settings.llm.add': 'Add AI',
+    'settings.llm.editAria': 'Edit {name}',
+    'settings.llm.deleteAria': 'Delete {name}',
+    'settings.llm.moveUpAria': 'Move {name} up',
+    'settings.llm.moveDownAria': 'Move {name} down',
+    'settings.llm.toggleAria': 'Use {name} in the chain',
+    'settings.llm.disabled': 'Off',
+    'settings.llm.noneEnabled': 'Every AI is off, the bot cannot reply.',
+    'settings.llm.kind.gemini': 'Gemini',
+    'settings.llm.kind.openai': 'OpenAI-compatible',
+    'settings.llm.kind.ollama': 'Ollama',
+    'settings.llm.form.createTitle': 'Add AI',
+    'settings.llm.form.editTitle': 'Edit {name}',
+    'settings.llm.form.description': 'The API key is encrypted when saved and never shown again.',
+    'settings.llm.form.name': 'Name',
+    'settings.llm.form.namePlaceholder': 'e.g. router, gemini',
+    'settings.llm.form.kind': 'Type',
+    'settings.llm.form.baseUrl': 'Base URL',
+    'settings.llm.form.baseUrlDefault': 'Leave empty to use {url}',
+    'settings.llm.form.model': 'Model',
+    'settings.llm.form.apiKey': 'API key',
+    'settings.llm.form.apiKeyKeep': 'Saved, leave empty to keep it',
+    'settings.llm.form.apiKeyOptional': 'Optional',
+    'settings.llm.form.clearApiKey': 'Remove the saved API key',
+    'settings.llm.form.enabled': 'Use in the chain',
+    'settings.llm.form.save': 'Save',
+    'settings.llm.form.error.baseUrlInvalid': 'The base URL must start with http:// or https://.',
+    'settings.llm.deleteTitle': 'Delete AI',
+    'settings.llm.deleteConfirm': 'Remove {name} from the AI chain? This cannot be undone.',
+    'settings.llm.deleteAction': 'Delete',
+    'settings.llm.editAction': 'Edit',
+    'settings.llm.deleting': 'Deleting…',
+    'settings.llm.toast.created': 'AI added',
+    'settings.llm.toast.updated': 'AI saved',
+    'settings.llm.toast.deleted': 'AI deleted',
+    'settings.llm.error.save': 'Could not save, try again later.',
     'settings.preferences.walletManagementTitle': 'Wallet & Balance Management',
     'settings.preferences.walletManagementDescription':
       'Verify and reconcile ledger balance with your actual cash or bank account balance',
@@ -3220,14 +3296,66 @@ export interface IUserMergeResult extends IUserMergeSummary {
 export const LLM_PROVIDER_ROLES = ['primary', 'fallback'] as const;
 export type LlmProviderRole = (typeof LLM_PROVIDER_ROLES)[number];
 
-/** One link of the bot's LLM chain, in call order. Never carries a base URL or an API key. */
+/**
+ * How a provider is called: `gemini` (Google AI Studio), `openai` (any OpenAI-compatible endpoint,
+ * e.g. OpenAI itself or an LLM router), `ollama` (Ollama `/api/chat` or an Ollama `/v1` URL).
+ */
+export const LLM_PROVIDER_KINDS = ['gemini', 'openai', 'ollama'] as const;
+export type LlmProviderKind = (typeof LLM_PROVIDER_KINDS)[number];
+
+export function isLlmProviderKind(value: unknown): value is LlmProviderKind {
+  return typeof value === 'string' && (LLM_PROVIDER_KINDS as readonly string[]).includes(value);
+}
+
+/** Base URL used when a provider has none; `gemini` has a fixed endpoint and ignores it. */
+export const LLM_PROVIDER_DEFAULT_BASE_URLS: Record<LlmProviderKind, string | null> = {
+  gemini: null,
+  openai: 'https://api.openai.com/v1',
+  ollama: 'http://localhost:11434',
+};
+
+export const LLM_PROVIDER_NAME_MAX_LENGTH = 60;
+export const LLM_PROVIDER_MODEL_MAX_LENGTH = 200;
+
+/** One configured LLM, in call order. Never carries the API key, only whether one is stored. */
 export interface ILlmProviderStatus {
+  id: string;
   name: string;
-  role: LlmProviderRole;
-  /** Null when no model is set (only the router has no default). */
-  model: string | null;
+  kind: LlmProviderKind;
+  /** Null means the kind's default (`LLM_PROVIDER_DEFAULT_BASE_URLS`). */
+  baseUrl: string | null;
+  model: string;
+  enabled: boolean;
+  /** Place in the chain; null when the provider is turned off. */
+  role: LlmProviderRole | null;
   /** The provider has what it needs to make a call. */
   configured: boolean;
+  hasApiKey: boolean;
+}
+
+export interface ICreateLlmProviderRequest {
+  name: string;
+  kind: LlmProviderKind;
+  baseUrl?: string | null;
+  model: string;
+  apiKey?: string | null;
+  enabled?: boolean;
+}
+
+/** Omitted fields stay; an empty `apiKey` keeps the stored key, `clearApiKey` removes it. */
+export interface IUpdateLlmProviderRequest {
+  name?: string;
+  kind?: LlmProviderKind;
+  baseUrl?: string | null;
+  model?: string;
+  apiKey?: string | null;
+  clearApiKey?: boolean;
+  enabled?: boolean;
+}
+
+/** Every provider id, in the new call order. */
+export interface IReorderLlmProvidersRequest {
+  ids: string[];
 }
 
 export const LLM_PING_STATUSES = ['ok', 'empty', 'failed', 'not_configured'] as const;
@@ -5048,6 +5176,7 @@ export const AUDIT_TABLES = [
   { table: 'users', group: 'system', technical: false },
   { table: 'zca_thread_configs', group: 'system', technical: false },
   { table: 'channel_storage_links', group: 'system', technical: false },
+  { table: 'llm_providers', group: 'system', technical: false },
   { table: 'user_tokens', group: 'system', technical: true },
   { table: 'dashboard_exchange_tokens', group: 'system', technical: true },
 ] as const satisfies readonly { table: string; group: AuditTableGroup; technical: boolean }[];

@@ -1,12 +1,15 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { LlmProviderEntity } from '../database/entities/llm-provider.entity';
+import { LlmProviderConfigService } from './llm-provider-config.service';
 import { LlmService } from './llm.service';
 import { GeminiProvider } from './providers/gemini.provider';
 import { OpenAiProvider } from './providers/openai.provider';
 import { QwenProvider } from './providers/qwen.provider';
-import { RouterProvider } from './providers/router.provider';
 
 @Module({
-  providers: [GeminiProvider, OpenAiProvider, QwenProvider, RouterProvider, LlmService],
-  exports: [LlmService],
+  imports: [TypeOrmModule.forFeature([LlmProviderEntity])],
+  providers: [GeminiProvider, OpenAiProvider, QwenProvider, LlmProviderConfigService, LlmService],
+  exports: [LlmService, LlmProviderConfigService],
 })
 export class LlmModule {}

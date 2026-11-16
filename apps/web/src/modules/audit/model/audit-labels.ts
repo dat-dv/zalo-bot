@@ -31,6 +31,7 @@ export const AUDIT_TABLE_LABEL_KEYS: Record<AuditTableName, TranslationKey> = {
   users: 'audit.table.users',
   zca_thread_configs: 'audit.table.zca_thread_configs',
   channel_storage_links: 'audit.table.channel_storage_links',
+  llm_providers: 'audit.table.llm_providers',
   user_tokens: 'audit.table.user_tokens',
   dashboard_exchange_tokens: 'audit.table.dashboard_exchange_tokens',
 };

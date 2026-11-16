@@ -8,7 +8,11 @@ metadata:
       - apps/api/src/llm/llm.service.ts
       - apps/api/src/llm/llm-admin.controller.ts
       - apps/api/src/llm/llm-admin.module.ts
-      - apps/api/src/llm/providers/router.provider.ts
+      - apps/api/src/llm/llm-provider-config.service.ts
+      - apps/api/src/llm/llm-provider-seed.ts
+      - apps/api/src/database/migrations/1725030000000-CreateLlmProviders.ts
+      - apps/web/src/modules/settings/presentation/components/llm-providers-panel.tsx
+      - apps/web/src/modules/settings/presentation/components/llm-provider-dialog.tsx
       - apps/api/src/zca/text/text-tool.definitions.ts
       - apps/api/src/zca/text/strategies/ask-clarification-tool.strategy.ts
 ---
@@ -19,7 +23,7 @@ Tài liệu này ánh xạ với tri thức canonical [`llm-providers.md`](../..
 
 ## 1. Vì sao có lớp `LlmService`
 
-Bot cần hiểu câu tiếng Việt tự do ("ăn trưa 45k", "mai 9h họp") và chuyển thành lệnh có cấu trúc (tool call). Để không bị khoá vào một nhà cung cấp, mọi lời gọi đi qua `LlmService.generate(prompt, tools, systemInstruction)` trong `apps/api/src/llm`. Đổi nhà cung cấp chỉ cần đổi biến môi trường `LLM_PROVIDER`, không sửa code.
+Bot cần hiểu câu tiếng Việt tự do ("ăn trưa 45k", "mai 9h họp") và chuyển thành lệnh có cấu trúc (tool call). Để không bị khoá vào một nhà cung cấp, mọi lời gọi đi qua `LlmService.generate(prompt, tools, systemInstruction)` trong `apps/api/src/llm`. Đổi nhà cung cấp, model hay API key làm ngay trên dashboard (thẻ **AI đang dùng**), không sửa code, không sửa env, không restart.
 
 Mỗi lời gọi là **một lượt độc lập**: provider không giữ lịch sử hội thoại. Lệnh `/reset` chỉ gửi thông báo, không có ngữ cảnh nào để xoá. Khi bật [trí nhớ hội thoại](../modules/zca/chat-memory.md), chính backend chèn vài tin gần nhất của kênh (lấy từ bảng `zca_messages`) vào prompt hệ thống; trí nhớ nằm ở DB của mình, không nằm ở LLM.
 
@@ -27,58 +31,69 @@ Tool `SEARCH_CHAT_HISTORY` viết câu trả lời bằng `generate(prompt, unde
 
 Nơi sử dụng: `TextInputService` (tin nhắn chat, chỉnh sửa thẻ chờ) và chiến lược tạo hoá đơn từ ảnh (`CreateBillPendingImageStrategy`, dùng chữ OCR).
 
-## 2. Xem và ping LLM trên dashboard
+## 2. Cấu hình chuỗi AI trên dashboard
 
-Trước đây muốn biết bot đang dùng LLM nào phải đọc env của server, và khi bot trả lời chậm hay lỗi thì không biết mắt xích nào hỏng. Vì vậy admin có thẻ **AI đang dùng** ở Cài đặt → Tùy chọn hệ thống, gọi hai API chỉ dành cho admin:
+### Vì sao chuyển từ env sang DB
 
-- `GET /api/llm/providers`: chuỗi LLM theo đúng thứ tự bot gọi, gồm tên, vai trò, model và đã cấu hình đủ chưa. Không trả base URL hay API key.
-- `POST /api/llm/providers/:name/ping`: gọi thử đúng một provider.
+Trước đây chuỗi AI cứng trong env: `LLM_PROVIDER`, `LLM_FALLBACK_PROVIDERS` và cấu hình riêng từng loại (`GEMINI_*`, `ROUTER_*`, `OPENAI_*`, `QWEN_*`). Mỗi loại chỉ có **một** cấu hình (không thể có hai router khác model), và muốn đổi model, key hay thứ tự thì phải sửa env rồi restart server. Giờ chuỗi nằm trong bảng `llm_providers`, admin sửa ở Cài đặt → thẻ **AI đang dùng**, có hiệu lực ngay tin nhắn kế tiếp.
 
-Những điều cần hiểu khi đọc kết quả:
+### Mỗi dòng của chuỗi
 
-- **Ping không đi qua fallback.** Nếu đi qua `generate()`, provider chính chết thì provider dự phòng trả lời thay và thẻ vẫn báo OK. Nên `pingProvider` gọi thẳng một provider.
+- **Tên**: chữ thường, số, `.`, `_`, `-` (ví dụ `router`, `gemini`, `router-gpt5`). Không trùng.
+- **Loại**: `gemini` (Google AI Studio), `OpenAI-compatible` (OpenAI thật hoặc mọi router kiểu 9router), `ollama` (Qwen/Ollama chạy local, hỗ trợ cả `/api/chat` lẫn URL `/v1`).
+- **Base URL**: để trống thì dùng mặc định của loại (`https://api.openai.com/v1`, `http://localhost:11434`); Gemini không có ô này.
+- **Model**: bắt buộc. Router mà thiếu model thì bị coi là chưa cấu hình, không ngầm dùng `gpt-4o-mini`.
+- **API key**: mã hoá AES-256-GCM bằng `DATA_ENCRYPTION_KEY` (cùng cách mã hoá token Google) trước khi lưu. API **không bao giờ trả key ra**, form chỉ cho nhập key mới (để trống = giữ key cũ) hoặc tick "Xoá API key đã lưu". Nhật ký hoạt động ghi thay đổi của bảng này nhưng che cột `api_key`.
+- **Bật/tắt**: tắt thì bot bỏ qua dòng đó nhưng vẫn giữ cấu hình, ping vẫn được.
+- **Thứ tự**: nút ↑/↓; dòng bật đầu tiên là **Chính**, các dòng bật sau là **Dự phòng**.
+
+Bảng trống hoặc mọi dòng đều tắt thì bot trả lời "Bot chưa được cấu hình AI nào." và thẻ hiện cảnh báo vàng. Hệ thống **không** quay lại đọc env, để chỉ có một nơi cấu hình.
+
+`DATA_ENCRYPTION_KEY` mà đổi thì key cũ không giải mã được: dòng đó hiện "Chưa cấu hình", log cảnh báo một lần, bot không crash. Nhập lại key trên dashboard là xong.
+
+### Migration seed dữ liệu khi deploy
+
+Migration `1725030000000-CreateLlmProviders` tạo bảng và **chỉ khi bảng còn trống** thì đọc env đang chạy để ghi lại đúng chuỗi cũ (`buildLlmProviderSeed`):
+
+- Thứ tự: `LLM_PROVIDER` (trống thì `gemini`) rồi từng tên trong `LLM_FALLBACK_PROVIDERS`.
+- Bí danh cũ vẫn được hiểu: `ollama`, `qwen2.5:14b`, `qwen-14b` → dòng `qwen` (loại ollama); `9router` → dòng `router` (loại OpenAI-compatible). Tên trùng hoặc lạ bị bỏ; không còn gì thì chỉ có `gemini`.
+- Model/URL mặc định giống provider cũ; API key được mã hoá. `DATA_ENCRYPTION_KEY` sai định dạng thì vẫn tạo dòng nhưng bỏ key và log cảnh báo.
+
+Vì API chạy migration lúc khởi động (`migrationsRun: true`), deploy lên prod là chuỗi `router → gemini` hiện có tự vào DB, không phải nhập tay. Chạy lại migration trên bảng đã có dữ liệu không ghi đè gì. Sau đó các biến env AI ở trên chỉ còn dùng cho seed và cho `npm run eval:intent` (script này đọc chuỗi từ env, không cần DB). `LLM_TIMEOUT_MS` vẫn ở env.
+
+### API (chỉ admin)
+
+- `GET /api/llm/providers`: mọi dòng theo thứ tự, kể cả dòng tắt.
+- `POST /api/llm/providers`: thêm vào cuối chuỗi (tên trùng → 409).
+- `PATCH /api/llm/providers/:id`: sửa; chỉ trường gửi lên mới đổi.
+- `DELETE /api/llm/providers/:id`: xoá.
+- `PUT /api/llm/providers/order` với `{ ids }`: đặt lại thứ tự, phải có đủ mọi id.
+- `POST /api/llm/providers/:id/ping`: gọi thử đúng một dòng.
+
+### Đọc kết quả ping
+
+- **Ping không đi qua fallback.** Nếu đi qua `generate()`, provider chính chết thì provider dự phòng trả lời thay và thẻ vẫn báo OK. Nên `pingProvider` gọi thẳng một dòng.
 - **`Trả lời rỗng` cũng là hỏng.** Bot coi trả lời rỗng là lỗi và chuyển provider, nên ping báo riêng trạng thái này.
 - **UI chỉ hiện trạng thái, không hiện chuỗi lỗi.** Xem chi tiết trong log server, ví dụ thông báo `ollama pull` của Qwen hoặc mã lỗi HTTP.
 - **Mỗi lần ping là một lượt gọi AI thật**, tốn vài token, nên không tự chạy khi tải trang. Provider treo có thể quay tới hết `LLM_TIMEOUT_MS`.
-- **Cognee không nằm trong thẻ này** vì nó dùng LLM riêng qua `COGNEE_LLM_*`.
+- **Cognee không nằm trong thẻ này** vì nó chạy container riêng và đọc LLM qua `COGNEE_LLM_*` lúc khởi động.
 
-Khi thêm provider mới, phải cài `describe()` để thẻ biết model và trạng thái cấu hình; `describe()` không được gọi mạng và không được trả secret.
+## 3. Hành vi khi gọi
 
-## 3. Chọn nhà cung cấp
-
-| `LLM_PROVIDER` | Provider | Biến môi trường | Mặc định |
-| --- | --- | --- | --- |
-| `gemini` (mặc định, và mọi giá trị lạ) | `GeminiProvider` | `GEMINI_API_KEY`, `GEMINI_MODEL` | `gemini-3.5-flash-lite` |
-| `openai` | `OpenAiProvider` | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` | `gpt-4o-mini`, `https://api.openai.com/v1` |
-| `router`, `9router` | `RouterProvider` | `ROUTER_BASE_URL`, `ROUTER_MODEL`, `ROUTER_API_KEY` | không có (thiếu URL/key thì tính là lỗi) |
-| `qwen`, `ollama`, `qwen2.5:14b`, `qwen-14b` | `QwenProvider` | `QWEN_BASE_URL`, `QWEN_MODEL`, `QWEN_API_KEY` | `http://localhost:11434`, `qwen2.5:14b` |
-
-Qwen hỗ trợ hai kiểu máy chủ: URL kết thúc bằng `/v1` hoặc `/chat/completions` được gọi theo chuẩn OpenAI; còn lại gọi API gốc của Ollama `/api/chat`. Nếu model nhỏ trả tool call dạng thẻ `<tool_call>` trong văn bản, provider tự bóc tách.
-
-**Không bao giờ ném lỗi ra ngoài:** khi thiếu API key, lỗi HTTP, mất kết nối hoặc quá thời gian chờ, provider trả về `{ text: "<thông báo tiếng Việt>", failed: true }`. Với Ollama báo 404, câu thông báo nhắc chạy `ollama pull <model>`. Mỗi lời gọi có timeout `LLM_TIMEOUT_MS` (mặc định 30 giây) để provider bị treo cũng được tính là lỗi.
+**Không bao giờ ném lỗi ra ngoài:** khi thiếu key/model/URL, lỗi HTTP, mất kết nối hoặc quá thời gian chờ, client trả về `{ text: "<thông báo tiếng Việt>", failed: true }`. Với Ollama báo 404, câu thông báo nhắc chạy `ollama pull <model>`. Mỗi lời gọi có timeout `LLM_TIMEOUT_MS` (mặc định 30 giây) để provider bị treo cũng được tính là lỗi.
 
 ### Chuỗi dự phòng (fallback)
 
-Vì sao cần: trước đây chỉ có một provider. Khi provider đó lỗi, bot gửi nguyên câu "Có lỗi khi kết nối tới mô hình AI." vào nhóm, và nếu provider treo thì tin nhắn treo theo. Giờ `LlmService` thử lần lượt `LLM_PROVIDER` rồi đến từng provider trong `LLM_FALLBACK_PROVIDERS`:
-- Provider trả `failed` hoặc trả rỗng (không text, không tool call; model free hay bị vậy) thì chuyển sang provider kế tiếp, log `warn`.
-- Provider nào trả lời được thì dùng luôn; nếu là provider dự phòng thì log `LLM answered by fallback provider "<tên>"`.
-- Cả chuỗi lỗi thì trả câu báo lỗi của provider cuối, giống hành vi cũ.
-- Không đặt `LLM_FALLBACK_PROVIDERS` thì chỉ có một provider như trước.
+`LlmService` thử lần lượt các dòng đang bật theo thứ tự:
+- Dòng trả `failed` hoặc trả rỗng (không text, không tool call; model free hay bị vậy) thì chuyển sang dòng kế tiếp, log `warn`.
+- Dòng nào trả lời được thì dùng luôn; nếu là dòng dự phòng thì log `LLM answered by fallback provider "<tên>"`.
+- Cả chuỗi lỗi thì trả câu báo lỗi của dòng cuối.
 
 Cấu hình đang dùng: 9router đứng đầu, Gemini dự phòng, không có mắt xích thứ ba.
 
-Khi cả chuỗi đều lỗi, bot chỉ báo lỗi **một lần** và bỏ lượt trò chuyện không tool (lượt này sẽ lại chạy hết chuỗi, làm người dùng chờ gấp đôi). `LLM_TIMEOUT_MS` (mặc định 30 giây) áp dụng cho mọi provider, kể cả Qwen chạy local; máy yếu hoặc model nạp chậm thì cần tăng. Provider `router` thiếu `ROUTER_MODEL` thì bị coi là lỗi, không ngầm dùng model mặc định của OpenAI.
+Khi cả chuỗi đều lỗi, bot chỉ báo lỗi **một lần** và bỏ lượt trò chuyện không tool (lượt này sẽ lại chạy hết chuỗi, làm người dùng chờ gấp đôi). `LLM_TIMEOUT_MS` áp dụng cho mọi dòng, kể cả Ollama chạy local; máy yếu hoặc model nạp chậm thì cần tăng.
 
-```bash
-LLM_PROVIDER=router
-LLM_FALLBACK_PROVIDERS=gemini
-ROUTER_BASE_URL=https://<router>/v1
-ROUTER_MODEL=chat-daily
-ROUTER_API_KEY=<key>
-LLM_TIMEOUT_MS=30000
-```
-
-Provider `router` có biến môi trường riêng, tách khỏi `OPENAI_*`, để vẫn dùng được OpenAI thật như một mắt xích khác nếu cần. Rollback: đặt lại `LLM_PROVIDER=gemini` và xoá `LLM_FALLBACK_PROVIDERS`.
+Rollback một provider hỏng: tắt dòng đó hoặc kéo dòng khác lên đầu trên dashboard.
 
 ## 4. Làm sạch tham số
 

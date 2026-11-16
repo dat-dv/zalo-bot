@@ -26,7 +26,7 @@ Zalobot is an intelligent 24/7 personal and group AI assistant operating nativel
 ## Scope
 
 - **Core Capabilities**:
-  - **Natural Language & Function Calling**: `LlmService` (`apps/api/src/llm`) dispatches to the provider selected by `LLM_PROVIDER` (`gemini` default, `openai`, `qwen`/`ollama`) with the tool catalog `ZALO_TOOL_DEFINITIONS` for expense recording, debt tracking, reminders, places, and Google Workspace operations.
+  - **Natural Language & Function Calling**: `LlmService` (`apps/api/src/llm`) tries the admin-managed provider chain (table `llm_providers`, edited on Settings; kinds `gemini`, `openai`-compatible, `ollama`) with the tool catalog `ZALO_TOOL_DEFINITIONS` for expense recording, debt tracking, reminders, places, and Google Workspace operations.
   - **Interactive Confirmation & Message Recall**: 3-digit verification codes (`yes <code>`, `cancel <code>`, `edit <code>`), reaction approvals (❤️ / 😡), 5-minute timeout, and automatic message recall (`undoMessage` / `zca.undo`) to keep conversation feeds clean.
   - **Google Workspace per User & Channel**: Multi-tenant OAuth2 token isolation for Google Calendar (tasks are stored only in zalobot). Per-channel Google Drive storage partitions (`zalobot/<channelId>/<category>`) and Google Photos albums for bills, images, videos, files, and audio, with self-service `@bot share <email>` access grants.
   - **Shared Ledger**: The system has one finance store with no per-user scoping (finance tables have no `user_id`); every user sees all finance data, and each transaction records its creator and source chat for display (see global/finance-domain.md).

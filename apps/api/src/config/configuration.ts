@@ -39,30 +39,9 @@ export interface AppConfig {
     dashboardLoginCode?: string;
   };
   security: { encryptionKey: string };
+  /** The provider chain itself lives in the `llm_providers` table (dashboard Settings). */
   llm: {
-    provider: string;
-    /** Tried in order after `provider` when it fails (`LLM_FALLBACK_PROVIDERS`). */
-    fallbackProviders: string[];
     timeoutMs: number;
-    router: {
-      baseUrl: string;
-      model: string;
-      apiKey: string;
-    };
-    gemini: {
-      apiKey: string;
-      model: string;
-    };
-    openai: {
-      apiKey: string;
-      model: string;
-      baseUrl: string;
-    };
-    qwen: {
-      baseUrl: string;
-      model: string;
-      apiKey?: string;
-    };
   };
   /**
    * Cognee memory server (long-term chat memory graph). Off unless both `COGNEE_URL` and
@@ -149,31 +128,7 @@ export default (): AppConfig => {
     },
     security: { encryptionKey: readEnv('DATA_ENCRYPTION_KEY', '0'.repeat(64)) },
     llm: {
-      provider: readEnv('LLM_PROVIDER', 'gemini'),
-      fallbackProviders: readEnv('LLM_FALLBACK_PROVIDERS')
-        .split(',')
-        .map((name) => name.trim().toLowerCase())
-        .filter(Boolean),
       timeoutMs: readNumberEnv('LLM_TIMEOUT_MS', 30000),
-      router: {
-        baseUrl: readEnv('ROUTER_BASE_URL'),
-        model: readEnv('ROUTER_MODEL'),
-        apiKey: readOptionalEnv('ROUTER_API_KEY') || '',
-      },
-      gemini: {
-        apiKey: readEnv('GEMINI_API_KEY'),
-        model: readEnv('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
-      },
-      openai: {
-        apiKey: readOptionalEnv('OPENAI_API_KEY') || '',
-        model: readEnv('OPENAI_MODEL', 'gpt-4o-mini'),
-        baseUrl: readEnv('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
-      },
-      qwen: {
-        baseUrl: readEnv('QWEN_BASE_URL', 'http://localhost:11434'),
-        model: readEnv('QWEN_MODEL', 'qwen2.5:14b'),
-        apiKey: readOptionalEnv('QWEN_API_KEY') || '',
-      },
     },
     cognee: {
       url: readEnv('COGNEE_URL').replace(/\/+$/, ''),

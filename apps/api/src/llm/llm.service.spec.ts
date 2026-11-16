@@ -1,39 +1,37 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ConfigService } from '@nestjs/config';
+import type { LlmProviderKind } from '@zalobot/contracts';
 import { GeminiProvider } from './providers/gemini.provider';
 import { OpenAiProvider } from './providers/openai.provider';
 import { QwenProvider } from './providers/qwen.provider';
 import { LlmService } from './llm.service';
-import { RouterProvider } from './providers/router.provider';
-import type { LlmResponse } from './types/llm.types';
+import {
+  resolveLlmProvider,
+  type LlmChainSource,
+  type ResolvedLlmProvider,
+} from './llm-provider-config.service';
+import type { LlmCallConfig, LlmResponse } from './types/llm.types';
 
-void test('GeminiProvider returns fallback message when API key is missing', async () => {
-  const mockConfigService = {
-    get: (key: string) => {
-      if (key === 'llm.gemini.apiKey') return '';
-      return undefined;
-    },
-  } as unknown as ConfigService;
+const config = new ConfigService({});
 
-  const provider = new GeminiProvider(mockConfigService);
-  const res = await provider.generate('hello');
+function urlOf(input: string | URL | Request): string {
+  return typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+}
+
+void test('GeminiProvider flags a missing API key as failed', async () => {
+  const provider = new GeminiProvider(config);
+  const res = await provider.generate({ baseUrl: '', model: 'g', apiKey: '' }, 'hello');
+  assert.equal(res.failed, true);
   assert.match(res.text || '', /Chưa cấu hình API Key/);
 });
 
-void test('GeminiProvider calls API and parses functionCall correctly', async () => {
-  const mockConfigService = {
-    get: (key: string) => {
-      if (key === 'llm.gemini.apiKey') return 'mock_gemini_key';
-      if (key === 'llm.gemini.model') return 'gemini-2.5-flash';
-      return undefined;
-    },
-  } as unknown as ConfigService;
-
+void test('GeminiProvider calls the model of its row and parses functionCall', async () => {
   const originalFetch = globalThis.fetch;
   let requestBody = '';
-
+  let calledUrl = '';
   globalThis.fetch = (input: string | URL | Request, init?: RequestInit) => {
+    calledUrl = urlOf(input);
     requestBody = typeof init?.body === 'string' ? init.body : '';
     return Promise.resolve({
       ok: true,
@@ -58,15 +56,10 @@ void test('GeminiProvider calls API and parses functionCall correctly', async ()
   };
 
   try {
-    const provider = new GeminiProvider(mockConfigService);
-    const res = await provider.generate(
+    const res = await new GeminiProvider(config).generate(
+      { baseUrl: '', model: 'gemini-2.5-flash', apiKey: 'mock_gemini_key' },
       'nợ a 100k',
-      [
-        {
-          name: 'MANAGE_DEBT',
-          description: 'Ghi nợ',
-        },
-      ],
+      [{ name: 'MANAGE_DEBT', description: 'Ghi nợ' }],
       'system prompt',
     );
 
@@ -74,22 +67,19 @@ void test('GeminiProvider calls API and parses functionCall correctly', async ()
     assert.equal(res.toolCall.name, 'MANAGE_DEBT');
     assert.equal(res.toolCall.args.amount, 100000);
     assert.match(requestBody, /"functionDeclarations"/);
+    assert.match(calledUrl, /models\/gemini-2\.5-flash:generateContent/);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-void test('OpenAiProvider calls API and parses tool_calls correctly', async () => {
-  const mockConfigService = {
-    get: (key: string) => {
-      if (key === 'llm.openai.apiKey') return 'mock_openai_key';
-      if (key === 'llm.openai.model') return 'gpt-4o-mini';
-      return undefined;
-    },
-  } as unknown as ConfigService;
-
+void test('OpenAiProvider calls the base URL of its row and parses tool_calls', async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = () => {
+  let calledUrl = '';
+  let auth = '';
+  globalThis.fetch = (input: string | URL | Request, init?: RequestInit) => {
+    calledUrl = urlOf(input);
+    auth = new Headers(init?.headers).get('authorization') ?? '';
     return Promise.resolve({
       ok: true,
       json: () =>
@@ -101,10 +91,7 @@ void test('OpenAiProvider calls API and parses tool_calls correctly', async () =
                   {
                     function: {
                       name: 'RECORD_TRANSACTION',
-                      arguments: JSON.stringify({
-                        type: 'expense',
-                        amount: 35000,
-                      }),
+                      arguments: JSON.stringify({ type: 'expense', amount: 35000 }),
                     },
                   },
                 ],
@@ -116,86 +103,34 @@ void test('OpenAiProvider calls API and parses tool_calls correctly', async () =
   };
 
   try {
-    const provider = new OpenAiProvider(mockConfigService);
-    const res = await provider.generate('ăn phở 35k', [
-      {
-        name: 'RECORD_TRANSACTION',
-        description: 'Thu chi',
-      },
-    ]);
+    const res = await new OpenAiProvider(config).generate(
+      { baseUrl: 'https://router.example/v1/', model: 'chat-daily', apiKey: 'k' },
+      'ăn phở 35k',
+      [{ name: 'RECORD_TRANSACTION', description: 'Thu chi' }],
+    );
 
-    assert.ok(res.toolCall);
-    assert.equal(res.toolCall.name, 'RECORD_TRANSACTION');
-    assert.equal(res.toolCall.args.amount, 35000);
+    assert.equal(calledUrl, 'https://router.example/v1/chat/completions');
+    assert.equal(auth, 'Bearer k');
+    assert.equal(res.toolCall?.name, 'RECORD_TRANSACTION');
+    assert.equal(res.toolCall?.args.amount, 35000);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-void test('LlmService routes to active provider dynamically', async () => {
-  const mockConfigService = {
-    get: (key: string) => {
-      if (key === 'llm.provider') return 'openai';
-      return undefined;
-    },
-  } as unknown as ConfigService;
-
-  const geminiProvider = {
-    name: 'gemini',
-    generate: () => Promise.resolve({ text: 'gemini reply' }),
-  } as unknown as GeminiProvider;
-
-  const openAiProvider = {
-    name: 'openai',
-    generate: () => Promise.resolve({ text: 'openai reply' }),
-  } as unknown as OpenAiProvider;
-
-  const qwenProvider = {
-    name: 'qwen',
-    generate: () => Promise.resolve({ text: 'qwen reply' }),
-  } as unknown as QwenProvider;
-
-  const llmService = new LlmService(
-    mockConfigService,
-    geminiProvider,
-    openAiProvider,
-    qwenProvider,
-  );
-
-  const res = await llmService.generate('test');
-  assert.equal(res.text, 'openai reply');
-
-  // Test routing to qwen / ollama
-  const mockConfigQwen = {
-    get: (key: string) => {
-      if (key === 'llm.provider') return 'ollama';
-      return undefined;
-    },
-  } as unknown as ConfigService;
-  const llmServiceQwen = new LlmService(
-    mockConfigQwen,
-    geminiProvider,
-    openAiProvider,
-    qwenProvider,
-  );
-  const resQwen = await llmServiceQwen.generate('test');
-  assert.equal(resQwen.text, 'qwen reply');
+void test('OpenAiProvider fails without a model, key or URL instead of guessing one', async () => {
+  const provider = new OpenAiProvider(config);
+  const base: LlmCallConfig = { baseUrl: 'https://r/v1', model: 'm', apiKey: 'k' };
+  assert.equal((await provider.generate({ ...base, model: '' }, 'hi')).failed, true);
+  assert.equal((await provider.generate({ ...base, apiKey: '' }, 'hi')).failed, true);
+  assert.equal((await provider.generate({ ...base, baseUrl: '' }, 'hi')).failed, true);
 });
 
 void test('QwenProvider calls Ollama native /api/chat and parses tool_calls', async () => {
-  const mockConfigService = {
-    get: (key: string) => {
-      if (key === 'llm.qwen.baseUrl') return 'http://localhost:11434';
-      if (key === 'llm.qwen.model') return 'qwen2.5:14b';
-      return undefined;
-    },
-  } as unknown as ConfigService;
-
   let requestedUrl = '';
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (input: string | URL | Request) => {
-    requestedUrl =
-      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    requestedUrl = urlOf(input);
     return Promise.resolve({
       ok: true,
       json: () =>
@@ -206,11 +141,7 @@ void test('QwenProvider calls Ollama native /api/chat and parses tool_calls', as
               {
                 function: {
                   name: 'MANAGE_DEBT',
-                  arguments: {
-                    direction: 'payable',
-                    counterparty: 'a',
-                    amount: 100000,
-                  },
+                  arguments: { direction: 'payable', counterparty: 'a', amount: 100000 },
                 },
               },
             ],
@@ -220,365 +151,256 @@ void test('QwenProvider calls Ollama native /api/chat and parses tool_calls', as
   };
 
   try {
-    const provider = new QwenProvider(mockConfigService);
-    const res = await provider.generate('nợ a 100k', [
-      {
-        name: 'MANAGE_DEBT',
-        description: 'Quản lý nợ',
-      },
-    ]);
+    const res = await new QwenProvider(config).generate(
+      { baseUrl: 'http://localhost:11434', model: 'qwen2.5:14b', apiKey: '' },
+      'nợ a 100k',
+      [{ name: 'MANAGE_DEBT', description: 'Quản lý nợ' }],
+    );
 
     assert.equal(requestedUrl, 'http://localhost:11434/api/chat');
-    assert.ok(res.toolCall);
-    assert.equal(res.toolCall.name, 'MANAGE_DEBT');
-    assert.equal(res.toolCall.args.counterparty, 'a');
-    assert.equal(res.toolCall.args.amount, 100000);
+    assert.equal(res.toolCall?.name, 'MANAGE_DEBT');
+    assert.equal(res.toolCall?.args.counterparty, 'a');
+    assert.equal(res.toolCall?.args.amount, 100000);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
 void test('QwenProvider handles connection errors gracefully', async () => {
-  const mockConfigService = {
-    get: (key: string) => {
-      if (key === 'llm.qwen.baseUrl') return 'http://localhost:11434';
-      return undefined;
-    },
-  } as unknown as ConfigService;
-
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = () => {
-    return Promise.reject(new Error('connect ECONNREFUSED 127.0.0.1:11434'));
-  };
+  globalThis.fetch = () => Promise.reject(new Error('connect ECONNREFUSED 127.0.0.1:11434'));
 
   try {
-    const provider = new QwenProvider(mockConfigService);
-    const res = await provider.generate('test');
+    const res = await new QwenProvider(config).generate(
+      { baseUrl: 'http://localhost:11434', model: 'q', apiKey: '' },
+      'test',
+    );
     assert.match(res.text || '', /Không thể kết nối tới mô hình Qwen 14B/);
   } finally {
     globalThis.fetch = originalFetch;
   }
 });
 
-void test('LlmService cleans arguments on both toolCall and response.toolCalls', async () => {
-  const mockConfigService = {
-    get: (key: string) => {
-      if (key === 'llm.provider') return 'gemini';
-      return undefined;
-    },
-  } as unknown as ConfigService;
-
-  const mockProvider = {
-    name: 'gemini',
-    generate: () =>
-      Promise.resolve({
-        toolCall: {
-          name: 'RECORD_TRANSACTION',
-          args: { amount: { amount: 15000 }, category: 'Ăn uống' },
-        },
-        toolCalls: [
-          {
-            name: 'RECORD_TRANSACTION',
-            args: { amount: { amount: 15000 }, category: 'Ăn uống' },
-          },
-          {
-            name: 'RECORD_TRANSACTION',
-            args: { amount: { value: 20000 }, placeName: { name: 'ctgroup' } },
-          },
-        ],
-      }),
-  } as unknown as GeminiProvider;
-
-  const llmService = new LlmService(mockConfigService, mockProvider, {} as never, {} as never);
-
-  const res = await llmService.generate('test');
-  assert.equal(res.toolCall?.args.amount, 15000);
-  assert.equal(res.toolCalls?.[0].args.amount, 15000);
-  assert.equal(res.toolCalls?.[1].args.amount, 20000);
-  assert.equal(res.toolCalls?.[1].args.placeName, 'ctgroup');
-});
-
-interface StubProvider {
-  name: string;
-  calls: number;
-  generate: () => Promise<LlmResponse>;
+interface StubClient {
+  calls: LlmCallConfig[];
+  generate: (callConfig: LlmCallConfig) => Promise<LlmResponse>;
 }
 
-function stubProvider(name: string, response: LlmResponse): StubProvider {
-  const stub: StubProvider = {
-    name,
-    calls: 0,
-    generate: () => {
-      stub.calls += 1;
-      return Promise.resolve(response);
+/** Answers per model name, so one client can serve several rows of the same kind. */
+function stubClient(answers: Record<string, LlmResponse>): StubClient {
+  const stub: StubClient = {
+    calls: [],
+    generate: (callConfig) => {
+      stub.calls.push(callConfig);
+      return Promise.resolve(answers[callConfig.model] ?? { text: '', failed: true });
     },
   };
   return stub;
 }
 
-function createChainService(
-  config: Record<string, unknown>,
-  providers: {
-    gemini: StubProvider;
-    openai: StubProvider;
-    qwen: StubProvider;
-    router?: StubProvider;
-  },
-): LlmService {
-  return new LlmService(
-    new ConfigService(config),
-    providers.gemini as unknown as GeminiProvider,
-    providers.openai as unknown as OpenAiProvider,
-    providers.qwen as unknown as QwenProvider,
-    providers.router as unknown as RouterProvider | undefined,
+function row(
+  name: string,
+  kind: LlmProviderKind,
+  options: { enabled?: boolean; apiKey?: string; model?: string } = {},
+): ResolvedLlmProvider {
+  const apiKey = options.apiKey ?? 'key';
+  return resolveLlmProvider(
+    {
+      id: `id-${name}`,
+      name,
+      kind,
+      enabled: options.enabled ?? true,
+      baseUrl: null,
+      model: options.model ?? name,
+    },
+    apiKey,
+    Boolean(apiKey),
   );
 }
 
-void test('LlmService chain: primary success never calls the fallback', async () => {
-  const router = stubProvider('router', { text: 'router reply' });
-  const gemini = stubProvider('gemini', { text: 'gemini reply' });
-  const service = createChainService(
-    { llm: { provider: 'router', fallbackProviders: ['gemini'] } },
-    { gemini, router, openai: stubProvider('openai', {}), qwen: stubProvider('qwen', {}) },
+function createService(
+  rows: ResolvedLlmProvider[],
+  clients: { gemini?: StubClient; openai?: StubClient; ollama?: StubClient },
+): LlmService {
+  const source: LlmChainSource = {
+    getChain: () => Promise.resolve(rows.filter((provider) => provider.enabled)),
+    findResolved: (id) => Promise.resolve(rows.find((provider) => provider.id === id) ?? null),
+  };
+  return new LlmService(
+    source,
+    (clients.gemini ?? stubClient({})) as unknown as GeminiProvider,
+    (clients.openai ?? stubClient({})) as unknown as OpenAiProvider,
+    (clients.ollama ?? stubClient({})) as unknown as QwenProvider,
   );
+}
+
+void test('LlmService dispatches each row to the client of its kind with the row config', async () => {
+  const openai = stubClient({ 'chat-daily': { text: 'router reply' } });
+  const service = createService([row('router', 'openai', { model: 'chat-daily' })], { openai });
 
   const res = await service.generate('hi');
 
   assert.equal(res.text, 'router reply');
-  assert.equal(gemini.calls, 0);
+  assert.deepEqual(openai.calls, [
+    { baseUrl: 'https://api.openai.com/v1', model: 'chat-daily', apiKey: 'key' },
+  ]);
 });
 
-void test('LlmService chain: failed primary falls back to gemini and keeps tool calls', async () => {
-  const router = stubProvider('router', {
-    text: 'Có lỗi khi kết nối tới mô hình AI.',
-    failed: true,
+void test('LlmService chain: primary success never calls the fallback', async () => {
+  const openai = stubClient({ router: { text: 'router reply' } });
+  const gemini = stubClient({ gemini: { text: 'gemini reply' } });
+  const service = createService([row('router', 'openai'), row('gemini', 'gemini')], {
+    openai,
+    gemini,
   });
-  const gemini = stubProvider('gemini', {
-    toolCall: { name: 'RECORD_TRANSACTION', args: { amount: { amount: 45000 } } },
-    toolCalls: [{ name: 'RECORD_TRANSACTION', args: { amount: { amount: 45000 } } }],
+
+  assert.equal((await service.generate('hi')).text, 'router reply');
+  assert.equal(gemini.calls.length, 0);
+});
+
+void test('LlmService chain: failed primary falls back and keeps cleaned tool calls', async () => {
+  const openai = stubClient({
+    router: { text: 'Có lỗi khi kết nối tới mô hình AI.', failed: true },
   });
-  const service = createChainService(
-    { llm: { provider: 'router', fallbackProviders: ['gemini'] } },
-    { gemini, router, openai: stubProvider('openai', {}), qwen: stubProvider('qwen', {}) },
-  );
+  const gemini = stubClient({
+    gemini: {
+      toolCall: { name: 'RECORD_TRANSACTION', args: { amount: { amount: 45000 } } },
+      toolCalls: [
+        { name: 'RECORD_TRANSACTION', args: { amount: { amount: 45000 } } },
+        {
+          name: 'RECORD_TRANSACTION',
+          args: { amount: { value: 20000 }, placeName: { name: 'ct' } },
+        },
+      ],
+    },
+  });
+  const service = createService([row('router', 'openai'), row('gemini', 'gemini')], {
+    openai,
+    gemini,
+  });
 
   const res = await service.generate('ăn trưa 45k');
 
-  assert.equal(router.calls, 1);
-  assert.equal(gemini.calls, 1);
-  assert.equal(res.toolCall?.name, 'RECORD_TRANSACTION');
+  assert.equal(openai.calls.length, 1);
+  assert.equal(gemini.calls.length, 1);
   assert.equal(res.toolCall?.args.amount, 45000);
+  assert.equal(res.toolCalls?.[1]?.args.amount, 20000);
+  assert.equal(res.toolCalls?.[1]?.args.placeName, 'ct');
   assert.equal(res.failed, undefined);
 });
 
 void test('LlmService chain: empty answer counts as failure', async () => {
-  const router = stubProvider('router', { text: '   ' });
-  const gemini = stubProvider('gemini', { text: 'gemini reply' });
-  const service = createChainService(
-    { llm: { provider: 'router', fallbackProviders: ['gemini'] } },
-    { gemini, router, openai: stubProvider('openai', {}), qwen: stubProvider('qwen', {}) },
-  );
+  const service = createService([row('router', 'openai'), row('gemini', 'gemini')], {
+    openai: stubClient({ router: { text: '   ' } }),
+    gemini: stubClient({ gemini: { text: 'gemini reply' } }),
+  });
 
   assert.equal((await service.generate('hi')).text, 'gemini reply');
 });
 
 void test('LlmService chain: all failing returns the last error message', async () => {
-  const router = stubProvider('router', { text: 'router down', failed: true });
-  const gemini = stubProvider('gemini', {
-    text: 'Có lỗi khi kết nối tới mô hình AI.',
-    failed: true,
+  const service = createService([row('router', 'openai'), row('gemini', 'gemini')], {
+    openai: stubClient({ router: { text: 'router down', failed: true } }),
+    gemini: stubClient({ gemini: { text: 'Có lỗi khi kết nối tới mô hình AI.', failed: true } }),
   });
-  const service = createChainService(
-    { llm: { provider: 'router', fallbackProviders: ['gemini', 'unknown-llm', 'router'] } },
-    { gemini, router, openai: stubProvider('openai', {}), qwen: stubProvider('qwen', {}) },
-  );
 
   const res = await service.generate('hi');
 
   assert.equal(res.text, 'Có lỗi khi kết nối tới mô hình AI.');
   assert.equal(res.failed, true);
-  assert.equal(router.calls, 1, 'duplicates in the chain are tried once');
-  assert.equal(gemini.calls, 1);
 });
 
-void test('LlmService chain: without fallbacks a failure is returned as before', async () => {
-  const gemini = stubProvider('gemini', {
-    text: 'Chưa cấu hình API Key cho Gemini.',
-    failed: true,
-  });
-  const openai = stubProvider('openai', { text: 'openai reply' });
-  const service = createChainService(
-    { llm: { provider: 'gemini' } },
-    { gemini, openai, qwen: stubProvider('qwen', {}) },
+void test('LlmService chain: two rows of one kind are separate links', async () => {
+  const openai = stubClient({ cheap: { text: '', failed: true }, smart: { text: 'smart reply' } });
+  const service = createService(
+    [
+      row('router-cheap', 'openai', { model: 'cheap' }),
+      row('router-smart', 'openai', { model: 'smart' }),
+    ],
+    { openai },
   );
 
-  const res = await service.generate('hi');
-
-  assert.equal(res.text, 'Chưa cấu hình API Key cho Gemini.');
-  assert.equal(openai.calls, 0);
-});
-
-void test('GeminiProvider flags a missing API key as failed', async () => {
-  const provider = new GeminiProvider(new ConfigService({ llm: { gemini: { apiKey: '' } } }));
-  assert.equal((await provider.generate('hello')).failed, true);
-});
-
-void test('RouterProvider fails without base URL or key and calls the router otherwise', async () => {
-  const unconfigured = new RouterProvider(
-    new ConfigService({ llm: { router: { baseUrl: '' } } }),
-    new OpenAiProvider(new ConfigService({})),
+  assert.equal((await service.generate('hi')).text, 'smart reply');
+  assert.deepEqual(
+    openai.calls.map((call) => call.model),
+    ['cheap', 'smart'],
   );
-  assert.equal((await unconfigured.generate('hi')).failed, true);
-
-  const originalFetch = globalThis.fetch;
-  let calledUrl = '';
-  globalThis.fetch = (input: string | URL | Request) => {
-    calledUrl = input instanceof Request ? input.url : input.toString();
-    return Promise.resolve(
-      new Response(JSON.stringify({ choices: [{ message: { content: 'xin chào' } }] }), {
-        status: 200,
-      }),
-    );
-  };
-  try {
-    const config = new ConfigService({
-      llm: { router: { baseUrl: 'https://router.example/v1/', model: 'chat-daily', apiKey: 'k' } },
-    });
-    const provider = new RouterProvider(config, new OpenAiProvider(config));
-    const res = await provider.generate('hi');
-    assert.equal(res.text, 'xin chào');
-    assert.equal(calledUrl, 'https://router.example/v1/chat/completions');
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
 });
 
-void test('RouterProvider fails without a model instead of sending the OpenAI default', async () => {
-  const config = new ConfigService({
-    llm: { router: { baseUrl: 'https://router.example/v1', apiKey: 'k', model: '' } },
-  });
-  const provider = new RouterProvider(config, new OpenAiProvider(config));
-  assert.equal((await provider.generate('hi')).failed, true);
-});
+void test('LlmService chain: turned-off rows are skipped, no row at all fails clearly', async () => {
+  const gemini = stubClient({ gemini: { text: 'gemini reply' } });
+  const offOnly = createService([row('gemini', 'gemini', { enabled: false })], { gemini });
 
-interface DescribedStub extends StubProvider {
-  describe: () => { model: string | null; configured: boolean };
-}
+  const res = await offOnly.generate('hi');
 
-function describedStub(
-  name: string,
-  response: LlmResponse,
-  description: { model: string | null; configured: boolean } = {
-    model: `${name}-model`,
-    configured: true,
-  },
-): DescribedStub {
-  return Object.assign(stubProvider(name, response), { describe: () => description });
-}
-
-void test('LlmService.getProviderStatuses lists the chain in call order, by real provider name', () => {
-  const service = createChainService(
-    { llm: { provider: 'ollama', fallbackProviders: ['qwen', 'gemini', 'nope'] } },
-    {
-      gemini: describedStub('gemini', {}),
-      openai: describedStub('openai', {}),
-      qwen: describedStub('qwen', {}),
-    },
-  );
-
-  assert.deepEqual(service.getProviderStatuses(), [
-    { name: 'qwen', role: 'primary', model: 'qwen-model', configured: true },
-    { name: 'gemini', role: 'fallback', model: 'gemini-model', configured: true },
-  ]);
+  assert.equal(res.failed, true);
+  assert.match(res.text || '', /chưa được cấu hình AI/);
+  assert.equal(gemini.calls.length, 0);
 });
 
 void test('LlmService.pingProvider tests one provider alone: a failure never reaches the fallback', async () => {
   const secretError = 'boom https://example.test/?key=secret';
-  const router = describedStub('router', { text: secretError, failed: true });
-  const gemini = describedStub('gemini', { text: 'pong' });
-  const service = createChainService(
-    { llm: { provider: 'router', fallbackProviders: ['gemini'] } },
-    { gemini, router, openai: describedStub('openai', {}), qwen: describedStub('qwen', {}) },
-  );
+  const openai = stubClient({ router: { text: secretError, failed: true } });
+  const gemini = stubClient({ gemini: { text: 'pong' } });
+  const service = createService([row('router', 'openai'), row('gemini', 'gemini')], {
+    openai,
+    gemini,
+  });
 
-  const result = await service.pingProvider('router');
+  const result = await service.pingProvider('id-router');
 
+  assert.equal(result?.name, 'router');
   assert.equal(result?.status, 'failed');
   assert.equal(typeof result?.latencyMs, 'number');
-  assert.equal(router.calls, 1);
-  assert.equal(gemini.calls, 0);
+  assert.equal(gemini.calls.length, 0);
   assert.doesNotMatch(JSON.stringify(result), /secret/);
 });
 
-void test('LlmService.pingProvider reports ok and empty answers', async () => {
-  const gemini = describedStub('gemini', { text: 'pong' });
-  const router = describedStub('router', { text: '  ' });
-  const service = createChainService(
-    { llm: { provider: 'router', fallbackProviders: ['gemini'] } },
-    { gemini, router, openai: describedStub('openai', {}), qwen: describedStub('qwen', {}) },
-  );
-
-  assert.equal((await service.pingProvider('gemini'))?.status, 'ok');
-  assert.equal((await service.pingProvider('router'))?.status, 'empty');
-});
-
-void test('LlmService.pingProvider makes no call for an unconfigured provider', async () => {
-  const router = describedStub('router', { text: 'pong' }, { model: null, configured: false });
-  const service = createChainService(
-    { llm: { provider: 'router' } },
+void test('LlmService.pingProvider reports ok, empty, and works on a turned-off row', async () => {
+  const service = createService(
+    [row('router', 'openai'), row('gemini', 'gemini', { enabled: false })],
     {
-      gemini: describedStub('gemini', {}),
-      router,
-      openai: describedStub('openai', {}),
-      qwen: describedStub('qwen', {}),
+      openai: stubClient({ router: { text: '  ' } }),
+      gemini: stubClient({ gemini: { text: 'pong' } }),
     },
   );
 
-  assert.deepEqual(await service.pingProvider('router'), {
-    name: 'router',
+  assert.equal((await service.pingProvider('id-gemini'))?.status, 'ok');
+  assert.equal((await service.pingProvider('id-router'))?.status, 'empty');
+});
+
+void test('LlmService.pingProvider makes no call for an unconfigured row and refuses unknown ids', async () => {
+  const gemini = stubClient({ gemini: { text: 'pong' } });
+  const service = createService([row('gemini', 'gemini', { apiKey: '' })], { gemini });
+
+  assert.deepEqual(await service.pingProvider('id-gemini'), {
+    name: 'gemini',
     status: 'not_configured',
     latencyMs: null,
   });
-  assert.equal(router.calls, 0);
+  assert.equal(await service.pingProvider('id-nope'), null);
+  assert.equal(gemini.calls.length, 0);
 });
 
-void test('LlmService.pingProvider refuses a provider outside the chain', async () => {
-  const openai = describedStub('openai', { text: 'pong' });
-  const service = createChainService(
-    { llm: { provider: 'gemini' } },
-    { gemini: describedStub('gemini', {}), openai, qwen: describedStub('qwen', {}) },
-  );
+void test('resolveLlmProvider applies kind defaults and the configured rules', () => {
+  const resolve = (
+    kind: LlmProviderKind,
+    model: string,
+    apiKey: string,
+    baseUrl: string | null = null,
+  ) =>
+    resolveLlmProvider(
+      { id: 'x', name: 'x', kind, enabled: true, baseUrl, model },
+      apiKey,
+      Boolean(apiKey),
+    );
 
-  assert.equal(await service.pingProvider('openai'), null);
-  assert.equal(openai.calls, 0);
-});
-
-void test('RouterProvider.describe needs the URL, the key and the model', () => {
-  const describeWith = (router: Record<string, string>) =>
-    new RouterProvider(new ConfigService({ llm: { router } }), {} as never).describe();
-
-  assert.deepEqual(describeWith({ baseUrl: 'http://r', apiKey: 'k', model: 'm' }), {
-    model: 'm',
-    configured: true,
-  });
-  assert.deepEqual(describeWith({ baseUrl: 'http://r', apiKey: 'k' }), {
-    model: null,
-    configured: false,
-  });
-  assert.equal(describeWith({ baseUrl: 'http://r', model: 'm' }).configured, false);
-  assert.equal(describeWith({ apiKey: 'k', model: 'm' }).configured, false);
-});
-
-void test('Gemini, OpenAI and Qwen describe() report their model without any secret', () => {
-  const config = new ConfigService({
-    llm: {
-      gemini: { apiKey: 'gemini-secret', model: 'g' },
-      openai: { apiKey: '', model: 'o' },
-      qwen: { model: 'q', apiKey: 'qwen-secret' },
-    },
-  });
-
-  assert.deepEqual(new GeminiProvider(config).describe(), { model: 'g', configured: true });
-  assert.deepEqual(new OpenAiProvider(config).describe(), { model: 'o', configured: false });
-  assert.deepEqual(new QwenProvider(config).describe(), { model: 'q', configured: true });
+  assert.equal(resolve('openai', 'm', 'k').call.baseUrl, 'https://api.openai.com/v1');
+  assert.equal(resolve('openai', 'm', 'k', 'https://r/v1').call.baseUrl, 'https://r/v1');
+  assert.equal(resolve('openai', 'm', 'k', 'https://r/v1').storedBaseUrl, 'https://r/v1');
+  assert.equal(resolve('ollama', 'q', '').call.baseUrl, 'http://localhost:11434');
+  assert.equal(resolve('ollama', 'q', '').configured, true, 'Ollama needs no key');
+  assert.equal(resolve('gemini', 'g', '').configured, false);
+  assert.equal(resolve('openai', '', 'k').configured, false);
+  assert.equal(resolve('gemini', 'g', 'k').call.baseUrl, '');
 });

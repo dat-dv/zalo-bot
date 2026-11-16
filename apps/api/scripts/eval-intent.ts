@@ -1,7 +1,8 @@
 /**
  * Measures how well the bot tells reminders, tasks, calendar events, notes and plain chat apart:
- * sends each case of `intent-eval.cases.ts` to the real LLM chain (`LLM_PROVIDER` +
- * `LLM_FALLBACK_PROVIDERS`) with the bot's own prompt and tools, and prints right/wrong.
+ * sends each case of `intent-eval.cases.ts` to the real LLM chain (read from the same env the
+ * `llm_providers` table is seeded from: `LLM_PROVIDER`, `LLM_FALLBACK_PROVIDERS`, `GEMINI_*`…, so
+ * no database is needed) with the bot's own prompt and tools, and prints right/wrong.
  * Sends no Zalo message and writes nothing.
  *
  *   npm run eval:intent --workspace @zalobot/api                  # .env.local + .env
@@ -16,7 +17,8 @@ import { LlmService } from '../src/llm/llm.service';
 import { GeminiProvider } from '../src/llm/providers/gemini.provider';
 import { OpenAiProvider } from '../src/llm/providers/openai.provider';
 import { QwenProvider } from '../src/llm/providers/qwen.provider';
-import { RouterProvider } from '../src/llm/providers/router.provider';
+import { buildLlmProviderSeed } from '../src/llm/llm-provider-seed';
+import { resolveLlmProvider, type LlmChainSource } from '../src/llm/llm-provider-config.service';
 import { INTENT_EVAL_CASES } from '../src/zca/text/intent-eval/intent-eval.cases';
 import { intentAccuracy, runIntentEval } from '../src/zca/text/intent-eval/intent-eval';
 
@@ -37,13 +39,22 @@ async function main(): Promise<void> {
   dotenv.config({ path: path.resolve(projectRoot(), '.env') });
 
   const config = new ConfigService(configuration());
-  const openAi = new OpenAiProvider(config);
+  const chain = buildLlmProviderSeed(process.env).map((row) =>
+    resolveLlmProvider(
+      { ...row, id: row.name, enabled: true },
+      row.apiKey ?? '',
+      Boolean(row.apiKey),
+    ),
+  );
+  const source: LlmChainSource = {
+    getChain: () => Promise.resolve(chain),
+    findResolved: (id) => Promise.resolve(chain.find((provider) => provider.id === id) ?? null),
+  };
   const llm = new LlmService(
-    config,
+    source,
     new GeminiProvider(config),
-    openAi,
+    new OpenAiProvider(config),
     new QwenProvider(config),
-    new RouterProvider(config, openAi),
   );
 
   // Free LLM tiers rate-limit bursts: space the calls and retry a failed one after a pause.

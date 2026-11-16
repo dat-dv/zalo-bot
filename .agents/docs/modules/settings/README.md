@@ -30,7 +30,7 @@ Danh mục (ví dụ `Ăn uống`, `Lương`) dùng để nhóm giao dịch tron
 - `api/categories-api.ts`: `getCategories` (có thể lọc `?type=income|expense`), `createCategory`, `updateCategory`, `deleteCategory`, đều gọi `API_ROUTES.categories`.
 - `api/categories-query.ts`: query key `['categories']` và 4 hook TanStack Query. Mọi mutation thành công đều làm mới `categoriesQueryKeys.all`.
 - `presentation/components/settings-screen.tsx`: màn hình `SettingsScreen` (re-export qua `view/settings-screen.tsx`).
-- `api/llm-providers-api.ts`, `api/llm-providers-query.ts`, `presentation/components/llm-providers-panel.tsx`: thẻ **AI đang dùng**.
+- `api/llm-providers-api.ts`, `api/llm-providers-query.ts`, `presentation/components/llm-providers-panel.tsx`, `presentation/components/llm-provider-dialog.tsx`: thẻ **AI đang dùng** (xem, thêm, sửa, bật/tắt, đổi thứ tự, xoá, ping).
 - Endpoint backend nằm trong `apps/api/src/finance/finance.controller.ts`.
 
 ## 3. Màn hình Cài đặt
@@ -71,9 +71,12 @@ Chạy `npm run typecheck`, `npm run lint` và `npm run build` tại thư mục 
 
 ## Thẻ AI đang dùng
 
-Chỉ admin thấy thẻ này, nằm dưới cùng tab Tùy chọn hệ thống; API cũng từ chối người khác. Thẻ cho admin biết bot đang dùng LLM nào và thử từng cái mà không cần đọc env server. Lý do thiết kế xem ở [Nhà cung cấp LLM](../../global/llm-providers.md#2-xem-và-ping-llm-trên-dashboard).
+Chỉ admin thấy thẻ này, nằm dưới cùng tab Tùy chọn hệ thống; API cũng từ chối người khác. Thẻ là nơi **duy nhất** cấu hình chuỗi AI của bot (trước đây nằm trong env, phải restart mới đổi được). Lý do thiết kế và cách migration seed dữ liệu từ env xem ở [Nhà cung cấp LLM](../../global/llm-providers.md#2-cấu-hình-chuỗi-ai-trên-dashboard).
 
-- Mỗi dòng là một mắt xích theo thứ tự bot gọi: tên, Chính hoặc Dự phòng, model.
+- Nút **+ Thêm AI** mở form: tên, loại, base URL (ẩn với Gemini, để trống thì dùng mặc định), model, API key, bật trong chuỗi. Sửa thì form không hiện lại key cũ: để trống ô key là giữ nguyên, tick "Xoá API key đã lưu" là xoá.
+- Mỗi dòng là một AI theo thứ tự bot gọi, kể cả dòng đang tắt (hiện mờ, nhãn "Đang tắt"): nút ↑/↓ đổi thứ tự, tên, Chính hoặc Dự phòng, loại, model và base URL nếu có; bên phải là công tắc bật/tắt, Ping, Sửa, Xoá (có hộp xác nhận).
+- Đổi thứ tự hiện ngay trên giao diện; server từ chối thì danh sách tự quay về như cũ và báo lỗi.
+- Chưa có AI nào hoặc mọi AI đều tắt thì thẻ hiện cảnh báo vàng vì bot sẽ không trả lời được.
 - Nút Ping chỉ chạy khi bấm và khoá trong lúc chờ. Mỗi dòng có trạng thái riêng nên ping một dòng không khoá dòng khác.
 - Provider chưa cấu hình đủ thì nút bị khoá và dòng ghi "Chưa cấu hình".
 - Kết quả không được lưu, tải lại trang là mất.

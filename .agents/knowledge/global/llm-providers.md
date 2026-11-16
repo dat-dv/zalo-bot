@@ -13,7 +13,12 @@ metadata:
       - apps/api/src/llm/providers/gemini.provider.ts
       - apps/api/src/llm/providers/openai.provider.ts
       - apps/api/src/llm/providers/qwen.provider.ts
-      - apps/api/src/llm/providers/router.provider.ts
+      - apps/api/src/llm/llm-provider-config.service.ts
+      - apps/api/src/llm/llm-provider-input.ts
+      - apps/api/src/llm/llm-provider-seed.ts
+      - apps/api/src/database/entities/llm-provider.entity.ts
+      - apps/api/src/database/migrations/1725030000000-CreateLlmProviders.ts
+      - apps/api/src/common/crypto/secret-cipher.ts
       - apps/api/src/llm/utils/llm-timeout.util.ts
       - apps/api/src/config/configuration.ts
       - apps/api/src/zca/text/text-tool.definitions.ts
@@ -38,13 +43,14 @@ Human guide: [LLM Providers](../../docs/global/llm-providers.md).
 
 - `generate(prompt, tools?, systemInstruction?) => Promise<LlmResponse>`; single-turn (one system + one user message). Conversation context is never kept by the provider: when chat memory is on, `TextInputService` appends the latest stored messages of the chat to `systemInstruction` (see `modules/zca/chat-memory.md`).
 - `SEARCH_CHAT_HISTORY` answers with `generate(prompt, undefined, systemInstruction)` (tool-free) through the same chain; there is no memory-specific LLM config.
-- Provider chain per call: `[LLM_PROVIDER, ...LLM_FALLBACK_PROVIDERS]` (config `llm.provider`, default `gemini`; `llm.fallbackProviders`, comma-separated, default empty), lower-cased, de-duplicated, looked up in a map: `gemini`, `openai`, `qwen`, `router`, plus aliases `ollama`, `qwen2.5:14b`, `qwen-14b` -> Qwen and `9router` -> Router. Unknown names are skipped (one warning); an empty chain uses Gemini.
+- Provider chain per call: enabled rows of table `llm_providers`, ordered by `position` (see "Provider table" below), served by `LlmProviderConfigService.getChain()`. Admins edit it on the dashboard; env no longer selects providers. No enabled row -> `{ text: 'Bot chưa được cấu hình AI nào.', failed: true }` and one warning (no env fallback by design: one source of truth).
 - Providers are tried in order. A provider is skipped when its response has `failed: true` or is empty (no text, no tool call). First good response wins (fallback use logged at LOG level). All failed -> the last failed response (its Vietnamese error text) is returned, as before the chain existed. No fallbacks configured = single provider, unchanged behavior.
-- Current deployment intent: `LLM_PROVIDER=router` (9router) + `LLM_FALLBACK_PROVIDERS=gemini`, no third link.
+- Current deployment intent: `router` (9router, kind `openai`) then `gemini`, no third link — seeded from the prod env by the migration.
 - `TextInputService`: when the tool-calling pass returns `failed` (whole chain failed), it sends that error text once and skips the tool-free chit-chat pass (which would run the chain again); with `allowAiChat === false` it stays silent.
 - `LLM_TIMEOUT_MS` (default 30000) applies to every provider, including local Qwen/Ollama; raise it for slow local models.
-- `getProviderStatuses()`: the chain `generate` would use now, as `ILlmProviderStatus[]` (`name`, `role` primary|fallback, `model`, `configured`). Built from `resolveProviderChain`, so the dashboard cannot disagree with the bot. Aliases show the real name (`ollama` -> `qwen`).
-- `pingProvider(name)`: one tool-free call to that provider alone with a fixed prompt, no user data. It must not use `generate`: the fallback would report OK while the provider is down. Returns `ILlmProviderPingResult` (`status` ok|empty|failed|not_configured, `latencyMs`); `not_configured` makes no call; a name outside the chain returns null. The provider's error text is dropped, details stay in the server log. Uses `LLM_TIMEOUT_MS`.
+- Dispatch by row `kind`: `gemini` -> `GeminiProvider`, `openai` -> `OpenAiProvider`, `ollama` -> `QwenProvider`; each client gets the row's `LlmCallConfig { baseUrl, model, apiKey }` on every call. Several rows of one kind (e.g. two routers with different models) are separate links. An unknown kind in a hand-edited row fails that link with a warning.
+- `pingProvider(id)`: one tool-free call to that row alone (enabled or not) with a fixed prompt, no user data. It must not use `generate`: the fallback would report OK while the provider is down. Returns `ILlmProviderPingResult` (`name`, `status` ok|empty|failed|not_configured, `latencyMs`); `not_configured` makes no call; unknown id -> null. The provider's error text is dropped, details stay in the server log. Uses `LLM_TIMEOUT_MS`.
+- `LlmService` depends on `LlmChainSource` (`getChain`, `findResolved`), injected as `LlmProviderConfigService`; `scripts/eval-intent.ts` passes an in-memory source built from env (`buildLlmProviderSeed`) so the eval needs no database.
 - Post-processing: every `toolCall.args` / `toolCalls[].args` passes through `cleanToolArguments`.
 - **Prompt layout for provider caching**: both system prompts (`buildToolSystemInstruction`, `generateChitChatReply`) put the static text first (identity line, intent table, parameter rules, `CHIT_CHAT_INSTRUCTION`, plain-text rules) and the per-chat, per-call text last (notes/facts profile, the date-time snippet, pending cards). The date-time snippet stops at the minute (`getVietnamDateTimeContext.systemInstructionSnippet`; the context's `time`/`isoLocal` fields keep seconds). Gemini implicit caching and OpenAI prompt caching only reuse a byte-identical prefix, so with the old order (profile and a clock with seconds first) the several-thousand static tokens were billed and processed in full on every message. Each provider logs `… tokens: prompt=… cached=… output=…` at debug level from the response usage metadata; `cached > 0` from the second call of a chat on shows the cache hitting (needs a model with implicit caching, e.g. Gemini 2.5+ or gpt-4o+).
 
@@ -53,25 +59,49 @@ Human guide: [LLM Providers](../../docs/global/llm-providers.md).
 - `LlmToolDefinition { name, description, parameters?: { type?, properties: Record<string, LlmToolProperty>, required? } }`; `LlmToolProperty { type, description?, enum? }`.
 - `LlmToolCall { name, args: Record<string, unknown> }`.
 - `LlmResponse { text?, toolCall?, toolCalls? }` — `toolCall` is the first of `toolCalls`.
-- `ILlmProvider { name; describe(); generate(...) }`. `describe()` returns `LlmProviderDescription { model, configured }` with no network call and no secret. `configured`: Gemini/OpenAI need the API key; Router needs URL, key and model; Qwen is always true (local defaults, optional key).
+- `LlmCallConfig { baseUrl, model, apiKey }`; `ILlmClient { generate(config, prompt, tools?, systemInstruction?) }`. Clients hold no provider config; only `ConfigService` for `LLM_TIMEOUT_MS`.
+
+## Provider table (`llm_providers`)
+
+Why: the chain used to be hard-coded in env (`LLM_PROVIDER`, `LLM_FALLBACK_PROVIDERS`, `GEMINI_*`, `ROUTER_*`, `OPENAI_*`, `QWEN_*`), one config per kind, and every change needed an env edit plus restart.
+
+| Column | Notes |
+| --- | --- |
+| `id` uuid | |
+| `name` varchar(60) unique | lowercase `[a-z0-9._-]`, shown in logs and the dashboard |
+| `kind` | `gemini` \| `openai` (any OpenAI-compatible endpoint, incl. LLM routers) \| `ollama` (`LLM_PROVIDER_KINDS`) |
+| `base_url` nullable | null -> `LLM_PROVIDER_DEFAULT_BASE_URLS[kind]` (`openai`: `https://api.openai.com/v1`, `ollama`: `http://localhost:11434`); ignored by `gemini` |
+| `model` | required |
+| `api_key` nullable | AES-256-GCM `enc:v1:` with `DATA_ENCRYPTION_KEY` (`common/crypto/secret-cipher.ts`, shared with `TokenEncryptionService`); never returned by the API; audit log redacts it (`api_?key` in the subscriber's redact pattern) |
+| `enabled` | off = kept but skipped by the chain |
+| `position` | call order, lowest first |
+
+- `LlmProviderConfigService` caches all resolved rows (defaults applied, key decrypted) in memory and drops the cache on every write, so edits apply to the next message without restart (single API instance; a failed read is not cached).
+- `configured`: `gemini` needs key + model; `openai` needs key + model + base URL; `ollama` needs model + base URL (key optional). A key encrypted with another `DATA_ENCRYPTION_KEY` counts as missing (warned once), never crashes.
+- Migration `1725030000000-CreateLlmProviders` creates the table and, **only when it is empty**, seeds it from the env the bot ran with (`buildLlmProviderSeed`, `llm/llm-provider-seed.ts`): chain `[LLM_PROVIDER || gemini, ...LLM_FALLBACK_PROVIDERS]`, legacy aliases (`ollama`/`qwen2.5:14b`/`qwen-14b` -> `qwen` kind `ollama`; `9router` -> `router` kind `openai`), duplicates and unknown names dropped, Gemini alone when nothing is left; same defaults as the old providers. Keys are encrypted with `DATA_ENCRYPTION_KEY` (same `'0'*64` default as `configuration.ts`); an invalid key keeps the row without its API key and logs a warning. Migrations run on API boot (`migrationsRun: true`), so a deploy keeps the prod chain unchanged.
+- After the seed, the provider env vars above are read only by that migration and by `scripts/eval-intent.ts`. `LLM_TIMEOUT_MS` stays in env.
 
 ## Providers
 
-| Provider | Config (env) | Defaults | Transport |
-| --- | --- | --- | --- |
-| `GeminiProvider` | `GEMINI_API_KEY`, `GEMINI_MODEL` | model `gemini-3.5-flash-lite` | `POST generativelanguage.googleapis.com/v1beta/models/<model>:generateContent`; tools as `functionDeclarations`; reads all `functionCall` parts. |
-| `OpenAiProvider` | `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL` | `gpt-4o-mini`, `https://api.openai.com/v1` | `POST <base>/chat/completions`; tools as `function`, schema types lower-cased via `normalizeSchemaTypes`. `generateWithConfig({ baseUrl, model, apiKey }, …)` runs the same call against any OpenAI-compatible endpoint. |
-| `RouterProvider` | `ROUTER_BASE_URL`, `ROUTER_MODEL`, `ROUTER_API_KEY` | none (missing URL, key or model -> `failed`; no silent `gpt-4o-mini` default) | OpenAI-compatible LLM router (e.g. 9router `chat-daily`) through `OpenAiProvider.generateWithConfig`; separate from `OPENAI_*` so real OpenAI stays usable as another link. |
-| `QwenProvider` | `QWEN_BASE_URL`, `QWEN_MODEL`, `QWEN_API_KEY` | `http://localhost:11434`, `qwen2.5:14b` | Base ending `/v1` or `/chat/completions` -> OpenAI format; else native Ollama `/api/chat` (`stream: false`). Optional Bearer key. Falls back to parsing `<tool_call>{...}</tool_call>` tags in text. |
+| Client (kind) | Transport |
+| --- | --- |
+| `GeminiProvider` (`gemini`) | `POST generativelanguage.googleapis.com/v1beta/models/<model>:generateContent?key=…`; tools as `functionDeclarations`; reads all `functionCall` parts. Missing key or model -> `failed`. |
+| `OpenAiProvider` (`openai`) | `POST <base>/chat/completions`, Bearer key; tools as `function`, schema types lower-cased via `normalizeSchemaTypes`. Missing base URL, key or model -> `failed` (no silent `gpt-4o-mini`, a router may not serve it). |
+| `QwenProvider` (`ollama`) | Base ending `/v1` or `/chat/completions` -> OpenAI format; else native Ollama `/api/chat` (`stream: false`). Optional Bearer key. Falls back to parsing `<tool_call>{...}</tool_call>` tags in text. |
 
-Failure contract: providers never throw to callers; they return `{ text, failed: true }` with a Vietnamese error message (missing API key / router config, HTTP error, network error, timeout; Qwen 404 -> "model not pulled" hint). Every `fetch` uses `AbortSignal.timeout(LLM_TIMEOUT_MS)` (default 30000 ms, `utils/llm-timeout.util.ts`), so a hung provider fails and the chain moves on.
+Failure contract: providers never throw to callers; they return `{ text, failed: true }` with a Vietnamese error message (missing key / model / base URL, HTTP error, network error, timeout; Qwen 404 -> "model not pulled" hint). Every `fetch` uses `AbortSignal.timeout(LLM_TIMEOUT_MS)` (default 30000 ms, `utils/llm-timeout.util.ts`), so a hung provider fails and the chain moves on.
 
 ## Admin API (`LlmAdminModule`, `llm-admin.controller.ts`)
 
-Lets an admin see which LLMs the bot uses and test each one without reading the server env. Both routes call `requireDashboardAdmin`. Kept apart from `LlmModule` because `ZcaModule` imports `LlmModule` while the admin check needs `UsersModule`, which imports `ZcaModule`.
+Lets an admin manage which LLMs the bot uses and test each one. Every route calls `requireDashboardAdmin` first (paid keys, paid pings). Kept apart from `LlmModule` because `ZcaModule` imports `LlmModule` while the admin check needs `UsersModule`, which imports `ZcaModule`. Bodies are parsed by `llm-provider-input.ts` (400 on invalid input).
 
-- `GET /api/llm/providers` (`API_ROUTES.llmProviders`): the chain in call order. Never returns a base URL or an API key.
-- `POST /api/llm/providers/:name/ping` (`API_ROUTES.llmProviderPing`): always 200 with the result; 404 outside the chain. POST because each ping is a real, paid call. No server rate limit: admin-only, a few tokens each, the UI locks the row while waiting. Not audited, changes no data.
+- `GET /api/llm/providers` (`API_ROUTES.llmProviders`): every row in call order, off ones included, as `ILlmProviderStatus` (`id`, `name`, `kind`, `baseUrl`, `model`, `enabled`, `role` primary|fallback|null when off, `configured`, `hasApiKey`). Never returns an API key.
+- `POST /api/llm/providers` (`ICreateLlmProviderRequest`): adds at the end. Duplicate name -> 409.
+- `PATCH /api/llm/providers/:id` (`API_ROUTES.llmProvider`, `IUpdateLlmProviderRequest`): only sent fields change; empty `apiKey` keeps the stored key, `clearApiKey: true` removes it.
+- `DELETE /api/llm/providers/:id`: 204.
+- `PUT /api/llm/providers/order` (`API_ROUTES.llmProvidersOrder`, `{ ids }`): must list every id once; positions become the index.
+- `POST /api/llm/providers/:id/ping` (`API_ROUTES.llmProviderPing`): always 200 with the result; 404 for an unknown id. No server rate limit: admin-only, a few tokens each, the UI locks the row while waiting.
+- Writes go through TypeORM, so the audit log (`modules/audit`) records them under table `llm_providers` (group system) with `api_key` redacted.
 
 UI: see `modules/settings/README.md`. Cognee (`COGNEE_LLM_*`) is not part of this chain and not shown.
 

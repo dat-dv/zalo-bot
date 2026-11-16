@@ -129,3 +129,5 @@ Các test chính:
 ## Khoản cố định
 
 Nhật ký ghi cả `recurring_transactions` và `recurring_occurrences` trong nhóm tài chính. Những gì job tự ghi có người thực hiện là hệ thống; kỳ do người dùng ghi thì đứng tên người đó.
+
+Nhật ký ghi cả bảng `llm_providers` (chuỗi AI của bot, nhãn "AI của bot") trong nhóm hệ thống: ai thêm, sửa, tắt, đổi thứ tự hay xoá AI trên dashboard đều có dòng nhật ký. Cột `api_key` luôn hiện `[REDACTED]` vì subscriber che mọi cột có tên chứa `token`, `secret`, `password`, `authorization` hoặc `api_key`/`apiKey`, để key trả phí không lọt vào nhật ký. Dữ liệu seed lúc migrate chạy trước khi có request nên không có dòng nhật ký.

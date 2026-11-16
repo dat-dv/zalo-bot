@@ -33,16 +33,19 @@ export interface LlmResponse {
   failed?: boolean;
 }
 
-/** What a provider can say about itself without a network call; never holds a secret. */
-export interface LlmProviderDescription {
-  model: string | null;
-  configured: boolean;
+/** Everything one call needs, resolved from a `llm_providers` row (API key decrypted). */
+export interface LlmCallConfig {
+  /** Empty for Gemini, whose endpoint is fixed. */
+  baseUrl: string;
+  model: string;
+  /** Empty when the provider has no key (allowed for Ollama). */
+  apiKey: string;
 }
 
-export interface ILlmProvider {
-  readonly name: string;
-  describe(): LlmProviderDescription;
+/** Talks to one kind of API; the provider row it serves is given on every call. */
+export interface ILlmClient {
   generate(
+    config: LlmCallConfig,
     prompt: string,
     tools?: LlmToolDefinition[],
     systemInstruction?: string,

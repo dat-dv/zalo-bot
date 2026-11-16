@@ -1,65 +1,30 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  ILlmProvider,
-  LlmProviderDescription,
-  LlmResponse,
-  LlmToolDefinition,
-} from '../types/llm.types';
+import { ILlmClient, LlmCallConfig, LlmResponse, LlmToolDefinition } from '../types/llm.types';
 import { cleanToolArguments, normalizeSchemaTypes } from '../utils/tool-arguments.util';
 import { resolveLlmTimeoutMs } from '../utils/llm-timeout.util';
 
-export interface OpenAiCompatibleConfig {
-  baseUrl: string;
-  model: string;
-  apiKey: string;
-}
-
+/** Any OpenAI-compatible `/chat/completions` endpoint (OpenAI itself, LLM routers…). */
 @Injectable()
-export class OpenAiProvider implements ILlmProvider {
-  public readonly name = 'openai';
+export class OpenAiProvider implements ILlmClient {
   private readonly logger = new Logger(OpenAiProvider.name);
 
   constructor(private readonly configService: ConfigService) {}
 
-  public describe(): LlmProviderDescription {
-    return {
-      model: this.configService.get<string>('llm.openai.model') || 'gpt-4o-mini',
-      configured: Boolean(this.configService.get<string>('llm.openai.apiKey')),
-    };
-  }
-
   public async generate(
+    config: LlmCallConfig,
     prompt: string,
     tools?: LlmToolDefinition[],
     systemInstruction?: string,
   ): Promise<LlmResponse> {
-    return this.generateWithConfig(
-      {
-        apiKey: this.configService.get<string>('llm.openai.apiKey') || '',
-        model: this.configService.get<string>('llm.openai.model') || 'gpt-4o-mini',
-        baseUrl:
-          this.configService.get<string>('llm.openai.baseUrl') || 'https://api.openai.com/v1',
-      },
-      prompt,
-      tools,
-      systemInstruction,
-    );
-  }
-
-  /** Same call against any OpenAI-compatible endpoint (e.g. the chat-memory LLM). */
-  public async generateWithConfig(
-    config: OpenAiCompatibleConfig,
-    prompt: string,
-    tools?: LlmToolDefinition[],
-    systemInstruction?: string,
-  ): Promise<LlmResponse> {
-    const { apiKey } = config;
-    const model = config.model || 'gpt-4o-mini';
+    const { apiKey, model } = config;
     const baseUrl = config.baseUrl.replace(/\/+$/, '');
 
-    if (!apiKey) {
-      this.logger.warn('OpenAI API key is missing. Skipping LLM call.');
+    // No model would leave the choice to the endpoint, which a router may not serve.
+    if (!apiKey || !model || !baseUrl) {
+      this.logger.warn(
+        'OpenAI-compatible base URL, API key or model is missing. Skipping LLM call.',
+      );
       return { text: 'Chưa cấu hình API Key cho OpenAI.', failed: true };
     }
 

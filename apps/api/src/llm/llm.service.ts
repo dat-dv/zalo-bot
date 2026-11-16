@@ -1,15 +1,19 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import type { ILlmProviderPingResult, ILlmProviderStatus, LlmPingStatus } from '@zalobot/contracts';
-import { ILlmProvider, LlmResponse, LlmToolDefinition } from './types/llm.types';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { ILlmProviderPingResult, LlmPingStatus, LlmProviderKind } from '@zalobot/contracts';
+import { ILlmClient, LlmResponse, LlmToolDefinition } from './types/llm.types';
 import { GeminiProvider } from './providers/gemini.provider';
 import { OpenAiProvider } from './providers/openai.provider';
 import { QwenProvider } from './providers/qwen.provider';
-import { RouterProvider } from './providers/router.provider';
+import {
+  LlmProviderConfigService,
+  type LlmChainSource,
+  type ResolvedLlmProvider,
+} from './llm-provider-config.service';
 import { cleanToolArguments } from './utils/tool-arguments.util';
 
 const PING_PROMPT = 'ping';
 const PING_SYSTEM_INSTRUCTION = 'Reply with exactly one word: pong.';
+const NO_PROVIDER_MESSAGE = 'Bot chưa được cấu hình AI nào.';
 
 /** No text and no tool call: free models sometimes answer empty, which is worth a retry elsewhere. */
 function isEmptyResponse(response: LlmResponse): boolean {
@@ -19,44 +23,48 @@ function isEmptyResponse(response: LlmResponse): boolean {
 @Injectable()
 export class LlmService {
   private readonly logger = new Logger(LlmService.name);
-  private readonly providerMap = new Map<string, ILlmProvider>();
-  private readonly warnedUnknownProviders = new Set<string>();
+  /** Partial on purpose: a hand-edited database could hold a kind with no client. */
+  private readonly clients: Partial<Record<string, ILlmClient>>;
+  private warnedEmptyChain = false;
 
   constructor(
-    private readonly configService: ConfigService,
-    private readonly geminiProvider: GeminiProvider,
-    private readonly openAiProvider: OpenAiProvider,
-    private readonly qwenProvider: QwenProvider,
-    @Optional() routerProvider?: RouterProvider,
+    @Inject(LlmProviderConfigService) private readonly providerConfig: LlmChainSource,
+    geminiProvider: GeminiProvider,
+    openAiProvider: OpenAiProvider,
+    qwenProvider: QwenProvider,
   ) {
-    this.providerMap.set(geminiProvider.name, geminiProvider);
-    this.providerMap.set(openAiProvider.name, openAiProvider);
-    this.providerMap.set(qwenProvider.name, qwenProvider);
-    this.providerMap.set('ollama', qwenProvider);
-    this.providerMap.set('qwen2.5:14b', qwenProvider);
-    this.providerMap.set('qwen-14b', qwenProvider);
-    if (routerProvider) {
-      this.providerMap.set(routerProvider.name, routerProvider);
-      this.providerMap.set('9router', routerProvider);
-    }
+    const clients: Record<LlmProviderKind, ILlmClient> = {
+      gemini: geminiProvider,
+      openai: openAiProvider,
+      ollama: qwenProvider,
+    };
+    this.clients = clients;
   }
 
   /**
-   * Tries `LLM_PROVIDER`, then each `LLM_FALLBACK_PROVIDERS` entry, until one answers. A provider
-   * counts as failed when it reports `failed` (config, HTTP, network, timeout) or answers empty.
-   * When all fail, the last failure is returned so callers keep today's error message.
+   * Tries each enabled provider of the dashboard-configured chain in order until one answers. A
+   * provider counts as failed when it reports `failed` (config, HTTP, network, timeout) or
+   * answers empty. When all fail, the last failure is returned so callers keep its message.
    */
   public async generate(
     prompt: string,
     tools?: LlmToolDefinition[],
     systemInstruction?: string,
   ): Promise<LlmResponse> {
-    const chain = this.resolveProviderChain();
-    let lastResponse: LlmResponse = { text: 'Không thể xử lý yêu cầu lúc này.', failed: true };
+    const chain = await this.providerConfig.getChain();
+    if (chain.length === 0) {
+      if (!this.warnedEmptyChain) {
+        this.warnedEmptyChain = true;
+        this.logger.warn('No LLM provider is enabled; add one on the dashboard Settings page.');
+      }
+      return { text: NO_PROVIDER_MESSAGE, failed: true };
+    }
+    this.warnedEmptyChain = false;
 
+    let lastResponse: LlmResponse = { text: 'Không thể xử lý yêu cầu lúc này.', failed: true };
     for (const [index, provider] of chain.entries()) {
       this.logger.debug(`Dispatching prompt to LLM provider: ${provider.name}`);
-      const response = await provider.generate(prompt, tools, systemInstruction);
+      const response = await this.call(provider, prompt, tools, systemInstruction);
       const next = chain[index + 1];
 
       if (!response.failed && !isEmptyResponse(response)) {
@@ -77,29 +85,21 @@ export class LlmService {
     return this.cleanArguments(lastResponse);
   }
 
-  /** The chain `generate` would use right now, in call order. */
-  public getProviderStatuses(): ILlmProviderStatus[] {
-    return this.resolveProviderChain().map((provider, index) => ({
-      name: provider.name,
-      role: index === 0 ? 'primary' : 'fallback',
-      ...provider.describe(),
-    }));
-  }
-
   /**
-   * Tests one provider alone: going through `generate` would report OK from a fallback while this
-   * provider is down. The provider's error text is dropped on purpose, it stays in the server log.
-   * Returns null for a name outside the chain.
+   * Tests one provider alone (turned-off ones too): going through `generate` would report OK
+   * from a fallback while this provider is down. The provider's error text is dropped on
+   * purpose, it stays in the server log. Returns null for an unknown id.
    */
-  public async pingProvider(name: string): Promise<ILlmProviderPingResult | null> {
-    const provider = this.resolveProviderChain().find((link) => link.name === name);
+  public async pingProvider(id: string): Promise<ILlmProviderPingResult | null> {
+    const provider = await this.providerConfig.findResolved(id);
     if (!provider) return null;
-    if (!provider.describe().configured) {
+    const { name } = provider;
+    if (!provider.configured) {
       return { name, status: 'not_configured', latencyMs: null };
     }
 
     const startedAt = performance.now();
-    const response = await provider.generate(PING_PROMPT, undefined, PING_SYSTEM_INSTRUCTION);
+    const response = await this.call(provider, PING_PROMPT, undefined, PING_SYSTEM_INSTRUCTION);
     const latencyMs = Math.round(performance.now() - startedAt);
 
     let status: LlmPingStatus = 'ok';
@@ -108,26 +108,18 @@ export class LlmService {
     return { name, status, latencyMs };
   }
 
-  /** Ordered, de-duplicated providers; unknown names are skipped with one warning each. */
-  private resolveProviderChain(): ILlmProvider[] {
-    const primary = (this.configService.get<string>('llm.provider') || 'gemini').toLowerCase();
-    const fallbacks = this.configService.get<string[]>('llm.fallbackProviders') ?? [];
-    const chain: ILlmProvider[] = [];
-
-    for (const name of [primary, ...fallbacks]) {
-      const provider = this.providerMap.get(name.trim().toLowerCase());
-      if (!provider) {
-        if (!this.warnedUnknownProviders.has(name)) {
-          this.warnedUnknownProviders.add(name);
-          this.logger.warn(`Unknown LLM provider "${name}" in the provider chain, skipped`);
-        }
-        continue;
-      }
-      if (!chain.includes(provider)) chain.push(provider);
+  private call(
+    provider: ResolvedLlmProvider,
+    prompt: string,
+    tools?: LlmToolDefinition[],
+    systemInstruction?: string,
+  ): Promise<LlmResponse> {
+    const client = this.clients[provider.kind];
+    if (!client) {
+      this.logger.warn(`LLM provider "${provider.name}" has unknown kind "${provider.kind}"`);
+      return Promise.resolve({ text: 'Không thể xử lý yêu cầu lúc này.', failed: true });
     }
-
-    // Same as before the chain existed: an unknown primary falls back to Gemini.
-    return chain.length > 0 ? chain : [this.geminiProvider];
+    return client.generate(provider.call, prompt, tools, systemInstruction);
   }
 
   private cleanArguments(response: LlmResponse): LlmResponse {
