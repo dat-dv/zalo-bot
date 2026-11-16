@@ -818,7 +818,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     this.logger.log(`Logging in to Zalo via credentials (IMEI: ${imei.slice(0, 8)}...)...`);
     const api = await this.client.login(fullCredentials);
-    this.api = this.setupApiInstance(api);
+    this.replaceApi(this.setupApiInstance(api));
 
     this.logger.log('Successfully logged in to Zalo via ZCA.');
     await this.loadListenedThreads();
@@ -987,7 +987,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
           }
         });
 
-        this.api = this.setupApiInstance(api);
+        this.replaceApi(this.setupApiInstance(api));
         const ownId = typeof api.getOwnId === 'function' ? api.getOwnId() : 'unknown';
         this.setQrStatus('success', `Đăng nhập thành công! Tài khoản ID: ${ownId}`);
         this.logger.log('='.repeat(65));
@@ -1052,7 +1052,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
       callback,
     );
 
-    this.api = this.setupApiInstance(api);
+    this.replaceApi(this.setupApiInstance(api));
     this.logger.log('Successfully logged in via QR Code.');
     await this.hydrateDirectory();
     await this.initPlugins(api);
@@ -1611,7 +1611,11 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
   /** Registers every handler of a listener. Binding twice would process each message twice. */
   private bindListenerEvents(listener: API['listener']): void {
-    /** A listener replaced by a newer login may still report; only the live one counts. */
+    /**
+     * A listener replaced by a newer login, or left over after logout, may still report (zca-js
+     * retries on close). Only the live one may drive the bot: an old one would run the LLM and
+     * write data while every reply fails with "ZCA is not logged in".
+     */
     const isCurrent = () => this.api?.listener === listener;
 
     listener.on('connected', () => {
@@ -1645,6 +1649,10 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     // 1. Message listener (UserMessage | GroupMessage)
     listener.on('message', (message: Message) => {
+      if (!isCurrent()) {
+        this.logger.debug('Message from a replaced or logged-out ZCA listener ignored.');
+        return;
+      }
       const threadId = message?.threadId ?? 'unknown';
       const isListened = this.listenedThreadIds.has(threadId);
       const isGroup = message?.type === ThreadType.Group;
@@ -1682,6 +1690,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     // 2. Reaction listener
     listener.on('reaction', (reaction: Reaction) => {
+      if (!isCurrent()) return;
       if (reaction?.threadId) {
         this.knownThreadTypes.set(
           reaction.threadId,
@@ -1697,6 +1706,7 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     // 3. Group event listener (e.g. member joins -> Welcome strategy)
     listener.on('group_event', (event: GroupEvent) => {
+      if (!isCurrent()) return;
       this.knownThreadTypes.set(event.threadId, ThreadType.Group);
       if (!this.listenedThreadIds.has(event.threadId)) {
         this.logger.debug(
@@ -1709,26 +1719,31 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
 
     // 4. Friend event listener
     listener.on('friend_event', (event: FriendEvent) => {
+      if (!isCurrent()) return;
       void this.dispatchFriendEvent(event);
     });
 
     // 5. Undo listener
     listener.on('undo', (undo: Undo) => {
+      if (!isCurrent()) return;
       void this.dispatchUndo(undo);
     });
 
     // 6. Typing indicator listener
     listener.on('typing', (typing: Typing) => {
+      if (!isCurrent()) return;
       void this.dispatchTyping(typing);
     });
 
     // 7. Seen messages listener
     listener.on('seen_messages', (messages: SeenMessage[]) => {
+      if (!isCurrent()) return;
       void this.dispatchSeenMessages(messages);
     });
 
     // 8. Delivered messages listener
     listener.on('delivered_messages', (messages: DeliveredMessage[]) => {
+      if (!isCurrent()) return;
       void this.dispatchDeliveredMessages(messages);
     });
   }
@@ -1738,14 +1753,31 @@ export class ZcaService implements OnModuleInit, OnApplicationBootstrap, OnModul
    */
   public stopListener(): void {
     this.connection.markStopped();
-    if (this.api && this.isListening) {
-      try {
-        this.api.listener.stop();
-        this.logger.log('ZCA Realtime listener stopped.');
-      } catch (err) {
-        this.logger.warn(`Error stopping ZCA listener: ${formatErrorMessage(err)}`);
-      }
-      this.isListening = false;
+    // Not gated on `isListening`: while the socket is reconnecting that flag is false, yet
+    // zca-js would still reopen it (`retryOnClose`) and keep delivering messages.
+    if (this.api) {
+      this.stopListenerOf(this.api);
+    }
+    this.isListening = false;
+  }
+
+  /** Swaps the session after a login: the previous listener is stopped so it cannot reopen. */
+  private replaceApi(next: API): void {
+    const previous = this.api;
+    if (previous && previous.listener !== next.listener) {
+      this.stopListenerOf(previous);
+    }
+    // The flag belonged to the old listener; left true, `startListener` would skip the new one.
+    this.isListening = false;
+    this.api = next;
+  }
+
+  private stopListenerOf(api: API): void {
+    try {
+      api.listener.stop();
+      this.logger.log('ZCA Realtime listener stopped.');
+    } catch (err) {
+      this.logger.warn(`Error stopping ZCA listener: ${formatErrorMessage(err)}`);
     }
   }
 

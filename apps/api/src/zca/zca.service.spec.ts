@@ -740,3 +740,109 @@ void test('ZcaService reports a refused recall instead of deleting the message f
   assert.equal(await service.undoMessage('g1', '901', 'cli-901'), false);
   assert.equal(deleted, false);
 });
+
+/** A zca-js listener stand-in that records its handlers and start/stop calls. */
+function fakeListener() {
+  const handlers: Record<string, (arg: unknown) => void> = {};
+  const calls = { starts: 0, stops: 0 };
+  return {
+    handlers,
+    calls,
+    on: (event: string, cb: (arg: unknown) => void) => {
+      handlers[event] = cb;
+    },
+    start: () => {
+      calls.starts += 1;
+    },
+    stop: () => {
+      calls.stops += 1;
+    },
+  };
+}
+
+type FakeListener = ReturnType<typeof fakeListener>;
+
+interface ListenerInternals {
+  api: { listener: FakeListener } | null;
+  isListening: boolean;
+  replaceApi(next: { listener: FakeListener }): void;
+}
+
+function listenerService() {
+  const service = new ZcaService({ get: (): undefined => undefined } as unknown as ConfigService);
+  const dispatched: string[] = [];
+  service.registerPlugin({
+    name: 'stale-listener-probe',
+    onMessage: (msg) => {
+      dispatched.push(`message:${String(msg.threadId)}`);
+    },
+    onReaction: () => {
+      dispatched.push('reaction');
+    },
+    onGroupEvent: () => {
+      dispatched.push('group_event');
+    },
+  });
+  return { service, internals: service as unknown as ListenerInternals, dispatched };
+}
+
+function groupMessage(threadId: string): Message {
+  return {
+    threadId,
+    type: 1,
+    isSelf: false,
+    data: { content: 'hi', dName: 'A', uidFrom: 'u1' },
+  } as unknown as Message;
+}
+
+void test('ZcaService logout stops the socket even while it is reconnecting', async () => {
+  const { service, internals } = listenerService();
+  const listener = fakeListener();
+  internals.api = { listener };
+  service.startListener();
+  // `disconnected` / `closed` clear the flag while zca-js keeps retrying the socket.
+  internals.isListening = false;
+
+  await service.logout();
+
+  assert.equal(listener.calls.stops >= 1, true);
+  assert.equal(service.isLoggedIn(), false);
+});
+
+void test('ZcaService ignores every event of a listener left over after logout', async () => {
+  const { service, internals, dispatched } = listenerService();
+  const listener = fakeListener();
+  internals.api = { listener };
+  await service.setListenedThreadIds(['t1']);
+  service.startListener();
+
+  await service.logout();
+  listener.handlers['message']?.(groupMessage('t1'));
+  listener.handlers['reaction']?.({ threadId: 't1', isGroup: true, data: {} });
+  listener.handlers['group_event']?.({ threadId: 't1' });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(dispatched, []);
+});
+
+void test('ZcaService login replaces the session: old listener stopped, new one started and heard', async () => {
+  const { service, internals, dispatched } = listenerService();
+  const oldListener = fakeListener();
+  internals.api = { listener: oldListener };
+  await service.setListenedThreadIds(['t1']);
+  service.startListener();
+  assert.equal(internals.isListening, true);
+
+  const newListener = fakeListener();
+  internals.replaceApi({ listener: newListener });
+  service.startListener();
+
+  assert.equal(oldListener.calls.stops, 1);
+  assert.equal(newListener.calls.starts, 1, 'the old listening flag must not block the new one');
+
+  oldListener.handlers['message']?.(groupMessage('t1'));
+  newListener.handlers['message']?.(groupMessage('t1'));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.deepEqual(dispatched, ['message:t1']);
+});

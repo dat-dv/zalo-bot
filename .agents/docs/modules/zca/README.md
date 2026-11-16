@@ -104,6 +104,8 @@ Vì sao làm như vậy:
 - **Coi là ổn định sau 60 giây**: nếu socket vừa nối đã rớt, thời gian chờ vẫn tăng dần thay vì thử lại liên tục.
 - **`/health` luôn trả 200**: nếu trả lỗi, Coolify sẽ khởi động lại container và admin mất luôn dashboard để quét QR. Hệ thống giám sát đọc trường `zca` trong kết quả.
 
+- **Chỉ kết nối hiện hành mới được xử lý sự kiện**: mỗi lần đăng nhập (QR, phiên đã lưu, tự nối lại) đều đi qua `replaceApi`, hàm này tắt kết nối của phiên trước. Đăng xuất luôn tắt kết nối, kể cả khi socket đang trong lúc nối lại. Sự kiện (tin nhắn, reaction, sự kiện nhóm…) đến từ kết nối cũ bị bỏ qua. Lý do: sự cố 16/11/2026, sau một lần đăng xuất, socket cũ vẫn nhận tin; bot gọi AI và Google nhưng mọi câu trả lời đều lỗi "ZCA is not logged in", còn `/zca` báo chưa đăng nhập. Gặp lại triệu chứng này thì quét QR đăng nhập lại.
+
 Hạn chế: tin nhắn gửi trong lúc mất kết nối không được xử lý bù. Khi phiên hỏng, bot không nhắn Zalo được nên chỉ có cảnh báo ở trang `/zca`, chưa có kênh báo ngoài.
 
 ## 1a. Luồng Xử Lý Tin Nhắn (L1 / L3)
