@@ -10,6 +10,10 @@ metadata:
       - apps/api/src/llm/llm-admin.module.ts
       - apps/api/src/llm/llm-provider-config.service.ts
       - apps/api/src/llm/llm-provider-seed.ts
+      - apps/api/src/llm/llm-proxy.service.ts
+      - apps/api/src/llm/llm-proxy.controller.ts
+      - docker-compose.yml
+      - apps/web/nginx.conf
       - apps/api/src/database/migrations/1725030000000-CreateLlmProviders.ts
       - apps/web/src/modules/settings/presentation/components/llm-providers-panel.tsx
       - apps/web/src/modules/settings/presentation/components/llm-provider-dialog.tsx
@@ -59,7 +63,7 @@ Migration `1725030000000-CreateLlmProviders` tạo bảng và **chỉ khi bảng
 - Bí danh cũ vẫn được hiểu: `ollama`, `qwen2.5:14b`, `qwen-14b` → dòng `qwen` (loại ollama); `9router` → dòng `router` (loại OpenAI-compatible). Tên trùng hoặc lạ bị bỏ; không còn gì thì chỉ có `gemini`.
 - Model/URL mặc định giống provider cũ; API key được mã hoá. `DATA_ENCRYPTION_KEY` sai định dạng thì vẫn tạo dòng nhưng bỏ key và log cảnh báo.
 
-Vì API chạy migration lúc khởi động (`migrationsRun: true`), deploy lên prod là chuỗi `router → gemini` hiện có tự vào DB, không phải nhập tay. Chạy lại migration trên bảng đã có dữ liệu không ghi đè gì. Sau đó các biến env AI ở trên chỉ còn dùng cho seed và cho `npm run eval:intent` (script này đọc chuỗi từ env, không cần DB). `LLM_TIMEOUT_MS` vẫn ở env.
+Vì API chạy migration lúc khởi động (`migrationsRun: true`), deploy lên prod là chuỗi `router → gemini` hiện có tự vào DB, không phải nhập tay. Chạy lại migration trên bảng đã có dữ liệu không ghi đè gì. Sau đó các biến env AI ở trên chỉ còn migration đọc (DB mới không có chúng thì có một dòng `gemini` chưa có key, nhập key trên dashboard). Chúng đã bị bỏ khỏi `.env.example` và xoá được khỏi env prod. `npm run eval:intent` đọc chuỗi từ DB (cần `DATABASE_URL` và `DATA_ENCRYPTION_KEY`). `LLM_TIMEOUT_MS` vẫn ở env.
 
 ### API (chỉ admin)
 
@@ -76,7 +80,18 @@ Vì API chạy migration lúc khởi động (`migrationsRun: true`), deploy lê
 - **`Trả lời rỗng` cũng là hỏng.** Bot coi trả lời rỗng là lỗi và chuyển provider, nên ping báo riêng trạng thái này.
 - **UI chỉ hiện trạng thái, không hiện chuỗi lỗi.** Xem chi tiết trong log server, ví dụ thông báo `ollama pull` của Qwen hoặc mã lỗi HTTP.
 - **Mỗi lần ping là một lượt gọi AI thật**, tốn vài token, nên không tự chạy khi tải trang. Provider treo có thể quay tới hết `LLM_TIMEOUT_MS`.
-- **Cognee không nằm trong thẻ này** vì nó chạy container riêng và đọc LLM qua `COGNEE_LLM_*` lúc khởi động.
+- **Cognee (trí nhớ dài hạn) dùng chung chuỗi này** qua cổng AI nội bộ, xem mục dưới. Ping trên thẻ là ping chung cho cả bot lẫn trí nhớ.
+
+### Cổng AI nội bộ cho Cognee
+
+**Vì sao:** Cognee chạy container riêng, chỉ đọc cấu hình AI từ env một lần lúc khởi động và không đọc được DB của mình. Trước đây nó dùng bộ biến riêng `COGNEE_LLM_*`, không có dự phòng, đổi AI phải sửa env rồi restart. Giờ Cognee gọi vào API, API chuyển tiếp qua đúng chuỗi AI trên dashboard.
+
+- **Đường đi:** Cognee → `POST http://api:<cổng>/api/internal/llm/v1/chat/completions` → lần lượt các AI đang bật. Compose đặt sẵn cho Cognee: `LLM_PROVIDER=custom`, `LLM_ENDPOINT` trỏ vào API, `LLM_MODEL=openai/zalobot` (tên này bị bỏ qua, mỗi AI dùng model của nó), `LLM_API_KEY=${COGNEE_USER_PASSWORD}`.
+- **Chuyển tiếp nguyên văn:** giữ nguyên `messages`, `tools`, `response_format`…, chỉ thay `model`. Cognee ép AI trả JSON để dựng đồ thị, nên không dịch lại gì cho khỏi sai.
+- **Theo loại:** OpenAI-compatible gọi thẳng `<base URL>/chat/completions`; Gemini gọi endpoint tương thích OpenAI của Google; Ollama chỉ dùng khi URL kết thúc bằng `/v1`, kiểu `/api/chat` gốc bị bỏ qua (log cảnh báo một lần).
+- **Dự phòng:** lỗi mạng, quá 180 giây, mã HTTP không phải 2xx, hoặc 2xx mà không có nội dung thì chuyển AI kế tiếp. Hết chuỗi thì trả lỗi của AI cuối; không có AI nào dùng được thì 503.
+- **Bảo mật:** bắt buộc header `Authorization: Bearer <COGNEE_USER_PASSWORD>` (so sánh constant-time; mật khẩu trống = Cognee tắt = luôn 401). nginx của `web` trả 404 cho `/api/internal/` nên từ Internet không gọi tới được. Log chỉ ghi tên AI, mã HTTP và thời gian, không ghi nội dung chat.
+- **Cái giá:** lượt dựng trí nhớ (mỗi đoạn khoảng 1500 token) giờ dùng chung hạn mức với chat. Cơ chế tạm dừng nạp 60 phút khi AI của trí nhớ lỗi vẫn giữ.
 
 ## 3. Hành vi khi gọi
 

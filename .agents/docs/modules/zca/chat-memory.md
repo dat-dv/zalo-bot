@@ -141,7 +141,7 @@ Khi có người hỏi chuyện cũ, `SEARCH_CHAT_HISTORY` chạy song song tìm
 - Khoá env (khai báo trong `.env.production`, xem [quy tắc env](../../global/environment-guard.md)):
   - `COGNEE_USER_PASSWORD`: mật khẩu tài khoản dịch vụ; để trống là tắt Cognee.
   - `COGNEE_JWT_SECRET`: bí mật ký token của Cognee; thiếu thì token hỏng mỗi lần Cognee khởi động lại.
-  - `COGNEE_LLM_PROVIDER` (mặc định `custom`), `COGNEE_LLM_ENDPOINT` (`…/v1`), `COGNEE_LLM_MODEL` (`openai/<model>`), `COGNEE_LLM_API_KEY`: LLM Cognee dùng để dựng graph. Mọi tin của kênh bật "Nhớ lâu dài" được gửi tới đây vài phút sau khi nhắn, và cả ngày được gửi lại ban đêm.
+  - AI dựng graph: **dùng chung chuỗi AI trên dashboard** (Cài đặt → AI đang dùng) qua cổng nội bộ của API, compose đặt sẵn, không còn `COGNEE_LLM_*` (bỏ ngày 16/11/2026). Mọi tin của kênh bật "Nhớ lâu dài" đi qua chuỗi này vài phút sau khi nhắn, và cả ngày được gửi lại ban đêm. Chi tiết ở [Nhà cung cấp LLM](../../global/llm-providers.md).
   - `COGNEE_URL` do compose đặt cố định là `http://cognee:8000`; chạy API ngoài Docker thì tự khai báo.
 - Trạng thái nạp hiện trên thẻ "Nhớ lâu dài": ngày đã nạp gần nhất, "Hôm nay đã nạp tới HH:mm", số ngày lỗi.
 - **Giao diện Cognee**: vào `https://zalobot.datintech.site/cognee`, trang này chuyển sang `https://cognee-zalobot.datintech.site` (biến `COGNEE_UI_HOST`).
@@ -171,7 +171,7 @@ Không đổi cách đọc: OCR Tesseract chạy trên server, lần lượt t�
 - Bot lưu tin của **mọi thành viên** kênh đang listen, kể cả người không dùng bot.
 - Mỗi lượt trả lời: Ghi nhớ và điều tự học (tối đa 15 dòng) được gửi cho LLM. Không gửi kèm tin nhắn gần đây.
 - Khi hỏi chuyện cũ: tối đa 80 dòng tìm được (agent chọn 1–50 kết quả, mỗi kết quả kèm vài tin xung quanh) và ngữ cảnh Cognee.
-- **Sau vài phút và mỗi đêm**: tin của kênh bật "Nhớ lâu dài" được gửi **nguyên văn** (không che mật khẩu, số tài khoản) tới LLM của Cognee, khoảng 3 phút sau khi kênh im lặng và cả ngày một lần nữa ban đêm. Anh Đạt đã chấp nhận dùng 9router cho việc này (có thể là model miễn phí của bên thứ ba). Muốn giữ dữ liệu nội bộ thì trỏ `COGNEE_LLM_*` vào Qwen/Ollama local.
+- **Sau vài phút và mỗi đêm**: tin của kênh bật "Nhớ lâu dài" được gửi **nguyên văn** (không che mật khẩu, số tài khoản) tới LLM của Cognee, khoảng 3 phút sau khi kênh im lặng và cả ngày một lần nữa ban đêm. Anh Đạt đã chấp nhận dùng 9router cho việc này (có thể là model miễn phí của bên thứ ba). Muốn giữ dữ liệu nội bộ thì đưa một dòng Ollama local (base URL kết thúc bằng `/v1`) lên đầu chuỗi AI trên dashboard.
 
 ## 9. Kiểm thử
 
@@ -196,7 +196,7 @@ Không đổi cách đọc: OCR Tesseract chạy trên server, lần lượt t�
 | Bot vẫn quên lời dặn | AI không nhận ra đó là lời dặn (không gọi `REMEMBER_NOTE`), hoặc ghi nhớ đã bị quên. Kiểm tra bảng `zca_channel_notes` của kênh |
 | Thẻ "Nhớ lâu dài" ghi "Máy chủ chưa bật Cognee" | Chưa đặt `COGNEE_USER_PASSWORD` cho API, hoặc thiếu `COGNEE_URL` khi chạy ngoài Docker |
 | `zca_memory_ingestions` toàn `failed` | LLM của Cognee không gọi được (sai endpoint/model/key). Log API `[Cognee] POST /remember failed …`; log container `cognee` ghi lỗi chi tiết |
-| Cognee báo `LLM connection test timed out` (log có `ConnectionTimeoutError`) | Container `cognee` không mở được kết nối tới endpoint LLM. 9router chạy trên máy chủ thì `COGNEE_LLM_ENDPOINT` phải là `http://host.docker.internal:<cổng>/v1` (service `cognee` có `extra_hosts` như `api`), không dùng `localhost`. Kết nối được mà nhận lỗi HTTP (như 410) là model đã ngừng phục vụ |
+| Cognee báo `LLM connection test timed out` (log có `ConnectionTimeoutError`) | Container `cognee` không gọi được cổng AI nội bộ của API: API chưa lên (compose cho `cognee` chờ `api` healthy) hoặc `COGNEE_USER_PASSWORD` trống. Log API có dòng `Memory LLM call via …` thì cổng đã nhận; 401 là sai key, 503 là trên dashboard không có AI nào bật dùng được cho trí nhớ (Ollama kiểu `/api/chat` không dùng được), 4xx/5xx khác là lỗi của AI phía sau, ping AI đó trên dashboard |
 | Log API có `POST /remember failed with HTTP 409 … already exists … with different content` | Lần nạp trước lưu file nhưng chết ở bước dựng graph. Từ bản sửa này bot tự xoá bản cũ và gửi lại một lần; vẫn còn thì xem lỗi LLM ở dòng trên |
 | UI Cognee trả 500 khi bấm nút, log `cognee-ui` có `Invalid Server Actions request` | Nginx không gửi đúng `Host`/`X-Forwarded-Host` sang UI; đã sửa trong `30-cognee-proxy.sh` |
 | Container `web` báo `unhealthy` (`wget: can't connect … Connection refused`) | Healthcheck gọi `localhost` (IPv6), nginx chỉ nghe IPv4; đã đổi sang `127.0.0.1` |

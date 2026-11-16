@@ -12,6 +12,7 @@ import { FinanceModule } from './finance/finance.module';
 import { AuditModule } from './audit/audit.module';
 import { AuditAdminModule } from './audit/audit-admin.module';
 import { LlmAdminModule } from './llm/llm-admin.module';
+import { LlmProxyModule } from './llm/llm-proxy.module';
 import { ReportsModule } from './reports/reports.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { TasksModule } from './tasks/tasks.module';
@@ -45,6 +46,7 @@ import { HealthModule } from './health/health.module';
     AuditModule,
     AuditAdminModule,
     LlmAdminModule,
+    LlmProxyModule,
     ReportsModule,
     ZcaModule,
   ],

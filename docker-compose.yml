@@ -85,10 +85,13 @@ services:
       TELEMETRY_DISABLED: 'true'
       # One LLM call per chunk (graph extraction) instead of two.
       SUMMARY_METHOD: from_extraction
-      LLM_PROVIDER: ${COGNEE_LLM_PROVIDER:-custom}
-      LLM_ENDPOINT: ${COGNEE_LLM_ENDPOINT:-}
-      LLM_MODEL: ${COGNEE_LLM_MODEL:-}
-      LLM_API_KEY: ${COGNEE_LLM_API_KEY:-}
+      # Same AIs as the bot: the API's internal OpenAI-compatible endpoint forwards each call over
+      # the dashboard chain (Settings -> AI in use) with its fallback. The model name is ignored
+      # (each AI uses its own); the key is the password the API already shares with Cognee.
+      LLM_PROVIDER: custom
+      LLM_ENDPOINT: http://api:${BE_PORT:-3005}/api/internal/llm/v1
+      LLM_MODEL: openai/zalobot
+      LLM_API_KEY: ${COGNEE_USER_PASSWORD:-}
       # Multilingual embeddings computed inside the container (no key, chat text stays here).
       EMBEDDING_PROVIDER: fastembed
       EMBEDDING_MODEL: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
@@ -100,10 +103,10 @@ services:
       UI_APP_URL: https://${COGNEE_UI_HOST:-cognee.localhost}
     volumes:
       - zalobot-cognee:/cognee-storage
-    # Like the api: an LLM endpoint running on the server itself (e.g. 9router) is reached through
-    # host.docker.internal; without it the LLM connection test times out.
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
+    # The LLM connection test runs at start and goes through the api, so wait until it is up.
+    depends_on:
+      api:
+        condition: service_healthy
     healthcheck:
       test:
         [

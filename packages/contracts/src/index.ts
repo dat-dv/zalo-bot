@@ -87,6 +87,8 @@ export const API_ROUTES = {
   llmProvider: (id: string) => `/api/llm/providers/${encodeURIComponent(id)}`,
   llmProvidersOrder: '/api/llm/providers/order',
   llmProviderPing: (id: string) => `/api/llm/providers/${encodeURIComponent(id)}/ping`,
+  /** Internal OpenAI-compatible endpoint for the Cognee container; blocked by the web nginx. */
+  internalLlmChatCompletions: '/api/internal/llm/v1/chat/completions',
   webhookSendMessage: '/api/webhooks/send',
   webhookTargets: '/api/webhooks/targets',
   webhookStatus: '/api/webhooks/status',

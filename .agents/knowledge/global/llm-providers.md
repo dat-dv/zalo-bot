@@ -16,6 +16,11 @@ metadata:
       - apps/api/src/llm/llm-provider-config.service.ts
       - apps/api/src/llm/llm-provider-input.ts
       - apps/api/src/llm/llm-provider-seed.ts
+      - apps/api/src/llm/llm-proxy.service.ts
+      - apps/api/src/llm/llm-proxy.controller.ts
+      - apps/api/src/llm/llm-proxy.module.ts
+      - docker-compose.yml
+      - apps/web/nginx.conf
       - apps/api/src/database/entities/llm-provider.entity.ts
       - apps/api/src/database/migrations/1725030000000-CreateLlmProviders.ts
       - apps/api/src/common/crypto/secret-cipher.ts
@@ -79,7 +84,7 @@ Why: the chain used to be hard-coded in env (`LLM_PROVIDER`, `LLM_FALLBACK_PROVI
 - `LlmProviderConfigService` caches all resolved rows (defaults applied, key decrypted) in memory and drops the cache on every write, so edits apply to the next message without restart (single API instance; a failed read is not cached).
 - `configured`: `gemini` needs key + model; `openai` needs key + model + base URL; `ollama` needs model + base URL (key optional). A key encrypted with another `DATA_ENCRYPTION_KEY` counts as missing (warned once), never crashes.
 - Migration `1725030000000-CreateLlmProviders` creates the table and, **only when it is empty**, seeds it from the env the bot ran with (`buildLlmProviderSeed`, `llm/llm-provider-seed.ts`): chain `[LLM_PROVIDER || gemini, ...LLM_FALLBACK_PROVIDERS]`, legacy aliases (`ollama`/`qwen2.5:14b`/`qwen-14b` -> `qwen` kind `ollama`; `9router` -> `router` kind `openai`), duplicates and unknown names dropped, Gemini alone when nothing is left; same defaults as the old providers. Keys are encrypted with `DATA_ENCRYPTION_KEY` (same `'0'*64` default as `configuration.ts`); an invalid key keeps the row without its API key and logs a warning. Migrations run on API boot (`migrationsRun: true`), so a deploy keeps the prod chain unchanged.
-- After the seed, the provider env vars above are read only by that migration and by `scripts/eval-intent.ts`. `LLM_TIMEOUT_MS` stays in env.
+- After the seed, the provider env vars above are read only by that migration (a fresh DB without them gets one `gemini` row without key; add the key on the dashboard). They are removed from `.env.example` and can be deleted from prod env. `scripts/eval-intent.ts` reads the chain from the database (`DATABASE_URL` + `DATA_ENCRYPTION_KEY`). `LLM_TIMEOUT_MS` stays in env.
 
 ## Providers
 
@@ -103,7 +108,19 @@ Lets an admin manage which LLMs the bot uses and test each one. Every route call
 - `POST /api/llm/providers/:id/ping` (`API_ROUTES.llmProviderPing`): always 200 with the result; 404 for an unknown id. No server rate limit: admin-only, a few tokens each, the UI locks the row while waiting.
 - Writes go through TypeORM, so the audit log (`modules/audit`) records them under table `llm_providers` (group system) with `api_key` redacted.
 
-UI: see `modules/settings/README.md`. Cognee (`COGNEE_LLM_*`) is not part of this chain and not shown.
+UI: see `modules/settings/README.md`. The same chain also serves Cognee through the internal gateway below.
+
+## Internal AI gateway for Cognee (`llm-proxy.*`, `LlmProxyModule`)
+
+Why: Cognee (chat-memory container) reads its LLM from env once at start and cannot read our DB, so it used a separate `COGNEE_LLM_*` config with no fallback. Now it calls the API, which forwards over the same dashboard chain.
+
+- `POST /api/internal/llm/v1/chat/completions` (`API_ROUTES.internalLlmChatCompletions`), OpenAI chat-completions format. Compose sets Cognee `LLM_PROVIDER=custom`, `LLM_ENDPOINT=http://api:<BE_PORT>/api/internal/llm/v1`, `LLM_MODEL=openai/zalobot` (ignored), `LLM_API_KEY=${COGNEE_USER_PASSWORD}`.
+- Auth: `Authorization: Bearer <COGNEE_USER_PASSWORD>` (`isAuthorizedBearer`, sha256 + `timingSafeEqual`); empty password (Cognee off) = always 401. The web nginx answers 404 for `/api/internal/`, so only containers on the Docker network reach it. Excluded from Swagger.
+- `LlmProxyService.chatCompletions(body)`: body must be an object with non-empty `messages`; `stream: true` -> 400 (Cognee calls without streaming). The body is forwarded **as is** (messages, tools, tool_choice, response_format…) with only `model` replaced by each row's model, so Cognee's structured output needs no translation. Prompts are never logged, only `Memory LLM call via "<name>" -> <status> (<ms>ms)`.
+- Targets (`proxyTargetFor`), enabled chain rows in order: `openai` -> `<baseUrl>/chat/completions`; `gemini` -> `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions` (Google's OpenAI-compatible endpoint, Bearer key); `ollama` only when the base URL ends with `/v1` (or `/chat/completions`), native `/api/chat` rows are skipped with one warning; unconfigured rows skipped.
+- Next row when: network error/timeout (`LLM_PROXY_TIMEOUT_MS` 180 s per row, longer than chat), any non-2xx, or a 2xx without a usable first choice (`hasUsableChoice`: text or tool calls). All failed -> last status/body (2xx without choice -> 502). No usable row -> 503. Route timeout `LLM_PROXY_REQUEST_TIMEOUT_MS` 600 s.
+- Cost: memory ingest (one call per ~1500-token chunk) now shares the quota of the chat chain. The 60-min ingest pause on a failing memory LLM (`modules/zca/chat-memory.md`) still applies.
+
 
 ## tool-arguments util
 
