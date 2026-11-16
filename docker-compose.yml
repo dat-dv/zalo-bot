@@ -96,6 +96,10 @@ services:
       EMBEDDING_PROVIDER: fastembed
       EMBEDDING_MODEL: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
       EMBEDDING_DIMENSIONS: '384'
+      # Keep the ~220 MB embedding model in the volume. Its default cache (/app/.cache) dies with
+      # the container, so every recreate downloaded it again and Cognee answered nothing (API
+      # login timeouts) for minutes after each deploy.
+      HF_HOME: /cognee-storage/hf-cache
       FASTAPI_USERS_JWT_SECRET: ${COGNEE_JWT_SECRET:-}
       DEFAULT_USER_EMAIL: zalobot@example.com
       DEFAULT_USER_PASSWORD: ${COGNEE_USER_PASSWORD:-}

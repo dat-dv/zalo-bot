@@ -137,7 +137,7 @@ Khi có người hỏi chuyện cũ, `SEARCH_CHAT_HISTORY` chạy song song tìm
 ## 5. Cài đặt và vận hành
 
 - Service `cognee` dùng image `cognee/cognee:1.6.5`, không mở cổng ra ngoài, dữ liệu nằm trong volume `zalobot-cognee`. Không đổi image Postgres chính, vì chuyển từ bản alpine sang bản có pgvector (Debian) có thể lệch collation và làm hỏng index chữ.
-- Embedding chạy ngay trong container (model đa ngôn ngữ `paraphrase-multilingual-MiniLM-L12-v2`), không cần key.
+- Embedding chạy ngay trong container (model đa ngôn ngữ `paraphrase-multilingual-MiniLM-L12-v2`), không cần key. Model (khoảng 220 MB) được lưu trong volume qua `HF_HOME=/cognee-storage/hf-cache`, nên chỉ tải lần đầu, không tải lại mỗi lần deploy.
 - Khoá env (khai báo trong `.env.production`, xem [quy tắc env](../../global/environment-guard.md)):
   - `COGNEE_USER_PASSWORD`: mật khẩu tài khoản dịch vụ; để trống là tắt Cognee.
   - `COGNEE_JWT_SECRET`: bí mật ký token của Cognee; thiếu thì token hỏng mỗi lần Cognee khởi động lại.
@@ -196,6 +196,7 @@ Không đổi cách đọc: OCR Tesseract chạy trên server, lần lượt t�
 | Bot vẫn quên lời dặn | AI không nhận ra đó là lời dặn (không gọi `REMEMBER_NOTE`), hoặc ghi nhớ đã bị quên. Kiểm tra bảng `zca_channel_notes` của kênh |
 | Thẻ "Nhớ lâu dài" ghi "Máy chủ chưa bật Cognee" | Chưa đặt `COGNEE_USER_PASSWORD` cho API, hoặc thiếu `COGNEE_URL` khi chạy ngoài Docker |
 | `zca_memory_ingestions` toàn `failed` | LLM của Cognee không gọi được (sai endpoint/model/key). Log API `[Cognee] POST /remember failed …`; log container `cognee` ghi lỗi chi tiết |
+| Log API báo `[Cognee] Login error: The operation was aborted due to timeout` ngay sau khi deploy | Container `cognee` đang tải model embedding (khoảng 220 MB, log Cognee có dòng `Downloading local model …`) và trong lúc đó không trả lời ai. Model được giữ trong volume nhờ `HF_HOME=/cognee-storage/hf-cache` nên chỉ tải một lần; nếu vẫn tải lại mỗi lần deploy thì kiểm tra biến này. Tải quá 15 phút không xong thì restart container `cognee` |
 | Cognee báo `LLM connection test timed out` (log có `ConnectionTimeoutError`) | Container `cognee` không gọi được cổng AI nội bộ của API: API chưa lên (compose cho `cognee` chờ `api` healthy) hoặc `COGNEE_USER_PASSWORD` trống. Log API có dòng `Memory LLM call via …` thì cổng đã nhận; 401 là sai key, 503 là trên dashboard không có AI nào bật dùng được cho trí nhớ (Ollama kiểu `/api/chat` không dùng được), 4xx/5xx khác là lỗi của AI phía sau, ping AI đó trên dashboard |
 | Log API có `POST /remember failed with HTTP 409 … already exists … with different content` | Lần nạp trước lưu file nhưng chết ở bước dựng graph. Từ bản sửa này bot tự xoá bản cũ và gửi lại một lần; vẫn còn thì xem lỗi LLM ở dòng trên |
 | UI Cognee trả 500 khi bấm nút, log `cognee-ui` có `Invalid Server Actions request` | Nginx không gửi đúng `Host`/`X-Forwarded-Host` sang UI; đã sửa trong `30-cognee-proxy.sh` |
