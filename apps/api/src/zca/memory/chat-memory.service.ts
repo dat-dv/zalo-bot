@@ -1,8 +1,7 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ZcaMemoryIngestionEntity } from '../../database/entities/zca-memory-ingestion.entity';
 import { ZcaMessageEntity } from '../../database/entities/zca-message.entity';
 import {
   toMemoryRecord,
@@ -14,12 +13,23 @@ import {
 import {
   buildHitQuery,
   buildNeighbourQuery,
+  buildVectorHitQuery,
+  mergeRankedIds,
   type ChatMemorySearchParams,
 } from './chat-memory.query';
-import { LONG_TERM_INGEST_KINDS, SECRET_MESSAGE_PLACEHOLDER, type MemoryKind } from './memory-kind';
+import { LocalEmbedder, type TextEmbedder } from './long-term/local-embedder';
+import { SECRET_MESSAGE_PLACEHOLDER, type MemoryKind } from './memory-kind';
 
 /** Upper bound of lines handed to the LLM for one memory question. */
 export const MAX_MEMORY_LINES = 80;
+/**
+ * The embedding of a message also reads the messages just before it, so a recall or a photo's
+ * text changes the embeddings of the messages sent this soon after it too.
+ */
+export const EMBEDDING_CONTEXT_WINDOW_MS = 10 * 60 * 1000;
+
+/** Called when the memory of a chat changed (stored, recalled or edited messages). */
+export type ChatMemoryChangeListener = (channelId: string) => void;
 
 export interface MemoryLineRow {
   id: string;
@@ -46,24 +56,40 @@ export interface ConfirmedActionMemory {
 
 /**
  * Chat memory of ZCA threads (the long-term memory's store): stores messages with their
- * `MemoryKind`, forgets recalled ones and finds past messages for
- * the `SEARCH_CHAT_HISTORY` tool. Whether a thread uses memory is its `chatMemory` thread config,
- * checked by the callers (this module stays free of ZcaModule). Writes never throw.
+ * `MemoryKind`, forgets recalled ones and finds past messages for the `SEARCH_CHAT_HISTORY` tool
+ * by keywords and by meaning (local embeddings, see `MemoryEmbeddingService`). Whether a thread
+ * uses memory is its `chatMemory` thread config, checked by the callers (this module stays free of
+ * ZcaModule). Writes never throw.
  */
 @Injectable()
 export class ChatMemoryService {
   private readonly logger = new Logger(ChatMemoryService.name);
+  private readonly listeners = new Set<ChatMemoryChangeListener>();
 
   constructor(
     @InjectRepository(ZcaMessageEntity)
     private readonly messageRepository: Repository<ZcaMessageEntity>,
-    @Optional()
-    @InjectRepository(ZcaMemoryIngestionEntity)
-    private readonly ingestionRepository?: Repository<ZcaMemoryIngestionEntity>,
     @Optional() private readonly configService?: ConfigService,
+    @Optional() @Inject(LocalEmbedder) private readonly embedder?: TextEmbedder,
   ) {}
 
-  /** Bot timezone; chat days sent to Cognee are counted in it. */
+  /** Subscribes to memory changes (the embedding scheduler); returns the unsubscribe function. */
+  public onChange(listener: ChatMemoryChangeListener): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  private notifyChange(channelId: string): void {
+    for (const listener of this.listeners) {
+      try {
+        listener(channelId);
+      } catch (err: unknown) {
+        this.logger.warn(`[ChatMemory] Change listener failed: ${errorMessage(err)}`);
+      }
+    }
+  }
+
+  /** Bot timezone; date filters of memory questions are counted in it. */
   public timeZone(): string {
     return (
       this.configService?.get<string>('timezone') ||
@@ -172,74 +198,6 @@ export class ChatMemoryService {
     }
   }
 
-  /**
-   * Local days (in `timeZone`, before `beforeDay`) with messages for the long-term memory that are
-   * not in Cognee yet: never sent, `stale` after a recall, or `failed` with attempts left. Newest
-   * first, so last night's day goes before backfilled ones.
-   */
-  public async daysToIngest(
-    channelId: string,
-    options: { timeZone: string; beforeDay: string; limit: number; maxAttempts: number },
-  ): Promise<string[]> {
-    const rows: Array<{ day: string }> = await this.messageRepository.query(
-      `SELECT to_char(d.day, 'YYYY-MM-DD') AS day FROM (` +
-        `SELECT DISTINCT (sent_at AT TIME ZONE $2)::date AS day FROM zca_messages ` +
-        `WHERE channel_id = $1 AND expires_at IS NULL AND (sent_at AT TIME ZONE $2)::date < $3::date` +
-        `) d LEFT JOIN zca_memory_ingestions i ON i.channel_id = $1 AND i.day = d.day ` +
-        `WHERE i.id IS NULL OR i.status IN ('pending', 'stale') ` +
-        `OR (i.status = 'failed' AND i.attempts < $4) ` +
-        `ORDER BY d.day DESC LIMIT $5`,
-      [channelId, options.timeZone, options.beforeDay, options.maxAttempts, options.limit],
-    );
-    return rows.map((row) => row.day);
-  }
-
-  /**
-   * What one local day of a chat sends to Cognee: people's messages and confirmed actions; with
-   * `after`, only those sent after it (the next segment of today).
-   */
-  public async dayLines(
-    channelId: string,
-    day: string,
-    timeZone: string,
-    after?: Date,
-  ): Promise<Array<{ sentAt: Date; senderName: string | null; text: string }>> {
-    const rows: Array<{ sent_at: Date | string; sender_name: string | null; text: string }> =
-      await this.messageRepository.query(
-        `SELECT sent_at, sender_name, text FROM zca_messages ` +
-          `WHERE channel_id = $1 AND (sent_at AT TIME ZONE $2)::date = $3::date ` +
-          `AND recalled_at IS NULL AND expires_at IS NULL AND text IS NOT NULL ` +
-          `AND NOT is_bot AND memory_kind = ANY($4::varchar[]) ` +
-          `AND ($5::timestamptz IS NULL OR sent_at > $5::timestamptz) ORDER BY sent_at ASC`,
-        [channelId, timeZone, day, [...LONG_TERM_INGEST_KINDS], after ?? null],
-      );
-    return rows.map((row) => ({
-      sentAt: row.sent_at instanceof Date ? row.sent_at : new Date(row.sent_at),
-      senderName: row.sender_name,
-      text: row.text,
-    }));
-  }
-
-  /** Members who wrote the most on the given local days (for learning facts about them). */
-  public async activeMembers(
-    channelId: string,
-    days: readonly string[],
-    timeZone: string,
-    limit: number,
-  ): Promise<Array<{ userId: string; name: string }>> {
-    if (days.length === 0) return [];
-    const rows: Array<{ sender_uid: string; sender_name: string | null }> =
-      await this.messageRepository.query(
-        `SELECT sender_uid, max(sender_name) AS sender_name FROM zca_messages ` +
-          `WHERE channel_id = $1 AND (sent_at AT TIME ZONE $2)::date = ANY($3::date[]) ` +
-          `AND recalled_at IS NULL AND NOT is_bot AND sender_uid <> '' ` +
-          `AND memory_kind = ANY($4::varchar[]) ` +
-          `GROUP BY sender_uid ORDER BY count(*) DESC LIMIT $5`,
-        [channelId, timeZone, [...days], [...LONG_TERM_INGEST_KINDS], limit],
-      );
-    return rows.map((row) => ({ userId: row.sender_uid, name: row.sender_name || row.sender_uid }));
-  }
-
   /** Deletes the rows kept for the removed short-term memory once past their expiry. */
   public async purgeExpired(now: Date = new Date()): Promise<number> {
     try {
@@ -264,7 +222,7 @@ export class ChatMemoryService {
   public async attachImageText(channelId: string, msgId: string, text: string): Promise<void> {
     if (!channelId || !msgId || !text) return;
     try {
-      await this.messageRepository
+      const result = await this.messageRepository
         .createQueryBuilder()
         .update(ZcaMessageEntity)
         .set({ text })
@@ -272,7 +230,10 @@ export class ChatMemoryService {
         .andWhere('msg_id = :msgId', { msgId })
         .andWhere('recalled_at IS NULL')
         .andWhere('NOT is_bot')
+        .returning('sent_at')
         .execute();
+      // Embedded again with the photo's text.
+      await this.forgetEmbeddingsFrom(channelId, sentAtsOf(result.raw));
     } catch (err: unknown) {
       this.logger.warn(
         `[ChatMemory] Could not store image text in ${channelId}: ${errorMessage(err)}`,
@@ -297,8 +258,8 @@ export class ChatMemoryService {
 
   /**
    * A recalled message is forgotten: its content is erased, only the tombstone remains. The
-   * client id is not unique across senders, so it only matches together with the sender. A day
-   * already sent to Cognee is marked `stale`, so the nightly job sends it again without it.
+   * client id is not unique across senders, so it only matches together with the sender. Its
+   * embedding goes, and so do the embeddings that read it as context (embedded again without it).
    * Resolves when the recalled messages were sent (none when nothing matched or it failed).
    */
   public async markRecalled(
@@ -319,19 +280,10 @@ export class ChatMemoryService {
             : 'msg_id = :msgId',
           { msgId, cliMsgId: byClient?.cliMsgId, senderUid: byClient?.senderUid },
         )
-        .returning(['sent_at'])
+        .returning('sent_at')
         .execute();
-      const rows = Array.isArray(result.raw) ? (result.raw as Array<{ sent_at?: unknown }>) : [];
-      const sentAts = rows
-        .map((row) =>
-          row.sent_at instanceof Date
-            ? row.sent_at
-            : typeof row.sent_at === 'string'
-              ? new Date(row.sent_at)
-              : null,
-        )
-        .filter((date): date is Date => date !== null && !Number.isNaN(date.getTime()));
-      await this.markDaysStale(channelId, sentAts);
+      const sentAts = sentAtsOf(result.raw);
+      await this.forgetEmbeddingsFrom(channelId, sentAts);
       return sentAts;
     } catch (err: unknown) {
       this.logger.warn(`[ChatMemory] Could not mark recall in ${channelId}: ${errorMessage(err)}`);
@@ -339,43 +291,77 @@ export class ChatMemoryService {
     }
   }
 
-  private async markDaysStale(channelId: string, sentAts: readonly Date[]): Promise<void> {
-    if (!this.ingestionRepository || sentAts.length === 0) return;
-    const days = [...new Set(sentAts.map((date) => localDay(date, this.timeZone())))];
-    await this.ingestionRepository
-      .createQueryBuilder()
-      .update(ZcaMemoryIngestionEntity)
-      .set({ status: 'stale' })
-      .where('channel_id = :channelId', { channelId })
-      .andWhere('day IN (:...days)', { days })
-      .andWhere("status = 'ingested'")
-      .execute();
+  /**
+   * Deletes the embeddings of the messages sent at `sentAts` and of those whose context reads them
+   * (sent up to `EMBEDDING_CONTEXT_WINDOW_MS` later), then tells the listeners so they are
+   * embedded again.
+   */
+  private async forgetEmbeddingsFrom(channelId: string, sentAts: readonly Date[]): Promise<void> {
+    if (sentAts.length === 0) return;
+    for (const sentAt of sentAts) {
+      await this.messageRepository.query(
+        `DELETE FROM zca_message_embeddings e USING zca_messages m ` +
+          `WHERE e.message_id = m.id AND m.channel_id = $1 ` +
+          `AND m.sent_at >= $2::timestamptz AND m.sent_at <= $2::timestamptz + make_interval(secs => $3)`,
+        [channelId, sentAt, EMBEDDING_CONTEXT_WINDOW_MS / 1000],
+      );
+    }
+    this.notifyChange(channelId);
   }
 
   /**
-   * Best matches with their neighbours, oldest first, at most `MAX_MEMORY_LINES` lines. Lines of
-   * better-ranked hits are kept first when the cap is reached.
+   * Best matches with their neighbours, oldest first, at most `MAX_MEMORY_LINES` lines. Keyword
+   * hits and meaning hits (`question` against the stored embeddings) are merged by rank fusion;
+   * lines of better-ranked hits are kept first when the cap is reached. Without a usable
+   * embedding model only the keyword search answers.
    */
-  public async search(channelId: string, search: ChatMemorySearchParams): Promise<MemoryLine[]> {
+  public async search(
+    channelId: string,
+    search: ChatMemorySearchParams & { question?: string },
+  ): Promise<MemoryLine[]> {
     if (!channelId) return [];
-    const hitQuery = buildHitQuery(channelId, search);
-    if (!hitQuery) return [];
+    const [keywordIds, meaningIds] = await Promise.all([
+      this.keywordHits(channelId, search),
+      this.meaningHits(channelId, search),
+    ]);
+    const hitIds = mergeRankedIds([keywordIds, meaningIds], search.limit);
+    if (hitIds.length === 0) return [];
 
-    const hitRows: Array<{ id: string }> = await this.messageRepository.query(
-      hitQuery.sql,
-      hitQuery.params,
-    );
-    if (hitRows.length === 0) return [];
-
-    const neighbourQuery = buildNeighbourQuery(
-      channelId,
-      hitRows.map((row) => row.id),
-    );
+    const neighbourQuery = buildNeighbourQuery(channelId, hitIds);
     const rows: MemoryLineRow[] = await this.messageRepository.query(
       neighbourQuery.sql,
       neighbourQuery.params,
     );
     return selectMemoryLines(rows, MAX_MEMORY_LINES);
+  }
+
+  private async keywordHits(channelId: string, search: ChatMemorySearchParams): Promise<string[]> {
+    const query = buildHitQuery(channelId, search);
+    if (!query) return [];
+    const rows: Array<{ id: string }> = await this.messageRepository.query(query.sql, query.params);
+    return rows.map((row) => row.id);
+  }
+
+  /** `[]` when there is no question, no model, or the search fails (keywords still answer). */
+  private async meaningHits(
+    channelId: string,
+    search: ChatMemorySearchParams & { question?: string },
+  ): Promise<string[]> {
+    const question = search.question?.trim() || search.keywords.trim();
+    if (!this.embedder || !question) return [];
+    try {
+      const vectors = await this.embedder.embed([question]);
+      if (!vectors?.[0]) return [];
+      const query = buildVectorHitQuery(channelId, vectors[0], this.embedder.model, search);
+      const rows: Array<{ id: string }> = await this.messageRepository.query(
+        query.sql,
+        query.params,
+      );
+      return rows.map((row) => row.id);
+    } catch (err: unknown) {
+      this.logger.warn(`[ChatMemory] Meaning search failed in ${channelId}: ${errorMessage(err)}`);
+      return [];
+    }
   }
 
   private async insertIgnoringDuplicates(records: ChatMemoryRecord[]): Promise<void> {
@@ -387,12 +373,27 @@ export class ChatMemoryService {
         .values(records)
         .orIgnore()
         .execute();
+      this.notifyChange(records[0].channelId);
     } catch (err: unknown) {
       this.logger.warn(
         `[ChatMemory] Could not store ${records.length} message(s) of ${records[0]?.channelId}: ${errorMessage(err)}`,
       );
     }
   }
+}
+
+/** `sent_at` of the rows an `UPDATE … RETURNING sent_at` touched. */
+function sentAtsOf(raw: unknown): Date[] {
+  const rows = Array.isArray(raw) ? (raw as Array<{ sent_at?: unknown }>) : [];
+  return rows
+    .map((row) =>
+      row.sent_at instanceof Date
+        ? row.sent_at
+        : typeof row.sent_at === 'string'
+          ? new Date(row.sent_at)
+          : null,
+    )
+    .filter((date): date is Date => date !== null && !Number.isNaN(date.getTime()));
 }
 
 /** `YYYY-MM-DD` of an instant in an IANA time zone. */

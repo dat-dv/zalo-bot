@@ -6,50 +6,42 @@ import { AuditContext } from '../../../audit/audit-context';
 import { throttledErrorLogger } from '../../../queue/reminder-queue';
 import { ZcaMessengerService } from '../../zca-messenger.service';
 import {
+  CHAT_MEMORY_EMBED_JOB,
   CHAT_MEMORY_NIGHTLY_CRON,
   CHAT_MEMORY_NIGHTLY_JOB,
   CHAT_MEMORY_QUEUE,
-  CHAT_MEMORY_SEGMENT_JOB,
   CHAT_MEMORY_SYNC_JOB,
+  LEGACY_CHAT_MEMORY_SEGMENT_JOB,
   readChannelJob,
-} from './memory-ingest.jobs';
-import { COGNEE_INGEST_PAUSE_MS } from './cognee.client';
-import { MemoryIngestService, type MemorySyncResult } from './memory-ingest.service';
+} from './memory-embedding.jobs';
+import { MemoryEmbeddingService, type MemorySyncResult } from './memory-embedding.service';
 
-export { CHAT_MEMORY_QUEUE, CHAT_MEMORY_NIGHTLY_JOB, CHAT_MEMORY_NIGHTLY_CRON };
+export { CHAT_MEMORY_QUEUE };
 
 /** The `/sync` answer posted to the chat once the job is done. */
 export function syncResultText(result: MemorySyncResult | null): string {
   if (!result) return '🧠 Kênh này chưa bật Nhớ lâu dài nên không có gì để cập nhật.';
-  if (result.paused) {
-    const minutes = COGNEE_INGEST_PAUSE_MS / 60_000;
-    return `⚠️ LLM của trí nhớ đang lỗi, bot tạm dừng nạp ${minutes} phút rồi tự thử lại. Tin nhắn không bị mất.`;
+  if (result.unavailable) {
+    return '⚠️ Bộ nhớ theo ý nghĩa chưa sẵn sàng (chưa nạp được model), bot vẫn tìm lại tin theo từ khoá. Thử lại sau ít phút.';
   }
-  if (result.failed) return '⚠️ Chưa cập nhật được trí nhớ lúc này, thử lại sau.';
-  const parts: string[] = [];
-  if (result.todayLines > 0) parts.push(`${result.todayLines} tin mới hôm nay`);
-  if (result.days > 0) parts.push(`${result.days} ngày trước còn chờ`);
-  return parts.length > 0
-    ? `🧠 Đã cập nhật trí nhớ: ${parts.join(', ')}.`
+  return result.embedded > 0
+    ? `🧠 Đã cập nhật trí nhớ: ${result.embedded} tin mới.`
     : '🧠 Trí nhớ đã đủ, không có tin mới.';
 }
 
-const NIGHTLY_JOB_OPTIONS = {
-  removeOnComplete: true,
-  removeOnFail: { count: 20 },
-} as const;
+const NIGHTLY_JOB_OPTIONS = { removeOnComplete: true, removeOnFail: { count: 20 } } as const;
 
 /**
- * Runs the memory jobs one at a time: the nightly run over every chat, today's segment of one
- * chat, and `/sync` (whose result is posted to the chat).
+ * Runs the memory jobs one at a time: the nightly sweep over every chat, new messages of one chat,
+ * and `/sync` (whose result is posted to the chat).
  */
 @Processor(CHAT_MEMORY_QUEUE, { concurrency: 1 })
-export class MemoryIngestProcessor extends WorkerHost implements OnApplicationBootstrap {
-  private readonly logger = new Logger(MemoryIngestProcessor.name);
+export class MemoryEmbeddingProcessor extends WorkerHost implements OnApplicationBootstrap {
+  private readonly logger = new Logger(MemoryEmbeddingProcessor.name);
   private readonly logConnectionError = throttledErrorLogger(this.logger, 'Chat memory queue');
 
   constructor(
-    private readonly ingest: MemoryIngestService,
+    private readonly embedding: MemoryEmbeddingService,
     @InjectQueue(CHAT_MEMORY_QUEUE) private readonly queue: Queue,
     @Optional() private readonly configService?: ConfigService,
     @Optional() private readonly messenger?: ZcaMessengerService,
@@ -77,19 +69,22 @@ export class MemoryIngestProcessor extends WorkerHost implements OnApplicationBo
   public async process(job: Job<unknown>): Promise<void> {
     // The jobs act for nobody: rows they write are system changes.
     if (job.name === CHAT_MEMORY_NIGHTLY_JOB) {
-      await AuditContext.runAsSystem(() => this.ingest.runNightly());
+      await AuditContext.runAsSystem(() => this.embedding.runNightly());
       return;
     }
     const data = readChannelJob(job.data);
-    if (!data || (job.name !== CHAT_MEMORY_SEGMENT_JOB && job.name !== CHAT_MEMORY_SYNC_JOB)) {
-      throw new Error(`Unknown chat memory job "${job.name}"`);
-    }
-    if (job.name === CHAT_MEMORY_SEGMENT_JOB) {
-      await AuditContext.runAsSystem(() => this.ingest.runSegment(data.channelId, data));
+    if (job.name === CHAT_MEMORY_EMBED_JOB || job.name === LEGACY_CHAT_MEMORY_SEGMENT_JOB) {
+      if (data) await AuditContext.runAsSystem(() => this.embedding.runChannel(data.channelId));
       return;
     }
-    const result = await AuditContext.runAsSystem(() => this.ingest.runSync(data.channelId));
-    await this.messenger?.sendMessage(data.channelId, syncResultText(result));
+    if (job.name === CHAT_MEMORY_SYNC_JOB && data) {
+      const result = await AuditContext.runAsSystem(() =>
+        this.embedding.runChannel(data.channelId),
+      );
+      await this.messenger?.sendMessage(data.channelId, syncResultText(result));
+      return;
+    }
+    throw new Error(`Unknown chat memory job "${job.name}"`);
   }
 
   @OnWorkerEvent('failed')

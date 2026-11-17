@@ -31,12 +31,12 @@ export const NEIGHBOURS_AFTER = 4;
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-/** What people said or did; matched by the keyword search. */
-const SEARCH_HIT_KINDS: readonly MemoryKind[] = ['chat', 'request', 'action'];
+/** What people said or did; matched by the keyword and the meaning search, and embedded. */
+export const SEARCH_HIT_KINDS: readonly MemoryKind[] = ['chat', 'request', 'action'];
 const NEIGHBOUR_SKIPPED_KINDS: readonly MemoryKind[] = ['card', 'system', 'secret', 'result'];
 
 /** Kinds are fixed constants, never user input, so they are inlined as literals. */
-function sqlList(kinds: readonly MemoryKind[]): string {
+export function sqlList(kinds: readonly MemoryKind[]): string {
   return kinds.map((kind) => `'${kind}'`).join(', ');
 }
 
@@ -130,35 +130,18 @@ export function normalizeDate(value: string | undefined): string | undefined {
 }
 
 /**
- * Ranked ids of matching messages; `null` when there is no usable keyword. A message matches a
- * whole keyword, any single word of a multi-word keyword, or contains a domain/email/link keyword;
- * the literal matches come first, then by how much of the query matched (`ts_rank`).
+ * Conditions shared by the keyword and the meaning search on `zca_messages m` (`$1` is the
+ * channel). Bot replies never count as hits (an earlier, maybe wrong answer is not evidence); they
+ * can still appear as neighbours of a real hit. Rows with `expires_at` were kept for the removed
+ * short-term memory while long-term memory was off and are never searched.
  */
-export function buildHitQuery(channelId: string, search: ChatMemorySearchParams): SqlQuery | null {
-  const { phrases, words, patterns } = searchTerms(search.keywords);
-  if (phrases.length === 0) return null;
-
-  const params: unknown[] = [channelId];
-  const tsQueries = [...phrases, ...words].map((term) => {
-    params.push(term);
-    return `plainto_tsquery('simple', zalobot_unaccent($${params.length}))`;
-  });
-  let literal = '';
-  if (patterns.length > 0) {
-    params.push(patterns);
-    literal = `m.text ILIKE ANY($${params.length}::text[])`;
-  }
-
-  // Bot replies never count as hits (an earlier, maybe wrong answer is not evidence); they can
-  // still appear as neighbours of a real hit. Rows with `expires_at` were kept for the
-  // removed short-term memory while long-term memory was off and are never searched.
+function hitConditions(params: unknown[], search: ChatMemorySearchParams): string[] {
   const conditions = [
     'm.channel_id = $1',
     'm.recalled_at IS NULL',
     'm.expires_at IS NULL',
     'NOT m.is_bot',
     `m.memory_kind IN (${sqlList(SEARCH_HIT_KINDS)})`,
-    literal ? `(m.search_vector @@ q.query OR ${literal})` : 'm.search_vector @@ q.query',
   ];
   if (search.excludeMsgId) {
     params.push(search.excludeMsgId);
@@ -180,6 +163,33 @@ export function buildHitQuery(channelId: string, search: ChatMemorySearchParams)
       );
     }
   }
+  return conditions;
+}
+
+/**
+ * Ranked ids of matching messages; `null` when there is no usable keyword. A message matches a
+ * whole keyword, any single word of a multi-word keyword, or contains a domain/email/link keyword;
+ * the literal matches come first, then by how much of the query matched (`ts_rank`).
+ */
+export function buildHitQuery(channelId: string, search: ChatMemorySearchParams): SqlQuery | null {
+  const { phrases, words, patterns } = searchTerms(search.keywords);
+  if (phrases.length === 0) return null;
+
+  const params: unknown[] = [channelId];
+  const tsQueries = [...phrases, ...words].map((term) => {
+    params.push(term);
+    return `plainto_tsquery('simple', zalobot_unaccent($${params.length}))`;
+  });
+  let literal = '';
+  if (patterns.length > 0) {
+    params.push(patterns);
+    literal = `m.text ILIKE ANY($${params.length}::text[])`;
+  }
+
+  const conditions = [
+    ...hitConditions(params, search),
+    literal ? `(m.search_vector @@ q.query OR ${literal})` : 'm.search_vector @@ q.query',
+  ];
 
   params.push(search.limit);
   const sql =
@@ -209,4 +219,64 @@ export function buildNeighbourQuery(channelId: string, hitIds: readonly string[]
     `) w ` +
     `ORDER BY h.hit_rank ASC, w.sent_at ASC`;
   return { sql, params: [channelId, [...hitIds]] };
+}
+
+/**
+ * Cosine distance (`<=>`, 0 = same meaning, 2 = opposite) above which a message is not a meaning
+ * hit. MiniLM puts paraphrases around 0.1-0.4 and unrelated chat above 0.7.
+ */
+export const VECTOR_MAX_DISTANCE = 0.6;
+
+/** pgvector literal of an embedding. */
+export function toVectorLiteral(vector: readonly number[]): string {
+  return `[${vector.join(',')}]`;
+}
+
+/**
+ * Ids of the messages closest in meaning to the question, best first, with the same filters as
+ * the keyword search; only embeddings of the current `model` count. An exact scan of the chat's
+ * rows (no HNSW index): a chat holds a few thousand messages, and an approximate index would drop
+ * matches once filtered by channel and date.
+ */
+export function buildVectorHitQuery(
+  channelId: string,
+  vector: readonly number[],
+  model: string,
+  search: ChatMemorySearchParams,
+): SqlQuery {
+  const params: unknown[] = [channelId, toVectorLiteral(vector), model];
+  const conditions = [
+    ...hitConditions(params, search),
+    'e.channel_id = $1',
+    'e.model = $3',
+    `(e.embedding <=> $2::vector) < ${VECTOR_MAX_DISTANCE}`,
+  ];
+  params.push(search.limit);
+  const sql =
+    `SELECT m.id FROM zca_message_embeddings e JOIN zca_messages m ON m.id = e.message_id ` +
+    `WHERE ${conditions.join(' AND ')} ` +
+    `ORDER BY e.embedding <=> $2::vector ASC, m.sent_at DESC ` +
+    `LIMIT $${params.length}`;
+  return { sql, params };
+}
+
+/** Rank constant of reciprocal rank fusion; 60 is the usual value. */
+export const RRF_K = 60;
+
+/**
+ * Reciprocal rank fusion of ranked id lists (keyword hits, meaning hits): each list adds
+ * `1 / (RRF_K + rank)` to an id, so an id found by both searches comes first. Ties keep the order
+ * of the first list. At most `limit` ids.
+ */
+export function mergeRankedIds(lists: ReadonlyArray<readonly string[]>, limit: number): string[] {
+  const scores = new Map<string, number>();
+  for (const list of lists) {
+    list.forEach((id, index) => {
+      scores.set(id, (scores.get(id) ?? 0) + 1 / (RRF_K + index + 1));
+    });
+  }
+  return [...scores.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id]) => id);
 }

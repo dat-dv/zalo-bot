@@ -8,36 +8,34 @@ import { ConfirmDialog } from '@/shared/ui/confirm-dialog';
 import {
   useDeleteThreadLearnedFactMutation,
   useThreadLearnedFactsQuery,
-  useThreadMemoryStatusQuery,
 } from '../../../api/zca-query';
-import { groupLearnedFacts, memoryStatusText } from '../../../model/channel-memory';
+import { groupLearnedFacts } from '../../../model/channel-memory';
 
 interface LearnedFactsPanelProps {
   threadId: string;
 }
 
-/** What the nightly job learned about the bot and the members; a deleted fact is not learned again. */
+/**
+ * Facts learned earlier about the bot and the members (the nightly LLM job that learned them was
+ * removed). They are still used in replies; shown only when there are some, so they can be deleted.
+ */
 export function LearnedFactsPanel({ threadId }: LearnedFactsPanelProps) {
-  const status = useThreadMemoryStatusQuery(threadId, true);
   const query = useThreadLearnedFactsQuery(threadId, true);
   const remove = useDeleteThreadLearnedFactMutation(threadId);
   const [deleting, setDeleting] = useState<IChannelLearnedFact | null>(null);
   const groups = groupLearnedFacts(query.data ?? []);
+  if (query.isPending || (query.isSuccess && groups.length === 0)) return null;
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">Bot đã học</p>
-      {status.data && (
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          {memoryStatusText(status.data)}
-        </p>
-      )}
-      {query.isPending ? (
-        <p className="text-xs text-slate-500 dark:text-slate-400">Đang tải…</p>
-      ) : query.isError ? (
+      <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+        Điều bot đã học trước đây
+      </p>
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        Bot không tự học thêm nữa; các điều này vẫn được dùng khi trả lời và xoá được.
+      </p>
+      {query.isError ? (
         <p className="text-xs text-rose-600 dark:text-rose-400">Không tải được điều bot đã học.</p>
-      ) : groups.length === 0 ? (
-        <p className="text-xs text-slate-500 dark:text-slate-400">Chưa học được gì.</p>
       ) : (
         <div className="flex flex-col gap-3">
           {groups.map((group) => (
@@ -69,7 +67,7 @@ export function LearnedFactsPanel({ threadId }: LearnedFactsPanelProps) {
       <ConfirmDialog
         confirmLabel="Xoá"
         isPending={remove.isPending}
-        message={deleting ? `Bot sẽ quên "${deleting.fact}" và không học lại điều này.` : ''}
+        message={deleting ? `Bot sẽ quên "${deleting.fact}".` : ''}
         onCancel={() => setDeleting(null)}
         onConfirm={() => {
           if (!deleting) return;

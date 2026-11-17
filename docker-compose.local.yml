@@ -1,6 +1,9 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # postgres:16-alpine plus pgvector (embeddings of the long-term chat memory).
+    build:
+      context: docker/postgres
+    image: zalobot-postgres:16-pgvector
     restart: unless-stopped
     ports:
       - '${POSTGRES_PORT:-5432}:5432'

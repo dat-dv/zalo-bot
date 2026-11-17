@@ -125,18 +125,14 @@ export function validateEnvironment(): EnvValidationResult {
     );
   }
 
-  for (const key of ['WEB_ORIGIN', 'COGNEE_URL']) {
-    const value = readEnv(key);
-    if (value && !isHttpUrl(value)) {
-      addError(
-        errors,
-        key,
-        'Phải là URL HTTP(S) hợp lệ.',
-        key === 'COGNEE_URL'
-          ? 'Khai báo URL đầy đủ (ví dụ http://cognee:8000) hoặc bỏ trống để tắt Cognee.'
-          : 'Khai báo URL đầy đủ hoặc bỏ trống để suy ra từ APP_URL.',
-      );
-    }
+  const webOrigin = readEnv('WEB_ORIGIN');
+  if (webOrigin && !isHttpUrl(webOrigin)) {
+    addError(
+      errors,
+      'WEB_ORIGIN',
+      'Phải là URL HTTP(S) hợp lệ.',
+      'Khai báo URL đầy đủ hoặc bỏ trống để suy ra từ APP_URL.',
+    );
   }
 
   if (!isPostgresUrl(readEnv('DATABASE_URL'))) {

@@ -25,7 +25,7 @@ const PICTOGRAPHS = /\p{Extended_Pictographic}|\u{FE0F}|\u{200D}|\u{20E3}/gu;
 /**
  * `✅ [358] Chi 5.000đ · Đi lại · gửi xe\n📍 hồ bơi tây thạnh · 🕗 08:00 25/10` →
  * `(đã duyệt) Chi 5.000đ · Đi lại · gửi xe · hồ bơi tây thạnh · 08:00 25/10`. Empty when nothing
- * is left. The marker tells the LLM and Cognee this was done, not just said.
+ * is left. The marker tells the LLM this was done, not just said.
  */
 export function confirmedActionText(summary: string): string {
   const body = (summary || '')

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import type { Repository } from 'typeorm';
 import type { ZcaMessageEntity } from '../../database/entities/zca-message.entity';
 import { ChatMemoryService, selectMemoryLines, type MemoryLineRow } from './chat-memory.service';
+import { EMBEDDING_DIMENSIONS, type TextEmbedder } from './long-term/local-embedder';
 
 interface RecordedCall {
   method: string;
@@ -249,4 +250,73 @@ void test('markRecalled matches the client id only together with its sender', as
     (byIdOnly.calls.find((call) => call.method === 'andWhere')?.args ?? [])[0],
     'msg_id = :msgId',
   );
+});
+
+function fakeEmbedder(): TextEmbedder {
+  return {
+    model: 'minilm',
+    state: () => 'ready',
+    embed: (texts) =>
+      Promise.resolve(texts.map(() => Array.from({ length: EMBEDDING_DIMENSIONS }, () => 0.1))),
+  };
+}
+
+void test('search merges keyword and meaning hits before reading neighbours', async () => {
+  const stub = createRepositoryStub([
+    [{ id: '11111111-1111-1111-1111-111111111111' }],
+    [
+      { id: '22222222-2222-2222-2222-222222222222' },
+      { id: '11111111-1111-1111-1111-111111111111' },
+    ],
+    [],
+  ]);
+  const service = new ChatMemoryService(stub.repository, undefined, fakeEmbedder());
+  await service.search('g-1', {
+    keywords: 'lẩu',
+    question: 'hôm trước ăn gì',
+    limit: 5,
+    timeZone: 'Asia/Ho_Chi_Minh',
+  });
+  assert.equal(stub.rawQueries.length, 3);
+  assert.match(stub.rawQueries[0].sql, /search_vector @@ q\.query/);
+  assert.match(stub.rawQueries[1].sql, /zca_message_embeddings e JOIN zca_messages m/);
+  assert.deepEqual(stub.rawQueries[2].params[1], [
+    '11111111-1111-1111-1111-111111111111',
+    '22222222-2222-2222-2222-222222222222',
+  ]);
+});
+
+void test('search without an embedder uses the keyword search only', async () => {
+  const { service, rawQueries } = createService([[]]);
+  await service.search('g-1', { keywords: 'lẩu', question: 'ăn gì', limit: 5, timeZone: 'UTC' });
+  assert.equal(rawQueries.length, 1);
+});
+
+void test('a stored message notifies the change listeners of its chat', async () => {
+  const { service } = createService();
+  const changed: string[] = [];
+  const unsubscribe = service.onChange((channelId) => changed.push(channelId));
+  await service.record('g-1', 'group', { msgId: '1', content: 'xin chào', ts: Date.now() });
+  unsubscribe();
+  await service.record('g-1', 'group', { msgId: '2', content: 'lần nữa', ts: Date.now() });
+  assert.deepEqual(changed, ['g-1']);
+});
+
+void test('markRecalled drops the embeddings that read the recalled message and notifies', async () => {
+  const stub = createRepositoryStub();
+  const builder = stub.repository.createQueryBuilder() as unknown as {
+    execute: () => Promise<unknown>;
+  };
+  const sentAt = new Date('2026-11-17T03:00:00Z');
+  builder.execute = () => Promise.resolve({ raw: [{ sent_at: sentAt }] });
+  const service = new ChatMemoryService(stub.repository);
+  const changed: string[] = [];
+  service.onChange((channelId) => changed.push(channelId));
+
+  assert.deepEqual(await service.markRecalled('g-1', '7001'), [sentAt]);
+  const deletion = stub.rawQueries.find((query) =>
+    query.sql.startsWith('DELETE FROM zca_message_embeddings'),
+  );
+  assert.deepEqual(deletion?.params, ['g-1', sentAt, 600]);
+  assert.deepEqual(changed, ['g-1']);
 });

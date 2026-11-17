@@ -15,19 +15,17 @@ metadata:
       - apps/api/src/zca/memory/learned-facts.service.ts
       - apps/api/src/zca/memory/channel-memory.controller.ts
       - apps/api/src/zca/memory/image-text-memory.service.ts
-      - apps/api/src/zca/memory/long-term/cognee.client.ts
-      - apps/api/src/zca/memory/long-term/chat-day-document.ts
-      - apps/api/src/zca/memory/long-term/learned-facts.prompt.ts
-      - apps/api/src/zca/memory/long-term/memory-ingest.service.ts
-      - apps/api/src/zca/memory/long-term/memory-ingest.processor.ts
-      - apps/api/src/zca/memory/long-term/memory-ingest.jobs.ts
-      - apps/api/src/zca/memory/long-term/memory-segment.scheduler.ts
-      - apps/api/src/database/entities/zca-memory-segment.entity.ts
+      - apps/api/src/zca/memory/long-term/local-embedder.ts
+      - apps/api/src/zca/memory/long-term/embedding-text.ts
+      - apps/api/src/zca/memory/long-term/memory-embedding.service.ts
+      - apps/api/src/zca/memory/long-term/memory-embedding.processor.ts
+      - apps/api/src/zca/memory/long-term/memory-embedding.jobs.ts
+      - apps/api/src/zca/memory/long-term/memory-embedding.scheduler.ts
+      - apps/api/src/database/migrations/1725040000000-AddMessageEmbeddings.ts
       - apps/api/src/zca/text/strategies/sync-memory-tool.strategy.ts
       - apps/api/src/database/entities/zca-message.entity.ts
       - apps/api/src/database/entities/zca-channel-note.entity.ts
       - apps/api/src/database/entities/zca-learned-fact.entity.ts
-      - apps/api/src/database/entities/zca-memory-ingestion.entity.ts
       - apps/api/src/database/migrations/1724810000000-CreateZcaMessages.ts
       - apps/api/src/database/migrations/1724820000000-AddChatMemoryToZcaThreadConfigs.ts
       - apps/api/src/database/migrations/1724980000000-AddChatMemoryV2.ts
@@ -51,9 +49,8 @@ metadata:
       - apps/api/src/ocr/ocr.service.ts
       - packages/contracts/src/index.ts
       - docker-compose.yml
-      - apps/web/nginx.conf
-      - apps/web/30-cognee-proxy.sh
-      - apps/web/Dockerfile
+      - docker/postgres/Dockerfile
+      - apps/api/Dockerfile
       - apps/web/src/modules/zca/view/thread-config-screen.tsx
       - apps/web/src/modules/zca/api/zca-api.ts
       - apps/web/src/modules/zca/api/zca-query.ts
@@ -67,9 +64,9 @@ metadata:
 
 # ZCA Chat Memory
 
-Owner: Core Engineering Team · Status: active (v2: one Postgres store with message kinds, per-chat notes, nightly Cognee graph, learned facts)
+Owner: Core Engineering Team · Status: active (v3: one Postgres store with message kinds, per-chat notes, local embeddings in pgvector; Cognee removed 2026-11-17)
 
-Human guide: [Trí nhớ hội thoại](../../../docs/modules/zca/chat-memory.md). Design records: `.agents/artifacts/chat-memory-recall/`, `chat-memory-per-thread-config/`, `chat-memory-short-long-split/`, `chat-memory-image-text/`, `chat-memory-persona-forgetting/`, `chat-memory-cognee/`, `chat-memory-long-term-v2/`, `memory-config-cleanup/`.
+Human guide: [Trí nhớ hội thoại](../../../docs/modules/zca/chat-memory.md). Design records: `.agents/artifacts/chat-memory-recall/`, `chat-memory-per-thread-config/`, `chat-memory-short-long-split/`, `chat-memory-image-text/`, `chat-memory-persona-forgetting/`, `chat-memory-cognee/`, `chat-memory-long-term-v2/`, `memory-config-cleanup/`, `local-vector-memory/` (why Cognee went: 2026-11-16 prod log, ~19k memory LLM calls/day, 313 succeeded, every Google key 429).
 
 ## Purpose
 
@@ -78,8 +75,8 @@ LLM calls are stateless. The bot keeps three memory layers per Zalo chat (`chann
 | Layer | What | In the prompt | Written by | Switch |
 | --- | --- | --- | --- | --- |
 | **Notes (Ghi nhớ)** | What the chat told the bot to always remember (persona, conventions), ≤20 × 200 chars | Every turn, right after the identity line | Members via `REMEMBER_NOTE` / `FORGET_MEMORY` in the chat, saved at once (no dashboard UI) | none (always on) |
-| **Learned facts** | Stable facts about the bot and members, ≤5 per subject | Every turn: bot + sender + tagged, ≤15 lines | Nightly job (Cognee + LLM) | `chatMemory.enabled` + `learnPeople` |
-| **Long-term** | Every message (Postgres) + Cognee: segments of today, then one document per chat day | Only via `SEARCH_CHAT_HISTORY` | Every listened message; segment after ~3 min quiet or `/sync`; nightly job | `chatMemory.enabled` |
+| **Learned facts** | Stable facts about the bot and members, ≤5 per subject. **Frozen**: nothing learns new ones since the nightly LLM job was removed (owner's decision 2026-11-17: no LLM in the memory pipeline) | Every turn: bot + sender + tagged, ≤15 lines | Earlier nightly job (removed) | `chatMemory.enabled` |
+| **Long-term** | Every message (Postgres) + one local embedding per hit-able message (`zca_message_embeddings`, pgvector) | Only via `SEARCH_CHAT_HISTORY` | Every listened message; embedded ~20 s after the chat goes quiet, `/sync`, boot sweep, nightly sweep | `chatMemory.enabled` |
 
 Redis keeps only transient state (pending cards, temp messages to recall, ZCA session, rate limits, cache, BullMQ). The former Redis list `zca:short_memory:<threadId>` is no longer written and expires.
 
@@ -89,9 +86,9 @@ Redis keeps only transient state (pending cards, temp messages to recall, ZCA se
 
 | Field | Default | Range | Meaning |
 | --- | --- | --- | --- |
-| `enabled` | `false` | | Long-term memory: keep rows, nightly Cognee ingest, history search. |
+| `enabled` | `false` | | Long-term memory: keep rows, embed them, history search. |
 | `readImageText` | `true` | | Local OCR of photos into the stored row (needs `enabled`). |
-| `learnPeople` | `true` | | Nightly learned facts (needs `enabled`). |
+| `learnPeople` | `true` | | Ignored (kept so stored configs round-trip); no UI. |
 
 `normalizeChatMemoryConfig` (`@zalobot/contracts`) fills defaults (missing `readImageText`/`learnPeople` → `true`) and drops keys of removed options (`shortTermEnabled`, `contextWindow`, `shortTermDays`, `searchLimit`). The memory needs `isListened`. Notes need neither. Hits per history search are not a setting: the agent picks them (see History search).
 
@@ -99,10 +96,10 @@ Redis keeps only transient state (pending cards, temp messages to recall, ZCA se
 
 Migration `1724980000000-AddChatMemoryV2` added `memory_kind varchar default 'chat'` (existing bot rows → `bot_chat`) and `expires_at`.
 
-| Kind | Set by | Sent to Cognee | Keyword-search hit |
+| Kind | Set by | Embedded | Search hit (keyword + meaning) |
 | --- | --- | --- | --- |
 | `chat` | Member message (default) | ✅ | ✅ |
-| `request` | Member message that became a tool call (`TextInputService`) or a `yes/cancel/edit <code>` command | ❌ | ✅ |
+| `request` | Member message that became a tool call (`TextInputService`) or a `yes/cancel/edit <code>` command | ✅ | ✅ |
 | `action` | Row written after a confirmed tool call **ran successfully** | ✅ | ✅ |
 | `bot_chat` | Bot message (default) | ❌ | neighbour only |
 | `tool` | Answers of read-only tools (`GET_REPORT`, `LIST_TASKS`, `LIST_CALENDAR_EVENTS`, `GET_STORAGE_LINKS`, `SEARCH_CHAT_HISTORY`) | ❌ | neighbour only |
@@ -114,10 +111,10 @@ Migration `1724980000000-AddChatMemoryV2` added `memory_kind varchar default 'ch
 
 - Bot kinds are tagged with `OutgoingMemoryKind.run(kind, fn)` (`memory-kind.ts`, AsyncLocalStorage, like `AuditContext`). The `api.sendMessage` wrapper in `ZcaService.setupApiInstance` reads it before awaiting; `TransactionConfirmationService` wraps its messenger so its sends default to `system` (cards run under `card`, `executeConfirmed` under `result`).
 - `recordBotReply` upserts `is_bot`, `memory_kind`, `text`, `content` (self-listen echo stored first is overwritten; a `secret` echo loses its text). `onMessage` skips the bot's own echo when `isBotSentMessage`.
-- Retention: rows are stored only while the long-term memory is on (messages, bot replies, done actions, photo text); new rows never get `expires_at`. Rows with `expires_at` are leftovers of the removed short-term memory: the nightly job deletes them once expired (`purgeExpired`), and long-term search and Cognee ignore them.
+- Retention: rows are stored only while the long-term memory is on (messages, bot replies, done actions, photo text); new rows never get `expires_at`. Rows with `expires_at` are leftovers of the removed short-term memory: the nightly job deletes them once expired (`purgeExpired`), and search and embedding ignore them.
 - `content` keeps only `title/description/text/fileName/name`; `text` ≤2000 chars (`buildMemoryText`); photo with OCR text → `[Ảnh] <caption> — chữ trong ảnh: …`.
-- Recall (`onUndo`, `ZcaService.undo`): `markRecalled` erases `text`/`content`, sets `recalled_at`, marks that local day `stale` in `zca_memory_ingestions` (resent to Cognee without it next night) and resolves the recalled rows' `sent_at`. A member's recall of a message of today (`ZcaBotFeatureService.onUndo`) also queues a `segment` job with `resetToday` (today's segments forgotten and sent again without it).
-- Excluded from `AuditLogSubscriber`: `zca_messages`, `zca_learned_facts`, `zca_memory_ingestions`, `zca_memory_segments`. `zca_channel_notes` is audited.
+- Recall (`onUndo`, `ZcaService.undo`): `markRecalled` erases `text`/`content`, sets `recalled_at`, deletes the embeddings of the recalled row and of the rows sent up to `EMBEDDING_CONTEXT_WINDOW_MS` (10 min) after it in the chat (their embedding text read it as context), notifies the change listeners (re-embedded ~20 s later without it) and resolves the recalled rows' `sent_at`.
+- Excluded from `AuditLogSubscriber`: `zca_messages`, `zca_learned_facts` (`zca_message_embeddings` has no entity, so it is never audited). `zca_channel_notes` is audited.
 
 ## Tool calls reach memory only after success (D6)
 
@@ -131,67 +128,59 @@ Migration `1724980000000-AddChatMemoryV2` added `memory_kind varchar default 'ch
 
 - Table `zca_channel_notes` (`channel_id`, `text varchar(200)`, `created_by`, `source_msg_id`); `ChannelNotesService` (list oldest first, add/update/remove, `findMatching` accent-insensitive all-words). Limits `CHANNEL_NOTES_LIMITS` (20, 200).
 - Tool `REMEMBER_NOTE { text, reply?, replaceNoteId? }` (routing: see `global/zalo-command-intake.md`, lasting facts about the bot or group with no time and no task): **saved at once, no confirmation card** (owner's decision 2026-10-26: a pending card nobody approved dropped "mày là con mèo đen"). The strategy rejects empty/too long, maps `n2` to the 2nd note and updates it, else adds (limit → refusal text); a duplicate (folded) is not saved again. It then sends the LLM's in-character `reply` (≤500 chars; fallback `Dạ em nhớ rồi: <text>`) as `bot_chat`, and writes the `action` row `(đã duyệt) Đã ghi nhớ: …` via `recordDoneAction`.
-- Tool `FORGET_MEMORY { query, reply? }`: forgets at once the notes and active learned facts containing every word (≤5; more → asks to narrow; none → "không nhớ điều gì khớp"); facts are soft-deleted with `deleted_by` = sender so they are not learned again; answers with `reply` or a line listing what was forgotten. Not written to memory.
+- Tool `FORGET_MEMORY { query, reply? }`: forgets at once the notes and active learned facts containing every word (≤5; more → asks to narrow; none → "không nhớ điều gì khớp"); facts are soft-deleted with `deleted_by` = sender; answers with `reply` or a line listing what was forgotten. Not written to memory.
 - Prompt (`TextInputService`, both the tool pass and the chit-chat pass): `BOT_IDENTITY_LINE` ("…nếu phần ĐIỀU ĐƯỢC DẶN mô tả bạn khác đi… thì luôn theo phần đó") + `buildMemoryProfileBlock` (notes as `[n1] …`, then learned facts) before the date context. Built whatever the memory switches; learned facts only when long-term is on.
 - Notes are managed only in the chat; the dashboard has no notes UI (removed 2026-10-26). The notes API below is kept without a web caller.
 
-## Cognee (long-term graph)
+## Long-term memory: local embeddings (no LLM)
 
-- Service `cognee` in `docker-compose.yml`: image `cognee/cognee:1.6.5`, no published port, volume `zalobot-cognee:/cognee-storage` (its own SQLite + LanceDB + Kuzu; the main Postgres image is untouched to avoid an alpine→debian collation change). Fixed env: `ENABLE_BACKEND_ACCESS_CONTROL=true` (dataset filter only works with it), `TELEMETRY_DISABLED=true`, `SUMMARY_METHOD=from_extraction`, fastembed `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (384, in-container; `HF_HOME=/cognee-storage/hf-cache` keeps the ~220 MB model in the volume, otherwise each container recreate downloads it again and Cognee answers nothing for minutes, seen as API `[Cognee] Login error … timeout`), `DEFAULT_USER_EMAIL=zalobot@example.com`. LLM: the dashboard chain through the API's internal gateway (`LLM_PROVIDER=custom`, `LLM_ENDPOINT=http://api:<BE_PORT>/api/internal/llm/v1`, `LLM_MODEL=openai/zalobot`, `LLM_API_KEY=${COGNEE_USER_PASSWORD}`; see `global/llm-providers.md`), so `depends_on: api (service_healthy)` lets its start-up LLM connection test pass; no `extra_hosts` needed any more (the api reaches host-side routers). Interpolated: `COGNEE_JWT_SECRET`, `COGNEE_USER_PASSWORD`. `COGNEE_LLM_*` were removed (2026-11-16).
-- API config `cognee`: `COGNEE_URL` (compose fixes `http://cognee:8000`), `COGNEE_USER_EMAIL` (default `zalobot@example.com`), `COGNEE_USER_PASSWORD`, `COGNEE_TIMEOUT_MS` (600000). Off unless URL and password are set.
-- `CogneeClient` (REST `/api/v1`, verified on 1.6.5): login `POST /auth/login` (form) → JWT reused 50 min, re-login once on 401; `remember` (multipart `data`, `datasetName`, `run_in_background=false`) → `{ status, dataset_id, items[0].id }`, success only with `status: completed` (other statuses: forget the item, `null`, ingest pause); a 409 "already exists … with different content" (an earlier remember stored the file, then failed, so its id was never kept) → `parseExistingDocument` reads the stored `data_id`/dataset, `forget`s it and sends once more; other 409s (LLM connection test timeout, errored run) → `null`; `forget` (`{ datasetId, dataId }` → `status: success`); `recallContext(dataset, query, { temporal })` → `POST /recall` with `only_context: true`, `search_type` `TEMPORAL` or `GRAPH_COMPLETION`, 404 (unknown dataset) → `[]`. Never throws.
-- Dataset per chat: `zca-<channelId>` (`cogneeDatasetName`).
-- Remote access (all through the `web` nginx, written at start by `apps/web/30-cognee-proxy.sh`; closed unless `COGNEE_UI_HOST` is set (then `/cognee/…` without it answers 404); protected by Cognee's own login only (owner's choice, 2026-10-26: no Basic Auth), and `…/api/v1/auth/register` always 403 so nobody can sign up and spend the LLM key):
-  - API on the main domain: `https://<domain>/cognee/…` → `http://cognee:8000/…` (prefix stripped, Docker DNS resolver so the web starts while cognee is down → 502, 600 s timeouts, 20 MB body). Swagger does not work under the prefix.
-  - UI (`cognee-ui` service, image `cognee/cognee-ui:1.6.5`, internal): on its own host `COGNEE_UI_HOST` (prod `cognee-zalobot.datintech.site`; server block `/etc/nginx/conf.d/zz-cognee-ui.conf`): `/` → `cognee-ui:3000` (repeats `Host`/`X-Forwarded-Host/Proto/For`: a location with its own `proxy_set_header` inherits none, and Next.js rejects Server Actions whose forwarded host differs from the browser origin), `/api/` and `/health` → `cognee:8000`, so the UI's host-scoped login cookie and CORS stay on one origin (`COGNEE_BACKEND_URL` and Cognee `UI_APP_URL` = `https://<COGNEE_UI_HOST>`). The UI has no basePath, so it cannot live under `/cognee/`; `/cognee` and `/cognee/` on the main domain answer 302 to the UI host. Sign in with `zalobot@example.com` + `COGNEE_USER_PASSWORD` (superuser: sees every chat's dataset). The UI server also listens on container port 8081, published as `COGNEE_UI_PORT` (3006) as its default server, so a tunnel can point the UI host straight at that port (one-level subdomain so Cloudflare's free certificate covers it).
+Owner's decision 2026-11-17 (`.agents/artifacts/local-vector-memory/`): the memory pipeline makes **no LLM call**. Cognee (graph built by the LLM per chunk) burned the free Google quota shared with chat replies and left 49 chat days `failed`; the data is small (~65 messages/day), so meaning search over local embeddings is enough.
 
-## Ingest jobs (`MemoryIngestService`, `MemoryIngestProcessor`, `MemorySegmentScheduler`)
+### Storage
 
-- BullMQ queue `chat-memory` (`memory-ingest.jobs.ts`), concurrency 1 (segments never run beside the nightly job), every job as system (`AuditContext.runAsSystem`). Jobs: `nightly` (scheduler, cron `0 3 * * *` in `timezone`), `segment { channelId, resetToday? }`, `sync { channelId }`.
-- **Nothing is masked** (owner's decision 2026-10-26, "ghi gì nhớ đó"): documents carry the text as written, passwords and account numbers included. `maskLongNumbers` was removed.
+- Postgres image `docker/postgres/Dockerfile`: `postgres:16-alpine` + pgvector 0.8.1 built from source. Same Alpine/musl base as the existing volume, so the `en_US.utf8` collation (and every text index) is unchanged; the official pgvector image is Debian/glibc and would need a `REINDEX`. Compose (`docker-compose.yml`, `docker-compose.local.yml`) builds it as `zalobot-postgres:16-pgvector`.
+- Migration `1725040000000-AddMessageEmbeddings`: `CREATE EXTENSION vector`; table `zca_message_embeddings` (`message_id uuid` PK → `zca_messages(id) ON DELETE CASCADE`, `channel_id`, `embedding vector(384)`, `model varchar(120)`, `created_at`), index (`channel_id`, `model`); drops `zca_memory_segments` and `zca_memory_ingestions` (Cognee bookkeeping only). No TypeORM entity (no vector type): rows are read and written with SQL.
+- No HNSW index: every search is scoped to one chat (a few thousand rows), an exact scan is fast and an approximate index would drop matches once filtered by channel/date. Add HNSW only if one chat grows past ~100k rows.
+- `model` holds the model id: rows of another model count as missing and are re-embedded (switching model = automatic full re-embed).
 
-### Segments of today (owner's decision 2026-10-26: remember within minutes)
+### Embedder (`LocalEmbedder`, `long-term/local-embedder.ts`, provided by `ChatMemoryModule`)
 
-- Table `zca_memory_segments` (migration `1724990000000-AddChatMemorySegments`): `channel_id`, `day`, `from_sent_at`, `to_sent_at`, `cognee_data_id` (`<datasetId>:<dataId>`).
-- `MemorySegmentScheduler.noteMessage(channelId)` after each stored message of a long-term chat (`ZcaBotFeatureService.onMessage`, not the bot's echo): an in-process timer per chat, pushed back to `SEGMENT_IDLE_MS` (3 min) by every message but capped at `SEGMENT_MAX_WAIT_MS` (15 min) after the first unsent one; then a `segment` job. Timers are lost on restart, so `SEGMENT_CATCH_UP_DELAY_MS` (60 s) after boot every listened long-term chat gets one `segment` job. Redis down → no job; the nightly run still sends the day.
-- `ingestSegment(config)`: today's `dayLines` after `max(to_sent_at)` of today's segments (same filter as the day document); none → nothing (0). Document = day document with the time range in the header (`…ngày 26/10/2026 (Thứ Hai), 14:28–14:56`), file `chatSegmentFileName` (`<channelId>_<day>_<lastSentAtMs>.txt`). `remember` fails or ingest is paused → `null`, no row (next run takes the lines again). Lines sent late with an older `sent_at` wait for the nightly run.
-- Learned facts are not touched by segments (nightly only).
+- transformers.js (`@huggingface/transformers` 4.3.2, ONNX runtime, CPU) pipeline `feature-extraction`, `dtype: 'q8'`, mean pooling, normalized → 384-dim vectors (`EMBEDDING_DIMENSIONS`). Model `memory.embeddingModel` (`EMBEDDING_MODEL`, default `DEFAULT_EMBEDDING_MODEL` = `Xenova/paraphrase-multilingual-MiniLM-L12-v2`, ~120 MB); files read from `memory.embeddingModelDir` (`EMBEDDING_MODEL_DIR`, default `<DATA_DIR>/models`; the API image sets `/app/models` and bakes the model in a build stage, so prod never downloads it; in dev the first use downloads it there).
+- Loaded lazily (dynamic import, so tests never load ONNX); a failed load sets state `failed`, logs once and is retried after `EMBEDDER_RETRY_MS` (10 min). Batches of 32, input cut at 1000 chars. Never throws: `null` when unavailable. State `idle|loading|ready|failed` (`ChannelMemoryEmbedderState`).
+- The API runs on `node:22-bookworm-slim` (prod-deps, builder, runner): the ONNX runtime ships glibc binaries only. Tesseract data stage stays Alpine (files only).
 
-### Nightly run
+### What is embedded
 
-- `runNightly`: `purgeExpired`; if Cognee is on, for each listened chat with `enabled` (one after another, stops as soon as ingest is paused):
-  1. `daysToIngest`: local days before today with long-term rows whose ingestion row is missing/`pending`/`stale`/`failed` with attempts < 5; newest first, ≤8 per night (`INGEST_DAYS_PER_NIGHT`).
-  2. Per day: forget the day's segments (rows deleted) and the previous document (`cognee_data_id` stored as `<datasetId>:<dataId>`), so a day ends as one document; build `buildChatDayDocument` (header `Nhật ký cuộc trò chuyện "<name>" ngày dd/mm/yyyy (Thứ …)`, lines `HH:mm Name: text`, kinds `chat` + `action`, not bot, not recalled), empty day → `ingested` without a call; `remember` → `ingested` or `failed` (+attempts, `last_error`).
-  3. If anything went in and `learnPeople`: subjects = bot (`zalo.botName`) + 10 most active members of those days; per subject `recallContext(factRecallQuery)` → `LlmService.generate` (`LEARNED_FACTS_SYSTEM_INSTRUCTION`: stable facts only, skip jokes/insults/threats/one-day info, JSON `{"facts": []}`), `parseLearnedFacts`, `replaceForSubject` (drops facts equal to deleted ones, ≤5). No context → previous facts kept.
-- Status for the dashboard: `status(channelId)` → `IChannelMemoryStatus` (`cogneeEnabled`, `lastIngestedDay`, `failedDays`, `lastError`, `todayIngestedUntil` = `to_sent_at` of today's last segment).
+- Rows that may be search hits: `memory_kind IN ('chat','request','action')`, not bot, not recalled, `expires_at IS NULL`, `text` not null, in listened chats with `chatMemory.enabled`.
+- Text (`buildEmbeddingText`): `Name: text` of the message first, then up to 2 earlier hit-able messages of the same chat sent ≤10 min before it (newest first), so "ok chốt" carries what it answers; context lines are dropped before the message is cut. Nothing is masked (owner's decision 2026-10-26).
 
-### Ingest pause
+### Jobs (`MemoryEmbeddingService`, `MemoryEmbeddingProcessor`, `MemoryEmbeddingScheduler`)
 
-Why: Cognee retries each failed LLM call for at least 240 s (hardcoded, exponential wait from 8 s), and the router multiplies each try by the fallback models of its combo. Without a pause a broken LLM is hit again by every segment of every chat (confirmed by the 9router log of 2026-10-26).
-
-- `CogneeClient` keeps `ingestPausedUntil` in memory (`COGNEE_INGEST_PAUSE_MS`, 60 min; a restart only costs one more failed remember, the queue runs one job at a time). `isIngestPaused()`, `resumeIngest()`. One log line when it opens.
-- Opened by a failed `remember` behind Cognee: 409 other than "already exists" (Cognee's answer to an errored run), 5xx, timeout or network error on `/remember`, or a 2xx whose `status` is not `completed`. Not opened by 400/413/422 (one bad document must not stop every chat) or a failed login (no LLM call).
-- While paused: `ingestSegment` returns `null` without calling Cognee; `ingestChannel` stops before the next day, so skipped days keep their segments and attempts; `runNightly` stops, the remaining chats stay pending for the next night.
-- Ends after 60 min: the next ingest is the probe; a new failure pauses again. So at most one failing `remember` per hour system-wide (except `/sync`). `recallContext` is not paused: keyword search and graph context keep working.
-- Not shown on the dashboard, only in the log and the `/sync` answer.
+- BullMQ queue `chat-memory` (`memory-embedding.jobs.ts`), concurrency 1, every job as system (`AuditContext.runAsSystem`). Jobs: `nightly` (scheduler, cron `0 3 * * *` in `timezone`: `purgeExpired` + sweep of every memory chat), `embed { channelId }`, `sync { channelId }`; a leftover `segment` job (old name) runs as `embed`.
+- `embedPending(channelIds, limit = 5000)`: rounds of 128 rows without an embedding of the current model (oldest first, context rows joined as JSON), `embed`, then `INSERT … SELECT FROM unnest(…) ON CONFLICT (message_id) DO UPDATE` skipping rows deleted meanwhile. Model unavailable → `null` (nothing marked; the next run retries). Nothing is ever marked failed.
+- `ChatMemoryService.onChange(listener)`: every successful insert (`record`, `recordAction`, `backfill`), recall and photo-text update notifies the chat. `MemoryEmbeddingScheduler` subscribes on bootstrap: per-chat in-process timer pushed back to `EMBED_IDLE_MS` (20 s), capped at `EMBED_MAX_WAIT_MS` (2 min) after the first change, then an `embed` job. `EMBED_CATCH_UP_DELAY_MS` (60 s) after boot it queues one `nightly` sweep (lost timers, backfill after deploy). Redis down → the nightly sweep catches up. `runChannel` checks `isListened && chatMemory.enabled` again.
+- Photo text (`attachImageText`, `RETURNING sent_at`): deletes the embeddings of the photo row and the next 10 min, then notifies → re-embedded with the OCR text.
+- Status: `status(channelId)` → `IChannelMemoryStatus { embedder, embeddedMessages, pendingMessages, lastEmbeddedAt }` (counts of the current model over hit-able rows).
 
 ### `/sync`
 
-- Fast path (`TextToolFactory.resolveFastPathToolType`: `/sync`, `/sync …`, also after the bot mention) → `TextToolType.SYNC_MEMORY` → `SyncMemoryToolStrategy`; no LLM. Same access as other commands.
-- Long-term off → "🧠 Kênh này chưa bật Nhớ lâu dài…"; Cognee off → says so; else `MemorySegmentScheduler.requestSync` (cancels the chat's timer, queues `sync`) and answers "🔄 Đang cập nhật trí nhớ…" (queue error → "⚠️ Chưa cập nhật được…").
-- `sync` job: `runSync` = `resumeIngest` (a fixed LLM need not wait for the pause) + `ingestChannel(..., { learn: false })` (past pending/stale/failed days) + `ingestSegment`; the processor posts `syncResultText`: "⚠️ LLM của trí nhớ đang lỗi, bot tạm dừng nạp 60 phút rồi tự thử lại. Tin nhắn không bị mất." (ingest paused) / "🧠 Đã cập nhật trí nhớ: N tin mới hôm nay, M ngày trước còn chờ." / "🧠 Trí nhớ đã đủ, không có tin mới." / "⚠️ Chưa cập nhật được trí nhớ lúc này, thử lại sau.".
-- A recalled message's facts can survive until the next night (day resent, its sender re-learned).
+- Fast path (`TextToolFactory.resolveFastPathToolType`: `/sync`, `/sync …`, also after the bot mention) → `TextToolType.SYNC_MEMORY` → `SyncMemoryToolStrategy`; no LLM. Long-term off → "🧠 Kênh này chưa bật Nhớ lâu dài…"; else `MemoryEmbeddingScheduler.requestSync` (cancels the chat's timer, queues `sync`) → "🔄 Đang cập nhật trí nhớ…" (queue error → "⚠️ Chưa cập nhật được…").
+- `sync` job → `runChannel`, then `syncResultText`: "🧠 Đã cập nhật trí nhớ: N tin mới." / "🧠 Trí nhớ đã đủ, không có tin mới." / model unavailable → "⚠️ Bộ nhớ theo ý nghĩa chưa sẵn sàng…, bot vẫn tìm lại tin theo từ khoá…".
+
+### Removed with Cognee (2026-11-17)
+
+Services `cognee`, `cognee-ui`, volume `zalobot-cognee`, `CogneeClient`, segments, nightly day documents, ingest pause, the internal LLM gateway `POST /api/internal/llm/v1/chat/completions` (`LlmProxyModule`), `apps/web/30-cognee-proxy.sh` and the `/cognee` nginx routes, env `COGNEE_*`, the nightly learned-facts job (`learned-facts.prompt.ts`, `LearnedFactsService.replaceForSubject/deletedFor`). Server clean-up after deploy (volume, images) is manual.
 
 ## History search (`SEARCH_CHAT_HISTORY`)
 
-- Offered only with `input.longTermMemory` (boolean). Tool args `keywords`, `fromDate`, `toDate`, `question`, `limit`: the agent picks `limit` per question (more for broad/listing questions, fewer for one detail); `readSearchLimit` clamps it to `CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MIN..MAX` (1–50), default `SEARCH_LIMIT_DEFAULT` (15). Runs in parallel: keyword search (`ChatMemoryService.search`, terms from `searchTerms`: each keyword as a phrase (all its words), plus each word of multi-word keywords alone (≤24, folded stop words like có/là/nói/đã skipped), all OR'ed; keywords with `.`/`@`/`/` (domains, emails, links, kept whole by the `simple` parser) also match as `text ILIKE` and rank first, then `ts_rank`; hits `chat|request|action`, not bot, `expires_at IS NULL`, `limit` hits; neighbours ±3/4 skip `card|system|secret|result`; ≤80 lines) and, when Cognee is on, `recallContext` (temporal when a date range is given). Both go into one `LlmService` prompt (graph context ≤6000 chars, original lines win on conflict). Neither → "không thấy". Cognee failing → keyword search only.
+- Offered only with `input.longTermMemory` (boolean). Tool args `keywords`, `fromDate`, `toDate`, `question`, `limit`: the agent picks `limit` per question (more for broad/listing questions, fewer for one detail); `readSearchLimit` clamps it to `CHAT_MEMORY_LIMITS.SEARCH_LIMIT_MIN..MAX` (1–50), default `SEARCH_LIMIT_DEFAULT` (15). `ChatMemoryService.search(channelId, { keywords, question, … })` runs two hit queries in parallel and merges them by reciprocal rank fusion (`mergeRankedIds`, k = 60; ids found by both first; ≤ `limit`): (1) keyword search (terms from `searchTerms`: each keyword as a phrase (all its words), plus each word of multi-word keywords alone (≤24, folded stop words like có/là/nói/đã skipped), all OR'ed; keywords with `.`/`@`/`/` (domains, emails, links, kept whole by the `simple` parser) also match as `text ILIKE` and rank first, then `ts_rank`; `limit` hits); (2) meaning search (`buildVectorHitQuery`: the question (else the keywords) embedded by `LocalEmbedder`, `ORDER BY embedding <=> $q` within the chat and the current model, cosine distance < `VECTOR_MAX_DISTANCE` 0.6, `limit` hits). Both share `hitConditions` (channel, `chat|request|action`, not bot, not recalled, `expires_at IS NULL`, date range in `timezone`, skip the asking message). Then neighbours ±3/4 skipping `card|system|secret|result`, ≤80 lines, into one `LlmService` prompt (the only LLM call). No hit → "không thấy". Embedder unavailable or meaning query failing → keyword search only.
 - The `keywords` description asks for short keywords, common abbreviations (mk, pass, tk, stk, sdt) and domains kept whole. With long-term memory the tool prompt adds `CHAT_HISTORY_INTENT_RULE` (before chat in the intent table): asking again for, or asking the bot to pass on, something said in the chat ("chỉ Hằng biết tài khoản admin của web …", "nói lại cho Nam cái link lúc nãy", "pass wifi là gì") → `SEARCH_CHAT_HISTORY`. Intent eval has these cases.
 - Without a recent-message window a bare "lúc nãy a có nói r" has no topic; the bot can only search with what that message says.
 
 ## Dashboard (admin only)
 
 - API (`ChannelMemoryController`, `/api/zca/threads/:threadId/…`): `GET|POST notes`, `PATCH|DELETE notes/:noteId` (no web caller since the notes UI was removed), `GET learned-facts`, `DELETE learned-facts/:factId` (soft delete, `deleted_by` = admin), `GET memory-status`. Routes in `API_ROUTES` (`zcaThreadNotes`, `zcaThreadNote`, `zcaThreadFacts`, `zcaThreadFact`, `zcaThreadMemoryStatus`); DTOs `IChannelNote`, `IUpsertChannelNoteRequest`, `IChannelLearnedFact`, `IChannelMemoryStatus`. Mutations answer with the fresh list (cache replaced).
-- Thread config page, right column, group "🧠 Trí nhớ": **🧠 Nhớ lâu dài** (switch, privacy warning that every message goes as written, passwords included, to the Cognee LLM a few minutes later, how-it-works list ("Khi nào nạp": ~3 min quiet, ≤15 min, `/sync`, nightly rebuild), "Tự học về mọi người" toggle, status line ("Đã nạp tới ngày dd/mm/yyyy. Hôm nay đã nạp tới HH:mm."), "Bot đã học" grouped by subject with delete; no number settings), **🖼️ Đọc chữ trong ảnh** (hint when long-term is off). Phone: one column; small radius.
+- Thread config page, right column, group "🧠 Trí nhớ": **🧠 Nhớ lâu dài** (switch; privacy note: every message is stored as written on the server, and only the snippets found for a question go to the AI that writes the answer; how-it-works list ("Khi nào nạp": ~20 s after the chat goes quiet, ≤2 min, local model, `/sync`); status line `memoryStatusText` ("Đã nhớ N tin. M tin đang chờ…", or the keyword-only warning when the model failed); "Điều bot đã học trước đây" grouped by subject with delete, hidden when empty; no "Tự học" toggle, no number settings), **🖼️ Đọc chữ trong ảnh** (hint when long-term is off). Phone: one column; small radius.
 - Chat table Features column: `Nhớ` (long-term on).
 
 ## User merge
@@ -200,8 +189,8 @@ Why: Cognee retries each failed LLM call for at least 240 s (hardcoded, exponent
 
 ## Data disclosure
 
-See `global/local-first-ai-usage.md` (exception "Chat memory"): prompt layers above, keyword snippets ≤80 lines, today's segments a few minutes after a chat goes quiet and the nightly whole-day documents of long-term chats to the Cognee LLM, unmasked. Photo bytes never leave the server.
+See `global/local-first-ai-usage.md` (exception "Chat memory"): prompt layers above and, for a memory question, ≤80 found lines go to the bot's LLM chain. Embeddings are computed on the server; no message is sent anywhere to be remembered. Photo bytes never leave the server.
 
 ## Not done
 
-Purging a chat's whole memory, monthly roll-ups beyond Cognee's own summaries, pgvector in the main Postgres, re-reading old photos.
+Purging a chat's whole memory, daily/monthly summaries, a relation graph (multi-hop questions), re-ranking, re-reading old photos.

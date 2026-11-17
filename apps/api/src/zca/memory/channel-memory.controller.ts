@@ -31,7 +31,7 @@ import {
   type ChannelNoteResult,
 } from './channel-notes.service';
 import { LearnedFactsService } from './learned-facts.service';
-import { MemoryIngestService } from './long-term/memory-ingest.service';
+import { MemoryEmbeddingService } from './long-term/memory-embedding.service';
 
 function toNoteDto(note: ZcaChannelNoteEntity, names: ReadonlyMap<string, string>): IChannelNote {
   return {
@@ -65,7 +65,7 @@ function noteText(body: IUpsertChannelNoteRequest | undefined): string {
 
 /**
  * Dashboard API of a chat's memory (admin only): the notes it always remembers (Ghi nhớ), what
- * the bot learned about the bot and the members, and where the nightly Cognee job stands.
+ * the bot learned about the bot and the members, and how far its messages are embedded.
  */
 @ApiTags('zca')
 @ApiBearerAuth('bearer-jwt')
@@ -74,7 +74,7 @@ export class ChannelMemoryController {
   constructor(
     private readonly notes: ChannelNotesService,
     private readonly facts: LearnedFactsService,
-    private readonly ingest: MemoryIngestService,
+    private readonly embedding: MemoryEmbeddingService,
     private readonly tokens: ReportsTokenService,
     @Inject(forwardRef(() => UsersService))
     private readonly usersService: UsersService,
@@ -154,13 +154,13 @@ export class ChannelMemoryController {
   }
 
   @Get('threads/:threadId/memory-status')
-  @ApiOperation({ summary: 'Trạng thái nạp trí nhớ dài hạn (Cognee) của kênh' })
+  @ApiOperation({ summary: 'Trạng thái trí nhớ dài hạn (embedding) của kênh' })
   public async memoryStatus(
     @Req() req: Request,
     @Param('threadId') threadId: string,
   ): Promise<{ data: { status: IChannelMemoryStatus } }> {
     this.admin(req);
-    return { data: { status: await this.ingest.status(threadId) } };
+    return { data: { status: await this.embedding.status(threadId) } };
   }
 
   private async noteDtos(threadId: string): Promise<IChannelNote[]> {

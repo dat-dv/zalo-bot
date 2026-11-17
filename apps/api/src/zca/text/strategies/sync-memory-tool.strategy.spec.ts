@@ -2,11 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { AgentInput } from '../../../types/agent-input.type';
 import type { ZcaMessengerService } from '../../zca-messenger.service';
-import type { CogneeClient } from '../../memory/long-term/cognee.client';
-import type { MemorySegmentScheduler } from '../../memory/long-term/memory-segment.scheduler';
+import type { MemoryEmbeddingScheduler } from '../../memory/long-term/memory-embedding.scheduler';
 import { SyncMemoryToolStrategy } from './sync-memory-tool.strategy';
 
-function createStrategy(options: { cogneeOn?: boolean } = {}) {
+function createStrategy(options: { queued?: boolean } = {}) {
   const sent: string[] = [];
   const syncs: string[] = [];
   const messenger = {
@@ -15,14 +14,13 @@ function createStrategy(options: { cogneeOn?: boolean } = {}) {
       return Promise.resolve(true);
     },
   } as unknown as ZcaMessengerService;
-  const cognee = { isEnabled: () => options.cogneeOn ?? true } as unknown as CogneeClient;
   const scheduler = {
     requestSync: ({ channelId }: { channelId: string }) => {
       syncs.push(channelId);
-      return Promise.resolve(true);
+      return Promise.resolve(options.queued ?? true);
     },
-  } as unknown as MemorySegmentScheduler;
-  return { strategy: new SyncMemoryToolStrategy(messenger, cognee, scheduler), sent, syncs };
+  } as unknown as MemoryEmbeddingScheduler;
+  return { strategy: new SyncMemoryToolStrategy(messenger, scheduler), sent, syncs };
 }
 
 function context(longTermMemory: boolean) {
@@ -44,14 +42,13 @@ void test('/sync queues this chat and says it is updating', async () => {
   assert.deepEqual(sent, ['🔄 Đang cập nhật trí nhớ…']);
 });
 
-void test('/sync explains a chat without long-term memory or a server without Cognee', async () => {
+void test('/sync explains a chat without long-term memory and a queue that is down', async () => {
   const off = createStrategy();
   await off.strategy.execute(context(false));
   assert.deepEqual(off.syncs, []);
   assert.match(off.sent[0], /chưa bật Nhớ lâu dài/);
 
-  const noCognee = createStrategy({ cogneeOn: false });
-  await noCognee.strategy.execute(context(true));
-  assert.deepEqual(noCognee.syncs, []);
-  assert.match(noCognee.sent[0], /chưa bật Cognee/);
+  const down = createStrategy({ queued: false });
+  await down.strategy.execute(context(true));
+  assert.match(down.sent[0], /Chưa cập nhật được trí nhớ/);
 });

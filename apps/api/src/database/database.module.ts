@@ -20,8 +20,6 @@ import { ZcaThreadConfigEntity } from './entities/zca-thread-config.entity';
 import { ZcaMessageEntity } from './entities/zca-message.entity';
 import { ZcaChannelNoteEntity } from './entities/zca-channel-note.entity';
 import { ZcaLearnedFactEntity } from './entities/zca-learned-fact.entity';
-import { ZcaMemoryIngestionEntity } from './entities/zca-memory-ingestion.entity';
-import { ZcaMemorySegmentEntity } from './entities/zca-memory-segment.entity';
 import { ChannelStorageLinkEntity } from './entities/channel-storage-link.entity';
 import { CalendarEventEntity } from './entities/calendar-event.entity';
 import { TaskEntity } from './entities/task.entity';
@@ -68,6 +66,7 @@ import { AddThreadFinanceDigest1725005000000 } from './migrations/1725005000000-
 import { CreateRecurringTransactions1725010000000 } from './migrations/1725010000000-CreateRecurringTransactions';
 import { AddAuditAndCalendarIndexes1725020000000 } from './migrations/1725020000000-AddAuditAndCalendarIndexes';
 import { CreateLlmProviders1725030000000 } from './migrations/1725030000000-CreateLlmProviders';
+import { AddMessageEmbeddings1725040000000 } from './migrations/1725040000000-AddMessageEmbeddings';
 
 @Module({
   imports: [
@@ -97,8 +96,6 @@ import { CreateLlmProviders1725030000000 } from './migrations/1725030000000-Crea
           ZcaMessageEntity,
           ZcaChannelNoteEntity,
           ZcaLearnedFactEntity,
-          ZcaMemoryIngestionEntity,
-          ZcaMemorySegmentEntity,
           ChannelStorageLinkEntity,
           CalendarEventEntity,
           TaskEntity,
@@ -153,6 +150,7 @@ import { CreateLlmProviders1725030000000 } from './migrations/1725030000000-Crea
             CreateRecurringTransactions1725010000000,
             AddAuditAndCalendarIndexes1725020000000,
             CreateLlmProviders1725030000000,
+            AddMessageEmbeddings1725040000000,
           ],
           migrationsRun: true,
           migrationsTableName: 'typeorm_migrations',

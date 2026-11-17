@@ -1,6 +1,9 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    # postgres:16-alpine plus pgvector (embeddings of the long-term chat memory).
+    build:
+      context: docker/postgres
+    image: zalobot-postgres:16-pgvector
     restart: unless-stopped
     ports:
       - '${POSTGRES_PORT:-5432}:5432'
@@ -56,7 +59,6 @@ services:
       REDIS_URL: redis://redis:6379
       TYPEORM_SYNCHRONIZE: 'false'
       DATA_DIR: /app/data
-      COGNEE_URL: http://cognee:8000
     volumes:
       - ./data:/app/data
     extra_hosts:
@@ -73,66 +75,6 @@ services:
       retries: 5
       start_period: 15s
 
-  # Long-term chat memory graph (one dataset per chat). Internal only: no published port. The
-  # API leaves it unused while COGNEE_USER_PASSWORD is empty. Its own SQLite/LanceDB/Kuzu stores
-  # live in the volume, so the main Postgres image stays untouched.
-  cognee:
-    image: cognee/cognee:1.6.5
-    restart: unless-stopped
-    environment:
-      # Per-dataset isolation: without it Cognee ignores the dataset filter of recall.
-      ENABLE_BACKEND_ACCESS_CONTROL: 'true'
-      TELEMETRY_DISABLED: 'true'
-      # One LLM call per chunk (graph extraction) instead of two.
-      SUMMARY_METHOD: from_extraction
-      # Same AIs as the bot: the API's internal OpenAI-compatible endpoint forwards each call over
-      # the dashboard chain (Settings -> AI in use) with its fallback. The model name is ignored
-      # (each AI uses its own); the key is the password the API already shares with Cognee.
-      LLM_PROVIDER: custom
-      LLM_ENDPOINT: http://api:${BE_PORT:-3005}/api/internal/llm/v1
-      LLM_MODEL: openai/zalobot
-      LLM_API_KEY: ${COGNEE_USER_PASSWORD:-}
-      # Multilingual embeddings computed inside the container (no key, chat text stays here).
-      EMBEDDING_PROVIDER: fastembed
-      EMBEDDING_MODEL: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
-      EMBEDDING_DIMENSIONS: '384'
-      # Keep the ~220 MB embedding model in the volume. Its default cache (/app/.cache) dies with
-      # the container, so every recreate downloaded it again and Cognee answered nothing (API
-      # login timeouts) for minutes after each deploy.
-      HF_HOME: /cognee-storage/hf-cache
-      FASTAPI_USERS_JWT_SECRET: ${COGNEE_JWT_SECRET:-}
-      DEFAULT_USER_EMAIL: zalobot@example.com
-      DEFAULT_USER_PASSWORD: ${COGNEE_USER_PASSWORD:-}
-      # Browser origin of the Cognee UI (CORS); UI and API share that host behind the web nginx.
-      UI_APP_URL: https://${COGNEE_UI_HOST:-cognee.localhost}
-    volumes:
-      - zalobot-cognee:/cognee-storage
-    # The LLM connection test runs at start and goes through the api, so wait until it is up.
-    depends_on:
-      api:
-        condition: service_healthy
-    healthcheck:
-      test:
-        [
-          'CMD',
-          'python',
-          '-c',
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-
-  # Cognee web UI, served at https://${COGNEE_UI_HOST} by the web nginx together with
-  # the Cognee API, so the login cookie and CORS stay on one origin. Internal only.
-  cognee-ui:
-    image: cognee/cognee-ui:1.6.5
-    restart: unless-stopped
-    environment:
-      # Read by the browser: the public origin, never an internal hostname.
-      COGNEE_BACKEND_URL: https://${COGNEE_UI_HOST:-cognee.localhost}
-
   web:
     build:
       context: .
@@ -140,13 +82,9 @@ services:
       dockerfile: apps/web/Dockerfile
     environment:
       - BE_PORT=${BE_PORT:-3005}
-      # Host of the Cognee UI (e.g. cognee.datintech.site); empty = no UI, /cognee answers 404.
-      - COGNEE_UI_HOST=${COGNEE_UI_HOST:-}
     restart: unless-stopped
     ports:
       - '${NGINX_PORT:-3009}:80'
-      # Cognee UI (only answers when COGNEE_UI_HOST is set); Cognee's own login protects it.
-      - '${COGNEE_UI_PORT:-3006}:8081'
     depends_on:
       api:
         condition: service_healthy
@@ -161,4 +99,3 @@ services:
 volumes:
   zalobot-postgres:
   zalobot-redis:
-  zalobot-cognee:

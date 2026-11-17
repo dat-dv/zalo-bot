@@ -21,13 +21,6 @@ export const MEMORY_KINDS = [
 
 export type MemoryKind = (typeof MEMORY_KINDS)[number];
 
-/**
- * Kinds sent to Cognee and to the learned facts: what people said and what was really done.
- * Bot replies, read-only tool answers and requests stay out so that made-up chit-chat, stale
- * numbers and cancelled requests are never learned.
- */
-export const LONG_TERM_INGEST_KINDS: readonly MemoryKind[] = ['chat', 'action'];
-
 /** Stored instead of the text of a `secret` message (dashboard sign-in link and code). */
 export const SECRET_MESSAGE_PLACEHOLDER = '[Link đăng nhập dashboard]';
 

@@ -4,6 +4,8 @@ import {
   MAX_SEARCH_KEYWORDS,
   buildHitQuery,
   buildNeighbourQuery,
+  buildVectorHitQuery,
+  mergeRankedIds,
   normalizeDate,
   parseKeywords,
   searchTerms,
@@ -110,4 +112,44 @@ void test('buildHitQuery never counts bot replies or the asking message as hits'
   assert.match(query.sql, /NOT m\.is_bot/);
   assert.match(query.sql, /m\.msg_id <> \$3/);
   assert.deepEqual(query.params, ['g-1', 'vé', 'm-question', 5]);
+});
+
+void test('buildVectorHitQuery ranks by cosine distance within the chat, model and dates', () => {
+  const query = buildVectorHitQuery('g-1', [0.5, -0.25], 'minilm', {
+    keywords: '',
+    fromDate: '2026-05-01',
+    limit: 9,
+    timeZone: 'Asia/Ho_Chi_Minh',
+    excludeMsgId: 'm-q',
+  });
+  assert.deepEqual(query.params, [
+    'g-1',
+    '[0.5,-0.25]',
+    'minilm',
+    'm-q',
+    'Asia/Ho_Chi_Minh',
+    '2026-05-01',
+    9,
+  ]);
+  assert.match(query.sql, /e\.channel_id = \$1 AND e\.model = \$3/);
+  assert.match(query.sql, /\(e\.embedding <=> \$2::vector\) < 0\.6/);
+  assert.match(query.sql, /NOT m\.is_bot/);
+  assert.match(query.sql, /m\.msg_id <> \$4/);
+  assert.match(query.sql, /ORDER BY e\.embedding <=> \$2::vector ASC/);
+  assert.match(query.sql, /LIMIT \$7$/);
+});
+
+void test('mergeRankedIds puts ids found by both searches first and caps the list', () => {
+  assert.deepEqual(
+    mergeRankedIds(
+      [
+        ['a', 'b', 'c'],
+        ['c', 'd'],
+      ],
+      10,
+    ),
+    ['c', 'a', 'b', 'd'],
+  );
+  assert.deepEqual(mergeRankedIds([['a', 'b'], []], 1), ['a']);
+  assert.deepEqual(mergeRankedIds([[], []], 5), []);
 });

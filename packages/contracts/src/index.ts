@@ -87,8 +87,6 @@ export const API_ROUTES = {
   llmProvider: (id: string) => `/api/llm/providers/${encodeURIComponent(id)}`,
   llmProvidersOrder: '/api/llm/providers/order',
   llmProviderPing: (id: string) => `/api/llm/providers/${encodeURIComponent(id)}/ping`,
-  /** Internal OpenAI-compatible endpoint for the Cognee container; blocked by the web nginx. */
-  internalLlmChatCompletions: '/api/internal/llm/v1/chat/completions',
   webhookSendMessage: '/api/webhooks/send',
   webhookTargets: '/api/webhooks/targets',
   webhookStatus: '/api/webhooks/status',
@@ -4634,8 +4632,9 @@ export interface ThreadChatMemoryConfig {
    */
   readImageText: boolean;
   /**
-   * Learn facts about the bot and the members from the chat each night (needs the long-term
-   * memory). Learned facts are used at once and can be deleted.
+   * Kept for stored configs only: the nightly LLM job that learned facts about the bot and the
+   * members was removed (the long-term memory makes no LLM call). Facts learned before are still
+   * used and can be deleted.
    */
   learnPeople: boolean;
 }
@@ -4717,17 +4716,21 @@ export interface IChannelLearnedFact {
   learnedAt: string;
 }
 
-/** Where the nightly long-term memory job stands for one chat. */
+/**
+ * The local embedding model of the long-term memory: `idle` until first used, `failed` when it
+ * could not be loaded (questions then use the keyword search only).
+ */
+export type ChannelMemoryEmbedderState = 'idle' | 'loading' | 'ready' | 'failed';
+
+/** How far the long-term memory of one chat is embedded (searchable by meaning). */
 export interface IChannelMemoryStatus {
-  /** Cognee is configured on the server; without it questions use keyword search only. */
-  cogneeEnabled: boolean;
-  /** Last chat day sent to Cognee (`YYYY-MM-DD`), or null. */
-  lastIngestedDay: string | null;
-  /** Days waiting for a retry after an error. */
-  failedDays: number;
-  lastError: string | null;
-  /** Last message of today already sent to Cognee in a segment (ISO), or null. */
-  todayIngestedUntil: string | null;
+  embedder: ChannelMemoryEmbedderState;
+  /** Messages searchable by meaning. */
+  embeddedMessages: number;
+  /** Messages stored but not embedded yet (embedded within a minute, or by `/sync`). */
+  pendingMessages: number;
+  /** Last embedding written (ISO), or null. */
+  lastEmbeddedAt: string | null;
 }
 
 /**

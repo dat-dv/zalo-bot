@@ -46,8 +46,7 @@ import type { PendingImageActionDispatcher } from './pending-image/pending-image
 import type { ImageBatchHandler } from './pending-image/image-batch-handler.service';
 import type { OcrService } from '../ocr/ocr.service';
 import { cleanBotMention } from './text/bot-mention.util';
-import { ChatMemoryService, localDay } from './memory/chat-memory.service';
-import { MemorySegmentScheduler } from './memory/long-term/memory-segment.scheduler';
+import { ChatMemoryService } from './memory/chat-memory.service';
 import { ImageTextMemoryService } from './memory/image-text-memory.service';
 
 /** Per-thread memory settings for the text pipeline. */
@@ -350,7 +349,6 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
     @Optional() private readonly chatMemoryService?: ChatMemoryService,
     @Optional() threadAccessService?: ThreadAccessService,
     @Optional() private readonly imageTextMemoryService?: ImageTextMemoryService,
-    @Optional() private readonly memorySegmentScheduler?: MemorySegmentScheduler,
   ) {
     this.threadAccessService = threadAccessService ?? new ThreadAccessService();
     if (mediaStorageServiceOrConfirmation) {
@@ -972,8 +970,6 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       memory.longTermMemory && !isBotEcho
         ? this.chatMemoryService?.record(threadId, channelType, message.data)
         : undefined;
-    // Today's new messages go to Cognee once the chat is quiet for a few minutes.
-    if (memory.longTermMemory && !isBotEcho) this.memorySegmentScheduler?.noteMessage(threadId);
     const fetchOwnMedia = this.ownMediaFetch(message);
     this.rememberImageText(message, config, channelType, stored, fetchOwnMedia);
 
@@ -1377,8 +1373,9 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
   }
 
   /**
-   * A message recalled in Zalo is also forgotten by the chat memory (and its day is sent to Cognee
-   * again without it), even when the thread has since turned it off.
+   * A message recalled in Zalo is also forgotten by the chat memory (its embedding and those that
+   * read it as context are computed again without it), even when the thread has since turned it
+   * off.
    */
   public async onUndo(undo: Undo): Promise<void> {
     const recalledMsgId = undo.data?.content?.globalMsgId;
@@ -1389,16 +1386,7 @@ export class ZcaBotFeatureService implements ZcaPlugin, OnModuleInit, OnModuleDe
       recalledCliMsgId && senderUid
         ? { cliMsgId: String(recalledCliMsgId), senderUid: String(senderUid) }
         : undefined;
-    const memory = this.chatMemoryService;
-    if (!memory) return;
-    const sentAts = await memory.markRecalled(undo.threadId, String(recalledMsgId), byClient);
-    // A message of today may already be in a segment in Cognee: send today again without it.
-    if (sentAts.length === 0) return;
-    const timeZone = memory.timeZone();
-    const today = localDay(new Date(), timeZone);
-    if (sentAts.some((sentAt) => localDay(sentAt, timeZone) === today)) {
-      this.memorySegmentScheduler?.noteRecall(undo.threadId);
-    }
+    await this.chatMemoryService?.markRecalled(undo.threadId, String(recalledMsgId), byClient);
   }
 
   /**

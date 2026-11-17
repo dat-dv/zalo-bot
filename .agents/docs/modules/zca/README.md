@@ -77,7 +77,7 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
 | Quy tắc xác nhận | `allowReactions` | tắt | Cho phép duyệt/huỷ bằng ❤️/😡 |
 | | `requiredHearts` | nhóm `5`, cá nhân `1` | Số tim cần để duyệt |
 | | `timeoutMinutes` | `5` | Thời hạn thẻ chờ |
-| Trí nhớ hội thoại | `chatMemory.enabled`, `readImageText`, `learnPeople` | tắt, bật, bật | Nhớ lâu dài (Cognee), đọc chữ trong ảnh và tự học về mọi người; Ghi nhớ không cần công tắc và chỉ quản lý trong chat ([chi tiết](chat-memory.md)) |
+| Trí nhớ hội thoại | `chatMemory.enabled`, `readImageText`, `learnPeople` | tắt, bật, bật | Nhớ lâu dài (tìm theo từ khoá và theo ý nghĩa, model chạy trên máy chủ) và đọc chữ trong ảnh; `learnPeople` không còn tác dụng; Ghi nhớ không cần công tắc và chỉ quản lý trong chat ([chi tiết](chat-memory.md)) |
 | Ai được gọi bot (chỉ nhóm) | `memberAccess.mode` / `memberIds` | `granted-users` / trống | Cấp quyền gọi bot trong riêng nhóm này, cộng thêm vào quyền toàn cục: không ai thêm, mọi thành viên, hoặc thành viên được chọn ([chi tiết](member-access.md)) |
 | Lưu trữ | `driveFolderId/Url/Path`, `photosAlbumId/Url/Title` | trống | Link cũ tới **thư mục gốc** Drive và album Photos của kênh. Dashboard giờ liệt kê từ bảng lịch sử `channel_storage_links` (xem [Lưu trữ media theo kênh](channel-storage.md)) |
 
@@ -325,7 +325,7 @@ Contracts liên quan trong `packages/contracts`: `ThreadBotConfig`, `UpdateThrea
 
 ## 4. Biến Môi Trường ZCA
 
-Trí nhớ hội thoại bật theo từng kênh trong "Cấu hình kênh"; riêng Cognee (nạp nhật ký mỗi đêm) cần các biến `COGNEE_*`, xem [Trí nhớ hội thoại](chat-memory.md).
+Trí nhớ hội thoại bật theo từng kênh trong "Cấu hình kênh", không cần biến env nào (Postgres phải là image có pgvector), xem [Trí nhớ hội thoại](chat-memory.md).
 
 `DATA_DIR` (nơi lưu file phiên), `ZCA_PROXY_URL`, `ZCA_IMEI`, `ZCA_COOKIE`, `ZCA_USER_AGENT`, `ZCA_LANGUAGE`, `ZCA_SELF_LISTEN`, `ZCA_CHECK_UPDATE` (mặc định false), `ZCA_LOGGING`, `ZCA_ENABLE_WELCOME`, `ZCA_WELCOME_IMAGE_PATH` (đọc trong `apps/api/src/config/configuration.ts`). Chỉ khai báo khi muốn khác mặc định; xem [Biến môi trường](../../global/environment-guard.md).
 

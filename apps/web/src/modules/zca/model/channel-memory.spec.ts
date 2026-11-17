@@ -39,35 +39,16 @@ void test('groupLearnedFacts puts the bot first, then members by name', () => {
   );
 });
 
-void test('memoryStatusText explains Cognee off, the last day and retries', () => {
+void test('memoryStatusText explains a missing model, counts and pending messages', () => {
+  const base = { embeddedMessages: 0, pendingMessages: 0, lastEmbeddedAt: null };
+  assert.match(memoryStatusText({ ...base, embedder: 'failed' }), /theo từ khoá/);
+  assert.equal(memoryStatusText({ ...base, embedder: 'idle' }), 'Chưa có tin nào để nhớ.');
+  assert.equal(
+    memoryStatusText({ ...base, embedder: 'ready', embeddedMessages: 1957 }),
+    'Đã nhớ 1.957 tin.',
+  );
   assert.match(
-    memoryStatusText({
-      cogneeEnabled: false,
-      lastIngestedDay: null,
-      failedDays: 0,
-      lastError: null,
-      todayIngestedUntil: null,
-    }),
-    /chưa bật Cognee/,
-  );
-  assert.equal(
-    memoryStatusText({
-      cogneeEnabled: true,
-      lastIngestedDay: '2026-10-25',
-      failedDays: 2,
-      lastError: 'x',
-      todayIngestedUntil: null,
-    }),
-    'Đã nạp tới ngày 25/10/2026. 2 ngày lỗi, sẽ thử lại đêm sau.',
-  );
-  assert.equal(
-    memoryStatusText({
-      cogneeEnabled: true,
-      lastIngestedDay: '2026-10-25',
-      failedDays: 0,
-      lastError: null,
-      todayIngestedUntil: '2026-10-26T07:56:00.000Z',
-    }),
-    'Đã nạp tới ngày 25/10/2026. Hôm nay đã nạp tới 14:56.',
+    memoryStatusText({ ...base, embedder: 'ready', embeddedMessages: 10, pendingMessages: 3 }),
+    /^Đã nhớ 10 tin\. 3 tin đang chờ/,
   );
 });

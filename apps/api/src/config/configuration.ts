@@ -1,3 +1,11 @@
+import * as path from 'node:path';
+
+/**
+ * Multilingual sentence embeddings (384 dimensions), ONNX build for transformers.js. Changing it
+ * means re-embedding every message (`zca_message_embeddings.model` tells which rows are stale).
+ */
+export const DEFAULT_EMBEDDING_MODEL = 'Xenova/paraphrase-multilingual-MiniLM-L12-v2';
+
 export interface AppConfig {
   port: number;
   appUrl: string;
@@ -44,14 +52,12 @@ export interface AppConfig {
     timeoutMs: number;
   };
   /**
-   * Cognee memory server (long-term chat memory graph). Off unless both `COGNEE_URL` and
-   * `COGNEE_USER_PASSWORD` are set; questions then use the keyword search only.
+   * Long-term chat memory: sentence embeddings computed inside the API (no LLM, no remote call
+   * once the model files are there). `modelDir` holds them; the Docker image ships them baked in.
    */
-  cognee: {
-    url: string;
-    userEmail: string;
-    userPassword: string;
-    timeoutMs: number;
+  memory: {
+    embeddingModel: string;
+    embeddingModelDir: string;
   };
   webhook: {
     apiKey: string;
@@ -130,12 +136,12 @@ export default (): AppConfig => {
     llm: {
       timeoutMs: readNumberEnv('LLM_TIMEOUT_MS', 30000),
     },
-    cognee: {
-      url: readEnv('COGNEE_URL').replace(/\/+$/, ''),
-      userEmail: readEnv('COGNEE_USER_EMAIL', 'zalobot@example.com'),
-      userPassword: readOptionalEnv('COGNEE_USER_PASSWORD') || '',
-      // Building the graph of one chat day calls the LLM per chunk and can take minutes.
-      timeoutMs: readNumberEnv('COGNEE_TIMEOUT_MS', 600000),
+    memory: {
+      embeddingModel: readEnv('EMBEDDING_MODEL', DEFAULT_EMBEDDING_MODEL),
+      embeddingModelDir: readEnv(
+        'EMBEDDING_MODEL_DIR',
+        path.join(readEnv('DATA_DIR', './data'), 'models'),
+      ),
     },
     webhook: {
       // Empty turns the outbound webhook off (404).

@@ -67,7 +67,7 @@ Match = exact command or command followed by a space, unless noted. Admin = hand
 | `/echo…` (prefix) | `ECHO` | Echoes text. |
 | `/ping` | `PING` | Liveness reply. |
 | `/reset`, `/clear` | `RESET` | Reply only; no stored context exists. |
-| `/sync` | `SYNC_MEMORY` | Sends this chat's past pending days and today's new messages to Cognee now (long-term memory on); the result is posted when done. See `modules/zca/chat-memory.md`. |
+| `/sync` | `SYNC_MEMORY` | Embeds this chat's messages not searchable by meaning yet, now (long-term memory on; normally done ~20 s after the chat goes quiet); the result is posted when done. No LLM. See `modules/zca/chat-memory.md`. |
 | `/zalo-login`, `/zca-login`, `/zlogin` | `ZALO_LOGIN` | Admin. Starts ZCA QR login. |
 | `/zalo-logout`, `/zca-logout`, `/zlogout` | `ZALO_LOGOUT` | Admin. Logs ZCA out. |
 | `/login`, `/auth` | `LOGIN` | Admin. Google OAuth link for the shared account. |

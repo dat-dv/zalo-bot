@@ -23,15 +23,14 @@ import { LlmModule } from '../llm/llm.module';
 import { OcrModule } from '../ocr/ocr.module';
 import { DashboardAuthModule } from '../dashboard-auth/dashboard-auth.module';
 import { ChatMemoryModule } from './memory/chat-memory.module';
-import { MemoryIngestService } from './memory/long-term/memory-ingest.service';
-import { MemorySegmentScheduler } from './memory/long-term/memory-segment.scheduler';
+import { MemoryEmbeddingService } from './memory/long-term/memory-embedding.service';
+import { MemoryEmbeddingScheduler } from './memory/long-term/memory-embedding.scheduler';
 import { ChannelMemoryController } from './memory/channel-memory.controller';
 import {
   CHAT_MEMORY_QUEUE,
-  MemoryIngestProcessor,
-} from './memory/long-term/memory-ingest.processor';
-import { ZcaMemoryIngestionEntity } from '../database/entities/zca-memory-ingestion.entity';
-import { ZcaMemorySegmentEntity } from '../database/entities/zca-memory-segment.entity';
+  MemoryEmbeddingProcessor,
+} from './memory/long-term/memory-embedding.processor';
+import { ZcaMessageEntity } from '../database/entities/zca-message.entity';
 import { ChannelStorageLinkModule } from './storage/channel-storage-link.module';
 import { FINANCE_DIGEST_QUEUE } from './digest/finance-digest.jobs';
 import { RECURRING_QUEUE, RecurringScanProcessor } from './recurring/recurring-scan.processor';
@@ -67,11 +66,7 @@ import { StorageUploadPendingImageStrategy } from './pending-image/strategies/st
 import { CreateBillPendingImageStrategy } from './pending-image/strategies/create-bill-pending-image.strategy';
 
 const COMMON_IMPORTS = [
-  TypeOrmModule.forFeature([
-    ZcaThreadConfigEntity,
-    ZcaMemoryIngestionEntity,
-    ZcaMemorySegmentEntity,
-  ]),
+  TypeOrmModule.forFeature([ZcaThreadConfigEntity, ZcaMessageEntity]),
   BullModule.registerQueue(
     { name: CHAT_MEMORY_QUEUE },
     { name: FINANCE_DIGEST_QUEUE },
@@ -113,9 +108,9 @@ const COMMON_PROVIDERS = [
   CancelPendingImageStrategy,
   StorageUploadPendingImageStrategy,
   CreateBillPendingImageStrategy,
-  MemoryIngestService,
-  MemoryIngestProcessor,
-  MemorySegmentScheduler,
+  MemoryEmbeddingService,
+  MemoryEmbeddingProcessor,
+  MemoryEmbeddingScheduler,
   FinanceDigestService,
   FinanceDigestProcessor,
   RecurringScanProcessor,
@@ -145,8 +140,8 @@ const COMMON_EXPORTS = [
   CancelPendingImageStrategy,
   StorageUploadPendingImageStrategy,
   CreateBillPendingImageStrategy,
-  MemoryIngestService,
-  MemorySegmentScheduler,
+  MemoryEmbeddingService,
+  MemoryEmbeddingScheduler,
 ];
 
 @Module({

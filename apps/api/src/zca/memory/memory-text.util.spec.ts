@@ -2,13 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { confirmedActionText, foldVietnamese, matchesAllWords } from './memory-text.util';
 import { buildMemoryProfileBlock, BOT_IDENTITY_LINE } from './memory-profile.util';
-import {
-  buildChatDayDocument,
-  chatDayFileName,
-  chatSegmentFileName,
-  vietnameseDayLabel,
-} from './long-term/chat-day-document';
-import { buildLearnedFactsPrompt, parseLearnedFacts } from './long-term/learned-facts.prompt';
 
 void test('foldVietnamese drops accents, đ and punctuation for matching', () => {
   assert.equal(foldVietnamese('  Mèo ĐEN, 2 mái! '), 'meo den 2 mai');
@@ -42,63 +35,4 @@ void test('buildMemoryProfileBlock lists notes with short ids, then learned fact
   assert.match(block, /- Về bạn: Thích làm thạch rau câu\n- Diệu Hằng: Ăn chay/);
   assert.equal(buildMemoryProfileBlock([], []), '');
   assert.match(BOT_IDENTITY_LINE, /ĐIỀU ĐƯỢC DẶN/);
-});
-
-void test('buildChatDayDocument dates the day and keeps every line as written', () => {
-  const text = buildChatDayDocument(
-    'Gia đình',
-    '2026-10-25',
-    [
-      {
-        sentAt: new Date('2026-10-25T10:02:17Z'),
-        senderName: 'Văn Đạt',
-        text: 'tao dặn rồi mày là con mèo đen 2 mái',
-      },
-      { sentAt: new Date('2026-10-25T10:03:00Z'), senderName: null, text: 'stk 012345678901234' },
-    ],
-    'Asia/Ho_Chi_Minh',
-  );
-  assert.equal(
-    text,
-    'Nhật ký cuộc trò chuyện "Gia đình" ngày 25/10/2026 (Chủ Nhật)\n' +
-      '17:02 Văn Đạt: tao dặn rồi mày là con mèo đen 2 mái\n' +
-      '17:03 Ai đó: stk 012345678901234',
-  );
-  assert.equal(buildChatDayDocument('x', '2026-10-25', [], 'Asia/Ho_Chi_Minh'), '');
-  assert.equal(vietnameseDayLabel('2026-10-26'), '26/10/2026 (Thứ Hai)');
-  assert.equal(chatDayFileName('123', '2026-10-25'), '123_2026-10-25.txt');
-});
-
-void test('buildChatDayDocument puts the time range of a segment in its header', () => {
-  const lines = [
-    { sentAt: new Date('2026-10-26T07:28:00Z'), senderName: 'Văn Đạt', text: 'c.datintech.site' },
-    { sentAt: new Date('2026-10-26T07:56:00Z'), senderName: 'Diệu Hằng', text: 'ok' },
-  ];
-  assert.equal(
-    buildChatDayDocument('Gia đình', '2026-10-26', lines, 'Asia/Ho_Chi_Minh', { segment: true }),
-    'Nhật ký cuộc trò chuyện "Gia đình" ngày 26/10/2026 (Thứ Hai), 14:28–14:56\n' +
-      '14:28 Văn Đạt: c.datintech.site\n' +
-      '14:56 Diệu Hằng: ok',
-  );
-  assert.equal(
-    chatSegmentFileName('123', '2026-10-26', lines[1].sentAt),
-    `123_2026-10-26_${lines[1].sentAt.getTime()}.txt`,
-  );
-});
-
-void test('parseLearnedFacts reads the facts array, even inside extra text', () => {
-  assert.deepEqual(parseLearnedFacts('```json\n{"facts": ["Ăn chay", "", 3]}\n```'), ['Ăn chay']);
-  assert.deepEqual(parseLearnedFacts('không có'), []);
-  assert.deepEqual(parseLearnedFacts('{"facts": "x"}'), []);
-});
-
-void test('buildLearnedFactsPrompt tells the model what not to learn again', () => {
-  const prompt = buildLearnedFactsPrompt(
-    { kind: 'member', userId: 'u2', name: 'Diệu Hằng' },
-    'Đen',
-    ['Diệu Hằng -- likes -- bánh tráng trộn chay'],
-    ['Thích ăn cay'],
-  );
-  assert.match(prompt, /Đối tượng: "Diệu Hằng"/);
-  assert.match(prompt, /KHÔNG đưa lại các ý đã bị người dùng xoá:\n- Thích ăn cay/);
 });

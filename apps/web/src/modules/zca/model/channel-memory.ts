@@ -37,28 +37,20 @@ export function apiErrorText(error: unknown, fallback: string): string {
   return message || fallback;
 }
 
-/** One line about the nightly job for the long-term memory card. */
+const COUNT_FORMAT = new Intl.NumberFormat('vi-VN');
+
+/** One line about how far the chat's messages are searchable by meaning. */
 export function memoryStatusText(status: IChannelMemoryStatus | undefined): string {
   if (!status) return '';
-  if (!status.cogneeEnabled) {
-    return 'Máy chủ chưa bật Cognee: bot chỉ tra lại chuyện cũ theo từ khoá, chưa tự học.';
+  if (status.embedder === 'failed') {
+    return 'Chưa nạp được model trí nhớ trên máy chủ: bot tạm tra lại chuyện cũ theo từ khoá.';
   }
-  const last = status.lastIngestedDay
-    ? `Đã nạp tới ngày ${status.lastIngestedDay.split('-').reverse().join('/')}.`
-    : 'Chưa nạp ngày nào trước hôm nay.';
-  const today = status.todayIngestedUntil
-    ? ` Hôm nay đã nạp tới ${timeOfDay(status.todayIngestedUntil)}.`
-    : '';
-  const failed = status.failedDays > 0 ? ` ${status.failedDays} ngày lỗi, sẽ thử lại đêm sau.` : '';
-  return `${last}${today}${failed}`;
-}
-
-/** `HH:mm` in Vietnam time for an ISO timestamp. */
-function timeOfDay(iso: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).format(new Date(iso));
+  const total = status.embeddedMessages + status.pendingMessages;
+  if (total === 0) return 'Chưa có tin nào để nhớ.';
+  const embedded = `Đã nhớ ${COUNT_FORMAT.format(status.embeddedMessages)} tin.`;
+  const pending =
+    status.pendingMessages > 0
+      ? ` ${COUNT_FORMAT.format(status.pendingMessages)} tin đang chờ, xong trong khoảng 1 phút (hoặc gõ /sync).`
+      : '';
+  return `${embedded}${pending}`;
 }
