@@ -18,9 +18,11 @@ import {
   AUTO_RECALL_WINDOW_HOURS,
   buildHitQuery,
   buildNeighbourQuery,
+  buildPhraseHitQuery,
   buildVectorHitQuery,
   meaningfulWordCount,
   mergeRankedIds,
+  recallPhrases,
   type ChatMemorySearchParams,
   type VectorHitOptions,
 } from './chat-memory.query';
@@ -343,11 +345,12 @@ export class ChatMemoryService {
   }
 
   /**
-   * Lines of the last `AUTO_RECALL_WINDOW_HOURS` close in meaning to a message the bot answers as
-   * free chat, with their neighbours, oldest first, at most `AUTO_RECALL_MAX_LINES`. Meaning only:
-   * a chat message is full of common words, so keywords would pull in noise. Never throws: `[]`
-   * when the message is too short to carry a topic, the model is unavailable or a query fails, so
-   * the reply goes on as before.
+   * Lines of the last `AUTO_RECALL_WINDOW_HOURS` related to a message the bot answers as free
+   * chat, with their neighbours, oldest first, at most `AUTO_RECALL_MAX_LINES`. Two searches merged
+   * by rank fusion: messages holding a two-word phrase of the message (`recallPhrases`; single
+   * words are too common in chat) and messages close in meaning (strict distance). Never throws:
+   * `[]` when the message is too short to carry a topic or nothing is found; a failing search
+   * counts as empty, so the reply goes on as before.
    */
   public async recallRecent(
     channelId: string,
@@ -356,21 +359,20 @@ export class ChatMemoryService {
     const question = options.question.trim();
     if (!channelId || meaningfulWordCount(question) < AUTO_RECALL_MIN_WORDS) return [];
     const now = options.now ?? new Date();
+    const since = new Date(now.getTime() - AUTO_RECALL_WINDOW_HOURS * 60 * 60 * 1000);
+    const search: ChatMemorySearchParams & { question: string } = {
+      keywords: '',
+      question,
+      limit: AUTO_RECALL_HITS,
+      timeZone: options.timeZone,
+      excludeMsgId: options.excludeMsgId,
+    };
     try {
-      const hitIds = await this.meaningHits(
-        channelId,
-        {
-          keywords: '',
-          question,
-          limit: AUTO_RECALL_HITS,
-          timeZone: options.timeZone,
-          excludeMsgId: options.excludeMsgId,
-        },
-        {
-          maxDistance: AUTO_RECALL_MAX_DISTANCE,
-          since: new Date(now.getTime() - AUTO_RECALL_WINDOW_HOURS * 60 * 60 * 1000),
-        },
-      );
+      const [phraseIds, meaningIds] = await Promise.all([
+        this.phraseHits(channelId, recallPhrases(question), search, since),
+        this.meaningHits(channelId, search, { maxDistance: AUTO_RECALL_MAX_DISTANCE, since }),
+      ]);
+      const hitIds = mergeRankedIds([phraseIds, meaningIds], AUTO_RECALL_HITS);
       if (hitIds.length === 0) return [];
       const neighbourQuery = buildNeighbourQuery(channelId, hitIds);
       const rows: MemoryLineRow[] = await this.messageRepository.query(
@@ -380,6 +382,27 @@ export class ChatMemoryService {
       return selectMemoryLines(rows, AUTO_RECALL_MAX_LINES);
     } catch (err: unknown) {
       this.logger.warn(`[ChatMemory] Auto recall failed in ${channelId}: ${errorMessage(err)}`);
+      return [];
+    }
+  }
+
+  /** `[]` without phrases or when the query fails (the meaning search may still answer). */
+  private async phraseHits(
+    channelId: string,
+    phrases: readonly string[],
+    search: ChatMemorySearchParams,
+    since: Date,
+  ): Promise<string[]> {
+    const query = buildPhraseHitQuery(channelId, phrases, search, since);
+    if (!query) return [];
+    try {
+      const rows: Array<{ id: string }> = await this.messageRepository.query(
+        query.sql,
+        query.params,
+      );
+      return rows.map((row) => row.id);
+    } catch (err: unknown) {
+      this.logger.warn(`[ChatMemory] Phrase search failed in ${channelId}: ${errorMessage(err)}`);
       return [];
     }
   }

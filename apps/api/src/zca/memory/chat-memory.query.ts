@@ -85,6 +85,16 @@ const STOP_WORDS = new Set([
   'nhe',
   'nha',
   'oi',
+  // Chat filler (pronouns, short forms): a pair of them says nothing about the topic.
+  'em',
+  'anh',
+  'ko',
+  'kh',
+  'dc',
+  'vs',
+  'ne',
+  'ah',
+  'ui',
 ]);
 
 /** Domains, emails, links: one token for Postgres, so they are also matched as text. */
@@ -248,12 +258,74 @@ export const AUTO_RECALL_MAX_LINES = 20;
 /** Messages with fewer meaningful words than this ("hello den ơi", "ừa") recall nothing. */
 export const AUTO_RECALL_MIN_WORDS = 2;
 
+/** Two-word phrases taken from one message for the automatic recall. */
+export const AUTO_RECALL_MAX_PHRASES = 8;
+
+function isTopicWord(word: string): boolean {
+  const key = foldVietnamese(word);
+  return key.length >= 2 && !STOP_WORDS.has(key);
+}
+
+/**
+ * Pairs of adjacent words of a message, both carrying a topic ("ở quê có thẻ nhớ k" → "thẻ nhớ"),
+ * deduplicated once folded, at most `AUTO_RECALL_MAX_PHRASES`. Measured on the 2026-11-17 chat,
+ * short chat lines defeat the meaning search ("H e qua" sat closer to the question than "còn thẻ
+ * nhớ k em") while an exact two-word phrase found the right line and nothing else. A pair with a
+ * stop word is skipped: folded "có thẻ" is "có thể", in half the chat.
+ */
+export function recallPhrases(text: string): string[] {
+  const seen = new Set<string>();
+  const phrases: string[] = [];
+  // Pairs stay inside one clause: "thẻ nhớ, thẻ nhớ" has no phrase "nhớ thẻ".
+  for (const clause of (text || '').split(/[.,;:!?\n]+/)) {
+    const words = clause.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    for (let index = 0; index + 1 < words.length; index++) {
+      const pair = [words[index], words[index + 1]];
+      if (!pair.every(isTopicWord)) continue;
+      const phrase = pair.join(' ');
+      const key = foldVietnamese(phrase);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      phrases.push(phrase);
+      if (phrases.length >= AUTO_RECALL_MAX_PHRASES) return phrases;
+    }
+  }
+  return phrases;
+}
+
+/**
+ * Ids of messages since `since` holding one of the phrases as adjacent words
+ * (`phraseto_tsquery`, matched on the stored unaccented `search_vector` with its GIN index), best
+ * first; `null` without phrases. Same filters as the other searches.
+ */
+export function buildPhraseHitQuery(
+  channelId: string,
+  phrases: readonly string[],
+  search: ChatMemorySearchParams,
+  since: Date,
+): SqlQuery | null {
+  if (phrases.length === 0) return null;
+  const params: unknown[] = [channelId];
+  const tsQueries = phrases.map((phrase) => {
+    params.push(phrase);
+    return `phraseto_tsquery('simple', zalobot_unaccent($${params.length}))`;
+  });
+  const conditions = [...hitConditions(params, search), 'm.search_vector @@ q.query'];
+  params.push(since);
+  conditions.push(`m.sent_at >= $${params.length}`);
+  params.push(search.limit);
+  const sql =
+    `WITH q AS (SELECT (${tsQueries.join(' || ')}) AS query) ` +
+    `SELECT m.id FROM zca_messages m, q ` +
+    `WHERE ${conditions.join(' AND ')} ` +
+    `ORDER BY ts_rank(m.search_vector, q.query) DESC, m.sent_at DESC ` +
+    `LIMIT $${params.length}`;
+  return { sql, params };
+}
+
 /** Words of a message that can carry a topic: 2+ letters, not a stop word (folded). */
 export function meaningfulWordCount(text: string): number {
-  return (text || '')
-    .split(/[^\p{L}\p{N}]+/u)
-    .map((word) => foldVietnamese(word))
-    .filter((key) => key.length >= 2 && !STOP_WORDS.has(key)).length;
+  return (text || '').split(/[^\p{L}\p{N}]+/u).filter(isTopicWord).length;
 }
 
 /** pgvector literal of an embedding. */

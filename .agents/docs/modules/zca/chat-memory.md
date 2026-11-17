@@ -137,10 +137,13 @@ Hai danh sách được gộp bằng cách xếp hạng chung (RRF): tin đượ
 **Cách làm**:
 
 - Chỉ ở kênh bật Nhớ lâu dài, và chỉ khi bot **trò chuyện tự do**. Khi bot chọn làm thao tác (ghi chi, nhắc việc…) thì không có gợi nhớ, để chuyện cũ không làm bot ghi lại khoản cũ.
-- Cùng lúc AI đang chọn thao tác, máy chủ đổi tin nhắn thành dãy số rồi tìm trong **24 giờ qua của đúng kênh** các tin thật gần nghĩa (khoảng cách dưới 0,45, chặt hơn mức 0,6 khi có người chủ động hỏi lại). Lấy tối đa 4 tin kèm vài tin xung quanh, không quá 20 dòng.
+- Cùng lúc AI đang chọn thao tác, máy chủ tìm trong **24 giờ qua của đúng kênh** bằng hai cách chạy song song, rồi gộp lại lấy tối đa 4 tin (kèm vài tin xung quanh, không quá 20 dòng):
+  1. **Khớp cụm 2 chữ liền nhau**: lấy các cặp 2 chữ đứng cạnh nhau trong cùng vế câu, cả hai đều không phải từ phổ biến (có, là, gì, em, anh, ko…). Ví dụ "ở quê có thẻ nhớ k" chỉ ra cụm "thẻ nhớ" và tìm đúng tin "còn thẻ nhớ k em". Cặp "có thẻ" bị loại vì bỏ dấu thì trùng "có thể". Chạy được cả khi model chưa sẵn sàng.
+  2. **Theo ý nghĩa**: khoảng cách dưới 0,45 (chặt hơn mức 0,6 khi có người chủ động hỏi lại). Bắt câu nói khác chữ nhưng rõ nghĩa.
+- **Vì sao cần khớp cụm** (đo trên đoạn chat 17/11): tin chat ngắn, gõ tắt làm tìm theo ý nghĩa sai lệch. Tin đúng "còn thẻ nhớ k em" cách câu hỏi 0,629, còn tin nhiễu "H e qua" chỉ 0,581; các câu không liên quan cũng 0,52–0,62. Không ngưỡng nào tách được. Khớp cụm thì bắt đúng tin thẻ nhớ, tin camera, và không khớp gì với 5 câu không liên quan.
 - Các dòng này được đưa vào prompt với lời dặn "chỉ dùng nếu thật sự liên quan, không chép nguyên văn". Không tốn thêm lượt gọi AI. Tìm lỗi hoặc model chưa sẵn sàng thì bot trả lời như trước.
 - Tin quá ngắn (dưới 2 chữ có nghĩa, ví dụ "ừa", "hello") không tìm.
-- **Hạn chế**: tin vừa nhắn chưa tới khoảng 20 giây đến 2 phút có thể chưa được nạp nên chưa gợi lại được.
+- **Hạn chế**: gõ sai ("canera") hoặc nói khác chữ hẳn thì chỉ còn tìm theo ý nghĩa, mà với chat ngắn thì yếu. Cụm phổ biến ("đi ăn", "ngày mai") có thể kéo tin không liên quan. Tin vừa nhắn chưa được nạp thì chỉ khớp cụm mới tìm ra.
 
 ### "Bot đã học" không học thêm và không còn dùng điều về thành viên
 
@@ -216,7 +219,7 @@ Không đổi cách đọc: OCR Tesseract chạy trên server, lần lượt t�
 | Hỏi chuyện cũ không ra dù có tin | Kiểm tra kênh bật "Nhớ lâu dài" và tin thuộc loại `chat`/`request`/`action`. Câu hỏi quá xa nghĩa (khoảng cách > 0,6) thì chỉ còn tìm theo từ khoá; thử hỏi kèm từ khoá chính |
 | Container `web` báo `unhealthy` (`wget: can't connect … Connection refused`) | Healthcheck gọi `localhost` (IPv6), nginx chỉ nghe IPv4; đã đổi sang `127.0.0.1` |
 | "Bot đã học" có điều sai | Xoá điều đó trên dashboard hoặc nói "@bot quên vụ … đi" |
-| Bot trả lời trò chuyện không nhắc chuyện vừa bàn | Kênh chưa bật Nhớ lâu dài, tin vừa nhắn chưa được nạp (đợi 20 giây hoặc `/sync`), hoặc câu hỏi khác nghĩa quá (khoảng cách ≥ 0,45). Hỏi kèm chủ đề, hoặc hỏi thẳng "lúc nãy nói gì về …" để bot tra lịch sử |
-| Bot nhắc chuyện cũ không liên quan | Ngưỡng `AUTO_RECALL_MAX_DISTANCE` quá rộng; giảm trong `chat-memory.query.ts` |
+| Bot trả lời trò chuyện không nhắc chuyện vừa bàn | Kênh chưa bật Nhớ lâu dài, câu hỏi không có cụm 2 chữ nào trùng với tin cũ (gõ sai, nói khác chữ) và khác nghĩa quá (khoảng cách ≥ 0,45). Hỏi kèm chủ đề, hoặc hỏi thẳng "lúc nãy nói gì về …" để bot tra lịch sử |
+| Bot nhắc chuyện cũ không liên quan | Một cụm phổ biến bị khớp (thêm chữ đó vào `STOP_WORDS`) hoặc ngưỡng `AUTO_RECALL_MAX_DISTANCE` quá rộng; cả hai trong `chat-memory.query.ts` |
 | Bot không hiểu câu nối tiếp | Bình thường: bot không còn đọc tin gần đây. Chỉ tin bổ sung cho thẻ đang chờ của chính người nhắn mới được hiểu; còn lại hãy nói đầy đủ một câu |
 | Câu hỏi chuyện cũ chỉ trò chuyện | Chưa bật "Nhớ lâu dài" (tool tra cứu không được đưa cho AI) |

@@ -6,7 +6,10 @@ import {
   buildNeighbourQuery,
   buildVectorHitQuery,
   AUTO_RECALL_MAX_DISTANCE,
+  AUTO_RECALL_MAX_PHRASES,
+  buildPhraseHitQuery,
   meaningfulWordCount,
+  recallPhrases,
   mergeRankedIds,
   normalizeDate,
   parseKeywords,
@@ -154,6 +157,42 @@ void test('buildVectorHitQuery narrows the distance and the time when asked', ()
   assert.match(query.sql, /\(e\.embedding <=> \$2::vector\) < 0\.45/);
   assert.match(query.sql, /m\.sent_at >= \$5/);
   assert.match(query.sql, /LIMIT \$6$/);
+});
+
+void test('recallPhrases keeps adjacent topic word pairs only', () => {
+  assert.deepEqual(recallPhrases('ở quê có thẻ nhớ k ?'), ['thẻ nhớ']);
+  assert.deepEqual(recallPhrases('camera cũ ở nhà còn không'), ['camera cũ']);
+  assert.deepEqual(recallPhrases('có dữ liệu canera gì k'), ['dữ liệu', 'liệu canera']);
+  assert.deepEqual(recallPhrases('hôm nay ăn gì ngon'), []);
+  assert.deepEqual(recallPhrases('em hỏi anh nha'), []);
+  assert.deepEqual(recallPhrases('Thẻ nhớ, thẻ nhớ'), ['Thẻ nhớ']);
+  const many = Array.from({ length: 20 }, (_, i) => `từ${i}`).join(' ');
+  assert.equal(recallPhrases(many).length, AUTO_RECALL_MAX_PHRASES);
+});
+
+void test('buildPhraseHitQuery matches adjacent words since a date, phrases bound as params', () => {
+  const since = new Date('2026-11-16T10:00:00Z');
+  const query = buildPhraseHitQuery(
+    'g-1',
+    ["thẻ nhớ'; DROP TABLE x", 'camera cũ'],
+    { keywords: '', limit: 4, timeZone: 'UTC', excludeMsgId: 'm-q' },
+    since,
+  );
+  assert.ok(query);
+  assert.deepEqual(query.params, ['g-1', "thẻ nhớ'; DROP TABLE x", 'camera cũ', 'm-q', since, 4]);
+  assert.doesNotMatch(query.sql, /DROP TABLE/);
+  assert.match(
+    query.sql,
+    /phraseto_tsquery\('simple', zalobot_unaccent\(\$2\)\) \|\| phraseto_tsquery\('simple', zalobot_unaccent\(\$3\)\)/,
+  );
+  assert.match(query.sql, /m\.search_vector @@ q\.query/);
+  assert.match(query.sql, /NOT m\.is_bot/);
+  assert.match(query.sql, /m\.sent_at >= \$5/);
+  assert.match(query.sql, /LIMIT \$6$/);
+  assert.equal(
+    buildPhraseHitQuery('g-1', [], { keywords: '', limit: 4, timeZone: 'UTC' }, since),
+    null,
+  );
 });
 
 void test('meaningfulWordCount skips stop words and single letters', () => {

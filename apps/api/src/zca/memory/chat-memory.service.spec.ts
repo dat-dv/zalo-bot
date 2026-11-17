@@ -292,10 +292,17 @@ void test('search without an embedder uses the keyword search only', async () =>
   assert.equal(rawQueries.length, 1);
 });
 
-void test('recallRecent searches by meaning only, in the last 24 hours, then reads neighbours', async () => {
+const SINCE_ISO = '2026-11-16T10:00:00.000Z';
+const hasSince = (params: unknown[]) =>
+  params.some((param) => param instanceof Date && param.toISOString() === SINCE_ISO);
+
+void test('recallRecent merges phrase and meaning hits of the last 24 hours, then reads neighbours', async () => {
   const now = new Date('2026-11-17T10:00:00Z');
   const stub = createRepositoryStub([
+    // Phrase search (issued first: the meaning search waits for the embedding).
     [{ id: '11111111-1111-1111-1111-111111111111' }],
+    // Meaning search.
+    [{ id: '22222222-2222-2222-2222-222222222222' }],
     [
       {
         id: '11111111-1111-1111-1111-111111111111',
@@ -314,20 +321,50 @@ void test('recallRecent searches by meaning only, in the last 24 hours, then rea
     timeZone: 'Asia/Ho_Chi_Minh',
     now,
   });
-  assert.equal(stub.rawQueries.length, 2);
-  assert.match(stub.rawQueries[0].sql, /zca_message_embeddings e JOIN zca_messages m/);
-  assert.doesNotMatch(stub.rawQueries[0].sql, /search_vector/);
-  assert.match(stub.rawQueries[0].sql, /< 0\.45/);
-  assert.ok(stub.rawQueries[0].params.includes('m-q'));
-  assert.ok(
-    stub.rawQueries[0].params.some(
-      (param) => param instanceof Date && param.toISOString() === '2026-11-16T10:00:00.000Z',
-    ),
-  );
+  assert.equal(stub.rawQueries.length, 3);
+  const [phrase, meaning, neighbours] = stub.rawQueries;
+  assert.match(phrase.sql, /phraseto_tsquery/);
+  assert.ok(phrase.params.includes('thẻ nhớ'));
+  assert.ok(phrase.params.includes('m-q'));
+  assert.ok(hasSince(phrase.params));
+  assert.match(meaning.sql, /zca_message_embeddings e JOIN zca_messages m/);
+  assert.match(meaning.sql, /< 0\.45/);
+  assert.ok(meaning.params.includes('m-q'));
+  assert.ok(hasSince(meaning.params));
+  assert.deepEqual(neighbours.params[1], [
+    '11111111-1111-1111-1111-111111111111',
+    '22222222-2222-2222-2222-222222222222',
+  ]);
   assert.deepEqual(
     lines.map((line) => line.text),
     ['cái camera cũ còn thẻ nhớ k em'],
   );
+});
+
+void test('recallRecent still finds phrases without an embedding model', async () => {
+  const stub = createRepositoryStub([[{ id: '11111111-1111-1111-1111-111111111111' }], []]);
+  const service = new ChatMemoryService(stub.repository);
+  await service.recallRecent('g-1', { question: 'ở quê có thẻ nhớ k', timeZone: 'UTC' });
+  assert.equal(stub.rawQueries.length, 2);
+  assert.match(stub.rawQueries[0].sql, /phraseto_tsquery/);
+  assert.match(stub.rawQueries[1].sql, /unnest/);
+});
+
+void test('recallRecent keeps the meaning hits when the phrase search fails', async () => {
+  const neighbourIds: unknown[] = [];
+  const repository = {
+    query: (sql: string, params: unknown[]) => {
+      if (sql.includes('phraseto_tsquery')) return Promise.reject(new Error('bad tsquery'));
+      if (sql.includes('unnest')) {
+        neighbourIds.push(params[1]);
+        return Promise.resolve([]);
+      }
+      return Promise.resolve([{ id: '22222222-2222-2222-2222-222222222222' }]);
+    },
+  } as unknown as Repository<ZcaMessageEntity>;
+  const service = new ChatMemoryService(repository, undefined, fakeEmbedder());
+  await service.recallRecent('g-1', { question: 'ở quê có thẻ nhớ k', timeZone: 'UTC' });
+  assert.deepEqual(neighbourIds, [['22222222-2222-2222-2222-222222222222']]);
 });
 
 void test('recallRecent returns nothing for short messages, without a model or on errors', async () => {
@@ -339,9 +376,10 @@ void test('recallRecent returns nothing for short messages, without a model or o
   );
   assert.equal(short.rawQueries.length, 0);
 
+  // No phrase ("ăn" and "ngon" are not adjacent) and no model: nothing is queried.
   const { service: noModel, rawQueries } = createService();
   assert.deepEqual(
-    await noModel.recallRecent('g-1', { question: 'ở quê có thẻ nhớ k', timeZone: 'UTC' }),
+    await noModel.recallRecent('g-1', { question: 'hôm nay ăn gì ngon', timeZone: 'UTC' }),
     [],
   );
   assert.equal(rawQueries.length, 0);
