@@ -106,7 +106,7 @@ Migration `1724980000000-AddChatMemoryV2` added `memory_kind varchar default 'ch
 | `reminder` | Reminder deliveries (`ReminderTargetService.deliver`) | ❌ | neighbour only |
 | `result` | "✅ [358] …" success notices | ❌ | ❌ |
 | `card` | Confirmation cards | ❌ | ❌ |
-| `system` | Timeout / cancel / heart notices and any other message of `TransactionConfirmationService` | ❌ | ❌ |
+| `system` | Timeout / cancel / heart notices and any other message of `TransactionConfirmationService`, the listen notice (`ListenAnnouncementService`) | ❌ | ❌ |
 | `secret` | Dashboard sign-in link + code; text stored as `[Link đăng nhập dashboard]` | ❌ | ❌ |
 
 - Bot kinds are tagged with `OutgoingMemoryKind.run(kind, fn)` (`memory-kind.ts`, AsyncLocalStorage, like `AuditContext`). The `api.sendMessage` wrapper in `ZcaService.setupApiInstance` reads it before awaiting; `TransactionConfirmationService` wraps its messenger so its sends default to `system` (cards run under `card`, `executeConfirmed` under `result`).

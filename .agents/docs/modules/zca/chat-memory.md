@@ -66,7 +66,7 @@ Bản v2 giải quyết bằng các tầng trí nhớ chia theo kênh. Hiện c�
   - `request`: tin người nhờ bot làm việc (đã thành tool call) hoặc gõ `yes/cancel/edit <mã>` → tìm được như `chat`.
   - `action`: dòng "(đã duyệt) Chi 70.000đ · …" chỉ được tạo **sau khi thao tác được duyệt và chạy thành công** → tìm được như `chat`.
   - `bot_chat`, `tool`, `reminder`: tin bot trò chuyện, kết quả tra cứu, tin nhắc → chỉ hiện làm tin xung quanh một kết quả. Không bao giờ là kết quả chính, để câu bot bịa hay số liệu cũ không thành "ký ức".
-  - `card`, `system`, `result`: thẻ xác nhận, thông báo hết hạn/huỷ/tim, tin "✅ [358] …" → không vào đâu cả.
+  - `card`, `system`, `result`: thẻ xác nhận, thông báo hết hạn/huỷ/tim, tin báo lắng nghe, tin "✅ [358] …" → không vào đâu cả.
   - `secret`: link và mã đăng nhập dashboard → chỉ lưu chữ "[Link đăng nhập dashboard]".
 - **Thẻ xác nhận vẫn ở Redis**: mã 3 số, hạn 5 phút, duyệt đúng một lần. Redis làm việc này tốt hơn mọi kho trí nhớ. Huỷ, hết hạn, sửa giữa chừng hay chạy lỗi thì không có gì vào trí nhớ.
 - **Số liệu hiện tại luôn tra bằng tool**: prompt có luật riêng, vì khoản chi có thể đã bị sửa hoặc xoá trên dashboard sau đó.

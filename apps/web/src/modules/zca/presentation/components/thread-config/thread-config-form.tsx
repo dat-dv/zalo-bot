@@ -6,6 +6,7 @@ import { ConfirmationRulesSection } from './confirmation-rules-section';
 import { DirectInteractionSection } from './direct-interaction-section';
 import { FinanceDigestSection } from './finance-digest-section';
 import { ImageTextMemorySection } from './image-text-memory-section';
+import { ListenStartedDialog } from './listen-started-dialog';
 import { ListenToggleCard } from './listen-toggle-card';
 import { LongTermMemorySection } from './long-term-memory-section';
 import { MediaBackupSection } from './media-backup-section';
@@ -27,11 +28,12 @@ export function ThreadConfigForm({
   threadName,
   threadType,
 }: ThreadConfigFormProps) {
-  const { form, setForm, save, status, isSaving } = useThreadConfigForm(config, {
-    threadId,
-    threadName,
-    threadType,
-  });
+  const { form, setForm, save, status, isSaving, listenStartedOpen, closeListenStarted } =
+    useThreadConfigForm(config, {
+      threadId,
+      threadName,
+      threadType,
+    });
 
   return (
     <form className="flex flex-col gap-4" onSubmit={(e) => void save(e)}>
@@ -66,6 +68,12 @@ export function ThreadConfigForm({
         </div>
       </div>
       <ThreadConfigActionBar isSaving={isSaving} status={status} />
+      <ListenStartedDialog
+        memory={form.chatMemory}
+        onClose={closeListenStarted}
+        open={listenStartedOpen}
+        threadName={threadName || threadId}
+      />
     </form>
   );
 }

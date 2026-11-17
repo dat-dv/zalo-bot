@@ -579,3 +579,34 @@ void test('ThreadConfigService defaults and normalizes member access', async () 
   });
   assert.deepEqual(switched.memberAccess, { mode: 'all-members', memberIds: ['111', '222'] });
 });
+
+void test('ThreadConfigService notifies listen-started only when a chat goes from off to on', async () => {
+  const service = new ThreadConfigService();
+  const threadId = `listen-${Date.now()}`;
+  const started: string[] = [];
+  const unsubscribe = service.onListenStarted((config) => started.push(config.threadId));
+  service.onListenStarted(() => {
+    throw new Error('a broken listener never fails the save');
+  });
+
+  await service.getConfig(threadId, { threadName: 'Nhóm thử', threadType: 'group' });
+  await service.updateConfig(threadId, { threadName: 'Nhóm thử 2' });
+  assert.deepEqual(started, [], 'no change of listening, no notice');
+
+  const updated = await service.updateConfig(threadId, { isListened: true });
+  assert.equal(updated.isListened, true);
+  assert.deepEqual(started, [threadId]);
+
+  await service.setListened(threadId, true);
+  await service.updateConfig(threadId, { isListened: true });
+  assert.deepEqual(started, [threadId], 'already listened: not announced again');
+
+  await service.setListened(threadId, false);
+  await service.setListened(threadId, true);
+  assert.deepEqual(started, [threadId, threadId], 'off then on again is a new start');
+
+  unsubscribe();
+  await service.setListened(threadId, false);
+  await service.setListened(threadId, true);
+  assert.equal(started.length, 2);
+});

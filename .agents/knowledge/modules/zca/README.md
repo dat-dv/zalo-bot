@@ -42,7 +42,7 @@
 | Field | Default (`createDefaultThreadConfig`) | Meaning |
 | --- | --- | --- |
 | `threadType` | from zca-js, else legacy prefix, else `user` | `user` / `group` |
-| `isListened` | `false` | Bot receives messages from this thread |
+| `isListened` | `false` | Bot receives messages from this thread. Turning it on (any path) posts the listen notice, see below |
 | `directInteraction.enabled` | `false` | Shows the direct-interaction settings in the dashboard; routing does not read it |
 | `directInteraction.triggerPrefixes` | `[]` | Group trigger prefixes besides @mention, e.g. `['!', 'bot:']`. Case-insensitive, no whitespace, 1–20 chars, max 10, de-duplicated, stored longest first (`normalizeTriggerPrefixes` in `@zalobot/contracts`) |
 | `directInteraction.allowAiChat` | `false` | Free chat in L1: adds the chit-chat block to the LLM prompt and a tool-free second pass (see [Zalo Command Intake](../../global/zalo-command-intake.md)); `false` = silent on non-tool replies |
@@ -62,6 +62,14 @@
 - `setListened(id, true)` on a thread whose `directInteraction.enabled` is false also enables it with `allowAiChat: true` (keeps `triggerPrefixes`).
 - Legacy data: rows written before `triggerPrefixes` may hold a single `directInteraction.triggerPrefix` string; `normalizeDirectInteraction` folds it into the list on every read (DB, Redis, legacy JSON file), and the next save drops the old key. `requireMention` no longer exists: groups always need a mention or prefix.
 - Removed: `expenseTracking` / `calendarExtraction` (columns dropped by migration `1724800000000-DropZcaPassiveTrackingColumns`, which also strips `requireMention` from `direct_interaction`).
+
+## Listen notice (owner's decision 2026-11-17: "sau này anh sẽ quên")
+
+When a chat goes from not listened to listened, both the admin and the chat are told what the bot does there.
+
+- Detection: `ThreadConfigService.updateConfig` compares `isListened` before/after and calls the `onListenStarted` listeners once (after DB + Redis). Every path ends there: `PUT /api/zca/thread-configs/:id`, `POST /api/zca/listened-threads/toggle`, `PUT /api/zca/listened-threads` (bulk: one notice per newly listened chat). Start-up loading and `getConfig` defaults never fire it; a listener error never fails the save.
+- Chat message: `ListenAnnouncementService` posts `buildListenAnnouncement(config, zalo.botName)` (`listen-announcement.ts`) under `OutgoingMemoryKind.run('system')`, so it never reaches the chat memory. Content from the saved config: how to call the bot (private chat: just write; group: tag `@<botName>` plus `triggerPrefixes`, people granted access), long-term memory ON (stores every message as written from now, meaning search ~20 s after the chat goes quiet, `/sync`, photo text line only with `readImageText`, this chat only, recall = forget) or OFF (nothing stored, enable on the dashboard), and notes (`@bot nhớ là …` / `quên vụ … đi`). Same chat again within `LISTEN_ANNOUNCE_COOLDOWN_MS` (10 min, in memory) → skipped. Send failure (ZCA logged out) → warning log only.
+- Dashboard: on the thread config page, a save that turns `isListened` on (vs the last saved value, `didStartListening`) opens `ListenStartedDialog` with `listenStartedSections(chatMemory)`: listening (+ the chat notice, 10-min cooldown), long-term memory on/off, photo text, notes; "Đã hiểu". Not shown for the `/zca` table toggle or bulk selection (the chat notice still goes out). Phone: bottom sheet.
 
 ## Message Flows (`ZcaBotFeatureService.onMessage`)
 

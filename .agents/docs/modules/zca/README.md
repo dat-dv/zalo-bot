@@ -9,6 +9,8 @@ metadata:
       - apps/api/src/zca/zca-connection-supervisor.ts
       - apps/api/src/zca/zca-connection-alert.service.ts
       - apps/api/src/zca/zca.controller.ts
+      - apps/api/src/zca/listen-announcement.service.ts
+      - apps/web/src/modules/zca/presentation/components/thread-config/listen-started-dialog.tsx
       - apps/api/src/zca/zca-bot-feature.service.ts
       - apps/api/src/zca/thread-config.service.ts
       - apps/api/src/zca/group-event-dispatcher.service.ts
@@ -83,6 +85,11 @@ Module `apps/api/src/zca` và `apps/web/src/modules/zca` kết nối một tài 
 
 Lưu ý:
 - Bật lắng nghe một kênh đang tắt tương tác trực tiếp thì hệ thống tự bật `directInteraction.enabled` kèm `allowAiChat` (giữ nguyên danh sách tiền tố).
+- **Báo khi bắt đầu lắng nghe** (anh Đạt chốt 17/11/2026, để sau này nhìn vào là nhớ bot đang làm gì). Mỗi khi một kênh chuyển từ chưa nghe sang nghe, dù bật ở trang cấu hình, công tắc trên bảng `/zca` hay chọn nhiều kênh:
+  - **Bot nhắn một tin vào cuộc trò chuyện**, gồm: bot đã bắt đầu nghe; cách gọi bot (chat riêng thì nhắn thẳng, nhóm thì tag bot hoặc dùng tiền tố); trí nhớ **đang bật** (lưu nguyên văn từ bây giờ, nhớ theo ý nghĩa sau khoảng 20 giây, `/sync`, đọc chữ trong ảnh nếu bật, chỉ trong kênh này, thu hồi là quên) hoặc **đang tắt** (không lưu gì, bật ở đâu); cách dặn "@bot nhớ là …" và "@bot quên vụ … đi". Tin này là kiểu `system` nên không vào trí nhớ. Cùng kênh bật lại trong 10 phút thì không nhắn lần nữa. ZCA chưa đăng nhập thì chỉ ghi log.
+  - **Trang cấu hình kênh hiện hộp thoại** "✅ Bot đã bắt đầu lắng nghe" ngay sau khi bấm Lưu, tóm tắt các ý trên theo đúng cấu hình vừa lưu, có nút "Đã hiểu". Bật từ bảng `/zca` thì không có hộp thoại, nhưng tin nhắn Zalo vẫn được gửi.
+  - Chọn nhiều kênh một lúc trên `/zca` thì mỗi kênh mới nghe nhận một tin.
+  - Code: `ThreadConfigService.onListenStarted` (phát hiện chuyển trạng thái trong `updateConfig`), `ListenAnnouncementService` + `buildListenAnnouncement` (`apps/api/src/zca/listen-announcement*.ts`), `ListenStartedDialog` + `listenStartedSections` (web).
 - **Dữ liệu cũ**: kênh lưu từ trước có thể còn một chuỗi `triggerPrefix` đơn. Hệ thống tự gộp nó vào `triggerPrefixes` mỗi khi đọc (DB, Redis, file JSON cũ) và bỏ khoá cũ ở lần lưu sau. Trường `requireMention` không còn: nhóm luôn phải @mention hoặc dùng tiền tố.
 - **Đã gỡ bỏ**: hai cấu hình "Thu chi thụ động" (`expenseTracking`) và "Lịch thụ động" (`calendarExtraction`). Migration `1724800000000-DropZcaPassiveTrackingColumns` xoá hai cột này và xoá `requireMention` khỏi `direct_interaction`. Migration không khôi phục được giá trị cũ khi chạy `down`.
 

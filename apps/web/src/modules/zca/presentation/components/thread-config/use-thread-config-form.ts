@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import type { ThreadBotConfig } from '@zalobot/contracts';
 import { useUpdateZcaThreadConfigMutation } from '../../../api/zca-query';
+import { didStartListening } from '../../../model/listen-started';
 import { configToForm, formToPayload, type ThreadKind } from '../../../model/thread-config-form';
 
 const SAVED_NOTICE_MS = 3000;
@@ -21,6 +22,9 @@ export function useThreadConfigForm(config: ThreadBotConfig, identity: ThreadIde
   const updateMutation = useUpdateZcaThreadConfigMutation();
   const [form, setForm] = useState(() => configToForm(config, threadType));
   const [status, setStatus] = useState<SaveStatus>('idle');
+  // Listening as last saved, to tell when a save turns it on (then the explainer dialog opens).
+  const [savedListened, setSavedListened] = useState(config.isListened);
+  const [listenStartedOpen, setListenStartedOpen] = useState(false);
 
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -31,6 +35,8 @@ export function useThreadConfigForm(config: ThreadBotConfig, identity: ThreadIde
         data: formToPayload(form, threadName, threadType),
       });
       setStatus('saved');
+      if (didStartListening(savedListened, form.isListened)) setListenStartedOpen(true);
+      setSavedListened(form.isListened);
       setTimeout(
         () => setStatus((current) => (current === 'saved' ? 'idle' : current)),
         SAVED_NOTICE_MS,
@@ -46,5 +52,7 @@ export function useThreadConfigForm(config: ThreadBotConfig, identity: ThreadIde
     save,
     status,
     isSaving: updateMutation.isPending,
+    listenStartedOpen,
+    closeListenStarted: () => setListenStartedOpen(false),
   };
 }

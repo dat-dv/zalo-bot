@@ -26,6 +26,7 @@ import { ChatMemoryModule } from './memory/chat-memory.module';
 import { MemoryEmbeddingService } from './memory/long-term/memory-embedding.service';
 import { MemoryEmbeddingScheduler } from './memory/long-term/memory-embedding.scheduler';
 import { ChannelMemoryController } from './memory/channel-memory.controller';
+import { ListenAnnouncementService } from './listen-announcement.service';
 import {
   CHAT_MEMORY_QUEUE,
   MemoryEmbeddingProcessor,
@@ -111,6 +112,7 @@ const COMMON_PROVIDERS = [
   MemoryEmbeddingService,
   MemoryEmbeddingProcessor,
   MemoryEmbeddingScheduler,
+  ListenAnnouncementService,
   FinanceDigestService,
   FinanceDigestProcessor,
   RecurringScanProcessor,

@@ -218,11 +218,15 @@ export function entityToConfig(entity: ZcaThreadConfigEntity): ThreadBotConfig {
   });
 }
 
+/** Gets the stored config of a chat that just started being listened to. */
+export type ListenStartedListener = (config: ThreadBotConfig) => void;
+
 @Injectable()
 export class ThreadConfigService implements OnModuleInit {
   private readonly logger = new Logger(ThreadConfigService.name);
   private readonly configsFilePath: string;
   private configsMap = new Map<string, ThreadBotConfig>();
+  private readonly listenStartedListeners = new Set<ListenStartedListener>();
 
   constructor(
     @Optional()
@@ -551,6 +555,16 @@ export class ThreadConfigService implements OnModuleInit {
     return false;
   }
 
+  /**
+   * Called once a chat goes from not listened to listened (every path ends in `updateConfig`:
+   * config page, quick toggle, bulk selection). Start-up loading never calls it. Returns the
+   * unsubscribe function.
+   */
+  public onListenStarted(listener: ListenStartedListener): () => void {
+    this.listenStartedListeners.add(listener);
+    return () => this.listenStartedListeners.delete(listener);
+  }
+
   public async updateConfig(
     threadId: string,
     update: UpdateThreadBotConfigDto,
@@ -558,6 +572,7 @@ export class ThreadConfigService implements OnModuleInit {
   ): Promise<ThreadBotConfig> {
     const id = String(threadId).trim();
     const config = await this.getConfig(id, meta);
+    const wasListened = Boolean(config.isListened);
 
     if (update.threadName !== undefined) {
       config.threadName = update.threadName;
@@ -656,7 +671,21 @@ export class ThreadConfigService implements OnModuleInit {
       }
     }
 
+    if (!wasListened && config.isListened) this.notifyListenStarted(config);
     return config;
+  }
+
+  /** A failing listener never fails the save. */
+  private notifyListenStarted(config: ThreadBotConfig): void {
+    for (const listener of this.listenStartedListeners) {
+      try {
+        listener({ ...config });
+      } catch (err: unknown) {
+        this.logger.warn(
+          `[ThreadConfigService] Listen-started listener failed: ${err instanceof Error ? err.message : JSON.stringify(err)}`,
+        );
+      }
+    }
   }
 
   public async setListened(
