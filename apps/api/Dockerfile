@@ -98,6 +98,9 @@ ENV BE_PORT=${BE_PORT}
 ENV OCR_TESSDATA_DIR=/app/tessdata
 # LocalEmbedder reads the baked model from here (outside the ./data mount).
 ENV EMBEDDING_MODEL_DIR=/app/models
+# glibc keeps one heap per thread by default; with the ONNX threads of the embedder that left the
+# API at 2.4 GB. Two heaps cut the memory left after a backfill by ~40% (see local-embedder.ts).
+ENV MALLOC_ARENA_MAX=2
 EXPOSE ${BE_PORT}
 
 COPY --from=tessdata /tessdata /app/tessdata

@@ -5,10 +5,29 @@ import { DEFAULT_EMBEDDING_MODEL } from '../../../config/configuration';
 
 /** Size of the MiniLM vectors; the `zca_message_embeddings.embedding` column has this size. */
 export const EMBEDDING_DIMENSIONS = 384;
-/** Texts per model call. */
-export const EMBED_BATCH_SIZE = 32;
-/** MiniLM reads 128 tokens; longer text only costs time. */
-export const EMBED_MAX_CHARS = 1000;
+/**
+ * Texts per model call. A batch is padded to its longest text, so small batches keep the peak low
+ * (measured on 1500 chat-length texts in node:22-bookworm: batch 8 peaks ~680 MB RSS, batch 32
+ * ~1 GB, and is faster with 2 threads).
+ */
+export const EMBED_BATCH_SIZE = 8;
+/**
+ * MiniLM was trained on 128 tokens (~500 Vietnamese characters); longer text adds memory and time
+ * but not meaning. The message itself comes first in the embedded text, so it is what survives.
+ */
+export const EMBED_MAX_CHARS = 500;
+/**
+ * ONNX runtime session: no memory arena or memory pattern (they keep the largest batch's buffers
+ * for the life of the process: the API grew to 2.4 GB on prod after the first backfill), and two
+ * threads (one query takes milliseconds; more threads only add per-thread allocations). The image
+ * also sets `MALLOC_ARENA_MAX=2` so glibc does not keep one heap per ONNX thread.
+ */
+export const EMBEDDER_SESSION_OPTIONS = {
+  enableCpuMemArena: false,
+  enableMemPattern: false,
+  intraOpNumThreads: 2,
+  interOpNumThreads: 1,
+} as const;
 /** After a failed model load, the next try waits this long (a broken model is not reloaded per message). */
 export const EMBEDDER_RETRY_MS = 10 * 60 * 1000;
 
@@ -114,7 +133,10 @@ export class LocalEmbedder implements TextEmbedder {
       // Imported on first use: the ONNX runtime is large and tests never load it.
       const { pipeline, env } = await import('@huggingface/transformers');
       env.cacheDir = modelDir;
-      const extractor = await pipeline('feature-extraction', model, { dtype: 'q8' });
+      const extractor = await pipeline('feature-extraction', model, {
+        dtype: 'q8',
+        session_options: { ...EMBEDDER_SESSION_OPTIONS },
+      });
       this.current = 'ready';
       this.logger.log(`[Embedder] Loaded ${model} in ${Date.now() - startedAt}ms`);
       return extractor;
