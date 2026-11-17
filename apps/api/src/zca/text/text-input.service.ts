@@ -30,7 +30,13 @@ import { ChatMemoryService } from '../memory/chat-memory.service';
 import { ChannelNotesService } from '../memory/channel-notes.service';
 import { LearnedFactsService } from '../memory/learned-facts.service';
 import { OutgoingMemoryKind } from '../memory/memory-kind';
-import { BOT_IDENTITY_LINE, buildMemoryProfileBlock } from '../memory/memory-profile.util';
+import {
+  BOT_IDENTITY_LINE,
+  PERSONAL_DATA_RULE,
+  buildAutoRecallBlock,
+  buildMemoryProfileBlock,
+} from '../memory/memory-profile.util';
+import type { MemoryLine } from '../memory/chat-memory.mapper';
 import { CHIT_CHAT_INSTRUCTION, buildToolSystemInstruction } from './text-system-prompt';
 import { ZALO_PLAIN_TEXT_INSTRUCTION } from './zalo-plain-text.util';
 import {
@@ -202,6 +208,9 @@ export class TextInputService {
       amendableBlock: amendablePendingBlock(amendable),
     });
     const tools = textToolDefinitionsFor({ longTermMemory: Boolean(input.longTermMemory) });
+    // Started next to the tool pass so the local embedding is ready when a free-chat reply needs
+    // it; only the free-chat reply reads it (old lines must not steer the tool choice).
+    const recalled = this.recallForChitChat(chatId, input, text, timeZone);
 
     try {
       const response = await this.zcaMessenger.withTyping(chatId, () =>
@@ -293,8 +302,13 @@ export class TextInputService {
 
       // A tool-free second pass answers without the tool catalog biasing the reply toward refusals;
       // the first pass text stays as fallback.
+      const recallBlock = buildAutoRecallBlock(await recalled, timeZone);
       const chitChatReply = await this.zcaMessenger.withTyping(chatId, () =>
-        this.generateChitChatReply(text, dtContext.systemInstructionSnippet, profile),
+        this.generateChitChatReply(
+          text,
+          dtContext.systemInstructionSnippet,
+          [profile, recallBlock].filter(Boolean).join('\n\n'),
+        ),
       );
 
       const conversationStrategy = this.toolFactory.getStrategy(TextToolType.CONVERSATION);
@@ -554,23 +568,40 @@ export class TextInputService {
   }
 
   /**
-   * What the chat told the bot to remember, plus learned facts about the bot, the sender, the
-   * people tagged. Built whatever the memory switch is:
-   * notes are independent of them.
+   * What the chat told the bot to remember, plus learned facts about the bot (facts about members
+   * stay out of the prompt, see `LearnedFactsService.forPrompt`). Notes are built whatever the
+   * memory switch is.
    */
   private async buildProfileBlock(chatId: string, input: AgentInput): Promise<string> {
-    const memberIds = [
-      ...new Set(
-        [input.senderId, ...(input.taggedUsers ?? []).map((user) => user.id)].filter(
-          (id): id is string => Boolean(id),
-        ),
-      ),
-    ];
     const [notes, facts] = await Promise.all([
       this.channelNotesService?.list(chatId) ?? [],
-      input.longTermMemory ? (this.learnedFactsService?.forPrompt(chatId, memberIds) ?? []) : [],
+      input.longTermMemory ? (this.learnedFactsService?.forPrompt(chatId) ?? []) : [],
     ]);
     return buildMemoryProfileBlock(notes, facts);
+  }
+
+  /**
+   * Lines of this chat close in meaning to the message, for a free-chat reply; `[]` when the
+   * long-term memory or free chat is off. Never rejects.
+   */
+  private async recallForChitChat(
+    chatId: string,
+    input: AgentInput,
+    text: string,
+    timeZone: string,
+  ): Promise<MemoryLine[]> {
+    if (!input.longTermMemory || input.allowAiChat === false || !this.chatMemoryService) return [];
+    try {
+      return await this.chatMemoryService.recallRecent(chatId, {
+        question: text,
+        excludeMsgId: input.messageId,
+        timeZone,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : JSON.stringify(err);
+      this.logger.warn(`[TextInputService] Auto recall failed: ${message}`);
+      return [];
+    }
   }
 
   /** Tool-free free-chat reply; `undefined` when empty or failed so the caller can fall back. */
@@ -584,7 +615,8 @@ export class TextInputService {
     const systemInstruction =
       `${BOT_IDENTITY_LINE}\n\n` +
       'Hãy trả lời tin nhắn của người dùng một cách tự nhiên, thân thiện, ngắn gọn bằng tiếng Việt.\n\n' +
-      `${CHIT_CHAT_INSTRUCTION}\n\n` +
+      `${CHIT_CHAT_INSTRUCTION}\n` +
+      `${PERSONAL_DATA_RULE}\n\n` +
       `${ZALO_PLAIN_TEXT_INSTRUCTION}` +
       (profile ? `\n\n${profile}` : '') +
       `\n\n${dateTimeSnippet}`;

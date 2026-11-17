@@ -227,6 +227,35 @@ export function buildNeighbourQuery(channelId: string, hitIds: readonly string[]
  */
 export const VECTOR_MAX_DISTANCE = 0.6;
 
+/** Narrower meaning search, used by the automatic recall of a free-chat reply. */
+export interface VectorHitOptions {
+  /** Cosine distance a hit must stay under; `VECTOR_MAX_DISTANCE` when omitted. */
+  maxDistance?: number;
+  /** Only messages sent at or after this instant. */
+  since?: Date;
+}
+
+/**
+ * Automatic recall (free-chat replies of chats with long-term memory): messages of the last
+ * `AUTO_RECALL_WINDOW_HOURS`, closer in meaning than the history search asks (nobody asked to
+ * look back, so a loose match only adds noise), at most `AUTO_RECALL_HITS` hits and
+ * `AUTO_RECALL_MAX_LINES` lines with their neighbours.
+ */
+export const AUTO_RECALL_WINDOW_HOURS = 24;
+export const AUTO_RECALL_MAX_DISTANCE = 0.45;
+export const AUTO_RECALL_HITS = 4;
+export const AUTO_RECALL_MAX_LINES = 20;
+/** Messages with fewer meaningful words than this ("hello den ơi", "ừa") recall nothing. */
+export const AUTO_RECALL_MIN_WORDS = 2;
+
+/** Words of a message that can carry a topic: 2+ letters, not a stop word (folded). */
+export function meaningfulWordCount(text: string): number {
+  return (text || '')
+    .split(/[^\p{L}\p{N}]+/u)
+    .map((word) => foldVietnamese(word))
+    .filter((key) => key.length >= 2 && !STOP_WORDS.has(key)).length;
+}
+
 /** pgvector literal of an embedding. */
 export function toVectorLiteral(vector: readonly number[]): string {
   return `[${vector.join(',')}]`;
@@ -243,14 +272,21 @@ export function buildVectorHitQuery(
   vector: readonly number[],
   model: string,
   search: ChatMemorySearchParams,
+  options: VectorHitOptions = {},
 ): SqlQuery {
   const params: unknown[] = [channelId, toVectorLiteral(vector), model];
+  // The distance is a code constant (never user input), so it is inlined like the kinds.
+  const maxDistance = options.maxDistance ?? VECTOR_MAX_DISTANCE;
   const conditions = [
     ...hitConditions(params, search),
     'e.channel_id = $1',
     'e.model = $3',
-    `(e.embedding <=> $2::vector) < ${VECTOR_MAX_DISTANCE}`,
+    `(e.embedding <=> $2::vector) < ${maxDistance}`,
   ];
+  if (options.since) {
+    params.push(options.since);
+    conditions.push(`m.sent_at >= $${params.length}`);
+  }
   params.push(search.limit);
   const sql =
     `SELECT m.id FROM zca_message_embeddings e JOIN zca_messages m ON m.id = e.message_id ` +

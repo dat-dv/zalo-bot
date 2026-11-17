@@ -31,6 +31,9 @@ import { PendingImageActionService } from '../pending-image/pending-image-action
 import { OcrService } from '../../ocr/ocr.service';
 import { MediaStorageService } from '../../receipt-storage/media-storage.service';
 import type { ChannelNotesService } from '../memory/channel-notes.service';
+import type { LearnedFactsService } from '../memory/learned-facts.service';
+import type { ChatMemoryService } from '../memory/chat-memory.service';
+import type { MemoryLine } from '../memory/chat-memory.mapper';
 
 interface SetupOptions {
   allowedUserIds?: string[];
@@ -45,6 +48,8 @@ interface SetupOptions {
   ocrService?: OcrService;
   mediaStorageService?: MediaStorageService;
   channelNotesService?: ChannelNotesService;
+  learnedFactsService?: LearnedFactsService;
+  chatMemoryService?: ChatMemoryService;
   enablePlaceCheck?: boolean;
   existingPlaces?: string[];
 }
@@ -262,6 +267,8 @@ function createTextInputService(options?: SetupOptions) {
     options?.mediaStorageService,
     undefined,
     options?.channelNotesService,
+    options?.learnedFactsService,
+    options?.chatMemoryService,
   );
 
   return {
@@ -1070,6 +1077,132 @@ void test('TextInputService adds the chit-chat block to the tool prompt only whe
   });
   assert.doesNotMatch(getLastLlmInstruction(), /TRÒ CHUYỆN TỰ DO/);
   assert.equal(chitChatCalls.length, 0, 'No chit-chat pass when allowAiChat is false');
+});
+
+/** Chat memory stub whose `recallRecent` answers `lines` and records its calls. */
+function recallStub(lines: MemoryLine[] | Error) {
+  const calls: Array<{ channelId: string; question: string; excludeMsgId?: string }> = [];
+  const service = {
+    recallRecent: (
+      channelId: string,
+      options: { question: string; excludeMsgId?: string; timeZone: string },
+    ) => {
+      calls.push({ channelId, question: options.question, excludeMsgId: options.excludeMsgId });
+      return lines instanceof Error ? Promise.reject(lines) : Promise.resolve(lines);
+    },
+    setKind: () => Promise.resolve(),
+  } as unknown as ChatMemoryService;
+  return { service, calls };
+}
+
+const CAMERA_LINES: MemoryLine[] = [
+  {
+    sentAt: new Date('2026-11-17T09:00:00Z'),
+    senderName: 'Văn Đạt',
+    isBot: false,
+    text: 'cái camera cũ còn thẻ nhớ k em',
+  },
+  {
+    sentAt: new Date('2026-11-17T09:32:00Z'),
+    senderName: 'Văn Đạt',
+    isBot: false,
+    text: 'A thấy nó ở dưới cái tv',
+  },
+];
+
+void test('TextInputService gives the chit-chat pass the recalled lines of a long-term memory chat', async () => {
+  const recall = recallStub(CAMERA_LINES);
+  const { service, chitChatCalls, getLastLlmInstruction } = createTextInputService({
+    chitChatResponse: { text: 'Thẻ nhớ ở dưới cái TV đó anh' },
+    chatMemoryService: recall.service,
+  });
+
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'g1',
+    displayName: 'Văn Đạt',
+    text: 'ở quê có thẻ nhớ k',
+    messageId: 'm-9',
+    longTermMemory: true,
+  });
+
+  assert.deepEqual(recall.calls, [
+    { channelId: 'g1', question: 'ở quê có thẻ nhớ k', excludeMsgId: 'm-9' },
+  ]);
+  assert.equal(chitChatCalls.length, 1);
+  assert.match(chitChatCalls[0].systemInstruction, /ĐOẠN CHAT GẦN ĐÂY CÓ THỂ LIÊN QUAN/);
+  assert.match(chitChatCalls[0].systemInstruction, /Văn Đạt: A thấy nó ở dưới cái tv/);
+  assert.doesNotMatch(
+    getLastLlmInstruction(),
+    /ĐOẠN CHAT GẦN ĐÂY/,
+    'Recalled lines never reach the tool pass',
+  );
+});
+
+void test('TextInputService does not recall when long-term memory or free chat is off', async () => {
+  for (const input of [
+    { longTermMemory: false, allowAiChat: true },
+    { longTermMemory: true, allowAiChat: false },
+  ]) {
+    const recall = recallStub(CAMERA_LINES);
+    const { service } = createTextInputService({ chatMemoryService: recall.service });
+    await service.process({
+      type: 'text',
+      senderId: 'u1',
+      chatId: 'g1',
+      displayName: 'User',
+      text: 'ở quê có thẻ nhớ k',
+      ...input,
+    });
+    assert.equal(recall.calls.length, 0);
+  }
+});
+
+void test('TextInputService answers as before when the recall fails', async () => {
+  const recall = recallStub(new Error('db down'));
+  const { service, sentMessages, chitChatCalls } = createTextInputService({
+    chitChatResponse: { text: 'Chào bạn!' },
+    chatMemoryService: recall.service,
+  });
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'g1',
+    displayName: 'User',
+    text: 'ở quê có thẻ nhớ k',
+    longTermMemory: true,
+  });
+  assert.doesNotMatch(chitChatCalls[0].systemInstruction, /ĐOẠN CHAT GẦN ĐÂY/);
+  assert.equal(sentMessages[0].text, 'Chào bạn!');
+});
+
+void test('TextInputService puts only bot facts and the personal data rule in both prompts', async () => {
+  const askedChannels: string[] = [];
+  const learnedFactsService = {
+    forPrompt: (channelId: string) => {
+      askedChannels.push(channelId);
+      return Promise.resolve([{ subjectKind: 'bot', subjectName: 'Đen', fact: 'là mèo đen' }]);
+    },
+  } as unknown as LearnedFactsService;
+  const { service, chitChatCalls, getLastLlmInstruction } = createTextInputService({
+    chitChatResponse: { text: 'meo' },
+    learnedFactsService,
+    chatMemoryService: recallStub([]).service,
+  });
+  await service.process({
+    type: 'text',
+    senderId: 'u1',
+    chatId: 'g1',
+    displayName: 'Văn Đạt',
+    text: 'den có dữ liệu camera gì k',
+    longTermMemory: true,
+  });
+  assert.deepEqual(askedChannels, ['g1']);
+  for (const instruction of [getLastLlmInstruction(), chitChatCalls[0].systemInstruction]) {
+    assert.match(instruction, /Về bạn: là mèo đen/);
+    assert.match(instruction, /Không tự nêu số CCCD/);
+  }
 });
 
 void test('TextInputService skips the chit-chat pass when the LLM resolves a tool call', async () => {

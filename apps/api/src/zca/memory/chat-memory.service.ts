@@ -11,11 +11,18 @@ import {
   type MemorySourceMessage,
 } from './chat-memory.mapper';
 import {
+  AUTO_RECALL_HITS,
+  AUTO_RECALL_MAX_DISTANCE,
+  AUTO_RECALL_MAX_LINES,
+  AUTO_RECALL_MIN_WORDS,
+  AUTO_RECALL_WINDOW_HOURS,
   buildHitQuery,
   buildNeighbourQuery,
   buildVectorHitQuery,
+  meaningfulWordCount,
   mergeRankedIds,
   type ChatMemorySearchParams,
+  type VectorHitOptions,
 } from './chat-memory.query';
 import { LocalEmbedder, type TextEmbedder } from './long-term/local-embedder';
 import { SECRET_MESSAGE_PLACEHOLDER, type MemoryKind } from './memory-kind';
@@ -335,6 +342,48 @@ export class ChatMemoryService {
     return selectMemoryLines(rows, MAX_MEMORY_LINES);
   }
 
+  /**
+   * Lines of the last `AUTO_RECALL_WINDOW_HOURS` close in meaning to a message the bot answers as
+   * free chat, with their neighbours, oldest first, at most `AUTO_RECALL_MAX_LINES`. Meaning only:
+   * a chat message is full of common words, so keywords would pull in noise. Never throws: `[]`
+   * when the message is too short to carry a topic, the model is unavailable or a query fails, so
+   * the reply goes on as before.
+   */
+  public async recallRecent(
+    channelId: string,
+    options: { question: string; excludeMsgId?: string; timeZone: string; now?: Date },
+  ): Promise<MemoryLine[]> {
+    const question = options.question.trim();
+    if (!channelId || meaningfulWordCount(question) < AUTO_RECALL_MIN_WORDS) return [];
+    const now = options.now ?? new Date();
+    try {
+      const hitIds = await this.meaningHits(
+        channelId,
+        {
+          keywords: '',
+          question,
+          limit: AUTO_RECALL_HITS,
+          timeZone: options.timeZone,
+          excludeMsgId: options.excludeMsgId,
+        },
+        {
+          maxDistance: AUTO_RECALL_MAX_DISTANCE,
+          since: new Date(now.getTime() - AUTO_RECALL_WINDOW_HOURS * 60 * 60 * 1000),
+        },
+      );
+      if (hitIds.length === 0) return [];
+      const neighbourQuery = buildNeighbourQuery(channelId, hitIds);
+      const rows: MemoryLineRow[] = await this.messageRepository.query(
+        neighbourQuery.sql,
+        neighbourQuery.params,
+      );
+      return selectMemoryLines(rows, AUTO_RECALL_MAX_LINES);
+    } catch (err: unknown) {
+      this.logger.warn(`[ChatMemory] Auto recall failed in ${channelId}: ${errorMessage(err)}`);
+      return [];
+    }
+  }
+
   private async keywordHits(channelId: string, search: ChatMemorySearchParams): Promise<string[]> {
     const query = buildHitQuery(channelId, search);
     if (!query) return [];
@@ -346,13 +395,20 @@ export class ChatMemoryService {
   private async meaningHits(
     channelId: string,
     search: ChatMemorySearchParams & { question?: string },
+    options: VectorHitOptions = {},
   ): Promise<string[]> {
     const question = search.question?.trim() || search.keywords.trim();
     if (!this.embedder || !question) return [];
     try {
       const vectors = await this.embedder.embed([question]);
       if (!vectors?.[0]) return [];
-      const query = buildVectorHitQuery(channelId, vectors[0], this.embedder.model, search);
+      const query = buildVectorHitQuery(
+        channelId,
+        vectors[0],
+        this.embedder.model,
+        search,
+        options,
+      );
       const rows: Array<{ id: string }> = await this.messageRepository.query(
         query.sql,
         query.params,

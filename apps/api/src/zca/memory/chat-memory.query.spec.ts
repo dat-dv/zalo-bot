@@ -5,6 +5,8 @@ import {
   buildHitQuery,
   buildNeighbourQuery,
   buildVectorHitQuery,
+  AUTO_RECALL_MAX_DISTANCE,
+  meaningfulWordCount,
   mergeRankedIds,
   normalizeDate,
   parseKeywords,
@@ -137,6 +139,28 @@ void test('buildVectorHitQuery ranks by cosine distance within the chat, model a
   assert.match(query.sql, /m\.msg_id <> \$4/);
   assert.match(query.sql, /ORDER BY e\.embedding <=> \$2::vector ASC/);
   assert.match(query.sql, /LIMIT \$7$/);
+});
+
+void test('buildVectorHitQuery narrows the distance and the time when asked', () => {
+  const since = new Date('2026-11-16T10:00:00Z');
+  const query = buildVectorHitQuery(
+    'g-1',
+    [0.5],
+    'minilm',
+    { keywords: '', limit: 4, timeZone: 'UTC', excludeMsgId: 'm-q' },
+    { maxDistance: AUTO_RECALL_MAX_DISTANCE, since },
+  );
+  assert.deepEqual(query.params, ['g-1', '[0.5]', 'minilm', 'm-q', since, 4]);
+  assert.match(query.sql, /\(e\.embedding <=> \$2::vector\) < 0\.45/);
+  assert.match(query.sql, /m\.sent_at >= \$5/);
+  assert.match(query.sql, /LIMIT \$6$/);
+});
+
+void test('meaningfulWordCount skips stop words and single letters', () => {
+  assert.equal(meaningfulWordCount('ừa'), 1);
+  assert.equal(meaningfulWordCount('có gì k'), 0);
+  assert.equal(meaningfulWordCount('ở quê có thẻ nhớ k ?'), 3);
+  assert.equal(meaningfulWordCount(''), 0);
 });
 
 void test('mergeRankedIds puts ids found by both searches first and caps the list', () => {

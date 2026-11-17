@@ -35,25 +35,15 @@ export class LearnedFactsService {
   }
 
   /**
-   * Facts for one prompt: about the bot first, then about the given members in that order,
-   * at most `LEARNED_FACTS_LIMITS.MAX_IN_PROMPT` lines.
+   * Facts for one prompt: only the ones about the bot, at most `LEARNED_FACTS_LIMITS.MAX_IN_PROMPT`.
+   * Facts about members stay out of the prompt: the removed nightly job stored them unfiltered
+   * (one held a member's ID card number, read out in a group on 2026-11-17), they are frozen and
+   * may be wrong. They can still be listed and deleted on the dashboard.
    */
-  public async forPrompt(
-    channelId: string,
-    memberIds: readonly string[],
-  ): Promise<ZcaLearnedFactEntity[]> {
+  public async forPrompt(channelId: string): Promise<ZcaLearnedFactEntity[]> {
     const facts = await this.listActive(channelId);
-    if (facts.length === 0) return [];
-    const order = new Map(memberIds.map((id, index) => [id, index]));
     return facts
-      .filter(
-        (fact) =>
-          fact.subjectKind === 'bot' ||
-          (fact.subjectUserId !== null &&
-            fact.subjectUserId !== undefined &&
-            order.has(fact.subjectUserId)),
-      )
-      .sort((a, b) => rank(a, order) - rank(b, order))
+      .filter((fact) => fact.subjectKind === 'bot')
       .slice(0, LEARNED_FACTS_LIMITS.MAX_IN_PROMPT);
   }
 
@@ -79,9 +69,4 @@ export class LearnedFactsService {
         matchesAllWords(`${fact.subjectName} ${fact.fact}`, query),
     );
   }
-}
-
-function rank(fact: ZcaLearnedFactEntity, order: ReadonlyMap<string, number>): number {
-  if (fact.subjectKind === 'bot') return -1;
-  return order.get(fact.subjectUserId ?? '') ?? Number.MAX_SAFE_INTEGER;
 }

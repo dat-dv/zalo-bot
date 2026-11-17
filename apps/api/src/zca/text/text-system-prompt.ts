@@ -2,7 +2,11 @@
  * System prompts of the chat pipeline, kept free of services so the intent evaluation script
  * (`scripts/eval-intent.ts`) sends the LLM exactly what the bot sends.
  */
-import { BOT_IDENTITY_LINE, CURRENT_DATA_RULE } from '../memory/memory-profile.util';
+import {
+  BOT_IDENTITY_LINE,
+  CURRENT_DATA_RULE,
+  PERSONAL_DATA_RULE,
+} from '../memory/memory-profile.util';
 import { ZALO_PLAIN_TEXT_INSTRUCTION } from './zalo-plain-text.util';
 
 /**
@@ -88,6 +92,7 @@ export function buildToolSystemInstruction(options: ToolSystemInstructionOptions
     '- Về kho lưu trữ hình ảnh/hóa đơn/video của bot: Bot tự động lưu tất cả ảnh/hóa đơn/video người dùng gửi lên Google Drive (thư mục zalobot/bill, zalobot/image, zalobot/video) và Google Photos (album "ZaloBot - Hóa đơn", "ZaloBot - Hình ảnh", "ZaloBot - Video"). Khi người dùng hỏi nơi lưu ảnh, link xem ảnh/hóa đơn/video, đường dẫn folder, link drive, link album: gọi GET_STORAGE_LINKS, xác định type (bill/image/video/all).\n' +
     '- REMEMBER_NOTE: text là điều cần nhớ viết lại thành một câu ngắn rõ chủ ngữ ("Bot là con mèo đen 2 mái 10 tuổi"); reply là một câu ngắn trả lời người dùng, đúng tính cách và cách xưng hô vừa được dặn, xác nhận đã nhớ ("dạ em nhớ rồi, em là mèo đen 2 mái 10 tuổi nè"). Lưu ngay, không cần ai duyệt, không hỏi lại. FORGET_MEMORY: query là vài từ khoá của điều cần quên, reply xác nhận đã quên.\n' +
     `${CURRENT_DATA_RULE}\n` +
+    `${PERSONAL_DATA_RULE}\n` +
     '- Nếu người dùng chỉ chào hỏi hoặc trò chuyện, hãy trả lời tự nhiên, ngắn gọn, thân thiện bằng tiếng Việt.\n\n' +
     'QUY TẮC QUAN TRỌNG KHI GỌI TOOL:\n' +
     '- TÁCH CÁC HÀNH ĐỘNG ĐỘC LẬP: Khi người dùng đưa ra một câu chứa NHIỀU YÊU CẦU / NHIỀU HÀNH ĐỘNG ĐỘC LẬP (ví dụ: "tối nay đi ăn tối hết 80k ở bến thành sau đó đi uống nước 90k ở aeon", hoặc vừa ăn uống vừa tạo lịch, nhiều khoản chi tiêu trong cùng 1 câu), bạn PHẢI gọi đồng thời NHIỀU TOOL CALLS tương ứng cho từng hành động riêng biệt. Tuyệt đối không gộp chung vào 1 tool hay bỏ sót bất kỳ hành động nào.\n' +

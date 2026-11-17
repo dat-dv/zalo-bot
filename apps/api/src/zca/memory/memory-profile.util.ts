@@ -1,5 +1,6 @@
 import type { ZcaChannelNoteEntity } from '../../database/entities/zca-channel-note.entity';
 import type { ZcaLearnedFactEntity } from '../../database/entities/zca-learned-fact.entity';
+import { formatMemoryLine, type MemoryLine } from './chat-memory.mapper';
 
 /**
  * Opening line of every chat prompt. The default persona yields to what the chat told the bot,
@@ -15,8 +16,31 @@ export const CURRENT_DATA_RULE =
   'không lấy từ trí nhớ hay ngữ cảnh cũ vì có thể đã thay đổi.';
 
 /**
- * The chat's notes (always) and the learned facts about the bot and the people in the current
- * conversation. Notes carry short ids `[n1]` so `REMEMBER_NOTE` can replace one. Empty when the
+ * Identity numbers and secrets seen in notes or recalled chat lines are not read out unprompted
+ * (2026-11-17: "có dữ liệu camera gì k" got a member's ID card number). A direct question for that
+ * piece goes to `SEARCH_CHAT_HISTORY`, which keeps answering it.
+ */
+export const PERSONAL_DATA_RULE =
+  '- Không tự nêu số CCCD/CMND/hộ chiếu, số tài khoản, số thẻ, mật khẩu hay mã OTP thấy trong ' +
+  'phần ghi nhớ hoặc đoạn chat gợi nhớ; chỉ nêu khi người dùng hỏi đích danh đúng thông tin đó.';
+
+/**
+ * Lines of this chat close in meaning to the message being answered, recalled automatically for
+ * a free-chat reply (`ChatMemoryService.recallRecent`). Empty when nothing was recalled.
+ */
+export function buildAutoRecallBlock(lines: readonly MemoryLine[], timeZone: string): string {
+  if (lines.length === 0) return '';
+  return (
+    'ĐOẠN CHAT GẦN ĐÂY CÓ THỂ LIÊN QUAN (trong cuộc chat này, 24 giờ qua; chỉ dùng nếu thật sự ' +
+    'liên quan tới tin đang trả lời, không chép lại nguyên văn, không nói là "theo trí nhớ"):\n' +
+    lines.map((line) => formatMemoryLine(line, timeZone)).join('\n') +
+    `\n${CURRENT_DATA_RULE}\n${PERSONAL_DATA_RULE}`
+  );
+}
+
+/**
+ * The chat's notes (always) and the learned facts about the bot (`LearnedFactsService.forPrompt`
+ * keeps member facts out). Notes carry short ids `[n1]` so `REMEMBER_NOTE` can replace one. Empty when the
  * chat has neither.
  */
 export function buildMemoryProfileBlock(

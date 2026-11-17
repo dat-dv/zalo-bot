@@ -41,6 +41,7 @@ metadata:
       - apps/api/src/zca/text/strategies/forget-memory-tool.strategy.ts
       - apps/api/src/zca/text/strategies/dashboard-tool.strategy.ts
       - apps/api/src/zca/text/text-input.service.ts
+      - apps/api/src/zca/text/text-system-prompt.ts
       - apps/api/src/zca/text/text-tool.definitions.ts
       - apps/api/src/reminders/reminder-target.service.ts
       - apps/api/src/users/user-merge.service.ts
@@ -75,12 +76,12 @@ LLM calls are stateless. The bot keeps three memory layers per Zalo chat (`chann
 | Layer | What | In the prompt | Written by | Switch |
 | --- | --- | --- | --- | --- |
 | **Notes (Ghi nhớ)** | What the chat told the bot to always remember (persona, conventions), ≤20 × 200 chars | Every turn, right after the identity line | Members via `REMEMBER_NOTE` / `FORGET_MEMORY` in the chat, saved at once (no dashboard UI) | none (always on) |
-| **Learned facts** | Stable facts about the bot and members, ≤5 per subject. **Frozen**: nothing learns new ones since the nightly LLM job was removed (owner's decision 2026-11-17: no LLM in the memory pipeline) | Every turn: bot + sender + tagged, ≤15 lines | Earlier nightly job (removed) | `chatMemory.enabled` |
+| **Learned facts** | Stable facts about the bot and members, ≤5 per subject. **Frozen**: nothing learns new ones since the nightly LLM job was removed (owner's decision 2026-11-17: no LLM in the memory pipeline) | Every turn: **facts about the bot only**, ≤15 lines (member facts stay out since 2026-11-17: one held a member's ID card number and was read out in a group; they are frozen and may be wrong; still listed/deletable on the dashboard) | Earlier nightly job (removed) | `chatMemory.enabled` |
 | **Long-term** | Every message (Postgres) + one local embedding per hit-able message (`zca_message_embeddings`, pgvector) | Only via `SEARCH_CHAT_HISTORY` | Every listened message; embedded ~20 s after the chat goes quiet, `/sync`, boot sweep, nightly sweep | `chatMemory.enabled` |
 
 Redis keeps only transient state (pending cards, temp messages to recall, ZCA session, rate limits, cache, BullMQ). The former Redis list `zca:short_memory:<threadId>` is no longer written and expires.
 
-**No short-term window** (removed 2026-10-26, owner's decision): no recent messages go into the prompt, so each message is handled on its own. Follow-ups that amend a pending card ("tag @Nam nha", `yes/cancel/edit <code>`) do not need it: they use the sender's pending cards in Redis (5-minute TTL, `AMEND_PENDING`). Configs saved with `shortTermEnabled`/`contextWindow`/`shortTermDays` are cleaned by the normalizer.
+**No short-term window** (removed 2026-10-26, owner's decision): no fixed list of recent messages goes into the prompt, so each message is handled on its own. **Auto-recall** (2026-11-17, below) adds only lines close in meaning to a free-chat message. Follow-ups that amend a pending card ("tag @Nam nha", `yes/cancel/edit <code>`) do not need it: they use the sender's pending cards in Redis (5-minute TTL, `AMEND_PENDING`). Configs saved with `shortTermEnabled`/`contextWindow`/`shortTermDays` are cleaned by the normalizer.
 
 ## Per-thread config (`ThreadBotConfig.chatMemory`, jsonb `zca_thread_configs.chat_memory`)
 
@@ -177,10 +178,23 @@ Services `cognee`, `cognee-ui`, volume `zalobot-cognee`, `CogneeClient`, segment
 - The `keywords` description asks for short keywords, common abbreviations (mk, pass, tk, stk, sdt) and domains kept whole. With long-term memory the tool prompt adds `CHAT_HISTORY_INTENT_RULE` (before chat in the intent table): asking again for, or asking the bot to pass on, something said in the chat ("chỉ Hằng biết tài khoản admin của web …", "nói lại cho Nam cái link lúc nãy", "pass wifi là gì") → `SEARCH_CHAT_HISTORY`. Intent eval has these cases.
 - Without a recent-message window a bare "lúc nãy a có nói r" has no topic; the bot can only search with what that message says.
 
+## Auto-recall (free-chat replies)
+
+Added 2026-11-17 (`.agents/artifacts/zalo-memory-recall-and-id-leak/`): "@den ở quê có thẻ nhớ k" got a generic answer although the chat had discussed the old camera's memory card an hour before; nothing asked to look back, so `SEARCH_CHAT_HISTORY` was not chosen.
+
+- `TextInputService` starts `recallForChitChat` next to the tool pass (only when `input.longTermMemory` and `allowAiChat !== false`; never rejects) and awaits it only for the tool-free chit-chat pass. Recalled lines never reach the tool pass (old lines must not steer tool choice or repeat actions). No extra LLM call.
+- `ChatMemoryService.recallRecent(channelId, { question, excludeMsgId, timeZone })`: meaning search only (chat text is full of common words, keywords add noise) via `buildVectorHitQuery(…, { maxDistance, since })`; constants in `chat-memory.query.ts`: `AUTO_RECALL_WINDOW_HOURS` 24, `AUTO_RECALL_MAX_DISTANCE` 0.45 (stricter than the 0.6 of a history question), `AUTO_RECALL_HITS` 4, `AUTO_RECALL_MAX_LINES` 20 (with neighbours, `buildNeighbourQuery`), `AUTO_RECALL_MIN_WORDS` 2 (`meaningfulWordCount`: folded words of 2+ letters, not stop words; shorter messages embed nothing). Same `hitConditions` as history search. Embedder unavailable or query error → `[]`, reply as before.
+- Prompt block `buildAutoRecallBlock` (`memory-profile.util.ts`): "ĐOẠN CHAT GẦN ĐÂY CÓ THỂ LIÊN QUAN … chỉ dùng nếu thật sự liên quan …" + lines (`formatMemoryLine`) + `CURRENT_DATA_RULE` + `PERSONAL_DATA_RULE`, appended after the profile in the chit-chat system prompt.
+- Limit: messages of the last ~20 s–2 min may not be embedded yet, so they are not recalled.
+
+## Personal data rule
+
+`PERSONAL_DATA_RULE` (`memory-profile.util.ts`) is in the tool prompt (after `CURRENT_DATA_RULE`), the chit-chat prompt and the auto-recall block: do not volunteer ID card/passport numbers, bank account or card numbers, passwords or OTP codes seen in notes or recalled lines; only when the user asks for exactly that piece. `SEARCH_CHAT_HISTORY` keeps its own prompt and still answers "pass wifi là gì".
+
 ## Dashboard (admin only)
 
 - API (`ChannelMemoryController`, `/api/zca/threads/:threadId/…`): `GET|POST notes`, `PATCH|DELETE notes/:noteId` (no web caller since the notes UI was removed), `GET learned-facts`, `DELETE learned-facts/:factId` (soft delete, `deleted_by` = admin), `GET memory-status`. Routes in `API_ROUTES` (`zcaThreadNotes`, `zcaThreadNote`, `zcaThreadFacts`, `zcaThreadFact`, `zcaThreadMemoryStatus`); DTOs `IChannelNote`, `IUpsertChannelNoteRequest`, `IChannelLearnedFact`, `IChannelMemoryStatus`. Mutations answer with the fresh list (cache replaced).
-- Thread config page, right column, group "🧠 Trí nhớ": **🧠 Nhớ lâu dài** (switch; privacy note: every message is stored as written on the server, and only the snippets found for a question go to the AI that writes the answer; how-it-works list ("Khi nào nạp": ~20 s after the chat goes quiet, ≤2 min, local model, `/sync`); status line `memoryStatusText` ("Đã nhớ N tin. M tin đang chờ…", or the keyword-only warning when the model failed); "Điều bot đã học trước đây" grouped by subject with delete, hidden when empty; no "Tự học" toggle, no number settings), **🖼️ Đọc chữ trong ảnh** (hint when long-term is off). Phone: one column; small radius.
+- Thread config page, right column, group "🧠 Trí nhớ": **🧠 Nhớ lâu dài** (switch; privacy note: every message is stored as written on the server, and only the snippets found for a question go to the AI that writes the answer; how-it-works list ("Khi nào nạp": ~20 s after the chat goes quiet, ≤2 min, local model, `/sync`); status line `memoryStatusText` ("Đã nhớ N tin. M tin đang chờ…", or the keyword-only warning when the model failed); "Điều bot đã học trước đây" grouped by subject with delete, hidden when empty (hint: only facts about the bot are still used in replies, member facts are only shown and deletable); no "Tự học" toggle, no number settings), **🖼️ Đọc chữ trong ảnh** (hint when long-term is off). Phone: one column; small radius.
 - Chat table Features column: `Nhớ` (long-term on).
 
 ## User merge

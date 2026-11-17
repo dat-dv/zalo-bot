@@ -292,6 +292,73 @@ void test('search without an embedder uses the keyword search only', async () =>
   assert.equal(rawQueries.length, 1);
 });
 
+void test('recallRecent searches by meaning only, in the last 24 hours, then reads neighbours', async () => {
+  const now = new Date('2026-11-17T10:00:00Z');
+  const stub = createRepositoryStub([
+    [{ id: '11111111-1111-1111-1111-111111111111' }],
+    [
+      {
+        id: '11111111-1111-1111-1111-111111111111',
+        sender_name: 'Văn Đạt',
+        is_bot: false,
+        text: 'cái camera cũ còn thẻ nhớ k em',
+        sent_at: '2026-11-17T08:57:00Z',
+        hit_rank: 1,
+      },
+    ],
+  ]);
+  const service = new ChatMemoryService(stub.repository, undefined, fakeEmbedder());
+  const lines = await service.recallRecent('g-1', {
+    question: 'ở quê có thẻ nhớ k',
+    excludeMsgId: 'm-q',
+    timeZone: 'Asia/Ho_Chi_Minh',
+    now,
+  });
+  assert.equal(stub.rawQueries.length, 2);
+  assert.match(stub.rawQueries[0].sql, /zca_message_embeddings e JOIN zca_messages m/);
+  assert.doesNotMatch(stub.rawQueries[0].sql, /search_vector/);
+  assert.match(stub.rawQueries[0].sql, /< 0\.45/);
+  assert.ok(stub.rawQueries[0].params.includes('m-q'));
+  assert.ok(
+    stub.rawQueries[0].params.some(
+      (param) => param instanceof Date && param.toISOString() === '2026-11-16T10:00:00.000Z',
+    ),
+  );
+  assert.deepEqual(
+    lines.map((line) => line.text),
+    ['cái camera cũ còn thẻ nhớ k em'],
+  );
+});
+
+void test('recallRecent returns nothing for short messages, without a model or on errors', async () => {
+  const short = createRepositoryStub();
+  const shortService = new ChatMemoryService(short.repository, undefined, fakeEmbedder());
+  assert.deepEqual(
+    await shortService.recallRecent('g-1', { question: 'hello', timeZone: 'UTC' }),
+    [],
+  );
+  assert.equal(short.rawQueries.length, 0);
+
+  const { service: noModel, rawQueries } = createService();
+  assert.deepEqual(
+    await noModel.recallRecent('g-1', { question: 'ở quê có thẻ nhớ k', timeZone: 'UTC' }),
+    [],
+  );
+  assert.equal(rawQueries.length, 0);
+
+  const failingRepository = {
+    query: (sql: string) =>
+      sql.includes('unnest')
+        ? Promise.reject(new Error('db down'))
+        : Promise.resolve([{ id: '11111111-1111-1111-1111-111111111111' }]),
+  } as unknown as Repository<ZcaMessageEntity>;
+  const failingService = new ChatMemoryService(failingRepository, undefined, fakeEmbedder());
+  assert.deepEqual(
+    await failingService.recallRecent('g-1', { question: 'ở quê có thẻ nhớ k', timeZone: 'UTC' }),
+    [],
+  );
+});
+
 void test('a stored message notifies the change listeners of its chat', async () => {
   const { service } = createService();
   const changed: string[] = [];

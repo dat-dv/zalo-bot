@@ -32,7 +32,8 @@ export function LearnedFactsPanel({ threadId }: LearnedFactsPanelProps) {
         Điều bot đã học trước đây
       </p>
       <p className="text-xs text-slate-500 dark:text-slate-400">
-        Bot không tự học thêm nữa; các điều này vẫn được dùng khi trả lời và xoá được.
+        Bot không tự học thêm nữa. Chỉ điều về chính bot còn được dùng khi trả lời; điều về thành
+        viên chỉ để xem và xoá.
       </p>
       {query.isError ? (
         <p className="text-xs text-rose-600 dark:text-rose-400">Không tải được điều bot đã học.</p>
